@@ -19,8 +19,9 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Settles a pending command with the answer of its bridge. A command that is
  * already settled stays as it is, so the bridge can repeat an ack safely. A
- * resume the bridge took releases the hold of its card, unless a person asked
- * for a stop of the card since. A resume the bridge never took keeps the hold.
+ * resume or a rerun the bridge took releases the hold of its card, unless a
+ * person asked for a stop of the card since. One the bridge never took keeps
+ * the hold.
  */
 final readonly class AcknowledgeBridgeCommandHandler
 {
@@ -45,7 +46,7 @@ final readonly class AcknowledgeBridgeCommandHandler
             $releasesHold = false;
             if (BridgeCommandState::Done === $command->state) {
                 $known = $this->bridgeCommands->findOneBy(['owner' => $command->owner, 'bridgeId' => $command->bridgeId, 'id' => $command->commandId]);
-                if (null !== $known && BridgeCommandKind::ResumeRun === $known->kind) {
+                if (null !== $known && \in_array($known->kind, [BridgeCommandKind::ResumeRun, BridgeCommandKind::RerunCommand], true)) {
                     // The lock a stop takes to hold the card, before the row lock as a cancel takes them.
                     $this->em->lock($known->project, LockMode::PESSIMISTIC_WRITE);
                     $releasesHold = true;
@@ -58,7 +59,7 @@ final readonly class AcknowledgeBridgeCommandHandler
             }
 
             $settled = $bridgeCommand->settle($command->state, $command->reason, $this->clock->now());
-            // Also on a late ack, because the bridge resumed the run even when a cancel or the expiry settled the row first.
+            // Also on a late ack, because the bridge started the run even when a cancel or the expiry settled the row first.
             $project = $bridgeCommand->project;
             $cardId = $bridgeCommand->workerRun->cardId;
             if ($releasesHold && !$this->bridgeCommands->hasLiveStopForCardSince($project, $cardId, $bridgeCommand->requestedAt)) {

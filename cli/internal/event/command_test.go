@@ -61,6 +61,22 @@ func TestParseCommandTakesTheNullFields(t *testing.T) {
 	}
 }
 
+// A rerun names the run it reruns and no session, because a command run has
+// none.
+func TestParseCommandTakesARerun(t *testing.T) {
+	payload := strings.NewReplacer(
+		`"kind":"stop-run"`, `"kind":"rerun-command"`,
+		`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90"`, `"sessionId":null`,
+	).Replace(commandPayload)
+	c, err := ParseCommand([]byte(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Kind != api.CommandRerunCommand || c.RunKey != "0199a0e2-1111-7c5e-9f2a-3b1c6d7e8f90" || c.SessionID != "" {
+		t.Fatalf("command = %+v", c)
+	}
+}
+
 func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 	for name, pair := range map[string][2]string{
 		"another type":       {`"type":"bridge.command"`, `"type":"board.card_moved"`},

@@ -319,6 +319,38 @@ final class CardHistoryTabTest extends WebTestCase
         self::assertCount(0, $row->filter('a[data-card-history-run]'));
     }
 
+    public function test_a_finished_command_run_says_it_is_a_command(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'history-command@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Sync it');
+        $this->events()->record($card, CardEventKind::RunFinished, CardReporter::Agent, $owner, [
+            'runId' => (string) Uuid::v4(),
+            'ruleName' => 'sync',
+            'state' => 'failed',
+            'interactive' => false,
+            'command' => true,
+            'startedAt' => null,
+            'endedAt' => null,
+            'durationSeconds' => 4,
+            'resumeIndex' => null,
+            'resumeCap' => null,
+        ], new \DateTimeImmutable('-10 minutes'));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->cardUrl($card));
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('#card-panel-history [data-card-history-entry]');
+        self::assertCount(1, $row);
+        self::assertSame('Command', $row->filter('[data-worker-run-command]')->text());
+    }
+
     private function events(): CardEventRepository
     {
         $events = self::getContainer()->get(CardEventRepository::class);

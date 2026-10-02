@@ -30,6 +30,22 @@ final class SetupInstructionsControllerTest extends WebTestCase
         self::assertStringNotContainsString('&lt;', $body);
     }
 
+    public function test_the_steps_ask_about_worker_folders_before_the_finish(): void
+    {
+        $client = static::createClient();
+        $client->request(Request::METHOD_GET, '/setup.md');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+
+        self::assertStringContainsString("\n## 9. Worker folders\n", $body);
+        self::assertStringContainsString("\n## 10. Finish\n", $body);
+        self::assertLessThan(strpos($body, '## 10. Finish'), strpos($body, '## 9. Worker folders'));
+        self::assertStringContainsString('before:', $body);
+        self::assertStringContainsString('action: command', $body);
+        self::assertStringContainsString('Go to step 8.', $body);
+    }
+
     public function test_a_valid_project_id_fills_the_commands(): void
     {
         $client = static::createClient();

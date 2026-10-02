@@ -483,3 +483,37 @@ func TestReportRunInventoryReadsEachAnswer(t *testing.T) {
 		}
 	}
 }
+
+// A command run names its kind in every state, and its running report carries
+// a start and no session. A worker run sends no kind.
+func TestReportRunStateSendsTheKindOfACommandRun(t *testing.T) {
+	running := stateReport(RunRunning)
+	running.Kind = RunKindCommand
+	running.StartedAt = time.Date(2026, 9, 13, 10, 0, 5, 0, time.UTC)
+
+	failed := stateReport(RunFailed)
+	failed.Kind = RunKindCommand
+	failed.StartedAt = running.StartedAt
+	failed.EndedAt = time.Date(2026, 9, 13, 10, 0, 26, 0, time.UTC)
+	failed.ExitCode = exitCode(-1)
+
+	queued := stateReport(RunQueued)
+	queued.Kind = RunKindCommand
+
+	for _, tc := range []struct {
+		report RunStateReport
+		want   string
+	}{
+		{queued, withBase("kind")},
+		{running, withBase("kind", "startedAt")},
+		{failed, withBase("endedAt", "exitCode", "failureReason", "hasResult", "kind", "output", "startedAt")},
+	} {
+		_, body, _, err := putState(t, tc.report, http.StatusCreated)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if keys(body) != tc.want || body["kind"] != "command" {
+			t.Fatalf("%s: body = %v, want keys %s", tc.report.State, body, tc.want)
+		}
+	}
+}

@@ -28,7 +28,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Stores a person's request to the bridge that holds a worker run, and writes
- * the outbox event that carries it to the bridge. A stop holds the card.
+ * the outbox event that carries it to the bridge. A stop holds the card, and
+ * a rerun holds nothing, because the bridge starts a new run.
  */
 final readonly class RequestBridgeCommandHandler
 {
@@ -42,6 +43,8 @@ final readonly class RequestBridgeCommandHandler
     public const string CARD_LEFT = 'bridge.command.error.card_left';
     public const string NOT_STOPPABLE = 'bridge.command.error.not_stoppable';
     public const string BRIDGE_OUTDATED = 'bridge.command.error.bridge_outdated';
+    public const string NOT_A_COMMAND = 'bridge.command.error.not_a_command';
+    public const string NOT_RERUNNABLE = 'bridge.command.error.not_rerunnable';
 
     public function __construct(
         private BridgeRepository $bridges,
@@ -89,7 +92,7 @@ final readonly class RequestBridgeCommandHandler
                 if (null === $bridge) {
                     return self::UNKNOWN_BRIDGE;
                 }
-                if (!$bridge->takesCommands()) {
+                if (!$bridge->takesCommands() || (BridgeCommandKind::RerunCommand === $command->kind && !$bridge->takesReruns())) {
                     return self::BRIDGE_OUTDATED;
                 }
                 if ($this->bridgeCommands->hasPendingForRun($run)) {
@@ -162,6 +165,11 @@ final readonly class RequestBridgeCommandHandler
                 null === $run->sessionId => self::NO_SESSION,
                 !$run->state->isResumable() => self::NOT_RESUMABLE,
                 null !== $run->cardColumn && $this->cardColumns->columnOf($run->project, $run->cardId) !== $run->cardColumn => self::CARD_LEFT,
+                default => null,
+            },
+            BridgeCommandKind::RerunCommand => match (true) {
+                WorkerRunKind::Command !== $run->kind => self::NOT_A_COMMAND,
+                !$run->state->isRerunnable() => self::NOT_RERUNNABLE,
                 default => null,
             },
         };

@@ -124,6 +124,30 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertCount(0, $workerRow->filter('form'));
     }
 
+    public function test_a_running_command_run_says_it_is_a_command(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'card-fragment-command@example.com');
+        $project = $this->project($em, $owner, 'Fragment command');
+        $cardId = Uuid::v7();
+        $command = $this->seedRun($em, $project, ruleName: 'sync', cardId: $cardId, state: WorkerRunState::Running, runKey: Uuid::v4(), kind: WorkerRunKind::Command);
+        $worker = $this->seedRun($em, $project, ruleName: 'plan', cardId: $cardId, state: WorkerRunState::Running);
+
+        $projectId = (string) $project->id;
+        $commandId = (string) $command->id;
+        $workerId = (string) $worker->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Command', $crawler->filter('[data-card-run-row="'.$commandId.'"] [data-worker-run-command]')->text());
+        self::assertCount(0, $crawler->filter('[data-card-run-row="'.$workerId.'"] [data-worker-run-command]'));
+    }
+
     public function test_an_ended_run_leaves_the_card_so_its_resume_lives_in_run_history(): void
     {
         $client = static::createClient();

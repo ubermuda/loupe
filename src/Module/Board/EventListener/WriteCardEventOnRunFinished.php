@@ -107,6 +107,7 @@ final readonly class WriteCardEventOnRunFinished
             'ruleName' => $run->ruleName,
             'state' => $run->state->value,
             'interactive' => WorkerRunKind::Interactive === $run->kind,
+            'command' => WorkerRunKind::Command === $run->kind,
             'startedAt' => $startedAt?->format(\DateTimeInterface::ATOM),
             'endedAt' => $endedAt?->format(\DateTimeInterface::ATOM),
             'durationSeconds' => null !== $startedAt && null !== $endedAt ? $endedAt->getTimestamp() - $startedAt->getTimestamp() : null,

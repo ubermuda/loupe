@@ -502,7 +502,7 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	if c.Subject.Type != "bridge-command" || !strings.EqualFold(c.Subject.ID, c.CommandID) {
 		return c, fmt.Errorf("command %s names another subject", c.CommandID)
 	}
-	if c.Kind != api.CommandStopRun && c.Kind != api.CommandResumeRun {
+	if c.Kind != api.CommandStopRun && c.Kind != api.CommandResumeRun && c.Kind != api.CommandRerunCommand {
 		return c, fmt.Errorf("command has an unknown kind %q", c.Kind)
 	}
 	if c.CardNumber <= 0 {

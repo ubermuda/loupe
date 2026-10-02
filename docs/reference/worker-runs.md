@@ -23,23 +23,23 @@ the `site-review` or the `mcp` scope.
 
 | State | Who sets it | Meaning |
 |---|---|---|
-| `queued` | the bridge | the bridge accepted the event, and the run waits for a worker slot or for its card |
+| `queued` | the bridge | the bridge accepted the event, and the run waits for a worker slot or for its card. A command run waits for its card only |
 | `replaced` | the bridge | a newer event for the same card and rule took the place of this run in the queue |
 | `resumed` | the bridge | the ask the session waited on closed, and the bridge resumes the session |
 | `skipped` | the bridge | the session already read every answer of its ask, so the bridge does not resume it |
 | `preparing` | the bridge | the bridge runs the `before` command of the rule, and the worker process has not started |
-| `running` | the bridge | the worker process started |
+| `running` | the bridge | the worker process started, or the command of a command run started |
 | `stopping` | the bridge | a person asked the bridge to stop the run, and the worker process is still ending |
 | `stopped` | the bridge | a person stopped the run. The bridge never resumes it |
 | `waiting-for-person` | the bridge | the rule's `maxChain` cap stopped the run. A move by a person starts a new run |
 | `dropped` | the bridge | the bridge stopped, a rule died, or a reload removed the rule, while the run still waited |
-| `succeeded` | the bridge | the worker exited with code 0 with a structured result. A result from a new bridge has the status `finished` |
+| `succeeded` | the bridge | the worker exited with code 0 with a structured result. A result from a new bridge has the status `finished`. A command run succeeds on exit code 0, with no result |
 | `no-result` | the bridge | the worker exited with code 0, with no structured result |
 | `unfinished` | the bridge | the worker exited with code 0 and the status `unfinished`: its work still runs or remains |
 | `blocked` | the bridge | the worker exited with code 0 and the status `blocked`: it cannot go on without a person |
 | `waiting-on-forge` | the bridge | the worker exited with code 0 and the status `waiting`: its work waits on the forge, such as the checks of a pushed pull request. The bridge does not resume the run |
 | `gave-up` | the bridge | the run did not finish, and the bridge already ran every resume its rule allows |
-| `failed` | the bridge | the worker exited with any other code |
+| `failed` | the bridge | the worker exited with any other code. A command run that ran past its timeout, was killed or never started fails with the exit code -1 |
 | `not-started` | the bridge | the worker process never started |
 | `timed-out` | the server | the bridge stopped sending its heartbeat while the run was open |
 | `lost` | the server | the bridge reconnected, and it no longer holds the run |
@@ -97,12 +97,13 @@ order.
 | `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
 | `ruleName` | required. The rule that matched, 1 to 100 characters after trimming |
-| `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running` |
+| `kind` | `worker` or `command`. A missing or `null` value means `worker`. See [Command runs](#command-runs) |
+| `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running`, except on a command run |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
 | `endedAt` | when the worker ended, on the bridge clock. Required for an outcome. A `stopped` report may leave it out, and the server then uses `at`. The end, or `at` in its place, cannot be before the `startedAt` of the same report |
 | `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished`, `blocked` and `waiting-on-forge` need 0, `failed` needs any other code, and `not-started` needs `null` |
-| `hasResult` | whether the worker gave a structured result. `no-result` needs `false`, and `succeeded`, `unfinished`, `blocked` and `waiting-on-forge` refuse `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null` |
-| `resultStatus` | the `status` of the structured result: `finished`, `blocked`, `unfinished` or `waiting`. It needs `hasResult: true`. `blocked` and `unfinished` need the state of the same name, `waiting` needs `waiting-on-forge`, and `succeeded` takes `finished` or `null` |
+| `hasResult` | whether the worker gave a structured result. `no-result` needs `false`, and `succeeded`, `unfinished`, `blocked` and `waiting-on-forge` refuse `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null`. The server ignores it on a command run |
+| `resultStatus` | the `status` of the structured result: `finished`, `blocked`, `unfinished` or `waiting`. It needs `hasResult: true`, so a command run cannot send it. `blocked` and `unfinished` need the state of the same name, `waiting` needs `waiting-on-forge`, and `succeeded` takes `finished` or `null` |
 | `failureReason` | why the process never started, at most 1000 characters. Required for `not-started`, and refused with an exit code |
 | `output` | what the worker printed, at most 4000 characters. Required for an outcome, and it may be empty. A `stopped` report may carry it, and a run keeps its output when the report has none |
 | `askId` | the ask a `resumed` run continues, at most 100 characters |
@@ -156,6 +157,20 @@ triggers. An `eventType` that is not a dotted lower-case name gets a 422.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
+
+### Command runs
+
+A bridge rule with `action: command` runs a command with no agent, as
+[Command action](../extending/cli-bridge.md#command-action) says. Each report
+of such a run carries `"kind": "command"`. The server stores the kind from the
+report that creates the run, and ignores it on a later report. A value other
+than `worker` or `command` gets a 422.
+
+A command run reports `running` with no `sessionId`. It ends as `succeeded`
+with the exit code 0, or as `failed` with any other code. A command prints no
+structured result, so the server ignores `hasResult` and refuses
+`resultStatus`. A command run has no session and no usage. A bridge built
+before command rules sends no `kind`, and its runs are worker runs.
 
 ### Usage
 
@@ -519,7 +534,7 @@ this page.
 
 ## Controls in the web UI
 
-The project owner can stop, resume and pause from the web UI. The pages and
+The project owner can stop, resume, run again and pause from the web UI. The pages and
 their labels are in [Stop, resume and cancel](../using/worker-runs.md#stop-resume-and-cancel).
 These routes serve them. Each route takes the session cookie and a CSRF token,
 and needs the permission to manage the project. An agent token does not open
@@ -529,6 +544,7 @@ them.
 |---|---|
 | `POST /projects/{id}/worker-runs/{runId}/stop` | asks the bridge to stop the run, and holds the card |
 | `POST /projects/{id}/worker-runs/{runId}/resume` | asks the bridge to resume the session of the run. The hold of the card ends when the bridge takes the resume |
+| `POST /projects/{id}/worker-runs/{runId}/rerun` | asks the bridge to run the command of a failed command run again, as a new run. The hold of the card ends when the bridge takes the rerun |
 | `POST /projects/{id}/worker-runs/{runId}/cancel-command` | withdraws the request that waits on the run. A withdrawn stop releases the hold that it wrote |
 | `POST /projects/{id}/agents/{bridgeId}/pause` | asks the bridge to take no new work |
 | `POST /projects/{id}/agents/{bridgeId}/unpause` | ends the pause |
@@ -556,7 +572,9 @@ error:
 | Only an ended run can resume | a resume of an open run, or of a run that ended as `succeeded`, `waiting-on-forge`, `dropped`, `replaced`, `skipped`, `not-started` or `closed` |
 | The card left the column of this run | a resume when the card is no longer in the `cardColumn` of the run |
 | Only a queued or running run can stop | a stop of a run that is not `queued`, `resumed` or `running` |
-| Update the bridge to control its runs | the bridge does not report the `commands` capability |
+| Only a command run can run again | a rerun of a run that is not a command run |
+| Only a failed, timed-out or lost command run can run again | a rerun of a command run in any other state |
+| Update the bridge to control its runs | the bridge does not report the `commands` capability, or a rerun when it does not report the `rerun-command` capability |
 | This run has no command that waits | a cancel with no request that waits |
 | Update the bridge to pause it | a pause of a bridge that does not report the `commands` capability. An unpause is always accepted |
 

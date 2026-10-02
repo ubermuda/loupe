@@ -75,9 +75,11 @@ final readonly class WorkerRunControls
     private function controlOf(Project $project, WorkerRun $run, ?BridgeCommand $latest, ?Bridge $bridge, bool $quiet, array &$columns): ?WorkerRunControl
     {
         if (BridgeCommandState::Pending === $latest?->state) {
-            $label = BridgeCommandKind::ResumeRun === $latest->kind
-                ? 'bridge.worker_runs.control.resume_requested'
-                : 'bridge.worker_runs.control.stop_requested';
+            $label = match ($latest->kind) {
+                BridgeCommandKind::ResumeRun => 'bridge.worker_runs.control.resume_requested',
+                BridgeCommandKind::StopRun => 'bridge.worker_runs.control.stop_requested',
+                BridgeCommandKind::RerunCommand => 'bridge.worker_runs.control.rerun_requested',
+            };
 
             return new WorkerRunControl(WorkerRunAction::Cancel, label: $quiet ? $label.'_offline' : $label, pendingCommand: $latest);
         }
@@ -85,6 +87,7 @@ final readonly class WorkerRunControls
         // The request handler refuses a bridge the owner does not hold, and no update fixes that.
         $action = null === $bridge ? null : match (true) {
             $run->state->isStoppable() => WorkerRunAction::Stop,
+            WorkerRunKind::Command === $run->kind && $run->state->isRerunnable() => WorkerRunAction::Rerun,
             $run->state->isResumable() && null !== $run->sessionId => WorkerRunAction::Resume,
             default => null,
         };
@@ -109,6 +112,9 @@ final readonly class WorkerRunControls
             $disabledReason = 'bridge.worker_runs.control.bridge_outdated';
             $disabledParameters = ['%version%' => self::COMMANDS_SINCE_VERSION];
         }
+        if (null === $disabledReason && WorkerRunAction::Rerun === $action && null !== $bridge && !$bridge->takesReruns()) {
+            $disabledReason = 'bridge.worker_runs.control.rerun_outdated';
+        }
 
         return new WorkerRunControl(
             $action,
@@ -125,9 +131,11 @@ final readonly class WorkerRunControls
     {
         if (null !== $latest && $this->stillApplies($latest->kind, $run->state)) {
             if (BridgeCommandState::Expired === $latest->state) {
-                $key = BridgeCommandKind::ResumeRun === $latest->kind
-                    ? 'bridge.worker_runs.control.resume_expired'
-                    : 'bridge.worker_runs.control.stop_expired';
+                $key = match ($latest->kind) {
+                    BridgeCommandKind::ResumeRun => 'bridge.worker_runs.control.resume_expired',
+                    BridgeCommandKind::StopRun => 'bridge.worker_runs.control.stop_expired',
+                    BridgeCommandKind::RerunCommand => 'bridge.worker_runs.control.rerun_expired',
+                };
 
                 return [$key, [], true];
             }
@@ -150,6 +158,7 @@ final readonly class WorkerRunControls
         return match ($kind) {
             BridgeCommandKind::ResumeRun => $state->isResumable(),
             BridgeCommandKind::StopRun => $state->isStoppable(),
+            BridgeCommandKind::RerunCommand => $state->isRerunnable(),
         };
     }
 }

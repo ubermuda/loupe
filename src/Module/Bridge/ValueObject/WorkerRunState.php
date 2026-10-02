@@ -106,6 +106,12 @@ enum WorkerRunState: string
         return [self::Blocked, self::GaveUp, self::Failed, self::NoResult, self::Unfinished, self::TimedOut, self::Lost, self::Stopped, self::WaitingForPerson];
     }
 
+    /** The ends of a command run that a person can run again. */
+    public function isRerunnable(): bool
+    {
+        return \in_array($this, [self::Failed, self::TimedOut, self::Lost], true);
+    }
+
     public function isStoppable(): bool
     {
         return \in_array($this, self::stoppableStates(), true);

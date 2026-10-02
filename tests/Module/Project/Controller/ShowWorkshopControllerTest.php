@@ -70,12 +70,14 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $queued = $create(new CreateCardCommand($project, 'Queued work', '', CardType::Feature));
         $session = $create(new CreateCardCommand($project, 'Session work', '', CardType::Feature));
         $blocked = $create(new CreateCardCommand($project, 'Blocked work', '', CardType::Feature));
+        $command = $create(new CreateCardCommand($project, 'Command work', '', CardType::Feature));
         $done = $create(new CreateCardCommand($project, 'Done work', '', CardType::Feature, column: $this->column($project, 'done')));
         $foreignCard = $create(new CreateCardCommand($foreign, 'Foreign work', '', CardType::Feature));
         $this->openRun($em, $project, $queued, WorkerRunState::Queued, 'tech-design', '-3 days');
         $this->openRun($em, $project, $session, WorkerRunState::Queued, 'implement', '-2 hours');
         $this->openRun($em, $project, $session, WorkerRunState::Running, 'Work on it', '-30 minutes', WorkerRunKind::Interactive);
         $this->openRun($em, $project, $blocked, WorkerRunState::Blocked, 'implement', '-1 hour');
+        $this->openRun($em, $project, $command, WorkerRunState::Running, 'sync', '-10 minutes', WorkerRunKind::Command);
         $this->openRun($em, $project, $done, WorkerRunState::Running, 'review', '-5 minutes');
         $this->openRun($em, $foreign, $foreignCard, WorkerRunState::Queued, 'implement', '-1 hour');
         $em->clear();
@@ -85,12 +87,12 @@ final class ShowWorkshopControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            [(string) $session->number, (string) $done->number, (string) $queued->number],
+            [(string) $session->number, (string) $command->number, (string) $done->number, (string) $queued->number],
             $crawler->filter('[data-workshop-card]')->extract(['data-workshop-card']),
         );
         self::assertSelectorNotExists('[data-workshop-card="'.$idle->number.'"]');
         self::assertSelectorNotExists('[data-workshop-card="'.$blocked->number.'"]');
-        self::assertSelectorTextSame('[data-workshop-stat="open-cards"] .lp-workshop-stat__value', '4');
+        self::assertSelectorTextSame('[data-workshop-stat="open-cards"] .lp-workshop-stat__value', '5');
         self::assertSelectorTextSame('[data-workshop-stat="completed-cards"] .lp-workshop-stat__value', '1');
         $queuedTile = $crawler->filter('[data-workshop-card="'.$queued->number.'"]');
         self::assertStringContainsString('Queued work', $queuedTile->text());
@@ -105,6 +107,8 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertStringContainsString('lp-status-chip--pending', (string) $sessionTile->filter('.lp-status-chip')->attr('class'));
         self::assertSame('Interactive', trim($sessionTile->filter('.lp-workshop-work-card__kind')->text()));
         self::assertSame('30 min', trim($sessionTile->filter('time')->text()));
+        $commandTile = $crawler->filter('[data-workshop-card="'.$command->number.'"]');
+        self::assertSame('Command', trim($commandTile->filter('.lp-workshop-work-card__kind')->text()));
         self::assertSelectorNotExists('[data-workshop-more]');
         self::assertSame('card-drawer-frame', $queuedTile->attr('data-turbo-frame'));
         self::assertCount(1, $crawler->filter('#card-drawer-frame'));

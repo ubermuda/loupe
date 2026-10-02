@@ -55,6 +55,10 @@ const DefaultMaxResumes = 2
 // in a terminal, instead of a worker.
 const ActionInteractive = "interactive"
 
+// ActionCommand is the rule action that runs a command for the card, instead
+// of a worker.
+const ActionCommand = "command"
+
 // DefaultLaunchTimeout bounds the launch command when the file sets no timeout.
 const DefaultLaunchTimeout = 10 * time.Second
 
@@ -63,6 +67,13 @@ const DefaultLaunchTimeout = 10 * time.Second
 const (
 	DefaultBeforeTimeout = 15 * time.Minute
 	MaxBeforeTimeout     = 60 * time.Minute
+)
+
+// DefaultCommandTimeout bounds the command of a command rule that sets no
+// timeout. MaxCommandTimeout is the largest timeout a rule can set.
+const (
+	DefaultCommandTimeout = 10 * time.Minute
+	MaxCommandTimeout     = 60 * time.Minute
 )
 
 // launchPlaceholders are the names launch.command can hold.
@@ -253,7 +264,7 @@ type Project struct {
 // Rule starts an agent when an event matches it.
 type Rule struct {
 	Name string `yaml:"name"`
-	// Action is empty for a worker, or ActionInteractive.
+	// Action is empty for a worker, ActionInteractive or ActionCommand.
 	Action         string `yaml:"action"`
 	On             string `yaml:"on"`
 	Project        string `yaml:"project"`
@@ -289,11 +300,17 @@ type Rule struct {
 	// Before is a command that runs ahead of claude and prints the folder to
 	// start claude in. Nil runs claude in the project's dir.
 	Before *BeforeConfig `yaml:"before"`
+	// Run is the argv of a command rule, and Timeout bounds it. No shell
+	// reads Run.
+	Run     []string `yaml:"run"`
+	Timeout string   `yaml:"timeout"`
 
 	schema     string
 	experiment *Experiment
-	// beforeTimeout has the default filled when Before is set.
-	beforeTimeout time.Duration
+	// beforeTimeout has the default filled when Before is set, and
+	// commandTimeout when the rule is a command rule.
+	beforeTimeout  time.Duration
+	commandTimeout time.Duration
 }
 
 // BeforeConfig is the before block as written. No shell reads Run.
@@ -304,6 +321,13 @@ type BeforeConfig struct {
 
 // Before is the before command of one match, with its placeholders filled.
 type Before struct {
+	Argv    []string
+	Timeout time.Duration
+}
+
+// Command is the command of one match of a command rule, with its
+// placeholders filled.
+type Command struct {
 	Argv    []string
 	Timeout time.Duration
 }
@@ -682,44 +706,78 @@ func checkPools(budget int, declared map[string]WorkerPool) (map[string]int, []e
 	return pools, errs
 }
 
-// checkAction refuses an unknown action, and the fields a launch has no use for.
+// refusal is a set of fields a rule of one action must not set. why takes the
+// name of the field.
+type refusal struct {
+	fields []string
+	why    string
+}
+
+// refusals lists, for each action, the fields its rules refuse.
+var refusals = map[string][]refusal{
+	"": {
+		{[]string{"run", "timeout"}, "%s belongs to action command, and this rule runs a worker"},
+	},
+	ActionInteractive: {
+		{[]string{"before", "experiment", "maxChain", "maxResumes", "resultFields", "resume", "verdict", "when", "workerPool"}, "%s names worker behaviour, and action interactive launches no worker"},
+		{[]string{"run", "timeout"}, "%s belongs to action command, and this rule launches an interactive session"},
+	},
+	ActionCommand: {
+		{[]string{"before", "experiment", "maxResumes", "model", "permissionMode", "prompt", "resultFields", "resume", "workerPool"}, "%s names agent behaviour, and action command starts no agent"},
+	},
+}
+
+// checkAction refuses an unknown action, the events it cannot run on, and the
+// fields it has no use for.
 func checkAction(r Rule) []error {
-	if r.Action == "" {
-		return nil
-	}
-	if r.Action != ActionInteractive {
-		return []error{fmt.Errorf("action %q is not %s; leave it out for a worker rule", r.Action, ActionInteractive)}
+	table, ok := refusals[r.Action]
+	if !ok {
+		return []error{fmt.Errorf("action %q is not %s or %s; leave it out for a worker rule", r.Action, ActionInteractive, ActionCommand)}
 	}
 	var errs []error
-	if r.On != event.CardMovedType {
-		errs = append(errs, fmt.Errorf("action %s applies to %s only, and this rule is on %s", ActionInteractive, event.CardMovedType, r.On))
+	switch r.Action {
+	case ActionInteractive:
+		if r.On != event.CardMovedType {
+			errs = append(errs, fmt.Errorf("action %s applies to %s only, and this rule is on %s", ActionInteractive, event.CardMovedType, r.On))
+		}
+		if goos == "windows" {
+			errs = append(errs, fmt.Errorf("action %s needs a POSIX shell on macOS or Linux", ActionInteractive))
+		}
+	case ActionCommand:
+		// The run reports against a card, so the event must name one.
+		if r.On != event.CardMovedType && r.On != event.ReviewSubmittedType && !event.IsPullRequest(r.On) {
+			errs = append(errs, fmt.Errorf("action %s applies to %s, %s and %s* events only, because its run needs a card, and this rule is on %s",
+				ActionCommand, event.CardMovedType, event.ReviewSubmittedType, event.PullRequestPrefix, r.On))
+		}
 	}
-	if goos == "windows" {
-		errs = append(errs, fmt.Errorf("action %s needs a POSIX shell on macOS or Linux", ActionInteractive))
+	set := map[string]bool{
+		"before":         r.Before != nil,
+		"experiment":     r.Experiment != "",
+		"maxChain":       r.MaxChain != nil,
+		"maxResumes":     r.MaxResumes != nil,
+		"model":          r.Model != "",
+		"permissionMode": r.PermissionMode != "",
+		"prompt":         r.Prompt != "",
+		"resultFields":   len(r.ResultFields) > 0,
+		"resume":         r.Resume,
+		"run":            r.Run != nil,
+		"timeout":        r.Timeout != "",
+		"verdict":        r.Verdict != "",
+		"when":           len(r.When) > 0,
+		"workerPool":     r.WorkerPool != "",
 	}
-	for _, f := range []struct {
-		name string
-		set  bool
-	}{
-		{"before", r.Before != nil},
-		{"experiment", r.Experiment != ""},
-		{"maxChain", r.MaxChain != nil},
-		{"maxResumes", r.MaxResumes != nil},
-		{"resultFields", len(r.ResultFields) > 0},
-		{"resume", r.Resume},
-		{"verdict", r.Verdict != ""},
-		{"when", len(r.When) > 0},
-		{"workerPool", r.WorkerPool != ""},
-	} {
-		if f.set {
-			errs = append(errs, fmt.Errorf("%s names worker behaviour, and action %s launches no worker", f.name, ActionInteractive))
+	for _, rf := range table {
+		for _, name := range rf.fields {
+			if set[name] {
+				errs = append(errs, fmt.Errorf(rf.why, name))
+			}
 		}
 	}
 
 	return errs
 }
 
-// checkRule validates a rule and fills its before timeout.
+// checkRule validates a rule and fills its before and command timeouts.
 func checkRule(r *Rule, projects map[string]Project) error {
 	errs := checkAction(*r)
 	switch {
@@ -793,12 +851,16 @@ func checkRule(r *Rule, projects map[string]Project) error {
 		errs = append(errs, fmt.Errorf("card applies to board.card_moved and document.review_submitted only, and this rule is on %s", r.On))
 	}
 
-	if strings.TrimSpace(r.Prompt) == "" {
+	if r.Action == ActionCommand {
+		timeout, runErrs := checkRun("", r.Run, r.Timeout, DefaultCommandTimeout, MaxCommandTimeout, r.On, allowed)
+		errs = append(errs, runErrs...)
+		r.commandTimeout = timeout
+	} else if strings.TrimSpace(r.Prompt) == "" {
 		errs = append(errs, errors.New("prompt is required"))
 	}
 	errs = append(errs, checkPlaceholders("", r.Prompt, r.On, allowed)...)
 	if r.Before != nil {
-		timeout, beforeErrs := checkBefore(*r.Before, r.On, allowed)
+		timeout, beforeErrs := checkRun("before.", r.Before.Run, r.Before.Timeout, DefaultBeforeTimeout, MaxBeforeTimeout, r.On, allowed)
 		errs = append(errs, beforeErrs...)
 		r.beforeTimeout = timeout
 	}
@@ -831,29 +893,29 @@ func checkPlaceholders(prefix, template, on string, allowed []string) []error {
 	return errs
 }
 
-// checkBefore validates a before block and returns its timeout. The command
-// takes the placeholders of the prompt, because both read one event.
-func checkBefore(c BeforeConfig, on string, allowed []string) (time.Duration, []error) {
-	timeout := DefaultBeforeTimeout
+// checkRun validates the argv and the timeout of a command, and returns the
+// timeout. prefix names the block in each error. The command takes the
+// placeholders of the prompt, because both read one event.
+func checkRun(prefix string, run []string, timeoutText string, timeout, most time.Duration, on string, allowed []string) (time.Duration, []error) {
 	var errs []error
-	if c.Timeout != "" {
-		d, err := time.ParseDuration(c.Timeout)
+	if timeoutText != "" {
+		d, err := time.ParseDuration(timeoutText)
 		switch {
 		case err != nil:
-			errs = append(errs, fmt.Errorf("before.timeout %q is not a duration, such as 10m", c.Timeout))
+			errs = append(errs, fmt.Errorf("%stimeout %q is not a duration, such as 10m", prefix, timeoutText))
 		case d <= 0:
-			errs = append(errs, fmt.Errorf("before.timeout must be positive, got %s", c.Timeout))
-		case d > MaxBeforeTimeout:
-			errs = append(errs, fmt.Errorf("before.timeout is %s, and the most it takes is %s", c.Timeout, MaxBeforeTimeout))
+			errs = append(errs, fmt.Errorf("%stimeout must be positive, got %s", prefix, timeoutText))
+		case d > most:
+			errs = append(errs, fmt.Errorf("%stimeout is %s, and the most it takes is %s", prefix, timeoutText, most))
 		default:
 			timeout = d
 		}
 	}
-	if len(c.Run) == 0 || strings.TrimSpace(c.Run[0]) == "" {
-		errs = append(errs, errors.New("before.run is required, and its first element names the program"))
+	if len(run) == 0 || strings.TrimSpace(run[0]) == "" {
+		errs = append(errs, fmt.Errorf("%srun is required, and its first element names the program", prefix))
 	}
-	for _, arg := range c.Run {
-		errs = append(errs, checkPlaceholders("before.run: ", arg, on, allowed)...)
+	for _, arg := range run {
+		errs = append(errs, checkPlaceholders(prefix+"run: ", arg, on, allowed)...)
 	}
 
 	return timeout, errs
@@ -1161,6 +1223,8 @@ type Match struct {
 	Experiment *Experiment
 	// Before is the command that runs ahead of claude, or nil.
 	Before *Before
+	// Command is the command of a command rule, and nil for any other rule.
+	Command *Command
 }
 
 // Match picks the first rule, in file order, that the event triggers.
@@ -1188,6 +1252,30 @@ func (s *Set) Match(e event.Event) Match {
 	}
 
 	return Match{Skip: NoRule, Project: slug}
+}
+
+// RerunGaps names the placeholders in the run of the named rule that a rerun
+// cannot fill. A rerun knows the card and the project, and nothing else of
+// the event that started the first run.
+func (s *Set) RerunGaps(name string) []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	known := values(event.Event{Type: event.CommandType}, "")
+	var gaps []string
+	for _, r := range s.rules {
+		if r.Name != name {
+			continue
+		}
+		for _, arg := range r.Run {
+			for _, p := range directive.Placeholders(arg) {
+				if _, ok := known[p]; !ok && !slices.Contains(gaps, p) {
+					gaps = append(gaps, p)
+				}
+			}
+		}
+	}
+
+	return gaps
 }
 
 // MatchRule matches the event against the named rule alone. It fails when the
@@ -1253,6 +1341,8 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 	switch {
 	case r.Action == ActionInteractive:
 		render, schema = directive.RenderPlain, ""
+	case r.Action == ActionCommand:
+		render, schema = func(string, map[string]string) string { return "" }, ""
 	case r.Resume && e.Type == event.AskClosedType:
 		render = directive.RenderResume
 	}
@@ -1269,11 +1359,11 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 	v := values(e, slug)
 	var before *Before
 	if r.Action == "" && r.Before != nil {
-		// Each element is one argument, so a value never splits in two.
-		before = &Before{Argv: make([]string, len(r.Before.Run)), Timeout: r.beforeTimeout}
-		for i, arg := range r.Before.Run {
-			before.Argv[i] = directive.RenderArgument(arg, v)
-		}
+		before = &Before{Argv: renderArgv(r.Before.Run, v), Timeout: r.beforeTimeout}
+	}
+	var command *Command
+	if r.Action == ActionCommand {
+		command = &Command{Argv: renderArgv(r.Run, v), Timeout: r.commandTimeout}
 	}
 
 	return Match{
@@ -1292,7 +1382,19 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		Pool:           pool,
 		Experiment:     experiment,
 		Before:         before,
+		Command:        command,
 	}
+}
+
+// renderArgv fills each element of a command on its own, so a value never
+// splits in two.
+func renderArgv(run []string, v map[string]string) []string {
+	out := make([]string, len(run))
+	for i, arg := range run {
+		out[i] = directive.RenderArgument(arg, v)
+	}
+
+	return out
 }
 
 // Dead names a rule that an event killed.
