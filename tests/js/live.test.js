@@ -1,6 +1,12 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emit, on, originId, reset, status } from '../../assets/lib/live.js';
+import { now, traceLive } from '../../assets/lib/sentry_spans.js';
+
+vi.mock('../../assets/lib/sentry_spans.js', () => ({
+    now: vi.fn(() => 1234),
+    traceLive: vi.fn(),
+}));
 
 const HUB = 'https://hub.test/.well-known/mercure';
 const BOARD_TOPIC = 'https://app.test/projects/1/board';
@@ -143,6 +149,28 @@ describe('on', () => {
         await vi.advanceTimersByTimeAsync(1000);
         latest().emit('open');
         expect(onReconnect).toHaveBeenCalledOnce();
+    });
+
+    it('traces what a handler returns for a hub message, from its arrival', () => {
+        const result = Promise.resolve();
+        on(BOARD, () => result);
+        vi.runOnlyPendingTimers();
+        traceLive.mockClear();
+        now.mockReturnValueOnce(42);
+
+        latest().emit('message', message({ type: BOARD, origin: null }));
+
+        expect(traceLive).toHaveBeenCalledOnce();
+        expect(traceLive).toHaveBeenCalledWith(BOARD, 42, result);
+    });
+
+    it('traces no change this page emits', () => {
+        on(BOARD, () => Promise.resolve());
+        traceLive.mockClear();
+
+        emit(BOARD, { cardId: '7' });
+
+        expect(traceLive).not.toHaveBeenCalled();
     });
 
     it('stops both remote and local delivery once unsubscribed', () => {

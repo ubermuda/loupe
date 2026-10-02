@@ -323,9 +323,10 @@ export default class extends Controller {
     // The payload only signals a change. Two saves can publish in either
     // order, so the page reads the stored answers instead.
     receive(change) {
-        if (change.own) return;
-        this.refreshSummary();
+        if (change.own) return undefined;
+        const read = this.refreshSummary();
         if (change.answeredBy) this.showChangedBy(change.answeredBy);
+        return read;
     }
 
     busy(block) {
@@ -379,13 +380,19 @@ export default class extends Controller {
 
     // One read at a time. A change during a read asks for one more read, and
     // so does a save that lands during it, because the read may predate it.
-    async refreshSummary() {
-        if (!this.hasSummaryUrlValue) return;
+    // The promise settles when the reads stop.
+    refreshSummary() {
+        if (!this.hasSummaryUrlValue) return undefined;
         if (this.summaryRunning) {
             this.summaryAgain = true;
-            return;
+            return this.summaryReads;
         }
         this.summaryRunning = true;
+        this.summaryReads = this.readSummaries();
+        return this.summaryReads;
+    }
+
+    async readSummaries() {
         do {
             this.summaryAgain = false;
             const landed = this.savesLanded;
