@@ -36,12 +36,38 @@ set `SENTRY_BROWSER_DSN`. These variables control it:
 | `SENTRY_BROWSER_DSN` | empty | Where browser events go. It is not a secret, because each page that loads the SDK shows it. Empty loads no SDK. |
 | `SENTRY_BROWSER_TRACES_SAMPLE_RATE` | `1.0` | The share of page loads that the browser SDK traces, from `0.0` to `1.0`. While `SENTRY_DSN` is set, a page load continues the server trace, and `SENTRY_TRACES_SAMPLE_RATE` decides for it. |
 
-The browser sends page loads, Web Vitals and JavaScript errors. It posts them
+The browser sends page loads, Web Vitals, interaction traces and JavaScript
+errors. It posts them
 directly to the ingest origin of the DSN, which Loupe adds to the
 Content-Security-Policy `connect-src` list. Loupe scrubs each browser event
 before it leaves the page. Every item in
 [What Sentry never receives](#what-sentry-never-receives) stays true for the
 browser: no URL or query string, no user content and no user identity.
+
+### Interaction traces
+
+Each sampled interaction starts its own trace, named after the route of the
+page:
+
+| Operation | Starts | Ends |
+|---|---|---|
+| `ui.turbo.submit` | A Turbo form submit starts. | The browser paints the response. A submit that redirects ends when the visit starts. |
+| `navigation` | A Turbo visit starts. | The browser paints the new page. The span takes the route of the new page. |
+| `ui.live` | A live change from the Mercure hub arrives. | The browser paints the change. Only the board, the card page and the decision summary record it. |
+
+A submit or a visit sends its trace headers with its request, so the PHP
+transaction joins the same trace. A span with no end after 10 seconds ends at
+the time of its last event.
+
+Each span has two attributes:
+
+| Attribute | Value |
+|---|---|
+| `loupe.tab_age_ms` | The time since the last full page load, in milliseconds. A Turbo visit keeps the page, so the value grows across visits. |
+| `loupe.heap_mb` | The JavaScript heap in use, in megabytes. Only Chromium browsers report it, and Chromium can round it on a page that is not cross-origin isolated. |
+
+These two values show whether a tab gets slower as it ages. The browser sends
+no profile.
 
 The *Sentry in the browser* row on `/admin/status` reports a malformed
 `SENTRY_BROWSER_DSN` as a failure, in the same way as the *Sentry* row.
