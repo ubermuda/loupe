@@ -9,6 +9,7 @@ use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -32,6 +33,7 @@ final readonly class OpenWorkRequestHandler
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private Auditor $auditor,
+        private WorkRequestAnnouncer $announcer,
     ) {
     }
 
@@ -100,6 +102,7 @@ final readonly class OpenWorkRequestHandler
             ],
             new AuditSubject('work_request', (string) $request->id),
         );
+        $this->announcer->announce($request);
 
         return $request;
     }

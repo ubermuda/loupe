@@ -153,6 +153,7 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         self::assertNull($lapsed->claimToken);
         self::assertNull($lapsed->leaseUntil);
         self::assertSame(1, $lapsed->claims);
+        self::assertEquals(new \DateTimeImmutable('2026-10-01 12:00:00'), $lapsed->reopenedAt);
         $em->clear();
         self::assertSame(WorkRequestState::Claimed, $em->find(WorkRequest::class, $held->id)?->state);
         self::assertSame(WorkRequestState::Open, $em->find(WorkRequest::class, $open->id)?->state);
@@ -230,6 +231,48 @@ final class WorkRequestRepositoryTest extends KernelTestCase
     private function idOf(Project|WorkRequest $entity): Uuid
     {
         return $entity->id ?? throw new \LogicException('A flushed entity has an id.');
+    }
+
+    public function test_the_live_requests_of_a_card_read_oldest_first(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'live-for-card@example.com'), 'Live For Card');
+        $cardId = Uuid::v7();
+        $newer = $this->seedWorkRequest($em, $project, cardId: $cardId, kind: 'fix', state: WorkRequestState::Claimed, createdAt: new \DateTimeImmutable('2026-10-01 12:10:00'));
+        $older = $this->seedWorkRequest($em, $project, cardId: $cardId, kind: 'implement', createdAt: new \DateTimeImmutable('2026-10-01 12:00:00'));
+        $this->seedWorkRequest($em, $project, cardId: $cardId, state: WorkRequestState::Done);
+        $this->seedWorkRequest($em, $project, cardId: $cardId, state: WorkRequestState::Cancelled);
+        $this->seedWorkRequest($em, $project);
+
+        self::assertSame([$older, $newer], $this->repository()->findLiveForCard($cardId));
+        self::assertSame([], $this->repository()->findLiveForCard(Uuid::v7()));
+    }
+
+    public function test_the_latest_settled_request_of_a_card_is_done_or_refused(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'latest-settled@example.com'), 'Latest Settled');
+        $cardId = Uuid::v7();
+        $settled = function (WorkRequestState $state, string $settledAt) use ($em, $project, $cardId): WorkRequest {
+            $request = $this->seedWorkRequest($em, $project, cardId: $cardId, state: $state);
+            $request->settledAt = new \DateTimeImmutable($settledAt);
+            $em->flush();
+
+            return $request;
+        };
+        $settled(WorkRequestState::Done, '2026-10-01 12:10:00');
+        $latest = $settled(WorkRequestState::Refused, '2026-10-01 12:20:00');
+        $settled(WorkRequestState::Cancelled, '2026-10-01 12:30:00');
+        $settled(WorkRequestState::Expired, '2026-10-01 12:40:00');
+        $this->seedWorkRequest($em, $project, cardId: $cardId, kind: 'fix', state: WorkRequestState::Claimed);
+        $other = $this->seedWorkRequest($em, $project, state: WorkRequestState::Done);
+        $other->settledAt = new \DateTimeImmutable('2026-10-01 13:00:00');
+        $em->flush();
+
+        self::assertSame($latest, $this->repository()->findLatestSettledForCard($cardId));
+        self::assertNull($this->repository()->findLatestSettledForCard(Uuid::v7()));
     }
 
     private function repository(): WorkRequestRepository

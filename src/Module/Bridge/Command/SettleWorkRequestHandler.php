@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\WorkRequestRefusal;
 use App\Module\Bridge\ValueObject\WorkRequestState;
@@ -31,6 +32,7 @@ final readonly class SettleWorkRequestHandler
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private Auditor $auditor,
+        private WorkRequestAnnouncer $announcer,
     ) {
     }
 
@@ -77,6 +79,7 @@ final readonly class SettleWorkRequestHandler
                 ],
                 new AuditSubject('work_request', (string) $settled->id),
             );
+            $this->announcer->announce($settled);
         }
 
         return $result;

@@ -42,4 +42,10 @@ final readonly class AnyOf extends Expression
 
         return $this->children[0]->leafAgainst($facts, true);
     }
+
+    #[\Override]
+    public function reads(): array
+    {
+        return self::readsOf($this->children);
+    }
 }

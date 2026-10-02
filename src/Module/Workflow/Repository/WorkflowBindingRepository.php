@@ -21,4 +21,20 @@ class WorkflowBindingRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['project' => $projectId]);
     }
+
+    /**
+     * The cards of every bound project that sit in a column that is not terminal.
+     *
+     * @return list<string> RFC 4122 card ids
+     */
+    public function findOpenBoundCardIds(): array
+    {
+        return array_map(strval(...), $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT c.id FROM board_cards c
+             JOIN board_columns col ON col.id = c.column_id
+             JOIN workflow_bindings b ON b.project_id = c.project_id
+             WHERE col.terminal = false
+             ORDER BY c.id',
+        ));
+    }
 }

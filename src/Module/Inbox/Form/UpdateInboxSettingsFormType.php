@@ -47,6 +47,11 @@ final class UpdateInboxSettingsFormType extends AbstractType
             'label' => 'inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label',
             'help' => 'inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help',
         ]);
+        $builder->add('cardPaused', CheckboxType::class, [
+            'required' => false,
+            'label' => 'inbox.form.update_inbox_settings_form.card_paused.label',
+            'help' => 'inbox.form.update_inbox_settings_form.card_paused.help',
+        ]);
     }
 
     #[\Override]

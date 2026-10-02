@@ -24,4 +24,10 @@ final readonly class Not extends Expression
     {
         return $this->inner->leafAgainst($facts, !$wanted);
     }
+
+    #[\Override]
+    public function reads(): array
+    {
+        return $this->inner->reads();
+    }
 }

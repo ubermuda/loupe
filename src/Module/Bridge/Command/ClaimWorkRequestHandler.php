@@ -8,6 +8,7 @@ use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestLease;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\WorkRequestRefusal;
@@ -34,6 +35,7 @@ final readonly class ClaimWorkRequestHandler
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private Auditor $auditor,
+        private WorkRequestAnnouncer $announcer,
     ) {
     }
 
@@ -87,6 +89,7 @@ final readonly class ClaimWorkRequestHandler
             ],
             new AuditSubject('work_request', (string) $claimed->id),
         );
+        $this->announcer->announce($claimed);
 
         return new ClaimWorkRequestResult($claimed);
     }

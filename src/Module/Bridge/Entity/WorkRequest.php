@@ -20,6 +20,8 @@ use Symfony\Component\Uid\Uuid;
 // The heartbeat reply reads the open requests of the projects a bridge follows.
 #[ORM\Index(name: 'idx_work_requests_project_state', columns: ['project_id', 'state'])]
 #[ORM\Index(name: 'idx_work_requests_state_lease', columns: ['state', 'lease_until'])]
+// The workflow engine reads the requests of one card in every state.
+#[ORM\Index(name: 'idx_work_requests_card', columns: ['card_id'])]
 #[ORM\Table(name: 'work_requests')]
 // One card holds one live request of a kind. The predicate is written the way
 // Postgres stores it, so migrate-diff stays quiet.
@@ -66,6 +68,10 @@ class WorkRequest
     /** How many times a bridge claimed the request. */
     #[ORM\Column(name: 'claims', options: ['default' => 0])]
     public int $claims = 0;
+
+    /** When a lapsed claim last opened the request again. */
+    #[ORM\Column(name: 'reopened_at', nullable: true)]
+    public ?\DateTimeImmutable $reopenedAt = null;
 
     #[ORM\Column(name: 'settled_at', nullable: true)]
     public ?\DateTimeImmutable $settledAt = null;

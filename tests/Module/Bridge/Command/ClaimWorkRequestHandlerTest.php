@@ -10,9 +10,11 @@ use App\Module\Bridge\Command\ClaimWorkRequestHandler;
 use App\Module\Bridge\Command\ClaimWorkRequestResult;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\ValueObject\WorkRequestRefusal;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -27,6 +29,7 @@ final class ClaimWorkRequestHandlerTest extends KernelTestCase
     public function test_a_claim_counts_and_leases_from_the_clock(): void
     {
         [$owner, $bridge, $request] = $this->scenario('claim-handler-ok', WorkRequestState::Open);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
 
         $result = $this->claim($owner, $bridge, $request);
 
@@ -35,6 +38,11 @@ final class ClaimWorkRequestHandlerTest extends KernelTestCase
         self::assertSame(1, $result->request->claims);
         self::assertSame('2026-10-01T12:32:00+00:00', $result->request->leaseUntil?->format(\DateTimeInterface::ATOM));
         self::assertNotNull($result->request->claimToken);
+
+        self::assertCount(1, $changes->events());
+        self::assertSame((string) $request->id, (string) $changes->events()[0]->workRequestId);
+        self::assertSame((string) $request->project->id, (string) $changes->events()[0]->projectId);
+        self::assertSame(WorkRequestState::Claimed, $changes->events()[0]->state);
     }
 
     /**
@@ -70,8 +78,10 @@ final class ClaimWorkRequestHandlerTest extends KernelTestCase
     public function test_a_request_that_is_no_longer_open_is_not_claimed(WorkRequestState $state): void
     {
         [$owner, $bridge, $request] = $this->scenario('claim-handler-settled', $state);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
 
         $result = $this->claim($owner, $bridge, $request);
+        self::assertSame([], $changes->events());
 
         self::assertNull($result->request);
         self::assertSame(WorkRequestRefusal::AlreadyClaimed, $result->refusal);

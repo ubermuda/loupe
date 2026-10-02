@@ -4717,6 +4717,8 @@
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_ready.help"><source>inbox.form.update_inbox_settings_form.pull_request_ready.help</source><target>A linked GitHub pull request passed its checks and waits for a review.</target></trans-unit>
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label"><source>inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label</source><target>Pull request fix loop stopped</target></trans-unit>
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help"><source>inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help</source><target>Loupe stopped asking for fixes on a linked GitHub pull request.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.card_paused.label"><source>inbox.form.update_inbox_settings_form.card_paused.label</source><target>Workflow paused the card</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.card_paused.help"><source>inbox.form.update_inbox_settings_form.card_paused.help</source><target>The workflow stopped acting on a card, and a person must look at it.</target></trans-unit>
             <trans-unit id="inbox.page.empty">
                 <source>inbox.page.empty</source>
                 <target>No agent has asked you anything yet.</target>
@@ -6314,6 +6316,7 @@
             <trans-unit id="board.card.history.cause.unblocked_any"><source>board.card.history.cause.unblocked_any</source><target>After it had no open blocker left.</target></trans-unit>
             <trans-unit id="board.card.history.cause.abandoned"><source>board.card.history.cause.abandoned</source><target>After every pull request closed without a merge.</target></trans-unit>
             <trans-unit id="board.card.history.cause.run"><source>board.card.history.cause.run</source><target>Via the %rule% run.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.workflow_rule"><source>board.card.history.cause.workflow_rule</source><target>Via the %rule% workflow rule.</target></trans-unit>
             <trans-unit id="board.card.history.cause.column_deleted"><source>board.card.history.cause.column_deleted</source><target>After the %column% column was deleted.</target></trans-unit>
             <trans-unit id="board.card.overview.description"><source>board.card.overview.description</source><target>Description</target></trans-unit>
             <trans-unit id="board.card.overview.status"><source>board.card.overview.status</source><target>Status</target></trans-unit>

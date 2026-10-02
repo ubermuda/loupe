@@ -9,9 +9,11 @@ use App\Module\Bridge\Command\SettleWorkRequestCommand;
 use App\Module\Bridge\Command\SettleWorkRequestHandler;
 use App\Module\Bridge\Command\SettleWorkRequestResult;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\ValueObject\WorkRequestRefusal;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
@@ -22,14 +24,31 @@ final class SettleWorkRequestHandlerTest extends KernelTestCase
 
     private const string NOW = '2026-10-01T12:30:00+00:00';
 
+    public function test_a_settlement_is_announced_once(): void
+    {
+        [$owner, $request] = $this->claimed('settle-announced');
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
+        $depth = $this->em()->getConnection()->getTransactionNestingLevel();
+
+        self::assertTrue($this->settle($owner, $request, WorkRequestState::Refused)->settled);
+        self::assertFalse($this->settle($owner, $request, WorkRequestState::Refused)->settled);
+
+        self::assertCount(1, $changes->events());
+        self::assertSame((string) $request->id, (string) $changes->events()[0]->workRequestId);
+        self::assertSame(WorkRequestState::Refused, $changes->events()[0]->state);
+        self::assertSame([$depth], $changes->transactionDepths());
+    }
+
     /** A withdrawal keeps the bridge and the token, so only the state tells the holder it lost. */
     public function test_a_withdrawn_request_is_a_lost_claim(): void
     {
         [$owner, $request] = $this->claimed('settle-withdrawn');
         $request->withdraw(WorkRequestState::Cancelled, new \DateTimeImmutable(self::NOW));
         $this->em()->flush();
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
 
         $result = $this->settle($owner, $request, WorkRequestState::Done);
+        self::assertSame([], $changes->events());
 
         self::assertSame(WorkRequestRefusal::ClaimLost, $result->refusal);
         $this->em()->clear();
