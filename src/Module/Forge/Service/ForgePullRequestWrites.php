@@ -17,6 +17,9 @@ use Psr\Clock\ClockInterface;
  */
 final readonly class ForgePullRequestWrites
 {
+    /** A transient failure keeps a marker that a read may never clear, so an older marker is stale. */
+    public const int MARKER_LIFETIME_SECONDS = 600;
+
     public function __construct(
         private PullRequestMergers $mergers,
         private PullRequestBaseChangers $baseChangers,
@@ -46,14 +49,15 @@ final readonly class ForgePullRequestWrites
             if (null === $row) {
                 return new PullRequestWriteFailed('not_found', permanent: true);
             }
-            if (null !== $row->mergeRequestedSha) {
+            $now = $this->clock->now();
+            if (null !== $row->mergeRequestedSha && self::fresh($row->mergeRequestedAt, $now)) {
                 return new PullRequestWriteFailed('in_flight', permanent: false);
             }
             if (null === $row->headSha) {
                 return new PullRequestWriteFailed('no_head', permanent: true);
             }
             $row->mergeRequestedSha = $row->headSha;
-            $row->mergeRequestedAt = $this->clock->now();
+            $row->mergeRequestedAt = $now;
 
             return $row->headSha;
         });
@@ -89,11 +93,12 @@ final readonly class ForgePullRequestWrites
             if (null === $row) {
                 return new PullRequestWriteFailed('not_found', permanent: true);
             }
-            if (null !== $row->baseChangeRequestedTo) {
+            $now = $this->clock->now();
+            if (null !== $row->baseChangeRequestedTo && self::fresh($row->baseChangeRequestedAt, $now)) {
                 return new PullRequestWriteFailed('in_flight', permanent: false);
             }
             $row->baseChangeRequestedTo = $base;
-            $row->baseChangeRequestedAt = $this->clock->now();
+            $row->baseChangeRequestedAt = $now;
 
             return null;
         });
@@ -116,5 +121,10 @@ final readonly class ForgePullRequestWrites
 
             throw $e;
         }
+    }
+
+    private static function fresh(?\DateTimeImmutable $requestedAt, \DateTimeImmutable $now): bool
+    {
+        return null !== $requestedAt && $requestedAt > $now->modify(\sprintf('-%d seconds', self::MARKER_LIFETIME_SECONDS));
     }
 }

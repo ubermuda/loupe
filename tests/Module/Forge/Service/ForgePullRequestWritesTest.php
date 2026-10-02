@@ -115,6 +115,29 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         self::assertSame(['head1', self::NOW], $this->stored($row));
     }
 
+    public function test_a_merge_marker_inside_its_lifetime_refuses_a_new_merge(): void
+    {
+        $row = $this->row();
+        $this->mark($row, 'head0', null, ForgePullRequestWrites::MARKER_LIFETIME_SECONDS - 1);
+
+        $failure = $this->failure(fn () => $this->writes->merge($row, 'merge'));
+
+        self::assertSame('in_flight', $failure->cause);
+        self::assertSame([], $this->merger->merges);
+        self::assertSame('head0', $this->stored($row)[0]);
+    }
+
+    public function test_a_merge_marker_past_its_lifetime_is_replaced_and_the_merge_runs(): void
+    {
+        $row = $this->row();
+        $this->mark($row, 'head0', null, ForgePullRequestWrites::MARKER_LIFETIME_SECONDS + 1);
+
+        $this->writes->merge($row, 'merge');
+
+        self::assertCount(1, $this->merger->merges);
+        self::assertSame(['head1', self::NOW], $this->stored($row));
+    }
+
     public function test_a_merge_of_a_row_that_is_gone_fails_and_asks_nothing(): void
     {
         $row = $this->row();
@@ -238,6 +261,29 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         self::assertSame(['main', self::NOW], $this->storedBase($row));
     }
 
+    public function test_a_base_marker_inside_its_lifetime_refuses_a_new_base_change(): void
+    {
+        $row = $this->row();
+        $this->mark($row, null, 'release', ForgePullRequestWrites::MARKER_LIFETIME_SECONDS - 1);
+
+        $failure = $this->failure(fn () => $this->writes->changeBase($row, 'main'));
+
+        self::assertSame('in_flight', $failure->cause);
+        self::assertSame([], $this->changer->changes);
+        self::assertSame('release', $this->storedBase($row)[0]);
+    }
+
+    public function test_a_base_marker_past_its_lifetime_is_replaced_and_the_change_runs(): void
+    {
+        $row = $this->row();
+        $this->mark($row, null, 'release', ForgePullRequestWrites::MARKER_LIFETIME_SECONDS + 1);
+
+        $this->writes->changeBase($row, 'main');
+
+        self::assertCount(1, $this->changer->changes);
+        self::assertSame(['main', self::NOW], $this->storedBase($row));
+    }
+
     public function test_a_base_change_of_a_row_that_is_gone_fails_and_asks_nothing(): void
     {
         $row = $this->row();
@@ -299,6 +345,20 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         $this->em->flush();
 
         return $row;
+    }
+
+    private function mark(ForgePullRequest $row, ?string $mergeSha, ?string $base, int $ageSeconds): void
+    {
+        $at = new \DateTimeImmutable(self::NOW)->modify(\sprintf('-%d seconds', $ageSeconds));
+        if (null !== $mergeSha) {
+            $row->mergeRequestedSha = $mergeSha;
+            $row->mergeRequestedAt = $at;
+        }
+        if (null !== $base) {
+            $row->baseChangeRequestedTo = $base;
+            $row->baseChangeRequestedAt = $at;
+        }
+        $this->em->flush();
     }
 
     /** Deletes the row in the database only, so the caller still holds the entity with its id. */
