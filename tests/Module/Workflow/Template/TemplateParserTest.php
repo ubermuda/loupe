@@ -11,7 +11,10 @@ use App\Module\Workflow\Condition\CardInSlot;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
 use App\Module\Workflow\Condition\PullRequestOpen;
+use App\Module\Workflow\Condition\PullRequestsAllClosedUnmerged;
 use App\Module\Workflow\Condition\RunWorkActive;
+use App\Module\Workflow\Expression\AnyOf;
+use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\InvalidTemplate;
@@ -33,6 +36,7 @@ final class TemplateParserTest extends TestCase
             new CardInSlot(),
             new PullRequestApprovalCoversHead(),
             new PullRequestOpen(),
+            new PullRequestsAllClosedUnmerged(),
             new RunWorkActive(),
         ]));
     }
@@ -129,6 +133,18 @@ final class TemplateParserTest extends TestCase
         self::assertIsArray($decoded);
 
         self::assertEquals($this->parser->parse(self::valid()), $this->parser->parse($decoded));
+    }
+
+    public function test_card_in_slot_accepts_the_backlog_and_terminal_flags(): void
+    {
+        foreach (['@backlog', '@terminal'] as $flag) {
+            $source = self::valid();
+            $source['rules'][1]['when']['any'][1] = ['card.in_slot' => ['slot' => $flag]];
+
+            $leaf = $this->parser->parse($source)->rules[1]->when;
+            self::assertInstanceOf(AnyOf::class, $leaf);
+            self::assertEquals(new ConditionLeaf(new CardInSlot(), ['slot' => $flag]), $leaf->children[1]);
+        }
     }
 
     /** @return iterable<string, array{\Closure(array<string, mixed>): array<string, mixed>, string}> */
@@ -247,7 +263,17 @@ final class TemplateParserTest extends TestCase
             $t['rules'][2]['when'] = ['pr.approval_covers_head' => ['min' => '1']];
 
             return $t;
-        }, 'rules[2] (merge) when: pr.approval_covers_head: parameter "min" must be an integer'];
+        }, 'rules[2] (merge) when: pr.approval_covers_head: parameter "min" must be a positive integer'];
+        yield 'zero integer parameter' => [static function (array $t): array {
+            $t['rules'][2]['when'] = ['pr.approval_covers_head' => ['min' => 0]];
+
+            return $t;
+        }, 'rules[2] (merge) when: pr.approval_covers_head: parameter "min" must be a positive integer'];
+        yield 'negative integer parameter' => [static function (array $t): array {
+            $t['rules'][2]['when'] = ['pr.all_closed_unmerged' => ['minutes' => -5]];
+
+            return $t;
+        }, 'rules[2] (merge) when: pr.all_closed_unmerged: parameter "minutes" must be a positive integer'];
         yield 'slot parameter naming no slot' => [static function (array $t): array {
             $t['rules'][1]['when']['any'][1] = ['card.in_slot' => ['slot' => 'shipping']];
 
@@ -268,7 +294,12 @@ final class TemplateParserTest extends TestCase
             $t['rules'][0]['then']['request']['limit'] = 'three';
 
             return $t;
-        }, 'rules[0] (start) then.request: parameter "limit" must be an integer'];
+        }, 'rules[0] (start) then.request: parameter "limit" must be a positive integer'];
+        yield 'zero request limit' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['limit'] = 0;
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "limit" must be a positive integer'];
         yield 'unknown forge write' => [static function (array $t): array {
             $t['rules'][2]['then']['forge-write']['write'] = 'squash';
 

@@ -176,6 +176,7 @@ rules:
           all:
               - card.is_child: {}
               - not: { card.has_open_blocker: {} }
+              - not: { pr.all_closed_unmerged: { minutes: 10 } }
       then: { move: { to: implementation } }
 
     - id: pull-request-reopened

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Workflow\Template;
 use App\Module\Workflow\Fact\ChecksState;
 use App\Module\Workflow\Fact\DocumentFacts;
 use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Fact\PullRequestState;
 use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\ShippedTemplates;
@@ -153,6 +154,22 @@ final class ShippedTemplatesTest extends KernelTestCase
         );
 
         self::assertContainsEquals(new ActionCall(ActionType::ForgeWrite, ['write' => 'merge', 'fallback' => 'merge']), $this->actions($facts));
+    }
+
+    public function test_a_child_whose_pull_requests_closed_unmerged_stays_in_backlog(): void
+    {
+        $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
+        $toBacklog = new ActionCall(ActionType::Move, ['to' => '@backlog']);
+        $closed = [FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:45:00'))];
+
+        $unblocked = FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true));
+        self::assertContainsEquals($toImplementation, $this->actions($unblocked));
+
+        $inImplementation = FactsMother::facts(card: FactsMother::card(slot: 'implementation', isChild: true), pullRequests: $closed);
+        self::assertContainsEquals($toBacklog, $this->actions($inImplementation));
+
+        $inBacklog = FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true), pullRequests: $closed);
+        self::assertNotContainsEquals($toImplementation, $this->actions($inBacklog));
     }
 
     private function shipped(): ShippedTemplates

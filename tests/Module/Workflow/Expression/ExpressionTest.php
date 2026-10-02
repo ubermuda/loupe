@@ -32,6 +32,14 @@ final class ExpressionTest extends TestCase
         self::assertNull($all->firstFalseLeaf(FactsMother::facts()));
     }
 
+    public function test_not_over_an_empty_all_of_is_false_with_no_leaf(): void
+    {
+        $not = new Not(new AllOf([]));
+
+        self::assertFalse($not->evaluate(FactsMother::facts()));
+        self::assertNull($not->firstFalseLeaf(FactsMother::facts()));
+    }
+
     public function test_all_of_gives_its_first_false_leaf(): void
     {
         $child = new ConditionLeaf(new CardIsChild(), []);

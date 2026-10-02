@@ -287,7 +287,7 @@ final readonly class TemplateParser
             }
             $param = $value[$parameter->name];
             $error = match ($parameter->type) {
-                ParameterType::Int => \is_int($param) ? null : \sprintf('parameter "%s" must be an integer', $parameter->name),
+                ParameterType::Int => \is_int($param) && $param >= 1 ? null : \sprintf('parameter "%s" must be a positive integer', $parameter->name),
                 ParameterType::String => \is_string($param) && '' !== $param ? null : \sprintf('parameter "%s" must be a non-empty string', $parameter->name),
                 ParameterType::Slot => match (true) {
                     !\is_string($param) => \sprintf('parameter "%s" must be a non-empty string', $parameter->name),
@@ -354,7 +354,7 @@ final readonly class TemplateParser
                 continue;
             }
             $error = match ($param) {
-                'limit' => \is_int($given) ? null : 'parameter "limit" must be an integer',
+                'limit' => \is_int($given) && $given >= 1 ? null : 'parameter "limit" must be a positive integer',
                 'write' => \is_string($given) && null !== ForgeWriteKind::tryFrom($given) ? null : \sprintf(
                     'parameter "write" must be one of %s',
                     implode(', ', array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),

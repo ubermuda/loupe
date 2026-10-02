@@ -35,7 +35,7 @@ final readonly class AllOf extends Expression
             return null;
         }
 
-        // Every child is true here, so any child keeps the expression true. Report the first.
+        // Every child is true here, so the first child keeps the expression true. An empty list has no leaf.
         if (!$this->evaluate($facts) || [] === $this->children) {
             return null;
         }
