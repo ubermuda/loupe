@@ -20,6 +20,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -117,12 +118,14 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card);
         $state = $this->ruleState($card, 'stuck');
         self::assertSame([1, 'workflow-slot-missing', '2026-10-02 12:10:00'], [$state->attempts, $state->lastRefusal, $state->dueAt?->format('Y-m-d H:i:s')]);
+        self::assertSame(self::NOON, $state->lastRefusalAt?->format('Y-m-d H:i:s'));
 
         $this->evaluate($card, '2026-10-02 12:05:00');
         self::assertSame(1, $this->ruleState($card, 'stuck')->attempts);
 
         $this->evaluate($card, '2026-10-02 12:10:00');
         self::assertSame([2, '2026-10-02 13:10:00'], [$this->ruleState($card, 'stuck')->attempts, $this->ruleState($card, 'stuck')->dueAt?->format('Y-m-d H:i:s')]);
+        self::assertSame('2026-10-02 12:10:00', $this->ruleState($card, 'stuck')->lastRefusalAt?->format('Y-m-d H:i:s'));
 
         $this->setType($card, CardType::Bug);
         $this->evaluate($card, '2026-10-02 12:11:00');
@@ -408,6 +411,40 @@ final class EngineTest extends KernelTestCase
         self::assertSame('rule-removed', $pause->releaseReason);
     }
 
+    public function test_a_refusal_time_clears_when_the_rule_turns_false(): void
+    {
+        $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)]);
+        $this->evaluate($card);
+        self::assertNotNull($this->ruleState($card, 'stuck')->lastRefusalAt);
+
+        $this->setType($card, CardType::Epic);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        $state = $this->ruleState($card, 'stuck');
+        self::assertSame([null, null], [$state->lastRefusal, $state->lastRefusalAt]);
+    }
+
+    public function test_a_held_card_fires_nothing_and_settles_no_request_until_the_hold_goes(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $stale = new WorkRequest($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
+        $this->em()->persist($stale);
+        $this->em()->flush();
+        $this->hold($card);
+
+        $this->evaluate($card);
+
+        self::assertSame(WorkRequestState::Open, $stale->state);
+        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+        self::assertSame([], $this->firedRecords());
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame(WorkRequestState::Cancelled, $stale->state);
+        self::assertCount(1, $this->liveRequests($card));
+    }
+
     public function test_a_project_with_no_workflow_is_left_alone(): void
     {
         self::bootKernel();
@@ -490,10 +527,16 @@ final class EngineTest extends KernelTestCase
         return ['id' => $id, 'slot' => 'one', 'when' => $when, 'then' => ['move' => ['to' => $to]]];
     }
 
+    /** @return list<array<string, mixed>> */
+    private function firedRecords(): array
+    {
+        return array_values(array_filter($this->logger->records, static fn (array $record): bool => 'workflow.card_evaluated' === $record['message']));
+    }
+
     /** @return list<string> the ids of the rules that fired in the last evaluation */
     private function firedRules(): array
     {
-        $records = array_values(array_filter($this->logger->records, static fn (array $record): bool => 'workflow.card_evaluated' === $record['message']));
+        $records = $this->firedRecords();
         self::assertNotSame([], $records);
         $fired = $records[\count($records) - 1]['context']['fired'] ?? null;
         self::assertIsArray($fired);
@@ -544,6 +587,7 @@ final class EngineTest extends KernelTestCase
             ),
             new FactFingerprint(),
             $this->service(WorkflowRuleStateRepository::class),
+            $this->service(CardHolds::class),
             $workRequests,
             new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class)),
             $cardPauses,
@@ -579,6 +623,16 @@ final class EngineTest extends KernelTestCase
     private function activePause(Card $card): ?CardPause
     {
         return $this->service(CardPauseRepository::class)->findActiveForCard($card);
+    }
+
+    private function hold(Card $card): void
+    {
+        $this->service(CardHolds::class)->hold($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), null);
+    }
+
+    private function releaseHold(Card $card): void
+    {
+        $this->service(CardHolds::class)->release($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);
     }
 
     private function setType(Card $card, CardType $type): void

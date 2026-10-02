@@ -15,6 +15,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Command\WithdrawWorkRequestCommand;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ActionOutcomeKind;
@@ -49,6 +50,7 @@ final readonly class Engine
         private FactsBuilder $factsBuilder,
         private FactFingerprint $fingerprint,
         private WorkflowRuleStateRepository $workflowRuleStates,
+        private CardHolds $cardHolds,
         private WorkRequestRepository $workRequests,
         private WithdrawWorkRequestHandler $withdrawWorkRequest,
         private CardPauseRepository $cardPauses,
@@ -86,7 +88,8 @@ final readonly class Engine
         // and a FOR UPDATE on that row would deadlock against a claim or a settle.
         $this->workflowRuleStates->lockCard($cardId);
         $card = $this->cards->find($cardId);
-        if (null === $card) {
+        // A held card is unmanaged: settling its requests would cancel or expire them.
+        if (null === $card || $this->cardHolds->isHeld($card->project, $cardId)) {
             return null;
         }
         $this->cards->refreshColumn($card);
@@ -227,6 +230,7 @@ final readonly class Engine
             $state->attempts = 0;
             $state->dueAt = null;
             $state->lastRefusal = null;
+            $state->lastRefusalAt = null;
             $state->fingerprint = $fingerprint;
 
             return true;
@@ -255,6 +259,7 @@ final readonly class Engine
                 $state->attempts = 0;
                 $state->dueAt = null;
                 $state->lastRefusal = null;
+                $state->lastRefusalAt = null;
                 if ((ActionType::Request === $type || ActionType::ForgeWrite === $type) && !$outcome->alreadyLive) {
                     ++$state->fires;
                 }
@@ -265,6 +270,7 @@ final readonly class Engine
                 $code = $outcome->code ?? throw new \LogicException('A refusal carries a code.');
                 ++$state->attempts;
                 $state->lastRefusal = $code;
+                $state->lastRefusalAt = $run->now;
                 $backoff = $run->template->backoffMinutes[$state->attempts - 1] ?? null;
                 if (null !== $backoff) {
                     $state->dueAt = $run->now->add(new \DateInterval(\sprintf('PT%dM', $backoff)));
@@ -311,7 +317,7 @@ final readonly class Engine
     /** @return list<mixed> */
     private static function snapshot(WorkflowRuleState $state): array
     {
-        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal];
+        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u')];
     }
 
     private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void

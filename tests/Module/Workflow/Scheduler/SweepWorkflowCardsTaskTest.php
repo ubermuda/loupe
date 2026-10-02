@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Scheduler;
 
+use App\Module\Bridge\Entity\CardHold;
 use App\Module\Workflow\Command\SweepWorkflowCardsHandler;
 use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Messenger\EvaluateCard;
@@ -36,6 +37,9 @@ final class SweepWorkflowCardsTaskTest extends KernelTestCase
         $open = $this->card($bound, 'next');
         $backlog = $this->card($bound, 'backlog');
         $finished = $this->card($bound, 'done');
+        $held = $this->card($bound, 'next');
+        $this->em()->persist(new CardHold($bound, $held->id ?? throw new \LogicException('A flushed card has an id.'), null, new \DateTimeImmutable()));
+        $this->em()->flush();
         $unbound = $this->card($this->workflowProject('sweep-unbound'), 'next');
         $this->transport()->reset();
         $logger = new RecordingLogger();
@@ -46,6 +50,7 @@ final class SweepWorkflowCardsTaskTest extends KernelTestCase
         self::assertContains((string) $open->id, $sent);
         self::assertContains((string) $backlog->id, $sent);
         self::assertNotContains((string) $finished->id, $sent);
+        self::assertNotContains((string) $held->id, $sent);
         self::assertNotContains((string) $unbound->id, $sent);
         self::assertCount(1, $logger->records);
         self::assertSame('workflow.sweep_finished', $logger->records[0]['message']);

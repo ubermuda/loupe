@@ -7,6 +7,7 @@ namespace App\Tests\Module\Workflow\Repository;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Bridge\Entity\CardHold;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -100,6 +101,23 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         self::assertSame([(string) $paused->id, (string) $free->id], $this->repository()->findDueCardIds($now, 10));
     }
 
+    public function test_find_due_card_ids_skips_a_held_card(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('rule-state-due-held');
+        $now = new \DateTimeImmutable('2026-10-02 12:00:00');
+        $held = $this->card($project);
+        $free = $this->card($project);
+        $this->state($held, 'a', $now->modify('-2 hours'));
+        $this->state($free, 'a', $now->modify('-1 hour'));
+        self::assertSame([(string) $held->id, (string) $free->id], $this->repository()->findDueCardIds($now, 10));
+
+        $this->em()->persist(new CardHold($project, $held->id ?? throw new \LogicException('A flushed card has an id.'), null, $now));
+        $this->em()->flush();
+
+        self::assertSame([(string) $free->id], $this->repository()->findDueCardIds($now, 10));
+    }
+
     public function test_reset_clears_the_memory_of_a_rule(): void
     {
         $state = new WorkflowRuleState($this->createStub(Card::class), $this->createStub(Project::class), 'start-design');
@@ -109,6 +127,7 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         $state->fingerprint = 'abc';
         $state->dueAt = new \DateTimeImmutable();
         $state->lastRefusal = 'no-capacity';
+        $state->lastRefusalAt = new \DateTimeImmutable();
 
         $state->reset();
 
@@ -117,6 +136,7 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         self::assertSame(0, $state->fires);
         self::assertNull($state->dueAt);
         self::assertNull($state->lastRefusal);
+        self::assertNull($state->lastRefusalAt);
         self::assertSame('abc', $state->fingerprint);
     }
 
