@@ -228,6 +228,35 @@ final class ShippedTemplatesTest extends KernelTestCase
             ['merge-ready', 'update-behind'],
             'update-behind',
         ];
+
+        $approvedIntoEpic = FactsMother::pullRequest(checks: ChecksState::Passed, approvalsCoveringHead: 1, baseIsEpicBranch: true);
+        yield 'an approved pull request into the epic branch merges through the epic child rule' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'in-review', isChild: true), pullRequest: $approvedIntoEpic, pullRequests: [$approvedIntoEpic]),
+            ['merge-ready', 'merge-ready-epic-child'],
+            'merge-ready-epic-child',
+        ];
+
+        $approvedIntoDefault = FactsMother::pullRequest(checks: ChecksState::Passed, approvalsCoveringHead: 1);
+        yield 'an approved pull request into the default branch merges through merge-ready' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'in-review', isChild: true), pullRequest: $approvedIntoDefault, pullRequests: [$approvedIntoDefault]),
+            ['merge-ready', 'merge-ready-epic-child'],
+            'merge-ready',
+        ];
+    }
+
+    public function test_an_epic_child_pull_request_merges_into_the_epic_branch_with_no_approval(): void
+    {
+        $merge = new ActionCall(ActionType::ForgeWrite, ['write' => 'merge', 'fallback' => 'merge']);
+        $child = FactsMother::card(slot: 'in-review', isChild: true);
+
+        $intoEpic = FactsMother::pullRequest(checks: ChecksState::Passed, baseIsEpicBranch: true);
+        self::assertContainsEquals($merge, $this->actions(FactsMother::facts(card: $child, pullRequest: $intoEpic, pullRequests: [$intoEpic])));
+
+        $intoDefault = FactsMother::pullRequest(checks: ChecksState::Passed);
+        self::assertNotContainsEquals($merge, $this->actions(FactsMother::facts(card: $child, pullRequest: $intoDefault, pullRequests: [$intoDefault])));
+
+        $pending = FactsMother::pullRequest(checks: ChecksState::Pending, baseIsEpicBranch: true);
+        self::assertNotContainsEquals($merge, $this->actions(FactsMother::facts(card: $child, pullRequest: $pending, pullRequests: [$pending])));
     }
 
     private function shipped(): ShippedTemplates

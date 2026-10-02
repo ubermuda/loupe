@@ -135,6 +135,20 @@ rules:
               - pr.checks_passed: {}
               - pr.approval_covers_head: { min: 1 }
               - pr.base_is_merge_target: {}
+              - not: { pr.base_is_epic_branch: {} }
+              - not: { pr.conflicting: {} }
+              - not: { pr.changes_requested: {} }
+              - not: { pr.behind: {} }
+      then: { forge-write: { write: merge, fallback: merge } }
+
+    - id: merge-ready-epic-child
+      slot: in-review
+      when:
+          all:
+              - pr.open: {}
+              - not: { pr.draft: {} }
+              - pr.checks_passed: {}
+              - pr.base_is_epic_branch: {}
               - not: { pr.conflicting: {} }
               - not: { pr.changes_requested: {} }
               - not: { pr.behind: {} }

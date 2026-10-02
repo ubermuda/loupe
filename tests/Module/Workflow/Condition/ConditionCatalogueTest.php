@@ -27,6 +27,7 @@ final class ConditionCatalogueTest extends KernelTestCase
             'pr.all_closed_unmerged',
             'pr.all_finished_one_merged',
             'pr.approval_covers_head',
+            'pr.base_is_epic_branch',
             'pr.base_is_merge_target',
             'pr.behind',
             'pr.changes_requested',

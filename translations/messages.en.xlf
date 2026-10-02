@@ -7142,6 +7142,7 @@
             <trans-unit id="workflow.waiting.pr_approval_covers_head"><source>workflow.waiting.pr_approval_covers_head</source><target>Waiting: fewer than %min% approvals cover the head commit.</target></trans-unit>
             <trans-unit id="workflow.waiting.pr_changes_requested"><source>workflow.waiting.pr_changes_requested</source><target>Waiting: a review asks for changes.</target></trans-unit>
             <trans-unit id="workflow.waiting.pr_base_is_merge_target"><source>workflow.waiting.pr_base_is_merge_target</source><target>Waiting: the pull request targets neither the default branch nor the epic branch.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_base_is_epic_branch"><source>workflow.waiting.pr_base_is_epic_branch</source><target>Waiting: the pull request does not target the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.pr_stacked"><source>workflow.waiting.pr_stacked</source><target>Waiting: the pull request is not stacked on another pull request.</target></trans-unit>
             <trans-unit id="workflow.waiting.pr_parent_merged"><source>workflow.waiting.pr_parent_merged</source><target>Waiting: the parent pull request is not merged.</target></trans-unit>
             <trans-unit id="workflow.waiting.pr_linked"><source>workflow.waiting.pr_linked</source><target>Waiting: no pull request is linked to the card.</target></trans-unit>

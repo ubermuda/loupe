@@ -6,6 +6,7 @@ namespace App\Tests\Module\Workflow\Condition;
 
 use App\Module\Workflow\Condition\Condition;
 use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
+use App\Module\Workflow\Condition\PullRequestBaseIsEpicBranch;
 use App\Module\Workflow\Condition\PullRequestBaseIsMergeTarget;
 use App\Module\Workflow\Condition\PullRequestBehind;
 use App\Module\Workflow\Condition\PullRequestChangesRequested;
@@ -72,6 +73,9 @@ final class PullRequestConditionsTest extends TestCase
         yield 'base is merge target' => [new PullRequestBaseIsMergeTarget(), [], self::current(baseIsMergeTarget: true), true];
         yield 'base is not merge target' => [new PullRequestBaseIsMergeTarget(), [], self::current(baseIsMergeTarget: false), false];
 
+        yield 'base is epic branch' => [new PullRequestBaseIsEpicBranch(), [], self::current(baseIsEpicBranch: true), true];
+        yield 'base is default branch' => [new PullRequestBaseIsEpicBranch(), [], self::current(baseIsEpicBranch: false), false];
+
         yield 'stacked' => [new PullRequestStacked(), [], self::current(stacked: true), true];
         yield 'not stacked' => [new PullRequestStacked(), [], self::current(stacked: false), false];
 
@@ -113,6 +117,7 @@ final class PullRequestConditionsTest extends TestCase
             approvalsCoveringHead: 5,
             changesRequested: true,
             baseIsMergeTarget: true,
+            baseIsEpicBranch: true,
             stacked: true,
             parentMerged: true,
         )]);
@@ -132,6 +137,7 @@ final class PullRequestConditionsTest extends TestCase
         yield 'pr.approval_covers_head' => [new PullRequestApprovalCoversHead(), ['min' => 1]];
         yield 'pr.changes_requested' => [new PullRequestChangesRequested(), []];
         yield 'pr.base_is_merge_target' => [new PullRequestBaseIsMergeTarget(), []];
+        yield 'pr.base_is_epic_branch' => [new PullRequestBaseIsEpicBranch(), []];
         yield 'pr.stacked' => [new PullRequestStacked(), []];
         yield 'pr.parent_merged' => [new PullRequestParentMerged(), []];
     }
@@ -164,6 +170,7 @@ final class PullRequestConditionsTest extends TestCase
         yield 'pr.approval_covers_head' => [new PullRequestApprovalCoversHead(), ['min' => 2], ['%min%' => '2'], $one];
         yield 'pr.changes_requested' => [new PullRequestChangesRequested(), [], [], $one];
         yield 'pr.base_is_merge_target' => [new PullRequestBaseIsMergeTarget(), [], [], $one];
+        yield 'pr.base_is_epic_branch' => [new PullRequestBaseIsEpicBranch(), [], [], $one];
         yield 'pr.stacked' => [new PullRequestStacked(), [], [], $one];
         yield 'pr.parent_merged' => [new PullRequestParentMerged(), [], [], $one];
         yield 'pr.linked' => [new PullRequestLinked(), [], [], [FactKey::PullRequests]];
@@ -180,6 +187,7 @@ final class PullRequestConditionsTest extends TestCase
         int $approvalsCoveringHead = 0,
         bool $changesRequested = false,
         bool $baseIsMergeTarget = true,
+        bool $baseIsEpicBranch = false,
         bool $stacked = false,
         bool $parentMerged = false,
     ): Facts {
@@ -192,6 +200,7 @@ final class PullRequestConditionsTest extends TestCase
             approvalsCoveringHead: $approvalsCoveringHead,
             changesRequested: $changesRequested,
             baseIsMergeTarget: $baseIsMergeTarget,
+            baseIsEpicBranch: $baseIsEpicBranch,
             stacked: $stacked,
             parentMerged: $parentMerged,
         );
