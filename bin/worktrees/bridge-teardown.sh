@@ -32,6 +32,7 @@ just worktree-down "card-$number"
 
 # The merge stage refreshes the epic preview under this lock, and the last child merge can finish the epic.
 lock="$main/.worktrees/epic-$number.lock"
+mkdir -p "$main/.worktrees"
 locked=0
 for _ in $(seq 60); do
     if mkdir "$lock" 2>/dev/null; then
