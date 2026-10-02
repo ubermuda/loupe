@@ -6239,9 +6239,10 @@
     .lp-board-card__number {
         @apply font-mono text-xs font-semibold text-fg-dim;
     }
-    /* Identifier and classification lead the card face, above the title. */
+    /* Identifier and classification lead the card face, above the title. The row
+       is the touch drag handle, and a touch press elsewhere scrolls the board. */
     .lp-board-card__identity {
-        @apply flex flex-wrap items-center gap-2;
+        @apply flex flex-wrap items-center gap-2 touch-none;
     }
     .lp-card-number {
         @apply font-mono align-middle text-2xl font-semibold text-fg-dim;
