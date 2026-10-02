@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Outbox;
 
 use App\Module\Board\BoardEventType;
+use App\Module\Bridge\BridgeEventType;
 use App\Module\Forge\ForgeEventType;
 use App\Module\Inbox\InboxEventType;
 use App\Module\Project\ProjectEventType;
@@ -18,6 +19,7 @@ final class ActivityTranslationsTest extends KernelTestCase
 {
     private const array EVENT_TYPE_CLASSES = [
         BoardEventType::class,
+        BridgeEventType::class,
         ForgeEventType::class,
         InboxEventType::class,
         ProjectEventType::class,

@@ -13,6 +13,7 @@ use App\Module\Bridge\Mcp\WorkerRunResumeTool;
 use App\Module\Bridge\Mcp\WorkerRunStopTool;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Service\CardColumnLookupInterface;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -200,6 +201,16 @@ final class WorkerRunWriteToolsTest extends KernelTestCase
         $this->em()->flush();
 
         self::assertSame(['card-left', 'The card left the column of this run.'], $this->resumeRefusal($run));
+    }
+
+    public function test_a_run_on_a_paused_card_is_refused(): void
+    {
+        $run = $this->runIn(WorkerRunState::Unfinished);
+        $holds = self::getContainer()->get(CardHolds::class);
+        self::assertInstanceOf(CardHolds::class, $holds);
+        $holds->hold($run->project, $run->cardId, $run->project->owner);
+
+        self::assertSame(['card-held', 'Agents are paused on this card. Let agents run first.'], $this->resumeRefusal($run));
     }
 
     public function test_a_malformed_run_id_refuses_the_whole_batch(): void

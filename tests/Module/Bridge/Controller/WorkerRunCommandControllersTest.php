@@ -27,7 +27,7 @@ final class WorkerRunCommandControllersTest extends WebTestCase
 {
     use BridgeScenario;
 
-    public function test_the_owner_stops_a_running_run_and_holds_its_card(): void
+    public function test_the_owner_stops_a_running_run_and_holds_nothing(): void
     {
         $client = static::createClient();
         [$owner, $project, $run] = $this->scenario('stop', WorkerRunState::Running);
@@ -46,7 +46,7 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         self::assertSame((string) $owner->id, (string) $command->requestedBy?->id);
         $project = $this->em()->find(Project::class, $project->id);
         self::assertNotNull($project);
-        self::assertNotNull($this->cardHolds()->findOneOfCard($project, $cardId));
+        self::assertNull($this->cardHolds()->findOneOfCard($project, $cardId));
     }
 
     public function test_the_owner_resumes_a_failed_run(): void

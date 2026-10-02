@@ -121,8 +121,8 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
         $leaving = $this->user($em, 'holds-purge-leaving@example.com');
         $staying = $this->user($em, 'holds-purge-staying@example.com');
         $now = new \DateTimeImmutable();
-        $em->persist(new CardHold($this->project($em, $leaving, 'Leaving Holds'), Uuid::v7(), null, $staying, $now));
-        $foreign = new CardHold($this->project($em, $staying, 'Staying Holds'), Uuid::v7(), null, $leaving, $now);
+        $em->persist(new CardHold($this->project($em, $leaving, 'Leaving Holds'), Uuid::v7(), $staying, $now));
+        $foreign = new CardHold($this->project($em, $staying, 'Staying Holds'), Uuid::v7(), $leaving, $now);
         $em->persist($foreign);
         $em->flush();
         $em->clear();

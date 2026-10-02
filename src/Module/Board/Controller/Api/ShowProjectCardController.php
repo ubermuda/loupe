@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * The column a card is in now, and whether a person stopped the work on it.
+ * The column a card is in now, and whether a person paused the agents on it.
  * The bridge reads it before it resumes a run, and skips the resume when the
  * card left that column. The firewall admits agent-scoped tokens alone.
  */
