@@ -990,18 +990,20 @@ var ResultStatuses = []string{"finished", "blocked", "unfinished", "waiting"}
 // resultFieldPattern is the shape of a result field name.
 var resultFieldPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 
-// resultSchema builds the JSON Schema of a worker's final reply. The extra
-// fields are optional. claude checks each fragment, and the bridge does not.
+// resultSchema builds the JSON Schema of a worker's final reply. The core
+// reason and the extra fields are optional. claude checks each fragment, and
+// the bridge does not.
 func resultSchema(fields map[string]any) (string, error) {
 	props := map[string]any{
 		"status":  map[string]any{"type": "string", "enum": ResultStatuses},
 		"summary": map[string]any{"type": "string"},
+		"reason":  map[string]any{"type": "string"},
 	}
 	var errs []error
 	for _, name := range slices.Sorted(maps.Keys(fields)) {
 		fragment, isMap := fields[name].(map[string]any)
 		switch {
-		case name == "status" || name == "summary":
+		case name == "status" || name == "summary" || name == "reason":
 			errs = append(errs, fmt.Errorf("resultFields: %q is a core field, and every result has it", name))
 		case !resultFieldPattern.MatchString(name):
 			errs = append(errs, fmt.Errorf("resultFields: %q is not a field name, such as prUrl", name))

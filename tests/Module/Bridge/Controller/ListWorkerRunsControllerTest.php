@@ -15,6 +15,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\MercureCookies;
@@ -506,6 +507,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $resume->resumeIndex = 2;
         $resume->resumeCap = 3;
         $resume->resultStatus = 'unfinished';
+        $resume->resultReason = WorkerRunReason::Stacked;
         $resume->resultFields = ['branch' => '<b>feat/x</b>', 'tests' => 12];
         $resume->resumeSkipped = 'card_moved';
         $em->flush();
@@ -530,6 +532,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertSame($firstId, $continues->text());
         self::assertStringContainsString('search='.$firstId, (string) $continues->attr('href'));
         self::assertStringContainsString('Unfinished', $drawer->filter('[data-worker-run-result-status]')->text());
+        self::assertStringContainsString('Stacked on another pull request', $drawer->filter('[data-worker-run-result-reason]')->text());
+        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$firstId.'"] [data-worker-run-result-reason]'));
         self::assertSame(
             ['branch: <b>feat/x</b>', 'tests: 12'],
             $drawer->filter('[data-worker-run-result-fields] > div')->each(static fn (Crawler $field): string => $field->filter('dt')->text().': '.$field->filter('dd')->text()),

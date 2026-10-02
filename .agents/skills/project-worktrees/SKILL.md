@@ -412,9 +412,12 @@ that backend, and the widget says "This preview's card is closed or gone, so
 notes cannot be saved here." For such a branch, pass no marker, or pass
 `card:<id>` with a card id from the worktree's own database.
 
-The marker is a formal argument all the way. The bridge prompt carries
-`Card <number> (cardId <id>)`, the stage skill passes that id to the profile
-command, and the command passes it to bootstrap. When the prompt lacks it, take
+The marker is a formal argument all the way. The bridge `before` rule passes
+`{cardId}` to `bin/worktrees/bridge-before.sh`, which passes it to bootstrap.
+The script passes no marker when the worktree's `SITE_REVIEW_WIDGET_BACKEND`
+differs from the main checkout's, so a widget branch keeps the marker it set.
+On a refresh, the stage skill reads it from the prompt line
+`Card <number> (cardId <id>)`. When the prompt lacks it, take
 `cardId` from `card_get`. Never derive the marker from a branch name, a worktree
 name or a card number, and do not add code that does.
 

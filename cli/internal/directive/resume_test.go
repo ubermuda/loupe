@@ -16,6 +16,7 @@ func TestRenderResumeAppendsTheResumeFooter(t *testing.T) {
 		"Set it to unfinished when work still runs or remains. " +
 		"Set it to waiting when the work waits on the forge, such as checks on a pushed pull request. " +
 		"Put one short sentence on what you did in summary. " +
+		"Set reason to the reason code of your result, such as the code on your STAGE RESULT line, when you have one. " +
 		"Never end your turn while a command, a monitor or a subagent still runs. Wait for it in the foreground. " +
 		"When work still runs, report unfinished."
 	if got != want {

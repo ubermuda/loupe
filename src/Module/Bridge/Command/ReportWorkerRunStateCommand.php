@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
@@ -38,6 +39,7 @@ final readonly class ReportWorkerRunStateCommand
         public ?string $failureReason = null,
         public ?string $output = null,
         public ?string $resultStatus = null,
+        public ?WorkerRunReason $resultReason = null,
         /** @var array<string, mixed>|null */
         public ?array $resultFields = null,
         public ?Uuid $continues = null,

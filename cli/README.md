@@ -1040,12 +1040,13 @@ ends.
 
 Every prompt ends with a request for a structured result. `--json-schema` makes
 `claude` return that result as `structured_output` in its JSON reply. The core
-schema requires two fields:
+schema requires two fields, and has one optional field:
 
 | Field | Value |
 |---|---|
 | `status` | `finished` when the work is done, `blocked` when it cannot go on without a person, `unfinished` when work still runs or remains, and `waiting` when the work waits on the forge, such as checks on a pushed pull request |
 | `summary` | one short sentence on what the worker did |
+| `reason` | optional: the reason code of the result, such as the code on the worker's `STAGE RESULT` line |
 
 A rule adds optional fields with `resultFields`. Each value is a JSON Schema
 fragment, and `claude` checks it:
@@ -1062,8 +1063,8 @@ rules:
 ```
 
 A field name starts with a letter and holds letters, digits and `_` only. The
-bridge refuses `status` and `summary`, which every result has, and a value that
-is not a mapping. The bridge builds each rule's schema once, when it loads the
+bridge refuses `status`, `summary` and `reason`, which are core fields, and a
+value that is not a mapping. The bridge builds each rule's schema once, when it loads the
 file.
 
 The bridge reads stdout as one JSON document, up to 1 MiB. A worker has a
@@ -1071,7 +1072,10 @@ result only when `structured_output` holds a known `status` and a string
 `summary`. A stdout past 1 MiB, or one that does not decode, holds no result. A
 worker that exits with no result logs `worker_no_result`, whatever its exit
 code. The worker run report carries the check as `hasResult`, and the status as
-`resultStatus`. The other fields go as `resultFields`. When they take more than
+`resultStatus`. The bridge trims a string `reason` and sends it as
+`resultReason`. It sends no reason when the value is not a lowercase code of at
+most 40 characters, such as `needs-owner`, because Loupe refuses the whole
+report otherwise. The other fields go as `resultFields`. When they take more than
 4000 bytes as JSON, the bridge sends none of them and logs
 `result_fields_dropped`, because Loupe refuses the whole report otherwise.
 

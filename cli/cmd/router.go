@@ -12,6 +12,7 @@ import (
 	"maps"
 	"net"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -1920,11 +1921,25 @@ func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 	report.ExitCode, report.HasResult = &e.res.exitCode, &e.res.hasResult
 	if e.res.hasResult {
 		report.ResultStatus = e.res.status
+		report.ResultReason = resultReason(e.res.reason)
 		report.ResultFields = r.resultFields(p, e.res.fields)
 	}
 	report.Usage = r.usage(p, e.res.usage)
 
 	return report
+}
+
+// reasonPattern is the reason code Loupe takes. Loupe refuses the whole report
+// for any other reason, so the bridge sends no reason instead.
+var reasonPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+
+func resultReason(reason string) string {
+	reason = strings.TrimSpace(reason)
+	if !reasonPattern.MatchString(reason) {
+		return ""
+	}
+
+	return reason
 }
 
 // sessionOf is the session a report of the ended run names. A run whose

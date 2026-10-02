@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -81,6 +82,11 @@ final class ReportWorkerRunStateRequest
 
         #[Assert\Choice(choices: self::RESULT_STATUSES)]
         public ?string $resultStatus = null,
+
+        // A pattern rather than a choice, so a code from a newer bridge is stored as other.
+        #[Assert\Length(max: WorkerRun::MAX_RESULT_REASON_LENGTH)]
+        #[Assert\Regex(pattern: WorkerRun::RESULT_REASON_PATTERN)]
+        public ?string $resultReason = null,
         /** @var array<mixed>|null */
         public ?array $resultFields = null,
 
@@ -238,6 +244,10 @@ final class ReportWorkerRunStateRequest
             $context->buildViolation('A result status needs the result flag.')->atPath('resultStatus')->addViolation();
         }
 
+        if (null !== $this->resultReason() && true !== $this->hasResult()) {
+            $context->buildViolation('A result reason needs the result flag.')->atPath('resultReason')->addViolation();
+        }
+
         $implied = WorkerRunState::fromOutcome($this->exitCode, $this->hasResult(), $this->resultStatus);
         $matches = WorkerRunState::GaveUp === $state
             ? \in_array($implied, [WorkerRunState::Failed, WorkerRunState::NoResult, WorkerRunState::Unfinished], true)
@@ -325,6 +335,11 @@ final class ReportWorkerRunStateRequest
         }
 
         return $fields;
+    }
+
+    public function resultReason(): ?WorkerRunReason
+    {
+        return WorkerRunReason::fromReported($this->resultReason);
     }
 
     public function sessionId(): ?Uuid
