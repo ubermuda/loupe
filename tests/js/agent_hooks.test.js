@@ -47,6 +47,8 @@ describe('no-full-ci.sh', () => {
         ['time just ci', 'deny'],
         ['env -u XDEBUG_MODE php vendor/bin/phpunit', 'deny'],
         ['time just phpunit --filter FooTest', 'allow'],
+        ['nice -n 10 just ci', 'deny'],
+        ['time -p just ci', 'deny'],
         ['just phpunit --filter FooTest', 'allow'],
         ['just phpunit --filter=FooTest', 'allow'],
         ['just phpunit --group slow', 'allow'],
