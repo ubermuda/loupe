@@ -9,15 +9,13 @@ use App\Module\Bridge\Command\WithdrawWorkRequestCommand;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
-use App\Module\Workflow\Engine\EngineSwitch;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
-/** A work request keeps the card id without a foreign key, so it outlives its card until this cancels it. */
+/** A work request keeps the card id without a foreign key, so it outlives its card until this cancels it, whatever the engine switch says. */
 #[AsEventListener]
 final readonly class WithdrawWorkRequestsOnCardDeleted
 {
     public function __construct(
-        private EngineSwitch $engine,
         private WorkRequestRepository $workRequests,
         private WithdrawWorkRequestHandler $withdrawWorkRequest,
     ) {
@@ -25,7 +23,7 @@ final readonly class WithdrawWorkRequestsOnCardDeleted
 
     public function __invoke(CardChanged $event): void
     {
-        if (CardChanged::DELETED !== $event->change || !$this->engine->isOn()) {
+        if (CardChanged::DELETED !== $event->change) {
             return;
         }
 

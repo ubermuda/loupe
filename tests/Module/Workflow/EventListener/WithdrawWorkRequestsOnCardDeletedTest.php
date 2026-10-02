@@ -10,7 +10,6 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\EventListener\WithdrawWorkRequestsOnCardDeleted;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -28,7 +27,7 @@ final class WithdrawWorkRequestsOnCardDeletedTest extends KernelTestCase
         $done = $this->request($project, $cardId, 'review', WorkRequestState::Done);
         $other = $this->request($project, Uuid::v7(), 'implement', WorkRequestState::Open);
 
-        $this->listener(true)(new CardChanged($this->projectId($project), $cardId, CardChanged::DELETED, false));
+        $this->listener()(new CardChanged($this->projectId($project), $cardId, CardChanged::DELETED, false));
 
         $this->em()->clear();
         self::assertSame(
@@ -42,19 +41,8 @@ final class WithdrawWorkRequestsOnCardDeletedTest extends KernelTestCase
         [$project, $cardId] = $this->scenario();
         $open = $this->request($project, $cardId, 'implement', WorkRequestState::Open);
 
-        $this->listener(true)(new CardChanged($this->projectId($project), $cardId, CardChanged::UPDATED, false));
-        $this->listener(true)(new CardChanged($this->projectId($project), $cardId, CardChanged::CREATED, false));
-
-        $this->em()->clear();
-        self::assertSame(WorkRequestState::Open, $this->em()->find(WorkRequest::class, $open->id)?->state);
-    }
-
-    public function test_the_switch_off_cancels_nothing(): void
-    {
-        [$project, $cardId] = $this->scenario();
-        $open = $this->request($project, $cardId, 'implement', WorkRequestState::Open);
-
-        $this->listener(false)(new CardChanged($this->projectId($project), $cardId, CardChanged::DELETED, false));
+        $this->listener()(new CardChanged($this->projectId($project), $cardId, CardChanged::UPDATED, false));
+        $this->listener()(new CardChanged($this->projectId($project), $cardId, CardChanged::CREATED, false));
 
         $this->em()->clear();
         self::assertSame(WorkRequestState::Open, $this->em()->find(WorkRequest::class, $open->id)?->state);
@@ -78,9 +66,9 @@ final class WithdrawWorkRequestsOnCardDeletedTest extends KernelTestCase
         return $request;
     }
 
-    private function listener(bool $on): WithdrawWorkRequestsOnCardDeleted
+    private function listener(): WithdrawWorkRequestsOnCardDeleted
     {
-        return new WithdrawWorkRequestsOnCardDeleted(new EngineSwitch($on), $this->service(WorkRequestRepository::class), $this->service(WithdrawWorkRequestHandler::class));
+        return new WithdrawWorkRequestsOnCardDeleted($this->service(WorkRequestRepository::class), $this->service(WithdrawWorkRequestHandler::class));
     }
 
     private function projectId(Project $project): Uuid
