@@ -239,6 +239,7 @@ func TestParseRefusesAnInvalidFile(t *testing.T) {
 		"maxChain zero":           {rule("on: board.card_moved\nproject: loupe\nto: ready\nmaxChain: 0\nprompt: x"), "maxChain must be at least 1"},
 		"result field status":     {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  status: {type: string}"), `resultFields: "status" is a core field`},
 		"result field summary":    {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  summary: {type: string}"), `resultFields: "summary" is a core field`},
+		"result field reason":     {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  reason: {type: string}"), `resultFields: "reason" is a core field`},
 		"result field name":       {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  pr-url: {type: string}"), `resultFields: "pr-url" is not a field name`},
 		"result field digit":      {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  1st: {type: string}"), `resultFields: "1st" is not a field name`},
 		"result field scalar":     {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  pr: string"), `resultFields.pr is not a mapping`},
@@ -1030,7 +1031,7 @@ rules:
 // Every rule asks claude for the core result, and a rule's resultFields add
 // optional properties to it. Marshal sorts the keys, so the schema is stable.
 func TestParseBuildsTheResultSchema(t *testing.T) {
-	core := `"status":{"enum":["finished","blocked","unfinished","waiting"],"type":"string"},"summary":{"type":"string"}`
+	core := `"reason":{"type":"string"},"status":{"enum":["finished","blocked","unfinished","waiting"],"type":"string"},"summary":{"type":"string"}`
 	extras := "    to: ready\n    resultFields:\n      prUrl: {type: string}\n      card_count:\n        type: integer\n        minimum: 1\n"
 	for name, tc := range map[string]struct{ body, want string }{
 		"no extras": {oneRule, `{"properties":{` + core + `},"required":["status","summary"],"type":"object"}`},

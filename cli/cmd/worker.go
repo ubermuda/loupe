@@ -43,13 +43,14 @@ const sessionEnv = "LOUPE_SESSION_ID"
 // workerResult is one finished worker. err is set when the process never ran,
 // which is a different fault from a process that ran and failed. hasResult
 // says whether stdout held a valid structured result, and killed that the
-// bridge's context ended the process. fields holds the result's keys other
-// than status and summary.
+// bridge's context ended the process. reason is the result's reason when it is
+// a string. fields holds the result's keys other than status, summary and reason.
 type workerResult struct {
 	exitCode  int
 	output    string
 	hasResult bool
 	status    string
+	reason    string
 	fields    map[string]any
 	killed    bool
 	err       error
@@ -473,8 +474,10 @@ func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResul
 		status, _ := fields["status"].(string)
 		s, isString := fields["summary"].(string)
 		if isString && slices.Contains(rules.ResultStatuses, status) {
+			res.reason, _ = fields["reason"].(string)
 			delete(fields, "status")
 			delete(fields, "summary")
+			delete(fields, "reason")
 			res.hasResult, res.status, res.fields, summary = true, status, fields, s
 		}
 	}

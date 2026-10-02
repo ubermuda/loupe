@@ -425,7 +425,7 @@ func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	if !v4UUID.MatchString(calls[0].runID) {
 		t.Fatalf("run id %q is not a uuid", calls[0].runID)
 	}
-	schema := `{"properties":{"status":{"enum":["finished","blocked","unfinished","waiting"],"type":"string"},"summary":{"type":"string"}},"required":["status","summary"],"type":"object"}`
+	schema := `{"properties":{"reason":{"type":"string"},"status":{"enum":["finished","blocked","unfinished","waiting"],"type":"string"},"summary":{"type":"string"}},"required":["status","summary"],"type":"object"}`
 	want := workerSpec{
 		dir: h.dir, permissionMode: "plan", model: "opus", schema: schema, sessionID: testSession,
 		prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer,
