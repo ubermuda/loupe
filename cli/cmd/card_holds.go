@@ -22,7 +22,8 @@ func (r *router) syncHolds() bool {
 	if errors.Is(err, api.ErrNoCardHolds) {
 		r.mu.Lock()
 		first := !r.noHoldList
-		r.noHoldList = true
+		// A server that lost the list holds a card on a stop again.
+		r.noHoldList, r.holdList = true, false
 		r.mu.Unlock()
 		if first {
 			r.log.Info("card_holds_unsupported", "message", "the server has no held list, so the bridge keeps the holds of the events")

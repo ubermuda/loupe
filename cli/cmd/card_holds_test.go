@@ -217,6 +217,24 @@ func TestAfterTheHeldListAStopHoldsNothing(t *testing.T) {
 	}
 }
 
+// A server that loses the list after a read holds a card on a stop again, so
+// the bridge does too.
+func TestAServerThatLosesTheHeldListTurnsTheStopHoldBackOn(t *testing.T) {
+	h := newHarness(t)
+	lists := &holdLists{}
+	h.router.readHolds = lists.read
+	h.router.handler().OnConnect()
+	lists.err = api.ErrNoCardHolds
+	h.router.handler().OnConnect()
+
+	h.router.mu.Lock()
+	on := h.router.holdList
+	h.router.mu.Unlock()
+	if on {
+		t.Fatal("the bridge kept the held list mode after a 404")
+	}
+}
+
 // A bridge with no reader keeps its holds.
 func TestNoHeldListReaderKeepsTheHolds(t *testing.T) {
 	h := newHarness(t)
