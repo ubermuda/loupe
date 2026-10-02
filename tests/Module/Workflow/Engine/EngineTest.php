@@ -47,8 +47,8 @@ use App\Module\Workflow\Template\ProjectTemplateCopy;
 use App\Module\Workflow\Template\TemplateParser;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Workflow\Action\ActionScenario;
+use App\Tests\Support\RecordingLogger;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -66,6 +66,14 @@ final class EngineTest extends KernelTestCase
 
     /** @var list<CardPaused> */
     private array $paused = [];
+
+    private RecordingLogger $logger;
+
+    #[\Override]
+    protected function setUp(): void
+    {
+        $this->logger = new RecordingLogger();
+    }
 
     public function test_a_rule_fires_on_its_rising_edge_once(): void
     {
@@ -252,6 +260,29 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card, '2026-10-02 12:30:00');
 
         self::assertSame(ReleasePause::RELEASE_REASON, $pause->releaseReason);
+    }
+
+    public function test_a_second_release_rule_does_not_fire_after_the_first_lifts_the_pause(): void
+    {
+        $unhold = static fn (string $id): array => ['id' => $id, 'when' => ['card.type' => ['type' => 'bug']], 'then' => ['release' => ['reason' => 'on-hold']]];
+        $card = $this->boundCard([
+            $unhold('unhold-a'),
+            $unhold('unhold-b'),
+            [
+                'id' => 'hold',
+                'slot' => 'one',
+                'when' => ['card.type' => ['type' => 'bug']],
+                'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['card.type' => ['type' => 'epic']]]],
+            ],
+        ]);
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card);
+        self::assertNotNull($this->activePause($card));
+
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($this->activePause($card));
+        self::assertSame(['unhold-a'], $this->firedRules());
     }
 
     public function test_a_pause_ends_the_evaluation_before_the_release_check_and_any_move(): void
@@ -443,6 +474,24 @@ final class EngineTest extends KernelTestCase
         return ['id' => $id, 'slot' => 'one', 'when' => $when, 'then' => ['move' => ['to' => $to]]];
     }
 
+    /** @return list<string> the ids of the rules that fired in the last evaluation */
+    private function firedRules(): array
+    {
+        $records = array_values(array_filter($this->logger->records, static fn (array $record): bool => 'workflow.card_evaluated' === $record['message']));
+        self::assertNotSame([], $records);
+        $fired = $records[\count($records) - 1]['context']['fired'] ?? null;
+        self::assertIsArray($fired);
+
+        $rules = [];
+        foreach ($fired as $entry) {
+            self::assertIsArray($entry);
+            self::assertIsString($entry['rule'] ?? null);
+            $rules[] = $entry['rule'];
+        }
+
+        return $rules;
+    }
+
     private function evaluate(Card $card, string $at = self::NOON): void
     {
         $this->engine()->evaluate($card->id ?? throw new \LogicException('A flushed card has an id.'), new \DateTimeImmutable($at));
@@ -491,7 +540,7 @@ final class EngineTest extends KernelTestCase
                 new ReleasePause($cardPauses, $releaseCardPause),
             ]),
             $engineEvents,
-            new NullLogger(),
+            $this->logger,
         );
     }
 

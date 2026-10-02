@@ -246,6 +246,9 @@ final readonly class Engine
         $type = $rule->then->type;
         $outcome = $this->actions->get($type)->run($rule, $run->card, $run->facts, $state);
         $run->fired[] = ['rule' => $rule->id, 'outcome' => $outcome->kind->value, 'code' => $outcome->code];
+        if (null !== $run->holdingPause?->releasedAt) {
+            $run->holdingPause = null;
+        }
 
         switch ($outcome->kind) {
             case ActionOutcomeKind::Done:
