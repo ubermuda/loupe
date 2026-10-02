@@ -22,10 +22,12 @@ full_gate="A full local just ci is not the gate, and CI's required checks are. R
 full_phpunit="A full local PHPUnit run is not the gate, and CI's phpunit check is. Name the tests: just phpunit tests/<path> or just phpunit --filter <name>"
 coverage="A full local PHPUnit coverage run is not the gate. Name the tests: just phpunit-coverage tests/<path>, or fetch the full report with just ci-report phpunit-coverage"
 
-# --testsuite does not count, because the only suite is the whole suite.
+# --testsuite does not count, because the only suite is the whole suite, and
+# neither does the tests root itself.
 targeted() {
     for word in "$@"; do
-        case "$word" in
+        case "${word%/}" in
+            tests|./tests) ;;
             tests/*|*/tests/*|*Test.php|--filter|--filter=*|--group|--group=*) return 0 ;;
         esac
     done
@@ -52,32 +54,35 @@ judge_just() {
             ci) deny "$full_gate" ;;
             phpunit) targeted "${words[@]:i+1}" || deny "$full_phpunit"; return ;;
             phpunit-coverage) targeted "${words[@]:i+1}" || deny "$coverage"; return ;;
-            ci-report|e2e|e2e-coverage|js-test|exec|composer|mutation|docs) return ;;
+            exec) judge_command "${words[@]:i+1}"; return ;;
+            ci-report|e2e|e2e-coverage|js-test|composer|mutation|docs) return ;;
             *) i=$((i + 1)) ;;
         esac
     done
+}
+
+judge_command() {
+    local -a words=("$@")
+    local i=0
+    while [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do i=$((i + 1)); done
+
+    case "${words[i]:-}" in
+        just) judge_just "${words[@]:i+1}"; return ;;
+        bin/worktrees/compose-exec.sh|./bin/worktrees/compose-exec.sh) i=$((i + 1)) ;;
+    esac
+    [ "${words[i]:-}" = env ] && i=$((i + 1))
+    while [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do i=$((i + 1)); done
+    [ "${words[i]:-}" = php ] && i=$((i + 1))
+    if is_phpunit "${words[i]:-}"; then
+        targeted "${words[@]:i+1}" || deny "$full_phpunit"
+    fi
 }
 
 # Matching is on the first word of each segment, so a grep that quotes
 # `just ci` is left alone.
 while IFS= read -r segment; do
     read -ra words <<< "$segment"
-    [ "${#words[@]}" -gt 0 ] || continue
-    i=0
-    while [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do i=$((i + 1)); done
-
-    case "${words[i]:-}" in
-        just) judge_just "${words[@]:i+1}" ;;
-        bin/worktrees/compose-exec.sh|./bin/worktrees/compose-exec.sh)
-            i=$((i + 1))
-            [ "${words[i]:-}" = env ] && i=$((i + 1))
-            while [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do i=$((i + 1)); done
-            ;;
-    esac
-    [ "${words[i]:-}" = php ] && i=$((i + 1))
-    if is_phpunit "${words[i]:-}"; then
-        targeted "${words[@]:i+1}" || deny "$full_phpunit"
-    fi
+    [ "${#words[@]}" -gt 0 ] && judge_command "${words[@]}"
 done < <(printf '%s\n' "$command" | tr ';&|' '\n')
 
 exit 0
