@@ -24,11 +24,11 @@ export function initSentry(Sentry = window.Sentry) {
         tracesSampleRate: Number(meta('sentry-browser-traces-sample-rate')),
         // The default 'stream' lifecycle ignores beforeSendTransaction.
         traceLifecycle: 'static',
-        // These replace sendDefaultPii, which SDK 11 no longer reads.
+        // These replace sendDefaultPii, which SDK 11 no longer reads. Headers
+        // stay on for User-Agent; scrubEvent drops the Referer.
         dataCollection: {
             userInfo: false,
             cookies: false,
-            httpHeaders: false,
             urlQueryParams: false,
         },
         integrations: [

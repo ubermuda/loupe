@@ -80,13 +80,13 @@ describe('initSentry', () => {
             dataCollection: {
                 userInfo: false,
                 cookies: false,
-                httpHeaders: false,
                 urlQueryParams: false,
             },
             beforeSend: scrubEvent,
             beforeBreadcrumb: keepBreadcrumb,
         });
         expect(options).not.toHaveProperty('tracePropagationTargets');
+        expect(options.dataCollection).not.toHaveProperty('httpHeaders');
         expect(sentry.withStaticSpan).toHaveBeenCalledWith(scrubSpan);
         expect(options.beforeSendSpan).toBe(scrubSpan);
         expect(sentry.breadcrumbsIntegration).toHaveBeenCalledWith({
