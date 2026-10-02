@@ -111,6 +111,7 @@ final readonly class Engine
 
         $run = new Evaluation($card, $template, $this->factsBuilder->build($card, $now), $this->workflowRuleStates->findForCard($card), $now);
         if ($baseline) {
+            $this->settleWorkRequests($run, $cardId, expire: false);
             $this->baseline($run);
             $this->em->flush();
 
@@ -126,12 +127,16 @@ final readonly class Engine
         return $run;
     }
 
-    /** Records the truth of each rule the card reads now and clears its retries. Runs no action. */
+    /** Records the truth of each rule the card reads now, clears its retries, and resets the rules of other slots. Fires none. */
     private function baseline(Evaluation $run): void
     {
         $run->baselined = true;
         foreach ($run->template->rules as $rule) {
             if (!$run->applies($rule)) {
+                $state = $run->states[$rule->id] ?? null;
+                if (null !== $state) {
+                    $this->write($run, $state, static fn (WorkflowRuleState $state) => $state->reset());
+                }
                 continue;
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
@@ -145,8 +150,11 @@ final readonly class Engine
         }
     }
 
-    /** Cancels the live requests of rules that no longer apply, and expires the open ones no bridge took in time. */
-    private function settleWorkRequests(Evaluation $run, Uuid $cardId): void
+    /**
+     * Cancels the live requests of rules that no longer apply, and expires the open ones no bridge took in time.
+     * A baseline pauses nothing, so it leaves an overdue request to the next pass.
+     */
+    private function settleWorkRequests(Evaluation $run, Uuid $cardId, bool $expire = true): void
     {
         $withdrawn = false;
         foreach ($this->workRequests->findLiveForCard($cardId) as $request) {
@@ -158,7 +166,7 @@ final readonly class Engine
             }
 
             $deadline = ($request->reopenedAt ?? $request->createdAt)->add(new \DateInterval(\sprintf('PT%dM', $run->template->workTimeoutMinutes)));
-            if (WorkRequestState::Open === $request->state && $deadline <= $run->now
+            if ($expire && WorkRequestState::Open === $request->state && $deadline <= $run->now
                 && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($requestId, WorkRequestState::Expired))) {
                 $withdrawn = true;
                 $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);

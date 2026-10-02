@@ -486,6 +486,58 @@ final class EngineTest extends KernelTestCase
         self::assertSame('fix', $live[0]->ruleId);
     }
 
+    public function test_the_release_baseline_cancels_a_request_whose_rule_no_longer_applies(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+        $this->hold($card);
+        $this->moveTo($card, 'done');
+        $this->evaluate($card, '2026-10-02 12:01:00');
+        self::assertSame(WorkRequestState::Open, $request->state);
+        $fired = $this->firedRecords();
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 12:02:00');
+
+        self::assertSame(WorkRequestState::Cancelled, $request->state);
+        self::assertSame($fired, $this->firedRecords());
+    }
+
+    public function test_the_release_baseline_leaves_an_overdue_request_and_pauses_nothing(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+        $this->hold($card);
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 15:00:00');
+
+        self::assertSame(WorkRequestState::Open, $request->state);
+        self::assertNull($this->activePause($card));
+    }
+
+    public function test_the_release_baseline_resets_the_rules_of_the_slot_the_card_left_so_they_fire_on_return(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        self::assertTrue($this->ruleState($card, 'work')->truth);
+        $this->hold($card);
+        $this->moveTo($card, 'in-progress');
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertFalse($this->ruleState($card, 'work')->truth);
+        self::assertSame(0, $this->ruleState($card, 'work')->fires);
+
+        $this->moveTo($card, 'next');
+        $this->evaluate($card, '2026-10-02 12:02:00');
+
+        self::assertCount(1, $this->liveRequests($card));
+    }
+
     public function test_a_card_held_again_before_its_baseline_keeps_it_for_the_next_release(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
