@@ -476,9 +476,13 @@ card. A run that is in progress goes on, so stop it as well if it must end
 now. Loupe refuses a resume of a run of the card while the pause holds. A run
 that waits in a queue stays there, and it starts when the pause ends.
 
+An agent pauses the agents on a card with the `card_hold` MCP tool, and lets
+them run with `card_release`.
+
 These actions end the pause:
 
-- A person selects **Let agents run** in the runs section.
+- A person selects **Let agents run** in the runs section, or an agent calls
+  `card_release`.
 - A person moves the card to another column. A move by an agent or by the
   automation keeps the pause, and so does a move inside the same column.
 - A person deletes the column of the card, or the card.
@@ -627,6 +631,8 @@ Each child of the epic starts from `epic/<n>`, and its pull request targets
 branch already holds their code. Before a merge, the merge stage updates the
 child branch when it is behind `epic/<n>`. When the required checks pass, the
 stage squash-merges the child into `epic/<n>`. That merge needs no approval.
+GitHub has no rule for `epic/<n>`, so the stage checks the child against the
+required checks of `main`, by name.
 
 A merged child moves to `done` as any card does. Its code is on `epic/<n>`, and
 not yet on `main`. The epic card stays open until its own pull request merges.
@@ -641,14 +647,14 @@ A profile can also name an epic preview, a local copy of the app that runs the
 code of `epic/<n>`. After each child merge, the merge stage creates or refreshes
 the preview. It then copies the preview links of the child into the epic pull
 request, each with the result of its check. A link reads "not proved" when the
-data the child seeded for it is missing from the preview.
+data the child seeded for it is missing from the preview. It reads "not minted",
+with a path and no link, when the account of the link is missing from the
+preview.
 
-Two cases do not work yet. The stage that meets one records a block on the
-epic card:
-
-- The epic pull request falls behind `main`. Loupe does not update it yet.
-- The epic pull request gets review feedback. A fix round cannot push to
-  `epic/<n>`, because the branch accepts changes through pull requests only.
+When the epic pull request falls behind `main`, Loupe merges `main` into
+`epic/<n>`, as for any pull request. Your approval covers that merge. A fix
+round on the epic pull request pushes to `epic/<n>` directly. An open child
+then falls behind `epic/<n>`, and the merge stage updates it before its merge.
 
 An epic with one child can close before the stage links its pull request. The
 merge stage then records a block on the epic card.

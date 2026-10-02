@@ -965,10 +965,11 @@ the read fails, the event runs.
 
 ### Held cards
 
-A person pauses the agents on a card, and Loupe then holds the card. A stop of
-a run holds nothing. Loupe writes a `board.card_held` event when a person
-selects **Pause agents**, and a `board.card_released` event when a person
-selects **Let agents run**. The two events have the same payload.
+A person or an agent pauses the agents on a card, and Loupe then holds the
+card. A stop of a run holds nothing. Loupe writes a `board.card_held` event when
+a person selects **Pause agents** or an agent calls `card_hold`. It writes a
+`board.card_released` event when a person selects **Let agents run** or an agent
+calls `card_release`. The two events have the same payload.
 
 ```json
 {
@@ -983,9 +984,9 @@ selects **Let agents run**. The two events have the same payload.
 |---|---|
 | `type` | `board.card_held` or `board.card_released` |
 | `subject.type` | always `card` |
-| `subject.id` | the card whose agents the person paused or let run |
+| `subject.id` | the card whose agents the person or the agent paused or let run |
 | `projectId` | the project of the card |
-| `actor` | always `human` |
+| `actor` | `human` for a person on the card page, `agent` for an MCP call |
 
 No rule matches these events. The bridge keeps the hold, starts no worker on a
 held card, and starts the queued runs of the card on the release. A worker

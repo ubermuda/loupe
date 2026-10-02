@@ -51,6 +51,18 @@ final class ReleaseCardAgentsHandlerTest extends KernelTestCase
         self::assertSame((string) $cardId, $record->context['cardId']);
     }
 
+    public function test_a_release_by_an_agent_names_the_agent_in_the_event(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('release-agents-agent');
+        $cardId = Uuid::v7();
+        $this->cardHolds()->hold($project, $cardId, $owner);
+
+        $this->release($project, $cardId, $owner, 'agent');
+
+        self::assertSame(['agent'], array_column($this->outboxPayloads('board.card_released'), 'actor'));
+    }
+
     public function test_a_release_of_a_card_with_no_hold_is_refused(): void
     {
         self::bootKernel();
@@ -96,12 +108,13 @@ final class ReleaseCardAgentsHandlerTest extends KernelTestCase
         return [$owner, $this->project($em, $owner, 'Project '.substr(md5($name), 0, 8))];
     }
 
-    private function release(Project $project, Uuid $cardId, User $by): void
+    /** @param 'human'|'agent' $actor */
+    private function release(Project $project, Uuid $cardId, User $by, string $actor = 'human'): void
     {
         $this->audit ??= RecordingAuditor::installedIn(self::getContainer());
         $handler = self::getContainer()->get(ReleaseCardAgentsHandler::class);
         self::assertInstanceOf(ReleaseCardAgentsHandler::class, $handler);
-        $handler(new ReleaseCardAgentsCommand($project, $cardId, $by));
+        $handler(new ReleaseCardAgentsCommand($project, $cardId, $by, $actor));
     }
 
     private function cardHolds(): CardHolds
