@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Bridge\Service\CardColumnLookupInterface;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -131,6 +132,27 @@ final class CardAgentsControllersTest extends WebTestCase
 
         $this->post($client, $this->url($project, $unknown, 'release'));
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_a_pause_of_a_card_deleted_after_the_first_lookup_is_not_found(): void
+    {
+        $client = static::createClient();
+        static::getContainer()->set(CardColumnLookupInterface::class, new class implements CardColumnLookupInterface {
+            private int $calls = 0;
+
+            public function columnOf(Project $project, Uuid $cardId): ?string
+            {
+                return 0 === $this->calls++ ? 'implementation' : null;
+            }
+        });
+        [$owner, $project, $cardId] = $this->scenario('gone');
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->url($project, $cardId, 'pause'));
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertFalse($this->isHeld($project, $cardId));
     }
 
     public function test_a_card_of_another_project_is_not_found(): void

@@ -54,6 +54,9 @@ final class PauseCardAgentsController extends AppController
         try {
             ($this->pause)(new PauseCardAgentsCommand($project, $card, $user));
         } catch (DomainErrors $e) {
+            if (\in_array(PauseCardAgentsHandler::CARD_GONE, $e->errors, true)) {
+                throw $this->createNotFoundException();
+            }
             $messages = array_values(array_map($this->translator->trans(...), $e->errors));
             if ($fromCardFrame) {
                 return $this->render('@Bridge/_card_worker_runs.html.twig', [
