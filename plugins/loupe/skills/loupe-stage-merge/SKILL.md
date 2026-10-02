@@ -93,7 +93,7 @@ When a step fails, record the block on the epic card. The child merge stands, so
 
 The epic preview serves the code of the epic branch, so the owner can try every merged child in one place. This section applies only when the profile `Epics` section names an epic preview. Take it only when the epic pull request is open and linked.
 
-Two child merges can run this section at the same time. Take the epic preview lock of the profile `Epics` section before step 1, and release it after step 7, also when a step fails. When the lock does not come, record the block, and skip the section.
+Two child merges can run this section at the same time. Take the epic preview lock of the profile `Epics` section before step 1, and release it after step 7, also when a step fails. When the lock does not come, record the block, and skip the section. With the lock held, read the epic with `card_get` again. When its `status` is a terminal column, release the lock and skip the section, because a finished epic needs no preview.
 
 1. Create the epic preview, or refresh it when it exists, as the profile says. Run a long command as the harness adapter says. Never bind writes to the preview.
 2. Read the body of the merged child pull request with the forge adapter. In the preview section that the profile `Pull request` section names, take each link of the form that the profile `Epics` section carries, with its label and its marker. A child with no such link carries nothing, so release the lock and end the section.
