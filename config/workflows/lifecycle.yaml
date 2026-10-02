@@ -138,6 +138,7 @@ rules:
       slot: in-review
       when:
           all:
+              - card.children_finished: {}
               - pr.open: {}
               - not: { pr.draft: {} }
               - pr.checks_passed: {}
@@ -153,6 +154,7 @@ rules:
       slot: in-review
       when:
           all:
+              - card.children_finished: {}
               - pr.open: {}
               - not: { pr.draft: {} }
               - pr.checks_passed: {}

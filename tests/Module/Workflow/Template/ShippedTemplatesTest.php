@@ -156,6 +156,16 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertContainsEquals(new ActionCall(ActionType::ForgeWrite, ['write' => 'merge', 'fallback' => 'merge']), $this->actions($facts));
     }
 
+    public function test_an_epic_with_a_reopened_child_does_not_merge(): void
+    {
+        $facts = FactsMother::facts(
+            card: FactsMother::card(slot: 'in-review', type: 'epic', childCount: 2, openChildCount: 1),
+            pullRequest: FactsMother::pullRequest(checks: ChecksState::Passed, approvalsCoveringHead: 1),
+        );
+
+        self::assertNotContainsEquals(new ActionCall(ActionType::ForgeWrite, ['write' => 'merge', 'fallback' => 'merge']), $this->actions($facts));
+    }
+
     public function test_a_child_whose_pull_requests_closed_unmerged_stays_in_backlog(): void
     {
         $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
