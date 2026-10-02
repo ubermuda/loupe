@@ -80,6 +80,18 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			stdout: `{"structured_output":{"status":"finished","summary":"Opened a PR.","prUrl":"https://x.test/1","card":87}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: "Opened a PR.", fields: map[string]any{"prUrl": "https://x.test/1", "card": float64(87)}},
 		},
+		"a reason": {
+			stdout: `{"structured_output":{"status":"blocked","summary":"Asked the owner.","reason":"needs-owner","prUrl":"https://x.test/1"}}`,
+			want:   workerResult{hasResult: true, status: "blocked", reason: "needs-owner", output: "Asked the owner.", fields: map[string]any{"prUrl": "https://x.test/1"}},
+		},
+		"a reason that is no string": {
+			stdout: `{"structured_output":{"status":"finished","summary":"Done.","reason":3}}`,
+			want:   workerResult{hasResult: true, status: "finished", output: "Done.", fields: map[string]any{}},
+		},
+		"a reason with no result": {
+			stdout: `{"result":"r","structured_output":{"status":"done","summary":"x","reason":"needs-owner"}}`,
+			want:   workerResult{output: "r"},
+		},
 		"an empty summary falls back to the result": {
 			stdout: `{"result":"All done.","structured_output":{"status":"finished","summary":""}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: "All done.", fields: map[string]any{}},

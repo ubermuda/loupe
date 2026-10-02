@@ -18,6 +18,7 @@ use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunModelUsage;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
@@ -341,6 +342,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             'hasResult' => false,
             'spawnFailed' => false,
             'resultStatus' => null,
+            'resultReason' => null,
             'resultFieldNames' => null,
             'continuesRunKey' => null,
             'resumeIndex' => null,
@@ -435,15 +437,17 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
 
         $this->report($owner, $project, $firstKey, WorkerRunState::Queued);
         $this->report($owner, $project, $resumeKey, WorkerRunState::Queued, continues: $firstKey, resumeIndex: 2, resumeCap: 2, cardColumn: 'implementation');
-        $run = $this->report($owner, $project, $resumeKey, WorkerRunState::GaveUp, resultStatus: 'unfinished', resultFields: ['pullRequest' => 'https://example.com/pull/1'], resumeSkipped: 'card_moved')->run;
+        $run = $this->report($owner, $project, $resumeKey, WorkerRunState::GaveUp, resultStatus: 'unfinished', resultFields: ['pullRequest' => 'https://example.com/pull/1'], resumeSkipped: 'card_moved', resultReason: WorkerRunReason::WaitingChecks)->run;
 
         self::assertInstanceOf(WorkerRun::class, $run);
         self::assertSame(WorkerRunState::GaveUp, $run->state);
         self::assertSame('unfinished', $run->resultStatus);
         self::assertSame(['pullRequest' => 'https://example.com/pull/1'], $run->resultFields);
         self::assertSame('card_moved', $run->resumeSkipped);
+        self::assertSame(WorkerRunReason::WaitingChecks, $run->resultReason);
         $context = $audit->record('bridge.worker_run_recorded')->context;
         self::assertSame('unfinished', $context['resultStatus']);
+        self::assertSame('waiting-checks', $context['resultReason']);
         self::assertSame('pullRequest', $context['resultFieldNames']);
         self::assertSame($firstKey->toRfc4122(), $context['continuesRunKey']);
         self::assertSame(2, $context['resumeIndex']);
@@ -976,6 +980,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?\DateTimeImmutable $endedAt = null,
         ?string $output = null,
         ?WorkerRunTrigger $trigger = null,
+        ?WorkerRunReason $resultReason = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -1009,6 +1014,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             failureReason: WorkerRunState::NotStarted === $state ? ($failureReason ?? 'no claude') : null,
             output: $output ?? ($outcome ? 'output' : null),
             resultStatus: $resultStatus,
+            resultReason: $resultReason,
             resultFields: $resultFields,
             continues: $continues,
             resumeIndex: $resumeIndex,

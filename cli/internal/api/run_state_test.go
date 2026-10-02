@@ -318,12 +318,12 @@ func TestReportRunStateSendsTheResultAndTheResumeFields(t *testing.T) {
 	outcome := stateReport(RunUnfinished)
 	outcome.ExitCode, outcome.HasResult = &code, &has
 	outcome.ResultStatus, outcome.ResultFields = "unfinished", map[string]any{"prUrl": "https://example.test/pr/1"}
-	outcome.ResumeSkipped = "card_moved"
+	outcome.ResultReason, outcome.ResumeSkipped = "ci-red", "card_moved"
 	_, body, _, err := putState(t, outcome, http.StatusCreated)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if body["resultStatus"] != "unfinished" || body["resumeSkipped"] != "card_moved" || body["resultFields"].(map[string]any)["prUrl"] != "https://example.test/pr/1" {
+	if body["resultStatus"] != "unfinished" || body["resultReason"] != "ci-red" || body["resumeSkipped"] != "card_moved" || body["resultFields"].(map[string]any)["prUrl"] != "https://example.test/pr/1" {
 		t.Fatalf("body = %v", body)
 	}
 

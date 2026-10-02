@@ -256,6 +256,7 @@ final readonly class ReportWorkerRunStateHandler
             $command->resultStatus,
             $command->resultFields,
             $command->resumeSkipped,
+            $command->resultReason,
         );
 
         if (null !== $command->usage) {
@@ -280,6 +281,7 @@ final readonly class ReportWorkerRunStateHandler
                 'hasResult' => $run->hasResult,
                 'spawnFailed' => WorkerRunState::NotStarted === $run->state,
                 'resultStatus' => $run->resultStatus,
+                'resultReason' => $run->resultReason?->value,
                 // The values are worker prose, so the record keeps the names alone.
                 'resultFieldNames' => null === $run->resultFields ? null : implode(',', array_keys($run->resultFields)),
                 'continuesRunKey' => $run->continuesRun?->runKey?->toRfc4122(),

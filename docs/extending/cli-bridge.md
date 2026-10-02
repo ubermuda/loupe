@@ -190,6 +190,14 @@ carries `hasResult: false`. The stage skills still print a `STAGE RESULT:`
 line, and the bridge does not read it. `cli/README.md` covers the schema and
 the resume rules in full.
 
+The core schema also takes an optional `reason`, a short code that says why
+the run ended. The stage skills set it from the `[reason: <code>]` tag that ends
+their `STAGE RESULT:` line. The bridge sends it as `resultReason`. The app keeps
+a code it knows, stores `other` for a code it does not know, and stores nothing
+when the field is absent. The worker run drawer shows the code. The reason
+table in `plugins/loupe/skills/loupe-stage-product-design/references/stage-contract.md`
+lists each code.
+
 A worker reports `waiting` when its work waits on the forge, such as checks on
 a pushed pull request. The bridge reports that run as `waiting-on-forge` and
 does not resume it.
