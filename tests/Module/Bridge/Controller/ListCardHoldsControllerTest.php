@@ -9,7 +9,10 @@ use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\AgentCredential;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Component\Uid\Uuid;
 
 final class ListCardHoldsControllerTest extends WebTestCase
@@ -20,6 +23,8 @@ final class ListCardHoldsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
+        $clock = new MockClock('2026-10-01 12:00:00');
+        static::getContainer()->set('clock', $clock);
         $em = $this->em();
         $owner = $this->user($em, 'holds-list@example.com');
         $first = $this->project($em, $owner, 'Holds first');
@@ -28,8 +33,9 @@ final class ListCardHoldsControllerTest extends WebTestCase
         $foreign = $this->project($em, $stranger, 'Holds foreign');
         $one = Uuid::v7();
         $two = Uuid::v7();
-        $this->cardHolds()->hold($first, $one, $owner);
         $this->cardHolds()->hold($second, $two, $owner);
+        $clock->modify('-1 minute');
+        $this->cardHolds()->hold($first, $one, $owner);
         $this->cardHolds()->hold($foreign, Uuid::v7(), $stranger);
 
         $data = $this->list($client, $this->agentToken($client, $owner));
@@ -76,6 +82,26 @@ final class ListCardHoldsControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/api/card-holds');
 
         self::assertResponseStatusCodeSame(401);
+    }
+
+    public function test_the_limit_counts_per_token(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('limiter.agent_card_holds', new RateLimiterFactory(
+            ['id' => 'agent_card_holds', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
+            new InMemoryStorage(),
+        ));
+        $em = $this->em();
+        $first = $this->agentToken($client, $this->user($em, 'holds-limit@example.com'));
+        $second = $this->agentToken($client, $this->user($em, 'holds-limit-other@example.com'));
+
+        $this->list($client, $first);
+
+        $client->request(Request::METHOD_GET, '/api/card-holds', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$first]);
+        self::assertResponseStatusCodeSame(429);
+
+        $this->list($client, $second);
     }
 
     /** @return array<mixed> */
