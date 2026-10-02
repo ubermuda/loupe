@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Event\BridgeNameChanged;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\CliCompatibility;
@@ -12,6 +13,7 @@ use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -29,6 +31,7 @@ final readonly class RecordBridgeHeartbeatHandler
         private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
         private ClockInterface $clock,
     ) {
     }
@@ -41,7 +44,7 @@ final readonly class RecordBridgeHeartbeatHandler
 
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
-        [$bridge, $created, $commands, $pauseChanged] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
+        [$bridge, $created, $commands, $pauseChanged, $nameChanged] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
             $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
@@ -74,6 +77,7 @@ final readonly class RecordBridgeHeartbeatHandler
             if (null !== $command->capabilities) {
                 $bridge->capabilities = $command->capabilities;
             }
+            $heldName = $bridge->name;
             if ('' === $command->name) {
                 $bridge->name = null;
                 $bridge->requestedName = null;
@@ -88,13 +92,17 @@ final readonly class RecordBridgeHeartbeatHandler
             }
 
             // Read under the lock a new command takes, so the reply misses no command stored before it.
-            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged];
+            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged, $heldName !== $bridge->name];
         });
 
         if ($pauseChanged) {
             foreach ($this->projects->findOwnedBy($command->owner, $projects) as $project) {
                 $this->runsChanged->runsChanged($project);
             }
+        }
+
+        if ($nameChanged && [] !== $projects) {
+            $this->events->dispatch(new BridgeNameChanged($this->projects->findOwnedBy($command->owner, $projects)));
         }
 
         // A heartbeat that replaces the row is routine traffic, once a minute per

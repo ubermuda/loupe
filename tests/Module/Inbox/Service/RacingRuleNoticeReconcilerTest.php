@@ -7,6 +7,8 @@ namespace App\Tests\Module\Inbox\Service;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
+use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
+use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxAskOrigin;
@@ -83,6 +85,18 @@ final class RacingRuleNoticeReconcilerTest extends KernelTestCase
         $this->report(['sync-behind']);
 
         $this->reconciler->reconcile($this->project);
+
+        self::assertStringStartsWith("- `sync-behind` on bridge `homelab`\n\n", (string) $this->onlyNotice()->body);
+    }
+
+    public function test_a_heartbeat_that_changes_the_name_rewrites_the_open_notice(): void
+    {
+        $this->report(['sync-behind']);
+        $this->reconciler->reconcile($this->project);
+        $heartbeat = self::getContainer()->get(RecordBridgeHeartbeatHandler::class);
+        self::assertInstanceOf(RecordBridgeHeartbeatHandler::class, $heartbeat);
+
+        $heartbeat(new RecordBridgeHeartbeatCommand($this->project->owner, Uuid::fromString(self::BRIDGE), [(string) $this->project->id], 'b4e39aa7', name: 'homelab'));
 
         self::assertStringStartsWith("- `sync-behind` on bridge `homelab`\n\n", (string) $this->onlyNotice()->body);
     }
