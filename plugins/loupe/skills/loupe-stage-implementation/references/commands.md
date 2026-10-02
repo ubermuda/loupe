@@ -12,7 +12,7 @@ The profile has these sections: `Instruction files`, `Worktree`, `Gate`, `Code r
 
 ## Pick the forge adapter
 
-The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, and post a refusal comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds four more: read the merge state, check the approval covers the head, update the branch, and merge.
+The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, and post a refusal comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds five more: read the merge state, check the approval covers the head, compare with the base, update the branch, and merge.
 
 1. Read the forge from `pullRequests[].forge` in `card_get`: `github`, `gitlab`, `bitbucket` or `other`.
 2. Before a pull request exists, read the host of `git remote get-url origin`. `github.com` is `github`, a `gitlab` host is `gitlab`, `bitbucket.org` is `bitbucket`, and any other host is `other`.
@@ -23,9 +23,19 @@ The stage skills name forge operations. An adapter file maps them to commands fo
 
 Slug a column label from the prompt: lowercase, with hyphens for spaces. Compare the slug with the card `status`.
 
+## Find the base branch
+
+`<base>` is the base branch from the profile `Gate` section, with one exception. A card whose `card_get` `parent` is not null can belong to an epic branch, when the profile has an `Epics` section. Fill the epic branch pattern of that section with `parent.number`, and run this from the main checkout:
+
+```bash
+git ls-remote --exit-code origin refs/heads/<epic branch>
+```
+
+Exit 0 means the epic branch exists, so `<base>` is the epic branch. Any other exit means the epic started before its branch existed, so `<base>` stays the profile base branch. A profile with no `Epics` section, and a card with no parent, keep the profile base branch.
+
 ## Create the card worktree
 
-The profile `Worktree` section names the card worktree path and the command that provisions it. `<base>` is the base branch from the profile `Gate` section. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens. `<cardId>` is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. A profile command may use `<cardId>`. Pass it as the command says, and never derive it from a branch name, a worktree name or a card number. Run these from the main checkout:
+The profile `Worktree` section names the card worktree path and the command that provisions it. `<base>` comes from "Find the base branch". `<short-slug>` is two to four lowercase words from the card title, joined with hyphens. `<cardId>` is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. A profile command may use `<cardId>`. Pass it as the command says, and never derive it from a branch name, a worktree name or a card number. Run these from the main checkout:
 
 ```bash
 git fetch origin
@@ -67,7 +77,9 @@ Then run the commands of the profile `Gate` section in order. Run each long comm
 
 ## Open the pull request
 
-Push the branch, and create the pull request with the forge adapter. Follow the profile `Pull request` section for the title, the body and the ready state.
+Push the branch, and create the pull request with the forge adapter, against `<base>`. Follow the profile `Pull request` section for the title, the body and the ready state.
+
+A pull request into an epic branch is not a stacked pull request. Write `Child of epic #<parent number>, merges into <base>.` in the body. The merge stage merges it into the epic branch, and the epic pull request carries the work to the profile base branch.
 
 A branch that holds the commits of another open pull request stacks on it. The test is `git merge-base --is-ancestor origin/<parent branch> HEAD`, which exits 0, while that pull request is open. Then create the pull request with `<base>` set to the parent's head branch, never the profile base branch. Write `Stacks on #<parent>. Merge #<parent> first.` in the body.
 

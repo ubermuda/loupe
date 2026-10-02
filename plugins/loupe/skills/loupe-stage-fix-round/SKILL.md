@@ -36,6 +36,8 @@ The round ends at the push. It never waits for CI, because the app reads the new
 1. Read `references/pull-request-feedback.md`, then read each linked pull request with the forge adapter. When none is open, stop with `STAGE RESULT: no open pull request`.
 2. Read the mergeability, then the checks and the open feedback items, per the reference. Read the checks once, and never wait for a pending one.
 3. When the pull request is mergeable, no check fails and no item is open, stop with `STAGE RESULT: nothing to fix`.
+   - An epic pull request has the epic branch as its head, as "Epic branches" in `../loupe-stage-merge/SKILL.md` says. When the profile `Epics` section says the epic branch takes every change through a pull request, the forge refuses a push to it. Record the block, post the refusal comment, and stop with `STAGE RESULT: blocked: epic branch takes changes only through a pull request <url>`.
+   - An epic child needs nothing more. Its base comes from the pull request, so the round syncs it with the epic branch.
 4. Read `../loupe-stage-implementation/references/commands.md`, and load the profile `Instruction files`.
 5. Set up or refresh the card worktree from the pull request branch, per the reference. Keep every existing commit.
 6. When the binding fails or the branch differs from the pull request branch, stop with `STAGE RESULT: blocked: worktree binding failed`.

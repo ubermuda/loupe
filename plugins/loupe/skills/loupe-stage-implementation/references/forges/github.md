@@ -69,7 +69,7 @@ gh pr checks <url> --required --json name,bucket,link
 
 `bucket` is `pass`, `fail`, `pending`, `skipping` or `cancel`. The reading describes the head only when `headRefOid` equals the commit you care about. A rollup can still describe an earlier head, as `working-with-prs` "Merging" item 8 says. The repository profile says where the list of required checks comes from.
 
-A stacked pull request has no required checks, because the ruleset covers the profile base branch only. For it, drop `--required`, and count every check.
+A stacked pull request has no required checks when no ruleset covers its base. For it, drop `--required`, and count every check. A pull request into an epic branch has required checks when the profile `Epics` section names a ruleset for that branch.
 
 A check's `link` holds `/actions/runs/<run id>/`. Read the failed steps of that run:
 
@@ -86,6 +86,23 @@ gh pr create --base <base> --title "<title>" --body-file <file>
 ```
 
 Link a pull request that `gh pr list` returns, and create none.
+
+To open a pull request from a branch that the checkout is not on, such as an epic branch, skip the push, and name the head:
+
+```bash
+gh pr list --head <branch> --base <base> --state open --json url
+gh pr create --head <branch> --base <base> --title "<title>" --body-file <file> [--draft]
+```
+
+When `gh pr create` fails because the pull request already exists, run `gh pr list` again, and link the one it returns. GitHub refuses a pull request with no commits between the two branches.
+
+## Compare with the base
+
+```bash
+gh api repos/<nameWithOwner>/compare/<base>...<head sha> --jq .behind_by
+```
+
+`behind_by` counts the commits of the base that the head does not hold. A value above 0 means the branch is behind. GitHub reports `mergeStateStatus` `CLEAN` for a behind pull request when no strict rule covers its base, so read the compare in that case.
 
 ## Check mergeability
 

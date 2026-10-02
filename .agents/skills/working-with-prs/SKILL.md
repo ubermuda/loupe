@@ -786,7 +786,9 @@ gh pr edit <n> --base <parent-branch>   # fix one opened against main
   required checks. Read `gh pr checks <n>` without `--required`, and count
   every check.
 - Never merge the child while it targets its parent's branch. That merge lands
-  on the parent branch with no required check, and never reaches `main`.
+  on the parent branch with no required check, and never reaches `main`. An
+  epic child that targets `epic/<n>` is the exception, as "A child of an epic
+  targets the epic branch" says.
 
 When the parent squash-merges, the child still targets the parent's branch.
 This repository keeps a merged branch (`delete_branch_on_merge` is `false`), so
@@ -800,6 +802,22 @@ git fetch origin && git merge origin/main
 Merge `main` in. Never rebase a branch that holds merge commits. Expect
 conflicts in files the child only extends, as "A stacked branch conflicts after
 its parent squashes" says, and prove the resolution there.
+
+### A child of an epic targets the epic branch
+
+When an epic has an `epic/<n>` branch, each child cuts its branch from
+`origin/epic/<n>`. Its pull request targets `epic/<n>`, never `main` and never
+a sibling's branch. Run the Codex review with `base: "origin/epic/<n>"`.
+
+This child is not a stacked pull request in the sense above. The merge stage
+squash-merges it into `epic/<n>` with no approval, once its required checks
+pass. The `Epics` ruleset is not strict, so GitHub sends no behind event. The
+stage compares the child with `epic/<n>` and merges `epic/<n>` in when it is
+behind.
+
+The epic pull request from `epic/<n>` into `main` needs the owner's approval, as
+any pull request into `main` does. An epic whose breakdown ran before the epic
+branch existed has no `epic/<n>`, and its children target `main`.
 
 ## Running several branches at once
 
