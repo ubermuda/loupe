@@ -74,6 +74,8 @@ type router struct {
 	// none.
 	replay     func(ctx context.Context, after int64) (api.Replay, error)
 	cursorFile string
+	// readHolds reads the held cards on each connect. A nil one reads none.
+	readHolds func(ctx context.Context) ([]api.CardHold, error)
 	// resolvePin asks which variant of an experiment a card runs with, before
 	// its worker starts. A nil one runs the variant the bridge drew.
 	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error)
@@ -183,11 +185,18 @@ type router struct {
 	handled      map[string]time.Time
 	commanding   int
 	// stops holds each run a person stopped until its stopped report goes out.
-	// cardHolds holds the cards of those runs, which start no worker until the
-	// hold ends. stopWaits are the waits of the stop ladder.
+	// cardHolds holds the cards the server states as held, because a person
+	// paused their agents. A held card starts no worker until the hold ends.
+	// stopWaits are the waits of the stop ladder.
 	stops     map[string]bool
 	cardHolds map[string]bool
 	stopWaits stopWaits
+	// noHoldList is set once the server answers that it has no held list.
+	noHoldList bool
+	// holdList is on while the last answer of the held list was a list. While
+	// it is off, the bridge holds a card on a stop and ends the hold on a
+	// resume or a rerun, as an older server does.
+	holdList bool
 	// lastEventID is the resume point of the stream, and recent the ids of the
 	// last events handled, oldest first, which recentSet indexes.
 	lastEventID string
@@ -453,7 +462,13 @@ func (r *router) handler() transport.Handler {
 			if r.update != nil {
 				r.update.markConnected()
 			}
+			// A list read first keeps a replayed event of a held card from
+			// starting it, and a read after makes the list win over the replay.
+			synced := r.syncHolds()
 			r.catchUp()
+			if synced {
+				r.syncHolds()
+			}
 		},
 		OnError:     func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnEvent:     r.onEvent,
@@ -492,6 +507,15 @@ func (r *router) route(data []byte, replayed bool) {
 			return
 		}
 		r.log.Error("event_malformed", "error", err.Error())
+
+		return
+	}
+	// A hold event only states the hold. No rule matches it, and it is not a
+	// person's look at the card that resets a chain.
+	if e.Type == event.CardHeldType || e.Type == event.CardReleasedType {
+		if r.noteCardHold(e) {
+			r.dispatch()
+		}
 
 		return
 	}
@@ -800,7 +824,7 @@ func (r *router) enqueue(p pending) {
 		p.set = current
 		p.apply(m)
 	}
-	// A person stopped the work on the card, so no rule starts anything on it.
+	// The server holds the card, so no rule starts anything on it.
 	if r.heldLocked(p.event) {
 		r.log.Info("card_held", about(p.event, p.rule)...)
 		r.mu.Unlock()

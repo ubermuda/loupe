@@ -1432,14 +1432,30 @@ A stop reaches the process group of the worker only. Work that the worker
 started in another process tree keeps running, such as a PHPUnit run inside a
 Docker container.
 
-A stop holds the card, and the bridge starts no worker for a held card. It also
-skips an event whose `card.held` is `true`, whatever the rule says. An event
-whose `card.held` is `false` ends the hold, and runs as usual. A
-`board.column_deleted` event ends the hold of each card in its `movedCardIds`,
-as the server does. A queued run of
-a held card waits until the hold ends. The bridge keeps its holds in memory,
-and hands them to a new version at an update. A restart forgets them, and the
-next event with `card.held` set to `true` holds the card again.
+A stop ends one run and holds nothing. To keep every agent off a card, a person
+pauses the agents on the card. The server then holds the card, and the bridge
+starts no worker for a held card. A queued run of a held card waits until the
+hold ends. An event of a held card starts nothing, whatever the rule says.
+
+Until the bridge reads the held list once, it treats the server as an older
+one. In that mode a stop holds the card, and a resume or a rerun ends the hold.
+
+The bridge learns of a hold in three ways:
+
+1. A `board.card_held` event holds the card, and a `board.card_released` event
+   ends the hold. No rule can match these two types.
+2. On every connect, the bridge reads `GET /api/card-holds` before and after
+   the catch-up. The answer lists the held cards of every project the
+   token reaches, as `{"holds": [{"projectId": "…", "cardId": "…"}]}`. The list
+   replaces every hold the bridge has. A server without the list answers 404,
+   and the bridge keeps its holds. A failed read also keeps them, until the
+   next connect.
+3. An event whose `card.held` is `true` holds the card, and one whose
+   `card.held` is `false` ends the hold. A `board.column_deleted` event ends the
+   hold of each card in its `movedCardIds`, as the server does.
+
+The bridge keeps its holds in memory, and hands them to a new version at an
+update.
 
 A resume names a run that ended, and continues its session as a new run. The
 bridge refuses the resume when the run has no session id, or when the card
@@ -1447,9 +1463,9 @@ left the column of the run. It also refuses when it cannot read the card, so
 a person can try again. It refuses when this machine holds no transcript of
 the session, and when the rule of the run is gone or opens an interactive
 session. It refuses a run that is still open, a run it resumes already, and a
-resume during a handover or a shutdown. A held card passes, because the
-person's resume ends the hold on the server, and the bridge ends its own hold
-of the card too.
+resume during a handover or a shutdown. A held card passes, and the resume
+waits in the queue until the hold ends. With an older server, the resume ends
+the hold.
 
 The resume runs `claude --resume` on the session with a fixed prompt, in a
 worker slot of the rule's pool. Its `queued` report carries the trigger
@@ -1469,8 +1485,9 @@ placeholder, such as `{to}`, because that value would be empty. Its `queued` rep
 `continues` with the run key, and a `resumeIndex` one above the index of that
 run. The bridge refuses the rerun when the rule of the run is gone or no longer
 runs a command. It also refuses when the card has a run that is open on this
-bridge, and during a handover or a shutdown. A held card passes, and the bridge
-ends its own hold of the card. The rerun logs `command_rerun_asked`.
+bridge, and during a handover or a shutdown. A held card passes, and the rerun
+waits in the queue until the hold ends. With an older server, the rerun ends
+the hold. The rerun logs `command_rerun_asked`.
 
 ### Updates
 
@@ -1579,6 +1596,8 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_stopped` | `card`, `project`, `rule`: the bridge reported a stopped run |
 | `card_held` | `card`, `project`, `rule`: the card is held, so the event starts nothing |
 | `card_hold_released` | `card_id`: the hold of the card ended |
+| `card_holds_unsupported` | `message`: the server has no held list. The bridge keeps its holds, and logs this once per process |
+| `card_holds_unreadable` | `error`: the read of the held list failed. The bridge keeps its holds until the next connect. Level `WARN` |
 | `event_duplicate` | `id`: the hub or the catch-up sent an event again that the bridge already handled, as after a handover |
 | `catch_up_done` | `after`: the cursor the catch-up read from, `events`: the events it received, `cursor`: the cursor after it |
 | `catch_up_failed` | `after`, `error`: a replay page failed, so the bridge reads the stream live. The saved cursor stays at `after` until a catch-up reads to the last page, so the next connect or a restart reads from there. Level `WARN` |

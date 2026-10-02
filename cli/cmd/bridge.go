@@ -413,6 +413,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.replay == nil {
 		r.replay = apiClient(cfg).Replay
 	}
+	if r.readHolds == nil {
+		r.readHolds = apiClient(cfg).CardHolds
+	}
 	r.applyFlags(events)
 	r.restoreState(events.Head)
 	var updates *updater
