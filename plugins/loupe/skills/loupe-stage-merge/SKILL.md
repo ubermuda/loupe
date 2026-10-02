@@ -42,12 +42,13 @@ An epic child merges with no approval, because the epic pull request carries the
 
 This step serves a project with the board automation setting "Sync an approved pull request that is behind" off. With it on, Loupe updates the branch itself, and a `pull_request.behind` rule races it.
 
-1. Check for an epic pull request. When the profile `Epics` section says its branch takes every change through a pull request, the forge refuses the update. Record the block as "Record a block" in `../loupe-stage-implementation/references/commands.md` says. Stop with `STAGE RESULT: blocked: epic branch takes changes only through a pull request <url>`.
-2. When `mergeable` is `CONFLICTING`, stop with `STAGE RESULT: not ready <url>: conflicting`. The app sends a fix request for a conflict.
-3. When the review decision is not `APPROVED`, stop with `STAGE RESULT: not ready <url>: not approved`. The merge would stop there too. An epic child skips this item.
-4. Check that the approval covers the head, as "Merge" item 4 says. Use the head of step 6 in place of the SHA of the prompt. When there is no approval, stop with `STAGE RESULT: not ready <url>: not approved`. When the check holds for another reason, stop with `STAGE RESULT: not ready <url>: <reason>`. When it cannot read the approval, stop with `STAGE RESULT: blocked: approval unreadable <url>`. Each update costs a full CI run, and the base can move again before an approval arrives. An epic child skips this item.
-5. Update the branch with the forge adapter. When the forge says the branch is already up to date, stop with `STAGE RESULT: not ready <url>: not behind`.
-6. Stop with `STAGE RESULT: waiting <url>`. The app reads the new head and its checks.
+An epic pull request updates as any other pull request. The update merges the base into the epic branch.
+
+1. When `mergeable` is `CONFLICTING`, stop with `STAGE RESULT: not ready <url>: conflicting`. The app sends a fix request for a conflict.
+2. When the review decision is not `APPROVED`, stop with `STAGE RESULT: not ready <url>: not approved`. The merge would stop there too. An epic child skips this item.
+3. Check that the approval covers the head, as "Merge" item 4 says. Use the head of step 6 in place of the SHA of the prompt. When there is no approval, stop with `STAGE RESULT: not ready <url>: not approved`. When the check holds for another reason, stop with `STAGE RESULT: not ready <url>: <reason>`. When it cannot read the approval, stop with `STAGE RESULT: blocked: approval unreadable <url>`. Each update costs a full CI run, and the base can move again before an approval arrives. An epic child skips this item.
+4. Update the branch with the forge adapter. When the forge says the branch is already up to date, stop with `STAGE RESULT: not ready <url>: not behind`.
+5. Stop with `STAGE RESULT: waiting <url>`. The app reads the new head and its checks.
 
 ### Merge
 
@@ -57,11 +58,11 @@ Merge only when every item holds. The first item that fails ends the run with `S
 2. The pull request is not a draft.
 3. The review decision is `APPROVED`.
 4. Every current approval covers every commit up to the SHA of the prompt. Check it with the forge adapter. When the profile `Merge` section names an approver, only that reviewer's approval counts.
-5. Every required check passes, and none fails or is pending. Count the checks against the required count of the profile `Gate` section.
+5. Every required check passes, and none fails or is pending. Count the checks against the required count of the profile `Gate` section. An epic branch has no required checks of its own. For an epic child, check by name the required checks of the base branch of the profile `Merge` section, as the forge adapter says.
 6. `mergeStateStatus` is `CLEAN`, `HAS_HOOKS` or `UNSTABLE`.
-7. An epic child is not behind its base. Compare the SHA of the prompt with the base, as the forge adapter says. When `behind_by` is above 0, take "Update" from item 5. The app sends no behind event for a base with no strict rule, so this item replaces it.
+7. An epic child is not behind its base. Compare the SHA of the prompt with the base, as the forge adapter says. When `behind_by` is above 0, take "Update" from item 4. The app sends no behind event for a base with no strict rule, so this item replaces it. A sync of the epic branch with a merge of its base puts each open child behind, and the forge adapter's update merges the epic branch into the child.
 
-An epic child skips items 3 and 4. Item 5 still counts the required checks of the profile `Gate` section.
+An epic child skips items 3 and 4.
 
 Item 4 reads the approval by time. A forge can keep a review decision `APPROVED` after new commits arrive, so item 3 alone is not enough. A commit counts as later when it reached the branch after the earliest current approval. The forge adapter sorts each later commit:
 
@@ -92,15 +93,18 @@ When a step fails, record the block on the epic card. The child merge stands, so
 
 The epic preview serves the code of the epic branch, so the owner can try every merged child in one place. This section applies only when the profile `Epics` section names an epic preview. Take it only when the epic pull request is open and linked.
 
+Two child merges can run this section at the same time. Take the epic preview lock of the profile `Epics` section before step 1, and release it after step 7, also when a step fails. When the lock does not come, record the block, and skip the section. With the lock held, read the epic with `card_get` again. When its `status` is a terminal column, release the lock and skip the section, because a finished epic needs no preview.
+
 1. Create the epic preview, or refresh it when it exists, as the profile says. Run a long command as the harness adapter says. Never bind writes to the preview.
-2. Read the body of the merged child pull request with the forge adapter. In the preview section that the profile `Pull request` section names, take each link of the form that the profile `Epics` section carries, with its label and its marker. A child with no such link carries nothing, so the section ends here.
-3. For each link, mint a link on the epic preview and prove it, as the profile says. The mint or the proof can fail, because the child seeded its state into its own database. Write such a line as not proved, and go on.
-4. Read the body of the epic pull request with the forge adapter, just before you write it. Another child can merge at the same time.
+2. Read the body of the merged child pull request with the forge adapter. In the preview section that the profile `Pull request` section names, take each link of the form that the profile `Epics` section carries, with its label and its marker. A child with no such link carries nothing, so release the lock and end the section.
+3. For each link, mint a link on the epic preview and prove it, as the profile says. The mint or the proof can fail, because the child seeded its state into its own database. Write such a line as not minted or not proved, and go on.
+4. Read the body of the epic pull request with the forge adapter, just before you write it.
 5. In its preview section, replace the lines that start with `#<child number>:`, and keep every other line. When the body has no such section, add it at the top. Write one line per link:
    - `#<child number>: <label> <link> (proved: <marker>)`
    - `#<child number>: <label> <link> (not proved: <marker>)`
+   - `#<child number>: <label> <path> (not minted: <marker>)`, when the mint failed. `<path>` is the decoded target path, because the link of the child is signed for the child host.
 6. Replace the body of the epic pull request with the forge adapter. Write the body to a temporary file outside the repository with a file tool, not with the shell.
-7. Read the body again. When the lines of this child are missing, another merge wrote over them. Do steps 4 to 6 once more.
+7. Read the body again. When the lines of this child are missing, record the block.
 
 When a step fails, record the block on the epic card, with the epic pull request URL. A link that fails its mint or its proof is no failure of a step. The child merge stands, so the run still stops with `STAGE RESULT: merged <url>`.
 

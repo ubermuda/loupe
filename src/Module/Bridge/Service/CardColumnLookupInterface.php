@@ -12,4 +12,7 @@ interface CardColumnLookupInterface
 {
     /** The slug of the card's column now, or null when the project has no such card. */
     public function columnOf(Project $project, Uuid $cardId): ?string;
+
+    /** The id of the card with this number, or null when the project has no such card. */
+    public function cardIdOfNumber(Project $project, int $number): ?Uuid;
 }

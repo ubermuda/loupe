@@ -215,7 +215,8 @@ refreshes `.worktrees/card-<number>`, provisions it with `just worktree-up`,
 and prints its path. The worker starts in that folder, and the stage skills
 work there. The `fix-pr` rule also passes the pull request number, so the
 script can make a lost folder again from the head branch. The `teardown` rule
-runs `just worktree-down` with no agent when the card reaches Done.
+runs `just worktree-down` with no agent when the card reaches Done. For an
+epic, it also removes the epic preview `.worktrees/epic-<number>`.
 [Before command](../extending/cli-bridge.md#before-command) and
 [Command action](../extending/cli-bridge.md#command-action) describe both
 fields.

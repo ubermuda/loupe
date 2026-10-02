@@ -78,6 +78,27 @@ final class BoardCardColumnLookupTest extends KernelTestCase
         self::assertNull($this->lookup->columnOf($project, $foreign));
     }
 
+    public function test_it_returns_the_id_of_the_card_with_a_number(): void
+    {
+        $project = $this->makeProject('number-lookup');
+        $this->card($project, 1, 'next');
+        $card = $this->card($project, 2, 'next');
+
+        self::assertSame((string) $card, (string) $this->lookup->cardIdOfNumber($project, 2));
+    }
+
+    public function test_it_returns_no_id_for_an_unknown_number(): void
+    {
+        self::assertNull($this->lookup->cardIdOfNumber($this->makeProject('number-lookup-unknown'), 7));
+    }
+
+    public function test_it_returns_no_id_for_a_number_of_another_project(): void
+    {
+        $this->card($this->makeProject('number-lookup-other'), 3, 'next');
+
+        self::assertNull($this->lookup->cardIdOfNumber($this->makeProject('number-lookup-mine'), 3));
+    }
+
     private function card(Project $project, int $number, string $slug): Uuid
     {
         $card = new Card(project: $project, column: $this->column($project, $slug), title: 'Card', body: '', number: $number);

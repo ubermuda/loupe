@@ -35,7 +35,7 @@ The round ends at the push. It never waits for CI, because the app reads the new
 
 1. Read `references/pull-request-feedback.md`, then read each linked pull request with the forge adapter. When none is open, stop with `STAGE RESULT: no open pull request`.
 2. Read the mergeability, then the checks and the open feedback items, per the reference. Read the checks once, and never wait for a pending one.
-3. When the pull request is mergeable, no check fails and no item is open, stop with `STAGE RESULT: nothing to fix`. Otherwise, check for an epic pull request. Its head is the epic branch, as "Epic branches" in `../loupe-stage-merge/SKILL.md` says. When the profile `Epics` section says that branch takes every change through a pull request, the forge refuses a push. Then follow step 12 with the reason `epic branch takes changes only through a pull request <url>`.
+3. When the pull request is mergeable, no check fails and no item is open, stop with `STAGE RESULT: nothing to fix`. An epic pull request takes the round as any other pull request, and the round pushes to the epic branch.
 4. Read `../loupe-stage-implementation/references/commands.md`, and load the profile `Instruction files`.
 5. Check the worker folder, and sync it with the pull request branch, per the reference. Keep every existing commit.
 6. When the branch differs from the pull request branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.

@@ -293,7 +293,9 @@ Roughly in the order an agent uses them:
 | `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
 | `bridge_list` | List the bridges that follow the project, with their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
-| `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not pause the agents on the card |
+| `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not pause the agents on the card, so call `card_hold` for that |
+| `card_hold` | Pause the agents on a card, by `cardId` or `number`. No bridge starts a worker on the card until the pause ends. A live run goes on |
+| `card_release` | Let the agents run on a paused card. The queued runs on the card then start |
 | `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
 
 ### Finding a document without reading every one
