@@ -6,7 +6,7 @@ namespace App\Module\Board\Service;
 
 use Symfony\Component\Uid\Uuid;
 
-/** Why a card moved: an app rule, or the run of an agent. A history row stores it as detail(). */
+/** Why a card moved: an app rule, a workflow rule, or the run of an agent. A history row stores it as detail(). */
 final readonly class CardEventCause
 {
     /** @param array<string, scalar> $fields */
@@ -55,6 +55,11 @@ final readonly class CardEventCause
     public static function run(Uuid|string $runId, string $rule): self
     {
         return new self('run', ['run' => (string) $runId, 'rule' => $rule]);
+    }
+
+    public static function workflowRule(string $ruleId): self
+    {
+        return new self('workflow-rule', ['rule' => $ruleId]);
     }
 
     /** @return array<string, scalar> */
