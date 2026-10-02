@@ -54,6 +54,22 @@ class BoardAutomationSettings
         /** Brings an approved pull request that is behind its base up to date. */
         #[ORM\Column(options: ['default' => false])]
         public bool $syncBehind = false,
+
+        /** Merges a pull request when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $mergePullRequests = false,
+
+        /** Changes the base of a pull request when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $changeBase = false,
+
+        /** Switches the draft state of an epic pull request when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $epicDraftSwitch = false,
+
+        /** Closes the pull requests of an epic when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $closeEpicPullRequests = false,
     ) {
     }
 }

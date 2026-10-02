@@ -6797,6 +6797,22 @@
                 <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
                 <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.label">
+                <source>board.form.save_board_automation_settings_form.merge_pull_requests.label</source>
+                <target>Merge a pull request when the workflow asks</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.help">
+                <source>board.form.save_board_automation_settings_form.merge_pull_requests.help</source>
+                <target>Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.change_base.label">
+                <source>board.form.save_board_automation_settings_form.change_base.label</source>
+                <target>Change the base of a pull request when the workflow asks</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.change_base.help">
+                <source>board.form.save_board_automation_settings_form.change_base.help</source>
+                <target>Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
                 <target>Loupe could not post the last fix run comment on %pull_request%</target>

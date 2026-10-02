@@ -53,6 +53,8 @@ final class EditBoardAutomationSettingsController extends AppController
                 commentOnFixQueued: $data->commentOnFixQueued,
                 commentOnStaleApproval: $data->commentOnStaleApproval,
                 syncBehind: $data->syncBehind,
+                mergePullRequests: $data->mergePullRequests,
+                changeBase: $data->changeBase,
             ));
             $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 

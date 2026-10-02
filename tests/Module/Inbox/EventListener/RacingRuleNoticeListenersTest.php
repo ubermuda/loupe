@@ -83,6 +83,8 @@ final class RacingRuleNoticeListenersTest extends WebTestCase
             commentOnFixQueued: false,
             commentOnStaleApproval: false,
             syncBehind: $syncBehind,
+            mergePullRequests: false,
+            changeBase: false,
         ));
     }
 
