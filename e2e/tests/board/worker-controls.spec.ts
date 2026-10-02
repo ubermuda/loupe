@@ -1,7 +1,6 @@
 /**
- * Browser coverage for the Stop and Cancel request controls on the card page.
- * The heartbeat and the run go through the real bridge endpoints with an agent
- * token, so no bridge runs and no request ever settles.
+ * The run and agent controls on the card page. The heartbeat and the run go
+ * through the real bridge endpoints, so no bridge runs and no request settles.
  */
 
 import { expect } from '@playwright/test';
@@ -20,7 +19,7 @@ test.afterAll(async ({ request }) => {
     expect(response.ok()).toBeTruthy();
 });
 
-test('the owner stops a running run, which holds the card, and cancels the stop', async ({
+test('the owner stops a run, which holds nothing, then pauses and releases the agents', async ({
     page,
 }) => {
     // A card, a board load, a token and two reports outlast the default budget on CI.
@@ -92,10 +91,7 @@ test('the owner stops a running run, which holds the card, and cancels the stop'
 
     await stop.click();
     await expect(label).toHaveText('Stop requested');
-    await expect(held).toBeVisible();
-    await expect(held).toContainText(
-        'Held: no worker starts on this card until you resume one of its runs in Run history, or move it.',
-    );
+    await expect(held).toHaveCount(0);
 
     await row
         .getByRole('button', { name: 'Cancel request', exact: true })
@@ -103,4 +99,27 @@ test('the owner stops a running run, which holds the card, and cancels the stop'
     await expect(stop).toBeEnabled();
     await expect(label).toHaveCount(0);
     await expect(held).toHaveCount(0);
+
+    const runs = page.locator('turbo-frame#card-worker-runs');
+    await runs
+        .getByRole('button', { name: 'Pause agents', exact: true })
+        .click();
+    await expect(held).toBeVisible();
+    await expect(held).toContainText(
+        'Agents paused: no worker starts on this card until you let agents run or move it.',
+    );
+    const release = runs.getByRole('button', {
+        name: 'Let agents run',
+        exact: true,
+    });
+    await expect(release).toBeVisible();
+    await expect(
+        runs.getByRole('button', { name: 'Pause agents', exact: true }),
+    ).toHaveCount(0);
+
+    await release.click();
+    await expect(held).toHaveCount(0);
+    await expect(
+        runs.getByRole('button', { name: 'Pause agents', exact: true }),
+    ).toBeVisible();
 });
