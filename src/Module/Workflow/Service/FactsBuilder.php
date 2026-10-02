@@ -102,7 +102,7 @@ final readonly class FactsBuilder
         $baseIsEpicBranch = null !== $base && \in_array(self::branchKey($pullRequest, $base), $epicBranches, true);
 
         $parents = [];
-        if (null !== $base && $base !== $pullRequest->defaultBranch) {
+        if (null !== $base && $base !== $pullRequest->defaultBranch && !$baseIsEpicBranch) {
             $projectId = $pullRequest->project->id ?? throw new \LogicException('A stored pull request has a project id.');
             $parents = array_filter(
                 $this->forgePullRequests->findByHeadBranch($projectId, $pullRequest->forge, $pullRequest->repository, $base),

@@ -269,7 +269,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertSame([], $facts->pullRequests);
     }
 
-    public function test_a_pull_request_on_the_branch_of_the_open_epic_pull_request_targets_the_epic(): void
+    public function test_a_pull_request_on_the_branch_of_the_open_epic_pull_request_targets_the_epic_and_is_not_stacked(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic');
@@ -285,7 +285,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertNotNull($facts);
         self::assertTrue($facts->baseIsEpicBranch);
         self::assertTrue($facts->baseIsMergeTarget);
-        self::assertTrue($facts->stacked);
+        self::assertFalse($facts->stacked);
         self::assertFalse($facts->parentMerged);
     }
 
