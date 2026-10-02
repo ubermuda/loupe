@@ -199,6 +199,15 @@ class ForgePullRequest
             $this->syncRequestedAt = null;
             $this->syncFailedReason = null;
         }
+        $open = PullRequestState::Open === $snapshot->state;
+        if ($headMoved || !$open) {
+            $this->mergeRequestedSha = null;
+            $this->mergeRequestedAt = null;
+        }
+        if (!$open || $snapshot->baseBranch === $this->baseChangeRequestedTo) {
+            $this->baseChangeRequestedTo = null;
+            $this->baseChangeRequestedAt = null;
+        }
         $this->state = $snapshot->state;
         $this->draft = $snapshot->draft;
         $this->headSha = $snapshot->headSha;
