@@ -26,11 +26,19 @@ use Symfony\Component\Uid\Uuid;
  */
 #[ORM\Entity(repositoryClass: BridgeRepository::class)]
 #[ORM\Table(name: 'bridges')]
+// One owner's bridges hold distinct names. The predicate is written the way
+// Postgres stores it, so migrate-diff stays quiet.
+#[ORM\UniqueConstraint(name: 'uniq_bridges_owner_name', columns: ['owner_id', 'name'], options: ['where' => '(name IS NOT NULL)'])]
 class Bridge
 {
     public const int MAX_CLI_VERSION_LENGTH = 100;
 
     public const int MAX_UPDATE_VERSION_LENGTH = 100;
+
+    public const int MAX_NAME_LENGTH = 40;
+
+    /** Refuses control, format and unassigned code points, so a name cannot hide or reorder its text. Empty matches, because a blank name clears it. */
+    public const string NAME_PATTERN = '/^\P{C}*$/uD';
 
     /** The capability of a bridge that reads commands from the outbox and the heartbeat reply. */
     public const string CAPABILITY_COMMANDS = 'commands';
@@ -97,6 +105,14 @@ class Bridge
     #[ORM\Column(name: 'capabilities', type: Types::JSON, nullable: true)]
     public ?array $capabilities = null;
 
+    /** The name the bridge holds. Null while it asked for none, or while another bridge of the owner holds the one it asked for. */
+    #[ORM\Column(name: 'name', length: self::MAX_NAME_LENGTH, nullable: true)]
+    public ?string $name = null;
+
+    /** The name the last heartbeat asked for. */
+    #[ORM\Column(name: 'requested_name', length: self::MAX_NAME_LENGTH, nullable: true)]
+    public ?string $requestedName = null;
+
     /**
      * @param list<string> $projects
      */
@@ -132,5 +148,10 @@ class Bridge
     public function takesReruns(): bool
     {
         return $this->takesCommands() && \in_array(self::CAPABILITY_RERUN_COMMAND, $this->capabilities ?? [], true);
+    }
+
+    public function nameClashes(): bool
+    {
+        return null !== $this->requestedName && null === $this->name;
     }
 }

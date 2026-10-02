@@ -467,6 +467,9 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'an unknown update state' => [['update' => ['state' => 'exploded']]];
         yield 'an update with no state' => [['update' => ['version' => '1.3.0']]];
         yield 'an update version that is too long' => [['update' => ['state' => 'updating', 'version' => str_repeat('1', Bridge::MAX_UPDATE_VERSION_LENGTH + 1)]]];
+        yield 'a name that is too long' => [['name' => str_repeat('a', Bridge::MAX_NAME_LENGTH + 1)]];
+        yield 'a name with a control character' => [['name' => "lap\x01top"]];
+        yield 'a name that is not a string' => [['name' => 7]];
     }
 
     /** @param array<string, mixed> $overrides */
@@ -497,6 +500,73 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(200);
         self::assertSame('b4e39aa7', $this->bridge($owner, $bridgeId)->cliVersion);
+    }
+
+    /** The length is measured on the trimmed name, so the stored value is the one the check read. */
+    public function test_the_name_is_stored_trimmed(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user($this->em(), 'heartbeat-name-trim@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'name' => '  '.str_repeat('a', Bridge::MAX_NAME_LENGTH).'  ']);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertSame(str_repeat('a', Bridge::MAX_NAME_LENGTH), $bridge->name);
+        self::assertSame(str_repeat('a', Bridge::MAX_NAME_LENGTH), $bridge->requestedName);
+    }
+
+    public function test_a_blank_name_clears_both_names(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user($this->em(), 'heartbeat-name-blank@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'name' => 'laptop']);
+        self::assertSame('laptop', $this->bridge($owner, $bridgeId)->name);
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'name' => '   ']);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertNull($bridge->name);
+        self::assertNull($bridge->requestedName);
+    }
+
+    public function test_a_heartbeat_without_a_name_keeps_the_stored_names(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user($this->em(), 'heartbeat-name-absent@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'name' => 'laptop']);
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertSame('laptop', $bridge->name);
+        self::assertSame('laptop', $bridge->requestedName);
+    }
+
+    public function test_a_name_another_bridge_holds_still_answers_the_heartbeat(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user($this->em(), 'heartbeat-name-clash-api@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $holder = (string) Uuid::v4();
+        $claimer = (string) Uuid::v4();
+
+        $this->put($client, $holder, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'name' => 'laptop']);
+        $this->put($client, $claimer, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'name' => 'laptop']);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $claimer);
+        self::assertNull($bridge->name);
+        self::assertSame('laptop', $bridge->requestedName);
     }
 
     public function test_a_bridge_id_that_is_not_a_uuid_is_not_found(): void

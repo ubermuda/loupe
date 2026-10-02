@@ -34,6 +34,7 @@ final class RecordBridgeHeartbeatRequest
      * @param list<BridgeWorkerPoolInput>|null $workerPools  null from a bridge that predates worker pools
      * @param bool|null                        $paused       null from a bridge that predates the pause
      * @param list<string>|null                $capabilities null from a bridge that predates capabilities
+     * @param string|null                      $name         null from a bridge that predates names; blank clears the name
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -66,6 +67,10 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Count(max: self::MAX_CAPABILITIES)]
         #[Assert\Type('list')]
         public ?array $capabilities = null,
+
+        #[Assert\Length(max: Bridge::MAX_NAME_LENGTH, normalizer: 'trim')]
+        #[Assert\Regex(pattern: Bridge::NAME_PATTERN, normalizer: 'trim')]
+        public ?string $name = null,
     ) {
     }
 
@@ -137,6 +142,12 @@ final class RecordBridgeHeartbeatRequest
             static fn (string $id): string => Uuid::fromString($id)->toRfc4122(),
             $this->projects ?? [],
         )));
+    }
+
+    /** Null when the bridge sent no name. Trimmed, because the constraints read the trimmed value. */
+    public function name(): ?string
+    {
+        return null === $this->name ? null : trim($this->name);
     }
 
     /** Trimmed, because the length constraint measured the trimmed value. */
