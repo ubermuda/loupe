@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -117,10 +118,14 @@ func cleanLaunchScripts(root string, now time.Time, log *slog.Logger) {
 	}
 }
 
+// launchAborted is the failure of a launch whose work request ended first.
+const launchAborted = "the work request ended before the session opened"
+
 // runLauncher runs the launch command and returns why it failed, or "" when it
 // launched. A command still running at the timeout counts as launched. The
-// bridge never kills it, because it may be the terminal the session runs in.
-func runLauncher(argv []string, timeout time.Duration) string {
+// bridge never kills it then, because it may be the terminal the session runs
+// in. A ctx that ends before kills the command, and no session opens.
+func runLauncher(ctx context.Context, argv []string, timeout time.Duration) string {
 	cmd := exec.Command(argv[0], argv[1:]...)
 	out := &capWriter{limit: 4 * maxLaunchReason}
 	cmd.Stdout, cmd.Stderr = out, out
@@ -141,6 +146,11 @@ func runLauncher(argv []string, timeout time.Duration) string {
 	case err = <-done:
 	case <-timer.C:
 		return ""
+	case <-ctx.Done():
+		_ = signalGroup(cmd.Process.Pid, stopKill)
+		<-done
+
+		return launchAborted
 	}
 	var exitErr *exec.ExitError
 	switch {
@@ -174,17 +184,20 @@ type launch struct {
 	claude  string
 	command rules.Launch
 	dir     string
+	// ctx ends when the work request of the launch is no longer the bridge's.
+	ctx context.Context
 }
 
 // launchLocked opens an interactive session for p on its own goroutine. It
 // takes no worker slot and no card key, so a worker of the card runs beside
-// it. A shut router opens nothing. The caller holds mu.
-func (r *router) launchLocked(p pending) {
+// it. A shut router opens nothing. ctx aborts the launch until its command
+// returns. The caller holds mu.
+func (r *router) launchLocked(p pending, ctx context.Context) {
 	if r.shut() {
 		return
 	}
 	p.spec.sessionID = r.worker.sessionID()
-	l := launch{p: p, claude: r.claude, command: p.set.Launch(), dir: r.scriptDir}
+	l := launch{p: p, claude: r.claude, command: p.set.Launch(), dir: r.scriptDir, ctx: ctx}
 	if l.dir == "" {
 		l.dir = defaultScriptDir()
 	}
@@ -203,11 +216,17 @@ func (r *router) runLaunch(l launch) {
 	p := l.p
 	reason := ""
 	path, err := writeLaunchScript(l.dir, p.spec.sessionID, launchScript(l.claude, p.spec))
-	if err != nil {
+	switch {
+	case l.ctx.Err() != nil:
+		reason = launchAborted
+		if err == nil {
+			os.Remove(path)
+		}
+	case err != nil:
 		reason = err.Error()
-	} else {
+	default:
 		_, number := cardOf(p.event)
-		reason = runLauncher(l.command.Argv(rules.LaunchValues{
+		reason = runLauncher(l.ctx, l.command.Argv(rules.LaunchValues{
 			Script: path, Dir: p.spec.dir, SessionID: p.spec.sessionID, CardNumber: strconv.Itoa(number), Project: p.project,
 		}), l.command.Timeout)
 		if reason != "" {

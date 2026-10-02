@@ -3,8 +3,10 @@ package cmd
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
@@ -278,5 +280,57 @@ func TestARenameLogsTheDeadWorkOnce(t *testing.T) {
 	line := h.only(t, "work_dead")
 	if line["project_slug"] != "loupe" || line["reason"] != api.ReasonProjectRenamed {
 		t.Fatalf("line = %v", line)
+	}
+}
+
+// A claim that ends while its launch command runs kills the command, so no
+// session opens for work the bridge no longer holds. The launch posts no
+// result.
+func TestAnEndedClaimKillsItsLaunch(t *testing.T) {
+	for name, end := range map[string]func(h *harness, w api.WorkRequest){
+		"cancelled": func(h *harness, w api.WorkRequest) {
+			w.State = api.WorkRequestCancelled
+			h.router.onData([]byte(workPayload(w)))
+		},
+		"lost": func(h *harness, w api.WorkRequest) {
+			h.router.loseClaims([]api.WorkClaim{{ID: w.WorkRequestID, ClaimToken: tokenOf(1)}})
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, rec := launchHarnessWith(t, interactiveWorkRules, `[sh, -c, 'touch "$0.started"; exec sleep 30', '{script}']`)
+			f := h.withWork()
+			w := workRequest(1, 87, "design", api.WorkRequestOpen)
+			f.requests[w.WorkRequestID] = w
+
+			h.router.onData([]byte(workPayload(w)))
+			eventually(t, "the launch command", func() bool {
+				started, _ := filepath.Glob(filepath.Join(h.router.scriptDir, "*.started"))
+
+				return len(started) == 1
+			})
+			end(h, w)
+			waited := make(chan struct{})
+			go func() {
+				h.router.wg.Wait()
+				close(waited)
+			}()
+			select {
+			case <-waited:
+			case <-time.After(20 * time.Second):
+				t.Fatal("the launch command still runs")
+			}
+
+			if got := f.settled(); len(got) != 0 {
+				t.Fatalf("results = %v", got)
+			}
+			launches := rec.launches()
+			if len(launches) != 1 || launches[0].report.State != api.RunNotStarted {
+				t.Fatalf("launches = %+v", launches)
+			}
+			h.assertNoWorkerState(t, rec)
+			if got := h.heldClaims(); len(got) != 0 {
+				t.Fatalf("claims = %v", got)
+			}
+		})
 	}
 }

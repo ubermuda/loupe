@@ -45,6 +45,21 @@ type heldClaim struct {
 	req     api.WorkRequest
 	running bool
 	gone    bool
+	// abort ends the launch of an interactive claim until its command returns.
+	abort context.CancelFunc
+}
+
+// abortableLocked is the context of the launch of p, which an end of its claim
+// cancels. The caller holds mu.
+func (r *router) abortableLocked(p pending) context.Context {
+	c := r.claims[p.work.WorkRequestID]
+	if c == nil {
+		return context.Background()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	c.abort = cancel
+
+	return ctx
 }
 
 // isWork reports whether p runs a work request.
@@ -107,10 +122,10 @@ func (r *router) takeWork(w api.WorkRequest, source string) {
 		}
 	case api.WorkRequestDone, api.WorkRequestRefused:
 		// A result that landed already dropped the claim. One whose post is
-		// in flight drops it here, so the next heartbeat renews no settled claim.
+		// in flight drops it here, so the next heartbeat renews no settled
+		// claim, and a launch that still runs aborts.
 		if c != nil && c.token != "" && !c.running {
-			delete(r.claims, id)
-			r.noteClaimsLocked()
+			r.endClaimLocked(id, c)
 		}
 	}
 	dropped := r.dispatchLocked()
@@ -366,6 +381,10 @@ func (r *router) endClaimLocked(id string, c *heldClaim) {
 	}
 	delete(r.claims, id)
 	r.noteClaimsLocked()
+	// A launch command that returned already leaves the session to the person.
+	if c.abort != nil {
+		c.abort()
+	}
 	if !c.running {
 		return
 	}

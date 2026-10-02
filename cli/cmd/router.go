@@ -878,10 +878,10 @@ func (r *router) enqueue(p pending) {
 			r.launching++
 			r.claimThenLocked(p, func(p pending) {
 				r.launching--
-				r.launchLocked(p)
+				r.launchLocked(p, r.abortableLocked(p))
 			}, func() { r.launching-- })
 		} else {
-			r.launchLocked(p)
+			r.launchLocked(p, context.Background())
 		}
 		r.mu.Unlock()
 
