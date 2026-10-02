@@ -369,6 +369,35 @@ describe('board-place', () => {
         expect(document.body.innerHTML).toBe(before);
         expect(missed).toHaveBeenCalledOnce();
     });
+
+    it('places the card face and skips the row while the list is not loaded', () => {
+        document.querySelector('.lp-board-list').remove();
+        const missed = vi.fn();
+        const placed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        document.addEventListener('board:placed', placed, { once: true });
+
+        placeCard(
+            stream({
+                id: 'a',
+                column: NEXT,
+                after: 'c',
+                rowAfter: 'c',
+                counts: { [BACKLOG]: 1, [NEXT]: 2 },
+            }),
+        );
+
+        expect(order(`#board-group-${NEXT} .lp-board-card`)).toEqual([
+            'c',
+            'a',
+        ]);
+        expect(document.querySelector('.lp-board-list__row')).toBeNull();
+        expect(document.getElementById(`board-count-${NEXT}`).textContent).toBe(
+            '2',
+        );
+        expect(missed).not.toHaveBeenCalled();
+        expect(placed).toHaveBeenCalledOnce();
+    });
 });
 
 const EPIC = 'epic';
@@ -639,6 +668,33 @@ describe('board-place on a board with lanes', () => {
         expect(
             document.querySelector('.lp-board-list').textContent,
         ).not.toContain('null');
+    });
+
+    it('morphs the head of a lane epic and skips its row while the list is not loaded', () => {
+        document.querySelector('.lp-board-list').remove();
+        const missed = vi.fn();
+        const placed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        document.addEventListener('board:placed', placed, { once: true });
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: NEXT,
+                lane: 'other',
+                rowAfter: 'c',
+                head: true,
+                body: laneHead('Renamed', '1/2 done') + row(EPIC, NEXT),
+            }),
+        );
+
+        expect(
+            document.querySelector(`#board-lane-${EPIC} .lp-board-lane__title`)
+                .textContent,
+        ).toBe('Renamed');
+        expect(document.querySelector('.lp-board-list__row')).toBeNull();
+        expect(missed).not.toHaveBeenCalled();
+        expect(placed).toHaveBeenCalledOnce();
     });
 
     it('takes a lane epic placed as a lane head out of the deck it left', () => {

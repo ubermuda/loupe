@@ -11,6 +11,7 @@ use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\CardPullRequestStates;
@@ -27,12 +28,13 @@ final readonly class ShowCardPlacementHandler
         private CardDocumentRepository $cardDocuments,
         private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
+        private BoardAutomation $automation,
     ) {
     }
 
     public function __invoke(ShowCardPlacementCommand $command): CardPlacementView
     {
-        $windowStart = BoardColumnCards::windowStart();
+        $windowStart = BoardColumnCards::windowStart($this->automation->settingsOf($command->project)->terminalWindowDays);
         $columns = [];
         $backlog = null;
         foreach ($this->boardColumns->findForProject($command->project) as $boardColumn) {

@@ -73,6 +73,11 @@ final class BoardStructureDigestTest extends TestCase
         self::assertNotSame($before, $this->digest());
     }
 
+    public function test_the_digest_changes_with_the_terminal_window(): void
+    {
+        self::assertNotSame($this->digest(), $this->digest(terminalWindowDays: 10));
+    }
+
     public function test_the_digest_changes_when_a_lane_turns_on_or_off(): void
     {
         $withLane = $this->digest();
@@ -111,7 +116,7 @@ final class BoardStructureDigestTest extends TestCase
      * @param list<DeadBridgeRuleView>   $deadRules
      * @param list<RacingBridgeRuleView> $racingRules
      */
-    private function digest(?array $columns = null, ?array $lanes = null, array $deadRules = [], array $racingRules = []): string
+    private function digest(?array $columns = null, ?array $lanes = null, array $deadRules = [], array $racingRules = [], int $terminalWindowDays = 3): string
     {
         $views = array_map(
             static fn (BoardColumn $column): BoardColumnView => new BoardColumnView($column, [], 0),
@@ -121,6 +126,7 @@ final class BoardStructureDigestTest extends TestCase
         return new BoardStructureDigest()->forBoard(
             $views,
             $lanes ?? [new BoardLaneView($this->epic, [])],
+            $terminalWindowDays,
             $deadRules,
             $racingRules,
         );

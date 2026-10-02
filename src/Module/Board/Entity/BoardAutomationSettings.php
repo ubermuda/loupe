@@ -10,7 +10,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
-/** How the board drives the pull requests of the cards of one project. */
+/** How the board drives the pull requests of the cards of one project, and how much finished work it shows. */
 #[ORM\Entity(repositoryClass: BoardAutomationSettingsRepository::class)]
 #[ORM\Table(name: 'board_automation_settings')]
 class BoardAutomationSettings
@@ -18,6 +18,10 @@ class BoardAutomationSettings
     public const int MIN_LOOP_LIMIT = 1;
 
     public const int MAX_LOOP_LIMIT = 20;
+
+    public const int MIN_TERMINAL_WINDOW_DAYS = 1;
+
+    public const int MAX_TERMINAL_WINDOW_DAYS = 30;
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -54,6 +58,10 @@ class BoardAutomationSettings
         /** Brings an approved pull request that is behind its base up to date. */
         #[ORM\Column(options: ['default' => false])]
         public bool $syncBehind = false,
+
+        /** How many days back a terminal column of the board reads. The history page shows the rest. */
+        #[ORM\Column(options: ['default' => 3])]
+        public int $terminalWindowDays = 3,
     ) {
     }
 }

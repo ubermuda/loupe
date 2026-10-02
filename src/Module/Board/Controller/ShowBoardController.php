@@ -45,6 +45,7 @@ final class ShowBoardController extends AppController
             'board' => ($this->showBoard)(new ShowBoardCommand($project)),
             'addColumnForm' => $this->getInjectedFormView($request, 'addColumnForm'),
             'configureColumnForm' => $this->getInjectedFormView($request, 'configureColumnForm'),
+            'terminalWindowForm' => $this->getInjectedFormView($request, 'terminalWindowForm'),
             'boardTopic' => $this->topics->forBoard($project->id ?? throw new \LogicException('Project has no id.')),
         ]);
     }

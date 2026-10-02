@@ -939,9 +939,6 @@
     .lp-board-list {
         @apply overflow-x-auto rounded-xl border border-line bg-surface-1;
     }
-    .lp-board-list[hidden] {
-        @apply hidden;
-    }
     .lp-board-list__header,
     .lp-board-list__row {
         display: grid;
@@ -6222,25 +6219,27 @@
         @apply outline-2 outline-offset-2;
         animation: lp-board-card-changed 1500ms ease-out both;
     }
-    .lp-board-card__grip {
-        @apply absolute top-2 right-2 touch-none text-fg-faint;
-    }
-    .lp-board-card:active {
+    /* The dragged card takes no pointer events, so the board shows the cursor. */
+    .lp-board-card:active,
+    .lp-deck__card:active,
+    .lp-board--dragging,
+    .lp-board--dragging * {
         @apply cursor-grabbing;
     }
     /* A title holds identifiers such as a PHP namespace or a long snake_case
        tool name, which no space breaks. They must wrap inside the card. */
     .lp-board-card__title {
-        @apply pr-6 font-display text-sm font-semibold text-ink no-underline break-words hover:text-accent-ink;
+        @apply font-display text-sm font-semibold text-ink no-underline break-words hover:text-accent-ink;
     }
     /* A card's per-project number, sized like the documents list's version chip
        so the two identifiers read at the same weight across the app. */
     .lp-board-card__number {
         @apply font-mono text-xs font-semibold text-fg-dim;
     }
-    /* Identifier and classification lead the card face, above the title. */
+    /* Identifier and classification lead the card face, above the title. The row
+       is the touch drag handle, and a touch press elsewhere scrolls the board. */
     .lp-board-card__identity {
-        @apply flex flex-wrap items-center gap-2 pr-6;
+        @apply flex flex-wrap items-center gap-2 touch-none;
     }
     .lp-card-number {
         @apply font-mono align-middle text-2xl font-semibold text-fg-dim;
@@ -6278,8 +6277,8 @@
         @apply inline-flex items-center gap-1 text-xs font-semibold text-fg-mute;
     }
 
-    /* The move controls, on the card's own page. The board face carries the
-       same form with no controls, because dragging is its one interaction. */
+    /* The move controls, on the card's own page. The board carries one hidden
+       copy of the form, because dragging is its one interaction. */
     /* Status is the move control: a column select and Move. */
     .lp-card-move__form {
         @apply flex flex-wrap items-center gap-2;

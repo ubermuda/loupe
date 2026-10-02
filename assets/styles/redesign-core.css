@@ -102,16 +102,8 @@
     background: var(--surface-2);
 }
 
-.lp-core-board .lp-board-card__grip {
-    position: absolute;
-    top: calc(var(--spacing) * 3);
-    right: calc(var(--spacing) * 2.5);
-    color: var(--faint);
-}
-
 .lp-core-board .lp-board-card__title {
     display: block;
-    padding-right: calc(var(--spacing) * 5);
     color: var(--ink);
     font-family: var(--font-display);
     font-size: var(--text-sm);

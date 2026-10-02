@@ -16,30 +16,26 @@ use App\Module\Project\Entity\Project;
  */
 final readonly class BoardColumnCards
 {
-    /**
-     * How far back a terminal column reads.
-     *
-     * A terminal column only ever grows, so it shows a recent slice and the
-     * history page carries the rest.
-     */
-    public const int TERMINAL_WINDOW_DAYS = 7;
-
     public function __construct(
         private CardRepository $cards,
     ) {
     }
 
-    /** The oldest completion a terminal column shows now. Read it once per request. */
-    public static function windowStart(): \DateTimeImmutable
+    /**
+     * The oldest completion a terminal column shows now. Read it once per request.
+     * A terminal column only ever grows, so it shows a recent slice and the
+     * history page carries the rest.
+     */
+    public static function windowStart(int $days): \DateTimeImmutable
     {
-        return new \DateTimeImmutable(\sprintf('-%d days', self::TERMINAL_WINDOW_DAYS));
+        return new \DateTimeImmutable(\sprintf('-%d days', $days));
     }
 
     /** @return list<Card> */
-    public function shown(BoardColumn $column): array
+    public function shown(BoardColumn $column, \DateTimeImmutable $windowStart): array
     {
         if ($column->terminal) {
-            return $this->cards->findCompletedSince($column, self::windowStart());
+            return $this->cards->findCompletedSince($column, $windowStart);
         }
 
         return $this->cards->findForBoard([$column]);
