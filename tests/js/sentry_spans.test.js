@@ -154,6 +154,46 @@ describe('sentry spans', () => {
         expect(span.setStatus).not.toHaveBeenCalled();
     });
 
+    it.each([
+        ['turbo:frame-render', 'text/html; charset=utf-8'],
+        ['turbo:render', 'text/html; charset=utf-8'],
+        ['turbo:frame-render', STREAM],
+        ['turbo:render', STREAM],
+    ])(
+        'waits for its own render after an early %s and a %s response',
+        (early, contentType) => {
+            enableSpans(sentry);
+            fire('turbo:submit-start');
+            fire(early);
+            fire('turbo:submit-end', { fetchResponse: response(contentType) });
+            paint();
+            const [span] = sentry.spans;
+            expect(span.end).not.toHaveBeenCalled();
+
+            fire('turbo:before-stream-render');
+            paint();
+
+            expect(span.end).toHaveBeenCalledTimes(1);
+        },
+    );
+
+    it('ends an HTML submit at its own render after an early stream render', () => {
+        enableSpans(sentry);
+        fire('turbo:submit-start');
+        fire('turbo:before-stream-render');
+        fire('turbo:submit-end', {
+            fetchResponse: response('text/html; charset=utf-8'),
+        });
+        paint();
+        const [span] = sentry.spans;
+        expect(span.end).not.toHaveBeenCalled();
+
+        fire('turbo:render');
+        paint();
+
+        expect(span.end).toHaveBeenCalledTimes(1);
+    });
+
     it.each(['turbo:render', 'turbo:frame-render'])(
         'ends an HTML submit after %s and a paint',
         (signal) => {

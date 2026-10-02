@@ -98,11 +98,8 @@ function finishAfterPaint(interaction) {
     afterPaint(() => finish(interaction));
 }
 
-function rendersBody(fetchResponse) {
-    return (
-        Boolean(fetchResponse?.isHTML) ||
-        Boolean(fetchResponse?.contentType?.startsWith(STREAM_TYPE))
-    );
+function isStream(fetchResponse) {
+    return Boolean(fetchResponse?.contentType?.startsWith(STREAM_TYPE));
 }
 
 function onSubmitEnd(event) {
@@ -110,18 +107,25 @@ function onSubmitEnd(event) {
     if (!interaction) {
         return;
     }
-    if (rendersBody(event.detail?.fetchResponse) && !interaction.rendered) {
+    const fetchResponse = event.detail?.fetchResponse;
+    const rendersBody =
+        Boolean(fetchResponse?.isHTML) || isStream(fetchResponse);
+    if (rendersBody && !(isStream(fetchResponse) && interaction.rendered)) {
         interaction.awaiting = true;
     } else {
         finishAfterPaint(interaction);
     }
 }
 
-// Turbo can render a stream before it fires turbo:submit-end.
-function onRender() {
+// Turbo can render a stream before it fires turbo:submit-end. A page or frame
+// render at that time can come from another request, so it marks nothing.
+function onRender(event) {
     if (open?.awaiting) {
         finishAfterPaint(open);
-    } else if (open?.op === SUBMIT) {
+    } else if (
+        open?.op === SUBMIT &&
+        event.type === 'turbo:before-stream-render'
+    ) {
         open.rendered = true;
     }
 }
