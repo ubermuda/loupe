@@ -60,7 +60,7 @@ Call `worker_run_stop` with the `runId` and a `reason` that a person reads. A st
 
 Call `card_hold` with one of `cardId` or `number`. No bridge then starts a worker on the card. A pause stops no live run, so call `worker_run_stop` as well when a run must end now. A queued run waits, and starts when the pause ends.
 
-Call `card_release` to end the pause. A person ends it too when they select **Let agents run**, move the card to another column, or delete the card. Do not release a pause that you did not set, unless a person asks you to.
+Call `card_release` to end the pause. A person ends it too when they select **Let agents run**, move the card to another column, or delete the card.
 
 ## Cancel a command
 
