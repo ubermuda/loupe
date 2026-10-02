@@ -782,3 +782,17 @@ func TestTheBridgeCatchesUpFromTheHead(t *testing.T) {
 		t.Fatalf("workers = %+v, card reads = %v, log = %s", worker.recorded(), fake.cardReads, log.String())
 	}
 }
+
+func TestTheHeartbeatBodyCarriesTheRuleFileName(t *testing.T) {
+	for value, want := range map[string]string{`"studio"`: "studio", `""`: ""} {
+		body := "name: " + value + "\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nrules:\n" +
+			"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n"
+		set, err := rules.Parse([]byte(body), rules.Defaults{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hb := heartbeatBody(set); hb.Name == nil || *hb.Name != want {
+			t.Fatalf("name: %s gave %v, want %q", value, hb.Name, want)
+		}
+	}
+}
