@@ -7,8 +7,10 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Bridge\Service\WorkRequestLease;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -22,9 +24,14 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class RecordBridgeHeartbeatHandler
 {
+    /** The reply repeats the outbox offers, so it needs no more than a bridge can start soon. */
+    public const int MAX_WORK_REQUEST_OFFERS = 100;
+
     public function __construct(
         private BridgeRepository $bridges,
         private BridgeCommandRepository $bridgeCommands,
+        private WorkRequestRepository $workRequests,
+        private WorkRequestLease $lease,
         private ProjectRepository $projects,
         private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
@@ -41,7 +48,7 @@ final readonly class RecordBridgeHeartbeatHandler
 
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
-        [$bridge, $created, $commands, $pauseChanged] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
+        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
             $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
@@ -75,8 +82,18 @@ final readonly class RecordBridgeHeartbeatHandler
                 $bridge->capabilities = $command->capabilities;
             }
 
+            $lostClaims = [];
+            if (null !== $command->workClaims) {
+                $renewed = $this->workRequests->renewLeases($command->bridgeId, $command->workClaims, $this->lease->until($now));
+                $named = array_values(array_unique(array_map(static fn (array $claim): string => $claim[0]->toRfc4122(), $command->workClaims)));
+                $lostClaims = array_values(array_diff($named, $renewed));
+            }
+            $workRequests = $bridge->takesWorkRequests()
+                ? $this->workRequests->findOpenOffers($bridge->projects, $bridge->capabilities ?? [], self::MAX_WORK_REQUEST_OFFERS)
+                : [];
+
             // Read under the lock a new command takes, so the reply misses no command stored before it.
-            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged];
+            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged, $workRequests, $lostClaims];
         });
 
         if ($pauseChanged) {
@@ -96,6 +113,6 @@ final readonly class RecordBridgeHeartbeatHandler
             );
         }
 
-        return new RecordBridgeHeartbeatResult($bridge, CliCompatibility::RANGE, $commands);
+        return new RecordBridgeHeartbeatResult($bridge, CliCompatibility::RANGE, $commands, $workRequests, $lostClaims);
     }
 }

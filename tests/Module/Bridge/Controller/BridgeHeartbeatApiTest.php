@@ -8,12 +8,15 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Controller\Api\BridgeHookInput;
 use App\Module\Bridge\Controller\Api\RecordBridgeHeartbeatRequest;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeCommandPayload;
+use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
+use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\AgentCredential;
@@ -29,6 +32,8 @@ use Symfony\Component\Uid\Uuid;
 final class BridgeHeartbeatApiTest extends WebTestCase
 {
     use BridgeScenario;
+
+    private const string WORK_NOW = '2026-10-01 12:30:00';
 
     public function test_the_first_heartbeat_records_the_bridge_for_the_token_owner(): void
     {
@@ -47,7 +52,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(200);
-        self::assertJsonStringEqualsJsonString('{"cliRange":"^1.0","paused":false,"commands":[]}', (string) $client->getResponse()->getContent());
+        self::assertJsonStringEqualsJsonString('{"cliRange":"^1.0","paused":false,"commands":[],"workRequests":[],"lostClaims":[]}', (string) $client->getResponse()->getContent());
         $bridge = $this->bridge($owner, $bridgeId);
         self::assertSame([(string) $project->id], $bridge->projects);
         self::assertNull($bridge->pausedReported);
@@ -388,6 +393,209 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertSame('resume-run', $reply['commands'][0]['kind']);
     }
 
+    public function test_a_bridge_that_takes_work_requests_gets_the_open_requests_of_the_projects_it_follows(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock(self::WORK_NOW));
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-offers@example.com');
+        $stranger = $this->user($em, 'heartbeat-offers-stranger@example.com');
+        $followed = $this->project($em, $owner, 'Offers Followed');
+        $unfollowed = $this->project($em, $owner, 'Offers Unfollowed');
+        $foreign = $this->project($em, $stranger, 'Offers Foreign');
+        $later = $this->seedWorkRequest($em, $followed, createdAt: new \DateTimeImmutable('2026-10-01 12:10:00'));
+        $earlier = $this->seedWorkRequest($em, $followed, createdAt: new \DateTimeImmutable('2026-10-01 12:00:00'));
+        $this->seedWorkRequest($em, $followed, state: WorkRequestState::Claimed, bridgeId: Uuid::v4(), claimToken: Uuid::v4(), leaseUntil: new \DateTimeImmutable('2026-10-01 12:31:00'));
+        $this->seedWorkRequest($em, $followed, state: WorkRequestState::Done);
+        $this->seedWorkRequest($em, $unfollowed);
+        $this->seedWorkRequest($em, $foreign);
+
+        $this->put($client, (string) Uuid::v4(), $this->agentToken($client, $owner), [
+            'projects' => [(string) $followed->id, (string) $foreign->id],
+            'cliVersion' => 'b4e39aa7',
+            'capabilities' => [Bridge::CAPABILITY_WORK_REQUESTS],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $reply = $this->reply($client);
+        self::assertSame([(string) $earlier->id, (string) $later->id], array_column($reply['workRequests'], 'workRequestId'));
+        self::assertSame(WorkRequestPayload::of($earlier), $reply['workRequests'][0]);
+        self::assertSame([], $reply['lostClaims']);
+    }
+
+    public function test_a_request_that_needs_a_capability_reaches_only_a_bridge_that_reports_it(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock(self::WORK_NOW));
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-offers-capability@example.com');
+        $project = $this->project($em, $owner, 'Offers Capability');
+        $any = $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 12:00:00'));
+        $interactive = $this->seedWorkRequest($em, $project, kind: 'design', capability: Bridge::CAPABILITY_INTERACTIVE, createdAt: new \DateTimeImmutable('2026-10-01 12:05:00'));
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, (string) Uuid::v4(), $raw, [
+            'projects' => [(string) $project->id],
+            'cliVersion' => 'b4e39aa7',
+            'capabilities' => [Bridge::CAPABILITY_WORK_REQUESTS],
+        ]);
+        self::assertSame([(string) $any->id], array_column($this->reply($client)['workRequests'], 'workRequestId'));
+
+        $this->put($client, (string) Uuid::v4(), $raw, [
+            'projects' => [(string) $project->id],
+            'cliVersion' => 'b4e39aa7',
+            'capabilities' => [Bridge::CAPABILITY_WORK_REQUESTS, Bridge::CAPABILITY_INTERACTIVE],
+        ]);
+        self::assertSame([(string) $any->id, (string) $interactive->id], array_column($this->reply($client)['workRequests'], 'workRequestId'));
+    }
+
+    public function test_a_bridge_that_takes_no_work_requests_gets_no_offer(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-offers-none@example.com');
+        $project = $this->project($em, $owner, 'Offers None');
+        $this->seedWorkRequest($em, $project);
+
+        $this->put($client, (string) Uuid::v4(), $this->agentToken($client, $owner), [
+            'projects' => [(string) $project->id],
+            'cliVersion' => 'b4e39aa7',
+            'capabilities' => ['commands', Bridge::CAPABILITY_INTERACTIVE],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $reply = $this->reply($client);
+        self::assertSame([], $reply['workRequests']);
+        self::assertSame([], $reply['lostClaims']);
+    }
+
+    public function test_a_named_claim_that_the_bridge_holds_renews_its_lease(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock(self::WORK_NOW));
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-renew@example.com');
+        $project = $this->project($em, $owner, 'Renew');
+        $bridgeId = Uuid::v4();
+        $token = Uuid::v4();
+        $held = $this->seedWorkRequest($em, $project, state: WorkRequestState::Claimed, bridgeId: $bridgeId, claimToken: $token, leaseUntil: new \DateTimeImmutable('2026-10-01 12:31:00'));
+
+        $this->put($client, (string) $bridgeId, $this->agentToken($client, $owner), [
+            'projects' => [(string) $project->id],
+            'cliVersion' => 'b4e39aa7',
+            'capabilities' => [Bridge::CAPABILITY_WORK_REQUESTS],
+            'workClaims' => [
+                ['id' => (string) $held->id, 'claimToken' => (string) $token],
+                ['id' => strtoupper((string) $held->id), 'claimToken' => (string) $token],
+            ],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $reply = $this->reply($client);
+        self::assertSame([], $reply['lostClaims']);
+        self::assertSame([], $reply['workRequests']);
+        self::assertSame('2026-10-01 12:32:00', $this->leaseUntil($held));
+    }
+
+    public function test_a_named_claim_that_the_bridge_no_longer_holds_is_lost(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock(self::WORK_NOW));
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-lost@example.com');
+        $project = $this->project($em, $owner, 'Lost');
+        $bridgeId = Uuid::v4();
+        $token = Uuid::v4();
+        $lease = new \DateTimeImmutable('2026-10-01 12:31:00');
+        $held = $this->seedWorkRequest($em, $project, state: WorkRequestState::Claimed, bridgeId: $bridgeId, claimToken: $token, leaseUntil: $lease);
+        $otherToken = $this->seedWorkRequest($em, $project, state: WorkRequestState::Claimed, bridgeId: $bridgeId, claimToken: Uuid::v4(), leaseUntil: $lease);
+        $reopened = $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 12:20:00'));
+        $withdrawn = $this->seedWorkRequest($em, $project, state: WorkRequestState::Cancelled, bridgeId: $bridgeId, claimToken: $token, leaseUntil: $lease);
+        $unknown = Uuid::v4();
+
+        $this->put($client, (string) $bridgeId, $this->agentToken($client, $owner), [
+            'projects' => [(string) $project->id],
+            'cliVersion' => 'b4e39aa7',
+            'workClaims' => [
+                ['id' => (string) $otherToken->id, 'claimToken' => (string) $token],
+                ['id' => (string) $held->id, 'claimToken' => (string) $token],
+                ['id' => (string) $reopened->id, 'claimToken' => (string) $token],
+                ['id' => (string) $withdrawn->id, 'claimToken' => (string) $token],
+                ['id' => (string) $unknown, 'claimToken' => (string) $token],
+            ],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $reply = $this->reply($client);
+        self::assertSame(
+            [(string) $otherToken->id, (string) $reopened->id, (string) $withdrawn->id, (string) $unknown],
+            $reply['lostClaims'],
+        );
+        self::assertSame([], $reply['workRequests']);
+        self::assertSame('2026-10-01 12:32:00', $this->leaseUntil($held));
+        self::assertSame('2026-10-01 12:31:00', $this->leaseUntil($otherToken));
+    }
+
+    public function test_a_claim_of_another_bridge_is_lost_and_keeps_its_lease(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock(self::WORK_NOW));
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-lost-bridge@example.com');
+        $project = $this->project($em, $owner, 'Lost Bridge');
+        $token = Uuid::v4();
+        $other = $this->seedWorkRequest($em, $project, state: WorkRequestState::Claimed, bridgeId: Uuid::v4(), claimToken: $token, leaseUntil: new \DateTimeImmutable('2026-10-01 12:31:00'));
+
+        $this->put($client, (string) Uuid::v4(), $this->agentToken($client, $owner), [
+            'projects' => [(string) $project->id],
+            'cliVersion' => 'b4e39aa7',
+            'workClaims' => [['id' => (string) $other->id, 'claimToken' => (string) $token]],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([(string) $other->id], $this->reply($client)['lostClaims']);
+        self::assertSame('2026-10-01 12:31:00', $this->leaseUntil($other));
+    }
+
+    /** A bridge that predates work requests sends no list, and its claims, if any, run out. */
+    public function test_a_heartbeat_without_work_claims_renews_no_lease(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock(self::WORK_NOW));
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-no-claims@example.com');
+        $project = $this->project($em, $owner, 'No Claims');
+        $bridgeId = Uuid::v4();
+        $held = $this->seedWorkRequest($em, $project, state: WorkRequestState::Claimed, bridgeId: $bridgeId, claimToken: Uuid::v4(), leaseUntil: new \DateTimeImmutable('2026-10-01 12:31:00'));
+
+        $this->put($client, (string) $bridgeId, $this->agentToken($client, $owner), [
+            'projects' => [(string) $project->id],
+            'cliVersion' => 'b4e39aa7',
+            'capabilities' => [Bridge::CAPABILITY_WORK_REQUESTS],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([], $this->reply($client)['lostClaims']);
+        self::assertSame('2026-10-01 12:31:00', $this->leaseUntil($held));
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     *
+     * @return array<string, mixed>
+     */
+    private static function workClaim(array $overrides = []): array
+    {
+        return array_merge(['id' => (string) Uuid::v4(), 'claimToken' => (string) Uuid::v4()], $overrides);
+    }
+
     /**
      * @param array<string, mixed> $overrides
      *
@@ -453,6 +661,14 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'a capability name that is too long' => [['capabilities' => [str_repeat('a', 41)]]];
         yield 'a capability that is not a string' => [['capabilities' => [7]]];
         yield 'a pause state as text' => [['paused' => 'yes']];
+        yield 'work claims that are not a list' => [['workClaims' => 'claims']];
+        yield 'work claims keyed by id' => [['workClaims' => ['first' => self::workClaim()]]];
+        yield 'too many work claims' => [['workClaims' => array_fill(0, RecordBridgeHeartbeatRequest::MAX_WORK_CLAIMS + 1, self::workClaim())]];
+        yield 'a work claim that is not an object' => [['workClaims' => ['claim']]];
+        yield 'a work claim with no id' => [['workClaims' => [self::workClaim(['id' => null])]]];
+        yield 'a work claim id that is not a uuid' => [['workClaims' => [self::workClaim(['id' => 'loupe'])]]];
+        yield 'a work claim with no token' => [['workClaims' => [self::workClaim(['claimToken' => null])]]];
+        yield 'a work claim token that is not a uuid' => [['workClaims' => [self::workClaim(['claimToken' => 'secret'])]]];
         yield 'no projects' => [['projects' => null]];
         yield 'projects that are not a list' => [['projects' => 'loupe']];
         yield 'a project that is not a uuid' => [['projects' => ['loupe']]];
@@ -664,6 +880,23 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertInstanceOf(Bridge::class, $bridge);
 
         return $bridge;
+    }
+
+    /** @return array<mixed> */
+    private function reply(KernelBrowser $client): array
+    {
+        $reply = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($reply);
+
+        return $reply;
+    }
+
+    private function leaseUntil(WorkRequest $request): ?string
+    {
+        $em = $this->em();
+        $em->clear();
+
+        return $em->find(WorkRequest::class, $request->id)?->leaseUntil?->format('Y-m-d H:i:s');
     }
 
     private function countBridges(): int

@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Module\Bridge\Service\BridgeCommandPayload;
+use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Outbox\AgentPush;
 use App\Security\CredentialRateLimitKey;
 use Symfony\Component\ExpressionLanguage\Expression;
@@ -63,12 +64,15 @@ final class RecordBridgeHeartbeatController extends AppController
             paused: $payload->paused,
             capabilities: $payload->capabilities(),
             installMethod: $payload->update?->install(),
+            workClaims: $payload->workClaims(),
         ));
 
         return new JsonResponse([
             'cliRange' => $result->cliRange,
             'paused' => $result->bridge->pauseRequested,
             'commands' => array_map(BridgeCommandPayload::of(...), $result->commands),
+            'workRequests' => array_map(WorkRequestPayload::of(...), $result->workRequests),
+            'lostClaims' => $result->lostClaims,
         ]);
     }
 }

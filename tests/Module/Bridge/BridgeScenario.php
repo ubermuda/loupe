@@ -189,6 +189,9 @@ trait BridgeScenario
         ?string $capability = null,
         WorkRequestState $state = WorkRequestState::Open,
         \DateTimeImmutable $createdAt = new \DateTimeImmutable('2026-10-01 12:00:00'),
+        ?Uuid $bridgeId = null,
+        ?Uuid $claimToken = null,
+        ?\DateTimeImmutable $leaseUntil = null,
     ): WorkRequest {
         $request = new WorkRequest(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -200,6 +203,9 @@ trait BridgeScenario
             createdAt: $createdAt,
         );
         $request->state = $state;
+        $request->bridgeId = $bridgeId;
+        $request->claimToken = $claimToken;
+        $request->leaseUntil = $leaseUntil;
         $em->persist($request);
         $em->flush();
 
