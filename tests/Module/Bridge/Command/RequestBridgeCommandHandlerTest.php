@@ -13,14 +13,12 @@ use App\Module\Bridge\Command\RequestBridgeCommandHandler;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
-use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\Service\BridgeCommandTtl;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
-use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -349,18 +347,15 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         $this->assertRefused(['run' => 'bridge.command.error.no_session'], $run, $owner, kind: BridgeCommandKind::ResumeRun);
     }
 
-    public function test_a_stop_holds_the_card_for_the_run(): void
+    public function test_a_stop_holds_nothing(): void
     {
         $this->boot();
-        [$owner, $run] = $this->scenario('command-stop-holds');
+        [$owner, $run] = $this->scenario('command-stop-holds-nothing');
 
         $this->request($run, BridgeCommandKind::StopRun, $owner);
 
-        $this->em()->clear();
-        $hold = $this->service(CardHoldRepository::class)->findOneOfCard($this->reloadProject($run), $run->cardId);
-        self::assertNotNull($hold);
-        self::assertSame((string) $run->id, (string) $hold->stoppedRun?->id);
-        self::assertSame((string) $owner->id, (string) $hold->heldBy?->id);
+        self::assertSame(1, $this->countCommands($this->em()));
+        self::assertFalse($this->service(CardHolds::class)->isHeld($run->project, $run->cardId));
     }
 
     public function test_a_stop_of_a_preparing_run_is_queued(): void
@@ -373,28 +368,35 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         self::assertSame(1, $this->countCommands($this->em()));
     }
 
-    /** The bridge ends the hold when it takes the resume, so a withdrawn resume leaves the card held. */
-    public function test_a_resume_keeps_the_hold_until_the_bridge_takes_it(): void
+    public function test_a_resume_of_a_run_on_a_paused_card_is_refused_and_keeps_the_hold(): void
     {
         $this->boot();
-        [$owner, $run] = $this->scenario('command-resume-keeps', state: WorkerRunState::Stopped);
-        $this->service(CardHolds::class)->hold($run->project, $run->cardId, $run, $owner);
+        [$owner, $run] = $this->scenario('command-resume-paused', state: WorkerRunState::Stopped);
+        $this->service(CardHolds::class)->hold($run->project, $run->cardId, $owner);
 
-        $this->request($run, BridgeCommandKind::ResumeRun, $owner);
-
-        self::assertSame(1, $this->countCommands($this->em()));
+        $this->assertRefused(['run' => 'bridge.command.error.card_held'], $run, $owner, kind: BridgeCommandKind::ResumeRun);
         self::assertTrue($this->service(CardHolds::class)->isHeld($run->project, $run->cardId));
     }
 
     /** The bridge reported the stop, and its ack has not arrived yet. */
-    public function test_a_resume_while_a_stop_waits_is_refused_and_keeps_the_hold(): void
+    public function test_a_resume_while_a_stop_waits_is_refused(): void
     {
         $this->boot();
         [$owner, $run] = $this->scenario('command-resume-stop-pending', state: WorkerRunState::Stopped);
-        $this->service(CardHolds::class)->hold($run->project, $run->cardId, $run, $owner);
         $this->seedCommand($this->em(), $run);
 
         $this->assertRefused(['run' => 'bridge.command.error.pending'], $run, $owner, expectedCommands: 1, kind: BridgeCommandKind::ResumeRun);
+    }
+
+    public function test_a_rerun_of_a_run_on_a_paused_card_is_stored(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('command-rerun-paused', state: WorkerRunState::Failed, kind: WorkerRunKind::Command);
+        $this->service(CardHolds::class)->hold($run->project, $run->cardId, $owner);
+
+        $this->request($run, BridgeCommandKind::RerunCommand, $owner);
+
+        self::assertSame(1, $this->countCommands($this->em()));
         self::assertTrue($this->service(CardHolds::class)->isHeld($run->project, $run->cardId));
     }
 
@@ -446,14 +448,6 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         return $bridge;
     }
 
-    private function reloadProject(WorkerRun $run): Project
-    {
-        $project = $this->em()->find(Project::class, $run->project->id);
-        self::assertInstanceOf(Project::class, $project);
-
-        return $project;
-    }
-
     /**
      * @template T of object
      *
@@ -488,9 +482,6 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         }
         self::assertSame($expectedCommands, $this->countCommands($this->em()));
         self::assertSame([], $this->outboxPayloads());
-        if (BridgeCommandKind::StopRun === $kind) {
-            self::assertFalse($this->service(CardHolds::class)->isHeld($run->project, $run->cardId));
-        }
     }
 
     /** @return list<array<string, mixed>> */

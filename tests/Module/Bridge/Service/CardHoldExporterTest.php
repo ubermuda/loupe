@@ -22,9 +22,8 @@ final class CardHoldExporterTest extends KernelTestCase
         $other = $this->user($em, 'holds-export-other@example.com');
         $project = $this->project($em, $exporting, 'Held Project');
         $cardId = Uuid::v7();
-        $run = $this->seedRun($em, $project, cardId: $cardId);
-        $em->persist(new CardHold($project, $cardId, $run, $other, new \DateTimeImmutable('2026-09-13T10:00:00+00:00')));
-        $em->persist(new CardHold($this->project($em, $other, 'Other Project'), Uuid::v7(), null, $exporting, new \DateTimeImmutable()));
+        $em->persist(new CardHold($project, $cardId, $other, new \DateTimeImmutable('2026-09-13T10:00:00+00:00')));
+        $em->persist(new CardHold($this->project($em, $other, 'Other Project'), Uuid::v7(), $exporting, new \DateTimeImmutable()));
         $em->flush();
         $em->clear();
 
@@ -33,7 +32,6 @@ final class CardHoldExporterTest extends KernelTestCase
         self::assertSame([[
             'project' => 'Held Project',
             'cardId' => (string) $cardId,
-            'stoppedRunId' => (string) $run->id,
             'heldAt' => '2026-09-13T10:00:00+00:00',
         ]], $rows);
     }

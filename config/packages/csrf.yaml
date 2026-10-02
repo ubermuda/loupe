@@ -24,6 +24,7 @@ framework:
             - worker-run-close
             - worker-run-command
             - bridge-pause
+            - card-agents
             - billing-checkout
             - billing-portal
             - wizard-skip

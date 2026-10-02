@@ -11,7 +11,6 @@ use App\Module\Bridge\Command\AcknowledgeBridgeCommandHandler;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -89,29 +88,29 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
         self::assertSame(BridgeCommandState::Expired, $result->command?->state);
     }
 
-    /** @return iterable<string, array{BridgeCommandKind, BridgeCommandState, bool}> */
-    public static function holdCases(): iterable
+    /** @return iterable<string, array{BridgeCommandKind, BridgeCommandState}> */
+    public static function ackCases(): iterable
     {
-        yield 'a resume the bridge took' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Done, false];
-        yield 'a resume the bridge refused' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Refused, true];
-        yield 'a stop the bridge took' => [BridgeCommandKind::StopRun, BridgeCommandState::Done, true];
-        yield 'a rerun the bridge took' => [BridgeCommandKind::RerunCommand, BridgeCommandState::Done, false];
-        yield 'a rerun the bridge refused' => [BridgeCommandKind::RerunCommand, BridgeCommandState::Refused, true];
+        yield 'a resume the bridge took' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Done];
+        yield 'a resume the bridge refused' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Refused];
+        yield 'a stop the bridge took' => [BridgeCommandKind::StopRun, BridgeCommandState::Done];
+        yield 'a rerun the bridge took' => [BridgeCommandKind::RerunCommand, BridgeCommandState::Done];
+        yield 'a rerun the bridge refused' => [BridgeCommandKind::RerunCommand, BridgeCommandState::Refused];
     }
 
-    #[DataProvider('holdCases')]
-    public function test_only_a_resume_or_a_rerun_the_bridge_took_releases_the_hold_of_the_card(BridgeCommandKind $kind, BridgeCommandState $state, bool $held): void
+    #[DataProvider('ackCases')]
+    public function test_an_ack_keeps_the_hold_of_the_card(BridgeCommandKind $kind, BridgeCommandState $state): void
     {
         [$owner, $run, $command] = $this->heldScenario('ack-handler-hold-'.$kind->value.'-'.$state->value, $kind);
 
         $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), $state, null));
 
         self::assertTrue($result->settled);
-        self::assertSame($held, $this->holds()->isHeld($run->project, $run->cardId));
+        self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
     }
 
     /** The bridge took the resume, and its ack arrived after a person cancelled the request. */
-    public function test_a_late_ack_of_a_taken_resume_releases_the_hold(): void
+    public function test_a_late_ack_of_a_taken_resume_keeps_the_hold_and_publishes_nothing(): void
     {
         $published = [];
         [$owner, $run, $command] = $this->heldScenario('ack-handler-hold-late', BridgeCommandKind::ResumeRun, $published);
@@ -123,28 +122,8 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
         $live->publish();
 
         self::assertFalse($result->settled);
-        self::assertFalse($this->holds()->isHeld($run->project, $run->cardId));
-        self::assertSame([WorkerRunChangedPublisher::TYPE], array_map(static fn (Update $update): mixed => json_decode($update->getData(), true)['type'] ?? null, $published));
-    }
-
-    /** @return iterable<string, array{BridgeCommandKind}> */
-    public static function releasingKinds(): iterable
-    {
-        yield 'a resume' => [BridgeCommandKind::ResumeRun];
-        yield 'a rerun' => [BridgeCommandKind::RerunCommand];
-    }
-
-    /** A person stopped the new run before the ack arrived, and the stop kept the hold the card had. */
-    #[DataProvider('releasingKinds')]
-    public function test_a_stop_asked_after_the_command_keeps_the_hold(BridgeCommandKind $kind): void
-    {
-        [$owner, $run, $command] = $this->heldScenario('ack-handler-hold-later-stop-'.$kind->value, $kind);
-        $this->seedCommand($this->em(), $run, BridgeCommandState::Done, new \DateTimeImmutable('2026-09-29 12:01:00'));
-
-        $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), BridgeCommandState::Done, null));
-
-        self::assertTrue($result->settled);
         self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
+        self::assertSame([], $published);
     }
 
     /**
@@ -165,7 +144,7 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
         $owner = $this->user($em, $name.'@example.com');
         $run = $this->seedRun($em, $this->project($em, $owner, 'Ack Handler Hold'));
         $command = $this->seedCommand($em, $run, kind: $kind);
-        $this->holds()->hold($run->project, $run->cardId, $run, $owner);
+        $this->holds()->hold($run->project, $run->cardId, $owner);
 
         return [$owner, $run, $command];
     }

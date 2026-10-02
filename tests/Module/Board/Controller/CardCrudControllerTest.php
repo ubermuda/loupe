@@ -394,10 +394,9 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-card-docs', 'Linked work');
         self::assertStringNotContainsString('board.', $crawler->filter('.lp-card-overview')->text());
         self::assertSame(['Status', 'Type', 'Reporter', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
-        // A finished run with no usage leaves the overview with no runs section, and the frame stays for a live update.
+        // A finished run leaves the list. The owner still gets the runs section, for its pause control.
         self::assertCount(0, $crawler->filter('[data-card-run="'.$runId.'"]'));
-        self::assertCount(0, $crawler->filter('[data-card-runs]'));
-        self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs'));
+        self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] form[data-card-agents-pause]'));
         self::assertCount(0, $crawler->filter('[data-controller~="worker-run-refresh"]'));
         self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId.'/edit', $crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('href'));
         self::assertNull($crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('data-turbo-frame'));
@@ -418,8 +417,8 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('in-progress', $moved->column->slug);
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$quiet->id);
-        self::assertCount(0, $crawler->filter('[data-card-runs]'));
-        self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs'));
+        self::assertCount(0, $crawler->filter('[data-card-run]'));
+        self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] form[data-card-agents-pause]'));
     }
 
     /** A queued run has no session, no start and no end yet, and the card still lists it. */
