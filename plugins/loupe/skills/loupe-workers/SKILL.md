@@ -42,14 +42,15 @@ Pass `runId` values from `worker_run_list`, never a card number.
 | `no-session` | the run has no session to resume |
 | `not-resumable` | the run did not end, or it succeeded |
 | `card-left` | the card left the column of the run, so leave the run |
+| `card-held` | a person paused the agents on the card, so ask a person to let them run |
 | `not-stoppable` | the run is not queued, resumed, preparing or running |
 | `reason-too-long` | the stop reason is over 1000 characters |
 | `nothing-pending` | no command waits, or the bridge already read it |
 
 ## Stop a run
 
-Call `worker_run_stop` with the `runId` and a `reason` that a person reads. A stop also holds the card, so no rule starts new work on it. The hold goes when a person moves the card, or when a run of the card resumes.
+Call `worker_run_stop` with the `runId` and a `reason` that a person reads. A stop ends this run only. A rule can still start new work on the card, because a stop does not pause the agents on it.
 
 ## Cancel a command
 
-Call `bridge_command_cancel` with the `runId` to withdraw the waiting resume or stop. An online bridge reads a command in about a second, so a cancel helps mainly while a bridge is offline. A cancelled stop releases the card hold, unless another stop of the card still waits.
+Call `bridge_command_cancel` with the `runId` to withdraw the waiting resume or stop. An online bridge reads a command in about a second, so a cancel helps mainly while a bridge is offline.
