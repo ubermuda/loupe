@@ -1,0 +1,14 @@
+{% set sentryBrowser = sentry_browser() %}
+{% if sentryBrowser is not null %}
+    {{ sentry_trace_meta() }}
+    {{ sentry_baggage_meta() }}
+    <meta name="loupe-route" content="{{ app.request.attributes.get('_route') }}">
+    <meta name="sentry-browser-dsn" content="{{ sentryBrowser.dsn }}">
+    <meta name="sentry-browser-traces-sample-rate" content="{{ sentryBrowser.tracesSampleRate }}">
+    {% if sentryBrowser.release is not null %}
+        <meta name="sentry-release" content="{{ sentryBrowser.release }}">
+    {% endif %}
+    <meta name="sentry-environment" content="{{ sentryBrowser.environment }}">
+    {# A classic deferred script runs before every module script, so app.js finds window.Sentry. #}
+    <script defer src="{{ asset('sentry/bundle.tracing.min.js') }}"></script>
+{% endif %}
