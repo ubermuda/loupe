@@ -67,7 +67,7 @@ final class RecordBridgeHeartbeatLockTest extends KernelTestCase
 
     public function test_a_bridge_that_holds_its_name_skips_the_name_lock(): void
     {
-        $handler = $this->handlerWithNameLockHeld('heartbeat-lock-name-held@example.com', $owner, $bridgeId);
+        [$handler, $owner, $bridgeId] = $this->nameLockHeld('heartbeat-lock-name-held@example.com');
 
         $result = $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
 
@@ -77,7 +77,7 @@ final class RecordBridgeHeartbeatLockTest extends KernelTestCase
 
     public function test_a_bridge_that_asks_for_a_new_name_waits_for_the_name_lock(): void
     {
-        $handler = $this->handlerWithNameLockHeld('heartbeat-lock-name-new@example.com', $owner, $bridgeId);
+        [$handler, $owner, $bridgeId] = $this->nameLockHeld('heartbeat-lock-name-new@example.com');
 
         try {
             $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'desktop'));
@@ -87,8 +87,14 @@ final class RecordBridgeHeartbeatLockTest extends KernelTestCase
         }
     }
 
-    /** Names the bridge "laptop", then holds the owner's name lock in another session. */
-    private function handlerWithNameLockHeld(string $email, ?User &$owner, ?Uuid &$bridgeId): RecordBridgeHeartbeatHandler
+    /**
+     * Names the bridge "laptop", then holds the owner's name lock in another session.
+     *
+     * @param non-empty-string $email
+     *
+     * @return array{RecordBridgeHeartbeatHandler, User, Uuid}
+     */
+    private function nameLockHeld(string $email): array
     {
         self::bootKernel();
         $em = $this->em();
@@ -107,6 +113,6 @@ final class RecordBridgeHeartbeatLockTest extends KernelTestCase
         $this->other->executeStatement('SELECT pg_advisory_xact_lock(hashtext(?))', ['bridge-name:'.$owner->id]);
         $em->getConnection()->executeStatement("SET LOCAL lock_timeout = '300ms'");
 
-        return $handler;
+        return [$handler, $owner, $bridgeId];
     }
 }
