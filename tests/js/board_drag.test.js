@@ -609,10 +609,15 @@ describe('a card of an Up next deck', () => {
 
 describe('a drop refused because the card is managed', () => {
     const OFFER = 'This card is managed. Make it unmanaged and move it?';
+    const REFUSAL = 'This card is managed. Make it unmanaged to move it there.';
+    const headers = {
+        'X-Card-Managed-Offer': OFFER,
+        'X-Card-Move-Refusal': REFUSAL,
+    };
     const managed = {
         succeeded: false,
         contentType: 'text/html; charset=UTF-8',
-        header: (name) => ('X-Card-Managed-Offer' === name ? OFFER : null),
+        header: (name) => headers[name] ?? null,
     };
 
     afterEach(() => {
@@ -654,6 +659,10 @@ describe('a drop refused because the card is managed', () => {
         expect(form.requestSubmit).toHaveBeenCalledOnce();
         expect(titles('backlog')).toEqual(['a', 'b']);
         expect(controller.pendingForm).toBeNull();
+        expect(
+            document.querySelector('[data-board-drag-target="message"]')
+                .textContent,
+        ).toBe(REFUSAL);
     });
 
     it('asks nothing when the refusal carries no question', async () => {

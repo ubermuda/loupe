@@ -31,6 +31,7 @@ const EDGE_STEP = 14;
 
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 const MANAGED_OFFER_HEADER = 'X-Card-Managed-Offer';
+const REFUSAL_HEADER = 'X-Card-Move-Refusal';
 
 /** A group that takes a card and shows none, such as the Backlog button. */
 const isBucket = (group) => group?.dataset.boardBucket !== undefined;
@@ -555,6 +556,7 @@ export default class extends Controller {
 
         let refused = false;
         let offer = null;
+        let refusal = null;
         const answered = (event) => {
             const response = event.detail.fetchResponse;
             if (
@@ -563,6 +565,7 @@ export default class extends Controller {
             ) {
                 refused = true;
                 offer = response.header?.(MANAGED_OFFER_HEADER) ?? null;
+                refusal = response.header?.(REFUSAL_HEADER) ?? null;
                 event.preventDefault();
             }
         };
@@ -578,6 +581,7 @@ export default class extends Controller {
             if (offer !== null && unmanage !== null && !unmanage.checked) {
                 // After Turbo ends this submission, which it does once this event returns.
                 const question = offer;
+                const answer = refusal;
                 setTimeout(() => {
                     if (window.confirm(question)) {
                         unmanage.checked = true;
@@ -586,7 +590,7 @@ export default class extends Controller {
                         return;
                     }
                     this.release(card);
-                    this.restore(card, origin);
+                    this.restore(card, origin, answer);
                 });
 
                 return;
@@ -597,6 +601,7 @@ export default class extends Controller {
         const send = () => {
             refused = false;
             offer = null;
+            refusal = null;
             form.addEventListener('turbo:before-fetch-response', answered);
             form.addEventListener('turbo:submit-end', finished);
             form.requestSubmit();
@@ -651,8 +656,8 @@ export default class extends Controller {
         card.removeAttribute('aria-busy');
     }
 
-    /** Puts a card back where the drag took it from, and says that it moved back. */
-    restore(card, origin) {
+    /** Puts a card back where the drag took it from, and says why, or that it moved back. */
+    restore(card, origin, message = null) {
         card.classList.remove('lp-board-card--sent');
         if (!this.element.isConnected || !card.isConnected) {
             return;
@@ -664,15 +669,16 @@ export default class extends Controller {
             origin.group.append(card);
         }
 
-        this.showMessage();
+        this.showMessage(message);
     }
 
-    showMessage() {
+    showMessage(message = null) {
         if (!this.hasMessageTarget) {
             return;
         }
 
-        this.messageTarget.textContent = this.messageTarget.dataset.message;
+        this.messageTarget.textContent =
+            message ?? this.messageTarget.dataset.message;
     }
 
     clearMessage() {

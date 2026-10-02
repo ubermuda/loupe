@@ -73,6 +73,10 @@ final class MoveManagedCardControllerTest extends WebTestCase
             'This card is managed. Make it unmanaged and move it?',
             $this->client->getResponse()->headers->get(MoveCardController::MANAGED_OFFER_HEADER),
         );
+        self::assertSame(
+            'This card is managed. Make it unmanaged to move it there.',
+            $this->client->getResponse()->headers->get(MoveCardController::REFUSAL_HEADER),
+        );
         self::assertSame('next', $this->storedColumn());
     }
 
@@ -120,6 +124,20 @@ final class MoveManagedCardControllerTest extends WebTestCase
         self::assertSame('in-progress', $this->storedColumn());
     }
 
+    public function test_a_move_that_fails_after_the_offer_is_accepted_leaves_the_card_managed(): void
+    {
+        $this->given();
+        // A card that is no epic cannot be a parent, so the move fails after the hold.
+        $notAnEpic = $this->card($this->em(), $this->project, 'Not an epic', 'next');
+        $this->em()->clear();
+
+        $this->move(stream: true, unmanage: true, parent: (string) $notAnEpic->id);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertSame('next', $this->storedColumn());
+        self::assertFalse($this->holds()->isHeld($this->project, $this->cardId()));
+    }
+
     public function test_unmanage_is_ignored_without_the_right_to_manage(): void
     {
         $this->given(canManage: false);
@@ -155,7 +173,7 @@ final class MoveManagedCardControllerTest extends WebTestCase
         });
     }
 
-    private function move(bool $stream, bool $unmanage = false): void
+    private function move(bool $stream, bool $unmanage = false, ?string $parent = null): void
     {
         $url = '/projects/'.$this->project->id.'/board/cards/'.$this->card->id.'/move';
         $server = ['HTTP_REFERER' => 'http://localhost'.$url];
@@ -168,6 +186,7 @@ final class MoveManagedCardControllerTest extends WebTestCase
             'position' => '',
             '_token' => 'csrf-token',
             ...($unmanage ? ['unmanage' => '1'] : []),
+            ...(null === $parent ? [] : ['parent' => $parent]),
         ]], [], $server);
     }
 

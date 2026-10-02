@@ -19,9 +19,6 @@ use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\BoardAvailability;
-use App\Module\Bridge\Command\PauseCardAgentsCommand;
-use App\Module\Bridge\Command\PauseCardAgentsHandler;
-use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -54,13 +51,15 @@ final class MoveCardController extends AppController
 {
     public const string MANAGED_OFFER_HEADER = 'X-Card-Managed-Offer';
 
+    /** Shown when the person declines the offer, in place of the general failure text. */
+    public const string REFUSAL_HEADER = 'X-Card-Move-Refusal';
+
     public function __construct(
         private readonly MoveCardHandler $moveCard,
         private readonly ShowCardPlacementHandler $showPlacement,
         private readonly FormFactoryInterface $formFactory,
         private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
-        private readonly PauseCardAgentsHandler $pauseCardAgents,
     ) {
     }
 
@@ -86,10 +85,8 @@ final class MoveCardController extends AppController
             $error = $this->translator->trans('board.card.flash.move_rejected');
         } else {
             $mayManage = $this->isGranted(ProjectVoter::MANAGE, $project);
+            $user = $this->getUser();
             try {
-                if ($data->unmanage && $mayManage) {
-                    $this->hold($project, $card);
-                }
                 ($this->moveCard)(new MoveCardCommand(
                     card: $card,
                     actor: CardReporter::Human,
@@ -98,6 +95,7 @@ final class MoveCardController extends AppController
                     parent: $data->parent,
                     beforeCardId: $data->beforeCardId,
                     afterCardId: $data->afterCardId,
+                    unmanageBy: $data->unmanage && $mayManage && $user instanceof User ? $user : null,
                 ));
             } catch (DomainErrors $e) {
                 // The column went away between the form check and the lock, or the
@@ -113,7 +111,10 @@ final class MoveCardController extends AppController
 
         if (null !== $error && $stream) {
             return new Response('', Response::HTTP_UNPROCESSABLE_ENTITY, $managed
-                ? [self::MANAGED_OFFER_HEADER => $this->translator->trans('board.card.managed_offer')]
+                ? [
+                    self::MANAGED_OFFER_HEADER => $this->translator->trans('board.card.managed_offer'),
+                    self::REFUSAL_HEADER => $error,
+                ]
                 : []);
         }
 
@@ -133,21 +134,5 @@ final class MoveCardController extends AppController
             Response::HTTP_OK,
             ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
         );
-    }
-
-    /** A card held already is unmanaged already, so that refusal is no failure. */
-    private function hold(Project $project, Card $card): void
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            throw new \LogicException('The card voter admits only a signed-in user.');
-        }
-        try {
-            ($this->pauseCardAgents)(new PauseCardAgentsCommand($project, $card->id ?? throw new \LogicException('A stored card has an id.'), $user));
-        } catch (DomainErrors $e) {
-            if (!\in_array(PauseCardAgentsHandler::ALREADY_PAUSED, $e->errors, true)) {
-                throw $e;
-            }
-        }
     }
 }

@@ -62,7 +62,8 @@ The paths as implemented:
   may manage the project, it carries the `X-Card-Managed-Offer` header. The
   card stays where it landed, and the controller asks the question one task
   later, after Turbo ends the submission. A yes sends the same move with
-  `unmanage` checked, and a no puts the card back.
+  `unmanage` checked, and the hold commits only with the move. A no puts the
+  card back and shows the refusal from the `X-Card-Move-Refusal` header.
 - Any other answer that is not a 2xx stream, such as a 404 error page, is
   stopped at `turbo:before-fetch-response` with `preventDefault()`, so Turbo
   renders no page. The card goes back.
