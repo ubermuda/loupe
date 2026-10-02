@@ -131,7 +131,7 @@ final readonly class ShowBoardHandler
             $otherCards,
             $progress,
             $shownCounts,
-            $this->structureDigest->forBoard($columns, $lanes, $deadRules, $racingRules),
+            $this->structureDigest->forBoard($columns, $lanes, $terminalWindowDays, $deadRules, $racingRules),
             $runWarnings,
             $this->laneDecks->forEpics($backlog, array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->id, $lanes)),
             $badges,
