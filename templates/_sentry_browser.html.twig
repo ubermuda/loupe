@@ -11,6 +11,6 @@
         <meta name="sentry-release" content="{{ sentryBrowser.release }}">
     {% endif %}
     <meta name="sentry-environment" content="{{ sentryBrowser.environment }}">
-    {# A classic deferred script runs before every module script, so app.js finds window.Sentry. #}
+    {# A classic deferred script runs before the module scripts that follow it, so app.js finds window.Sentry. #}
     <script defer src="{{ asset('sentry/bundle.tracing.min.js') }}"></script>
 {% endif %}

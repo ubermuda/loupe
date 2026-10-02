@@ -35,12 +35,18 @@ final class SentryBrowserConfigTest extends TestCase
         mkdir($projectDir.'/var', recursive: true);
         file_put_contents($projectDir.'/var/build-version', "v1.2.3\n");
 
-        $config = new SentryBrowserConfig(self::DSN, 0.25, new BuildIdentity($projectDir), 'prod');
+        try {
+            $config = new SentryBrowserConfig(self::DSN, 0.25, new BuildIdentity($projectDir), 'prod');
 
-        self::assertSame(
-            ['dsn' => self::DSN, 'tracesSampleRate' => 0.25, 'release' => 'v1.2.3', 'environment' => 'prod', 'continueTrace' => false],
-            $config->sentryBrowser(),
-        );
+            self::assertSame(
+                ['dsn' => self::DSN, 'tracesSampleRate' => 0.25, 'release' => 'v1.2.3', 'environment' => 'prod', 'continueTrace' => false],
+                $config->sentryBrowser(),
+            );
+        } finally {
+            unlink($projectDir.'/var/build-version');
+            rmdir($projectDir.'/var');
+            rmdir($projectDir);
+        }
     }
 
     public function test_a_build_with_no_version_has_no_release(): void
@@ -55,9 +61,9 @@ final class SentryBrowserConfigTest extends TestCase
     {
         $identity = new BuildIdentity(sys_get_temp_dir().'/no-such-project');
 
-        self::assertTrue((new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', 'https://key@o0.ingest.example/2'))->sentryBrowser()['continueTrace'] ?? null);
-        self::assertFalse((new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', ''))->sentryBrowser()['continueTrace'] ?? null);
-        self::assertFalse((new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', 'not-a-dsn'))->sentryBrowser()['continueTrace'] ?? null);
+        self::assertTrue(new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', 'https://key@o0.ingest.example/2')->sentryBrowser()['continueTrace'] ?? null);
+        self::assertFalse(new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', '')->sentryBrowser()['continueTrace'] ?? null);
+        self::assertFalse(new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', 'not-a-dsn')->sentryBrowser()['continueTrace'] ?? null);
     }
 
     public function test_the_template_calls_it_as_sentry_browser(): void

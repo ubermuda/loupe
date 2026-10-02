@@ -16,6 +16,8 @@ const SELECTOR_DATA_KEYS = new Set([
     'browser.web_vital.lcp.element',
     'browser.web_vital.inp.target',
 ]);
+// The SDK fills these from the scope, which holds the page path.
+const ROUTE_DATA_KEYS = new Set(['sentry.transaction', 'sentry.segment.name']);
 const DROPPED_CRUMB_CATEGORIES = new Set([
     'fetch',
     'xhr',
@@ -73,9 +75,15 @@ function isSelectorKey(key) {
     );
 }
 
-function scrubData(data) {
+function scrubData(data, route) {
     for (const [key, value] of Object.entries(data)) {
-        if (URL_DATA_KEYS.has(key) || key.startsWith('url.')) {
+        if (ROUTE_DATA_KEYS.has(key)) {
+            if (route) {
+                data[key] = route;
+            } else {
+                delete data[key];
+            }
+        } else if (URL_DATA_KEYS.has(key) || key.startsWith('url.')) {
             delete data[key];
         } else if (typeof value === 'string') {
             data[key] = isSelectorKey(key)
@@ -85,9 +93,9 @@ function scrubData(data) {
     }
 }
 
-export function scrubSpan(span) {
+export function scrubSpan(span, route = null) {
     if (span.data) {
-        scrubData(span.data);
+        scrubData(span.data, route);
     }
     if (typeof span.description === 'string') {
         const op = span.op ?? '';
@@ -130,7 +138,13 @@ function scrubFrames(stacktrace) {
     }
 }
 
-export function scrubEvent(event) {
+// The SDK names an error event after the page path, so the route replaces it.
+export function scrubEvent(event, route = null) {
+    if (route) {
+        event.transaction = route;
+    } else if (event.type !== 'transaction') {
+        delete event.transaction;
+    }
     if (event.request) {
         delete event.request.url;
         delete event.request.query_string;
@@ -166,14 +180,11 @@ export function scrubEvent(event) {
 }
 
 export function scrubTransaction(event, route) {
-    if (route) {
-        event.transaction = route;
-    }
     if (event.contexts?.trace?.data) {
-        scrubData(event.contexts.trace.data);
+        scrubData(event.contexts.trace.data, route);
     }
     for (const span of event.spans ?? []) {
-        scrubSpan(span);
+        scrubSpan(span, route);
     }
 
     return event;

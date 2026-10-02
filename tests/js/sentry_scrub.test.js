@@ -165,24 +165,53 @@ describe('scrubEvent', () => {
         ]);
     });
 
+    it('names an error event after the route', () => {
+        expect(
+            scrubEvent({ transaction: '/reset/abc' }, 'app_reset_password')
+                .transaction,
+        ).toBe('app_reset_password');
+    });
+
+    it('drops the name of an error event when there is no route', () => {
+        expect(scrubEvent({ transaction: '/reset/abc' }, null)).toEqual({});
+    });
+
+    it('keeps the name of a transaction when there is no route', () => {
+        expect(
+            scrubEvent({ type: 'transaction', transaction: 'pageload' }, null),
+        ).toEqual({ type: 'transaction', transaction: 'pageload' });
+    });
+
     it('accepts an event with nothing to scrub', () => {
         expect(scrubEvent({})).toEqual({});
     });
 });
 
 describe('scrubTransaction', () => {
-    it('names the transaction after the route', () => {
-        const event = scrubTransaction(
-            { transaction: '/projects/1/board' },
-            'app_board_show',
-        );
-        expect(event.transaction).toBe('app_board_show');
-    });
-
     it('keeps the name when no route is given', () => {
         expect(scrubTransaction({ transaction: 'x' }, null).transaction).toBe(
             'x',
         );
+    });
+
+    it('names the trace and span data after the route', () => {
+        const event = scrubTransaction(
+            {
+                contexts: {
+                    trace: {
+                        data: { 'sentry.segment.name': '/reset/abc' },
+                    },
+                },
+                spans: [{ data: { 'sentry.transaction': '/reset/abc' } }],
+            },
+            'app_reset_password',
+        );
+        expect(event.contexts.trace.data).toEqual({
+            'sentry.segment.name': 'app_reset_password',
+        });
+        expect(event.spans[0].data).toEqual({
+            'sentry.transaction': 'app_reset_password',
+        });
     });
 
     it('drops URL data from the trace and from each span', () => {
@@ -274,6 +303,35 @@ describe('scrubSpan', () => {
             description: 'button.lp-btn',
             data: { 'browser.web_vital.inp.target': 'button.lp-btn' },
         });
+    });
+
+    it('names the span data after the route', () => {
+        const span = scrubSpan(
+            {
+                op: 'ui.webvital.cls',
+                data: {
+                    'sentry.transaction': '/reset/abc',
+                    'sentry.segment.name': '/reset/abc',
+                },
+            },
+            'app_reset_password',
+        );
+        expect(span.data).toEqual({
+            'sentry.transaction': 'app_reset_password',
+            'sentry.segment.name': 'app_reset_password',
+        });
+    });
+
+    it('drops the page path from the span data when there is no route', () => {
+        const span = scrubSpan({
+            op: 'ui.webvital.cls',
+            data: {
+                'sentry.transaction': '/reset/abc',
+                'sentry.segment.name': '/reset/abc',
+                'sentry.op': 'ui.webvital.cls',
+            },
+        });
+        expect(span.data).toEqual({ 'sentry.op': 'ui.webvital.cls' });
     });
 
     it('accepts a span with no data', () => {

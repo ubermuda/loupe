@@ -27,12 +27,13 @@ as a failure. They check the DSN format only, and never call Sentry.
 
 ## Browser
 
-Loupe can also load the Sentry browser SDK on every page. It is off until you
+Loupe can also load the Sentry browser SDK on the app pages and the sign-in
+pages. The admin area and the error pages do not load it. It is off until you
 set `SENTRY_BROWSER_DSN`. These variables control it:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SENTRY_BROWSER_DSN` | empty | Where browser events go. It is not a secret, because every page shows it. Empty loads no SDK. |
+| `SENTRY_BROWSER_DSN` | empty | Where browser events go. It is not a secret, because each page that loads the SDK shows it. Empty loads no SDK. |
 | `SENTRY_BROWSER_TRACES_SAMPLE_RATE` | `1.0` | The share of page loads that the browser SDK traces, from `0.0` to `1.0`. While `SENTRY_DSN` is set, a page load continues the server trace, and `SENTRY_TRACES_SAMPLE_RATE` decides for it. |
 
 The browser sends page loads, Web Vitals and JavaScript errors. It posts them

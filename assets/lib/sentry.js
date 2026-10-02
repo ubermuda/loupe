@@ -9,7 +9,8 @@ function meta(name) {
     return document.querySelector(`meta[name="${name}"]`)?.content ?? null;
 }
 
-// The SDK loads from a classic deferred script, so it runs before this module.
+// The SDK loads from a classic deferred script, which runs before the module
+// scripts that follow it, so it runs before this module.
 export function initSentry(Sentry = window.Sentry) {
     const dsn = meta('sentry-browser-dsn');
     if (!Sentry || !dsn) {
@@ -41,12 +42,14 @@ export function initSentry(Sentry = window.Sentry) {
             }),
             Sentry.breadcrumbsIntegration({ console: false }),
         ],
-        beforeSend: scrubEvent,
+        beforeSend: (event) => scrubEvent(event, route),
         beforeSendTransaction: (event) =>
-            scrubTransaction(scrubEvent(event), route),
-        beforeSendSpan: Sentry.withStaticSpan(scrubSpan),
+            scrubTransaction(scrubEvent(event, route), route),
+        beforeSendSpan: Sentry.withStaticSpan((span) => scrubSpan(span, route)),
         beforeBreadcrumb: keepBreadcrumb,
     });
+    // The page load wrote the path into the scope during init.
+    Sentry.getCurrentScope().setTransactionName(route ?? undefined);
 
     return true;
 }

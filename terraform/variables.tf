@@ -416,7 +416,7 @@ variable "sentry_profiles_sample_rate" {
 variable "sentry_browser_dsn" {
   type        = string
   default     = ""
-  description = "SENTRY_BROWSER_DSN for the browser SDK. Not secret: every page shows it. Optional: empty loads no browser SDK."
+  description = "SENTRY_BROWSER_DSN for the browser SDK. Not secret: each page with the SDK shows it. Optional: empty loads no browser SDK."
 }
 
 variable "sentry_browser_traces_sample_rate" {

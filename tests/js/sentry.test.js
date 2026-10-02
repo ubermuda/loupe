@@ -1,11 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initSentry } from '../../assets/lib/sentry.js';
-import {
-    keepBreadcrumb,
-    scrubEvent,
-    scrubSpan,
-} from '../../assets/lib/sentry_scrub.js';
+import { keepBreadcrumb } from '../../assets/lib/sentry_scrub.js';
 
 const DSN = 'https://abc@o1.ingest.sentry.io/2';
 
@@ -20,10 +16,11 @@ function fakeSentry() {
             name: 'Breadcrumbs',
             options,
         })),
-        withStaticSpan: vi.fn((callback) => {
-            callback._static = true;
-            return callback;
-        }),
+        withStaticSpan: vi.fn((callback) => callback),
+        setTransactionName: vi.fn(),
+        getCurrentScope() {
+            return { setTransactionName: this.setTransactionName };
+        },
     };
 }
 
@@ -82,13 +79,13 @@ describe('initSentry', () => {
                 cookies: false,
                 urlQueryParams: false,
             },
-            beforeSend: scrubEvent,
             beforeBreadcrumb: keepBreadcrumb,
         });
         expect(options).not.toHaveProperty('tracePropagationTargets');
         expect(options.dataCollection).not.toHaveProperty('httpHeaders');
-        expect(sentry.withStaticSpan).toHaveBeenCalledWith(scrubSpan);
-        expect(options.beforeSendSpan).toBe(scrubSpan);
+        expect(sentry.withStaticSpan).toHaveBeenCalledWith(
+            options.beforeSendSpan,
+        );
         expect(sentry.breadcrumbsIntegration).toHaveBeenCalledWith({
             console: false,
         });
@@ -140,18 +137,83 @@ describe('initSentry', () => {
         ).toBe('pageload');
     });
 
+    it('names an error event after the route', () => {
+        renderMeta(PAGE);
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        const event = sentry.init.mock.calls[0][0].beforeSend({
+            transaction: '/forgot-password/reset/abc',
+            request: { url: 'https://app.test/forgot-password/reset/abc' },
+        });
+
+        expect(event).toEqual({ transaction: 'app_board_show', request: {} });
+    });
+
+    it('drops the error event name when the page has no route', () => {
+        renderMeta({ ...PAGE, 'loupe-route': '' });
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        const event = sentry.init.mock.calls[0][0].beforeSend({
+            transaction: '/forgot-password/reset/abc',
+        });
+
+        expect(event).toEqual({});
+    });
+
+    it('names the span data after the route', () => {
+        renderMeta(PAGE);
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        const span = sentry.init.mock.calls[0][0].beforeSendSpan({
+            op: 'ui.webvital.lcp',
+            description: 'img.cover',
+            data: {
+                'sentry.transaction': '/forgot-password/reset/abc',
+                'sentry.segment.name': '/forgot-password/reset/abc',
+            },
+        });
+
+        expect(span.data).toEqual({
+            'sentry.transaction': 'app_board_show',
+            'sentry.segment.name': 'app_board_show',
+        });
+    });
+
+    it('replaces the page path in the scope with the route', () => {
+        renderMeta(PAGE);
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        expect(sentry.setTransactionName).toHaveBeenCalledWith(
+            'app_board_show',
+        );
+    });
+
+    it('clears the page path from the scope when the page has no route', () => {
+        renderMeta({ ...PAGE, 'loupe-route': '' });
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        expect(sentry.setTransactionName).toHaveBeenCalledWith(undefined);
+    });
+
     it('scrubs a transaction and names it after the route', () => {
         renderMeta(PAGE);
         const sentry = fakeSentry();
         initSentry(sentry);
 
         const event = sentry.init.mock.calls[0][0].beforeSendTransaction({
+            type: 'transaction',
             transaction: '/projects/1/board',
             request: { url: 'https://app.test/projects/1/board' },
             contexts: { trace: { data: { 'url.full': 'https://app.test/x' } } },
         });
 
         expect(event).toEqual({
+            type: 'transaction',
             transaction: 'app_board_show',
             request: {},
             contexts: { trace: { data: {} } },
