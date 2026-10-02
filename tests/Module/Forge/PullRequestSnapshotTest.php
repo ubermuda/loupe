@@ -44,6 +44,9 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertNull($pullRequest->syncRequestedAt);
         self::assertNull($pullRequest->syncFailedReason);
         self::assertNull($pullRequest->syncedSha);
+        self::assertNull($pullRequest->headBranch);
+        self::assertNull($pullRequest->mergeRequestedSha);
+        self::assertNull($pullRequest->baseChangeRequestedTo);
         self::assertTrue($pullRequest->snapshot()->equals(new PullRequestSnapshot()));
     }
 
@@ -81,6 +84,8 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame('PRR_review1', $pullRequest->approvalId);
         self::assertSame('PRR_review1', $pullRequest->snapshot()->approvalId);
         self::assertSame('approved1', $pullRequest->snapshot()->coveredSha);
+        self::assertSame('feature/x', $pullRequest->headBranch);
+        self::assertSame('feature/x', $pullRequest->snapshot()->headBranch);
     }
 
     public function test_the_first_approval_sets_the_covered_sha(): void
@@ -378,7 +383,7 @@ final class PullRequestSnapshotTest extends TestCase
 
     public function test_the_approval_and_branch_facts_do_not_break_equality(): void
     {
-        $arguments = [...self::changedArguments(), 'approvedAt' => null, 'approvalSha' => null, 'defaultBranch' => null, 'headParents' => [], 'approvalId' => null, 'coveredSha' => 'other1'];
+        $arguments = [...self::changedArguments(), 'approvedAt' => null, 'approvalSha' => null, 'defaultBranch' => null, 'headParents' => [], 'approvalId' => null, 'coveredSha' => 'other1', 'headBranch' => 'other/branch'];
 
         self::assertTrue($this->changed()->equals(new PullRequestSnapshot(...$arguments)));
     }
@@ -457,6 +462,7 @@ final class PullRequestSnapshotTest extends TestCase
             'defaultBranch' => 'main',
             'headParents' => ['parent1', 'parent2'],
             'approvalId' => 'PRR_review1',
+            'headBranch' => 'feature/x',
         ];
     }
 

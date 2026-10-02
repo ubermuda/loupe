@@ -64,9 +64,11 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
     public function test_it_reads_pull_request_604_with_the_branch_rules_and_the_compare(): void
     {
         $pullRequest = $this->tracked('Ubermuda/Loupe', 70_001);
+        $graphql = $this->fixture('graphql');
+        $graphql['data']['repository']['pullRequest']['headRefName'] = 'card-604';
         $this->responses = [
             $this->answer(['token' => 'ghs_token'], 201),
-            $this->answer($this->fixture('graphql')),
+            $this->answer($graphql),
             $this->answer($this->fixture('rules')),
             $this->answer($this->fixture('compare')),
         ];
@@ -76,6 +78,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertSame(PullRequestChecks::Pending, $snapshot->checks);
         self::assertSame(PullRequestMergeability::Blocked, $snapshot->mergeability);
         self::assertSame(self::HEAD, $snapshot->headSha);
+        self::assertSame('card-604', $snapshot->headBranch);
         self::assertCount(4, $this->requests);
         self::assertSame('https://api.github.com/app/installations/70001/access_tokens', $this->requests[0]['url']);
         self::assertSame('https://api.github.com/graphql', $this->requests[1]['url']);
@@ -88,6 +91,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertStringContainsString('commit{oid parents(first:3){nodes{oid}} statusCheckRollup', $body['query']);
         self::assertStringNotContainsString('reviews(last:1', $body['query']);
         self::assertStringContainsString(' createdAt mergedAt ', $body['query']);
+        self::assertStringContainsString(' headRefOid headRefName baseRefName ', $body['query']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/rules/branches/main?per_page=100&page=1', $this->requests[2]['url']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/compare/main...'.self::HEAD, $this->requests[3]['url']);
     }
