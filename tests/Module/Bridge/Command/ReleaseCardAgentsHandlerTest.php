@@ -9,9 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\ReleaseCardAgentsCommand;
 use App\Module\Bridge\Command\ReleaseCardAgentsHandler;
 use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Project\Entity\Project;
-use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -100,14 +98,9 @@ final class ReleaseCardAgentsHandlerTest extends KernelTestCase
 
     private function release(Project $project, Uuid $cardId, User $by): void
     {
-        $outbox = self::getContainer()->get(OutboxWriter::class);
-        self::assertInstanceOf(OutboxWriter::class, $outbox);
-        $runsChanged = self::getContainer()->get(WorkerRunChangedPublisher::class);
-        self::assertInstanceOf(WorkerRunChangedPublisher::class, $runsChanged);
         $this->audit ??= RecordingAuditor::installedIn(self::getContainer());
-
-        // Built by hand, because no controller calls the handler yet and the container drops it.
-        $handler = new ReleaseCardAgentsHandler($this->cardHolds(), $outbox, $runsChanged, $this->em(), $this->audit->auditor);
+        $handler = self::getContainer()->get(ReleaseCardAgentsHandler::class);
+        self::assertInstanceOf(ReleaseCardAgentsHandler::class, $handler);
         $handler(new ReleaseCardAgentsCommand($project, $cardId, $by));
     }
 

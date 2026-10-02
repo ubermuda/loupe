@@ -6248,7 +6248,9 @@
             <trans-unit id="board.card.runs.title"><source>board.card.runs.title</source><target>Agent runs</target></trans-unit>
             <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
             <trans-unit id="board.card.runs.open_title"><source>board.card.runs.open_title</source><target>Runs in progress</target></trans-unit>
-            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Held: no worker starts on this card until you resume one of its runs in Run history, or move it.</target></trans-unit>
+            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Agents paused: no worker starts on this card until you let agents run or move it.</target></trans-unit>
+            <trans-unit id="board.card.runs.pause"><source>board.card.runs.pause</source><target>Pause agents</target></trans-unit>
+            <trans-unit id="board.card.runs.release"><source>board.card.runs.release</source><target>Let agents run</target></trans-unit>
             <trans-unit id="board.card.runs.usage.total"><source>board.card.runs.usage.total</source><target>Total usage</target></trans-unit>
             <trans-unit id="board.card.runs.usage.tokens"><source>board.card.runs.usage.tokens</source><target>%input% input · %output% output · %cacheRead% cache read · %cacheWrite% cache write</target></trans-unit>
             <trans-unit id="board.card.runs.usage.estimated"><source>board.card.runs.usage.estimated</source><target>Estimated</target></trans-unit>

@@ -11,9 +11,7 @@ use App\Module\Bridge\Command\PauseCardAgentsHandler;
 use App\Module\Bridge\Entity\CardHold;
 use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Project\Entity\Project;
-use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -100,14 +98,9 @@ final class PauseCardAgentsHandlerTest extends KernelTestCase
 
     private function pause(Project $project, Uuid $cardId, User $by): void
     {
-        $outbox = self::getContainer()->get(OutboxWriter::class);
-        self::assertInstanceOf(OutboxWriter::class, $outbox);
-        $runsChanged = self::getContainer()->get(WorkerRunChangedPublisher::class);
-        self::assertInstanceOf(WorkerRunChangedPublisher::class, $runsChanged);
         $this->audit ??= RecordingAuditor::installedIn(self::getContainer());
-
-        // Built by hand, because no controller calls the handler yet and the container drops it.
-        $handler = new PauseCardAgentsHandler($this->cardHolds(), $outbox, $runsChanged, $this->em(), $this->audit->auditor);
+        $handler = self::getContainer()->get(PauseCardAgentsHandler::class);
+        self::assertInstanceOf(PauseCardAgentsHandler::class, $handler);
         $handler(new PauseCardAgentsCommand($project, $cardId, $by));
     }
 
