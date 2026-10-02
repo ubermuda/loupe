@@ -8,6 +8,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Outbox\AgentPush;
@@ -210,6 +211,42 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame(WorkerRunState::Blocked, $run->state);
         self::assertSame('blocked', $run->resultStatus);
         self::assertNull($run->resultFields);
+        self::assertNull($run->resultReason);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, ?WorkerRunReason}> */
+    public static function reportedReasons(): iterable
+    {
+        yield 'a known code' => [['resultReason' => 'stacked'], WorkerRunReason::Stacked];
+        yield 'a code the server does not know' => [['resultReason' => 'rate-limited'], WorkerRunReason::Other];
+        yield 'an empty code' => [['resultReason' => ''], null];
+        yield 'no code' => [[], null];
+    }
+
+    /** @param array<string, mixed> $reason */
+    #[DataProvider('reportedReasons')]
+    public function test_an_outcome_stores_the_reason_the_bridge_reports(array $reason, ?WorkerRunReason $expected): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-reason@example.com');
+        $project = $this->project($em, $owner, 'Run States Reason');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'state' => 'blocked',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:00+00:00',
+            'endedAt' => '2026-09-23T10:01:00+00:00',
+            'exitCode' => 0,
+            'hasResult' => true,
+            'resultStatus' => 'blocked',
+            'output' => 'stacked on another pull request',
+            ...$reason,
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame($expected, $this->onlyRun()->resultReason);
     }
 
     public function test_a_worker_that_waits_on_the_forge_closes_as_waiting_on_forge(): void
@@ -817,6 +854,9 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'gave-up after a run that never started' => [array_merge($outcome, ['state' => 'gave-up', 'exitCode' => null, 'failureReason' => 'no claude'])];
         yield 'result fields above the limit' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'finished', 'resultFields' => ['note' => str_repeat('x', 4000)]])];
         yield 'result fields as a list' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'finished', 'resultFields' => ['a', 'b']])];
+        yield 'a result reason above the limit' => [array_merge($result, ['state' => 'succeeded', 'resultReason' => 'a'.str_repeat('b', 40)])];
+        yield 'a result reason with capitals' => [array_merge($result, ['state' => 'succeeded', 'resultReason' => 'Stacked'])];
+        yield 'a result reason with a newline' => [array_merge($result, ['state' => 'succeeded', 'resultReason' => "stacked\n"])];
         yield 'a continued run that is not a uuid' => [['continues' => 'nope']];
         yield 'a negative resume index' => [['resumeIndex' => -1]];
         yield 'a negative resume cap' => [['resumeCap' => -1]];

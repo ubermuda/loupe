@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Entity;
 
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
@@ -65,6 +66,11 @@ class WorkerRun implements ProjectScopedSubject
 
     public const int MAX_RESUME_SKIPPED_LENGTH = 50;
 
+    public const int MAX_RESULT_REASON_LENGTH = 40;
+
+    /** The shape of a reason code. The server stores a code it does not know as other. */
+    public const string RESULT_REASON_PATTERN = '/^[a-z][a-z0-9-]*$/D';
+
     public const int MAX_REQUESTED_MODEL_LENGTH = 100;
 
     public const int MAX_EXPERIMENT_NAME_LENGTH = 64;
@@ -110,6 +116,10 @@ class WorkerRun implements ProjectScopedSubject
     /** The status the worker gave in its structured result: finished, blocked or unfinished. */
     #[ORM\Column(name: 'result_status', length: 20, nullable: true)]
     public ?string $resultStatus = null;
+
+    /** Why the run ended the way it did. Null when the bridge sent no reason. */
+    #[ORM\Column(name: 'result_reason', length: self::MAX_RESULT_REASON_LENGTH, nullable: true, enumType: WorkerRunReason::class)]
+    public ?WorkerRunReason $resultReason = null;
 
     /**
      * The extra fields of the structured result, which the rule defines.
@@ -278,6 +288,7 @@ class WorkerRun implements ProjectScopedSubject
         ?string $resultStatus = null,
         ?array $resultFields = null,
         ?string $resumeSkipped = null,
+        ?WorkerRunReason $resultReason = null,
     ): void {
         if ($state->isOpen()) {
             throw new \LogicException(\sprintf('An outcome closes the run, and %s is open.', $state->value));
@@ -290,6 +301,7 @@ class WorkerRun implements ProjectScopedSubject
         $this->failureReason = $failureReason;
         $this->output = $output;
         $this->resultStatus = $resultStatus;
+        $this->resultReason = $resultReason;
         $this->resultFields = $resultFields;
         $this->resumeSkipped = $resumeSkipped;
     }

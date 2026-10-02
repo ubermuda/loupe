@@ -57,6 +57,7 @@ final readonly class WorkerRunExporter implements UserDataExporterInterface
                 'output' => $run->output,
                 'receivedAt' => $run->receivedAt->format(\DateTimeInterface::ATOM),
                 'resultStatus' => $run->resultStatus,
+                'resultReason' => $run->resultReason?->value,
                 'resultFields' => $run->resultFields,
                 'continues' => $run->continuesRun?->runKey?->toRfc4122(),
                 'resumeIndex' => $run->resumeIndex,

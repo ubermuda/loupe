@@ -65,6 +65,7 @@ final class ReportWorkerRunStateController extends AppController
             failureReason: $payload->failureReason(),
             output: $payload->output,
             resultStatus: $payload->resultStatus,
+            resultReason: $payload->resultReason(),
             resultFields: $payload->resultFields(),
             continues: $payload->continues(),
             resumeIndex: $payload->resumeIndex,
