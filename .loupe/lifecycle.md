@@ -25,7 +25,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Gate
 
-1. Base branch: `main`. A branch that stacks on an open pull request uses that pull request's head branch instead, as the stage `commands.md` says.
+1. Base branch: `main`. A child of an epic with an epic branch uses `epic/<n>` instead, as the `Epics` section says. A branch that stacks on an open pull request uses that pull request's head branch instead, as the stage `commands.md` says.
 2. Run `just cs`, and commit what it changes.
 3. Run `just ci`. It is long, so run it as the harness adapter says for a long command.
 4. Never start `just ci` again over a killed run. PHPUnit keeps running in the shared php-fpm container. Stop it as `project-worktrees` says.
@@ -64,11 +64,19 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 5. The column that holds a card in implementation is `implementation`. A breakdown moves each child that can start there.
 6. The default column is `backlog`, and the terminal column is `done`. A breakdown reads them to find the children that can start.
 
+## Epics
+
+1. The epic branch of epic card `<n>` is `epic/<n>`. The breakdown pushes it from `origin/main`.
+2. A child of an epic whose `epic/<n>` branch exists cuts its worktree from `origin/epic/<n>`, and its pull request targets `epic/<n>`. An epic with no such branch keeps the flow of `main` for its children.
+3. A child merges into `epic/<n>` with `squash` and no approval, once its required checks pass.
+4. The `Epics` ruleset of GitHub covers `refs/heads/epic/*`. It requires the checks of `main`, is not strict, and takes every change through a pull request. A direct push and `gh pr update-branch` into `epic/<n>` fail. The rule also applies on create, so the breakdown pushes a `main` commit whose required checks passed.
+5. The epic pull request goes from `epic/<n>` to `main`, and merges as the `Merge` section says.
+
 ## Merge
 
 1. The merge method is `squash`, because the `main` ruleset allows no other.
 2. Pass no body. GitHub builds the squash message from the commit messages, which carry the reasoning.
-3. Merge only a pull request whose base is `main`. A stacked pull request waits until its parent merges and a person retargets it.
+3. Merge only a pull request whose base is `main`, or an epic child whose base is its `epic/<n>`, as the `Epics` section says. Any other stacked pull request waits until its parent merges and a person retargets it.
 4. `working-with-prs` "Merging" and "What the ruleset actually requires" stay the authority for the checks and the approval.
 5. The merge stage skips the `just cs` on `main` after the merge, and the worktree teardown. The person who holds the merge queue does them.
 6. An update of a branch keeps its approval, because the ruleset does not dismiss a stale review. The ruleset has no merge queue, so `gh pr merge` never turns on auto-merge here.
