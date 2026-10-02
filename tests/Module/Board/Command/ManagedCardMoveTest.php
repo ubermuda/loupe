@@ -84,6 +84,17 @@ final class ManagedCardMoveTest extends KernelTestCase
         self::assertCount(1, $this->heldEvents());
     }
 
+    public function test_an_accepted_offer_for_a_move_the_guard_allows_holds_nothing(): void
+    {
+        $card = $this->card('next');
+
+        $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'tech-design'), unmanageBy: $this->project->owner));
+
+        self::assertSame('tech-design', $card->column->slug);
+        self::assertFalse($this->holds()->isHeld($this->project, $this->idOf($card)));
+        self::assertSame([], $this->heldEvents());
+    }
+
     public function test_a_refused_move_that_would_hold_the_card_holds_nothing(): void
     {
         $card = $this->card('next');

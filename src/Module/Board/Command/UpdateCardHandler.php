@@ -141,7 +141,8 @@ final readonly class UpdateCardHandler
                 return self::LINKED_CARD_GONE;
             }
             // A card the update holds is unmanaged, so the guard has nothing to refuse.
-            if ($column !== $card->column && null === $command->unmanageBy && !$this->moveGuard->allows($card, $column, $command->actor, $command->cause)) {
+            $needsHold = $column !== $card->column && !$this->moveGuard->allows($card, $column, $command->actor, $command->cause);
+            if ($needsHold && null === $command->unmanageBy) {
                 return new CardManaged($card->number);
             }
 
@@ -176,7 +177,7 @@ final readonly class UpdateCardHandler
             }
 
             // After every refusal that returns a value, because a value commits.
-            $held = null !== $command->unmanageBy && $this->cardPause->take(
+            $held = $needsHold && null !== $command->unmanageBy && $this->cardPause->take(
                 $card->project,
                 $card->id ?? throw new \LogicException('A persisted card has an id.'),
                 $command->unmanageBy,
@@ -195,7 +196,7 @@ final readonly class UpdateCardHandler
                 : null;
 
             // Before CardMoved, so the outbox row of this move reads the card as released.
-            if (null !== $move && $move->fromColumn !== $card->column && CardReporter::Human === $command->actor && null === $command->unmanageBy && $this->moveGuard->releasesHoldOnMove()) {
+            if (null !== $move && $move->fromColumn !== $card->column && CardReporter::Human === $command->actor && !$needsHold && $this->moveGuard->releasesHoldOnMove()) {
                 $this->cardHolds->release($card->project, [$card->id ?? throw new \LogicException('A persisted card has an id.')]);
             }
 
