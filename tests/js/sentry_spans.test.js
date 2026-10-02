@@ -138,6 +138,22 @@ describe('sentry spans', () => {
         expect(span.end).toHaveBeenCalledTimes(1);
     });
 
+    it('ends a submit whose render signal comes before its end', () => {
+        enableSpans(sentry);
+        fire('turbo:submit-start');
+        fire('turbo:before-stream-render');
+        paint();
+        const [span] = sentry.spans;
+        expect(span.end).not.toHaveBeenCalled();
+
+        fire('turbo:submit-end', { fetchResponse: response(STREAM) });
+        expect(span.end).not.toHaveBeenCalled();
+        paint();
+
+        expect(span.end).toHaveBeenCalledTimes(1);
+        expect(span.setStatus).not.toHaveBeenCalled();
+    });
+
     it.each(['turbo:render', 'turbo:frame-render'])(
         'ends an HTML submit after %s and a paint',
         (signal) => {
@@ -392,7 +408,32 @@ describe('sentry spans', () => {
         });
         expect(span.end).toHaveBeenCalledTimes(1);
         expect(span.end).toHaveBeenCalledWith();
+        expect(span.setStatus).not.toHaveBeenCalled();
         expect(sentry.setActiveSpanInBrowser).not.toHaveBeenCalled();
+    });
+
+    it('ends a live change that settles after 10 s at its deadline', async () => {
+        enableSpans(sentry);
+        const arrival = now();
+        let settle;
+        traceLive(
+            'board.card_changed',
+            arrival,
+            new Promise((resolve) => (settle = resolve)),
+        );
+        vi.advanceTimersByTime(15000);
+
+        settle();
+        await Promise.resolve();
+        await Promise.resolve();
+        paint();
+
+        const [span] = sentry.spans;
+        expect(span.setStatus).toHaveBeenCalledWith({
+            code: 2,
+            message: 'deadline_exceeded',
+        });
+        expect(span.end).toHaveBeenCalledWith(arrival + 10000);
     });
 
     it('records a live change that fails and passes the failure on', async () => {

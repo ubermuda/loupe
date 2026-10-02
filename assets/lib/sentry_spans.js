@@ -75,7 +75,13 @@ function begin(op, target) {
     if (!Sentry.getActiveSpan()?.isRecording()) {
         Sentry.setActiveSpanInBrowser(span);
     }
-    const interaction = { span, op, target, awaiting: false };
+    const interaction = {
+        span,
+        op,
+        target,
+        awaiting: false,
+        rendered: false,
+    };
     interaction.cap = setTimeout(() => {
         span.setStatus(DEADLINE_EXCEEDED);
         finish(interaction);
@@ -104,16 +110,19 @@ function onSubmitEnd(event) {
     if (!interaction) {
         return;
     }
-    if (rendersBody(event.detail?.fetchResponse)) {
+    if (rendersBody(event.detail?.fetchResponse) && !interaction.rendered) {
         interaction.awaiting = true;
     } else {
         finishAfterPaint(interaction);
     }
 }
 
+// Turbo can render a stream before it fires turbo:submit-end.
 function onRender() {
     if (open?.awaiting) {
         finishAfterPaint(open);
+    } else if (open?.op === SUBMIT) {
+        open.rendered = true;
     }
 }
 
@@ -153,14 +162,20 @@ export function traceLive(type, startTime, result) {
         return undefined;
     }
     const record = () =>
-        afterPaint(() =>
-            startRoot({
+        afterPaint(() => {
+            const span = startRoot({
                 op: 'ui.live',
                 name: type,
                 startTime,
                 attributes: attributes(startTime),
-            }).end(),
-        );
+            });
+            if (now() - startTime > CAP_MILLISECONDS) {
+                span.setStatus(DEADLINE_EXCEEDED);
+                span.end(startTime + CAP_MILLISECONDS);
+            } else {
+                span.end();
+            }
+        });
 
     // A rejection stays unhandled, so the global error report still sees it.
     return Promise.resolve(result).finally(record);
