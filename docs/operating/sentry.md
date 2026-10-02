@@ -25,6 +25,27 @@ writes a debug log line, so nothing goes to Sentry. The *Sentry* row on
 `/admin/status`, and `bin/console health-check:status`, report a malformed DSN
 as a failure. They check the DSN format only, and never call Sentry.
 
+## Browser
+
+Loupe can also load the Sentry browser SDK on every page, the admin area and
+the error pages included. It is off until you
+set `SENTRY_BROWSER_DSN`. These variables control it:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SENTRY_BROWSER_DSN` | empty | Where browser events go. It is not a secret, because each page that loads the SDK shows it. Empty loads no SDK. |
+| `SENTRY_BROWSER_TRACES_SAMPLE_RATE` | `1.0` | The share of page loads that the browser SDK traces, from `0.0` to `1.0`. While `SENTRY_DSN` is set, a page load continues the server trace, and `SENTRY_TRACES_SAMPLE_RATE` decides for it. |
+
+The browser sends page loads, Web Vitals and JavaScript errors. It posts them
+directly to the ingest origin of the DSN, which Loupe adds to the
+Content-Security-Policy `connect-src` list. Loupe scrubs each browser event
+before it leaves the page. Every item in
+[What Sentry never receives](#what-sentry-never-receives) stays true for the
+browser: no URL or query string, no user content and no user identity.
+
+The *Sentry in the browser* row on `/admin/status` reports a malformed
+`SENTRY_BROWSER_DSN` as a failure, in the same way as the *Sentry* row.
+
 ## What Sentry receives
 
 - A trace for each sampled web request, with a span for each Doctrine query and
@@ -59,8 +80,9 @@ a run of repeated queries, and Sentry's N+1 query detector then misses it.
   the instance.
 - A console command line.
 - The arguments of a function in a stack trace.
-- Trace headers. Loupe adds none to an outbound request, so other hosts learn
-  nothing about the trace.
+- Trace headers. Loupe adds none to a request to another host, so other hosts
+  learn nothing about the trace. The browser SDK adds them only to requests to
+  the instance itself.
 
 ## Stay within a Sentry quota
 
