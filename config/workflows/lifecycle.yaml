@@ -31,7 +31,10 @@ rules:
 
     - id: product-design-approved
       slot: product-design
-      when: { card.document_approved: { tag: product } }
+      when:
+          all:
+              - card.document_approved: { tag: product }
+              - not: { card.document_changes_requested: { tag: product } }
       then: { move: { to: tech-design } }
 
     - id: tech-design-write
@@ -52,6 +55,7 @@ rules:
       when:
           all:
               - card.document_approved: { tag: design }
+              - not: { card.document_changes_requested: { tag: design } }
               - not: { card.has_open_blocker: {} }
       then: { move: { to: implementation } }
 
@@ -201,7 +205,7 @@ rules:
           all:
               - card.is_child: {}
               - not: { card.has_open_blocker: {} }
-              - not: { pr.all_closed_unmerged: { minutes: 10 } }
+              - not: { pr.linked: {} }
       then: { move: { to: implementation } }
 
     - id: pull-request-reopened

@@ -174,12 +174,12 @@ final class ShippedTemplatesTest extends KernelTestCase
 
     /** @param list<string> $pair */
     #[DataProvider('overlaps')]
-    public function test_only_one_rule_of_an_overlapping_pair_fires(Facts $facts, array $pair, string $fires): void
+    public function test_only_one_rule_of_an_overlapping_pair_fires(Facts $facts, array $pair, ?string $fires): void
     {
-        self::assertSame([$fires], array_values(array_intersect($this->firingRuleIds($facts), $pair)));
+        self::assertSame(null === $fires ? [] : [$fires], array_values(array_intersect($this->firingRuleIds($facts), $pair)));
     }
 
-    /** @return iterable<string, array{Facts, list<string>, string}> */
+    /** @return iterable<string, array{Facts, list<string>, ?string}> */
     public static function overlaps(): iterable
     {
         $merged = FactsMother::pullRequest(state: PullRequestState::Merged, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
@@ -254,6 +254,27 @@ final class ShippedTemplatesTest extends KernelTestCase
             FactsMother::facts(card: $finishedEpic),
             ['epic-to-done', 'merged'],
             'epic-to-done',
+        ];
+
+        $productDocuments = [new DocumentFacts(tags: ['product'], status: 'approved'), new DocumentFacts(tags: ['product'], status: 'changes-requested')];
+        yield 'a product design with one document approved and one to revise stays to revise' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'product-design', documents: $productDocuments)),
+            ['product-design-approved', 'product-design-revise'],
+            'product-design-revise',
+        ];
+
+        $designDocuments = [new DocumentFacts(tags: ['design'], status: 'approved'), new DocumentFacts(tags: ['design'], status: 'changes-requested')];
+        yield 'a tech design with one document approved and one to revise stays to revise' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: $designDocuments)),
+            ['tech-design-approved', 'tech-design-revise'],
+            'tech-design-revise',
+        ];
+
+        $justClosed = FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:55:00'));
+        yield 'a child whose pull request just closed stays in the backlog' => [
+            FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true), pullRequest: $justClosed, pullRequests: [$justClosed]),
+            ['child-unblocked', 'pull-request-reopened'],
+            null,
         ];
 
         $mergedStacked = FactsMother::pullRequest(state: PullRequestState::Merged, stacked: true, parentMerged: true, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
