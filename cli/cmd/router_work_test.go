@@ -70,12 +70,17 @@ type fakeWork struct {
 	// closes it.
 	settleErr error
 	gate      chan struct{}
+	// mangle makes each claim answer with another kind than the offer.
+	mangle bool
 }
 
 func (f *fakeWork) ClaimWorkRequest(_ context.Context, _, id string) (api.Claim, error) {
 	f.mu.Lock()
 	f.claims = append(f.claims, id)
 	err, w, gate := f.errs[id], f.requests[id], f.gate
+	if f.mangle {
+		w.Kind = "other"
+	}
 	f.mu.Unlock()
 	if gate != nil {
 		<-gate
@@ -377,7 +382,7 @@ func TestALostClaimStopsItsWorker(t *testing.T) {
 	if got := h.heldClaims(); !slices.Equal(got, []api.WorkClaim{{ID: workID(1), ClaimToken: tokenOf(1)}}) {
 		t.Fatalf("claims = %v", got)
 	}
-	h.router.onHeartbeatReply(api.HeartbeatReply{LostClaims: []string{workID(1)}})
+	h.router.loseClaims([]api.WorkClaim{{ID: workID(1), ClaimToken: tokenOf(1)}})
 	h.router.wg.Wait()
 
 	wantStates(t, rec.states(), api.RunQueued, api.RunRunning, api.RunStopping, api.RunStopped)
@@ -388,6 +393,77 @@ func TestALostClaimStopsItsWorker(t *testing.T) {
 		t.Fatalf("claims = %v", got)
 	}
 	h.only(t, "work_request_lost")
+}
+
+// A lost answer for a token the bridge no longer holds leaves the claim, as
+// when the bridge took the request again after the heartbeat went out.
+func TestAStaleLostClaimLeavesTheClaim(t *testing.T) {
+	h := newHarnessWith(t, workRules, rules.Defaults{})
+	f := h.withWork()
+	block := h.blocked()
+
+	w := workRequest(1, 87, "implement", api.WorkRequestOpen)
+	f.requests[w.WorkRequestID] = w
+	h.router.onData([]byte(workPayload(w)))
+	<-h.worker.started
+	h.router.loseClaims([]api.WorkClaim{{ID: workID(1), ClaimToken: "token-of-an-older-claim"}})
+	if got := h.heldClaims(); len(got) != 1 {
+		t.Fatalf("claims = %v", got)
+	}
+	close(block)
+	h.router.wg.Wait()
+
+	if got := f.settled(); !slices.Equal(got, []string{workID(1) + " " + tokenOf(1) + " done"}) {
+		t.Fatalf("results = %v", got)
+	}
+}
+
+// replying answers each heartbeat with reply.
+type replying struct {
+	mu    sync.Mutex
+	reply api.HeartbeatReply
+	sent  []api.Heartbeat
+}
+
+func (s *replying) Heartbeat(_ context.Context, _ string, hb api.Heartbeat) (api.HeartbeatReply, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sent = append(s.sent, hb)
+
+	return s.reply, nil
+}
+
+// A heartbeat reply drops the lost claim before it takes the offers, so an
+// offer of the same request in that reply is claimed again.
+func TestAHeartbeatReplyLosesClaimsBeforeItTakesOffers(t *testing.T) {
+	h := newHarnessWith(t, workRules, rules.Defaults{})
+	f := h.withWork()
+	s := h.stopper()
+	s.gone = true
+	block := h.blocked()
+	s.on = func(sig stopSignal) {
+		if sig == stopInt {
+			close(block)
+		}
+	}
+	w := workRequest(1, 87, "implement", api.WorkRequestOpen)
+	f.requests[w.WorkRequestID] = w
+	server := &replying{reply: api.HeartbeatReply{LostClaims: []string{workID(1)}, WorkRequests: []api.WorkRequest{w}}}
+	hb := newHeartbeater(context.Background(), latestNow{}, server, testBridgeID, heartbeatBody(h.router.rules()), time.Minute, h.router.log)
+	hb.onReply, hb.onLost = h.router.onHeartbeatReply, h.router.loseClaims
+	h.router.heartbeat = hb
+
+	h.router.onData([]byte(workPayload(w)))
+	<-h.worker.started
+	hb.send()
+	h.router.wg.Wait()
+
+	if got := f.claimed(); !slices.Equal(got, []string{workID(1), workID(1)}) {
+		t.Fatalf("claims = %v, want the request claimed again", got)
+	}
+	if got := f.settled(); !slices.Equal(got, []string{workID(1) + " " + tokenOf(1) + " done"}) {
+		t.Fatalf("results = %v, want the second run alone", got)
+	}
 }
 
 // latestNow sends each latest-wins item at once, and each report too.

@@ -200,13 +200,18 @@ func (r *router) dropDeadWorkLocked() []pending {
 // what p holds. A run reports nothing before its claim, so a claim another
 // bridge won leaves no run on the server. The caller holds mu.
 func (r *router) claimThenLocked(p pending, run func(pending), release func()) {
+	registered := r.registerClaimLocked(p)
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
 
-		claim, err := r.requestClaim(p)
+		var claim api.Claim
+		err := registered
+		if err == nil {
+			claim, err = r.requestClaim(p)
+		}
 		r.mu.Lock()
-		p, verdict := r.takeClaimLocked(p, claim, err)
+		p, verdict := r.takeClaimLocked(p, claim, err, registered == nil)
 		if verdict == claimRun {
 			run(p)
 		} else {
@@ -232,21 +237,31 @@ const (
 // most claims one heartbeat renews.
 var errClaimCap = fmt.Errorf("the bridge holds %d claims, the most one heartbeat renews", api.MaxWorkClaims)
 
-// requestClaim registers the claim and asks the server for it, off mu.
-func (r *router) requestClaim(p pending) (api.Claim, error) {
-	id := p.work.WorkRequestID
-	r.mu.Lock()
-	if len(r.claims) >= api.MaxWorkClaims {
-		r.mu.Unlock()
+// errClaimHeld marks a claim the bridge did not ask for, because it claims or
+// holds the request already.
+var errClaimHeld = errors.New("the bridge claims or holds this work request already")
 
-		return api.Claim{}, errClaimCap
+// registerClaimLocked records the claim before its call starts, so no second
+// offer of the request runs or takes its place. The caller holds mu.
+func (r *router) registerClaimLocked(p pending) error {
+	id := p.work.WorkRequestID
+	switch {
+	case r.claims[id] != nil:
+		return errClaimHeld
+	case len(r.claims) >= api.MaxWorkClaims:
+		return errClaimCap
 	}
 	if r.claims == nil {
 		r.claims = map[string]*heldClaim{}
 	}
 	r.claims[id] = &heldClaim{runID: p.runID, req: p.work}
-	r.mu.Unlock()
 
+	return nil
+}
+
+// requestClaim asks the server for the claim, off mu.
+func (r *router) requestClaim(p pending) (api.Claim, error) {
+	id := p.work.WorkRequestID
 	timeout := r.checkTimeout
 	if timeout <= 0 {
 		timeout = askCheckTimeout
@@ -258,8 +273,9 @@ func (r *router) requestClaim(p pending) (api.Claim, error) {
 }
 
 // takeClaimLocked reads the answer to a claim. On a claim it keeps the token
-// and reports the run as queued. The caller holds mu.
-func (r *router) takeClaimLocked(p pending, claim api.Claim, err error) (pending, int) {
+// and reports the run as queued. registered says the claim of p made the
+// entry, which a failure removes. The caller holds mu.
+func (r *router) takeClaimLocked(p pending, claim api.Claim, err error, registered bool) (pending, int) {
 	id := p.work.WorkRequestID
 	attrs := about(p.event, p.rule)
 	if err == nil {
@@ -277,7 +293,7 @@ func (r *router) takeClaimLocked(p pending, claim api.Claim, err error) (pending
 	}
 	c := r.claims[id]
 	if err != nil {
-		if c != nil && c.token == "" {
+		if registered && c != nil && c.token == "" {
 			delete(r.claims, id)
 		}
 		r.logClaimFailed(attrs, err)
@@ -329,6 +345,8 @@ func (r *router) logClaimFailed(attrs []any, err error) {
 		r.log.Info("work_request_not_claimed", append(attrs, "reason", "not_found")...)
 	case errors.As(err, &refusal) && refusal.RateLimited():
 		r.log.Info("work_request_not_claimed", append(attrs, "reason", "rate_limited")...)
+	case errors.Is(err, errClaimHeld):
+		r.log.Info("work_request_not_claimed", append(attrs, "reason", "duplicate")...)
 	case errors.Is(err, api.ErrWorkRequestsUnsupported), errors.As(err, &refusal), errors.Is(err, errClaimCap):
 		r.log.Warn("work_request_not_claimed", append(attrs, "reason", "refused", "error", err.Error())...)
 	default:
@@ -363,9 +381,11 @@ func (r *router) endClaimLocked(id string, c *heldClaim) {
 	}
 }
 
-// loseClaims acts on the claims a heartbeat reply names lost. A frozen router
-// leaves them, so the next image reads them in its own reply.
-func (r *router) loseClaims(ids []string) {
+// loseClaims acts on the claims a heartbeat reply names lost, each with the
+// token that heartbeat sent. A claim taken again since then holds another
+// token, so the stale answer leaves it. A frozen router leaves them all, so
+// the next image reads them in its own reply.
+func (r *router) loseClaims(lost []api.WorkClaim) {
 	r.quiesce.RLock()
 	defer r.quiesce.RUnlock()
 	r.mu.Lock()
@@ -373,13 +393,41 @@ func (r *router) loseClaims(ids []string) {
 	if r.frozen {
 		return
 	}
-	for _, id := range ids {
-		c := r.claims[id]
-		if c == nil || c.token == "" {
+	for _, l := range lost {
+		c := r.claims[l.ID]
+		if c == nil || c.token == "" || c.token != l.ClaimToken {
 			continue
 		}
 		r.log.Warn("work_request_lost", append(workAttrs(c.req, workFromHeartbeat), "message", "the server no longer holds this claim for the bridge, so the bridge stops its run")...)
-		r.endClaimLocked(id, c)
+		r.endClaimLocked(l.ID, c)
+	}
+}
+
+// lostOf names, with its token, each claim the heartbeat sent that the reply
+// names lost.
+func lostOf(sent []api.WorkClaim, ids []string) []api.WorkClaim {
+	var out []api.WorkClaim
+	for _, c := range sent {
+		if slices.Contains(ids, c.ID) {
+			out = append(out, c)
+		}
+	}
+
+	return out
+}
+
+// noteWorkDeathLocked logs once when a kill ends the work of a project. The
+// work map names no project, so nothing else shows that its offers now go
+// unclaimed. before is the reason the work was dead before the kill. The
+// caller holds mu.
+func (r *router) noteWorkDeathLocked(set *rules.Set, id, before string) {
+	slug := slugOf(set, id)
+	if slug == "" || before != "" || !set.HasWork() {
+		return
+	}
+	if reason := set.WorkDead(slug); reason != "" {
+		r.log.Info("work_dead", "project", id, "project_slug", slug, "reason", reason,
+			"message", fmt.Sprintf("the bridge claims no work request of project %s until you fix rules.yaml and run loupe bridge reload", slug))
 	}
 }
 
@@ -463,9 +511,8 @@ func workOutcome(res workerResult) (string, string) {
 
 // settleWork posts the result of a work request through the report queue,
 // which retries a network failure. The claim stays renewed until the post
-// settles, so a slow post never loses its lease. A post that runs out of
-// attempts leaves the claim, which a heartbeat reply drops once it names it
-// lost.
+// settles, so a slow post never loses its lease. A post the queue gives up
+// or drops ends the claim too.
 func (r *router) settleWork(p pending, state, reason string) {
 	id, token := p.work.WorkRequestID, p.claimToken
 	attrs := append(about(p.event, p.rule), "state", state, "reason", reason)
@@ -500,6 +547,14 @@ func (r *router) settleWork(p pending, state, reason string) {
 			r.mu.Unlock()
 
 			return true, nil
+		},
+		// The lease of a result that never lands runs out, and the server
+		// offers the request again. Renewing it would hold the request forever.
+		Lost: func() {
+			r.log.Warn("work_request_result_dropped", attrs...)
+			r.mu.Lock()
+			r.dropClaimLocked(id, token)
+			r.mu.Unlock()
 		},
 	})
 }

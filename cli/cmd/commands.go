@@ -40,10 +40,10 @@ func (r *router) onCommandEvent(data []byte) {
 	r.takeCommand(c, commandFromEvent)
 }
 
-// onHeartbeatReply applies the pause and takes the commands, the work offers
-// and the lost claims of one heartbeat reply. It runs on the goroutine of the
-// heartbeat lane, and a handler or a claim runs on a goroutine of its own, so
-// it never waits on one.
+// onHeartbeatReply applies the pause and takes the commands and the work
+// offers of one heartbeat reply. The heartbeater hands the lost claims to
+// loseClaims first. It runs on the goroutine of the heartbeat lane, and a
+// handler or a claim runs on a goroutine of its own, so it never waits on one.
 func (r *router) onHeartbeatReply(reply api.HeartbeatReply) {
 	if reply.Paused != nil {
 		r.setPersonPause(*reply.Paused)
@@ -64,9 +64,6 @@ func (r *router) onHeartbeatReply(reply api.HeartbeatReply) {
 			continue
 		}
 		r.takeWork(w, workFromHeartbeat)
-	}
-	if len(reply.LostClaims) > 0 {
-		r.loseClaims(reply.LostClaims)
 	}
 }
 

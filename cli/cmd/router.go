@@ -619,7 +619,10 @@ func (r *router) kill(e event.Event, do func(*rules.Set) []rules.Dead) ([]rules.
 		r.reloadKills = append(r.reloadKills, e)
 	}
 
-	dead, dropped := r.dropDeadLocked(do(r.rules()))
+	set := r.rules()
+	before := set.WorkDead(slugOf(set, e.ProjectID))
+	dead, dropped := r.dropDeadLocked(do(set))
+	r.noteWorkDeathLocked(set, e.ProjectID, before)
 
 	return dead, append(dropped, r.dropDeadWorkLocked()...)
 }
@@ -660,7 +663,10 @@ func (r *router) markGone(id string, seq uint64) ([]rules.Dead, []pending, bool)
 		r.gone = map[string]bool{}
 	}
 	r.gone[id] = true
-	dead, dropped := r.dropDeadLocked(killGone(r.rules(), id))
+	set := r.rules()
+	before := set.WorkDead(slugOf(set, id))
+	dead, dropped := r.dropDeadLocked(killGone(set, id))
+	r.noteWorkDeathLocked(set, id, before)
 
 	return dead, append(dropped, r.dropDeadWorkLocked()...), true
 }
@@ -864,7 +870,11 @@ func (r *router) enqueue(p pending) {
 	}
 	// A match of an interactive rule opens a session and never waits in the queue.
 	if p.action == rules.ActionInteractive {
-		if p.isWork() {
+		// A session opens at once, and a person's pause holds back new work, so
+		// a paused bridge leaves the offer to another bridge.
+		if p.isWork() && (r.personPaused || r.paused) {
+			r.log.Debug("work_request_skipped", append(about(p.event, p.rule), "reason", "paused")...)
+		} else if p.isWork() {
 			r.launching++
 			r.claimThenLocked(p, func(p pending) {
 				r.launching--

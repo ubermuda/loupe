@@ -449,7 +449,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		if r.update != nil {
 			hb.onSent = r.update.markBeat
 		}
-		hb.onReply = r.onHeartbeatReply
+		hb.onReply, hb.onLost = r.onHeartbeatReply, r.loseClaims
 		// Adopted runs can end on their own goroutines, and read heartbeat
 		// under mu.
 		r.mu.Lock()

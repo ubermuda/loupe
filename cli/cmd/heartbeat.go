@@ -57,6 +57,9 @@ type heartbeater struct {
 	// its reply first, both on the goroutine of the lane. Either may be nil.
 	onSent  func()
 	onReply func(api.HeartbeatReply)
+	// onLost gets the claims the reply names lost, each with the token this
+	// heartbeat sent, before onReply. It may be nil.
+	onLost func([]api.WorkClaim)
 
 	mu   sync.Mutex
 	body api.Heartbeat
@@ -282,6 +285,11 @@ func (h *heartbeater) send() {
 		reply, err := h.client.Heartbeat(ctx, h.bridgeID, body)
 		if err == nil && h.onRange != nil {
 			h.onRange(reply.CLIRange)
+		}
+		// A lost claim goes first, so an offer of the same request in the reply
+		// finds the claim gone and is claimed again.
+		if lost := lostOf(body.WorkClaims, reply.LostClaims); err == nil && h.onLost != nil && len(lost) > 0 {
+			h.onLost(lost)
 		}
 		if err == nil && h.onReply != nil {
 			h.onReply(reply)
