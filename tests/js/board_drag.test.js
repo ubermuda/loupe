@@ -15,6 +15,7 @@ function card(id, prefix = 'board-card-') {
         <form hidden data-board-drag-target="moveForm">
             <select name="move_${id}[column]"><option value="backlog">Backlog</option><option value="next">Next</option><option value="waiting">Waiting</option></select>
             <input name="move_${id}[position]">
+            <input type="checkbox" value="1" name="move_${id}[unmanage]">
         </form>
     </article>`;
 }
@@ -603,5 +604,99 @@ describe('a card of an Up next deck', () => {
 
         pointerAt(700, 200);
         expect(deck.classList.contains('lp-deck--open')).toBe(false);
+    });
+});
+
+describe('a drop refused because the card is managed', () => {
+    const OFFER = 'This card is managed. Make it unmanaged and move it?';
+    const managed = {
+        succeeded: false,
+        contentType: 'text/html; charset=UTF-8',
+        header: (name) => ('X-Card-Managed-Offer' === name ? OFFER : null),
+    };
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('asks the question, and sends the same move again with unmanage on yes', async () => {
+        const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const form = drop();
+        const unmanage = form.querySelector('input[name$="[unmanage]"]');
+
+        expect(respond(form, managed)).toBe(true);
+        finish(form, false);
+        expect(confirm).not.toHaveBeenCalled();
+        expect(titles('next')).toEqual(['a']);
+        await settle();
+
+        expect(confirm).toHaveBeenCalledWith(OFFER);
+        expect(form.requestSubmit).toHaveBeenCalledTimes(2);
+        expect(unmanage.checked).toBe(true);
+        expect(titles('next')).toEqual(['a']);
+        expect(controller.pendingForm).toBe(form);
+
+        expect(respond(form, { succeeded: true, contentType: STREAM })).toBe(
+            false,
+        );
+        finish(form, true);
+        expect(titles('next')).toEqual(['a']);
+    });
+
+    it('puts the card back on no', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const form = drop();
+
+        respond(form, managed);
+        finish(form, false);
+        await settle();
+
+        expect(form.requestSubmit).toHaveBeenCalledOnce();
+        expect(titles('backlog')).toEqual(['a', 'b']);
+        expect(controller.pendingForm).toBeNull();
+    });
+
+    it('asks nothing when the refusal carries no question', async () => {
+        const confirm = vi.spyOn(window, 'confirm');
+        const form = drop();
+
+        respond(form, { ...managed, header: () => null });
+        finish(form, false);
+        await settle();
+
+        expect(confirm).not.toHaveBeenCalled();
+        expect(titles('backlog')).toEqual(['a', 'b']);
+    });
+
+    it('asks once, and puts the card back when the second answer is refused too', async () => {
+        const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const form = drop();
+
+        respond(form, managed);
+        finish(form, false);
+        await settle();
+        respond(form, managed);
+        finish(form, false);
+        await settle();
+
+        expect(confirm).toHaveBeenCalledOnce();
+        expect(titles('backlog')).toEqual(['a', 'b']);
+    });
+
+    it('clears unmanage on the next drop', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const form = drop();
+        respond(form, managed);
+        finish(form, false);
+        await settle();
+        respond(form, managed);
+        finish(form, false);
+        await settle();
+
+        drop();
+
+        expect(form.querySelector('input[name$="[unmanage]"]').checked).toBe(
+            false,
+        );
     });
 });

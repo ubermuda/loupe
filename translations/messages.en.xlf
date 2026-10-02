@@ -5239,6 +5239,10 @@
                 <source>board.card.error.managed</source>
                 <target>This card is managed. Make it unmanaged to move it there.</target>
             </trans-unit>
+            <trans-unit id="board.card.managed_offer">
+                <source>board.card.managed_offer</source>
+                <target>This card is managed. Make it unmanaged and move it?</target>
+            </trans-unit>
             <trans-unit id="board.card.error.changed_since_opened">
                 <source>board.card.error.changed_since_opened</source>
                 <target>This card changed since you opened it.</target>

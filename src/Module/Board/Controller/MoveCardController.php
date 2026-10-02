@@ -6,6 +6,7 @@ namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CardManaged;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\MoveCardCommand;
@@ -18,6 +19,10 @@ use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Bridge\Command\PauseCardAgentsCommand;
+use App\Module\Bridge\Command\PauseCardAgentsHandler;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +39,9 @@ use Symfony\UX\Turbo\TurboBundle;
  * A drop answers with the moved card placed where the database holds it, so
  * the page corrects a wrong prediction without a reload of the board. A
  * refused drop answers 422 with no body, and the drag puts the card back.
+ * A drop refused because the card is managed carries a question in a header
+ * for a person who may hold the card, and the drag sends it again with
+ * `unmanage` when the person agrees.
  */
 #[IsGranted(CardVoter::WRITE, subject: 'card')]
 #[Route(
@@ -44,12 +52,15 @@ use Symfony\UX\Turbo\TurboBundle;
 )]
 final class MoveCardController extends AppController
 {
+    public const string MANAGED_OFFER_HEADER = 'X-Card-Managed-Offer';
+
     public function __construct(
         private readonly MoveCardHandler $moveCard,
         private readonly ShowCardPlacementHandler $showPlacement,
         private readonly FormFactoryInterface $formFactory,
         private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
+        private readonly PauseCardAgentsHandler $pauseCardAgents,
     ) {
     }
 
@@ -63,6 +74,7 @@ final class MoveCardController extends AppController
         $data = new MoveCardRequest();
         $stream = TurboBundle::STREAM_FORMAT === $request->getPreferredFormat();
         $error = null;
+        $managed = false;
 
         // Rebuilt under the name the board rendered it with, so handleRequest()
         // finds the submission and the form component checks its own CSRF token.
@@ -73,7 +85,11 @@ final class MoveCardController extends AppController
             // A stale or forged submission, which the reader cannot correct.
             $error = $this->translator->trans('board.card.flash.move_rejected');
         } else {
+            $mayManage = $this->isGranted(ProjectVoter::MANAGE, $project);
             try {
+                if ($data->unmanage && $mayManage) {
+                    $this->hold($project, $card);
+                }
                 ($this->moveCard)(new MoveCardCommand(
                     card: $card,
                     actor: CardReporter::Human,
@@ -91,11 +107,14 @@ final class MoveCardController extends AppController
                 $error = $this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()]);
             } catch (CardManaged) {
                 $error = $this->translator->trans(CardManaged::MESSAGE);
+                $managed = $mayManage;
             }
         }
 
         if (null !== $error && $stream) {
-            return new Response('', Response::HTTP_UNPROCESSABLE_ENTITY);
+            return new Response('', Response::HTTP_UNPROCESSABLE_ENTITY, $managed
+                ? [self::MANAGED_OFFER_HEADER => $this->translator->trans('board.card.managed_offer')]
+                : []);
         }
 
         if (!$stream) {
@@ -114,5 +133,21 @@ final class MoveCardController extends AppController
             Response::HTTP_OK,
             ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
         );
+    }
+
+    /** A card held already is unmanaged already, so that refusal is no failure. */
+    private function hold(Project $project, Card $card): void
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw new \LogicException('The card voter admits only a signed-in user.');
+        }
+        try {
+            ($this->pauseCardAgents)(new PauseCardAgentsCommand($project, $card->id ?? throw new \LogicException('A stored card has an id.'), $user));
+        } catch (DomainErrors $e) {
+            if (!\in_array(PauseCardAgentsHandler::ALREADY_PAUSED, $e->errors, true)) {
+                throw $e;
+            }
+        }
     }
 }

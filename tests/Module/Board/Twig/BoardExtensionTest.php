@@ -130,6 +130,7 @@ final class BoardExtensionTest extends KernelTestCase
             $name = MoveCardFormType::nameFor($card);
             self::assertStringContainsString('name="'.$name.'[column]"', $html);
             self::assertStringContainsString('id="'.$name.'_column"', $html);
+            self::assertStringContainsString('name="'.$name.'[unmanage]"', $html);
             self::assertSame(substr_count($html, 'move_card_'), substr_count($html, $name));
         }
         self::assertNotSame($firstHtml, $secondHtml);

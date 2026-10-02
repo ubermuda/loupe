@@ -30,6 +30,7 @@ const EDGE_BAND = 56;
 const EDGE_STEP = 14;
 
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
+const MANAGED_OFFER_HEADER = 'X-Card-Managed-Offer';
 
 /** A group that takes a card and shows none, such as the Backlog button. */
 const isBucket = (group) => group?.dataset.boardBucket !== undefined;
@@ -506,6 +507,8 @@ export default class extends Controller {
      * kept from rendering, so no error page replaces the board, and the card
      * goes back. A success is a board-place stream for this card, which
      * renders after `turbo:submit-end`, so the next drag waits for it.
+     * A refusal that asks to make the card unmanaged keeps the card where it
+     * landed while the person answers, and a yes sends the move once more.
      */
     submitMove(card, group, position, origin, lanePayload) {
         const form = card.querySelector('[data-board-drag-target="moveForm"]');
@@ -545,8 +548,13 @@ export default class extends Controller {
                 field.value = lanePayload?.[name] ?? '';
             }
         }
+        const unmanage = form.querySelector('input[name$="[unmanage]"]');
+        if (unmanage !== null) {
+            unmanage.checked = false;
+        }
 
         let refused = false;
+        let offer = null;
         const answered = (event) => {
             const response = event.detail.fetchResponse;
             if (
@@ -554,6 +562,7 @@ export default class extends Controller {
                 !(response.contentType ?? '').startsWith(STREAM_TYPE)
             ) {
                 refused = true;
+                offer = response.header?.(MANAGED_OFFER_HEADER) ?? null;
                 event.preventDefault();
             }
         };
@@ -566,15 +575,36 @@ export default class extends Controller {
 
                 return;
             }
+            if (offer !== null && unmanage !== null && !unmanage.checked) {
+                // After Turbo ends this submission, which it does once this event returns.
+                const question = offer;
+                setTimeout(() => {
+                    if (window.confirm(question)) {
+                        unmanage.checked = true;
+                        send();
+
+                        return;
+                    }
+                    this.release(card);
+                    this.restore(card, origin);
+                });
+
+                return;
+            }
             this.release(card);
             this.restore(card, origin);
+        };
+        const send = () => {
+            refused = false;
+            offer = null;
+            form.addEventListener('turbo:before-fetch-response', answered);
+            form.addEventListener('turbo:submit-end', finished);
+            form.requestSubmit();
         };
 
         this.pendingForm = form;
         card.setAttribute('aria-busy', 'true');
-        form.addEventListener('turbo:before-fetch-response', answered);
-        form.addEventListener('turbo:submit-end', finished);
-        form.requestSubmit();
+        send();
     }
 
     /**

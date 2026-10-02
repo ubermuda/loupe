@@ -48,7 +48,7 @@ use Twig\TwigFunction;
  */
 final class BoardExtension extends AbstractExtension implements ResetInterface
 {
-    private const array MOVE_FIELDS = ['_token', 'column', 'position', 'parent', 'beforeCardId', 'afterCardId'];
+    private const array MOVE_FIELDS = ['_token', 'column', 'position', 'parent', 'beforeCardId', 'afterCardId', 'unmanage'];
 
     private readonly string $prototypeName;
 
