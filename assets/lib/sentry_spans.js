@@ -104,7 +104,7 @@ function isStream(fetchResponse) {
 
 function onSubmitEnd(event) {
     const interaction = current(SUBMIT);
-    if (!interaction) {
+    if (interaction?.target !== event.target) {
         return;
     }
     const fetchResponse = event.detail?.fetchResponse;
@@ -165,24 +165,33 @@ export function traceLive(type, startTime, result) {
     if (!Sentry || typeof result?.then !== 'function') {
         return undefined;
     }
-    const record = () =>
-        afterPaint(() => {
-            const span = startRoot({
-                op: 'ui.live',
-                name: type,
-                startTime,
-                attributes: attributes(startTime),
-            });
-            if (now() - startTime > CAP_MILLISECONDS) {
-                span.setStatus(DEADLINE_EXCEEDED);
-                span.end(startTime + CAP_MILLISECONDS);
-            } else {
-                span.end();
-            }
+    let recorded = false;
+    const record = () => {
+        if (recorded || !Sentry) {
+            return;
+        }
+        recorded = true;
+        clearTimeout(deadline);
+        const span = startRoot({
+            op: 'ui.live',
+            name: type,
+            startTime,
+            attributes: attributes(startTime),
         });
+        if (now() - startTime >= CAP_MILLISECONDS) {
+            span.setStatus(DEADLINE_EXCEEDED);
+            span.end(startTime + CAP_MILLISECONDS);
+        } else {
+            span.end();
+        }
+    };
+    const deadline = setTimeout(
+        record,
+        Math.max(0, startTime + CAP_MILLISECONDS - now()),
+    );
 
     // A rejection stays unhandled, so the global error report still sees it.
-    return Promise.resolve(result).finally(record);
+    return Promise.resolve(result).finally(() => afterPaint(record));
 }
 
 export function reset() {

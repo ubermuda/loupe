@@ -238,6 +238,27 @@ describe('sentry spans', () => {
         expect(frame).not.toHaveBeenCalled();
     });
 
+    it('ignores the end of a form whose span another submit replaced', () => {
+        const first = document.createElement('form');
+        const second = document.createElement('form');
+        document.body.append(first, second);
+        enableSpans(sentry);
+        fire('turbo:submit-start', {}, first);
+        fire('turbo:submit-start', {}, second);
+        fire('turbo:before-stream-render');
+
+        fire('turbo:submit-end', { fetchResponse: response(STREAM) }, first);
+        paint();
+        const span = sentry.spans[1];
+        expect(span.end).not.toHaveBeenCalled();
+
+        fire('turbo:submit-end', {}, second);
+        paint();
+        expect(span.end).toHaveBeenCalledTimes(1);
+        first.remove();
+        second.remove();
+    });
+
     it('ends a submit at once when a visit starts', () => {
         enableSpans(sentry);
         fire('turbo:submit-start');
@@ -450,6 +471,46 @@ describe('sentry spans', () => {
         expect(span.end).toHaveBeenCalledWith();
         expect(span.setStatus).not.toHaveBeenCalled();
         expect(sentry.setActiveSpanInBrowser).not.toHaveBeenCalled();
+    });
+
+    it('records a live change that never settles at its deadline', async () => {
+        enableSpans(sentry);
+        const arrival = now();
+        let settle;
+        traceLive(
+            'decision.summary',
+            arrival,
+            new Promise((resolve) => (settle = resolve)),
+        );
+        vi.advanceTimersByTime(9999);
+        expect(sentry.startInactiveSpan).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(1);
+
+        const [span] = sentry.spans;
+        expect(span.options.startTime).toBe(arrival);
+        expect(span.setStatus).toHaveBeenCalledWith({
+            code: 2,
+            message: 'deadline_exceeded',
+        });
+        expect(span.end).toHaveBeenCalledWith(arrival + 10000);
+
+        settle();
+        await Promise.resolve();
+        await Promise.resolve();
+        paint();
+        expect(sentry.spans).toHaveLength(1);
+    });
+
+    it('records a live change that settles in time only once', async () => {
+        enableSpans(sentry);
+        traceLive('card.moved', now(), Promise.resolve());
+        await Promise.resolve();
+        await Promise.resolve();
+        paint();
+        vi.advanceTimersByTime(20000);
+
+        expect(sentry.spans).toHaveLength(1);
+        expect(sentry.spans[0].setStatus).not.toHaveBeenCalled();
     });
 
     it('ends a live change that settles after 10 s at its deadline', async () => {
