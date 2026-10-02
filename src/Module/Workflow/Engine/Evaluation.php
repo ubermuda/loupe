@@ -17,6 +17,9 @@ final class Evaluation
     /** @var list<CardPause> the pauses this evaluation applied */
     public array $pauses = [];
 
+    /** The pause that holds the card while only release rules run. */
+    public ?CardPause $holdingPause = null;
+
     /** True once the pass asked for a pause, which ends it. */
     public bool $ended = false;
 

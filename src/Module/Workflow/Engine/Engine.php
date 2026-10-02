@@ -143,6 +143,8 @@ final readonly class Engine
         }
         $code = $this->releaseCode($run, $pause);
         if (null === $code) {
+            $run->holdingPause = $pause;
+
             return true;
         }
 
@@ -165,7 +167,9 @@ final readonly class Engine
     {
         $this->runRules($run, array_filter($run->template->rules, static fn (Rule $rule): bool => ActionType::Release === $rule->then->type));
 
-        return null === $this->cardPauses->findActiveForCard($run->card);
+        $run->holdingPause = $this->cardPauses->findActiveForCard($run->card);
+
+        return null === $run->holdingPause;
     }
 
     private function releaseCode(Evaluation $run, CardPause $pause): ?string
@@ -231,7 +235,7 @@ final readonly class Engine
         $fire = !$state->truth || ($state->attempts > 0 && ((null !== $state->dueAt && $state->dueAt <= $run->now) || $state->fingerprint !== $fingerprint));
         // A release rule that turned true before its pause existed would otherwise wait for a new edge.
         if (!$fire && ActionType::Release === $rule->then->type) {
-            $fire = $this->cardPauses->findActiveForCard($run->card)?->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));
+            $fire = null !== $run->holdingPause && $run->holdingPause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));
         }
         $state->truth = true;
         $state->fingerprint = $fingerprint;
