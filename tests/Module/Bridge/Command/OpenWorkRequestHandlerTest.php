@@ -14,6 +14,7 @@ use App\Module\Project\Entity\Project;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
+use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -83,11 +84,38 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             self::assertSame(['card' => OpenWorkRequestHandler::LIVE], $e->errors);
         }
 
+        self::assertTrue($this->em()->isOpen());
         self::assertSame(1, $this->countRequests());
         self::assertCount(1, $this->outboxPayloads());
     }
 
-    /** Two opens can both pass the read, and the unique index then refuses the second. */
+    /**
+     * The test transaction holds the lock of the open, so a second session
+     * cannot take it. An advisory lock is reentrant in one session.
+     */
+    public function test_an_open_locks_the_card_and_kind_until_the_transaction_ends(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-lock');
+        $cardId = Uuid::v7();
+        $this->open($project, $cardId);
+        $other = DriverManager::getConnection($this->em()->getConnection()->getParams());
+
+        try {
+            self::assertNotSame($this->em()->getConnection()->fetchOne('SELECT pg_backend_pid()'), $other->fetchOne('SELECT pg_backend_pid()'));
+            $tryLock = static fn (Uuid $card, string $kind): bool => (bool) $other->fetchOne(
+                'SELECT pg_try_advisory_xact_lock(hashtext(?))',
+                ['work_request:'.$card->toRfc4122().':'.$kind],
+            );
+            self::assertFalse($tryLock($cardId, 'implement'));
+            self::assertTrue($tryLock($cardId, 'design'));
+            self::assertTrue($tryLock(Uuid::v7(), 'implement'));
+        } finally {
+            $other->close();
+        }
+    }
+
+    /** The unique index backs the lock up. A refusal there closes the entity manager. */
     public function test_a_second_live_request_that_passes_the_read_is_refused_by_the_index(): void
     {
         $this->boot();

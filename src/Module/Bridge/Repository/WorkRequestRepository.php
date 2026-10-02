@@ -65,26 +65,37 @@ class WorkRequestRepository extends ServiceEntityRepository
     }
 
     /**
-     * Extends the lease of each claim the bridge still holds with its token.
+     * Extends the lease of each claim that the owner's bridge still holds
+     * with its token. The rows lock in id order, like the lapse sweep, so the
+     * two cannot deadlock.
      *
      * @param list<array{Uuid, Uuid}> $claims pairs of the request id and the claim token
      *
      * @return list<string> the RFC 4122 ids of the renewed requests
      */
-    public function renewLeases(Uuid $bridgeId, array $claims, \DateTimeImmutable $leaseUntil): array
+    public function renewLeases(string $ownerId, Uuid $bridgeId, array $claims, \DateTimeImmutable $leaseUntil): array
     {
         if ([] === $claims) {
             return [];
         }
 
         $sql = <<<'SQL'
+            WITH target AS MATERIALIZED (
+                SELECT w.id
+                FROM work_requests w
+                JOIN unnest(CAST(:ids AS uuid[]), CAST(:tokens AS uuid[])) AS held(id, token)
+                  ON w.id = held.id AND w.claim_token = held.token
+                JOIN projects p ON p.id = w.project_id
+                WHERE w.bridge_id = :bridge
+                  AND w.state = :claimed
+                  AND p.owner_id = :owner
+                ORDER BY w.id
+                FOR UPDATE OF w
+            )
             UPDATE work_requests
             SET lease_until = :leaseUntil
-            FROM unnest(CAST(:ids AS uuid[]), CAST(:tokens AS uuid[])) AS held(id, token)
-            WHERE work_requests.id = held.id
-              AND work_requests.claim_token = held.token
-              AND work_requests.bridge_id = :bridge
-              AND work_requests.state = :claimed
+            FROM target
+            WHERE work_requests.id = target.id
             RETURNING work_requests.id
             SQL;
 
@@ -99,6 +110,7 @@ class WorkRequestRepository extends ServiceEntityRepository
                 'tokens' => $array(array_column($claims, 1)),
                 'bridge' => $bridgeId->toRfc4122(),
                 'claimed' => WorkRequestState::Claimed->value,
+                'owner' => $ownerId,
             ],
             ['leaseUntil' => Types::DATETIME_IMMUTABLE],
         )->fetchFirstColumn();
@@ -140,18 +152,26 @@ class WorkRequestRepository extends ServiceEntityRepository
     }
 
     /**
-     * Opens again every claimed request whose lease lapsed. One statement, so
-     * a renewal that commits first keeps its claim.
+     * Opens again every claimed request whose lease lapsed. It skips a row
+     * that a renewal or a settlement holds, and the next sweep reads it again.
      *
      * @return list<WorkRequest> the reopened requests, read fresh
      */
     public function reopenLapsed(\DateTimeImmutable $now): array
     {
         $sql = <<<'SQL'
+            WITH target AS MATERIALIZED (
+                SELECT id
+                FROM work_requests
+                WHERE state = :claimed AND lease_until <= :now
+                ORDER BY id
+                FOR UPDATE SKIP LOCKED
+            )
             UPDATE work_requests
             SET state = :open, bridge_id = NULL, claim_token = NULL, lease_until = NULL
-            WHERE state = :claimed AND lease_until <= :now
-            RETURNING id
+            FROM target
+            WHERE work_requests.id = target.id
+            RETURNING work_requests.id
             SQL;
 
         $ids = $this->getEntityManager()->getConnection()->executeQuery(
@@ -171,6 +191,18 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->getQuery()
             ->setHint(Query::HINT_REFRESH, true)
             ->getResult());
+    }
+
+    /**
+     * Serialises the opens of one kind on one card until the transaction ends,
+     * so a second open reads the first instead of tripping the unique index.
+     */
+    public function lockLive(Uuid $cardId, string $kind): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'SELECT pg_advisory_xact_lock(hashtext(?))',
+            ['work_request:'.$cardId->toRfc4122().':'.$kind],
+        );
     }
 
     /** Reads the state alone, like the unique index. */

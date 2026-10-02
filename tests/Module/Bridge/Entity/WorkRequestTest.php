@@ -130,24 +130,6 @@ final class WorkRequestTest extends TestCase
         $this->request()->withdraw(WorkRequestState::Done, new \DateTimeImmutable(self::NOW));
     }
 
-    public function test_a_claimed_request_reopens_without_its_claim(): void
-    {
-        $request = $this->claimed();
-
-        self::assertTrue($request->reopen());
-
-        self::assertSame(WorkRequestState::Open, $request->state);
-        self::assertNull($request->bridgeId);
-        self::assertNull($request->claimToken);
-        self::assertNull($request->leaseUntil);
-        self::assertSame(1, $request->claims);
-    }
-
-    public function test_an_open_request_does_not_reopen(): void
-    {
-        self::assertFalse($this->request()->reopen());
-    }
-
     private function request(): WorkRequest
     {
         $project = new Project(new User('Riley Chen', 'riley@example.com', 'x'), 'Requests');

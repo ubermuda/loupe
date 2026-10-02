@@ -72,7 +72,7 @@ final class WorkRequestRepositoryTest extends KernelTestCase
     {
         self::bootKernel();
         $em = $this->em();
-        $project = $this->project($em, $this->user($em, 'renew@example.com'), 'Renew');
+        $project = $this->project($em, $owner = $this->user($em, 'renew@example.com'), 'Renew');
         $bridgeId = Uuid::v4();
         $first = $this->claimed($project, $bridgeId, $firstToken = Uuid::v4());
         $second = $this->claimed($project, $bridgeId, Uuid::v4());
@@ -82,7 +82,7 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         $em->getConnection()->executeStatement("UPDATE work_requests SET state = 'done' WHERE id = ?", [(string) $settled->id]);
         $later = new \DateTimeImmutable('2026-10-01 12:10:00');
 
-        $renewed = $this->repository()->renewLeases($bridgeId, [
+        $renewed = $this->repository()->renewLeases((string) $owner->id, $bridgeId, [
             [$this->idOf($first), $firstToken],
             [$this->idOf($second), Uuid::v4()],
             [$this->idOf($other), $otherToken],
@@ -90,11 +90,27 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         ], $later);
 
         self::assertSame([(string) $first->id], $renewed);
-        self::assertSame([], $this->repository()->renewLeases($bridgeId, [], $later));
+        self::assertSame([], $this->repository()->renewLeases((string) $owner->id, $bridgeId, [], $later));
         $leases = $em->getConnection()->fetchAllKeyValue('SELECT id, lease_until FROM work_requests');
         self::assertSame('2026-10-01 12:10:00', $leases[(string) $first->id]);
         self::assertSame(self::LEASE_UNTIL, $leases[(string) $second->id]);
         self::assertSame(self::LEASE_UNTIL, $leases[(string) $other->id]);
+    }
+
+    /** Bridge rows are keyed by the owner and the id, so another account can report the same bridge id. */
+    public function test_a_renewal_needs_the_owner_of_the_project(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'renew-owner@example.com'), 'Renew Owner');
+        $intruder = $this->user($em, 'renew-intruder@example.com');
+        $bridgeId = Uuid::v4();
+        $claim = $this->claimed($project, $bridgeId, $token = Uuid::v4());
+
+        $renewed = $this->repository()->renewLeases((string) $intruder->id, $bridgeId, [[$this->idOf($claim), $token]], new \DateTimeImmutable('2026-10-01 12:10:00'));
+
+        self::assertSame([], $renewed);
+        self::assertSame(self::LEASE_UNTIL, $em->getConnection()->fetchOne('SELECT lease_until FROM work_requests WHERE id = ?', [(string) $claim->id]));
     }
 
     public function test_offers_are_the_open_requests_of_the_projects_a_bridge_can_run_oldest_first(): void

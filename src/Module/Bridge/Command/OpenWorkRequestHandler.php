@@ -53,6 +53,7 @@ final readonly class OpenWorkRequestHandler
 
         try {
             $request = $this->em->wrapInTransaction(function () use ($command): ?WorkRequest {
+                $this->workRequests->lockLive($command->cardId, $command->kind);
                 if ($this->workRequests->hasLive($command->cardId, $command->kind)) {
                     return null;
                 }
@@ -75,6 +76,7 @@ final readonly class OpenWorkRequestHandler
                 return $request;
             });
         } catch (UniqueConstraintViolationException $e) {
+            // A backstop behind the lock. The failed flush closed the entity manager.
             if (!str_contains($e->getMessage(), WorkRequest::LIVE_CARD_KIND_INDEX)) {
                 throw $e;
             }

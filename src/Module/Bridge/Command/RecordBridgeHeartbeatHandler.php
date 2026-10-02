@@ -84,7 +84,7 @@ final readonly class RecordBridgeHeartbeatHandler
 
             $lostClaims = [];
             if (null !== $command->workClaims) {
-                $renewed = $this->workRequests->renewLeases($command->bridgeId, $command->workClaims, $this->lease->until($now));
+                $renewed = $this->workRequests->renewLeases($ownerId, $command->bridgeId, $command->workClaims, $this->lease->until($now));
                 $named = array_values(array_unique(array_map(static fn (array $claim): string => $claim[0]->toRfc4122(), $command->workClaims)));
                 $lostClaims = array_values(array_diff($named, $renewed));
             }

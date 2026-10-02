@@ -134,19 +134,4 @@ class WorkRequest
 
         return true;
     }
-
-    /** Gives a claimed request back, so another bridge can claim it. Answers false when the request is not claimed. */
-    public function reopen(): bool
-    {
-        if (WorkRequestState::Claimed !== $this->state) {
-            return false;
-        }
-
-        $this->state = WorkRequestState::Open;
-        $this->bridgeId = null;
-        $this->claimToken = null;
-        $this->leaseUntil = null;
-
-        return true;
-    }
 }
