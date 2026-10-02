@@ -71,6 +71,8 @@ final readonly class BoardView
         public array $badges = [],
         /** @var list<RacingBridgeRuleView> */
         public array $racingBridgeRules = [],
+        /** @var array<string, string> RFC 4122 bridge id => the name it holds, for the bridges of the problem rules */
+        public array $bridgeNames = [],
     ) {
     }
 }

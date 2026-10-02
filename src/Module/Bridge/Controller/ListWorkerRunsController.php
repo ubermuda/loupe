@@ -61,6 +61,7 @@ class ListWorkerRunsController extends AppController
             'listQuery' => $listQuery,
             'states' => WorkerRunState::cases(),
             'bridgeIds' => $view->bridgeIds,
+            'bridgeNames' => $view->bridgeNames,
         ]);
     }
 }

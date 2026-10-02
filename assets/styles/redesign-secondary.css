@@ -56,6 +56,16 @@
     .lp-agent-card__paused {
         @apply mt-3;
     }
+    /* The name a bridge asked for while another bridge of the owner holds it. */
+    .lp-agent-card__name-clash {
+        @apply mt-3 border border-status-pending-border bg-status-pending-bg text-status-pending-deep;
+    }
+    .lp-agent-card__name-clash strong {
+        @apply text-status-pending-deep;
+    }
+    .lp-agent-card__name-clash-hint {
+        @apply m-0;
+    }
     .lp-agent-flashes {
         @apply mb-4 flex flex-col gap-2;
     }

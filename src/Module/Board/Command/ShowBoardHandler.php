@@ -17,6 +17,7 @@ use App\Module\Board\Service\BoardStructureDigest;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Board\Service\RacingBridgeRules;
+use App\Module\Bridge\Service\BridgeNames;
 use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
@@ -36,6 +37,7 @@ final readonly class ShowBoardHandler
         private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
         private RacingBridgeRules $racingRules,
+        private BridgeNames $bridgeNames,
     ) {
     }
 
@@ -134,6 +136,11 @@ final readonly class ShowBoardHandler
             $this->laneDecks->forEpics($backlog, array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->id, $lanes)),
             $badges,
             $racingRules,
+            // Empty ids skip the query, so a board with no problem rule pays nothing.
+            $this->bridgeNames->forOwner($project->owner, array_values(array_unique(array_map(
+                static fn (DeadBridgeRuleView|RacingBridgeRuleView $rule): string => $rule->bridgeId,
+                [...$deadRules, ...$racingRules],
+            )))),
         );
     }
 }

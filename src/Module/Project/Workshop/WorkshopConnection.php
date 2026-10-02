@@ -11,6 +11,8 @@ final readonly class WorkshopConnection
         public string $cliVersion,
         public bool $quiet,
         public string $url,
+        /** The name the bridge holds. Null while it holds none. */
+        public ?string $name = null,
     ) {
     }
 }

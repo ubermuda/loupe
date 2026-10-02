@@ -64,10 +64,8 @@
                         class="lp-input lp-select lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'bridge.worker_runs.filter.all_bridges'|trans }}</option>
-                    {# The tail, not the head: a bridge id is a uuid v7, so two
-                       bridges started in one millisecond share a prefix. #}
                     {% for bridgeId in bridgeIds %}
-                        <option value="{{ bridgeId }}"{{ listQuery.bridgeId == bridgeId ? ' selected' : '' }}>{{ bridgeId|slice(-12) }}</option>
+                        <option value="{{ bridgeId }}"{{ listQuery.bridgeId == bridgeId ? ' selected' : '' }}>{% include '@Bridge/_bridge_label.html.twig' with {id: bridgeId, name: bridgeNames[bridgeId.toRfc4122()] ?? null, text: true} only %}</option>
                     {% endfor %}
                 </select>
             {% endif %}
@@ -125,7 +123,7 @@
             <span class="lp-data-table__cell">{{ run.ruleName }}{% if run.workerPool is not null %} <span class="lp-tag lp-tag--neutral" data-worker-pool>{{ 'bridge.worker_runs.worker_pool_label'|trans({'%pool%': run.workerPool}) }}</span>{% endif %}</span>
             <span class="lp-data-table__cell lp-data-table__cell--end">{% if item.interactive and item.state.isOpen() and item.duration() is not null %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}</span>
             <span class="lp-data-table__cell"><time datetime="{{ shownAt|date('c') }}" title="{{ shownAt|date('Y-m-d H:i:s T') }}">{{ shownAt|relative_time }}</time></span>
-            {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, boardEnabled: boardEnabled} only %}
+            {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, boardEnabled: boardEnabled, bridgeNames: bridgeNames} only %}
         </div>
         {% endfor %}
     </twig:DataTable>

@@ -48,7 +48,7 @@
                 <div class="lp-agent-card__heading">
                     <div>
                         <p class="lp-agent-card__eyebrow">{{ 'bridge.agents.connection_label'|trans }}</p>
-                        <h2 class="lp-agent-card__name">{{ bridge.id|slice(-12) }}</h2>
+                        <h2 class="lp-agent-card__name">{% include '@Bridge/_bridge_label.html.twig' with {id: bridge.id, name: bridge.name} only %}</h2>
                     </div>
                     {% if canManage %}
                     <div class="lp-agent-card__menu" data-agent-menu data-controller="popover">
@@ -88,6 +88,13 @@
                     <span>{{ 'bridge.agents.last_seen'|trans }}</span>
                     <strong>{{ connection.status.lastSeenAt ? connection.status.lastSeenAt|date('M j, H:i') : 'bridge.agents.never'|trans }}</strong>
                 </div>
+                {% if bridge.nameClashes() %}
+                <div class="lp-agent-card__current lp-agent-card__name-clash" data-agent-name-clash>
+                    <span>{{ 'bridge.agents.name_clash.label'|trans }}</span>
+                    <strong>{{ bridge.requestedName }}</strong>
+                    <p class="lp-agent-card__name-clash-hint">{{ 'bridge.agents.name_clash.description'|trans }}</p>
+                </div>
+                {% endif %}
                 {% if bridge.pauseRequested %}
                 <div class="lp-agent-card__current lp-agent-card__paused" data-agent-paused>
                     <span>{{ (bridge.pausedReported ? 'bridge.agents.paused' : 'bridge.agents.pause_requested')|trans }}</span>

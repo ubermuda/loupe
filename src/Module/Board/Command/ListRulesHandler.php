@@ -10,6 +10,8 @@ use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Service\RacingBridgeRules;
 use App\Module\Board\View\ReportedRule;
+use App\Module\Bridge\Service\BridgeNames;
+use Symfony\Component\Uid\Uuid;
 
 final readonly class ListRulesHandler
 {
@@ -17,6 +19,7 @@ final readonly class ListRulesHandler
         private BridgeRuleReportRepository $bridgeRuleReports,
         private BoardColumnRepository $boardColumns,
         private RacingBridgeRules $racingRules,
+        private BridgeNames $bridgeNames,
     ) {
     }
 
@@ -24,7 +27,8 @@ final readonly class ListRulesHandler
     {
         $rules = [];
         $appSyncsBehind = $this->racingRules->appSyncsBehind($command->project);
-        foreach ($this->bridgeRuleReports->findForProject($command->project) as $report) {
+        $reports = $this->bridgeRuleReports->findForProject($command->project);
+        foreach ($reports as $report) {
             foreach ($report->rules as $rule) {
                 $rules[] = new ReportedRule(
                     $report->bridgeId,
@@ -47,6 +51,7 @@ final readonly class ListRulesHandler
             count(array_filter($rules, static fn (ReportedRule $rule): bool => BridgeRuleReport::STATE_LIVE === $rule->state)),
             array_column(array_map(static fn (BoardColumn $column): array => [$column->slug, $column->label], $this->boardColumns->findBoardColumns($command->project)), 1, 0),
             $search,
+            $this->bridgeNames->forOwner($command->project->owner, array_map(static fn (BridgeRuleReport $report): Uuid => $report->bridgeId, $reports)),
         );
     }
 }
