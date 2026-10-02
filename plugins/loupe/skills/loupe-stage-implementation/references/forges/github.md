@@ -69,7 +69,16 @@ gh pr checks <url> --required --json name,bucket,link
 
 `bucket` is `pass`, `fail`, `pending`, `skipping` or `cancel`. The reading describes the head only when `headRefOid` equals the commit you care about. A rollup can still describe an earlier head, as `working-with-prs` "Merging" item 8 says. The repository profile says where the list of required checks comes from.
 
-A stacked pull request has no required checks when no ruleset covers its base. For it, drop `--required`, and count every check. A pull request into an epic branch has required checks when the profile `Epics` section names a ruleset for that branch.
+A stacked pull request has no required checks when no ruleset covers its base. For it, drop `--required`, and count every check. `--required` fails there with "No required checks reported".
+
+A pull request into an epic branch takes the required checks of the base branch of the profile `Merge` section, by name. Read the names, then every check:
+
+```bash
+gh api repos/<nameWithOwner>/rules/branches/<merge base> --jq '.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
+gh pr checks <url> --json name,bucket,link
+```
+
+Read the JSON whatever the exit code. Each name must have a check with the `bucket` `pass`. A name with no check counts as pending.
 
 A check's `link` holds `/actions/runs/<run id>/`. Read the failed steps of that run:
 
@@ -120,6 +129,8 @@ gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bu
 ```
 
 `reviewDecision` is `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED` or empty. `mergeStateStatus` is `CLEAN`, `HAS_HOOKS`, `UNSTABLE`, `BEHIND`, `BLOCKED`, `DIRTY` or `UNKNOWN`. Green means `pass=<required count>` and no other bucket.
+
+For an epic child, replace the second command with the by-name read of "Read the checks". Green means that every name passes, and that no name fails, waits or has no check.
 
 ## Check the approval covers the head
 

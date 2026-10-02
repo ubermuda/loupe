@@ -701,16 +701,19 @@ On 2026-09-21 it printed thirteen contexts: `lint`, `cs-check`, `phpstan`,
 trust that snapshot. It read ten before the e2e shard jobs arrived, and nothing
 in the repository fails when it goes stale.
 
-A second ruleset, named `Epics`, covers `refs/heads/epic/*`. On 2026-10-01 it
-required the same thirteen checks as `main`, with
-`strict_required_status_checks_policy` set to `false`. It needs no approving
-review, allows squash merges only, and blocks force pushes. Every change must
-come through a pull request, so a direct push to `epic/<n>` fails with GH013,
-"Changes must be made through a pull request". Read its id by name:
+No ruleset covers `refs/heads/epic/*` since 2026-10-02. Loupe gives a pull
+request into `epic/<n>` the required checks of `main`, and the merge stage
+checks an epic child against them by name:
 
 ```bash
-gh api repos/ubermuda/loupe/rulesets -q '.[]|select(.name=="Epics")|.id'
+gh api repos/ubermuda/loupe/rules/branches/main \
+  -q '.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
+gh pr checks <n> --json name,bucket
 ```
+
+Each name must have a check in the `pass` bucket. A direct push to `epic/<n>`
+works, so the epic branch syncs by a merge of `main`, and a fix round pushes
+to it. Never force-push it.
 
 An approval in chat is not a GitHub approval. Check before concluding a merge is
 blocked by something else:
@@ -781,9 +784,9 @@ gh pr edit <n> --base <parent-branch>   # fix one opened against main
 - Run the Codex review with `base: "origin/<parent-branch>"`, so it reads the
   child's own work.
 - CI runs on every pull request, whatever its base. A pull request into an
-  `epic/*` branch gets the thirteen required checks of the `Epics` ruleset, so
-  `--required` works there. A pull request stacked on any other branch has no
-  required checks. Read `gh pr checks <n>` without `--required`, and count
+  `epic/*` branch has no required checks on GitHub, so `--required` fails
+  there. The merge stage checks it by name against the required checks of
+  `main`. A pull request stacked on any other branch has no required checks. Read `gh pr checks <n>` without `--required`, and count
   every check.
 - Never merge the child while it targets its parent's branch. That merge lands
   on the parent branch with no required check, and never reaches `main`. An
@@ -811,12 +814,13 @@ a sibling's branch. Run the Codex review with `base: "origin/epic/<n>"`.
 
 This child is not a stacked pull request in the sense above. The merge stage
 squash-merges it into `epic/<n>` with no approval, once its required checks
-pass. The `Epics` ruleset is not strict, so GitHub sends no behind event. The
+pass. No ruleset covers `epic/<n>`, so GitHub sends no behind event. The
 stage compares the child with `epic/<n>` and merges `epic/<n>` in when it is
 behind.
 
 The epic pull request from `epic/<n>` into `main` needs the owner's approval, as
-any pull request into `main` does. An epic whose breakdown ran before the epic
+any pull request into `main` does. It syncs by a merge of `main`, through
+`gh pr update-branch` or the app sync, and the approval covers that merge. An epic whose breakdown ran before the epic
 branch existed has no `epic/<n>`, and its children target `main`.
 
 ## Running several branches at once
