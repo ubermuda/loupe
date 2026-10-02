@@ -71,7 +71,8 @@ export default class extends Controller {
      * A local change is already on this page, and the card drawer shows a
      * deleted card. The hub echo of an own change still counts, because a drag
      * on the board moves the card the drawer shows. The promise settles once
-     * a read covers the change, or once no read will.
+     * a read covers the change, or once no read will. An open dialog keeps it
+     * waiting for the read after the dialog closes.
      */
     changed(change) {
         if (change.local) {
@@ -126,8 +127,6 @@ export default class extends Controller {
 
     async refresh(attempt = 0) {
         if (this.holding()) {
-            this.settle();
-
             return;
         }
         this.request?.abort();
@@ -182,8 +181,6 @@ export default class extends Controller {
             return;
         }
         if (this.holding()) {
-            this.settle();
-
             return;
         }
         if (this.activeTab() !== tab) {

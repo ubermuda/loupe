@@ -647,15 +647,58 @@ describe('the promise of a change', () => {
         expect(change.settled).toBe(true);
     });
 
-    it('settles when an open dialog holds the update', async () => {
+    it('waits while an open dialog holds the update, and settles when the read after it closes renders', async () => {
+        const root = await mount();
+        const dialog = root.querySelector('#delete');
+        dialog.setAttribute('open', '');
+        const change = tracked(cardChanged());
+        await settle();
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(fetch).not.toHaveBeenCalled();
+        expect(change.settled).toBe(false);
+
+        answer(cardHtml({ column: 'Done' }));
+        dialog.removeAttribute('open');
+        dialog.dispatchEvent(new Event('close'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(root.querySelector('[data-column]').textContent).toBe('Done');
+        expect(change.settled).toBe(true);
+    });
+
+    it('keeps waiting when a dialog opens while a read runs', async () => {
+        const root = await mount();
+        const dialog = root.querySelector('#delete');
+        let resolve;
+        fetch.mockImplementationOnce(
+            () => new Promise((done) => (resolve = done)),
+        );
+        const change = tracked(cardChanged());
+        await settle();
+        dialog.setAttribute('open', '');
+        resolve({
+            ok: true,
+            text: async () => page(cardHtml({ column: 'Done' })),
+        });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(change.settled).toBe(false);
+
+        answer(cardHtml({ column: 'Done' }));
+        dialog.removeAttribute('open');
+        dialog.dispatchEvent(new Event('close'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(root.querySelector('[data-column]').textContent).toBe('Done');
+        expect(change.settled).toBe(true);
+    });
+
+    it('settles when it disconnects while a dialog holds the update', async () => {
         const root = await mount();
         root.querySelector('#delete').setAttribute('open', '');
         const change = tracked(cardChanged());
-        await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS - 1);
+        await settle();
         expect(change.settled).toBe(false);
 
-        await vi.advanceTimersByTimeAsync(1);
-        expect(fetch).not.toHaveBeenCalled();
+        root.remove();
+        await vi.advanceTimersByTimeAsync(0);
         expect(change.settled).toBe(true);
     });
 
