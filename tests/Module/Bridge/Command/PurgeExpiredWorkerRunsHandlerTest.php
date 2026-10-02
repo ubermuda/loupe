@@ -6,7 +6,6 @@ namespace App\Tests\Module\Bridge\Command;
 
 use App\Module\Bridge\Command\PurgeExpiredWorkerRunsCommand;
 use App\Module\Bridge\Command\PurgeExpiredWorkerRunsHandler;
-use App\Module\Bridge\Entity\CardHold;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\ExperimentPinRepository;
@@ -94,26 +93,6 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
             [['id' => (string) $usageId, 'run_id' => null, 'project_id' => (string) $project->id, 'source' => 'reported']],
             $em->getConnection()->fetchAllAssociative('SELECT id, run_id, project_id, source FROM bridge_worker_run_usage'),
         );
-    }
-
-    /** A hold outlives the retention window of the run it stopped. */
-    public function test_it_keeps_the_hold_of_a_deleted_run_unlinked(): void
-    {
-        self::bootKernel();
-        $em = $this->em();
-        $project = $this->project($em, $this->user($em, 'holds-sweep@example.com'), 'Swept Holds');
-        $expired = $this->seedRun($em, $project, new \DateTimeImmutable('2026-01-01 00:00:00'));
-        $hold = new CardHold($project, $expired->cardId, $expired, null, new \DateTimeImmutable('2026-01-01 00:00:00'));
-        $em->persist($hold);
-        $em->flush();
-
-        self::assertSame(1, ($this->handler())(new PurgeExpiredWorkerRunsCommand()));
-
-        $em->clear();
-        self::assertNull($em->find(WorkerRun::class, $expired->id));
-        $stored = $em->find(CardHold::class, $hold->id);
-        self::assertNotNull($stored);
-        self::assertNull($stored->stoppedRun);
     }
 
     /** The sweep reads the flag, so an operator who shortens the window sees it apply on the next tick. */

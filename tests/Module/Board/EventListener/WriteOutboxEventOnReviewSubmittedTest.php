@@ -100,7 +100,7 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
         $card = $this->card('tech-design', $document);
         $holds = self::getContainer()->get(CardHolds::class);
         self::assertInstanceOf(CardHolds::class, $holds);
-        $holds->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null, null);
+        $holds->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null);
 
         $this->submit($document, Verdict::ChangesRequested);
 

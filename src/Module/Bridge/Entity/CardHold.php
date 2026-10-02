@@ -12,8 +12,8 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * A person stopped the work on this card. No bridge starts a worker on it until
- * a person moves the card to another column or resumes the run.
+ * The agents on this card are paused. No bridge starts a worker on it until a
+ * person lets agents run or moves the card to another column.
  */
 #[ORM\Entity(repositoryClass: CardHoldRepository::class)]
 #[ORM\Table(name: 'bridge_card_holds')]
@@ -34,11 +34,6 @@ class CardHold
         /** A scalar, never a foreign key, like the card of a run. */
         #[ORM\Column(name: 'card_id', type: UuidType::NAME)]
         public readonly Uuid $cardId,
-
-        // The retention sweep deletes runs with DQL, so only the database can unlink the hold.
-        #[ORM\JoinColumn(name: 'stopped_run_id', nullable: true, onDelete: 'SET NULL')]
-        #[ORM\ManyToOne(targetEntity: WorkerRun::class)]
-        public ?WorkerRun $stoppedRun,
 
         #[ORM\JoinColumn(name: 'held_by_id', nullable: true, onDelete: 'SET NULL')]
         #[ORM\ManyToOne(targetEntity: User::class)]

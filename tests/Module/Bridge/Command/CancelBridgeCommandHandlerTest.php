@@ -10,7 +10,6 @@ use App\Module\Bridge\Command\CancelBridgeCommandCommand;
 use App\Module\Bridge\Command\CancelBridgeCommandHandler;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
-use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
@@ -89,77 +88,16 @@ final class CancelBridgeCommandHandlerTest extends KernelTestCase
         }
     }
 
-    public function test_a_cancelled_stop_releases_the_hold_of_its_run(): void
-    {
-        $this->boot();
-        [$owner, $run] = $this->scenario('cancel-stop-release');
-        $this->seedCommand($this->em(), $run);
-        $this->holds()->hold($run->project, $run->cardId, $run, $owner);
-
-        $this->cancel($run, $owner);
-
-        self::assertFalse($this->holds()->isHeld($run->project, $run->cardId));
-    }
-
-    public function test_a_cancelled_stop_keeps_the_hold_of_another_run(): void
+    public function test_a_cancelled_stop_keeps_the_hold_of_the_card(): void
     {
         $this->boot();
         [$owner, $run] = $this->scenario('cancel-stop-keep');
-        $other = $this->seedRun($this->em(), $run->project, cardId: $run->cardId, state: WorkerRunState::Stopped);
         $this->seedCommand($this->em(), $run);
-        $this->holds()->hold($run->project, $run->cardId, $other, $owner);
-
-        $this->cancel($run, $owner);
-
-        $hold = $this->service(CardHoldRepository::class)->findOneOfCard($run->project, $run->cardId);
-        self::assertNotNull($hold);
-        self::assertSame((string) $other->id, (string) $hold->stoppedRun?->id);
-    }
-
-    public function test_a_cancelled_stop_keeps_the_hold_while_a_stop_of_another_run_waits(): void
-    {
-        $this->boot();
-        [$owner, $run] = $this->scenario('cancel-stop-other-waits');
-        $other = $this->seedRun($this->em(), $run->project, cardId: $run->cardId, state: WorkerRunState::Queued);
-        $this->seedCommand($this->em(), $run);
-        $this->seedCommand($this->em(), $other);
-        $this->holds()->hold($run->project, $run->cardId, $run, $owner);
+        $this->holds()->hold($run->project, $run->cardId, $owner);
 
         $this->cancel($run, $owner);
 
         self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
-    }
-
-    /** A stop of another run went through after the hold was written, so a later cancel keeps the card held. */
-    public function test_a_cancelled_stop_keeps_the_hold_a_taken_stop_of_another_run_needs(): void
-    {
-        $this->boot();
-        [$owner, $run] = $this->scenario('cancel-stop-other-taken');
-        $first = $this->seedRun($this->em(), $run->project, cardId: $run->cardId, state: WorkerRunState::Running);
-        $taken = $this->seedRun($this->em(), $run->project, cardId: $run->cardId, state: WorkerRunState::Stopped);
-        $this->seedCommand($this->em(), $first, BridgeCommandState::Cancelled, new \DateTimeImmutable('2026-09-29 12:03:00'));
-        $this->holds()->hold($run->project, $run->cardId, $first, $owner);
-        $this->seedCommand($this->em(), $taken, BridgeCommandState::Done, new \DateTimeImmutable('2026-09-29 12:03:00'));
-        $this->seedCommand($this->em(), $run, requestedAt: new \DateTimeImmutable('2026-09-29 12:03:00'));
-
-        $this->cancel($run, $owner);
-
-        self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
-    }
-
-    public function test_the_last_cancelled_stop_of_a_card_releases_its_hold(): void
-    {
-        $this->boot();
-        [$owner, $run] = $this->scenario('cancel-stop-both');
-        $other = $this->seedRun($this->em(), $run->project, cardId: $run->cardId, state: WorkerRunState::Queued);
-        $this->seedCommand($this->em(), $run);
-        $this->seedCommand($this->em(), $other);
-        $this->holds()->hold($run->project, $run->cardId, $run, $owner);
-
-        $this->cancel($run, $owner);
-        $this->cancel($other, $owner);
-
-        self::assertFalse($this->holds()->isHeld($run->project, $run->cardId));
     }
 
     public function test_a_cancelled_resume_keeps_the_hold_of_the_card(): void
@@ -167,7 +105,7 @@ final class CancelBridgeCommandHandlerTest extends KernelTestCase
         $this->boot();
         [$owner, $run] = $this->scenario('cancel-resume-keep');
         $this->seedCommand($this->em(), $run, kind: BridgeCommandKind::ResumeRun);
-        $this->holds()->hold($run->project, $run->cardId, $run, $owner);
+        $this->holds()->hold($run->project, $run->cardId, $owner);
 
         $this->cancel($run, $owner);
 

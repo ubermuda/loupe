@@ -2547,7 +2547,7 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.worker_run_stop">
                 <source>project.connect.tool.worker_run_stop</source>
-                <target>Ask the bridge to stop a queued or running worker run. The stop holds the card.</target>
+                <target>Ask the bridge to stop a queued or running worker run.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.bridge_command_cancel">
                 <source>project.connect.tool.bridge_command_cancel</source>
@@ -6826,6 +6826,7 @@
             <trans-unit id="bridge.command.error.not_controllable"><source>bridge.command.error.not_controllable</source><target>You cannot control an interactive session from here.</target></trans-unit>
             <trans-unit id="bridge.command.error.no_session"><source>bridge.command.error.no_session</source><target>This run has no session to resume.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_resumable"><source>bridge.command.error.not_resumable</source><target>Only an ended run can resume.</target></trans-unit>
+            <trans-unit id="bridge.command.error.card_held"><source>bridge.command.error.card_held</source><target>Agents are paused on this card. Let agents run first.</target></trans-unit>
             <trans-unit id="bridge.command.error.card_left"><source>bridge.command.error.card_left</source><target>The card left the column of this run.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_stoppable"><source>bridge.command.error.not_stoppable</source><target>Only a queued or running run can stop.</target></trans-unit>
             <trans-unit id="bridge.command.error.bridge_outdated"><source>bridge.command.error.bridge_outdated</source><target>Update the bridge to control its runs.</target></trans-unit>

@@ -268,7 +268,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertNotNull($project);
         $holds = static::getContainer()->get(CardHolds::class);
         self::assertInstanceOf(CardHolds::class, $holds);
-        $holds->hold($project, $cardId, null, null);
+        $holds->hold($project, $cardId, null);
         $this->em()->clear();
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
