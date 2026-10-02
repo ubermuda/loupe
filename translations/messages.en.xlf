@@ -7133,6 +7133,21 @@
             <trans-unit id="workflow.waiting.card_children_finished"><source>workflow.waiting.card_children_finished</source><target>Waiting: a child card is not finished.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_document_approved"><source>workflow.waiting.card_document_approved</source><target>Waiting: the %tag% document is not approved.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_document_changes_requested"><source>workflow.waiting.card_document_changes_requested</source><target>Waiting: no reviewer asked for changes on the %tag% document.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_open"><source>workflow.waiting.pr_open</source><target>Waiting: the pull request is not open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_draft"><source>workflow.waiting.pr_draft</source><target>Waiting: the pull request is a draft.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_checks_passed"><source>workflow.waiting.pr_checks_passed</source><target>Waiting: the required checks have not passed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_checks_failed"><source>workflow.waiting.pr_checks_failed</source><target>Waiting: no required check failed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_conflicting"><source>workflow.waiting.pr_conflicting</source><target>Waiting: the pull request conflicts with its base.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_behind"><source>workflow.waiting.pr_behind</source><target>Waiting: the pull request is not behind its base.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_approval_covers_head"><source>workflow.waiting.pr_approval_covers_head</source><target>Waiting: fewer than %min% approvals cover the head commit.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_changes_requested"><source>workflow.waiting.pr_changes_requested</source><target>Waiting: a review asks for changes.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_base_is_merge_target"><source>workflow.waiting.pr_base_is_merge_target</source><target>Waiting: the pull request targets neither the default branch nor the epic branch.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_stacked"><source>workflow.waiting.pr_stacked</source><target>Waiting: the pull request is not stacked on another pull request.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_parent_merged"><source>workflow.waiting.pr_parent_merged</source><target>Waiting: the parent pull request is not merged.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_all_finished_one_merged"><source>workflow.waiting.pr_all_finished_one_merged</source><target>Waiting: a pull request is still open, or none is merged.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_all_closed_unmerged"><source>workflow.waiting.pr_all_closed_unmerged</source><target>Waiting: the pull requests are not all closed unmerged for %minutes% minutes.</target></trans-unit>
+            <trans-unit id="workflow.waiting.run_work_active"><source>workflow.waiting.run_work_active</source><target>Waiting: no matching work request is active.</target></trans-unit>
+            <trans-unit id="workflow.waiting.run_last_refusal"><source>workflow.waiting.run_last_refusal</source><target>Waiting: the last run did not refuse with the code %code%.</target></trans-unit>
         </body>
     </file>
 </xliff>

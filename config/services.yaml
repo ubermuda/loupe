@@ -322,3 +322,8 @@ when@test:
 
         App\Tests\Support\FirstAdminUserPanelFixture:
             autoconfigure: true
+
+        # Nothing consumes the condition registry yet, so the compiler removes it.
+        App\Module\Workflow\Condition\Conditions:
+            autowire: true
+            public: true
