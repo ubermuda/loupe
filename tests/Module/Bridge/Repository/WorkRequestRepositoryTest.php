@@ -153,6 +153,7 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         self::assertNull($lapsed->claimToken);
         self::assertNull($lapsed->leaseUntil);
         self::assertSame(1, $lapsed->claims);
+        self::assertEquals(new \DateTimeImmutable('2026-10-01 12:00:00'), $lapsed->reopenedAt);
         $em->clear();
         self::assertSame(WorkRequestState::Claimed, $em->find(WorkRequest::class, $held->id)?->state);
         self::assertSame(WorkRequestState::Open, $em->find(WorkRequest::class, $open->id)?->state);

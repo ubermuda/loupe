@@ -121,7 +121,7 @@ final readonly class Engine
                 continue;
             }
 
-            $deadline = $request->createdAt->add(new \DateInterval(\sprintf('PT%dM', $run->template->workTimeoutMinutes)));
+            $deadline = ($request->reopenedAt ?? $request->createdAt)->add(new \DateInterval(\sprintf('PT%dM', $run->template->workTimeoutMinutes)));
             if (WorkRequestState::Open === $request->state && $deadline <= $run->now
                 && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($requestId, WorkRequestState::Expired))) {
                 $withdrawn = true;

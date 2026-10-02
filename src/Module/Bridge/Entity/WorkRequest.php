@@ -69,6 +69,10 @@ class WorkRequest
     #[ORM\Column(name: 'claims', options: ['default' => 0])]
     public int $claims = 0;
 
+    /** When a lapsed claim last opened the request again. */
+    #[ORM\Column(name: 'reopened_at', nullable: true)]
+    public ?\DateTimeImmutable $reopenedAt = null;
+
     #[ORM\Column(name: 'settled_at', nullable: true)]
     public ?\DateTimeImmutable $settledAt = null;
 

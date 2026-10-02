@@ -368,6 +368,22 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->liveRequests($card));
     }
 
+    public function test_a_reopened_request_counts_its_timeout_from_the_reopen(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+        $request->reopenedAt = new \DateTimeImmutable('2026-10-02 13:30:00');
+        $this->em()->flush();
+
+        $this->evaluate($card, '2026-10-02 15:29:00');
+        self::assertSame(WorkRequestState::Open, $request->state);
+        self::assertNull($this->activePause($card));
+
+        $this->evaluate($card, '2026-10-02 15:30:00');
+        self::assertSame(WorkRequestState::Expired, $request->state);
+    }
+
     public function test_a_live_request_whose_rule_left_the_template_is_cancelled(): void
     {
         $card = $this->boundCard([]);

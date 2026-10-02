@@ -169,7 +169,7 @@ class WorkRequestRepository extends ServiceEntityRepository
                 FOR UPDATE SKIP LOCKED
             )
             UPDATE work_requests
-            SET state = :open, bridge_id = NULL, claim_token = NULL, lease_until = NULL
+            SET state = :open, bridge_id = NULL, claim_token = NULL, lease_until = NULL, reopened_at = :now
             FROM target
             WHERE work_requests.id = target.id
             RETURNING work_requests.id
