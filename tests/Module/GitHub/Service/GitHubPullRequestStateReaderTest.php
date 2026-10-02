@@ -224,6 +224,85 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertSame('http_status', $this->logger->records[0]['context']['reason']);
     }
 
+    public function test_a_base_without_rules_inherits_the_required_checks_of_the_default_branch(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_014);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($this->ruleLessGraphql('epic/436')),
+            $this->answer([['type' => 'deletion']]),
+            $this->answer($this->fixture('rules')),
+        ];
+
+        $snapshot = $this->reader()->read($pullRequest);
+
+        self::assertSame(PullRequestChecks::Pending, $snapshot->checks);
+        self::assertSame(PullRequestMergeability::Mergeable, $snapshot->mergeability);
+        self::assertCount(4, $this->requests);
+        self::assertStringEndsWith('/rules/branches/epic%2F436?per_page=100&page=1', $this->requests[2]['url']);
+        self::assertStringEndsWith('/rules/branches/main?per_page=100&page=1', $this->requests[3]['url']);
+    }
+
+    public function test_the_default_branch_without_rules_requires_no_check(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_015);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($this->ruleLessGraphql('main')),
+            $this->answer([]),
+        ];
+
+        $snapshot = $this->reader()->read($pullRequest);
+
+        self::assertSame(PullRequestChecks::Passed, $snapshot->checks);
+        self::assertCount(3, $this->requests);
+    }
+
+    public function test_a_base_without_rules_and_unreadable_default_branch_rules_is_a_transient_failure(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_016);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($this->ruleLessGraphql('epic/436')),
+            $this->answer([]),
+            new MockResponse('{"message":"Server Error"}', ['http_code' => 502]),
+        ];
+
+        try {
+            $this->reader()->read($pullRequest);
+            self::fail('A base without rules must not read as passed while the default branch rules are unknown.');
+        } catch (PullRequestUnreadable $e) {
+            self::assertSame('default_branch_rules_unreadable', $e->reason);
+            self::assertTrue($e->transient);
+        }
+
+        self::assertCount(4, $this->requests);
+        self::assertStringEndsWith('/rules/branches/main?per_page=100&page=1', $this->requests[3]['url']);
+        self::assertSame('forge.ruleset_unreadable', $this->logger->records[0]['message']);
+        self::assertSame('main', $this->logger->records[0]['context']['base']);
+    }
+
+    public function test_unreadable_rules_of_a_base_that_is_not_the_default_branch_are_a_transient_failure(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_017);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($this->ruleLessGraphql('epic/436')),
+            new MockResponse('{"message":"Server Error"}', ['http_code' => 502]),
+        ];
+
+        try {
+            $this->reader()->read($pullRequest);
+            self::fail('A base that is not the default branch must not read as passed while its rules are unknown.');
+        } catch (PullRequestUnreadable $e) {
+            self::assertSame('base_rules_unreadable', $e->reason);
+            self::assertTrue($e->transient);
+        }
+
+        self::assertCount(3, $this->requests);
+        self::assertStringEndsWith('/rules/branches/epic%2F436?per_page=100&page=1', $this->requests[2]['url']);
+    }
+
     public function test_a_failed_compare_is_logged_and_ignored(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 70_005);
@@ -380,6 +459,24 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         }
 
         self::fail('Expected PullRequestUnreadable.');
+    }
+
+    /**
+     * A clean pull request on `$base` whose only check passed and is not flagged required.
+     *
+     * @return array<mixed>
+     */
+    private function ruleLessGraphql(string $base): array
+    {
+        $graphql = $this->fixture('graphql');
+        $graphql['data']['repository']['pullRequest']['baseRefName'] = $base;
+        $graphql['data']['repository']['pullRequest']['baseRepository'] = ['defaultBranchRef' => ['name' => 'main']];
+        $graphql['data']['repository']['pullRequest']['mergeStateStatus'] = 'CLEAN';
+        $graphql['data']['repository']['pullRequest']['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts']['nodes'] = [
+            ['__typename' => 'CheckRun', 'name' => 'lint', 'status' => 'COMPLETED', 'conclusion' => 'SUCCESS', 'isRequired' => false],
+        ];
+
+        return $graphql;
     }
 
     /** @param array<mixed> $body */
