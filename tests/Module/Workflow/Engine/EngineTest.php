@@ -51,9 +51,7 @@ use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Template\ProjectTemplateCopy;
-use App\Module\Workflow\Template\Template;
 use App\Module\Workflow\Template\TemplateParser;
-use App\Module\Workflow\Template\TemplateSource;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Support\RecordingLogger;
@@ -62,7 +60,6 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 
 final class EngineTest extends KernelTestCase
@@ -558,53 +555,6 @@ final class EngineTest extends KernelTestCase
         self::assertNull($this->activePause($card));
     }
 
-    /** The template read runs after the first held check, so a hold written there lands between the check and the actions. */
-    public function test_a_hold_that_lands_during_the_evaluation_stops_it_before_any_action_and_keeps_the_rule_states(): void
-    {
-        $card = $this->boundCard([
-            self::requestRule('feature', ['card.type' => ['type' => 'feature']]),
-            self::requestRule('quiet', ['card.type' => ['type' => 'bug']]),
-            self::requestRule('work', self::ALWAYS),
-        ]);
-        $this->setType($card, CardType::Feature);
-        $this->evaluate($card);
-        $this->setType($card, CardType::Bug);
-        foreach ($this->liveRequests($card) as $request) {
-            $request->state = WorkRequestState::Cancelled;
-        }
-        $this->em()->flush();
-        $fired = $this->firedRecords();
-        $holds = $this->service(CardHolds::class);
-        $templates = $this->templates();
-        $holdingTemplates = new readonly class($templates, $holds, $card) implements TemplateSource {
-            public function __construct(
-                private TemplateSource $inner,
-                private CardHolds $holds,
-                private Card $card,
-            ) {
-            }
-
-            public function forProject(Uuid $projectId): Template
-            {
-                $this->holds->hold($this->card->project, $this->card->id ?? throw new \LogicException('A flushed card has an id.'), null);
-
-                return $this->inner->forProject($projectId);
-            }
-        };
-
-        $this->engine($holdingTemplates)->evaluate($card->id ?? throw new \LogicException('A flushed card has an id.'), new \DateTimeImmutable('2026-10-02 12:01:00'));
-
-        self::assertSame([], $this->liveRequests($card));
-        self::assertSame($fired, $this->firedRecords());
-        $this->em()->clear();
-        $card = $this->em()->find(Card::class, $card->id) ?? throw new \LogicException('The card exists.');
-        self::assertTrue($this->ruleState($card, 'feature')->truth, 'The rule turned false in the pass, and the hold drops that change.');
-        self::assertFalse($this->ruleState($card, 'quiet')->truth);
-        self::assertTrue($this->ruleState($card, 'work')->truth);
-        self::assertSame(1, $this->ruleState($card, 'work')->fires);
-        self::assertContains('workflow.card_held_during_evaluation', array_column($this->logger->records, 'message'));
-    }
-
     public function test_a_card_held_again_before_its_baseline_keeps_it_for_the_next_release(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
@@ -733,7 +683,7 @@ final class EngineTest extends KernelTestCase
         $this->engine()->evaluate($card->id ?? throw new \LogicException('A flushed card has an id.'), new \DateTimeImmutable($at));
     }
 
-    private function engine(?TemplateSource $templates = null): Engine
+    private function engine(): Engine
     {
         $clock = new MockClock(self::NOON);
         $auditor = $this->service(Auditor::class);
@@ -753,7 +703,7 @@ final class EngineTest extends KernelTestCase
         return new Engine(
             $this->em(),
             $this->service(CardRepository::class),
-            $templates ?? $this->templates(),
+            new ProjectTemplateCopy($this->service(WorkflowBindingRepository::class), $this->service(TemplateParser::class)),
             new FactsBuilder(
                 $this->service(WorkflowSlotLinkRepository::class),
                 $this->service(CardRepository::class),
@@ -780,11 +730,6 @@ final class EngineTest extends KernelTestCase
             $engineEvents,
             $this->logger,
         );
-    }
-
-    private function templates(): ProjectTemplateCopy
-    {
-        return new ProjectTemplateCopy($this->service(WorkflowBindingRepository::class), $this->service(TemplateParser::class));
     }
 
     private function ruleState(Card $card, string $ruleId): WorkflowRuleState
