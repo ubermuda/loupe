@@ -6,6 +6,8 @@ namespace App\Tests\Module\Bridge\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
 use App\Module\Bridge\Command\PauseCardAgentsCommand;
 use App\Module\Bridge\Command\PauseCardAgentsHandler;
 use App\Module\Bridge\Entity\CardHold;
@@ -29,7 +31,7 @@ final class PauseCardAgentsHandlerTest extends KernelTestCase
         self::bootKernel();
         $audit = $this->audit = RecordingAuditor::installedIn(self::getContainer());
         [$owner, $project] = $this->scenario('pause-agents');
-        $cardId = Uuid::v7();
+        $cardId = $this->card($project);
 
         $this->pause($project, $cardId, $owner);
 
@@ -57,7 +59,7 @@ final class PauseCardAgentsHandlerTest extends KernelTestCase
         self::bootKernel();
         $audit = $this->audit = RecordingAuditor::installedIn(self::getContainer());
         [$owner, $project] = $this->scenario('pause-agents-twice');
-        $cardId = Uuid::v7();
+        $cardId = $this->card($project);
         $this->cardHolds()->hold($project, $cardId, null);
 
         try {
@@ -78,13 +80,34 @@ final class PauseCardAgentsHandlerTest extends KernelTestCase
     {
         self::bootKernel();
         [$owner, $project] = $this->scenario('pause-agents-one');
-        $cardId = Uuid::v7();
+        $cardId = $this->card($project);
         $other = Uuid::v7();
 
         $this->pause($project, $cardId, $owner);
 
         self::assertTrue($this->cardHolds()->isHeld($project, $cardId));
         self::assertFalse($this->cardHolds()->isHeld($project, $other));
+    }
+
+    public function test_a_pause_of_a_card_that_is_gone_is_refused(): void
+    {
+        self::bootKernel();
+        $audit = $this->audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $project] = $this->scenario('pause-agents-gone');
+        $cardId = $this->card($project);
+        $this->em()->getConnection()->executeStatement('DELETE FROM board_cards WHERE id = ?', [(string) $cardId]);
+
+        try {
+            $this->pause($project, $cardId, $owner);
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['card' => 'bridge.card_hold.error.card_gone'], $e->errors);
+        }
+
+        self::assertTrue($this->em()->isOpen());
+        self::assertFalse($this->cardHolds()->isHeld($project, $cardId));
+        self::assertSame([], $this->outboxPayloads('board.card_held'));
+        self::assertSame([], $audit->records('bridge.card_held'));
     }
 
     /** @return array{User, Project} */
@@ -94,6 +117,16 @@ final class PauseCardAgentsHandlerTest extends KernelTestCase
         $owner = $this->user($em, $name.'@example.com');
 
         return [$owner, $this->project($em, $owner, 'Project '.substr(md5($name), 0, 8))];
+    }
+
+    private function card(Project $project): Uuid
+    {
+        $card = new Card($project, new BoardColumn($project, 'Implementation', 'implementation', 0), 'Paused card', '', 1);
+        $this->em()->persist($card->column);
+        $this->em()->persist($card);
+        $this->em()->flush();
+
+        return $card->id ?? throw new \LogicException('A flushed card has an id.');
     }
 
     private function pause(Project $project, Uuid $cardId, User $by): void

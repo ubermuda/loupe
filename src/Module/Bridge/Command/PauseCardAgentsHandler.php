@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Bridge\BridgeEventType;
+use App\Module\Bridge\Service\CardColumnLookupInterface;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Outbox\OutboxWriter;
@@ -23,8 +24,11 @@ final readonly class PauseCardAgentsHandler
 {
     public const string ALREADY_PAUSED = 'bridge.card_hold.error.already_paused';
 
+    public const string CARD_GONE = 'bridge.card_hold.error.card_gone';
+
     public function __construct(
         private CardHolds $cardHolds,
+        private CardColumnLookupInterface $cards,
         private OutboxWriter $outbox,
         private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
@@ -41,6 +45,10 @@ final readonly class PauseCardAgentsHandler
         $refusal = $this->em->wrapInTransaction(function () use ($command, $project, $cardId): ?string {
             // The lock that card moves and resumes take, so the read below stays true until the commit.
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+            // A card delete takes the same lock, so a card that exists here outlives the commit.
+            if (null === $this->cards->columnOf($project, $cardId)) {
+                return self::CARD_GONE;
+            }
             if ($this->cardHolds->isHeld($project, $cardId)) {
                 return self::ALREADY_PAUSED;
             }
