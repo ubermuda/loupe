@@ -44,12 +44,13 @@ final readonly class RecordBridgeHeartbeatHandler
 
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
-        [$bridge, $created, $commands, $pauseChanged, $nameChanged] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
+        [$bridge, $created, $commands, $pauseChanged, $renamedIn] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
             $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
             $bridge = $this->bridges->findOneByOwnerAndId($command->owner, $command->bridgeId);
             $created = null === $bridge;
+            $followed = $bridge->projects ?? [];
             if (null === $bridge) {
                 $bridge = new Bridge($command->owner, $command->bridgeId, $projects, $command->cliVersion, $now);
                 $bridge->hooks = $command->hooks ?? [];
@@ -92,7 +93,10 @@ final readonly class RecordBridgeHeartbeatHandler
             }
 
             // Read under the lock a new command takes, so the reply misses no command stored before it.
-            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged, $heldName !== $bridge->name];
+            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged,
+                // A project the bridge stopped following can still hold a notice that names it.
+                $heldName === $bridge->name ? [] : array_values(array_unique([...$followed, ...$projects])),
+            ];
         });
 
         if ($pauseChanged) {
@@ -101,8 +105,8 @@ final readonly class RecordBridgeHeartbeatHandler
             }
         }
 
-        if ($nameChanged && [] !== $projects) {
-            $this->events->dispatch(new BridgeNameChanged($this->projects->findOwnedBy($command->owner, $projects)));
+        if ([] !== $renamedIn) {
+            $this->events->dispatch(new BridgeNameChanged($this->projects->findOwnedBy($command->owner, $renamedIn)));
         }
 
         // A heartbeat that replaces the row is routine traffic, once a minute per

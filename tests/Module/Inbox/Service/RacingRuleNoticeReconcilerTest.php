@@ -101,6 +101,19 @@ final class RacingRuleNoticeReconcilerTest extends KernelTestCase
         self::assertStringStartsWith("- `sync-behind` on bridge `homelab`\n\n", (string) $this->onlyNotice()->body);
     }
 
+    public function test_a_rename_rewrites_the_notice_of_a_project_the_bridge_stopped_following(): void
+    {
+        $this->report(['sync-behind']);
+        $this->reconciler->reconcile($this->project);
+        $heartbeat = self::getContainer()->get(RecordBridgeHeartbeatHandler::class);
+        self::assertInstanceOf(RecordBridgeHeartbeatHandler::class, $heartbeat);
+        $heartbeat(new RecordBridgeHeartbeatCommand($this->project->owner, Uuid::fromString(self::BRIDGE), [(string) $this->project->id], 'b4e39aa7'));
+
+        $heartbeat(new RecordBridgeHeartbeatCommand($this->project->owner, Uuid::fromString(self::BRIDGE), [], 'b4e39aa7', name: 'homelab'));
+
+        self::assertStringStartsWith("- `sync-behind` on bridge `homelab`\n\n", (string) $this->onlyNotice()->body);
+    }
+
     public function test_a_backtick_in_a_bridge_name_cannot_close_its_code_span(): void
     {
         $bridge = new Bridge($this->project->owner, Uuid::fromString(self::BRIDGE), [(string) $this->project->id], 'b4e39aa7', new \DateTimeImmutable());
