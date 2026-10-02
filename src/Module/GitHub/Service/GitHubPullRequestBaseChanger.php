@@ -55,9 +55,13 @@ final readonly class GitHubPullRequestBaseChanger implements PullRequestBaseChan
                 return;
             }
 
-            $this->api->graphql($installationId, self::CHANGE_BASE, ['id' => $node['id'], 'base' => $base]);
+            $changed = $this->api->graphql($installationId, self::CHANGE_BASE, ['id' => $node['id'], 'base' => $base]);
         } catch (GitHubAppApiFailed $e) {
             throw self::failed($e);
+        }
+        // The API client lets a NOT_FOUND error through with a null node.
+        if (!\is_array($changed['updatePullRequest']['pullRequest'] ?? null)) {
+            throw new PullRequestWriteFailed('not_found', permanent: true);
         }
     }
 

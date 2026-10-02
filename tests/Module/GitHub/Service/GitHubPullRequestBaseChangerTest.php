@@ -105,6 +105,22 @@ final class GitHubPullRequestBaseChangerTest extends KernelTestCase
         self::assertCount(2, $this->requests);
     }
 
+    public function test_a_mutation_that_finds_no_pull_request_is_a_permanent_not_found_failure(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 74_030);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->node(base: 'epic/398'),
+            $this->answer(['data' => ['updatePullRequest' => null], 'errors' => [['type' => 'NOT_FOUND']]]),
+        ];
+
+        $failure = $this->failure($pullRequest);
+
+        self::assertSame('not_found', $failure->cause);
+        self::assertTrue($failure->permanent);
+        self::assertCount(3, $this->requests);
+    }
+
     public function test_a_forbidden_mutation_is_a_permanent_permission_failure(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 74_020);

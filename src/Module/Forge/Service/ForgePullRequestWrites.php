@@ -11,9 +11,9 @@ use Psr\Clock\ClockInterface;
 
 /**
  * Asks the forge to merge a pull request or to change its base. A marker on
- * the row first says that a write by Loupe is in flight. A read that shows any
- * such change settles it. The forge call holds no lock. A permanent failure
- * clears the marker, and a transient one keeps it, because the write may have landed.
+ * the row first says that a write by Loupe is in flight, and blocks a second write of its kind.
+ * A read that shows any such change settles it. The forge call holds no lock. A permanent
+ * failure clears the marker, and a transient one keeps it, because the write may have landed.
  */
 final readonly class ForgePullRequestWrites
 {
@@ -40,25 +40,25 @@ final readonly class ForgePullRequestWrites
         $merger = $this->mergers->for($pullRequest->forge) ?? throw new PullRequestWriteFailed('no_writer', permanent: true);
         $id = $pullRequest->id ?? throw new \LogicException('A stored pull request has an id.');
 
-        // The closure answers false for a row that is gone. A throw inside it would close the entity manager.
-        $sha = $this->em->wrapInTransaction(function () use ($id): string|false|null {
+        // The closure answers its failure, because a throw inside it would close the entity manager.
+        $sha = $this->em->wrapInTransaction(function () use ($id): string|PullRequestWriteFailed {
             $row = $this->forgePullRequests->findForUpdate($id);
             if (null === $row) {
-                return false;
+                return new PullRequestWriteFailed('not_found', permanent: true);
+            }
+            if (null !== $row->mergeRequestedSha) {
+                return new PullRequestWriteFailed('in_flight', permanent: false);
             }
             if (null === $row->headSha) {
-                return null;
+                return new PullRequestWriteFailed('no_head', permanent: true);
             }
             $row->mergeRequestedSha = $row->headSha;
             $row->mergeRequestedAt = $this->clock->now();
 
             return $row->headSha;
         });
-        if (false === $sha) {
-            throw new PullRequestWriteFailed('not_found', permanent: true);
-        }
-        if (null === $sha) {
-            throw new PullRequestWriteFailed('no_head', permanent: true);
+        if ($sha instanceof PullRequestWriteFailed) {
+            throw $sha;
         }
 
         try {
@@ -84,18 +84,21 @@ final readonly class ForgePullRequestWrites
         $changer = $this->baseChangers->for($pullRequest->forge) ?? throw new PullRequestWriteFailed('no_writer', permanent: true);
         $id = $pullRequest->id ?? throw new \LogicException('A stored pull request has an id.');
 
-        $marked = $this->em->wrapInTransaction(function () use ($id, $base): bool {
+        $refused = $this->em->wrapInTransaction(function () use ($id, $base): ?PullRequestWriteFailed {
             $row = $this->forgePullRequests->findForUpdate($id);
             if (null === $row) {
-                return false;
+                return new PullRequestWriteFailed('not_found', permanent: true);
+            }
+            if (null !== $row->baseChangeRequestedTo) {
+                return new PullRequestWriteFailed('in_flight', permanent: false);
             }
             $row->baseChangeRequestedTo = $base;
             $row->baseChangeRequestedAt = $this->clock->now();
 
-            return true;
+            return null;
         });
-        if (!$marked) {
-            throw new PullRequestWriteFailed('not_found', permanent: true);
+        if (null !== $refused) {
+            throw $refused;
         }
 
         try {

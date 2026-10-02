@@ -101,6 +101,20 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         self::assertSame(['head1', self::NOW], $this->stored($row));
     }
 
+    public function test_a_merge_while_another_merge_is_in_flight_fails_and_keeps_its_marker(): void
+    {
+        $row = $this->row();
+        $this->writes->merge($row, 'merge');
+        $this->merger->failure = new PullRequestWriteFailed('refused', permanent: true);
+
+        $failure = $this->failure(fn () => $this->writes->merge($row, 'squash'));
+
+        self::assertSame('in_flight', $failure->cause);
+        self::assertFalse($failure->permanent);
+        self::assertCount(1, $this->merger->merges);
+        self::assertSame(['head1', self::NOW], $this->stored($row));
+    }
+
     public function test_a_merge_of_a_row_that_is_gone_fails_and_asks_nothing(): void
     {
         $row = $this->row();
@@ -207,6 +221,20 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         $failure = $this->failure(fn () => $this->writes->changeBase($row, 'main'));
 
         self::assertSame('api_failed_rate_limited', $failure->cause);
+        self::assertSame(['main', self::NOW], $this->storedBase($row));
+    }
+
+    public function test_a_base_change_while_another_is_in_flight_fails_and_keeps_its_marker(): void
+    {
+        $row = $this->row();
+        $this->writes->changeBase($row, 'main');
+        $this->changer->failure = new PullRequestWriteFailed('permission', permanent: true);
+
+        $failure = $this->failure(fn () => $this->writes->changeBase($row, 'main'));
+
+        self::assertSame('in_flight', $failure->cause);
+        self::assertFalse($failure->permanent);
+        self::assertCount(1, $this->changer->changes);
         self::assertSame(['main', self::NOW], $this->storedBase($row));
     }
 
