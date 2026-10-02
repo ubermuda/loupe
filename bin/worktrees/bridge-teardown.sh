@@ -25,14 +25,24 @@ owned_once() {
 }
 
 owned_once "card-$number"
-preview=0
-if git worktree list --porcelain | grep -qxF "worktree $main/.worktrees/epic-$number"; then
-    owned_once "epic-$number"
-    preview=1
-fi
+owned_once "epic-$number"
 
 cd "$main"
 just worktree-down "card-$number"
-if [ "$preview" -eq 1 ]; then
-    just worktree-down "epic-$number"
+
+# The merge stage refreshes the epic preview under this lock, and the last child merge can finish the epic.
+lock="$main/.worktrees/epic-$number.lock"
+locked=0
+for _ in $(seq 60); do
+    if mkdir "$lock" 2>/dev/null; then
+        locked=1
+        break
+    fi
+    sleep 10
+done
+if [ "$locked" -eq 0 ]; then
+    echo "bridge-teardown: $lock stayed for 10 minutes, so epic-$number stays. Remove the lock and run again." >&2
+    exit 1
 fi
+trap 'rmdir "$lock"' EXIT
+just worktree-down "epic-$number"
