@@ -123,7 +123,9 @@ rules:
       when:
           all:
               - pr.behind: {}
-              - pr.approval_covers_head: { min: 1 }
+              - any:
+                    - pr.approval_covers_head: { min: 1 }
+                    - pr.base_is_epic_branch: {}
       then: { forge-write: { write: update-branch, fallback: sync } }
 
     - id: merge-ready

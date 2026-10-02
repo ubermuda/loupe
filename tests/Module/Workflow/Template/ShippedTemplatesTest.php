@@ -259,6 +259,18 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals($merge, $this->actions(FactsMother::facts(card: $child, pullRequest: $pending, pullRequests: [$pending])));
     }
 
+    public function test_a_behind_epic_child_pull_request_updates_its_branch_with_no_approval(): void
+    {
+        $update = new ActionCall(ActionType::ForgeWrite, ['write' => 'update-branch', 'fallback' => 'sync']);
+        $child = FactsMother::card(slot: 'in-review', isChild: true);
+
+        $intoEpic = FactsMother::pullRequest(checks: ChecksState::Passed, behind: true, baseIsEpicBranch: true);
+        self::assertContainsEquals($update, $this->actions(FactsMother::facts(card: $child, pullRequest: $intoEpic, pullRequests: [$intoEpic])));
+
+        $intoDefault = FactsMother::pullRequest(checks: ChecksState::Passed, behind: true);
+        self::assertNotContainsEquals($update, $this->actions(FactsMother::facts(card: $child, pullRequest: $intoDefault, pullRequests: [$intoDefault])));
+    }
+
     private function shipped(): ShippedTemplates
     {
         return static::getContainer()->get(ShippedTemplates::class);
