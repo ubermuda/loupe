@@ -194,6 +194,7 @@ func TestAPausedBridgeKeepsAPersonsResumeQueued(t *testing.T) {
 // hold ends. The resume keeps the hold.
 func TestAPersonsResumeOfAHeldCardWaitsForTheHold(t *testing.T) {
 	h := newHarness(t)
+	h.withHoldList()
 	rec := h.states()
 	h.transcripts(true)
 	h.router.readCard = (&cardReads{column: "next"}).read
@@ -222,6 +223,26 @@ func TestAPersonsResumeOfAHeldCardWaitsForTheHold(t *testing.T) {
 	if h.runs() != 1 {
 		t.Fatalf("workers = %d after the hold ends", h.runs())
 	}
+}
+
+// With no held list read, an older server ends the hold on a resume and says
+// nothing, so the resume ends the hold of this bridge and starts.
+func TestWithNoHeldListAResumeEndsTheHold(t *testing.T) {
+	h := newHarness(t)
+	h.states()
+	h.transcripts(true)
+	h.router.readCard = (&cardReads{column: "next"}).read
+	h.holdCard(87)
+
+	if state, _ := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
+		t.Fatalf("resume = %s", state)
+	}
+
+	h.router.wg.Wait()
+	if h.cardHoldOf(87) || h.runs() != 1 {
+		t.Fatalf("held = %v, workers = %d", h.cardHoldOf(87), h.runs())
+	}
+	h.only(t, "card_hold_released")
 }
 
 // A resume waits for another worker of the card, so one card runs one worker.

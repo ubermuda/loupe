@@ -193,6 +193,10 @@ type router struct {
 	stopWaits stopWaits
 	// noHoldList is set once the server answers that it has no held list.
 	noHoldList bool
+	// holdList is set once a read of the held list works. Until then the bridge
+	// holds a card on a stop and ends the hold on a resume or a rerun, as an
+	// older server does.
+	holdList bool
 	// lastEventID is the resume point of the stream, and recent the ids of the
 	// last events handled, oldest first, which recentSet indexes.
 	lastEventID string

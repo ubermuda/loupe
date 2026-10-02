@@ -50,6 +50,7 @@ func (r *router) syncHolds() bool {
 		}
 	}
 	r.cardHolds = next
+	r.holdList = true
 	r.mu.Unlock()
 	for _, id := range released {
 		r.log.Info("card_hold_released", "card_id", id)

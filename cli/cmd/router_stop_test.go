@@ -199,6 +199,7 @@ func TestAWorkerThatExitsOnSIGINTEndsTheLadder(t *testing.T) {
 // starts a worker.
 func TestAStopOfAQueuedRunClosesItAndLeavesTheCardFree(t *testing.T) {
 	h := newHarness(t)
+	h.withHoldList()
 	rec := h.states()
 	h.reply(pausedReply(true))
 	h.send(cardMoved(87))
@@ -220,10 +221,36 @@ func TestAStopOfAQueuedRunClosesItAndLeavesTheCardFree(t *testing.T) {
 	}
 }
 
+// With no held list read, the bridge treats the server as an older one. A
+// stop holds the card, so a later move starts nothing until the hold ends.
+func TestWithNoHeldListAStopHoldsTheCard(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	h.reply(pausedReply(true))
+	h.send(cardMoved(87))
+
+	h.stop(t, firstRun(t, rec))
+	h.reply(pausedReply(false))
+	h.send(cardMoved(87))
+
+	if h.runs() != 0 {
+		t.Fatalf("runs = %d on a held card", h.runs())
+	}
+	h.only(t, "card_held")
+
+	h.router.releaseHold(cardUUID(87))
+	h.send(cardMoved(87))
+	if h.runs() != 1 {
+		t.Fatalf("runs = %d after the release", h.runs())
+	}
+	h.only(t, "card_hold_released")
+}
+
 // A run that waits behind the stopped worker of its card starts when that
 // worker ends, because the stop holds no card.
 func TestARunQueuedBehindAStoppedWorkerStartsWhenItEnds(t *testing.T) {
 	h := newHarness(t)
+	h.withHoldList()
 	rec := h.states()
 	s := h.stopper()
 	block := h.blocked()
@@ -380,6 +407,7 @@ func TestAHeldEventHoldsTheCard(t *testing.T) {
 // A card_released event ends the hold and starts the run that waits for it.
 func TestAReleasedEventStartsTheRunThatWaits(t *testing.T) {
 	h := newHarness(t)
+	h.withHoldList()
 	rec := h.states()
 	h.transcripts(true)
 	h.router.readCard = (&cardReads{column: "next"}).read

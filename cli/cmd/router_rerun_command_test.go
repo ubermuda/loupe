@@ -121,6 +121,7 @@ func TestARerunIsRefusedWhenTheCommandNeedsItsFirstEvent(t *testing.T) {
 // hold ends. The rerun keeps the hold.
 func TestARerunOfAHeldCardWaitsForTheHold(t *testing.T) {
 	h, f := withCommand(t, "1m")
+	h.withHoldList()
 	h.router.mu.Lock()
 	h.router.holdCardLocked(cardUUID(87))
 	h.router.mu.Unlock()
@@ -142,6 +143,23 @@ func TestARerunOfAHeldCardWaitsForTheHold(t *testing.T) {
 	if len(f.recorded()) != 1 {
 		t.Fatalf("commands = %d after the hold ends", len(f.recorded()))
 	}
+}
+
+// With no held list read, an older server ends the hold on a rerun and says
+// nothing, so the rerun ends the hold of this bridge and runs.
+func TestWithNoHeldListARerunEndsTheHold(t *testing.T) {
+	h, f := withCommand(t, "1m")
+	h.holdCard(87)
+
+	if state, reason := h.rerun(rerunOf(failedCommandKey)); state != api.CommandDone {
+		t.Fatalf("rerun = %s %q", state, reason)
+	}
+
+	h.router.wg.Wait()
+	if h.cardHoldOf(87) || len(f.recorded()) != 1 {
+		t.Fatalf("held = %v, commands = %d", h.cardHoldOf(87), len(f.recorded()))
+	}
+	h.only(t, "card_hold_released")
 }
 
 // A rerun reaches its handler from a heartbeat, and its answer goes out.

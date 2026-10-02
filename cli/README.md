@@ -1437,6 +1437,9 @@ pauses the agents on the card. The server then holds the card, and the bridge
 starts no worker for a held card. A queued run of a held card waits until the
 hold ends. An event of a held card starts nothing, whatever the rule says.
 
+Until the bridge reads the held list once, it treats the server as an older
+one. In that mode a stop holds the card, and a resume or a rerun ends the hold.
+
 The bridge learns of a hold in three ways:
 
 1. A `board.card_held` event holds the card, and a `board.card_released` event
@@ -1461,7 +1464,8 @@ a person can try again. It refuses when this machine holds no transcript of
 the session, and when the rule of the run is gone or opens an interactive
 session. It refuses a run that is still open, a run it resumes already, and a
 resume during a handover or a shutdown. A held card passes, and the resume
-waits in the queue until the hold ends.
+waits in the queue until the hold ends. With an older server, the resume ends
+the hold.
 
 The resume runs `claude --resume` on the session with a fixed prompt, in a
 worker slot of the rule's pool. Its `queued` report carries the trigger
@@ -1482,7 +1486,8 @@ placeholder, such as `{to}`, because that value would be empty. Its `queued` rep
 run. The bridge refuses the rerun when the rule of the run is gone or no longer
 runs a command. It also refuses when the card has a run that is open on this
 bridge, and during a handover or a shutdown. A held card passes, and the rerun
-waits in the queue until the hold ends. The rerun logs `command_rerun_asked`.
+waits in the queue until the hold ends. With an older server, the rerun ends
+the hold. The rerun logs `command_rerun_asked`.
 
 ### Updates
 

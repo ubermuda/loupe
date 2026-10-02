@@ -169,8 +169,8 @@ func stopWait(events api.Events, flag string, fallback time.Duration) time.Durat
 // stopRun stops the run a command names. A queued run closes at once. A live
 // worker gets the stop ladder, and its end reports stopped. A run in an ask
 // check, in the resume gate or in its spawn is marked, and the next step of
-// that run reports stopped. The answer is done once the stop is under way, and
-// does not wait for the worker to exit.
+// that run reports stopped. The answer is done once the stop is under way. With
+// an older server it also holds the card.
 func (r *router) stopRun(c api.Command) (state, reason string) {
 	r.quiesce.RLock()
 	defer r.quiesce.RUnlock()
@@ -189,6 +189,9 @@ func (r *router) stopRun(c api.Command) (state, reason string) {
 		r.mu.Unlock()
 
 		return api.CommandRefused, noOpenRun
+	}
+	if !r.holdList {
+		r.holdCardLocked(c.CardID)
 	}
 	if r.stops == nil {
 		r.stops = map[string]bool{}
@@ -319,6 +322,13 @@ func (r *router) heldLocked(e event.Event) bool {
 	return id != "" && r.cardHolds[id]
 }
 
+// releaseHold ends the hold of a card, and starts its queued runs.
+func (r *router) releaseHold(cardID string) {
+	if r.dropHold(cardID) {
+		r.dispatch()
+	}
+}
+
 // dropHold ends the hold of a card and starts nothing. It reports whether the
 // card was held.
 func (r *router) dropHold(cardID string) bool {
@@ -385,8 +395,9 @@ const (
 
 // resumeRun queues a resume of the session of a run that ended, as its next
 // run. The resume waits for the card and a worker slot, and a pause keeps it
-// queued. A held card passes, and the resume waits until the hold ends. The
-// automatic resumes of the new run count from zero again.
+// queued. A held card passes, and the resume waits until the hold ends. With
+// an older server the resume ends the hold. The automatic resumes of the new
+// run count from zero again.
 func (r *router) resumeRun(c api.Command) (state, reason string) {
 	if c.SessionID == "" {
 		return api.CommandRefused, noSession
@@ -470,8 +481,12 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	)...)
 	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 	dropped := r.dispatchLocked()
+	legacy := !r.holdList
 	r.mu.Unlock()
 	r.logDropped(dropped)
+	if legacy {
+		r.releaseHold(c.CardID)
+	}
 
 	return api.CommandDone, ""
 }
@@ -486,7 +501,8 @@ const (
 // rerunCommand queues the command of a failed command run again, as a new run
 // that continues it. It refuses while the card has a run that holds it or
 // waits in the queue, the rerun of this run included. A held card passes, and
-// the rerun waits until the hold ends.
+// the rerun waits until the hold ends. With an older server the rerun ends the
+// hold.
 func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	e := event.Event{
 		Type: event.CommandType, Subject: event.Subject{Type: "card", ID: c.CardID}, ProjectID: c.ProjectID,
@@ -533,8 +549,12 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	r.log.Info("command_rerun_asked", append(about(e, p.rule), "continues", c.RunKey)...)
 	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 	dropped := r.dispatchLocked()
+	legacy := !r.holdList
 	r.mu.Unlock()
 	r.logDropped(dropped)
+	if legacy {
+		r.releaseHold(c.CardID)
+	}
 
 	return api.CommandDone, ""
 }

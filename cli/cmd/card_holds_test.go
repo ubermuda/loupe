@@ -29,6 +29,14 @@ func (h *harness) holdCard(number int) {
 	h.router.mu.Unlock()
 }
 
+// withHoldList marks the held list as read, so the bridge follows the holds
+// of the server alone.
+func (h *harness) withHoldList() {
+	h.router.mu.Lock()
+	h.router.holdList = true
+	h.router.mu.Unlock()
+}
+
 func (h *harness) cardHoldOf(number int) bool {
 	h.router.mu.Lock()
 	defer h.router.mu.Unlock()
@@ -40,6 +48,7 @@ func (h *harness) cardHoldOf(number int) bool {
 // for the card starts.
 func TestTheHeldListReleasesACardItLeavesOut(t *testing.T) {
 	h := newHarness(t)
+	h.withHoldList()
 	h.transcripts(true)
 	h.router.readCard = (&cardReads{column: "next"}).read
 	h.holdCard(87)
@@ -185,6 +194,26 @@ func TestTheHeldListWinsOverAReplayedHold(t *testing.T) {
 	h.send(cardMoved(87))
 	if h.runs() != 1 {
 		t.Fatalf("runs = %d after the list freed the card", h.runs())
+	}
+}
+
+// Once a read of the held list works, the bridge follows the server, so a
+// stop holds no card.
+func TestAfterTheHeldListAStopHoldsNothing(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	h.router.readHolds = (&holdLists{}).read
+	h.router.handler().OnConnect()
+	h.router.wg.Wait()
+	h.reply(pausedReply(true))
+	h.send(cardMoved(87))
+
+	h.stop(t, firstRun(t, rec))
+	h.reply(pausedReply(false))
+	h.send(cardMoved(87))
+
+	if h.cardHoldOf(87) || h.runs() != 1 {
+		t.Fatalf("held = %v, runs = %d", h.cardHoldOf(87), h.runs())
 	}
 }
 
