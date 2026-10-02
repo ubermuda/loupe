@@ -23,11 +23,14 @@ full_phpunit="A full local PHPUnit run is not the gate, and CI's phpunit check i
 coverage="A full local PHPUnit coverage run is not the gate. Name the tests: just phpunit-coverage tests/<path>, or fetch the full report with just ci-report phpunit-coverage"
 
 # --testsuite does not count, because the only suite is the whole suite, and
-# neither does the tests root itself.
+# neither does the tests root, nor the file an output option writes.
 targeted() {
+    local skip=0
     for word in "$@"; do
+        [ "$skip" = 1 ] && { skip=0; continue; }
         case "${word%/}" in
-            tests|./tests) ;;
+            tests|./tests|--log-*=*|--coverage-*=*|--testdox-*=*) ;;
+            -c|--configuration|--bootstrap|--cache-directory|--log-*|--coverage-*|--testdox-*) skip=1 ;;
             tests/*|*/tests/*|*Test.php|--filter|--filter=*|--group|--group=*) return 0 ;;
         esac
     done
@@ -65,8 +68,8 @@ judge_just() {
 skip_prefix() {
     while :; do
         case "${words[i]:-}" in
-            -n|-u) i=$((i + 2)) ;;
-            time|nice|env|-*) i=$((i + 1)) ;;
+            -n|-u|timeout) i=$((i + 2)) ;;
+            time|nice|env|'('|'{'|-*) i=$((i + 1)) ;;
             *) [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || return; i=$((i + 1)) ;;
         esac
     done
