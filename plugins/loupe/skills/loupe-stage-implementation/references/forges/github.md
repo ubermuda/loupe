@@ -44,6 +44,20 @@ gh api repos/<nameWithOwner>/issues/<n>/comments -f body='<!-- loupe-stage-worke
 Addressed review <id>: <what changed, commits>'
 ```
 
+## Post a refusal comment
+
+The head commit is `headRefOid` from "Find and validate the pull request". List the bodies of the top-level comments:
+
+```bash
+gh api repos/<nameWithOwner>/issues/<n>/comments --paginate --jq '.[].body'
+```
+
+When the command fails, the post fails. Otherwise search its output for the marker line with `grep -F`. A match means the comment exists, so post nothing. With no match, write the body to a file with a file tool, not with the shell, because a reason can hold a quote. The first line is the marker, and the second line is `<reason>. <next step>`. Then post the comment:
+
+```bash
+gh api repos/<nameWithOwner>/issues/<n>/comments -F body=@<body file>
+```
+
 ## Read the checks
 
 Read the checks once, and never wait for them. The app reads them again after each push.

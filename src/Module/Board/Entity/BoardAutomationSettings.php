@@ -47,6 +47,10 @@ class BoardAutomationSettings
         #[ORM\Column(options: ['default' => false])]
         public bool $commentOnFixQueued = false,
 
+        /** Posts a comment on the pull request when its head moves past the approval. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $commentOnStaleApproval = false,
+
         /** Brings an approved pull request that is behind its base up to date. */
         #[ORM\Column(options: ['default' => false])]
         public bool $syncBehind = false,

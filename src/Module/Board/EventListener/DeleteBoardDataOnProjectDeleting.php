@@ -11,9 +11,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 /**
  * Bulk-deletes the Board-module subtree of a project in FK order: site-review
  * comment links, then document links, then pull request links, then card links,
- * then card history, then cards, then columns, then bridge rule reports and
- * pull request comments. No entity hydration; runs inside ProjectDeleter's
- * transaction.
+ * then card history, then cards, then columns, then bridge rule reports, pull
+ * request comments and pull request notices. No entity hydration; runs inside
+ * ProjectDeleter's transaction.
  *
  * The comment links are also cascaded from the comment side, so whichever of
  * this listener and SiteReview's runs first, no row outlives its parents. The
@@ -63,6 +63,10 @@ final readonly class DeleteBoardDataOnProjectDeleting
 
         $this->em->createQuery(
             'DELETE App\Module\Board\Entity\PullRequestComment p WHERE p.project = :project',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
+            'DELETE App\Module\Board\Entity\PullRequestNotice n WHERE n.project = :project',
         )->setParameter('project', $event->project)->execute();
     }
 }

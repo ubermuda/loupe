@@ -49,6 +49,11 @@ final class SaveBoardAutomationSettingsFormType extends AbstractType
             'label' => 'board.form.save_board_automation_settings_form.comment_on_fix_queued.label',
             'help' => 'board.form.save_board_automation_settings_form.comment_on_fix_queued.help',
         ]);
+        $builder->add('commentOnStaleApproval', CheckboxType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.comment_on_stale_approval.label',
+            'help' => 'board.form.save_board_automation_settings_form.comment_on_stale_approval.help',
+        ]);
         $builder->add('syncBehind', CheckboxType::class, [
             'required' => false,
             'label' => 'board.form.save_board_automation_settings_form.sync_behind.label',

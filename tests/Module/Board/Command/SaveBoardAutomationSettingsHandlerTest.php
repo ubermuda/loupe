@@ -51,6 +51,14 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertTrue($this->audit->record('board.automation_settings_saved')->context['syncBehind']);
     }
 
+    public function test_it_stores_and_audits_the_stale_approval_comment_setting(): void
+    {
+        $this->save(enabled: true, syncBehind: false, commentOnStaleApproval: true);
+
+        self::assertTrue($this->stored()->commentOnStaleApproval);
+        self::assertTrue($this->audit->record('board.automation_settings_saved')->context['commentOnStaleApproval']);
+    }
+
     /** @return iterable<string, array{?array{bool, bool}, bool, bool, int}> */
     public static function transitions(): iterable
     {
@@ -87,7 +95,7 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         }
     }
 
-    private function save(bool $enabled, bool $syncBehind): void
+    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false): void
     {
         $handler = self::getContainer()->get(SaveBoardAutomationSettingsHandler::class);
         self::assertInstanceOf(SaveBoardAutomationSettingsHandler::class, $handler);
@@ -98,6 +106,7 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
             fixStrategy: BoardFixStrategy::Fresh,
             loopLimit: 3,
             commentOnFixQueued: false,
+            commentOnStaleApproval: $commentOnStaleApproval,
             syncBehind: $syncBehind,
         ));
     }

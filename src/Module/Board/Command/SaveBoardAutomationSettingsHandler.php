@@ -33,6 +33,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->fixStrategy = $command->fixStrategy;
         $settings->loopLimit = $command->loopLimit;
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
+        $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
         $settings->syncBehind = $command->syncBehind;
         $this->em->flush();
         $this->events->dispatch(new BoardAutomationSettingsSaved($command->project));
@@ -49,6 +50,7 @@ final readonly class SaveBoardAutomationSettingsHandler
             'fixStrategy' => $command->fixStrategy->value,
             'loopLimit' => $command->loopLimit,
             'commentOnFixQueued' => $command->commentOnFixQueued,
+            'commentOnStaleApproval' => $command->commentOnStaleApproval,
             'syncBehind' => $command->syncBehind,
         ]);
     }

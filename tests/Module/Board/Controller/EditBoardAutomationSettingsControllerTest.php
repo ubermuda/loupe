@@ -53,6 +53,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertSame('3', $form->filter('input[name="'.self::FORM.'[loopLimit]"]')->attr('value'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]'));
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnStaleApproval]"]'));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[commentOnStaleApproval]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[syncBehind]"]'));
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[syncBehind]"]:checked'));
         self::assertSelectorTextContains('[data-board-automation-settings]', 'Contents: read and write');
@@ -66,6 +68,9 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $commentOnFixQueued = $submit[self::FORM.'[commentOnFixQueued]'];
         self::assertInstanceOf(ChoiceFormField::class, $commentOnFixQueued);
         $commentOnFixQueued->tick();
+        $commentOnStaleApproval = $submit[self::FORM.'[commentOnStaleApproval]'];
+        self::assertInstanceOf(ChoiceFormField::class, $commentOnStaleApproval);
+        $commentOnStaleApproval->tick();
         $syncBehind = $submit[self::FORM.'[syncBehind]'];
         self::assertInstanceOf(ChoiceFormField::class, $syncBehind);
         $syncBehind->tick();
@@ -84,6 +89,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertNotNull($settings);
         self::assertFalse($settings->enabled);
         self::assertTrue($settings->commentOnFixQueued);
+        self::assertTrue($settings->commentOnStaleApproval);
         self::assertTrue($settings->syncBehind);
         self::assertSame(BoardMergeStrategy::Off, $settings->mergeStrategy);
         self::assertSame(BoardFixStrategy::Resume, $settings->fixStrategy);
@@ -92,6 +98,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $form = $this->page($project)->filter('form[name="'.self::FORM.'"]');
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnStaleApproval]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[syncBehind]"]:checked'));
         self::assertSame('off', $form->filter('select[name="'.self::FORM.'[mergeStrategy]"] option[selected]')->attr('value'));
         self::assertSame('resume', $form->filter('select[name="'.self::FORM.'[fixStrategy]"] option[selected]')->attr('value'));

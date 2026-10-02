@@ -81,6 +81,7 @@ final class RacingRuleNoticeListenersTest extends WebTestCase
             fixStrategy: BoardFixStrategy::Fresh,
             loopLimit: 3,
             commentOnFixQueued: false,
+            commentOnStaleApproval: false,
             syncBehind: $syncBehind,
         ));
     }
