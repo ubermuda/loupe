@@ -335,3 +335,11 @@ when@test:
         App\Module\Workflow\Template\ShippedTemplates:
             autowire: true
             public: true
+
+        App\Module\Workflow\Template\ProjectTemplateCopy:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Command\BindWorkflowTemplateHandler:
+            autowire: true
+            public: true

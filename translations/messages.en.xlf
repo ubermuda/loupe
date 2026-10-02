@@ -7153,6 +7153,12 @@
             <trans-unit id="workflow.slot.tech_design"><source>workflow.slot.tech_design</source><target>Tech design</target></trans-unit>
             <trans-unit id="workflow.slot.implementation"><source>workflow.slot.implementation</source><target>Implementation</target></trans-unit>
             <trans-unit id="workflow.slot.in_review"><source>workflow.slot.in_review</source><target>In review</target></trans-unit>
+            <trans-unit id="workflow.bind.error.already_bound"><source>workflow.bind.error.already_bound</source><target>This project already runs a workflow template.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.unknown_template"><source>workflow.bind.error.unknown_template</source><target>No workflow template has this key.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.slot_unlinked"><source>workflow.bind.error.slot_unlinked</source><target>Choose a column for this slot.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.unknown_slot"><source>workflow.bind.error.unknown_slot</source><target>The workflow template has no slot with this key.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.foreign_column"><source>workflow.bind.error.foreign_column</source><target>This column is not a column of the project.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.column_reused"><source>workflow.bind.error.column_reused</source><target>Another slot already uses this column.</target></trans-unit>
         </body>
     </file>
 </xliff>
