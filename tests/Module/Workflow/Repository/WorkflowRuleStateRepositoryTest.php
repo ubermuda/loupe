@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Workflow\Repository;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPause;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -75,6 +77,27 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
 
         self::assertSame([(string) $later->id, (string) $late->id], $repository->findDueCardIds($now, 2));
         self::assertSame([(string) $later->id, (string) $late->id, (string) $third->id], $repository->findDueCardIds($now, 10));
+    }
+
+    public function test_find_due_card_ids_skips_a_paused_card_and_keeps_its_due_time_for_after_the_release(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('rule-state-due-paused');
+        $now = new \DateTimeImmutable('2026-10-02 12:00:00');
+        $paused = $this->card($project);
+        $free = $this->card($project);
+        $this->state($paused, 'a', $now->modify('-2 hours'));
+        $this->state($free, 'a', $now->modify('-1 hour'));
+        $pause = new CardPause($paused, $project, 'on-hold', 'hold', CardPauseKind::Rule, $now);
+        $this->em()->persist($pause);
+        $this->em()->flush();
+
+        self::assertSame([(string) $free->id], $this->repository()->findDueCardIds($now, 10));
+
+        $pause->release('until-met', $now);
+        $this->em()->flush();
+
+        self::assertSame([(string) $paused->id, (string) $free->id], $this->repository()->findDueCardIds($now, 10));
     }
 
     public function test_reset_clears_the_memory_of_a_rule(): void

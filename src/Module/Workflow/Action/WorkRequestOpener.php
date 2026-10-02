@@ -31,7 +31,7 @@ final readonly class WorkRequestOpener
             ));
         } catch (DomainErrors $e) {
             return \in_array(OpenWorkRequestHandler::LIVE, $e->errors, true)
-                ? ActionOutcome::done()
+                ? ActionOutcome::alreadyLive()
                 : ActionOutcome::refused('invalid-work-request');
         }
 

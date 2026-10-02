@@ -31,7 +31,7 @@ final class RequestWorkTest extends KernelTestCase
         self::assertSame(['product-design', 'interactive', 'start-product-design', $card->number], [$live[0]->kind, $live[0]->capability, $live[0]->ruleId, $live[0]->cardNumber]);
     }
 
-    public function test_a_live_request_of_the_kind_is_done_and_opens_no_second_one(): void
+    public function test_a_live_request_of_the_kind_is_already_live_and_opens_no_second_one(): void
     {
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-live'), 'next');
@@ -40,7 +40,8 @@ final class RequestWorkTest extends KernelTestCase
         $this->action()->run($rule, $card, FactsMother::facts(), $this->state($card));
         $outcome = $this->action()->run($rule, $card, FactsMother::facts(), $this->state($card));
 
-        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertEquals(ActionOutcome::alreadyLive(), $outcome);
+        self::assertNotEquals(ActionOutcome::done(), $outcome);
         self::assertCount(1, $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.')));
     }
 

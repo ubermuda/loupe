@@ -48,7 +48,11 @@ final readonly class FactFingerprint
         return [$document->status, self::sorted($document->tags)];
     }
 
-    /** @return list<mixed> */
+    /**
+     * The close time stays out: a closed pull request takes it from its last read, so a re-read changes it.
+     *
+     * @return list<mixed>
+     */
     private static function pullRequest(PullRequestFacts $pullRequest): array
     {
         return [
@@ -63,7 +67,6 @@ final readonly class FactFingerprint
             $pullRequest->baseIsEpicBranch,
             $pullRequest->stacked,
             $pullRequest->parentMerged,
-            $pullRequest->closedAt?->format(\DATE_ATOM),
         ];
     }
 

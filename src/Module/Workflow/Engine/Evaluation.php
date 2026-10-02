@@ -17,6 +17,9 @@ final class Evaluation
     /** @var list<CardPause> the pauses this evaluation applied */
     public array $pauses = [];
 
+    /** True once the pass asked for a pause, which ends it. */
+    public bool $ended = false;
+
     /** @var list<array{rule: string, outcome: string, code: ?string}> */
     public array $fired = [];
 

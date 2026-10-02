@@ -45,6 +45,18 @@ final class FactFingerprintTest extends TestCase
         self::assertSame(new FactFingerprint()->of($this->facts(), $keys), new FactFingerprint()->of($reordered, $keys));
     }
 
+    public function test_the_close_time_of_a_pull_request_does_not_count(): void
+    {
+        $closedAt = static function (string $time): Facts {
+            $pullRequest = FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable($time));
+
+            return FactsMother::facts(pullRequest: $pullRequest, pullRequests: [$pullRequest]);
+        };
+        $keys = [FactKey::PullRequest, FactKey::PullRequests];
+
+        self::assertSame(new FactFingerprint()->of($closedAt('2026-10-02 12:00:00'), $keys), new FactFingerprint()->of($closedAt('2026-10-02 12:05:00'), $keys));
+    }
+
     /** @return iterable<string, array{FactKey, Facts}> */
     public static function changes(): iterable
     {

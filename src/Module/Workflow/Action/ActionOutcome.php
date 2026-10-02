@@ -17,12 +17,19 @@ final readonly class ActionOutcome
         public ActionOutcomeKind $kind,
         public ?string $code = null,
         public ?CardPauseKind $pauseKind = null,
+        public bool $alreadyLive = false,
     ) {
     }
 
     public static function done(): self
     {
         return new self(ActionOutcomeKind::Done);
+    }
+
+    /** Done, because a live work request of the kind already does the work. It opened nothing. */
+    public static function alreadyLive(): self
+    {
+        return new self(ActionOutcomeKind::Done, alreadyLive: true);
     }
 
     public static function refused(string $code): self

@@ -98,9 +98,8 @@ final readonly class Engine
 
         $run = new Evaluation($card, $template, $this->factsBuilder->build($card, $now), $this->workflowRuleStates->findForCard($card), $now);
         $this->settleWorkRequests($run, $cardId);
-        if ($this->stillPaused($run)) {
-            $this->runRules($run, array_filter($template->rules, static fn (Rule $rule): bool => ActionType::Release === $rule->then->type));
-        } else {
+        // A pause ends the pass, so it is never released in the pass that made it.
+        if (!$run->ended && (!$this->stillPaused($run) || $this->releasedByRule($run))) {
             $this->runRules($run, $template->rules);
         }
         $this->em->flush();
@@ -157,6 +156,14 @@ final readonly class Engine
         }
 
         return false;
+    }
+
+    /** Runs the release rules of a paused card. Answers whether they lifted the pause. */
+    private function releasedByRule(Evaluation $run): bool
+    {
+        $this->runRules($run, array_filter($run->template->rules, static fn (Rule $rule): bool => ActionType::Release === $rule->then->type));
+
+        return null === $this->cardPauses->findActiveForCard($run->card);
     }
 
     private function releaseCode(Evaluation $run, CardPause $pause): ?string
@@ -235,7 +242,7 @@ final readonly class Engine
                 $state->attempts = 0;
                 $state->dueAt = null;
                 $state->lastRefusal = null;
-                if (ActionType::Request === $type || ActionType::ForgeWrite === $type) {
+                if ((ActionType::Request === $type || ActionType::ForgeWrite === $type) && !$outcome->alreadyLive) {
                     ++$state->fires;
                 }
 
@@ -296,6 +303,7 @@ final readonly class Engine
 
     private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void
     {
+        $run->ended = true;
         $pause = ($this->pauseCard)(new PauseCardCommand($run->card, $code, $ruleId, $kind));
         if (null !== $pause) {
             $run->pauses[] = $pause;

@@ -202,7 +202,72 @@ final class EngineTest extends KernelTestCase
 
     public function test_a_paused_card_runs_only_its_release_rules(): void
     {
+        $card = $this->boundCard(self::holdRules());
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+
+        $this->setType($card, CardType::Security);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($pause->releasedAt);
+        self::assertSame([], $this->liveRequests($card));
+        self::assertNull($this->ruleStateOrNull($card, 'work'));
+        self::assertNotNull($this->ruleState($card, 'unhold')->fingerprint);
+    }
+
+    public function test_a_release_rule_that_lifts_the_pause_lets_the_other_rules_fire_in_the_same_evaluation(): void
+    {
+        $card = $this->boundCard(self::holdRules());
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame(ReleasePause::RELEASE_REASON, $pause->releaseReason);
+        self::assertNull($this->activePause($card), 'The pause rule stays true, so it does not fire again.');
+        self::assertCount(1, $this->liveRequests($card));
+        self::assertSame(1, $this->ruleState($card, 'work')->fires);
+    }
+
+    public function test_a_pause_ends_the_evaluation_before_the_release_check_and_any_move(): void
+    {
         $card = $this->boundCard([
+            self::requestRule('work', ['card.type' => ['type' => 'bug']]),
+            self::moveRule('advance', 'two', ['card.type' => ['type' => 'feature']]),
+        ]);
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card);
+        $this->setType($card, CardType::Feature);
+
+        $this->evaluate($card, '2026-10-02 14:00:00');
+
+        self::assertSame('next', $card->column->slug);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        self::assertSame(CardPauseKind::WorkTimeout, $pause->kind);
+        self::assertCount(1, $this->paused);
+    }
+
+    public function test_a_request_that_is_already_live_does_not_count_toward_the_limit(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 2)]);
+        foreach ([CardType::Bug, CardType::Feature, CardType::Bug, CardType::Feature, CardType::Bug] as $type) {
+            $this->setType($card, $type);
+            $this->evaluate($card);
+        }
+
+        self::assertCount(1, $this->liveRequests($card));
+        self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+        self::assertNull($this->activePause($card));
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function holdRules(): array
+    {
+        return [
             [
                 'id' => 'hold',
                 'slot' => 'one',
@@ -211,17 +276,7 @@ final class EngineTest extends KernelTestCase
             ],
             self::requestRule('work', self::ALWAYS),
             ['id' => 'unhold', 'when' => ['card.type' => ['type' => 'bug']], 'then' => ['release' => ['reason' => 'on-hold']]],
-        ]);
-        $this->evaluate($card);
-        $pause = $this->activePause($card);
-        self::assertNotNull($pause);
-
-        $this->setType($card, CardType::Bug);
-        $this->evaluate($card);
-
-        self::assertSame(ReleasePause::RELEASE_REASON, $pause->releaseReason);
-        self::assertSame([], $this->liveRequests($card));
-        self::assertNull($this->ruleStateOrNull($card, 'work'));
+        ];
     }
 
     public function test_a_successful_move_stops_the_loop(): void
