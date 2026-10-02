@@ -9,6 +9,8 @@ final class BridgeEventType
 {
     public const string COMMAND = 'bridge.command';
 
+    public const string WORK_REQUEST = 'bridge.work_request';
+
     private function __construct()
     {
     }
