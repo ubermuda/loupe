@@ -16,18 +16,7 @@ The stage runs unattended. Do not use an interactive question tool.
 
 ## Change a file
 
-Use a file-editing tool that targets the active worktree. Confirm the target before the first write.
-
-## Bind writes to the worktree
-
-Use the harness's worktree or working-directory control. If it has neither, start a worker whose working directory is the worktree. Then run:
-
-```bash
-pwd
-git worktree list --porcelain | grep -qx "worktree $(pwd)" && git branch --show-current
-```
-
-The first command must print the worktree path. The second must print the card branch.
+Use a file-editing tool that targets the worker folder. Confirm the target before the first write.
 
 ## Run a long command
 
@@ -35,11 +24,11 @@ Use the harness's background process support and poll it in the foreground at le
 
 ## Dispatch a sub-agent
 
-When the harness supports sub-agents, dispatch one with the `senior-dev` instruction and repeat every stage rule in its prompt. Otherwise, perform the task in the current worktree and apply the same instruction.
+When the harness supports sub-agents, dispatch one with the `senior-dev` instruction and repeat every stage rule in its prompt. Otherwise, perform the task in the worker folder and apply the same instruction.
 
 ## Write and run a plan
 
-Write a task-by-task plan, submit it to Loupe, and execute it in order. Do not save a second plan file, merge into the base branch, or remove the worktree.
+Write a task-by-task plan, submit it to Loupe, and execute it in order. Do not save a second plan file, merge into the base branch, or remove the worker folder.
 
 ## Final reply
 

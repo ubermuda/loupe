@@ -7,21 +7,19 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 1. Read `AGENTS.md`, and follow it.
 2. Load each skill that the AGENTS.md skill table names for the files you touch.
 3. Load `working-with-prs` before the gate, a push or a pull request.
-4. Load `project-worktrees` before you create, refresh or remove a worktree.
+4. Load `project-worktrees` before you refresh the worker folder or debug it.
 5. Writing style: AGENTS.md "Writing style", which is ASD-STE100.
 6. Product document: answer the documentation and landing page checks of AGENTS.md "Planning and shipping a feature". It names the `docs/` sections and the landing page templates.
 7. Tech design: load `project-tech-design`. Read the AGENTS.md section "What a new entity or feature must also register", with its table and the list "Four more that no registry covers".
 
-## Worktree
+## Environment
 
-1. The card worktree is `.worktrees/card-<number>`. Run the worktree commands from the main checkout, which is the first `worktree` line of `git worktree list --porcelain`.
-2. Create: after `git worktree add`, run `just worktree-up card-<number> card:<cardId>`. It bootstraps a registered worktree, and it never creates one.
-3. `just worktree-up` copies `vendor/` from the main checkout, or runs `composer install` when the lock differs. It runs the migrations, the seed, the Tailwind build and a cache warmup. It clears no cache.
-4. Refresh after a sync that brings commits: run `( cd <main checkout> && just worktree-up card-<number> card:<cardId> )`. Then, from the worktree, run `bin/worktrees/compose-exec.sh bin/console cache:clear` and the same command with `--env=test`.
-5. `<cardId>` is the card id from the prompt line `Card <number> (cardId <id>)`. When the prompt has no such line, take `cardId` from `card_get`. Never derive it from a branch name, a worktree name or a card number.
-6. The second argument writes `SITE_REVIEW_WIDGET_CONTEXT=card:<cardId>` into the `.env.local` of the worktree. The site-review widget then links each comment on the preview to the card. Bootstrap keeps the old marker when the argument is absent, so pass it on every create and every refresh. The marker must name a card that the widget backend holds. A branch that points `SITE_REVIEW_WIDGET_BACKEND` at its own worktree host passes no marker, or a card id from its own database. `project-worktrees` "The card marker" says more.
-7. Run a command inside the container of the worktree with `bin/worktrees/compose-exec.sh <command>`, from the worktree. Never run bare `docker compose` from a worktree.
-8. Remove: `just worktree-down card-<number>`. A stage never removes a worktree.
+1. A bridge `before` rule runs `bin/worktrees/bridge-before.sh`, and the worker starts in `.worktrees/card-<number>`. That worker folder is a full app of its own. A stage never creates or removes it. A `teardown` command rule removes it when the card reaches `done`.
+2. Folder check: the two lines of `git rev-parse --path-format=absolute --git-dir --git-common-dir` must differ. They are equal in the main checkout, where a worker must never work.
+3. Refresh after a sync that brings commits: from the worker folder, run `( cd <main checkout> && just worktree-up card-<number> card:<cardId> )`. The main checkout is the first `worktree` line of `git worktree list --porcelain`. Then run `bin/worktrees/compose-exec.sh bin/console cache:clear`, and the same command with `--env=test`.
+4. `<cardId>` is the card id from the prompt line `Card <number> (cardId <id>)`. When the prompt has no such line, take `cardId` from `card_get`. Never derive it from a branch name, a folder name or a card number.
+5. The second argument of `just worktree-up` writes the card marker `SITE_REVIEW_WIDGET_CONTEXT=card:<cardId>` into `.env.local`. The site-review widget then links each preview comment to the card. Pass it on every refresh. A branch that points `SITE_REVIEW_WIDGET_BACKEND` at its own worktree host passes no marker, or a card id from its own database. `project-worktrees` "The card marker" says more.
+6. Run a command inside the container of the worker folder with `bin/worktrees/compose-exec.sh <command>`, from that folder. Never run bare `docker compose` from a worktree.
 
 ## Gate
 
@@ -78,6 +76,6 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 2. Pass no body. GitHub builds the squash message from the commit messages, which carry the reasoning.
 3. Merge only a pull request whose base is `main`, or an epic child whose base is its `epic/<n>`, as the `Epics` section says. Any other stacked pull request waits until its parent merges and a person retargets it.
 4. `working-with-prs` "Merging" and "What the ruleset actually requires" stay the authority for the checks and the approval.
-5. The merge stage skips the `just cs` on `main` after the merge, and the worktree teardown. The person who holds the merge queue does them.
+5. The merge stage skips the `just cs` on `main` after the merge, and the person who holds the merge queue runs it. The `teardown` rule removes the card worktree when the card reaches `done`.
 6. An update of a branch keeps its approval, because the ruleset does not dismiss a stale review. The ruleset has no merge queue, so `gh pr merge` never turns on auto-merge here.
 7. The approver is `ubermuda`. The merge stage counts that reviewer's approval only, and reads it by time. A sync after the approval keeps it. A conflict resolution or any other commit after it needs the owner or the merge queue.
