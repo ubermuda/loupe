@@ -19,6 +19,7 @@ final class Version20261002011345 extends AbstractMigration
     {
         // Every hold so far came from a stop, and a stop no longer pauses the card.
         $this->addSql('DELETE FROM bridge_card_holds');
+        // stopped_run_id stays unmapped until a later release drops it, because a release may only expand the schema.
     }
 
     #[\Override]
