@@ -144,6 +144,11 @@ final class CardAgentsControllersTest extends WebTestCase
             {
                 return 0 === $this->calls++ ? 'implementation' : null;
             }
+
+            public function cardIdOfNumber(Project $project, int $number): ?Uuid
+            {
+                return null;
+            }
         });
         [$owner, $project, $cardId] = $this->scenario('gone');
         $this->em()->clear();

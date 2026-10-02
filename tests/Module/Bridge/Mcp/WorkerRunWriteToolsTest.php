@@ -110,6 +110,12 @@ final class WorkerRunWriteToolsTest extends KernelTestCase
             {
                 throw new \RuntimeException('The board is down.');
             }
+
+            #[\Override]
+            public function cardIdOfNumber(Project $project, int $number): ?Uuid
+            {
+                throw new \RuntimeException('The board is down.');
+            }
         });
         $this->project = $this->em()->find(Project::class, $this->project->id) ?? throw new \LogicException('The setup project exists.');
         $this->actAsMcpTokenBoundTo($this->project);

@@ -54,6 +54,17 @@ final class PauseCardAgentsHandlerTest extends KernelTestCase
         self::assertSame((string) $cardId, $record->context['cardId']);
     }
 
+    public function test_a_pause_by_an_agent_names_the_agent_in_the_event(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('pause-agents-agent');
+        $cardId = $this->card($project);
+
+        $this->pause($project, $cardId, $owner, 'agent');
+
+        self::assertSame(['agent'], array_column($this->outboxPayloads('board.card_held'), 'actor'));
+    }
+
     public function test_a_pause_of_a_paused_card_is_refused(): void
     {
         self::bootKernel();
@@ -129,12 +140,13 @@ final class PauseCardAgentsHandlerTest extends KernelTestCase
         return $card->id ?? throw new \LogicException('A flushed card has an id.');
     }
 
-    private function pause(Project $project, Uuid $cardId, User $by): void
+    /** @param 'human'|'agent' $actor */
+    private function pause(Project $project, Uuid $cardId, User $by, string $actor = 'human'): void
     {
         $this->audit ??= RecordingAuditor::installedIn(self::getContainer());
         $handler = self::getContainer()->get(PauseCardAgentsHandler::class);
         self::assertInstanceOf(PauseCardAgentsHandler::class, $handler);
-        $handler(new PauseCardAgentsCommand($project, $cardId, $by));
+        $handler(new PauseCardAgentsCommand($project, $cardId, $by, $actor));
     }
 
     private function reloaded(Project $project): Project

@@ -8,6 +8,7 @@ use App\Mcp\ResolvesBoundProject;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Service\CardColumnLookupInterface;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
@@ -17,7 +18,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Resolves the worker runs and the arguments a worker tool call may act on.
+ * Resolves the worker runs, the cards and the arguments a worker tool call may act on.
  *
  * A run is looked up by id alone and scoped by McpBoundProjectVoter, so a token
  * bound to one project of an owner cannot reach the runs of another.
@@ -30,6 +31,7 @@ final readonly class BridgeSubjectResolver
         private AuthenticatedProjectResolver $projectResolver,
         private WorkerRunRepository $workerRuns,
         private Security $security,
+        private CardColumnLookupInterface $cards,
     ) {
     }
 
@@ -70,6 +72,35 @@ final readonly class BridgeSubjectResolver
         return null !== $run && $this->security->isGranted($attribute, $run) ? $run : null;
     }
 
+    /**
+     * The id of the card that cardId or number names in the bound project. Null
+     * for a card that does not exist and for a card of another project alike.
+     */
+    public function findCardId(?string $cardId, ?int $number): ?Uuid
+    {
+        if (null !== $cardId && null !== $number) {
+            throw new ToolCallException('Pass cardId or number, not both.');
+        }
+        if (null === $cardId && null === $number) {
+            throw new ToolCallException('Pass cardId or number.');
+        }
+        if (null !== $number && $number < 1) {
+            throw new ToolCallException(\sprintf('Card numbers count from 1, so %d is not a card number.', $number));
+        }
+        $id = null === $cardId ? null : $this->parseCardId($cardId);
+
+        $project = $this->requireBoundProject($this->projectResolver);
+        if (!$this->security->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $project)) {
+            return null;
+        }
+
+        if (null === $id) {
+            return $this->cards->cardIdOfNumber($project, $number ?? throw new \LogicException('A call with no cardId has a number.'));
+        }
+
+        return null === $this->cards->columnOf($project, $id) ? null : $id;
+    }
+
     public static function notFound(string $runId): string
     {
         return \sprintf('Worker run "%s" not found or not accessible.', $runId);
@@ -81,6 +112,17 @@ final readonly class BridgeSubjectResolver
             return Uuid::fromString($runId);
         } catch (\InvalidArgumentException $e) {
             throw new ToolCallException(\sprintf('"%s" is not a valid run ID. Pass the runId of a row of worker_run_list.', $runId), previous: $e);
+        }
+    }
+
+    private function parseCardId(string $cardId): Uuid
+    {
+        try {
+            return Uuid::fromString($cardId);
+        } catch (\InvalidArgumentException $e) {
+            $hint = ctype_digit($cardId) ? ' To read a card by its number, pass number instead.' : '';
+
+            throw new ToolCallException(\sprintf('"%s" is not a valid card ID.%s', $cardId, $hint), previous: $e);
         }
     }
 

@@ -476,9 +476,13 @@ card. A run that is in progress goes on, so stop it as well if it must end
 now. Loupe refuses a resume of a run of the card while the pause holds. A run
 that waits in a queue stays there, and it starts when the pause ends.
 
+An agent pauses the agents on a card with the `card_hold` MCP tool, and lets
+them run with `card_release`.
+
 These actions end the pause:
 
-- A person selects **Let agents run** in the runs section.
+- A person selects **Let agents run** in the runs section, or an agent calls
+  `card_release`.
 - A person moves the card to another column. A move by an agent or by the
   automation keeps the pause, and so does a move inside the same column.
 - A person deletes the column of the card, or the card.

@@ -17,7 +17,7 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * A person pauses the agents on a card. The hold and its outbox event commit
+ * A person or an agent pauses the agents on a card. The hold and its outbox event commit
  * together, so a bridge never learns of a hold that rolled back.
  */
 final readonly class PauseCardAgentsHandler
@@ -58,7 +58,7 @@ final readonly class PauseCardAgentsHandler
                 'type' => BridgeEventType::CARD_HELD,
                 'subject' => ['type' => 'card', 'id' => (string) $cardId],
                 'projectId' => (string) $project->id,
-                'actor' => 'human',
+                'actor' => $command->actor,
             ]);
             $this->em->flush();
 
