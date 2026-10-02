@@ -23,6 +23,19 @@ describe('redact', () => {
         );
     });
 
+    it('replaces a same-origin path with no scheme', () => {
+        expect(
+            redact(
+                'GET /forgot-password/reset/SECRET123?x=1 failed ("/beta/tok")',
+            ),
+        ).toBe('GET [path] failed ("[path]")');
+    });
+
+    it('keeps an asset path and a protocol-relative URL host', () => {
+        expect(redact('at /assets/app-abc.js')).toBe('at /assets/app-abc.js');
+        expect(redact('a/b and 1/2')).toBe('a/b and 1/2');
+    });
+
     it('drops a URL that has no host', () => {
         expect(redact('see file:///etc/passwd')).toBe('see [url]');
     });

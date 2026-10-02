@@ -9,6 +9,13 @@ function meta(name) {
     return document.querySelector(`meta[name="${name}"]`)?.content ?? null;
 }
 
+// beforeStartSpan names a page load after its route, and a Turbo visit can
+// change the route before the transaction ends. A name that holds a URL or a
+// path takes the current route instead.
+function transactionName(name, route) {
+    return typeof name === 'string' && !/^\/|:\/\//.test(name) ? name : route;
+}
+
 // The SDK loads from a classic deferred script, which runs before the module
 // scripts that follow it, so it runs before this module.
 export function initSentry(Sentry = window.Sentry) {
@@ -16,7 +23,8 @@ export function initSentry(Sentry = window.Sentry) {
     if (!Sentry || !dsn) {
         return false;
     }
-    const route = meta('loupe-route') || null;
+    // Turbo swaps the head meta tags on each visit, so read the route late.
+    const route = () => meta('loupe-route') || null;
 
     Sentry.init({
         dsn,
@@ -37,19 +45,27 @@ export function initSentry(Sentry = window.Sentry) {
                 instrumentNavigation: false,
                 beforeStartSpan: (context) => ({
                     ...context,
-                    name: route ?? context.op,
+                    name: route() ?? context.op,
                 }),
             }),
             Sentry.breadcrumbsIntegration({ console: false }),
         ],
-        beforeSend: (event) => scrubEvent(event, route),
-        beforeSendTransaction: (event) =>
-            scrubTransaction(scrubEvent(event, route), route),
-        beforeSendSpan: Sentry.withStaticSpan((span) => scrubSpan(span, route)),
+        beforeSend: (event) => scrubEvent(event, route()),
+        beforeSendTransaction: (event) => {
+            const name = transactionName(event.transaction, route());
+
+            return scrubTransaction(scrubEvent(event, name), name);
+        },
+        beforeSendSpan: Sentry.withStaticSpan((span) =>
+            scrubSpan(span, route()),
+        ),
         beforeBreadcrumb: keepBreadcrumb,
     });
     // The page load wrote the path into the scope during init.
-    Sentry.getCurrentScope().setTransactionName(route ?? undefined);
+    const nameScope = () =>
+        Sentry.getCurrentScope().setTransactionName(route() ?? undefined);
+    nameScope();
+    document.addEventListener('turbo:load', nameScope);
 
     return true;
 }

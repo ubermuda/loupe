@@ -200,6 +200,39 @@ describe('initSentry', () => {
         expect(sentry.setTransactionName).toHaveBeenCalledWith(undefined);
     });
 
+    it('names the scope after the new route on each Turbo visit', () => {
+        renderMeta(PAGE);
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        document.querySelector('meta[name="loupe-route"]').content =
+            'app_card_show';
+        document.dispatchEvent(new Event('turbo:load'));
+
+        expect(sentry.setTransactionName).toHaveBeenLastCalledWith(
+            'app_card_show',
+        );
+        const event = sentry.init.mock.calls[0][0].beforeSend({
+            transaction: '/cards/1',
+        });
+        expect(event.transaction).toBe('app_card_show');
+    });
+
+    it('keeps the name a transaction started with after a Turbo visit', () => {
+        renderMeta(PAGE);
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        document.querySelector('meta[name="loupe-route"]').content =
+            'app_card_show';
+        const event = sentry.init.mock.calls[0][0].beforeSendTransaction({
+            type: 'transaction',
+            transaction: 'app_board_show',
+        });
+
+        expect(event.transaction).toBe('app_board_show');
+    });
+
     it('scrubs a transaction and names it after the route', () => {
         renderMeta(PAGE);
         const sentry = fakeSentry();

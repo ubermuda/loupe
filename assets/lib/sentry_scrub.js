@@ -2,6 +2,8 @@
 // secret, so no path or query leaves the browser. Asset URLs stay whole.
 const URL_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi;
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+// A browser error can name a same-origin path with no scheme.
+const PATH_PATTERN = /(^|[\s"'(=])\/(?!\/|assets\/)[^\s"'<>)]+/g;
 const URL_DATA_KEYS = new Set([
     'url',
     'http.url',
@@ -40,6 +42,7 @@ function origin(url) {
 export function redact(text) {
     return text
         .replace(URL_PATTERN, (url) => origin(url))
+        .replace(PATH_PATTERN, '$1[path]')
         .replace(EMAIL_PATTERN, '[email]');
 }
 
