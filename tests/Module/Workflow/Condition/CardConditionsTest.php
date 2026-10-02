@@ -78,6 +78,11 @@ final class CardConditionsTest extends TestCase
         self::assertSame($expectedKey, $message->getMessage());
         self::assertSame($expectedParameters, $message->getParameters());
         self::assertSame('workflow.waiting.'.str_replace('.', '_', $condition::key()), $message->getMessage());
+
+        $negated = $condition->waitingFor($params, negated: true);
+
+        self::assertSame(str_replace('workflow.waiting.', 'workflow.waiting.not.', $expectedKey), $negated->getMessage());
+        self::assertSame($expectedParameters, $negated->getParameters());
     }
 
     /** @return iterable<string, array{Condition, array<string, mixed>, string, array<string, string>}> */

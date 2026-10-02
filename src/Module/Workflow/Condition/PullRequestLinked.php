@@ -36,8 +36,8 @@ final readonly class PullRequestLinked implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_linked');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_linked' : 'workflow.waiting.pr_linked');
     }
 }

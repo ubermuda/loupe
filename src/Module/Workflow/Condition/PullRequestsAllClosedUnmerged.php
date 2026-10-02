@@ -53,8 +53,8 @@ final readonly class PullRequestsAllClosedUnmerged implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_all_closed_unmerged', ['%minutes%' => (string) ParameterValue::int($params, 'minutes')]);
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_all_closed_unmerged' : 'workflow.waiting.pr_all_closed_unmerged', ['%minutes%' => (string) ParameterValue::int($params, 'minutes')]);
     }
 }

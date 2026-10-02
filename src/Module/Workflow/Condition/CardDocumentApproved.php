@@ -41,8 +41,8 @@ final readonly class CardDocumentApproved implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.card_document_approved', ['%tag%' => ParameterValue::string($params, 'tag')]);
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.card_document_approved' : 'workflow.waiting.card_document_approved', ['%tag%' => ParameterValue::string($params, 'tag')]);
     }
 }

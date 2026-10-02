@@ -35,8 +35,8 @@ final readonly class CardHasType implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.card_type', ['%type%' => ParameterValue::string($params, 'type')]);
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.card_type' : 'workflow.waiting.card_type', ['%type%' => ParameterValue::string($params, 'type')]);
     }
 }

@@ -14,11 +14,11 @@ abstract readonly class Expression
      * The leaf whose waiting sentence explains why the expression is false. Null means that no leaf can
      * explain it: the expression is true, or it is a `not` over an empty `all`.
      */
-    final public function firstFalseLeaf(Facts $facts): ?ConditionLeaf
+    final public function firstFalseLeaf(Facts $facts): ?BlockingLeaf
     {
         return $this->leafAgainst($facts, true);
     }
 
     /** The first leaf that keeps the expression from the wanted value, or null when no leaf does. */
-    abstract public function leafAgainst(Facts $facts, bool $wanted): ?ConditionLeaf;
+    abstract public function leafAgainst(Facts $facts, bool $wanted): ?BlockingLeaf;
 }

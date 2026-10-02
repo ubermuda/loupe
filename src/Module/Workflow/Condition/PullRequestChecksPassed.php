@@ -36,8 +36,8 @@ final readonly class PullRequestChecksPassed implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_checks_passed');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_checks_passed' : 'workflow.waiting.pr_checks_passed');
     }
 }

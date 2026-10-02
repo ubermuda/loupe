@@ -35,8 +35,8 @@ final readonly class CardHasOpenBlocker implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.card_has_open_blocker');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.card_has_open_blocker' : 'workflow.waiting.card_has_open_blocker');
     }
 }

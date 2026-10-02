@@ -22,7 +22,7 @@ final readonly class AllOf extends Expression
     }
 
     #[\Override]
-    public function leafAgainst(Facts $facts, bool $wanted): ?ConditionLeaf
+    public function leafAgainst(Facts $facts, bool $wanted): ?BlockingLeaf
     {
         if ($wanted) {
             foreach ($this->children as $child) {

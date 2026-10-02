@@ -35,8 +35,8 @@ final readonly class RunLastRefusal implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.run_last_refusal', ['%code%' => ParameterValue::string($params, 'code')]);
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.run_last_refusal' : 'workflow.waiting.run_last_refusal', ['%code%' => ParameterValue::string($params, 'code')]);
     }
 }

@@ -36,8 +36,8 @@ final readonly class PullRequestBaseIsEpicBranch implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_base_is_epic_branch');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_base_is_epic_branch' : 'workflow.waiting.pr_base_is_epic_branch');
     }
 }

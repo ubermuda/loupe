@@ -47,6 +47,11 @@ final class RunConditionsTest extends TestCase
 
         self::assertSame('workflow.waiting.'.str_replace('.', '_', $condition::key()), $message->getMessage());
         self::assertSame($expectedParameters, $message->getParameters());
+
+        $negated = $condition->waitingFor($params, negated: true);
+
+        self::assertSame('workflow.waiting.not.'.str_replace('.', '_', $condition::key()), $negated->getMessage());
+        self::assertSame($expectedParameters, $negated->getParameters());
         self::assertSame($expectedReads, $condition->reads($params));
     }
 

@@ -36,8 +36,8 @@ final readonly class PullRequestOpen implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_open');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_open' : 'workflow.waiting.pr_open');
     }
 }

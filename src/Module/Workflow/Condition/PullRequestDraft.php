@@ -38,8 +38,8 @@ final readonly class PullRequestDraft implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_draft');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_draft' : 'workflow.waiting.pr_draft');
     }
 }

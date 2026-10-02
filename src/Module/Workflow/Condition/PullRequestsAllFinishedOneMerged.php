@@ -40,8 +40,8 @@ final readonly class PullRequestsAllFinishedOneMerged implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_all_finished_one_merged');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_all_finished_one_merged' : 'workflow.waiting.pr_all_finished_one_merged');
     }
 }

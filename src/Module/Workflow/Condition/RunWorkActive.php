@@ -39,8 +39,8 @@ final readonly class RunWorkActive implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.run_work_active');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.run_work_active' : 'workflow.waiting.run_work_active');
     }
 }

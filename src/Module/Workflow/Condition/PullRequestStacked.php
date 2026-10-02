@@ -36,8 +36,8 @@ final readonly class PullRequestStacked implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_stacked');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_stacked' : 'workflow.waiting.pr_stacked');
     }
 }

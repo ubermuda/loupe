@@ -35,8 +35,8 @@ final readonly class CardInSlot implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.card_in_slot', ['%slot%' => ParameterValue::string($params, 'slot')]);
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.card_in_slot' : 'workflow.waiting.card_in_slot', ['%slot%' => ParameterValue::string($params, 'slot')]);
     }
 }

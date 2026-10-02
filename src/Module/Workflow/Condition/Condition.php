@@ -28,6 +28,10 @@ interface Condition
     /** @param array<string, mixed> $params */
     public function evaluate(Facts $facts, array $params): bool;
 
-    /** @param array<string, mixed> $params */
-    public function waitingFor(array $params): TranslatableMessage;
+    /**
+     * Plain: the condition is false and the rule needs it true. Negated: the condition is true and the rule needs it false.
+     *
+     * @param array<string, mixed> $params
+     */
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage;
 }

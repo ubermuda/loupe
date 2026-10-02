@@ -20,7 +20,7 @@ final readonly class Not extends Expression
     }
 
     #[\Override]
-    public function leafAgainst(Facts $facts, bool $wanted): ?ConditionLeaf
+    public function leafAgainst(Facts $facts, bool $wanted): ?BlockingLeaf
     {
         return $this->inner->leafAgainst($facts, !$wanted);
     }

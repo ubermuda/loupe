@@ -44,7 +44,7 @@ final class ConditionCatalogueTest extends KernelTestCase
         ], $keys);
     }
 
-    public function test_each_condition_has_an_english_waiting_sentence(): void
+    public function test_each_condition_has_a_plain_and_a_negated_english_waiting_sentence(): void
     {
         $conditions = static::getContainer()->get(Conditions::class);
         $translator = static::getContainer()->get('translator');
@@ -52,8 +52,10 @@ final class ConditionCatalogueTest extends KernelTestCase
         $catalogue = $translator->getCatalogue('en');
 
         foreach ($conditions->keys() as $key) {
-            $message = 'workflow.waiting.'.str_replace('.', '_', $key);
-            self::assertTrue($catalogue->defines($message), \sprintf('"%s" has no English string.', $message));
+            $suffix = str_replace('.', '_', $key);
+            foreach (['workflow.waiting.'.$suffix, 'workflow.waiting.not.'.$suffix] as $message) {
+                self::assertTrue($catalogue->defines($message), \sprintf('"%s" has no English string.', $message));
+            }
         }
     }
 }

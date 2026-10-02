@@ -23,8 +23,8 @@ final readonly class ConditionLeaf extends Expression
     }
 
     #[\Override]
-    public function leafAgainst(Facts $facts, bool $wanted): ?ConditionLeaf
+    public function leafAgainst(Facts $facts, bool $wanted): ?BlockingLeaf
     {
-        return $this->evaluate($facts) === $wanted ? null : $this;
+        return $this->evaluate($facts) === $wanted ? null : new BlockingLeaf($this, negated: !$wanted);
     }
 }

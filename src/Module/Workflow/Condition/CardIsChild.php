@@ -35,8 +35,8 @@ final readonly class CardIsChild implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.card_is_child');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.card_is_child' : 'workflow.waiting.card_is_child');
     }
 }

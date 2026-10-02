@@ -37,8 +37,8 @@ final readonly class PullRequestApprovalCoversHead implements Condition
     }
 
     #[\Override]
-    public function waitingFor(array $params): TranslatableMessage
+    public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage('workflow.waiting.pr_approval_covers_head', ['%min%' => (string) ParameterValue::int($params, 'min')]);
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_approval_covers_head' : 'workflow.waiting.pr_approval_covers_head', ['%min%' => (string) ParameterValue::int($params, 'min')]);
     }
 }
