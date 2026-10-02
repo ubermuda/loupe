@@ -669,6 +669,8 @@ type Heartbeat struct {
 	// WorkClaims are the claims whose leases the heartbeat renews. Nil sends
 	// no key. The client sends at most MaxWorkClaims of them.
 	WorkClaims []WorkClaim `json:"workClaims,omitzero"`
+	// Name sends no key when nil, which keeps the stored name, and "" clears it.
+	Name *string `json:"name,omitempty"`
 }
 
 // HeartbeatReply is what the server answers to a heartbeat. Paused is nil when

@@ -491,6 +491,10 @@ there. [`loupe update auto`](#loupe-update-auto) reads and sets the key.
 autoUpdate: true
 ```
 
+`name` at the top of the file is the bridge name that Loupe shows. When the key
+is absent, the bridge sends the host name up to the first dot. Set `name: ""`
+to send no name. A name holds at most 40 characters and no control character.
+
 `maxWorkers` at the top of the file is the number of workers the bridge runs at
 once. It defaults to `3`, and must be at least 1. `workerPools` splits that
 number into named pools, and a rule takes its slots from one pool with

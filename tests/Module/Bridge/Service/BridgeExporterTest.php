@@ -35,6 +35,8 @@ final class BridgeExporterTest extends TestCase
         $bridge->pauseRequestedBy = $owner;
         $bridge->pausedReported = false;
         $bridge->capabilities = ['commands'];
+        $bridge->name = 'laptop';
+        $bridge->requestedName = 'laptop';
 
         $rows = iterator_to_array(new BridgeExporter($this->repositoryReturning($bridge))->export($owner));
 
@@ -53,6 +55,8 @@ final class BridgeExporterTest extends TestCase
             'pauseRequestedAt' => '2026-09-14T15:30:00+00:00',
             'pausedReported' => false,
             'capabilities' => ['commands'],
+            'name' => 'laptop',
+            'requestedName' => 'laptop',
         ]], $rows);
     }
 

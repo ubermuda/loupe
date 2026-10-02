@@ -29,6 +29,7 @@ The path holds no project, because one bridge follows several projects.
 {
   "projects": ["0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90"],
   "cliVersion": "1.0.0",
+  "name": "homelab",
   "update": {"state": "rolled-back", "version": "1.1.0"},
   "workerPools": [
     {"name": "default", "size": 3, "inUse": 2, "queued": 0},
@@ -41,6 +42,7 @@ The path holds no project, because one bridge follows several projects.
 |---|---|
 | `projects` | required. A list of at most 500 project ids, which may be empty. The server keeps the ids of projects the token's user owns, and drops every other id |
 | `cliVersion` | required. The version of a release build, such as `1.0.0`, or the commit of a development build. 1 to 100 characters after trimming |
+| `name` | optional. The name the web UI shows for the bridge. 1 to 40 characters after trimming, with no control character. A missing or `null` value keeps the name the server holds, and an empty or blank value clears it. See [The bridge name](#the-bridge-name) |
 | `update` | optional. The state of the bridge's own [update](../extending/cli-bridge.md#updates) |
 | `update.state` | required in `update`. One of the states below |
 | `update.version` | optional. The release the state is about, at most 100 characters |
@@ -77,6 +79,19 @@ the bridge, with the time of the heartbeat that carried them. The server
 stamps that time from its own clock when a heartbeat carries a `workerPools`
 list, an empty list included. A heartbeat with no list keeps the rows and their
 time. A bridge that never sent a `workerPools` list shows no pools.
+
+### The bridge name
+
+The web UI shows the name of a bridge in place of its id. A bridge that holds
+no name shows the last 12 characters of its id. The first characters of the id
+are a timestamp, so two bridges that start at about the same time share them.
+
+The bridges of one account hold different names. A bridge can ask for a name
+that another bridge of the same account holds. The server then accepts the
+heartbeat, stores the name it asked for, and gives it no name. The
+[agents page](../using/worker-runs.md#bridge-health) shows a warning on that bridge.
+The bridge gets the name at its next heartbeat after the other bridge clears or
+changes it. Bridges of different accounts never clash.
 
 | `update.state` | Meaning |
 |---|---|
@@ -420,7 +435,8 @@ writes a `bridge.work_request_settled` record to the audit log.
 Deleting an account deletes the rows of its bridges and their commands. The
 data export holds the bridges in `bridges.json`, with the stored update state,
 version and install method, the hook rows, the worker pool rows with their
-report time, the pause state and the capabilities. It holds the commands in
+report time, the pause state, the capabilities, the name the bridge holds and
+the name it asked for. It holds the commands in
 `bridge_commands.json`.
 
 Deleting a project deletes its work requests. The data export holds the work

@@ -6928,6 +6928,8 @@
             <trans-unit id="bridge.agents.paused"><source>bridge.agents.paused</source><target>Paused</target></trans-unit>
             <trans-unit id="bridge.agents.pause_requested"><source>bridge.agents.pause_requested</source><target>Pause requested</target></trans-unit>
             <trans-unit id="bridge.agents.paused_by"><source>bridge.agents.paused_by</source><target>%time% by %person%</target></trans-unit>
+            <trans-unit id="bridge.agents.name_clash.label"><source>bridge.agents.name_clash.label</source><target>Name already in use</target></trans-unit>
+            <trans-unit id="bridge.agents.name_clash.description"><source>bridge.agents.name_clash.description</source><target>Another bridge already holds this name. This bridge shows its id until the name is free, or until you change it in its rules.yaml.</target></trans-unit>
             <trans-unit id="bridge.agents.menu"><source>bridge.agents.menu</source><target>Bridge actions</target></trans-unit>
             <trans-unit id="bridge.agents.pause"><source>bridge.agents.pause</source><target>Pause new work</target></trans-unit>
             <trans-unit id="bridge.agents.unpause"><source>bridge.agents.unpause</source><target>Resume new work</target></trans-unit>

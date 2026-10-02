@@ -34,6 +34,30 @@ class BridgeRepository extends ServiceEntityRepository
         );
     }
 
+    /** Serialises the name claims of one owner's bridges until the transaction ends. */
+    public function lockNamesForWrite(string $ownerId): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'SELECT pg_advisory_xact_lock(hashtext(?))',
+            ['bridge-name:'.$ownerId],
+        );
+    }
+
+    public function isNameHeldByOther(User $owner, Uuid $bridgeId, string $name): bool
+    {
+        return null !== $this->createQueryBuilder('b')
+            ->select('1')
+            ->andWhere('b.owner = :owner')
+            ->andWhere('b.id != :bridgeId')
+            ->andWhere('b.name = :name')
+            ->setParameter('owner', $owner)
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('name', $name)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function findOneByOwnerAndId(User $owner, Uuid $id): ?Bridge
     {
         return $this->findOneBy(['owner' => $owner, 'id' => $id]);

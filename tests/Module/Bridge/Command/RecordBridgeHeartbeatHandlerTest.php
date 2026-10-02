@@ -296,6 +296,116 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         self::assertSame([(string) $pending->id], array_map(static fn (BridgeCommand $c): string => (string) $c->id, $result->commands));
     }
 
+    public function test_a_heartbeat_without_a_name_keeps_the_stored_names(): void
+    {
+        self::bootKernel();
+        $owner = $this->user($this->em(), 'heartbeat-name-keep@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
+
+        $bridge = $this->reload($owner, $bridgeId);
+        self::assertSame('laptop', $bridge->name);
+        self::assertSame('laptop', $bridge->requestedName);
+    }
+
+    public function test_an_empty_name_clears_both_names(): void
+    {
+        self::bootKernel();
+        $owner = $this->user($this->em(), 'heartbeat-name-clear@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: ''));
+
+        $bridge = $this->reload($owner, $bridgeId);
+        self::assertNull($bridge->name);
+        self::assertNull($bridge->requestedName);
+        self::assertFalse($bridge->nameClashes());
+    }
+
+    public function test_a_free_name_is_taken(): void
+    {
+        self::bootKernel();
+        $owner = $this->user($this->em(), 'heartbeat-name-free@example.com');
+        $bridgeId = Uuid::v4();
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
+
+        $bridge = $this->reload($owner, $bridgeId);
+        self::assertSame('laptop', $bridge->name);
+        self::assertSame('laptop', $bridge->requestedName);
+        self::assertFalse($bridge->nameClashes());
+    }
+
+    public function test_a_bridge_that_holds_its_name_keeps_it(): void
+    {
+        self::bootKernel();
+        $owner = $this->user($this->em(), 'heartbeat-name-hold@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
+
+        self::assertSame('laptop', $this->reload($owner, $bridgeId)->name);
+    }
+
+    public function test_a_name_another_bridge_holds_is_requested_and_not_taken(): void
+    {
+        self::bootKernel();
+        $owner = $this->user($this->em(), 'heartbeat-name-clash@example.com');
+        $holder = Uuid::v4();
+        $claimer = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $holder, [], 'b4e39aa7', name: 'laptop'));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $claimer, [], 'b4e39aa7', name: 'laptop'));
+
+        $bridge = $this->reload($owner, $claimer);
+        self::assertNull($bridge->name);
+        self::assertSame('laptop', $bridge->requestedName);
+        self::assertTrue($bridge->nameClashes());
+        self::assertSame('laptop', $this->reload($owner, $holder)->name);
+    }
+
+    public function test_a_name_its_holder_gives_up_goes_to_the_claimer_at_its_next_heartbeat(): void
+    {
+        self::bootKernel();
+        $owner = $this->user($this->em(), 'heartbeat-name-freed@example.com');
+        $holder = Uuid::v4();
+        $claimer = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $holder, [], 'b4e39aa7', name: 'laptop'));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $claimer, [], 'b4e39aa7', name: 'laptop'));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $holder, [], 'b4e39aa7', name: 'desktop'));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $claimer, [], 'b4e39aa7', name: 'laptop'));
+
+        self::assertSame('desktop', $this->reload($owner, $holder)->name);
+        $bridge = $this->reload($owner, $claimer);
+        self::assertSame('laptop', $bridge->name);
+        self::assertFalse($bridge->nameClashes());
+    }
+
+    public function test_bridges_of_different_owners_never_clash(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $first = $this->user($em, 'heartbeat-name-owner-one@example.com');
+        $second = $this->user($em, 'heartbeat-name-owner-two@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($first, Uuid::v4(), [], 'b4e39aa7', name: 'laptop'));
+        $handler(new RecordBridgeHeartbeatCommand($second, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
+
+        self::assertSame('laptop', $this->reload($second, $bridgeId)->name);
+    }
+
     /** @return array{name: string, size: int, inUse: int, queued: int} */
     private static function pool(): array
     {

@@ -703,6 +703,35 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringContainsString('#11', (string) $client->getResponse()->getContent());
     }
 
+    public function test_the_bridge_filter_and_the_drawer_show_the_name_a_bridge_holds(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'bridge-named-owner@example.com');
+        $project = $this->project($em, $owner, 'Named bridges');
+        $named = $this->seedBridge($em, $owner);
+        $named->name = 'laptop';
+        $em->flush();
+        $unnamed = Uuid::v7();
+        $namedRun = $this->seedRun($em, $project, cardNumber: 11, bridgeId: $named->id);
+        $unnamedRun = $this->seedRun($em, $project, cardNumber: 22, bridgeId: $unnamed);
+
+        $projectId = (string) $project->id;
+        $namedRunId = (string) $namedRun->id;
+        $unnamedRunId = (string) $unnamedRun->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('laptop', trim($crawler->filter('#worker-run-bridge option[value="'.$named->id.'"]')->text()));
+        self::assertSame(substr((string) $unnamed, -12), trim($crawler->filter('#worker-run-bridge option[value="'.$unnamed.'"]')->text()));
+        self::assertSame('laptop '.$named->id, trim($crawler->filter('[data-worker-run-id="'.$namedRunId.'"] [data-worker-run-bridge] dd')->text()));
+        self::assertSame(substr((string) $unnamed, -12).' '.$unnamed, trim($crawler->filter('[data-worker-run-id="'.$unnamedRunId.'"] [data-worker-run-bridge] dd')->text()));
+    }
+
     /** No bridge holds an interactive run, so the drawer names none and the bridge filter offers none. */
     public function test_an_interactive_run_shows_no_bridge(): void
     {

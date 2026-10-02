@@ -317,6 +317,17 @@ The page lists only bridges that follow the current project.
 Its summary distinguishes no connections, healthy connections, stale connections, and a mix of healthy and stale connections.
 Heartbeat health does not show whether an individual worker is running or available for work.
 
+Each bridge card shows the name of the bridge as its heading. The bridge sets
+the name in its rule file, and the host name of its machine is the default. A
+bridge with no name shows the last 12 characters of its id. The run list, the
+run drawer, the rules page and the board show the same label.
+
+Two bridges of one account cannot hold the same name. The bridge that asks
+second gets no name and shows the end of its id. Its card shows a warning that
+another bridge holds the name. The warning stays until the other bridge frees
+the name, or until you give this bridge a different name. See
+[The bridge name](../reference/bridge-heartbeat.md#the-bridge-name).
+
 A bridge that runs worker pools reports their use with each heartbeat. The
 card of the bridge then lists each pool on one line: the pool name, the
 workers in use of the pool size, and the runs in the queue. The heading gives
@@ -384,7 +395,7 @@ Run IDs match without regard to letter case, and the outcome and bridge filters 
 Two filters narrow the list further:
 
 - **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works. `outcome=closed` keeps the closed interactive runs. **Open runs** (`outcome=open`) keeps every queued, resumed, running and stopping run, of both kinds.
-- **Bridge** keeps one bridge. It appears once a second bridge has reported.
+- **Bridge** keeps one bridge, and lists each bridge by its name. It appears once a second bridge has reported.
 
 Every control lands in the URL, so a filtered view is a link you can share.
 Select **Clear** to go back to the whole list.

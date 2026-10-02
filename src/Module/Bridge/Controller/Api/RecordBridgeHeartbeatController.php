@@ -65,6 +65,7 @@ final class RecordBridgeHeartbeatController extends AppController
             capabilities: $payload->capabilities(),
             installMethod: $payload->update?->install(),
             workClaims: $payload->workClaims(),
+            name: $payload->name(),
         ));
 
         return new JsonResponse([
