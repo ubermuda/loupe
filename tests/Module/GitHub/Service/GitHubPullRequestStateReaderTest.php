@@ -282,6 +282,27 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertSame('main', $this->logger->records[0]['context']['base']);
     }
 
+    public function test_unreadable_rules_of_a_base_that_is_not_the_default_branch_are_a_transient_failure(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_017);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($this->ruleLessGraphql('epic/436')),
+            new MockResponse('{"message":"Server Error"}', ['http_code' => 502]),
+        ];
+
+        try {
+            $this->reader()->read($pullRequest);
+            self::fail('A base that is not the default branch must not read as passed while its rules are unknown.');
+        } catch (PullRequestUnreadable $e) {
+            self::assertSame('base_rules_unreadable', $e->reason);
+            self::assertTrue($e->transient);
+        }
+
+        self::assertCount(3, $this->requests);
+        self::assertStringEndsWith('/rules/branches/epic%2F436?per_page=100&page=1', $this->requests[2]['url']);
+    }
+
     public function test_a_failed_compare_is_logged_and_ignored(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 70_005);
