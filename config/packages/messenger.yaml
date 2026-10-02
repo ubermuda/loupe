@@ -32,6 +32,7 @@ framework:
             App\Module\Board\Messenger\SyncNextPullRequest: async
             App\Module\Forge\Messenger\RefreshPullRequestState: async
             App\Module\Inbox\Messenger\ReconcileCardWaits: async
+            App\Module\Workflow\Messenger\EvaluateCard: async
 
             # Route your messages to the transports
             # 'App\Message\YourMessage': async

@@ -47,7 +47,7 @@ trait ActionScenario
         return $service;
     }
 
-    /** Nothing in production calls the handler yet, so the compiled container holds none. */
+    /** Built by hand, so a request takes the fixed time of the test. */
     private function openWorkRequestHandler(): OpenWorkRequestHandler
     {
         return new OpenWorkRequestHandler(

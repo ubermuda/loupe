@@ -66,7 +66,7 @@ final class ReleasePauseTest extends KernelTestCase
         return $pause;
     }
 
-    /** Nothing in production calls the pause handlers yet, so the compiled container holds none. */
+    /** Built by hand, so each pause and release takes a fixed time. */
     private function pauseHandler(): PauseCardHandler
     {
         return new PauseCardHandler($this->service(CardPauseRepository::class), $this->em(), new MockClock('2026-10-02 10:00:00'), $this->service(Auditor::class), $this->service(EventDispatcherInterface::class));
