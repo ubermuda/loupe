@@ -33,7 +33,7 @@ set `SENTRY_BROWSER_DSN`. These variables control it:
 | Variable | Default | Purpose |
 |---|---|---|
 | `SENTRY_BROWSER_DSN` | empty | Where browser events go. It is not a secret, because every page shows it. Empty loads no SDK. |
-| `SENTRY_BROWSER_TRACES_SAMPLE_RATE` | `1.0` | The share of page loads that the browser SDK traces, from `0.0` to `1.0`. |
+| `SENTRY_BROWSER_TRACES_SAMPLE_RATE` | `1.0` | The share of page loads that the browser SDK traces, from `0.0` to `1.0`. While `SENTRY_DSN` is set, a page load continues the server trace, and `SENTRY_TRACES_SAMPLE_RATE` decides for it. |
 
 The browser sends page loads, Web Vitals and JavaScript errors. It posts them
 directly to the ingest origin of the DSN, which Loupe adds to the

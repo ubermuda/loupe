@@ -1,7 +1,9 @@
 {% set sentryBrowser = sentry_browser() %}
 {% if sentryBrowser is not null %}
-    {{ sentry_trace_meta() }}
-    {{ sentry_baggage_meta() }}
+    {% if sentryBrowser.continueTrace %}
+        {{ sentry_trace_meta() }}
+        {{ sentry_baggage_meta() }}
+    {% endif %}
     <meta name="loupe-route" content="{{ app.request.attributes.get('_route') }}">
     <meta name="sentry-browser-dsn" content="{{ sentryBrowser.dsn }}">
     <meta name="sentry-browser-traces-sample-rate" content="{{ sentryBrowser.tracesSampleRate }}">

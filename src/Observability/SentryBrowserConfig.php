@@ -22,6 +22,9 @@ final class SentryBrowserConfig extends AbstractExtension
 
         #[Autowire(param: 'kernel.environment')]
         private readonly string $environment,
+
+        #[Autowire('%env(default::SENTRY_DSN)%')]
+        private readonly ?string $serverDsn = null,
     ) {
     }
 
@@ -31,7 +34,12 @@ final class SentryBrowserConfig extends AbstractExtension
         return [new TwigFunction('sentry_browser', $this->sentryBrowser(...))];
     }
 
-    /** @return array{dsn: string, tracesSampleRate: float, release: ?string, environment: string}|null */
+    /**
+     * With no server DSN, the trace meta tags carry an unsampled decision that the
+     * browser would follow, so the page then starts its own trace instead.
+     *
+     * @return array{dsn: string, tracesSampleRate: float, release: ?string, environment: string, continueTrace: bool}|null
+     */
     public function sentryBrowser(): ?array
     {
         if (null === $this->dsn || SentryDsnStatus::Valid !== SentryDsnStatus::of($this->dsn)) {
@@ -43,6 +51,7 @@ final class SentryBrowserConfig extends AbstractExtension
             'tracesSampleRate' => $this->tracesSampleRate,
             'release' => $this->buildIdentity->version,
             'environment' => $this->environment,
+            'continueTrace' => SentryDsnStatus::Valid === SentryDsnStatus::of($this->serverDsn),
         ];
     }
 }

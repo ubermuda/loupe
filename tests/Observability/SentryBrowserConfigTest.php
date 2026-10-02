@@ -38,7 +38,7 @@ final class SentryBrowserConfigTest extends TestCase
         $config = new SentryBrowserConfig(self::DSN, 0.25, new BuildIdentity($projectDir), 'prod');
 
         self::assertSame(
-            ['dsn' => self::DSN, 'tracesSampleRate' => 0.25, 'release' => 'v1.2.3', 'environment' => 'prod'],
+            ['dsn' => self::DSN, 'tracesSampleRate' => 0.25, 'release' => 'v1.2.3', 'environment' => 'prod', 'continueTrace' => false],
             $config->sentryBrowser(),
         );
     }
@@ -49,6 +49,15 @@ final class SentryBrowserConfigTest extends TestCase
 
         self::assertNotNull($options);
         self::assertNull($options['release']);
+    }
+
+    public function test_the_page_continues_the_server_trace_only_when_the_server_dsn_is_valid(): void
+    {
+        $identity = new BuildIdentity(sys_get_temp_dir().'/no-such-project');
+
+        self::assertTrue((new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', 'https://key@o0.ingest.example/2'))->sentryBrowser()['continueTrace'] ?? null);
+        self::assertFalse((new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', ''))->sentryBrowser()['continueTrace'] ?? null);
+        self::assertFalse((new SentryBrowserConfig(self::DSN, 1.0, $identity, 'test', 'not-a-dsn'))->sentryBrowser()['continueTrace'] ?? null);
     }
 
     public function test_the_template_calls_it_as_sentry_browser(): void
