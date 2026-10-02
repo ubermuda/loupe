@@ -908,6 +908,11 @@ test('requesting changes asks for a note and keeps it across Cancel', async ({
     await expect(
         page.getByRole('textbox', { name: 'Review note' }),
     ).toHaveValue('Explain the retry behaviour.');
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.locator('.lp-review-verdict-note')).toHaveText(
+        'Explain the retry behaviour.',
+        { timeout: coverageScaled(10000) },
+    );
 });
 
 test('requesting changes shows the verdict on the project dashboard', async ({
