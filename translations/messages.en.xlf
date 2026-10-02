@@ -7148,6 +7148,11 @@
             <trans-unit id="workflow.waiting.pr_all_closed_unmerged"><source>workflow.waiting.pr_all_closed_unmerged</source><target>Waiting: the pull requests are not all closed unmerged for %minutes% minutes.</target></trans-unit>
             <trans-unit id="workflow.waiting.run_work_active"><source>workflow.waiting.run_work_active</source><target>Waiting: no matching work request is active.</target></trans-unit>
             <trans-unit id="workflow.waiting.run_last_refusal"><source>workflow.waiting.run_last_refusal</source><target>Waiting: the last run did not refuse with the code %code%.</target></trans-unit>
+            <trans-unit id="workflow.slot.next"><source>workflow.slot.next</source><target>Next</target></trans-unit>
+            <trans-unit id="workflow.slot.product_design"><source>workflow.slot.product_design</source><target>Product design</target></trans-unit>
+            <trans-unit id="workflow.slot.tech_design"><source>workflow.slot.tech_design</source><target>Tech design</target></trans-unit>
+            <trans-unit id="workflow.slot.implementation"><source>workflow.slot.implementation</source><target>Implementation</target></trans-unit>
+            <trans-unit id="workflow.slot.in_review"><source>workflow.slot.in_review</source><target>In review</target></trans-unit>
         </body>
     </file>
 </xliff>
