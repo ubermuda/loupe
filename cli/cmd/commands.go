@@ -322,9 +322,17 @@ func (r *router) heldLocked(e event.Event) bool {
 	return id != "" && r.cardHolds[id]
 }
 
-// releaseHold ends the hold of a card, and starts its queued runs.
+// releaseHold ends the hold of a card and starts its queued runs, until the
+// bridge reads the held list once. The list then owns every hold.
 func (r *router) releaseHold(cardID string) {
-	if r.dropHold(cardID) {
+	r.mu.Lock()
+	held := !r.holdList && r.cardHolds[cardID]
+	if held {
+		delete(r.cardHolds, cardID)
+	}
+	r.mu.Unlock()
+	if held {
+		r.log.Info("card_hold_released", "card_id", cardID)
 		r.dispatch()
 	}
 }
@@ -481,12 +489,9 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	)...)
 	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 	dropped := r.dispatchLocked()
-	legacy := !r.holdList
 	r.mu.Unlock()
 	r.logDropped(dropped)
-	if legacy {
-		r.releaseHold(c.CardID)
-	}
+	r.releaseHold(c.CardID)
 
 	return api.CommandDone, ""
 }
@@ -549,12 +554,9 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	r.log.Info("command_rerun_asked", append(about(e, p.rule), "continues", c.RunKey)...)
 	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 	dropped := r.dispatchLocked()
-	legacy := !r.holdList
 	r.mu.Unlock()
 	r.logDropped(dropped)
-	if legacy {
-		r.releaseHold(c.CardID)
-	}
+	r.releaseHold(c.CardID)
 
 	return api.CommandDone, ""
 }
