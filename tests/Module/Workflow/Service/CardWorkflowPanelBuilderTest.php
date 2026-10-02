@@ -21,7 +21,6 @@ use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\CardWorkflowPanelBuilder;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Template\TemplateSource;
-use App\Module\Workflow\View\CardManagement;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -49,7 +48,6 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
 
         $panel = $this->builder(true)->build($card);
 
-        self::assertSame(CardManagement::Managed, $panel->management);
         self::assertNull($panel->pause);
         $progress = $panel->progress ?? self::fail('The engine is on, so the panel shows the progress.');
         self::assertSame('Tech design', $progress->slot);
@@ -74,12 +72,12 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertNull($progress->lastRefusal);
     }
 
-    public function test_with_the_engine_off_the_panel_shows_no_progress(): void
+    public function test_with_the_engine_off_a_card_with_no_pause_has_an_empty_panel(): void
     {
-        self::assertNull($this->builder(false)->build($this->card('tech-design'))->progress);
+        self::assertTrue($this->builder(false)->build($this->card('tech-design'))->isEmpty());
     }
 
-    public function test_a_held_card_is_unmanaged_and_shows_no_progress(): void
+    public function test_a_held_card_shows_no_progress(): void
     {
         $card = $this->card('tech-design');
         $holds = self::getContainer()->get(CardHolds::class);
@@ -88,8 +86,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
 
         $panel = $this->builder(true)->build($card);
 
-        self::assertSame(CardManagement::Unmanaged, $panel->management);
-        self::assertNull($panel->progress);
+        self::assertTrue($panel->isEmpty());
     }
 
     public function test_a_retries_pause_shows_its_kind_its_reason_and_its_release_condition(): void
@@ -107,15 +104,18 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame('The pause ends when the facts that the rule reads change.', $shown->release);
     }
 
-    public function test_a_template_that_cannot_be_read_degrades_to_the_managed_state(): void
+    public function test_a_template_that_cannot_be_read_still_shows_the_pause(): void
     {
         $card = $this->card('tech-design');
+        $pause = self::getContainer()->get(PauseCardHandler::class);
+        self::assertInstanceOf(PauseCardHandler::class, $pause);
+        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
         $templates = $this->createStub(TemplateSource::class);
         $templates->method('forProject')->willThrowException(new \RuntimeException('broken'));
 
         $panel = $this->builder(true, $templates)->build($card);
 
-        self::assertSame(CardManagement::Managed, $panel->management);
+        self::assertSame('move-refused', $panel->pause?->code);
         self::assertNull($panel->progress);
     }
 

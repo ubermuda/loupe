@@ -483,7 +483,7 @@ move it. An agent that tries such a move gets an error that names `card_hold`.
 
 The workflow engine is not switched on yet. So today the board allows every
 move, and the workflow moves no card and requests no work. The Workflow panel
-shows only the managed state and the pauses.
+shows only a pause.
 
 An unmanaged card is outside the workflow. The workflow makes no move and
 starts no work on it, and no bridge starts a worker on it. A person may move it
@@ -513,9 +513,8 @@ The workflow acts only on the changes that come after.
 
 #### The Workflow panel
 
-The card page and the drawer show a **Workflow** panel. The panel always shows
-whether the card is managed or unmanaged. A card of a project that runs no
-workflow template shows **No workflow**.
+The card page and the drawer show a **Workflow** panel when the panel has
+something to show. The runs section shows whether the card is unmanaged.
 
 When the workflow paused the card, the panel shows the pause. It gives the kind
 of pause, the reason, the time and the condition that ends the pause. The
@@ -526,7 +525,8 @@ reaches its work limit.
 While the workflow engine is on, the panel also shows the slot of the card, the
 condition that the card waits for and the next action. It also shows the last
 refusal, with its reason, its time and the number of attempts. An unmanaged
-card shows none of these.
+card shows none of these. A card with no pause shows no panel while the engine
+is off.
 
 An unmanaged card is a different control from the pause of a bridge. **Pause
 new work** on the Agents page stops one bridge from starting any queued run,

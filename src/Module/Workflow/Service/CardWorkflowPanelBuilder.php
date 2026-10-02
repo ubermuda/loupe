@@ -18,7 +18,6 @@ use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\Template;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
-use App\Module\Workflow\View\CardManagement;
 use App\Module\Workflow\View\CardWorkflowPanel;
 use App\Module\Workflow\View\CardWorkflowPause;
 use App\Module\Workflow\View\CardWorkflowProgress;
@@ -53,7 +52,6 @@ final readonly class CardWorkflowPanelBuilder
         $template = null;
         $facts = null;
         $progress = null;
-        $readable = true;
         try {
             $template = $this->templates->forProject($projectId);
             if (($this->engine->isOn() && !$held) || CardPauseKind::Rule === $pause?->kind) {
@@ -65,20 +63,12 @@ final readonly class CardWorkflowPanelBuilder
         } catch (TemplateMissing) {
         } catch (\Throwable $e) {
             // The card page must render whatever the template or the facts hold.
-            $readable = false;
             $template = null;
             $facts = null;
             $this->logger->warning('workflow.panel_degraded', ['cardId' => $cardId->toRfc4122(), 'exception' => $e]);
         }
 
-        $management = match (true) {
-            $held => CardManagement::Unmanaged,
-            null === $template && $readable => CardManagement::NoTemplate,
-            default => CardManagement::Managed,
-        };
-
         return new CardWorkflowPanel(
-            $management,
             null === $pause ? null : $this->pause($pause, $template, $facts),
             $progress,
         );

@@ -7303,9 +7303,6 @@
             <trans-unit id="workflow.bind.error.column_reused"><source>workflow.bind.error.column_reused</source><target>Another slot already uses this column.</target></trans-unit>
             <trans-unit id="workflow.bind.error.flag_column"><source>workflow.bind.error.flag_column</source><target>A slot cannot use the Backlog or a terminal column.</target></trans-unit>
             <trans-unit id="workflow.panel.title"><source>workflow.panel.title</source><target>Workflow</target></trans-unit>
-            <trans-unit id="workflow.panel.management.managed"><source>workflow.panel.management.managed</source><target>Managed: the card follows the workflow template of the project.</target></trans-unit>
-            <trans-unit id="workflow.panel.management.unmanaged"><source>workflow.panel.management.unmanaged</source><target>Unmanaged: the workflow makes no move and starts no work on this card.</target></trans-unit>
-            <trans-unit id="workflow.panel.management.no_template"><source>workflow.panel.management.no_template</source><target>No workflow: this project runs no workflow template.</target></trans-unit>
             <trans-unit id="workflow.panel.paused"><source>workflow.panel.paused</source><target>Paused: %kind%.</target></trans-unit>
             <trans-unit id="workflow.panel.pause_kind.rule"><source>workflow.panel.pause_kind.rule</source><target>a rule of the template paused the card</target></trans-unit>
             <trans-unit id="workflow.panel.pause_kind.retries"><source>workflow.panel.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
