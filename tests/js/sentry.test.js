@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initSentry } from '../../assets/lib/sentry.js';
 import { keepBreadcrumb } from '../../assets/lib/sentry_scrub.js';
+import { reset as resetSpans } from '../../assets/lib/sentry_spans.js';
 
 const DSN = 'https://abc@o1.ingest.sentry.io/2';
 
@@ -17,6 +18,9 @@ function fakeSentry() {
             options,
         })),
         withStaticSpan: vi.fn((callback) => callback),
+        startNewTrace: vi.fn((callback) => callback()),
+        startInactiveSpan: vi.fn(() => ({ end: vi.fn() })),
+        setActiveSpanInBrowser: vi.fn(),
         setTransactionName: vi.fn(),
         getCurrentScope() {
             return { setTransactionName: this.setTransactionName };
@@ -47,7 +51,55 @@ describe('initSentry', () => {
     });
 
     afterEach(() => {
+        resetSpans();
         vi.restoreAllMocks();
+    });
+
+    it('enables the interaction spans once the SDK starts', () => {
+        renderMeta(PAGE);
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        document.dispatchEvent(new Event('turbo:submit-start'));
+
+        expect(sentry.startInactiveSpan).toHaveBeenCalledWith(
+            expect.objectContaining({
+                op: 'ui.turbo.submit',
+                name: 'app_board_show',
+            }),
+        );
+    });
+
+    it('enables no spans when the page has no DSN', () => {
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        document.dispatchEvent(new Event('turbo:submit-start'));
+
+        expect(sentry.startInactiveSpan).not.toHaveBeenCalled();
+    });
+
+    it('keeps a live change name and its numeric attributes', () => {
+        renderMeta(PAGE);
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        const event = sentry.init.mock.calls[0][0].beforeSendTransaction({
+            type: 'transaction',
+            transaction: 'board.card_changed',
+            contexts: {
+                trace: {
+                    op: 'ui.live',
+                    data: { 'loupe.tab_age_ms': 81234, 'loupe.heap_mb': 52 },
+                },
+            },
+        });
+
+        expect(event.transaction).toBe('board.card_changed');
+        expect(event.contexts.trace.data).toEqual({
+            'loupe.tab_age_ms': 81234,
+            'loupe.heap_mb': 52,
+        });
     });
 
     it('does nothing when the SDK did not load', () => {
