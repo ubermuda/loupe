@@ -520,6 +520,59 @@ func TestARenameDropsQueuedWorkOffers(t *testing.T) {
 	}
 }
 
+// A handover keeps the held claims, the live work run and the queued offer.
+// The adopted run posts its result with the token of the old image.
+func TestAHandoverKeepsTheWorkClaims(t *testing.T) {
+	h := newHarnessWith(t, withMaxWorkers(workRules, 1), rules.Defaults{})
+	h.states()
+	f := h.withWork()
+	h.worker.block = make(chan struct{})
+	defer close(h.worker.block)
+
+	running := workRequest(1, 87, "implement", api.WorkRequestOpen)
+	queued := workRequest(2, 88, "implement", api.WorkRequestOpen)
+	f.requests[running.WorkRequestID], f.requests[queued.WorkRequestID] = running, queued
+	h.router.onEvent("id-1", []byte(workPayload(running)))
+	h.router.onEvent("id-2", []byte(workPayload(queued)))
+	h.router.pause()
+	if err := h.router.drain(context.Background(), 5*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	st := roundTrip(t, h.router.freeze())
+	if len(st.WorkClaims) != 1 || st.WorkClaims[0].ID != workID(1) || st.WorkClaims[0].Token != tokenOf(1) {
+		t.Fatalf("claims = %+v", st.WorkClaims)
+	}
+	if len(st.Live) != 1 || st.Live[0].Work == nil || st.Live[0].ClaimToken != tokenOf(1) {
+		t.Fatalf("live = %+v", st.Live)
+	}
+	if len(st.Queue) != 1 || st.Queue[0].Work == nil || st.Queue[0].Work.WorkRequestID != workID(2) {
+		t.Fatalf("queue = %+v", st.Queue)
+	}
+
+	h2 := newHarnessWith(t, withMaxWorkers(workRules, 1), rules.Defaults{})
+	h2.states()
+	f2 := h2.withWork()
+	f2.requests[queued.WorkRequestID] = queued
+	h2.router.worker.adopt = func(context.Context, string) workerResult {
+		return workerResult{hasResult: true, status: "finished"}
+	}
+	h2.router.pause()
+	h2.router.adopt(st)
+	if got := h2.heldClaims(); !slices.Equal(got, []api.WorkClaim{{ID: workID(1), ClaimToken: tokenOf(1)}}) {
+		t.Fatalf("adopted claims = %v", got)
+	}
+	if got, want := stateJSON(t, h2.router.freeze()), stateJSON(t, st); got != want {
+		t.Fatalf("adopted state freezes to\n%s\nwant\n%s", got, want)
+	}
+	h2.router.resume()
+	h2.router.wg.Wait()
+
+	want := []string{workID(1) + " " + tokenOf(1) + " done", workID(2) + " " + tokenOf(2) + " done"}
+	if got := f2.settled(); !slices.Equal(got, want) {
+		t.Fatalf("results = %v, want %v", got, want)
+	}
+}
+
 // interactiveWorkRules opens a session for each design request, and runs a
 // worker with a variant for each split request.
 const interactiveWorkRules = `
