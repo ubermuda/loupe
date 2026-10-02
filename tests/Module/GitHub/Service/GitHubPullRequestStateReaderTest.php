@@ -258,7 +258,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertCount(3, $this->requests);
     }
 
-    public function test_a_base_without_rules_and_unreadable_default_branch_rules_reads_as_unreadable_rules(): void
+    public function test_a_base_without_rules_and_unreadable_default_branch_rules_is_a_transient_failure(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 70_016);
         $this->responses = [
@@ -268,9 +268,14 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
             new MockResponse('{"message":"Server Error"}', ['http_code' => 502]),
         ];
 
-        $snapshot = $this->reader()->read($pullRequest);
+        try {
+            $this->reader()->read($pullRequest);
+            self::fail('A base without rules must not read as passed while the default branch rules are unknown.');
+        } catch (PullRequestUnreadable $e) {
+            self::assertSame('default_branch_rules_unreadable', $e->reason);
+            self::assertTrue($e->transient);
+        }
 
-        self::assertSame(PullRequestChecks::Passed, $snapshot->checks);
         self::assertCount(4, $this->requests);
         self::assertStringEndsWith('/rules/branches/main?per_page=100&page=1', $this->requests[3]['url']);
         self::assertSame('forge.ruleset_unreadable', $this->logger->records[0]['message']);
