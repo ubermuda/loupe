@@ -40,6 +40,12 @@ class Bridge
     /** The capability of a bridge that runs a command run again. */
     public const string CAPABILITY_RERUN_COMMAND = 'rerun-command';
 
+    /** The capability of a bridge that claims work requests. */
+    public const string CAPABILITY_WORK_REQUESTS = 'work-requests';
+
+    /** The capability of a bridge that runs an interactive session. */
+    public const string CAPABILITY_INTERACTIVE = 'interactive';
+
     /** Null when the last heartbeat carried no update report. */
     #[ORM\Column(name: 'update_state', length: 20, nullable: true, enumType: CliUpdateState::class)]
     public ?CliUpdateState $updateState = null;
@@ -132,5 +138,16 @@ class Bridge
     public function takesReruns(): bool
     {
         return $this->takesCommands() && \in_array(self::CAPABILITY_RERUN_COMMAND, $this->capabilities ?? [], true);
+    }
+
+    public function takesWorkRequests(): bool
+    {
+        return \in_array(self::CAPABILITY_WORK_REQUESTS, $this->capabilities ?? [], true);
+    }
+
+    /** Whether the bridge can claim a work request that needs the capability. */
+    public function canRun(?string $capability): bool
+    {
+        return $this->takesWorkRequests() && (null === $capability || \in_array($capability, $this->capabilities ?? [], true));
     }
 }

@@ -147,7 +147,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         $this->em->flush();
 
         $this->hub->expects($this->once())->method('publish')
-            ->with(self::callback(fn (Update $update): bool => ['https://app/topic', $this->userTopics->forUser($project->owner->id ?? Uuid::v7())] === $update->getTopics()
+            ->with(self::callback(fn (Update $update): bool => [$this->userTopics->forUser($project->owner->id ?? Uuid::v7())] === $update->getTopics()
                     && '{}' === $update->getData()
                     // The sequence rides along as the SSE id so a reconnecting
                     // subscriber can resume from it, exactly as on first publish.
@@ -167,7 +167,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
     }
 
     /** The bridge follows one topic per user, so every owned project's event must reach it. */
-    public function test_each_event_also_goes_to_its_project_owners_user_topic(): void
+    public function test_each_event_goes_only_to_its_project_owners_user_topic(): void
     {
         $first = $this->project('drain-owner@example.com');
         $second = new Project($first->owner, 'drain-second-'.bin2hex(random_bytes(4)));
@@ -193,8 +193,8 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         self::assertCount(2, array_filter($published, static fn (array $topics): bool => \in_array($ownerTopic, $topics, true)));
         self::assertCount(1, array_filter($published, static fn (array $topics): bool => \in_array($foreignTopic, $topics, true)));
         foreach ($published as $topics) {
-            self::assertCount(2, $topics);
-            self::assertFalse(\in_array($ownerTopic, $topics, true) && \in_array($foreignTopic, $topics, true));
+            self::assertCount(1, $topics);
+            self::assertNotContains('https://app/topic', $topics);
         }
     }
 

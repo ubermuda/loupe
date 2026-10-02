@@ -70,6 +70,10 @@ class OutboxEvent
         #[ORM\Column]
         public readonly string $type,
 
+        /**
+         * The deployed image still publishes on this column, so a rollback has
+         * to find it written. Nothing in this image reads it.
+         */
         #[ORM\Column(type: Types::TEXT)]
         public readonly string $topic,
 
