@@ -233,6 +233,33 @@ describe('initSentry', () => {
         expect(event.transaction).toBe('app_board_show');
     });
 
+    it('renames a transaction whose name holds a method and a path', () => {
+        renderMeta(PAGE);
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        const event = sentry.init.mock.calls[0][0].beforeSendTransaction({
+            type: 'transaction',
+            transaction: 'GET /forgot-password/reset/SECRET?token=x',
+        });
+
+        expect(event.transaction).toBe('app_board_show');
+    });
+
+    it('names a path transaction after its op when the page has no route', () => {
+        renderMeta({ ...PAGE, 'loupe-route': '' });
+        const sentry = fakeSentry();
+        initSentry(sentry);
+
+        const event = sentry.init.mock.calls[0][0].beforeSendTransaction({
+            type: 'transaction',
+            transaction: '/forgot-password/reset/SECRET',
+            contexts: { trace: { op: 'pageload' } },
+        });
+
+        expect(event.transaction).toBe('pageload');
+    });
+
     it('scrubs a transaction and names it after the route', () => {
         renderMeta(PAGE);
         const sentry = fakeSentry();

@@ -10,10 +10,12 @@ function meta(name) {
 }
 
 // beforeStartSpan names a page load after its route, and a Turbo visit can
-// change the route before the transaction ends. A name that holds a URL or a
-// path takes the current route instead.
+// change the route before the transaction ends. Any name that is not a route
+// or an op, such as one that holds a path, takes the current route instead.
 function transactionName(name, route) {
-    return typeof name === 'string' && !/^\/|:\/\//.test(name) ? name : route;
+    return typeof name === 'string' && /^[a-z0-9_.]+$/i.test(name)
+        ? name
+        : route;
 }
 
 // The SDK loads from a classic deferred script, which runs before the module
@@ -52,7 +54,10 @@ export function initSentry(Sentry = window.Sentry) {
         ],
         beforeSend: (event) => scrubEvent(event, route()),
         beforeSendTransaction: (event) => {
-            const name = transactionName(event.transaction, route());
+            const name =
+                transactionName(event.transaction, route()) ??
+                event.contexts?.trace?.op ??
+                'transaction';
 
             return scrubTransaction(scrubEvent(event, name), name);
         },
