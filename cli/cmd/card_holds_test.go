@@ -139,8 +139,28 @@ func TestAHoldEventMovesTheCursorAndRunsOnce(t *testing.T) {
 	}
 }
 
-// On connect the list comes after the catch-up, so it wins over a replayed
-// hold of a card the list leaves out.
+// On connect the list comes before the catch-up, so a replayed move of a card
+// the list holds starts nothing.
+func TestTheHeldListComesBeforeTheReplay(t *testing.T) {
+	h := newHarness(t)
+	withCursor(t, h, 10, 10)
+	rep := &replayer{pages: []api.Replay{{Events: []api.ReplayEvent{
+		{ID: "11", Type: "board.card_moved", Data: cardMoved(87)},
+	}}}}
+	h.router.replay = rep.replay
+	lists := &holdLists{holds: []api.CardHold{{ProjectID: testProject, CardID: cardUUID(87)}}}
+	h.router.readHolds = lists.read
+
+	h.router.handler().OnConnect()
+	h.router.wg.Wait()
+
+	if h.runs() != 0 || lists.reads != 2 {
+		t.Fatalf("runs = %d, reads = %d", h.runs(), lists.reads)
+	}
+}
+
+// On connect the list comes after the catch-up too, so it wins over a
+// replayed hold of a card the list leaves out.
 func TestTheHeldListWinsOverAReplayedHold(t *testing.T) {
 	h := newHarness(t)
 	withCursor(t, h, 10, 10)

@@ -458,8 +458,13 @@ func (r *router) handler() transport.Handler {
 			if r.update != nil {
 				r.update.markConnected()
 			}
+			// A list read first keeps a replayed event of a held card from
+			// starting it, and a read after makes the list win over the replay.
+			synced := r.syncHolds()
 			r.catchUp()
-			r.syncHolds()
+			if synced {
+				r.syncHolds()
+			}
 		},
 		OnError:     func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnEvent:     r.onEvent,

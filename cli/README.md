@@ -1441,8 +1441,8 @@ The bridge learns of a hold in three ways:
 
 1. A `board.card_held` event holds the card, and a `board.card_released` event
    ends the hold. No rule can match these two types.
-2. On every connect, after the catch-up, the bridge reads
-   `GET /api/card-holds`. The answer lists the held cards of every project the
+2. On every connect, the bridge reads `GET /api/card-holds` before and after
+   the catch-up. The answer lists the held cards of every project the
    token reaches, as `{"holds": [{"projectId": "…", "cardId": "…"}]}`. The list
    replaces every hold the bridge has. A server without the list answers 404,
    and the bridge keeps its holds. A failed read also keeps them, until the

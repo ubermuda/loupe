@@ -10,10 +10,11 @@ import (
 
 // syncHolds replaces the held cards with the list of the server, which is the
 // truth. It ends each hold the list leaves out and starts the runs that wait.
-// A failed read keeps the holds until the next connect.
-func (r *router) syncHolds() {
+// A failed read keeps the holds until the next connect. It reports whether
+// the list replaced the holds.
+func (r *router) syncHolds() bool {
 	if r.readHolds == nil {
-		return
+		return false
 	}
 	ctx, cancel := context.WithTimeout(r.workerContext(), catchUpTimeout)
 	holds, err := r.readHolds(ctx)
@@ -27,12 +28,12 @@ func (r *router) syncHolds() {
 			r.log.Info("card_holds_unsupported", "message", "the server has no held list, so the bridge keeps the holds of the events")
 		}
 
-		return
+		return false
 	}
 	if err != nil {
 		r.log.Warn("card_holds_unreadable", "error", err.Error())
 
-		return
+		return false
 	}
 
 	next := make(map[string]bool, len(holds))
@@ -56,4 +57,6 @@ func (r *router) syncHolds() {
 	if len(released) > 0 {
 		r.dispatch()
 	}
+
+	return true
 }
