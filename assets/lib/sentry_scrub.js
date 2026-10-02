@@ -152,6 +152,8 @@ export function scrubEvent(event, route = null) {
     } else if (event.type !== 'transaction') {
         delete event.transaction;
     }
+    // Loupe sets no extra data, and the SDK puts a rejected object here whole.
+    delete event.extra;
     if (event.request) {
         delete event.request.url;
         delete event.request.query_string;

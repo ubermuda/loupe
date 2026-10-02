@@ -184,6 +184,14 @@ describe('scrubEvent', () => {
         ]);
     });
 
+    it('drops the extra data, where the SDK puts a rejected object', () => {
+        const event = scrubEvent({
+            extra: { __serialized__: { title: 'Secret card title' } },
+        });
+
+        expect(event).not.toHaveProperty('extra');
+    });
+
     it('names an error event after the route', () => {
         expect(
             scrubEvent({ transaction: '/reset/abc' }, 'app_reset_password')
