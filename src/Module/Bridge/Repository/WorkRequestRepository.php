@@ -223,6 +223,39 @@ class WorkRequestRepository extends ServiceEntityRepository
     }
 
     /**
+     * The open and claimed requests of the card, oldest first.
+     *
+     * @return list<WorkRequest>
+     */
+    public function findLiveForCard(Uuid $cardId): array
+    {
+        return array_values($this->createQueryBuilder('w')
+            ->andWhere('w.cardId = :cardId')
+            ->andWhere('w.state IN (:live)')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('live', [WorkRequestState::Open->value, WorkRequestState::Claimed->value])
+            ->orderBy('w.createdAt', 'ASC')
+            ->addOrderBy('w.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /** The request of the card that settled done or refused last. */
+    public function findLatestSettledForCard(Uuid $cardId): ?WorkRequest
+    {
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.cardId = :cardId')
+            ->andWhere('w.state IN (:settled)')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('settled', [WorkRequestState::Done->value, WorkRequestState::Refused->value])
+            ->orderBy('w.settledAt', 'DESC')
+            ->addOrderBy('w.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Streamed, because no sweep deletes old requests.
      *
      * @return iterable<WorkRequest>

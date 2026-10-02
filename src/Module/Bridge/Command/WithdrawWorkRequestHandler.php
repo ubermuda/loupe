@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Outbox\OutboxWriter;
@@ -28,6 +29,7 @@ final readonly class WithdrawWorkRequestHandler
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private Auditor $auditor,
+        private WorkRequestAnnouncer $announcer,
     ) {
     }
 
@@ -64,6 +66,7 @@ final readonly class WithdrawWorkRequestHandler
             ],
             new AuditSubject('work_request', (string) $withdrawn->id),
         );
+        $this->announcer->announce($withdrawn);
 
         return true;
     }

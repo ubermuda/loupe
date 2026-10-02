@@ -7,11 +7,14 @@ namespace App\Tests\Module\Bridge\Command;
 use App\Module\Bridge\Command\ReopenLapsedWorkRequestsCommand;
 use App\Module\Bridge\Command\ReopenLapsedWorkRequestsHandler;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -32,8 +35,14 @@ final class ReopenLapsedWorkRequestsHandlerTest extends KernelTestCase
         $atTheEdge = $this->claimed($project, self::NOW);
         $live = $this->claimed($project, '2026-10-01 12:30:01');
         $this->seedWorkRequest($em, $project);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
+        $depth = $em->getConnection()->getTransactionNestingLevel();
 
         self::assertSame(2, $this->handler()(new ReopenLapsedWorkRequestsCommand()));
+
+        self::assertEqualsCanonicalizing([(string) $lapsed->id, (string) $atTheEdge->id], array_map(static fn (WorkRequestChanged $event): string => (string) $event->workRequestId, $changes->events()));
+        self::assertSame([WorkRequestState::Open, WorkRequestState::Open], array_map(static fn (WorkRequestChanged $event): WorkRequestState => $event->state, $changes->events()));
+        self::assertSame([$depth, $depth], $changes->transactionDepths());
 
         $em->clear();
         foreach ([$lapsed, $atTheEdge] as $request) {
@@ -59,8 +68,10 @@ final class ReopenLapsedWorkRequestsHandlerTest extends KernelTestCase
         $em = $this->em();
         $project = $this->project($em, $this->user($em, 'reopen-quiet@example.com'), 'Reopen Quiet');
         $this->claimed($project, '2026-10-01 12:31:00');
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
 
         self::assertSame(0, $this->handler()(new ReopenLapsedWorkRequestsCommand()));
+        self::assertSame([], $changes->events());
 
         self::assertSame([], $this->outboxPayloads());
     }
@@ -84,7 +95,10 @@ final class ReopenLapsedWorkRequestsHandlerTest extends KernelTestCase
         $outbox = self::getContainer()->get(OutboxWriter::class);
         self::assertInstanceOf(OutboxWriter::class, $outbox);
 
-        return new ReopenLapsedWorkRequestsHandler(new WorkRequestRepository($registry), $outbox, $this->em(), new MockClock(self::NOW));
+        $announcer = self::getContainer()->get(WorkRequestAnnouncer::class);
+        self::assertInstanceOf(WorkRequestAnnouncer::class, $announcer);
+
+        return new ReopenLapsedWorkRequestsHandler(new WorkRequestRepository($registry), $outbox, $this->em(), new MockClock(self::NOW), $announcer);
     }
 
     /** @return list<array<string, mixed>> */

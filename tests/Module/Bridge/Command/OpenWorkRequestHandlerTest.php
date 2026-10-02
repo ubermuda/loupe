@@ -8,11 +8,14 @@ use App\Exception\DomainErrors;
 use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -34,6 +37,8 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $audit = RecordingAuditor::installedIn(self::getContainer());
         $project = $this->scenario('open-stored');
         $cardId = Uuid::v7();
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
+        $depth = $this->em()->getConnection()->getTransactionNestingLevel();
 
         $request = $this->open($project, $cardId, capability: 'interactive');
 
@@ -68,6 +73,9 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertSame((string) $request->id, $record->subject?->id);
         self::assertSame('implement', $record->context['kind']);
         self::assertSame((string) $cardId, $record->context['cardId']);
+
+        self::assertEquals([new WorkRequestChanged($project->id ?? throw new \LogicException(), $cardId, $request->id ?? throw new \LogicException(), WorkRequestState::Open)], $changes->events());
+        self::assertSame([$depth], $changes->transactionDepths());
     }
 
     public function test_a_second_live_request_for_the_card_and_kind_is_refused(): void
@@ -76,6 +84,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $project = $this->scenario('open-twice');
         $cardId = Uuid::v7();
         $this->open($project, $cardId);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
 
         try {
             $this->open($project, $cardId);
@@ -83,6 +92,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         } catch (DomainErrors $e) {
             self::assertSame(['card' => OpenWorkRequestHandler::LIVE], $e->errors);
         }
+        self::assertSame([], $changes->events());
 
         self::assertTrue($this->em()->isOpen());
         self::assertSame(1, $this->countRequests());
@@ -124,7 +134,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $this->open($project, $cardId);
         $blind = $this->createStub(WorkRequestRepository::class);
         $blind->method('hasLive')->willReturn(false);
-        $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class));
+        $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(WorkRequestAnnouncer::class));
 
         try {
             $handler(new OpenWorkRequestCommand($project, $cardId, 7, 'implement', null, 'implement-on-entry'));
@@ -192,6 +202,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             $this->em(),
             new MockClock(self::NOW),
             $this->service(Auditor::class),
+            $this->service(WorkRequestAnnouncer::class),
         );
     }
 

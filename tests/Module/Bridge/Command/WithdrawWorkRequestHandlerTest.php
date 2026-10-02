@@ -7,10 +7,13 @@ namespace App\Tests\Module\Bridge\Command;
 use App\Module\Bridge\Command\WithdrawWorkRequestCommand;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -37,6 +40,7 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
         $this->boot();
         $audit = RecordingAuditor::installedIn(self::getContainer());
         $request = $this->request('withdraw-live', $from);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
 
         self::assertTrue($this->withdraw($request, $to));
 
@@ -55,6 +59,11 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
         $record = $audit->record('bridge.work_request_withdrawn');
         self::assertSame((string) $request->id, $record->subject?->id);
         self::assertSame($to->value, $record->context['state']);
+
+        self::assertCount(1, $changes->events());
+        self::assertSame((string) $request->id, (string) $changes->events()[0]->workRequestId);
+        self::assertSame((string) $request->cardId, (string) $changes->events()[0]->cardId);
+        self::assertSame($to, $changes->events()[0]->state);
     }
 
     public function test_a_settled_request_changes_nothing(): void
@@ -62,6 +71,7 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
         $this->boot();
         $audit = RecordingAuditor::installedIn(self::getContainer());
         $request = $this->request('withdraw-settled', WorkRequestState::Done);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkRequestChanged::class);
 
         self::assertFalse($this->withdraw($request, WorkRequestState::Cancelled));
 
@@ -71,6 +81,7 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
         self::assertNull($stored->settledAt);
         self::assertSame([], $this->outboxPayloads());
         self::assertSame([], $audit->records('bridge.work_request_withdrawn'));
+        self::assertSame([], $changes->events());
     }
 
     /** The row is read fresh under the lock, so a write that bypassed the ORM is seen. */
@@ -112,6 +123,7 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
             $this->em(),
             new MockClock(self::NOW),
             $this->service(Auditor::class),
+            $this->service(WorkRequestAnnouncer::class),
         );
     }
 

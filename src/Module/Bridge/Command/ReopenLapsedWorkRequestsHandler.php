@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,20 +23,24 @@ final readonly class ReopenLapsedWorkRequestsHandler
         private OutboxWriter $outbox,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
+        private WorkRequestAnnouncer $announcer,
     ) {
     }
 
     public function __invoke(ReopenLapsedWorkRequestsCommand $command): int
     {
         // One transaction, so a reopened request always reaches the outbox.
-        return $this->em->wrapInTransaction(function (): int {
+        $reopened = $this->em->wrapInTransaction(function (): array {
             $reopened = $this->workRequests->reopenLapsed($this->clock->now());
             foreach ($reopened as $request) {
                 $this->outbox->write($request->project, BridgeEventType::WORK_REQUEST, WorkRequestPayload::of($request));
             }
             $this->em->flush();
 
-            return \count($reopened);
+            return $reopened;
         });
+        $this->announcer->announce(...$reopened);
+
+        return \count($reopened);
     }
 }
