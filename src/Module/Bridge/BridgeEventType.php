@@ -9,6 +9,11 @@ final class BridgeEventType
 {
     public const string COMMAND = 'bridge.command';
 
+    /** A board type, because the bridge reads it as a fact about the card. */
+    public const string CARD_HELD = 'board.card_held';
+
+    public const string CARD_RELEASED = 'board.card_released';
+
     private function __construct()
     {
     }

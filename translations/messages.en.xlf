@@ -6426,6 +6426,8 @@
             <trans-unit id="activity.event_type.pull_request.fix_requested"><source>activity.event_type.pull_request.fix_requested</source><target>Fix requested</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.ready_to_merge"><source>activity.event_type.pull_request.ready_to_merge</source><target>Ready to merge</target></trans-unit>
             <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
+            <trans-unit id="activity.event_type.board.card_held"><source>activity.event_type.board.card_held</source><target>Agents paused on a card</target></trans-unit>
+            <trans-unit id="activity.event_type.board.card_released"><source>activity.event_type.board.card_released</source><target>Agents let run on a card</target></trans-unit>
             <trans-unit id="activity.event_type.bridge.command"><source>activity.event_type.bridge.command</source><target>Command sent to a bridge</target></trans-unit>
             <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.review_submitted"><source>activity.event_type.pull_request.review_submitted</source><target>Pull request reviewed</target></trans-unit>
@@ -6827,6 +6829,8 @@
             <trans-unit id="bridge.command.error.no_session"><source>bridge.command.error.no_session</source><target>This run has no session to resume.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_resumable"><source>bridge.command.error.not_resumable</source><target>Only an ended run can resume.</target></trans-unit>
             <trans-unit id="bridge.command.error.card_held"><source>bridge.command.error.card_held</source><target>Agents are paused on this card. Let agents run first.</target></trans-unit>
+            <trans-unit id="bridge.card_hold.error.already_paused"><source>bridge.card_hold.error.already_paused</source><target>Agents are already paused on this card.</target></trans-unit>
+            <trans-unit id="bridge.card_hold.error.not_paused"><source>bridge.card_hold.error.not_paused</source><target>Agents are not paused on this card.</target></trans-unit>
             <trans-unit id="bridge.command.error.card_left"><source>bridge.command.error.card_left</source><target>The card left the column of this run.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_stoppable"><source>bridge.command.error.not_stoppable</source><target>Only a queued or running run can stop.</target></trans-unit>
             <trans-unit id="bridge.command.error.bridge_outdated"><source>bridge.command.error.bridge_outdated</source><target>Update the bridge to control its runs.</target></trans-unit>

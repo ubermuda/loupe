@@ -19,6 +19,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -93,6 +94,14 @@ final readonly class RequestBridgeCommandHandler
                 }
                 if ($this->bridgeCommands->hasPendingForRun($run)) {
                     return self::PENDING;
+                }
+                // The lock a pause takes, so a pause cannot commit between this read and the resume.
+                // Always after the bridge lock: no holder of a project lock takes a bridge lock.
+                if (BridgeCommandKind::ResumeRun === $command->kind) {
+                    $this->em->lock($run->project, LockMode::PESSIMISTIC_WRITE);
+                    if ($this->cardHolds->isHeld($run->project, $run->cardId)) {
+                        return self::CARD_HELD;
+                    }
                 }
 
                 $now = $this->clock->now();
