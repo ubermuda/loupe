@@ -363,6 +363,9 @@ test('an epic in the Backlog keeps its lane on the board', async ({
         lane(page, epic.id).locator('[data-lane-progress]'),
     ).toHaveText('0/2 done');
     await expect(page.locator('.lp-board-backlog__count')).toHaveText('2');
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(page.locator('.lp-board-list')).toBeVisible();
+    await expect(page.locator(`#board-row-${child.id}`)).toHaveCount(1);
     await expect(page.locator(`#board-row-${epic.id}`)).toHaveCount(0);
 });
 

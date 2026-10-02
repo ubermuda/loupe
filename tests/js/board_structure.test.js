@@ -90,7 +90,7 @@ function row(id, column) {
 }
 
 function renderPage({ columns, lanes = null, cards, rows, rules = '' }) {
-    document.body.innerHTML = `<div id="board" data-board-structure-digest="old"><div class="lp-board-toolbar"></div>${banner(rules)}<p class="lp-board-filter-empty"></p><p class="lp-board__message"></p>${layout(columns, lanes, cards)}<div class="lp-board-list" data-board-view-target="list" hidden><div class="lp-board-list__header"></div>${rows.map(([id, column]) => row(id, column)).join('')}</div></div>`;
+    document.body.innerHTML = `<div id="board" data-board-structure-digest="old"><div class="lp-board-toolbar"></div>${banner(rules)}<p class="lp-board-filter-empty"></p><p class="lp-board__message"></p>${layout(columns, lanes, cards)}<turbo-frame id="board-list" data-board-view-target="list"><div class="lp-board-list"><div class="lp-board-list__header"></div>${rows.map(([id, column]) => row(id, column)).join('')}</div></turbo-frame></div>`;
 }
 
 function stream({ columns, lanes = null, rules = '', digest = 'new' }) {

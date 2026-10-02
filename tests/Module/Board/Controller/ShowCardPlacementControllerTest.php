@@ -467,7 +467,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('section#board-column-'.$next->id));
         self::assertCount(1, $crawler->filter('#board-group-'.$next->id.' > #board-card-'.$card->id));
         self::assertSame('1', $crawler->filter('#board-count-'.$next->id)->text());
-        $row = $crawler->filter('#board-row-'.$card->id);
+        $row = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/list')->filter('#board-row-'.$card->id);
         self::assertSame((string) $card->id, $row->attr('data-card-id'));
         self::assertSame((string) $next->id, $row->attr('data-column-id'));
 
