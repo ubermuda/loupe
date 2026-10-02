@@ -173,8 +173,9 @@ An agent can read the runs and the bridges, and stop, resume and cancel, through
 the [MCP endpoint](mcp.md#what-the-tools-do). `worker_run_list` and
 `worker_run_get` read the runs, and `bridge_list` reads the bridges.
 `worker_run_stop`, `worker_run_resume` and `bridge_command_cancel` send and
-withdraw requests. The connection acts as the project owner, on its own project
-only.
+withdraw requests. `card_hold` pauses the agents on a card, as **Pause agents**
+does, and `card_release` lets them run again. The connection acts as the project
+owner, on its own project only.
 
 The tools apply the same checks as the controls on this page. A resume needs a
 session, an ended run in a state that can resume, and a card still in the column

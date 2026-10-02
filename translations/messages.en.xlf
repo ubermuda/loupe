@@ -2547,7 +2547,7 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.worker_run_stop">
                 <source>project.connect.tool.worker_run_stop</source>
-                <target>Ask the bridge to stop a queued or running worker run.</target>
+                <target>Ask the bridge to stop a queued or running worker run. The stop ends this run only. Call card_hold to pause the agents on the card.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_hold">
                 <source>project.connect.tool.card_hold</source>
