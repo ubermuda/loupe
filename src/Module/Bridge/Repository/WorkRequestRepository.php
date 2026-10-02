@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\Repository;
 
+use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -219,5 +220,18 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /** @return list<WorkRequest> */
+    public function findByOwner(User $user): array
+    {
+        return array_values($this->createQueryBuilder('w')
+            ->join('w.project', 'p')
+            ->andWhere('p.owner = :user')
+            ->setParameter('user', $user)
+            ->orderBy('w.createdAt', 'ASC')
+            ->addOrderBy('w.id', 'ASC')
+            ->getQuery()
+            ->getResult());
     }
 }

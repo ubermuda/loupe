@@ -415,5 +415,8 @@ version and install method, the hook rows, the worker pool rows with their
 report time, the pause state and the capabilities. It holds the commands in
 `bridge_commands.json`.
 
-Deleting a project deletes its work requests. The data export does not hold
-work requests, because they belong to a project and not to an account.
+Deleting a project deletes its work requests. The data export holds the work
+requests of the projects the account owns in `bridge_work_requests.json`. Each
+row has its project, its card, its kind, its capability, its rule, its state,
+its bridge, its claim count, its lease, its reason and its times. The claim
+token stays out of the export, because a bridge uses it as a credential.
