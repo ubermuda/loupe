@@ -156,8 +156,8 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         $owner = $this->user($em, 'holds-delete@example.com');
         $doomed = $this->project($em, $owner, 'Doomed Holds');
         $kept = $this->project($em, $owner, 'Kept Holds');
-        $em->persist(new CardHold($doomed, Uuid::v7(), $this->seedRun($em, $doomed), $owner, new \DateTimeImmutable()));
-        $keptHold = new CardHold($kept, Uuid::v7(), $this->seedRun($em, $kept), $owner, new \DateTimeImmutable());
+        $em->persist(new CardHold($doomed, Uuid::v7(), $owner, new \DateTimeImmutable()));
+        $keptHold = new CardHold($kept, Uuid::v7(), $owner, new \DateTimeImmutable());
         $em->persist($keptHold);
         $em->flush();
 

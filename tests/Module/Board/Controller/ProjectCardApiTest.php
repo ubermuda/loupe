@@ -45,7 +45,7 @@ final class ProjectCardApiTest extends WebTestCase
         $card = $this->card($em, $project, 'Stopped', 'in-progress');
         $holds = static::getContainer()->get(CardHolds::class);
         self::assertInstanceOf(CardHolds::class, $holds);
-        $holds->hold($project, $card->id ?? throw new \LogicException('A created card has an id.'), null, $owner);
+        $holds->hold($project, $card->id ?? throw new \LogicException('A created card has an id.'), $owner);
         $raw = AgentCredential::agentToken(static::getContainer(), $owner);
         $this->enableBoard();
 

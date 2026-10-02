@@ -657,8 +657,10 @@ A stop of a queued run closes the run as `stopped`. A stop of a live worker
 reports `stopping`, then sends SIGINT, SIGTERM and SIGKILL to the process group
 of the worker. The flags `bridge.stop_sigterm_after_ms` and
 `bridge.stop_sigkill_after_ms` set the waits between the signals. The run then
-reports `stopped`, and the bridge never resumes it. The bridge also holds the
-card, and starts no worker for it until the hold ends.
+reports `stopped`, and the bridge never resumes it. A stop holds nothing, so
+the next event of the card can start a worker. Against an older server with no
+[held list](#held-cards), the bridge holds the card on a stop. It then starts
+no worker for the card until a resume or a rerun of the card ends the hold.
 
 A stop reaches the process group of the worker only. Work that the worker
 started in another process tree keeps running, such as a PHPUnit run inside a
@@ -873,9 +875,9 @@ card first. So a `board.card_moved` event carries `true` only for the move that
 `card_run_open` makes, or for a move inside one column.
 `document.review_submitted` omits the key when it names no stage card.
 
-`held` is `true` when a person stopped the work on the card. A bridge must then
-start no worker on the card. A move of the card to another column by a person
-releases the hold before Loupe writes the event, so that event carries `false`.
+`held` is `true` when a person paused the agents on the card. A bridge must
+then start no worker on the card. A move of the card to another column by a
+person releases the hold before Loupe writes the event, so that event carries `false`.
 A move inside one column, and a move by an agent or by Loupe, keeps the hold.
 A delete of the card releases the hold, and so does a person's delete of its
 column.
@@ -960,6 +962,51 @@ A replayed event can be old. Before a replayed `board.card_moved` event starts
 a worker, the bridge reads the card. When the card is no longer in the column
 that the event names, the bridge drops the event and logs `event_stale`. When
 the read fails, the event runs.
+
+### Held cards
+
+A person pauses the agents on a card, and Loupe then holds the card. A stop of
+a run holds nothing. Loupe writes a `board.card_held` event when a person
+selects **Pause agents**, and a `board.card_released` event when a person
+selects **Let agents run**. The two events have the same payload.
+
+```json
+{
+  "type": "board.card_held",
+  "subject": { "type": "card", "id": "01a0a1b2-0000-7c3d-8e4f-5a6b7c8d9e0f" },
+  "projectId": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",
+  "actor": "human"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `type` | `board.card_held` or `board.card_released` |
+| `subject.type` | always `card` |
+| `subject.id` | the card whose agents the person paused or let run |
+| `projectId` | the project of the card |
+| `actor` | always `human` |
+
+No rule matches these events. The bridge keeps the hold, starts no worker on a
+held card, and starts the queued runs of the card on the release. A worker
+that runs when the hold starts goes on. A move of the card to another column
+by a person, a delete of the card and a person's delete of its column also end
+the hold. They write no `board.card_released` event. The move carries
+`held: false`, and the column delete names the cards that it moved.
+
+`GET /api/card-holds` returns the held cards of every project that the user
+owns, in the order of the holds.
+
+```json
+{
+  "holds": [
+    {"projectId": "0192f3a1-...", "cardId": "01a0a1b2-..."}
+  ]
+}
+```
+
+The list is empty when no card is held. The route needs an agent-scoped token,
+and allows 60 calls per minute per token. An older server answers `404`.
 
 ## The inbox.ask_closed event
 
@@ -1184,7 +1231,7 @@ fix round on that card. The bridge parses this type only when a rule names it.
 | `cardId`, `cardNumber` | the stage card, or `null` |
 | `column` | the column slug of the stage card when the person gave the verdict, or `null` |
 | `card.interactiveRun` | `true` when an interactive session has an open run on the stage card. The key is absent with no stage card |
-| `card.held` | `true` when a person stopped the work on the stage card. The key is absent with no stage card |
+| `card.held` | `true` when a person paused the agents on the stage card. The key is absent with no stage card |
 
 The document's tags name its stage. The tag `product` names the stage that
 starts in `product-design`. The tags `design` and `decisions` name the stage
@@ -1414,7 +1461,7 @@ typed comes back as typed. `project.slug` is the project's slug.
 ## Card endpoint
 
 `GET /api/projects/{handle}/board/cards/{cardId}` returns the column a card is
-in now, and whether a person stopped the work on it. The bridge calls it before
+in now, and whether a person paused the agents on it. The bridge calls it before
 it resumes a run that did not finish, and it skips the resume when the card left
 the column that started the run. The handle follows the same rules as the
 columns endpoint, and `cardId` is the card's uuid.
@@ -1428,7 +1475,7 @@ columns endpoint, and `cardId` is the card's uuid.
 | `cardId` | the card the path names |
 | `number` | the short number the card shows |
 | `column` | the slug of the card's column |
-| `held` | `true` when a person stopped the work on the card. A move of the card to another column by a person releases the hold. An older bridge ignores the key |
+| `held` | `true` when a person paused the agents on the card. A move of the card to another column by a person releases the hold. An older bridge ignores the key |
 
 | Status | Body | When |
 |---|---|---|

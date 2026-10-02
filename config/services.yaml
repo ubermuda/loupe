@@ -326,3 +326,24 @@ when@test:
 
         App\Tests\Support\FirstAdminUserPanelFixture:
             autoconfigure: true
+
+        # Nothing consumes these Workflow services yet, so the compiler removes them.
+        App\Module\Workflow\Condition\Conditions:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Template\TemplateParser:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Template\ShippedTemplates:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Template\ProjectTemplateCopy:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Command\BindWorkflowTemplateHandler:
+            autowire: true
+            public: true

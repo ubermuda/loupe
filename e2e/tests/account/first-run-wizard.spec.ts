@@ -86,7 +86,10 @@ test.describe('first-run wizard', () => {
         ).toHaveCount(0);
         await page.getByRole('button', { name: 'Go to dashboard' }).click();
 
-        await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/);
+        // The first render of the documents page can take over 3 s on a CI runner.
+        await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/, {
+            timeout: 15000,
+        });
         const projectId = new URL(page.url()).pathname.split('/')[2];
         expect(promptText).toContain(`/setup.md?project=${projectId}"`);
 

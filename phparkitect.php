@@ -38,16 +38,23 @@ return static function (Config $config): void {
 
     $config->add($src,
         Rule::allClasses()
-            ->that(new NotResideInTheseNamespaces('App\Module\Board', 'App\Module\Inbox'))
+            ->that(new NotResideInTheseNamespaces('App\Module\Board', 'App\Module\Inbox', 'App\Module\Workflow'))
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Board']))
-            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle. Inbox is exempt, because it links an item to a card by foreign key and Board never imports Inbox'),
+            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle. Inbox is exempt, because it links an item to a card by foreign key and Board never imports Inbox. Workflow is exempt, because the engine reads and moves cards, and Board never imports Workflow'),
     );
 
     $config->add($src,
         Rule::allClasses()
-            ->that(new ResideInOneOfTheseNamespaces('App\Module\Board', 'App\Module\Review', 'App\Module\Bridge'))
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Board', 'App\Module\Review', 'App\Module\Bridge', 'App\Module\Workflow'))
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Inbox']))
-            ->because('Inbox depends on Board and Review to link an item to a card or a document, and on Bridge to read whether a bridge still sends its heartbeat, so an import back closes a cycle. A card or document page reaches the inbox through a Twig function'),
+            ->because('Inbox depends on Board and Review to link an item to a card or a document, and on Bridge to read whether a bridge still sends its heartbeat, so an import back closes a cycle. A card or document page reaches the inbox through a Twig function. Workflow stays clear of Inbox, so that Inbox can later depend on the engine'),
+    );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Board', 'App\Module\Bridge', 'App\Module\Forge', 'App\Module\GitHub'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Workflow']))
+            ->because('Workflow depends on Board, Bridge, Forge and GitHub to read facts and act on cards, so an import back closes a cycle. Board reaches the engine through a port it declares, and Workflow implements that port'),
     );
 
     $config->add($src,

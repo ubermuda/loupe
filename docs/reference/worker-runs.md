@@ -543,10 +543,12 @@ them.
 
 | Route | What it does |
 |---|---|
-| `POST /projects/{id}/worker-runs/{runId}/stop` | asks the bridge to stop the run, and holds the card |
-| `POST /projects/{id}/worker-runs/{runId}/resume` | asks the bridge to resume the session of the run. The hold of the card ends when the bridge takes the resume |
-| `POST /projects/{id}/worker-runs/{runId}/rerun` | asks the bridge to run the command of a failed command run again, as a new run. The hold of the card ends when the bridge takes the rerun |
-| `POST /projects/{id}/worker-runs/{runId}/cancel-command` | withdraws the request that waits on the run. A withdrawn stop releases the hold that it wrote |
+| `POST /projects/{id}/worker-runs/{runId}/stop` | asks the bridge to stop the run. It holds nothing |
+| `POST /projects/{id}/worker-runs/{runId}/resume` | asks the bridge to resume the session of the run. Loupe refuses it while the agents on the card are paused |
+| `POST /projects/{id}/worker-runs/{runId}/rerun` | asks the bridge to run the command of a failed command run again, as a new run |
+| `POST /projects/{id}/worker-runs/{runId}/cancel-command` | withdraws the request that waits on the run |
+| `POST /projects/{id}/worker-runs/card/{cardId}/pause` | pauses the agents on the card, and writes `board.card_held` |
+| `POST /projects/{id}/worker-runs/card/{cardId}/release` | lets the agents on the card run again, and writes `board.card_released` |
 | `POST /projects/{id}/agents/{bridgeId}/pause` | asks the bridge to take no new work |
 | `POST /projects/{id}/agents/{bridgeId}/unpause` | ends the pause |
 

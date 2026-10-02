@@ -260,8 +260,7 @@ as the heartbeat.
 
 A pending command takes the state. A command that is already `done`, `refused`,
 `expired` or `cancelled` keeps its state, so a second answer changes nothing.
-A `done` answer to a resume or a rerun ends the hold of the card, unless a stop
-of the card followed the request.
+An answer never changes the hold of the card.
 
 The bridge refuses a rerun with one of these reasons:
 

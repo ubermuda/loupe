@@ -1308,7 +1308,7 @@
     .lp-card-run__chevron {
         @apply size-4 shrink-0 text-fg-dim;
     }
-    /* A card that a person stopped: no worker starts on it. */
+    /* A card whose agents a person paused: no worker starts on it. */
     .lp-card-held {
         @apply m-0 flex items-center gap-2 rounded-lg bg-status-pending-bg px-3 py-2 text-sm text-status-pending-deep;
     }

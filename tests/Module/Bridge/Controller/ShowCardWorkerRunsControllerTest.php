@@ -263,21 +263,52 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
         self::assertCount(0, $crawler->filter('[data-card-held]'));
+        self::assertCount(1, $crawler->filter('[data-card-agents-pause]'));
+        self::assertCount(0, $crawler->filter('[data-card-agents-release]'));
 
         $project = $this->em()->find(Project::class, $projectId);
         self::assertNotNull($project);
         $holds = static::getContainer()->get(CardHolds::class);
         self::assertInstanceOf(CardHolds::class, $holds);
-        $holds->hold($project, $cardId, null, null);
+        $holds->hold($project, $cardId, null);
         $this->em()->clear();
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            'Held: no worker starts on this card until you resume one of its runs in Run history, or move it.',
+            'Agents paused: no worker starts on this card until you let agents run or move it.',
             $crawler->filter('turbo-frame#card-worker-runs [data-card-held]')->text(),
         );
+        self::assertCount(0, $crawler->filter('[data-card-agents-pause]'));
+        $release = $crawler->filter('turbo-frame#card-worker-runs form[data-card-agents-release]');
+        self::assertSame('/projects/'.$projectId.'/worker-runs/card/'.$cardId.'/release', $release->attr('action'));
+        self::assertSame('card-worker-runs', $release->attr('data-turbo-frame'));
+        self::assertSame('Let agents run', trim($release->filter('button')->text()));
+        self::assertNotEmpty($release->filter('input[name="_csrf_token"]')->attr('value'));
+    }
+
+    public function test_a_manager_can_pause_the_agents_on_a_card_with_no_runs(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'card-control-no-runs@example.com');
+        $project = $this->project($em, $owner, 'Control no runs');
+        $cardId = Uuid::v7();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-card-run]'));
+        self::assertCount(0, $crawler->filter('[data-card-held]'));
+        self::assertSame('Agent runs', $crawler->filter('[data-card-runs] h2')->text());
+        $pause = $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] form[data-card-agents-pause]');
+        self::assertSame('/projects/'.$projectId.'/worker-runs/card/'.$cardId.'/pause', $pause->attr('action'));
+        self::assertSame('Pause agents', trim($pause->filter('button')->text()));
     }
 
     public function test_a_refused_command_shows_its_reason_in_the_frame_once(): void
@@ -423,8 +454,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertSame('$0.01', $total->filter('[data-card-usage-cost]')->text());
     }
 
-    /** The frame stays, empty, so a live update can fill it when a run opens. */
-    public function test_a_card_with_no_open_run_and_no_usage_gets_an_empty_frame(): void
+    public function test_a_card_with_no_open_run_and_no_usage_shows_the_manager_only_the_pause_control(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -442,7 +472,9 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $frame = $crawler->filter('turbo-frame#card-worker-runs');
         self::assertCount(1, $frame);
-        self::assertSame('', trim($frame->html()));
+        self::assertCount(0, $frame->filter('[data-card-run]'));
+        self::assertCount(1, $frame->filter('form[data-card-agents-pause]'));
+        self::assertSame('Usage unknown', $frame->filter('[data-card-usage-unknown]')->text());
     }
 
     public function test_another_users_project_is_refused(): void

@@ -159,7 +159,7 @@ final class BoardColumnsSeedMigrationTest extends KernelTestCase
     {
         $this->apply(new Version20260912235455($this->connection, new NullLogger()), down: true);
         $this->connection->executeStatement('ALTER TABLE board_cards DROP column_id');
-        $this->connection->executeStatement('DROP TABLE board_columns');
+        $this->connection->executeStatement('DROP TABLE board_columns CASCADE');
         $this->apply(new Version20260912201432($this->connection, new NullLogger()));
         $this->apply(new Version20260912201847($this->connection, new NullLogger()));
     }

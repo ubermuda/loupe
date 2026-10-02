@@ -405,24 +405,14 @@ it closes. Live updates need the same hub and flag as the board. See
 The page also lists up to five agent runs of the card that are still in
 progress, with the rule that started each run, when it started and its state.
 A run opens its details on the **Runs** tab of the Activity page. A finished
-run leaves this list, and the **Run history** link shows it. A card with no
-run in progress, no usage and no hold shows no runs section.
+run leaves this list, and the **Run history** link shows it. The project owner
+sees the runs section on every card, also on a card with no runs.
 The project owner can stop a run in progress, or cancel a stop that still
-waits for the bridge, from this list. Resume a finished run on the **Runs**
-tab of the Activity page. See
-[Stop, resume and cancel](worker-runs.md#stop-resume-and-cancel).
-
-A stop of a run holds the card. The runs section then shows **Held: no worker
-starts on this card until you resume one of its runs in Run history, or move
-it.** No bridge starts a worker on a held card. These actions release the
-hold:
-
-- A person resumes one of the runs of the card.
-- A person moves the card to another column. A move by an agent or by the
-  automation keeps the hold, and so does a move inside the same column.
-- A person cancels the stop while it still waits for the bridge. This releases
-  only the hold that this stop wrote.
-- A person deletes the column of the card, or the card.
+waits for the bridge, from this list. A stop ends one run and holds nothing,
+so the next event can start a new worker on the card. Resume a finished run
+on the **Runs** tab of the Activity page. See
+[Stop, resume and cancel](worker-runs.md#stop-resume-and-cancel). To keep
+agents off the card, see [Pause the agents on a card](#pause-the-agents-on-a-card).
 
 The **History** tab lists what happened to the card, newest first, on a
 timeline. A row says who created the card and in which column, and who moved
@@ -476,6 +466,26 @@ a card and a kind. Type a fragment of a title or a card number, and the field
 offers the matching cards of the project. The **Add a linked card** button adds
 a row, and the cross at the end of a row removes it. Saving replaces the card's
 whole set of links.
+
+#### Pause the agents on a card
+
+To keep agents off a card, select **Pause agents** in the runs section of the
+card page. The section then shows **Agents paused: no worker starts on this
+card until you let agents run or move it.** No bridge starts a worker on the
+card. A run that is in progress goes on, so stop it as well if it must end
+now. Loupe refuses a resume of a run of the card while the pause holds. A run
+that waits in a queue stays there, and it starts when the pause ends.
+
+These actions end the pause:
+
+- A person selects **Let agents run** in the runs section.
+- A person moves the card to another column. A move by an agent or by the
+  automation keeps the pause, and so does a move inside the same column.
+- A person deletes the column of the card, or the card.
+
+A pause of a card is a different control from the pause of a bridge. **Pause
+new work** on the Agents page stops one bridge from starting any queued run,
+on every card. See [Bridge health](worker-runs.md#bridge-health).
 
 ## Epics and lanes
 
@@ -626,6 +636,12 @@ After the first child merge, the merge stage opens a draft pull request from
 with no changes, so the stage cannot open it earlier. From then on, the epic
 pull request behaves as the section above says. You approve it once, and the
 merge stage squash-merges it into `main`.
+
+A profile can also name an epic preview, a local copy of the app that runs the
+code of `epic/<n>`. After each child merge, the merge stage creates or refreshes
+the preview. It then copies the preview links of the child into the epic pull
+request, each with the result of its check. A link reads "not proved" when the
+data the child seeded for it is missing from the preview.
 
 Two cases do not work yet. The stage that meets one records a block on the
 epic card:
