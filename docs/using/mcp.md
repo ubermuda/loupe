@@ -541,7 +541,7 @@ holds no card and takes no answer.
 `inbox_get` also returns `cardId` and `waits`. For a `wait` item, `cardId` names
 the card, and `waits` lists each reason the card waited, current and ended, in
 start order. Each entry holds `trigger`, `reason`, `documentId`,
-`versionNumber`, `runId`, `pullRequestId`, `headSha`, `startedAt`, `endedAt`
+`versionNumber`, `runId`, `pullRequestId`, `headSha`, `pauseId`, `startedAt`, `endedAt`
 and `endReason`. An id, a commit or a date that does not apply is null. `endedAt` and `endReason` are null for a
 current wait. `endReason` is `resolved`, `card-finished`, `card-deleted`,
 `switched-off` or `dismissed`. For any other kind,

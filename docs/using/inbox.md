@@ -181,6 +181,8 @@ these cases:
 - A GitHub pull request that is linked to the card is ready for review.
 - The board automation stopped the fix loop of a GitHub pull request that is
   linked to the card.
+- The workflow paused the card. The wait names the reason code of the pause,
+  and it ends when the pause is released. A new pause starts a new wait.
 
 Other linked documents, such as a plan, open no wait. A change to the tags of
 a document makes Loupe check each card that links it again.
@@ -256,7 +258,7 @@ move of the card.
 
 ### Choosing which waits open an item
 
-Each project has six switches, one for each cause of a wait:
+Each project has seven switches, one for each cause of a wait:
 
 - **Document in review**
 - **Run blocked**
@@ -264,6 +266,7 @@ Each project has six switches, one for each cause of a wait:
 - **Run waiting for a person**
 - **Pull request ready for review**
 - **Pull request fix loop stopped**
+- **Workflow paused the card**
 
 The switches are on the inbox settings page, at **Project settings > Inbox**.
 The **Settings** button at the top of the inbox page also opens it. Only the

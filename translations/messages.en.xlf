@@ -4709,6 +4709,8 @@
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_ready.help"><source>inbox.form.update_inbox_settings_form.pull_request_ready.help</source><target>A linked GitHub pull request passed its checks and waits for a review.</target></trans-unit>
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label"><source>inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label</source><target>Pull request fix loop stopped</target></trans-unit>
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help"><source>inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help</source><target>Loupe stopped asking for fixes on a linked GitHub pull request.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.card_paused.label"><source>inbox.form.update_inbox_settings_form.card_paused.label</source><target>Workflow paused the card</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.card_paused.help"><source>inbox.form.update_inbox_settings_form.card_paused.help</source><target>The workflow stopped acting on a card, and a person must look at it.</target></trans-unit>
             <trans-unit id="inbox.page.empty">
                 <source>inbox.page.empty</source>
                 <target>No agent has asked you anything yet.</target>

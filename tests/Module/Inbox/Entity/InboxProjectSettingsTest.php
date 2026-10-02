@@ -31,6 +31,7 @@ final class InboxProjectSettingsTest extends TestCase
         yield 'run waiting for person' => [InboxCardWaitTrigger::RunWaitingForPerson, 'runWaitingForPerson'];
         yield 'pull request ready' => [InboxCardWaitTrigger::PullRequestReady, 'pullRequestReady'];
         yield 'pull request fix stopped' => [InboxCardWaitTrigger::PullRequestFixStopped, 'pullRequestFixStopped'];
+        yield 'card paused' => [InboxCardWaitTrigger::CardPaused, 'cardPaused'];
     }
 
     #[DataProvider('switches')]
