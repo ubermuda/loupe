@@ -23,6 +23,9 @@ final class Evaluation
     /** True when the pass recorded a baseline instead of running the rules. */
     public bool $baselined = false;
 
+    /** Null until the pass takes the project lock before its first action. */
+    public ?bool $managed = null;
+
     /** True once the pass asked for a pause, which ends it. */
     public bool $ended = false;
 

@@ -31,6 +31,7 @@ use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -87,6 +88,9 @@ final readonly class Engine
         if ([] !== $run->fired) {
             $this->logger->info('workflow.card_evaluated', ['cardId' => $cardId->toRfc4122(), 'fired' => $run->fired]);
         }
+        if (false === $run->managed) {
+            $this->logger->info('workflow.card_held_during_evaluation', ['cardId' => $cardId->toRfc4122()]);
+        }
     }
 
     private function evaluateLocked(Uuid $cardId, \DateTimeImmutable $now): ?Evaluation
@@ -123,6 +127,11 @@ final readonly class Engine
         // A pause ends the pass, so it is never released in the pass that made it.
         if (!$run->ended && (!$this->stillPaused($run) || $this->releasedByRule($run))) {
             $this->runRules($run, $template->rules);
+        }
+        if (false === $run->managed) {
+            $this->forgetRuleStates($run);
+
+            return $run;
         }
         $this->em->flush();
 
@@ -284,6 +293,9 @@ final readonly class Engine
         if (!$fire && ActionType::Release === $rule->then->type) {
             $fire = null !== $run->holdingPause && $run->holdingPause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));
         }
+        if ($fire && !$this->stillManaged($run)) {
+            return false;
+        }
         $state->truth = true;
         $state->fingerprint = $fingerprint;
         if (!$fire) {
@@ -333,6 +345,33 @@ final readonly class Engine
                 );
 
                 return false;
+        }
+    }
+
+    /**
+     * A hold takes the project row lock, so a hold that commits after the first check waits for
+     * this pass, or this pass sees it. The settle stays outside: a claim locks its request row
+     * and then the project, so a project lock before a withdrawal could deadlock with it.
+     */
+    private function stillManaged(Evaluation $run): bool
+    {
+        if (null === $run->managed) {
+            $this->em->lock($run->card->project, LockMode::PESSIMISTIC_WRITE);
+            $run->managed = !$this->cardHolds->isHeld($run->card->project, $run->card->id ?? throw new \LogicException('A persisted card has an id.'));
+        }
+
+        return $run->managed;
+    }
+
+    /** Drops the rule state changes of the pass, so a card held during it keeps the states it had. */
+    private function forgetRuleStates(Evaluation $run): void
+    {
+        foreach ($run->states as $state) {
+            if (null === $state->id) {
+                $this->em->detach($state);
+            } else {
+                $this->em->refresh($state);
+            }
         }
     }
 
