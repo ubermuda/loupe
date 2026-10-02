@@ -195,10 +195,11 @@ func TestAWorkerThatExitsOnSIGINTEndsTheLadder(t *testing.T) {
 }
 
 // A queued run closes at once as stopped, with no start. The stop works while
-// a person pauses the bridge, and the card then starts no worker, even for a
-// later event, until the hold ends.
-func TestAStopOfAQueuedRunClosesItAndHoldsTheCard(t *testing.T) {
+// a person pauses the bridge, and holds no card, so a later event of the card
+// starts a worker.
+func TestAStopOfAQueuedRunClosesItAndLeavesTheCardFree(t *testing.T) {
 	h := newHarness(t)
+	h.withHoldList()
 	rec := h.states()
 	h.reply(pausedReply(true))
 	h.send(cardMoved(87))
@@ -206,14 +207,34 @@ func TestAStopOfAQueuedRunClosesItAndHoldsTheCard(t *testing.T) {
 
 	h.stop(t, runID)
 	h.reply(pausedReply(false))
+	wantStates(t, rec.states(), api.RunQueued, api.RunStopped)
+	if stopped := rec.states()[1].report; !stopped.StartedAt.IsZero() || !stopped.EndedAt.IsZero() {
+		t.Fatalf("stopped = %+v, want no start", stopped)
+	}
+
+	h.send(cardMoved(87))
+	if h.runs() != 1 {
+		t.Fatalf("runs = %d after the stop", h.runs())
+	}
+	if got := h.events(t, "card_held"); len(got) != 0 {
+		t.Fatalf("held = %v", got)
+	}
+}
+
+// With no held list read, the bridge treats the server as an older one. A
+// stop holds the card, so a later move starts nothing until the hold ends.
+func TestWithNoHeldListAStopHoldsTheCard(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	h.reply(pausedReply(true))
+	h.send(cardMoved(87))
+
+	h.stop(t, firstRun(t, rec))
+	h.reply(pausedReply(false))
 	h.send(cardMoved(87))
 
 	if h.runs() != 0 {
 		t.Fatalf("runs = %d on a held card", h.runs())
-	}
-	wantStates(t, rec.states(), api.RunQueued, api.RunStopped)
-	if stopped := rec.states()[1].report; !stopped.StartedAt.IsZero() || !stopped.EndedAt.IsZero() {
-		t.Fatalf("stopped = %+v, want no start", stopped)
 	}
 	h.only(t, "card_held")
 
@@ -225,10 +246,11 @@ func TestAStopOfAQueuedRunClosesItAndHoldsTheCard(t *testing.T) {
 	h.only(t, "card_hold_released")
 }
 
-// A run that waits behind the stopped worker of its card stays queued while
-// the card is held, and starts when the hold ends.
-func TestAQueuedRunOfAHeldCardWaitsForTheRelease(t *testing.T) {
+// A run that waits behind the stopped worker of its card starts when that
+// worker ends, because the stop holds no card.
+func TestARunQueuedBehindAStoppedWorkerStartsWhenItEnds(t *testing.T) {
 	h := newHarness(t)
+	h.withHoldList()
 	rec := h.states()
 	s := h.stopper()
 	block := h.blocked()
@@ -242,14 +264,8 @@ func TestAQueuedRunOfAHeldCardWaitsForTheRelease(t *testing.T) {
 	s.next(t)
 	close(block)
 	h.router.wg.Wait()
-	if h.runs() != 1 {
-		t.Fatalf("runs = %d while the card is held", h.runs())
-	}
-
-	h.router.releaseHold(cardUUID(87))
-	h.router.wg.Wait()
 	if h.runs() != 2 {
-		t.Fatalf("runs = %d after the release", h.runs())
+		t.Fatalf("runs = %d after the stopped worker ended", h.runs())
 	}
 }
 
@@ -369,6 +385,84 @@ func TestTheHoldOfTheServerSkipsAndReleasesACard(t *testing.T) {
 	h.only(t, "card_hold_released")
 }
 
+// holdPayload is a board.card_held or board.card_released event of the card.
+func holdPayload(typ string, number int) string {
+	return fmt.Sprintf(`{"type":%q,"subject":{"type":"card","id":%q},"projectId":%q,"cardNumber":%d,"actor":"human"}`,
+		typ, cardUUID(number), testProject, number)
+}
+
+// A card_held event holds the card, so a move of the card starts nothing.
+func TestAHeldEventHoldsTheCard(t *testing.T) {
+	h := newHarness(t)
+
+	h.send(holdPayload("board.card_held", 87))
+	h.send(cardMoved(87))
+
+	if h.runs() != 0 {
+		t.Fatalf("runs = %d on a held card", h.runs())
+	}
+	h.only(t, "card_held")
+}
+
+// A card_released event ends the hold and starts the run that waits for it.
+func TestAReleasedEventStartsTheRunThatWaits(t *testing.T) {
+	h := newHarness(t)
+	h.withHoldList()
+	rec := h.states()
+	h.transcripts(true)
+	h.router.readCard = (&cardReads{column: "next"}).read
+
+	h.send(holdPayload("board.card_held", 87))
+	if state, _ := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
+		t.Fatalf("resume = %s", state)
+	}
+	if h.runs() != 0 {
+		t.Fatalf("workers = %d while held", h.runs())
+	}
+	wantStates(t, rec.states(), api.RunQueued)
+
+	h.send(holdPayload("board.card_released", 87))
+	if h.runs() != 1 {
+		t.Fatalf("workers = %d after the release", h.runs())
+	}
+	h.only(t, "card_hold_released")
+}
+
+// A rule never matches a hold event, even a rule that names its type.
+func TestAHoldEventMatchesNoRule(t *testing.T) {
+	h := newHarnessWith(t, defaultRules+`
+  - name: held
+    on: board.card_held
+    project: loupe
+    prompt: A card is held.
+  - name: released
+    on: board.card_released
+    project: loupe
+    prompt: A card is released.
+`, rules.Defaults{})
+
+	h.send(holdPayload("board.card_held", 87))
+	h.send(holdPayload("board.card_released", 87))
+
+	if h.runs() != 0 {
+		t.Fatalf("runs = %d from a hold event", h.runs())
+	}
+	h.only(t, "card_hold_released")
+}
+
+// A hold event with a bad field is malformed, and holds nothing.
+func TestAMalformedHoldEventIsLogged(t *testing.T) {
+	h := newHarness(t)
+
+	h.send(`{"type":"board.card_held","subject":{"type":"card","id":"card-uuid"},"projectId":"` + testProject + `","actor":"human"}`)
+	h.send(cardMoved(87))
+
+	h.only(t, "event_malformed")
+	if h.runs() != 1 {
+		t.Fatalf("runs = %d after a malformed hold", h.runs())
+	}
+}
+
 // An event with no held key, such as the close of an ask, keeps the hold.
 func TestAnEventWithNoCardStateKeepsTheHold(t *testing.T) {
 	h := newHarnessWith(t, resumeRules, rules.Defaults{})
@@ -423,19 +517,17 @@ func TestAStopCommandIsAnsweredDone(t *testing.T) {
 	}
 }
 
-// A freeze refuses a stop that raced it, and the stopped cards reach the next
+// A freeze refuses a stop that raced it, and the held cards reach the next
 // image.
 func TestAHandoverCarriesTheHoldsAndRefusesAStop(t *testing.T) {
 	h := newHarness(t)
 	rec := h.states()
 	h.reply(pausedReply(true))
-	h.send(cardMoved(87))
+	h.send(heldPayload(87, true))
 	h.send(cardMoved(88))
-	sent := rec.states()
-	h.stop(t, sent[0].runID)
 
 	st := h.router.freeze()
-	if state, reason := h.router.stopRun(stopOf(sent[1].runID)); state != api.CommandRefused || reason != handingOver {
+	if state, reason := h.router.stopRun(stopOf(firstRun(t, rec))); state != api.CommandRefused || reason != handingOver {
 		t.Fatalf("stop while frozen = %s %q", state, reason)
 	}
 	if !slices.Equal(st.Holds, []string{cardUUID(87)}) {
@@ -500,27 +592,26 @@ func TestAColumnDeleteEndsTheHoldOfTheCardsItMoved(t *testing.T) {
 }
 
 // A move that ends the hold replaces the run that waited on the held card,
-// before any run starts. The run from before the stop never starts.
+// before any run starts. The run from before the hold never starts.
 func TestAMoveThatEndsTheHoldReplacesTheWaitingRun(t *testing.T) {
 	h := newHarness(t)
 	rec := h.states()
-	s := h.stopper()
 	block := h.blocked()
-	s.gone = true
 
 	h.router.onData([]byte(cardMoved(87)))
 	<-h.worker.started
-	first := firstRun(t, rec)
 	h.router.onData([]byte(cardMoved(87)))
-	h.stop(t, first)
-	s.next(t)
+	h.router.onData([]byte(heldPayload(87, true)))
 	close(block)
 	h.router.wg.Wait()
+	if h.runs() != 1 {
+		t.Fatalf("runs = %d while the card is held", h.runs())
+	}
 
 	h.router.onData([]byte(heldPayload(87, false)))
 	h.router.wg.Wait()
 	if h.runs() != 2 {
-		t.Fatalf("runs = %d, want the move alone to start after the stop", h.runs())
+		t.Fatalf("runs = %d, want the move alone to start after the hold", h.runs())
 	}
 	if !slices.ContainsFunc(rec.states(), func(s stateSent) bool { return s.report.State == api.RunReplaced }) {
 		t.Fatalf("states = %+v, want the waiting run replaced", rec.states())
