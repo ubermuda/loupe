@@ -172,6 +172,11 @@ func TestAWorkOfferClaimsRunsAndSettles(t *testing.T) {
 	}
 	h.only(t, "work_request_claimed")
 	h.only(t, "work_request_settled")
+	for _, raw := range strings.Split(h.log.String(), "\n") {
+		if n := strings.Count(raw, `"work_request":`); n > 1 {
+			t.Fatalf("log line names the work request %d times: %s", n, raw)
+		}
+	}
 }
 
 // The result of a run follows how it ended. A refusal carries the reason of

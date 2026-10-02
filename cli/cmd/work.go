@@ -85,7 +85,7 @@ func (r *router) onWorkRequestEvent(data []byte) {
 // takeWork acts on one checked work request. An open one is an offer, and any
 // other state ends what the bridge holds of it.
 func (r *router) takeWork(w api.WorkRequest, source string) {
-	if r.workAPI == nil {
+	if r.workAPI == nil || r.bridgeID == "" {
 		return
 	}
 	if w.State == api.WorkRequestOpen {
@@ -261,7 +261,7 @@ func (r *router) requestClaim(p pending) (api.Claim, error) {
 // and reports the run as queued. The caller holds mu.
 func (r *router) takeClaimLocked(p pending, claim api.Claim, err error) (pending, int) {
 	id := p.work.WorkRequestID
-	attrs := append(about(p.event, p.rule), "work_request", id)
+	attrs := about(p.event, p.rule)
 	if err == nil {
 		err = checkClaim(claim, p.work)
 		if err != nil {
@@ -464,10 +464,11 @@ func workOutcome(res workerResult) (string, string) {
 // settleWork posts the result of a work request through the report queue,
 // which retries a network failure. The claim stays renewed until the post
 // settles, so a slow post never loses its lease. A post that runs out of
-// attempts leaves the claim, and the next heartbeat reply names it lost.
+// attempts leaves the claim, which a heartbeat reply drops once it names it
+// lost.
 func (r *router) settleWork(p pending, state, reason string) {
 	id, token := p.work.WorkRequestID, p.claimToken
-	attrs := append(about(p.event, p.rule), "work_request", id, "state", state, "reason", reason)
+	attrs := append(about(p.event, p.rule), "state", state, "reason", reason)
 	if r.reports == nil || r.bridgeID == "" {
 		r.mu.Lock()
 		r.dropClaimLocked(id, token)
