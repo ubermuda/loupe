@@ -356,15 +356,20 @@ record holds no claim token.
 A claim holds a lease of 2 minutes. `app.bridge.work_request_lease_seconds` in
 `config/services.yaml` sets it. Each heartbeat renews the leases of the claims
 it names in `workClaims`. The server renews a claim only when this bridge holds
-it with that token. The reply names each other id in `lostClaims`. The bridge
-then stops the worker of each lost claim, because another bridge can take the
-work.
+it with that token, and the project of the request belongs to the account of
+the heartbeat. The reply names each other id in `lostClaims`. The bridge then
+stops the worker of each lost claim, because another bridge can take the work.
 
 A task runs each minute and opens again each claimed request whose lease ran
 out. It clears the bridge and the token of the claim, and sends a
 `bridge.work_request` event with the state `open`. Another bridge can then claim
 the work of a bridge that stopped. `app.bridge.work_request_reopen_schedule` in
 the same file sets when that task runs.
+
+The claim stays with its holder after `leaseUntil` passes, until that task
+opens the request again. Until then, the holder can still renew or settle the
+claim. A bridge must therefore treat a claim as lost only when the reply names
+it in `lostClaims`, or when the result answers `claim_lost`.
 
 ### Sending the result
 
@@ -407,3 +412,6 @@ data export holds the bridges in `bridges.json`, with the stored update state,
 version and install method, the hook rows, the worker pool rows with their
 report time, the pause state and the capabilities. It holds the commands in
 `bridge_commands.json`.
+
+Deleting a project deletes its work requests. The data export does not hold
+work requests, because they belong to a project and not to an account.
