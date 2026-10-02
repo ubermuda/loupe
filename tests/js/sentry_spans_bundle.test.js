@@ -8,9 +8,10 @@ const BUNDLE = readFileSync('assets/sentry/bundle.tracing.min.js', 'utf8');
 const bodies = [];
 let Sentry;
 let pageTrace;
+const started = [];
 
-function fire(type, detail = {}) {
-    document.dispatchEvent(new CustomEvent(type, { detail }));
+function fire(type, detail = {}, target = document) {
+    target.dispatchEvent(new CustomEvent(type, { detail, bubbles: true }));
 }
 
 function settle() {
@@ -48,6 +49,11 @@ beforeAll(() => {
     initSentry({
         ...Sentry,
         init: (options) => Sentry.init({ ...options, transport }),
+        startInactiveSpan: (options) => {
+            const span = Sentry.startInactiveSpan(options);
+            started.push(span);
+            return span;
+        },
     });
 });
 
@@ -57,18 +63,34 @@ it('finds every function the span module calls in the bundle', () => {
         'startInactiveSpan',
         'setActiveSpanInBrowser',
         'updateSpanName',
+        'getActiveSpan',
     ]) {
         expect(typeof Sentry[name], name).toBe('function');
     }
 });
 
-it('gives each interaction its own trace and makes it the fetch parent', async () => {
+it('leaves no ended page load active after a submit during the page load', () => {
     const pageLoad = Sentry.getActiveSpan();
     pageTrace = pageLoad.spanContext().traceId;
+    const form = document.createElement('form');
+    document.body.append(form);
 
+    fire('turbo:submit-start', {}, form);
+    const submit = started.at(-1);
+    expect(submit.spanContext().traceId).not.toBe(pageTrace);
+    expect(Sentry.spanToJSON(submit).parent_span_id).toBeUndefined();
+    pageLoad.end();
+    fire('turbo:fetch-request-error', {}, form);
+
+    expect(Sentry.spanToJSON(submit).end_timestamp).toBeDefined();
+    expect(Sentry.getActiveSpan()).not.toBe(pageLoad);
+    form.remove();
+});
+
+it('gives each interaction its own trace and makes it the fetch parent', async () => {
     fire('turbo:submit-start');
     const submit = Sentry.getActiveSpan();
-    expect(submit).not.toBe(pageLoad);
+    expect(submit).toBe(started.at(-1));
     expect(submit.spanContext().traceId).not.toBe(pageTrace);
     expect(Sentry.spanToJSON(submit).parent_span_id).toBeUndefined();
     const fetch = Sentry.startInactiveSpan({ name: 'fetch' });
@@ -92,7 +114,7 @@ it('gives each interaction its own trace and makes it the fetch parent', async (
     expect(json.end_timestamp).toBeDefined();
     expect(json.name).toBe('app_card_show');
     expect(json.attributes['loupe.tab_age_ms']).toEqual(expect.any(Number));
-    expect(Sentry.getActiveSpan()).toBe(pageLoad);
+    expect(Sentry.getActiveSpan()).toBeUndefined();
 });
 
 it('sends a live change as an inactive span in its own trace', async () => {

@@ -16,12 +16,13 @@ function fakeSentry() {
         spans,
         startNewTrace: vi.fn((callback) => callback()),
         startInactiveSpan: vi.fn((options) => {
-            const span = { options, end: vi.fn() };
+            const span = { options, end: vi.fn(), setStatus: vi.fn() };
             spans.push(span);
             return span;
         }),
         setActiveSpanInBrowser: vi.fn(),
         updateSpanName: vi.fn(),
+        getActiveSpan: vi.fn(),
     };
 }
 
@@ -35,8 +36,8 @@ function setRoute(route) {
     meta.content = route;
 }
 
-function fire(type, detail = {}) {
-    document.dispatchEvent(new CustomEvent(type, { detail }));
+function fire(type, detail = {}, target = document) {
+    target.dispatchEvent(new CustomEvent(type, { detail, bubbles: true }));
 }
 
 function response(contentType) {
@@ -239,11 +240,10 @@ describe('sentry spans', () => {
         expect(sentry.startInactiveSpan).not.toHaveBeenCalled();
     });
 
-    it('ends a span with no end signal after 10 s at its last signal', () => {
+    it('ends a span with no end signal at 10 s as past its deadline', () => {
         enableSpans(sentry);
         fire('turbo:submit-start');
         vi.advanceTimersByTime(400);
-        const lastSignal = now();
         fire('turbo:submit-end', { fetchResponse: response(STREAM) });
 
         vi.advanceTimersByTime(9599);
@@ -251,17 +251,22 @@ describe('sentry spans', () => {
         expect(span.end).not.toHaveBeenCalled();
         vi.advanceTimersByTime(1);
 
+        expect(span.setStatus).toHaveBeenCalledWith({
+            code: 2,
+            message: 'deadline_exceeded',
+        });
         expect(span.end).toHaveBeenCalledTimes(1);
-        expect(span.end).toHaveBeenCalledWith(lastSignal);
+        expect(span.end).toHaveBeenCalledWith();
     });
 
-    it('measures the cap in epoch milliseconds', () => {
+    it('sets no status on a span that ends in time', () => {
         enableSpans(sentry);
         fire('turbo:visit');
-        vi.advanceTimersByTime(10000);
+        fire('turbo:load');
+        paint();
+        vi.advanceTimersByTime(20000);
 
-        const [timestamp] = sentry.spans[0].end.mock.calls[0];
-        expect(timestamp).toBeGreaterThan(9999999999);
+        expect(sentry.spans[0].setStatus).not.toHaveBeenCalled();
     });
 
     it('does not end a span twice after the cap', () => {
@@ -274,16 +279,63 @@ describe('sentry spans', () => {
         expect(sentry.spans[0].end).toHaveBeenCalledTimes(1);
     });
 
-    it('ends the open span at once on a fetch error', () => {
+    it('ends a visit at once when the visit fetch fails', () => {
         enableSpans(sentry);
-        fire('turbo:visit');
+        fire('turbo:visit', {}, document.documentElement);
 
-        fire('turbo:fetch-request-error');
+        fire('turbo:fetch-request-error', {}, document.documentElement);
 
         expect(sentry.spans[0].end).toHaveBeenCalledTimes(1);
         paint();
         vi.advanceTimersByTime(20000);
         expect(sentry.spans[0].end).toHaveBeenCalledTimes(1);
+    });
+
+    it('ends a submit at once when its form fetch fails', () => {
+        const form = document.createElement('form');
+        document.body.append(form);
+        enableSpans(sentry);
+        fire('turbo:submit-start', {}, form);
+
+        fire('turbo:fetch-request-error', {}, document.documentElement);
+        expect(sentry.spans[0].end).not.toHaveBeenCalled();
+        fire('turbo:fetch-request-error', {}, form);
+
+        expect(sentry.spans[0].end).toHaveBeenCalledTimes(1);
+        form.remove();
+    });
+
+    it('keeps the open span when another fetch fails', () => {
+        const link = document.createElement('a');
+        document.body.append(link);
+        enableSpans(sentry);
+        fire('turbo:visit', {}, document.documentElement);
+
+        fire('turbo:fetch-request-error', {}, link);
+
+        expect(sentry.spans[0].end).not.toHaveBeenCalled();
+        link.remove();
+    });
+
+    it('leaves a recording active span in place', () => {
+        sentry.getActiveSpan.mockReturnValue({ isRecording: () => true });
+        enableSpans(sentry);
+
+        fire('turbo:submit-start');
+
+        expect(sentry.spans).toHaveLength(1);
+        expect(sentry.setActiveSpanInBrowser).not.toHaveBeenCalled();
+    });
+
+    it('replaces an active span that has ended', () => {
+        sentry.getActiveSpan.mockReturnValue({ isRecording: () => false });
+        enableSpans(sentry);
+
+        fire('turbo:submit-start');
+
+        expect(sentry.setActiveSpanInBrowser).toHaveBeenCalledWith(
+            sentry.spans[0],
+        );
     });
 
     it('keeps one active span at a time', () => {
@@ -343,11 +395,15 @@ describe('sentry spans', () => {
         expect(sentry.setActiveSpanInBrowser).not.toHaveBeenCalled();
     });
 
-    it('records a live change that fails', async () => {
+    it('records a live change that fails and passes the failure on', async () => {
         enableSpans(sentry);
-        traceLive('card.moved', now(), Promise.reject(new Error('x')));
-        await Promise.resolve();
-        await Promise.resolve();
+        const traced = traceLive(
+            'card.moved',
+            now(),
+            Promise.reject(new Error('x')),
+        );
+
+        await expect(traced).rejects.toThrow('x');
         paint();
 
         expect(sentry.spans[0].end).toHaveBeenCalledTimes(1);

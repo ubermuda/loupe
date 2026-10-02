@@ -2,6 +2,7 @@ const SUBMIT = 'ui.turbo.submit';
 const VISIT = 'navigation';
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 const CAP_MILLISECONDS = 10000;
+const DEADLINE_EXCEEDED = { code: 2, message: 'deadline_exceeded' };
 const RENDER_SIGNALS = [
     'turbo:before-stream-render',
     'turbo:render',
@@ -50,45 +51,40 @@ function startRoot(options) {
     return Sentry.startNewTrace(() => Sentry.startInactiveSpan(options));
 }
 
-function finish(interaction, timestamp) {
+function finish(interaction) {
     if (open !== interaction) {
         return;
     }
     open = null;
     clearTimeout(interaction.cap);
-    if (timestamp === undefined) {
-        interaction.span.end();
-    } else {
-        interaction.span.end(timestamp);
-    }
+    interaction.span.end();
 }
 
-function begin(op) {
+function begin(op, target) {
     if (open) {
         finish(open);
     }
-    const startTime = now();
     const span = startRoot({
         op,
         name: route(op),
-        attributes: attributes(startTime),
+        attributes: attributes(now()),
     });
-    Sentry.setActiveSpanInBrowser(span);
-    const interaction = { span, op, lastSignal: startTime, awaiting: false };
-    interaction.cap = setTimeout(
-        () => finish(interaction, interaction.lastSignal),
-        CAP_MILLISECONDS,
-    );
+    // The SDK restores the span that was active here when ours ends. The page
+    // load span can end first, and an ended active span takes every later
+    // fetch into the page load trace.
+    if (!Sentry.getActiveSpan()?.isRecording()) {
+        Sentry.setActiveSpanInBrowser(span);
+    }
+    const interaction = { span, op, target, awaiting: false };
+    interaction.cap = setTimeout(() => {
+        span.setStatus(DEADLINE_EXCEEDED);
+        finish(interaction);
+    }, CAP_MILLISECONDS);
     open = interaction;
 }
 
-function signal(op) {
-    if (open?.op !== op) {
-        return null;
-    }
-    open.lastSignal = now();
-
-    return open;
+function current(op) {
+    return open?.op === op ? open : null;
 }
 
 function finishAfterPaint(interaction) {
@@ -104,7 +100,7 @@ function rendersBody(fetchResponse) {
 }
 
 function onSubmitEnd(event) {
-    const interaction = signal(SUBMIT);
+    const interaction = current(SUBMIT);
     if (!interaction) {
         return;
     }
@@ -117,12 +113,12 @@ function onSubmitEnd(event) {
 
 function onRender() {
     if (open?.awaiting) {
-        finishAfterPaint(signal(SUBMIT));
+        finishAfterPaint(open);
     }
 }
 
 function onLoad() {
-    const interaction = signal(VISIT);
+    const interaction = current(VISIT);
     if (interaction) {
         Sentry.updateSpanName(interaction.span, route(VISIT));
         finishAfterPaint(interaction);
@@ -139,17 +135,22 @@ export function enableSpans(sentry) {
     const listen = (type, handler) =>
         document.addEventListener(type, handler, options);
 
-    listen('turbo:submit-start', () => begin(SUBMIT));
+    listen('turbo:submit-start', (event) => begin(SUBMIT, event.target));
     listen('turbo:submit-end', onSubmitEnd);
     RENDER_SIGNALS.forEach((type) => listen(type, onRender));
-    listen('turbo:visit', () => begin(VISIT));
+    // Turbo fires a visit fetch on the document element.
+    listen('turbo:visit', () => begin(VISIT, document.documentElement));
     listen('turbo:load', onLoad);
-    listen('turbo:fetch-request-error', () => open && finish(open));
+    listen('turbo:fetch-request-error', (event) => {
+        if (open?.target === event.target) {
+            finish(open);
+        }
+    });
 }
 
 export function traceLive(type, startTime, result) {
     if (!Sentry || typeof result?.then !== 'function') {
-        return;
+        return undefined;
     }
     const record = () =>
         afterPaint(() =>
@@ -160,7 +161,9 @@ export function traceLive(type, startTime, result) {
                 attributes: attributes(startTime),
             }).end(),
         );
-    result.then(record, record);
+
+    // A rejection stays unhandled, so the global error report still sees it.
+    return Promise.resolve(result).finally(record);
 }
 
 export function reset() {

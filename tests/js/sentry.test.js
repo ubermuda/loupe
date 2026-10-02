@@ -19,8 +19,9 @@ function fakeSentry() {
         })),
         withStaticSpan: vi.fn((callback) => callback),
         startNewTrace: vi.fn((callback) => callback()),
-        startInactiveSpan: vi.fn(() => ({ end: vi.fn() })),
+        startInactiveSpan: vi.fn(() => ({ end: vi.fn(), setStatus: vi.fn() })),
         setActiveSpanInBrowser: vi.fn(),
+        getActiveSpan: vi.fn(),
         setTransactionName: vi.fn(),
         getCurrentScope() {
             return { setTransactionName: this.setTransactionName };
