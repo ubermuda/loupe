@@ -5235,6 +5235,10 @@
                 <source>board.card.error.epic_children_open</source>
                 <target>This epic has open child cards. Move %cards% to a done column first.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.managed">
+                <source>board.card.error.managed</source>
+                <target>This card is managed. Make it unmanaged to move it there.</target>
+            </trans-unit>
             <trans-unit id="board.card.error.changed_since_opened">
                 <source>board.card.error.changed_since_opened</source>
                 <target>This card changed since you opened it.</target>

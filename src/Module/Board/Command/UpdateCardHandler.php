@@ -19,6 +19,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Board\Service\CardLinkSync;
+use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
@@ -61,6 +62,7 @@ final readonly class UpdateCardHandler
         private EventDispatcherInterface $events,
         private InteractiveRuns $interactiveRuns,
         private CardHolds $cardHolds,
+        private CardMoveGuard $moveGuard,
     ) {
     }
 
@@ -99,7 +101,7 @@ final readonly class UpdateCardHandler
         // so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards, $newParent): UpdateCardOutcome|string|DomainErrors|EpicChildrenOpen {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards, $newParent): UpdateCardOutcome|string|DomainErrors|EpicChildrenOpen|CardManaged {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
@@ -135,6 +137,9 @@ final readonly class UpdateCardHandler
             }
             if (null !== $relatedCards && $this->cardLinkSync->anyCardGone($relatedCards)) {
                 return self::LINKED_CARD_GONE;
+            }
+            if ($column !== $card->column && !$this->moveGuard->allows($card, $column, $command->actor, $command->cause)) {
+                return new CardManaged($card->number);
             }
 
             // Only a write that names a type or a parent can break a parent
@@ -179,7 +184,7 @@ final readonly class UpdateCardHandler
                 : null;
 
             // Before CardMoved, so the outbox row of this move reads the card as released.
-            if (null !== $move && $move->fromColumn !== $card->column && CardReporter::Human === $command->actor) {
+            if (null !== $move && $move->fromColumn !== $card->column && CardReporter::Human === $command->actor && $this->moveGuard->releasesHoldOnMove()) {
                 $this->cardHolds->release($card->project, [$card->id ?? throw new \LogicException('A persisted card has an id.')]);
             }
 
@@ -257,7 +262,7 @@ final readonly class UpdateCardHandler
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        if ($outcome instanceof DomainErrors || $outcome instanceof EpicChildrenOpen) {
+        if ($outcome instanceof DomainErrors || $outcome instanceof EpicChildrenOpen || $outcome instanceof CardManaged) {
             throw $outcome;
         }
         if (self::NOT_WHERE_EXPECTED === $outcome) {

@@ -18,6 +18,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Engine\EngineSwitch;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -30,7 +31,6 @@ final class CardHoldReleaseTest extends KernelTestCase
 
     private EntityManagerInterface $em;
     private CreateCardHandler $createCard;
-    private UpdateCardHandler $updateCard;
     private CardHolds $holds;
     private Project $project;
 
@@ -45,10 +45,6 @@ final class CardHoldReleaseTest extends KernelTestCase
         $createCard = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $createCard);
         $this->createCard = $createCard;
-
-        $updateCard = self::getContainer()->get(UpdateCardHandler::class);
-        self::assertInstanceOf(UpdateCardHandler::class, $updateCard);
-        $this->updateCard = $updateCard;
 
         $holds = self::getContainer()->get(CardHolds::class);
         self::assertInstanceOf(CardHolds::class, $holds);
@@ -66,10 +62,21 @@ final class CardHoldReleaseTest extends KernelTestCase
     {
         $card = $this->heldCard('next');
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress')));
+        $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress')));
 
         self::assertSame('in-progress', $card->column->slug);
         self::assertFalse($this->holds->isHeld($this->project, $this->idOf($card)));
+    }
+
+    public function test_with_the_engine_on_a_human_move_keeps_the_hold(): void
+    {
+        self::getContainer()->set(EngineSwitch::class, new EngineSwitch(true));
+        $card = $this->heldCard('next');
+
+        $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress')));
+
+        self::assertSame('in-progress', $card->column->slug);
+        self::assertTrue($this->holds->isHeld($this->project, $this->idOf($card)));
     }
 
     #[DataProvider('automatedActors')]
@@ -77,7 +84,7 @@ final class CardHoldReleaseTest extends KernelTestCase
     {
         $card = $this->heldCard('next');
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: $actor, column: $this->column($this->project, 'in-progress')));
+        $this->updateCard()(new UpdateCardCommand(card: $card, actor: $actor, column: $this->column($this->project, 'in-progress')));
 
         self::assertSame('in-progress', $card->column->slug);
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($card)));
@@ -95,7 +102,7 @@ final class CardHoldReleaseTest extends KernelTestCase
         $card = $this->heldCard('next');
         $this->card('next');
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'next'), position: 1));
+        $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'next'), position: 1));
 
         self::assertSame(1, $card->position, 'the rank must really change, or this test proves nothing');
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($card)));
@@ -126,6 +133,15 @@ final class CardHoldReleaseTest extends KernelTestCase
 
         self::assertFalse($this->holds->isHeld($this->project, $deletedId));
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($kept)));
+    }
+
+    /** Fetched late, so a test can switch the engine on before the guard is built. */
+    private function updateCard(): UpdateCardHandler
+    {
+        $updateCard = self::getContainer()->get(UpdateCardHandler::class);
+        self::assertInstanceOf(UpdateCardHandler::class, $updateCard);
+
+        return $updateCard;
     }
 
     private function heldCard(string $column): Card
