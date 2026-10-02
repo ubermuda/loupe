@@ -69,6 +69,14 @@
                 </div>
                 <div class="lp-form-field">
                     <label class="lp-choice">
+                        {{ form_widget(form.commentOnStaleApproval) }}
+                        {{ form.commentOnStaleApproval.vars.label|trans }}
+                    </label>
+                    {{ form_help(form.commentOnStaleApproval, {help_attr: {class: 'lp-form-hint'}}) }}
+                    <div class="lp-field-errors" data-field-errors="commentOnStaleApproval">{{ form_errors(form.commentOnStaleApproval) }}</div>
+                </div>
+                <div class="lp-form-field">
+                    <label class="lp-choice">
                         {{ form_widget(form.syncBehind) }}
                         {{ form.syncBehind.vars.label|trans }}
                     </label>

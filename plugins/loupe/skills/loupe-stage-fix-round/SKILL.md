@@ -44,4 +44,4 @@ The round ends at the push. It never waits for CI, because the app reads the new
 9. Push without force.
 10. Post a marker reply for each handled item, per the reference. A conflict has no item, so it gets no reply.
 11. Stop with `STAGE RESULT: waiting <pr url>`. Never move the card.
-12. When a step cannot go on, record the block as "Record a block" in `../loupe-stage-implementation/references/commands.md` says. Stop with `STAGE RESULT: blocked: <reason>`.
+12. When a step cannot go on, record the block as "Record a block" in `../loupe-stage-implementation/references/commands.md` says. Post the refusal comment on the pull request, per "Post a refusal comment" in the same file. Stop with `STAGE RESULT: blocked: <reason>`.

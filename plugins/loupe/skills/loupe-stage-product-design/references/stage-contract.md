@@ -41,6 +41,8 @@ When no linked document matches, page `document_list` for the title the stage sk
 
 Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences.
 
+After a `not ready` or `blocked:` line, the first sentence says what unblocks the work. Name the next step of a person, such as "Approve the head commit".
+
 When the harness asks for a structured result, put the same sentence in `summary`. Set `status` from the `STAGE RESULT:` form:
 
 | `STAGE RESULT:` form | `status` |
