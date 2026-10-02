@@ -52,14 +52,20 @@ one with `/** @vitest-environment jsdom */` on its first line.
 ## The gate
 
 ```sh
-just cs        # apply formatter + Rector fixes
-just ci        # check-only: lint, style, phpstan, arkitect, gamache, phpunit, js-test
+just cs                    # apply formatter + Rector fixes
+just phpstan               # whole project
+just arkitect              # whole project
+just gamache               # whole project
+just phpunit tests/<path>  # the tests for what changed, or --filter <name>
+just js-test               # when JavaScript changed
+just cli-test              # when cli/ or hooks/ changed
 just e2e       # Playwright end-to-end
 ```
 
-`cs` writes, `ci` only reports — running `ci` alone will tell you about style
-violations it will not fix. Fix every failure before proposing a change,
-including ones that pre-date it.
+CI's required checks are the full gate. Read them on the pull request, and fix
+every failure, including ones that pre-date the change. `just ci` is the full
+check-only run in one command. A person can run it in a terminal, and a hook
+refuses it for an agent.
 
 **e2e runs against a dedicated target, never the dev host.** `just e2e-up`
 creates a disposable database and a sidecar serving this checkout; `just e2e`
