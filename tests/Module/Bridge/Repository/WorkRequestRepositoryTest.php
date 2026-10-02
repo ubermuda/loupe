@@ -112,7 +112,7 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         $this->seedWorkRequest($em, $followed, state: WorkRequestState::Claimed, createdAt: $at('11:00:00'));
         $this->seedWorkRequest($em, $followed, state: WorkRequestState::Done, createdAt: $at('11:00:00'));
         $this->seedWorkRequest($em, $this->project($em, $owner, 'Not Followed'), createdAt: $at('11:00:00'));
-        $projects = [$this->idOf($followed), $this->idOf($alsoFollowed)];
+        $projects = [(string) $followed->id, (string) $alsoFollowed->id];
 
         self::assertSame([$older, $newer, $interactive], $this->repository()->findOpenOffers($projects, ['work-requests', 'interactive'], 10));
         self::assertSame([$older, $newer], $this->repository()->findOpenOffers($projects, [], 10));

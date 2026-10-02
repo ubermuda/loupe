@@ -110,7 +110,7 @@ class WorkRequestRepository extends ServiceEntityRepository
      * The open requests of the projects that a bridge with these capabilities
      * can run, oldest first.
      *
-     * @param list<Uuid>   $projectIds
+     * @param list<string> $projectIds   RFC 4122 ids, as Bridge::$projects holds them
      * @param list<string> $capabilities
      *
      * @return list<WorkRequest>
@@ -124,7 +124,7 @@ class WorkRequestRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('w')
             ->andWhere('w.project IN (:projects)')
             ->andWhere('w.state = :open')
-            ->setParameter('projects', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $projectIds))
+            ->setParameter('projects', $projectIds)
             ->setParameter('open', WorkRequestState::Open->value)
             ->orderBy('w.createdAt', 'ASC')
             ->addOrderBy('w.id', 'ASC')
