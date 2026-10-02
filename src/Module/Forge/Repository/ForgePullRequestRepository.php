@@ -157,6 +157,26 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
         return $this->toUuids($query->getQuery()->getSingleColumnResult());
     }
 
+    /** @return list<ForgePullRequest> the rows of one repository in one project whose head is that branch, in id order */
+    public function findByHeadBranch(Uuid $projectId, string $forge, string $repository, string $headBranch): array
+    {
+        /** @var list<ForgePullRequest> $rows */
+        $rows = $this->createQueryBuilder('pr')
+            ->andWhere('pr.project = :project')
+            ->andWhere('pr.forge = :forge')
+            ->andWhere('pr.repository = :repository')
+            ->andWhere('pr.headBranch = :headBranch')
+            ->setParameter('project', $projectId, UuidType::NAME)
+            ->setParameter('forge', $forge)
+            ->setParameter('repository', mb_strtolower($repository))
+            ->setParameter('headBranch', $headBranch)
+            ->orderBy('pr.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $rows;
+    }
+
     /** @return list<ForgePullRequest> the open rows of one project, read with no lock */
     public function findOpenForProject(Uuid $projectId): array
     {

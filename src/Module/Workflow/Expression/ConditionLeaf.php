@@ -27,4 +27,10 @@ final readonly class ConditionLeaf extends Expression
     {
         return $this->evaluate($facts) === $wanted ? null : new BlockingLeaf($this, negated: !$wanted);
     }
+
+    #[\Override]
+    public function reads(): array
+    {
+        return $this->condition->reads($this->params);
+    }
 }

@@ -13,6 +13,7 @@ use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Fact\ChecksState;
+use App\Module\Workflow\Fact\FactKey;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\TestCase;
 
@@ -162,5 +163,24 @@ final class ExpressionTest extends TestCase
         self::assertNotNull($blocking);
         self::assertSame($blocker, $blocking->leaf);
         self::assertTrue($blocking->negated);
+    }
+
+    public function test_a_leaf_reads_what_its_condition_reads(): void
+    {
+        self::assertSame([FactKey::CardType], new ConditionLeaf(new CardHasType(), ['type' => 'epic'])->reads());
+    }
+
+    public function test_a_composite_reads_the_keys_of_its_children_once_in_first_seen_order(): void
+    {
+        $child = new ConditionLeaf(new CardIsChild(), []);
+        $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
+        $checks = new ConditionLeaf(new PullRequestChecksFailed(), []);
+
+        $expression = new AllOf([$blocker, new AnyOf([$child, new Not($blocker)]), new Not($checks), $child]);
+
+        self::assertSame([FactKey::Blockers, FactKey::Parent, FactKey::PullRequest], $expression->reads());
+        self::assertSame([FactKey::Parent, FactKey::Blockers], new AnyOf([$child, $blocker, $child])->reads());
+        self::assertSame([FactKey::PullRequest], new Not($checks)->reads());
+        self::assertSame([], new AllOf([])->reads());
     }
 }

@@ -179,6 +179,36 @@ final class CardDocumentRepository extends ServiceEntityRepository
         return $names;
     }
 
+    /**
+     * The status and the tag names of each unarchived document linked to the card, as the
+     * database holds them now, in link order.
+     *
+     * @return list<array{status: string, tags: list<string>}>
+     */
+    public function findStatusesAndTagsForCard(Card $card): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT d.id AS document_id, d.status, t.name AS tag_name FROM board_card_documents cd
+             JOIN documents d ON d.id = cd.document_id
+             LEFT JOIN document_tags dt ON dt.document_id = d.id
+             LEFT JOIN tags t ON t.id = dt.tag_id
+             WHERE cd.card_id = :card AND d.archived_at IS NULL
+             ORDER BY cd.linked_at, d.id, t.name',
+            ['card' => (string) $card->id],
+        );
+
+        $documents = [];
+        foreach ($rows as $row) {
+            $documentId = (string) $row['document_id'];
+            $documents[$documentId] ??= ['status' => (string) $row['status'], 'tags' => []];
+            if (null !== $row['tag_name']) {
+                $documents[$documentId]['tags'][] = (string) $row['tag_name'];
+            }
+        }
+
+        return array_values($documents);
+    }
+
     private function inReview(Project $project): QueryBuilder
     {
         return $this->createQueryBuilder('link')
