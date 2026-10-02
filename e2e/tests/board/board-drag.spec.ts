@@ -129,10 +129,10 @@ async function dragCardTo(
     title: string,
     target: { x: number; y: number },
 ): Promise<void> {
-    const grip = page.locator(
+    const title = page.locator(
         `${CARD}[data-card-title="${title}"] .lp-board-card__title`,
     );
-    const from = await grip.boundingBox();
+    const from = await title.boundingBox();
     expect(from).not.toBeNull();
     if (from === null) {
         return;

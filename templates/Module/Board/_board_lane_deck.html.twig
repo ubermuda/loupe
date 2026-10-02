@@ -28,9 +28,6 @@
                  data-card-id="{{ card.id }}"
                  data-card-type="{{ card.type.value }}"
                  data-card-title="{{ card.title }}">
-            <span class="lp-board-card__grip" aria-hidden="true">
-                <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
-            </span>
             <div class="lp-board-card__identity">
                 <span class="lp-board-card__number">#{{ card.number }}</span>
                 {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}

@@ -1,4 +1,4 @@
-{# One card face. The whole card is the drag handle, and the grip says so.
+{# One card face. The whole card is the drag handle.
    Props: card (Card), pendingComments (int), documentCount (int), static (bool, optional): a card
    shown outside the board, which does not drag and names its column instead.
    A static card also skips the prefetch. progress (CardProgress, optional) shows on an epic. inLane (bool,
@@ -18,11 +18,6 @@
          data-card-id="{{ card.id }}"
          data-card-type="{{ card.type.value }}"
          data-card-title="{{ card.title }}">
-    {% if not static %}
-    <span class="lp-board-card__grip" aria-hidden="true">
-        <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
-    </span>
-    {% endif %}
     {# The identifier and the card's type lead the card face, as the design draws
        them. The number is the handle a person quotes. #}
     <div class="lp-board-card__identity">

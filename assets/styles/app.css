@@ -6222,16 +6222,17 @@
         @apply outline-2 outline-offset-2;
         animation: lp-board-card-changed 1500ms ease-out both;
     }
-    .lp-board-card__grip {
-        @apply absolute top-2 right-2 touch-none text-fg-faint;
-    }
-    .lp-board-card:active {
+    /* The dragged card takes no pointer events, so the board shows the cursor. */
+    .lp-board-card:active,
+    .lp-deck__card:active,
+    .lp-board--dragging,
+    .lp-board--dragging * {
         @apply cursor-grabbing;
     }
     /* A title holds identifiers such as a PHP namespace or a long snake_case
        tool name, which no space breaks. They must wrap inside the card. */
     .lp-board-card__title {
-        @apply pr-6 font-display text-sm font-semibold text-ink no-underline break-words hover:text-accent-ink;
+        @apply font-display text-sm font-semibold text-ink no-underline break-words hover:text-accent-ink;
     }
     /* A card's per-project number, sized like the documents list's version chip
        so the two identifiers read at the same weight across the app. */
@@ -6240,7 +6241,7 @@
     }
     /* Identifier and classification lead the card face, above the title. */
     .lp-board-card__identity {
-        @apply flex flex-wrap items-center gap-2 pr-6;
+        @apply flex flex-wrap items-center gap-2;
     }
     .lp-card-number {
         @apply font-mono align-middle text-2xl font-semibold text-fg-dim;

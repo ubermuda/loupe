@@ -216,10 +216,10 @@ async function dragCardToCell(
     card: Card,
     target: ReturnType<typeof cell>,
 ): Promise<void> {
-    const grip = page.locator(
+    const title = page.locator(
         `${CARD}[data-card-id="${card.id}"] .lp-board-card__title`,
     );
-    const from = await grip.boundingBox();
+    const from = await title.boundingBox();
     const to = await target.boundingBox();
     expect(from).not.toBeNull();
     expect(to).not.toBeNull();

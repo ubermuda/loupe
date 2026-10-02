@@ -208,8 +208,8 @@ Backlog holds, and it opens the Backlog page. It also takes a dropped card.
 Each column head shows the column colour, its label and its card count. Each
 column scrolls its own cards, and the board scrolls sideways as one block.
 
-Drag a card to move it. The whole card is the handle, and the grip on its left
-says so. Where you drop the card decides what the move does.
+Drag a card to move it. The whole card is the handle. Where you drop the card
+decides what the move does.
 
 - Drop it inside its own column to change its rank in that column.
 - Drop it in another column to change its column. The card takes the end of

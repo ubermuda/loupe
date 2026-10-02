@@ -30,9 +30,10 @@ These traps around the threshold each cost a cycle:
 
 Text selection is handled with `select-none` on the card face, rather than by
 arbitration between a selection and the gesture. The cost is that a title cannot
-be copied from the board, and the card page keeps it selectable. Keep
-`touch-action: none` on the grip alone. On every card it stops a touch reader
-scrolling the board at all.
+be copied from the board, and the card page keeps it selectable. No card
+carries `touch-action: none`, because on every card it stops a touch reader
+scrolling the board at all. So a touch press on a card scrolls, and a touch
+reader moves a card from its page.
 
 ## Optimistic reconciliation needs no diff
 
