@@ -26,11 +26,13 @@ class SaveBoardAutomationSettingsRequest
         public bool $commentOnFixQueued = false,
         public bool $commentOnStaleApproval = false,
         public bool $syncBehind = false,
+        public bool $mergePullRequests = false,
+        public bool $changeBase = false,
     ) {
     }
 
     public static function fromSettings(BoardAutomationSettings $settings): self
     {
-        return new self($settings->enabled, $settings->mergeStrategy, $settings->fixStrategy, $settings->loopLimit, $settings->commentOnFixQueued, $settings->commentOnStaleApproval, $settings->syncBehind);
+        return new self($settings->enabled, $settings->mergeStrategy, $settings->fixStrategy, $settings->loopLimit, $settings->commentOnFixQueued, $settings->commentOnStaleApproval, $settings->syncBehind, $settings->mergePullRequests, $settings->changeBase);
     }
 }

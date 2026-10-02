@@ -59,6 +59,38 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertTrue($this->audit->record('board.automation_settings_saved')->context['commentOnStaleApproval']);
     }
 
+    /** @return iterable<string, array{bool, bool}> */
+    public static function writeOptIns(): iterable
+    {
+        yield 'merge on' => [true, false];
+        yield 'base change on' => [false, true];
+    }
+
+    #[DataProvider('writeOptIns')]
+    public function test_it_stores_and_audits_the_write_opt_ins(bool $mergePullRequests, bool $changeBase): void
+    {
+        $this->save(enabled: true, syncBehind: false, mergePullRequests: $mergePullRequests, changeBase: $changeBase);
+
+        $settings = $this->stored();
+        self::assertSame($mergePullRequests, $settings->mergePullRequests);
+        self::assertSame($changeBase, $settings->changeBase);
+        $context = $this->audit->record('board.automation_settings_saved')->context;
+        self::assertSame($mergePullRequests, $context['mergePullRequests']);
+        self::assertSame($changeBase, $context['changeBase']);
+    }
+
+    public function test_every_write_opt_in_is_off_by_default(): void
+    {
+        $this->em->persist(new BoardAutomationSettings($this->project));
+        $this->em->flush();
+
+        $settings = $this->stored();
+        self::assertFalse($settings->mergePullRequests);
+        self::assertFalse($settings->changeBase);
+        self::assertFalse($settings->epicDraftSwitch);
+        self::assertFalse($settings->closeEpicPullRequests);
+    }
+
     /** @return iterable<string, array{?array{bool, bool}, bool, bool, int}> */
     public static function transitions(): iterable
     {
@@ -95,7 +127,7 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         }
     }
 
-    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false): void
+    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false): void
     {
         $handler = self::getContainer()->get(SaveBoardAutomationSettingsHandler::class);
         self::assertInstanceOf(SaveBoardAutomationSettingsHandler::class, $handler);
@@ -108,6 +140,8 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
             commentOnFixQueued: false,
             commentOnStaleApproval: $commentOnStaleApproval,
             syncBehind: $syncBehind,
+            mergePullRequests: $mergePullRequests,
+            changeBase: $changeBase,
         ));
     }
 

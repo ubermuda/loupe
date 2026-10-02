@@ -59,6 +59,16 @@ final class SaveBoardAutomationSettingsFormType extends AbstractType
             'label' => 'board.form.save_board_automation_settings_form.sync_behind.label',
             'help' => 'board.form.save_board_automation_settings_form.sync_behind.help',
         ]);
+        $builder->add('mergePullRequests', CheckboxType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.merge_pull_requests.label',
+            'help' => 'board.form.save_board_automation_settings_form.merge_pull_requests.help',
+        ]);
+        $builder->add('changeBase', CheckboxType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.change_base.label',
+            'help' => 'board.form.save_board_automation_settings_form.change_base.help',
+        ]);
     }
 
     #[\Override]
