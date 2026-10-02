@@ -244,6 +244,10 @@ final class ReportWorkerRunStateRequest
             $context->buildViolation('A result status needs the result flag.')->atPath('resultStatus')->addViolation();
         }
 
+        if (null !== $this->resultReason() && true !== $this->hasResult()) {
+            $context->buildViolation('A result reason needs the result flag.')->atPath('resultReason')->addViolation();
+        }
+
         $implied = WorkerRunState::fromOutcome($this->exitCode, $this->hasResult(), $this->resultStatus);
         $matches = WorkerRunState::GaveUp === $state
             ? \in_array($implied, [WorkerRunState::Failed, WorkerRunState::NoResult, WorkerRunState::Unfinished], true)

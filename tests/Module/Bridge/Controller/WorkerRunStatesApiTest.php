@@ -841,6 +841,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         $result = array_merge($outcome, ['hasResult' => true]);
         yield 'an unknown result status' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'done'])];
         yield 'a result status with no result flag' => [array_merge($outcome, ['state' => 'no-result', 'hasResult' => false, 'resultStatus' => 'blocked'])];
+        yield 'a result reason with no result flag' => [array_merge($outcome, ['state' => 'no-result', 'hasResult' => false, 'resultReason' => 'stacked'])];
         yield 'succeeded with a blocked status' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'blocked'])];
         yield 'blocked with a non-zero exit code' => [array_merge($result, ['state' => 'blocked', 'exitCode' => 1, 'resultStatus' => 'blocked'])];
         yield 'unfinished with no result' => [array_merge($outcome, ['state' => 'unfinished', 'hasResult' => false])];
