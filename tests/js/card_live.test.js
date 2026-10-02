@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const live = vi.hoisted(() => ({ subscriptions: [] }));
 
@@ -90,7 +90,7 @@ function subscription() {
 }
 
 function cardChanged(change = {}) {
-    subscription().handler({
+    return subscription().handler({
         type: 'board.card_changed',
         cardId: CARD,
         change: 'moved',
@@ -552,4 +552,165 @@ it('stops listening and drops an answer that arrives after it disconnects', asyn
     resolve({ ok: true, text: async () => page(cardHtml({ column: 'Done' })) });
     await vi.advanceTimersByTimeAsync(0);
     expect(root.querySelector('[data-column]').textContent).toBe('Next');
+});
+
+function tracked(promise) {
+    const state = { settled: false };
+    promise.then(() => (state.settled = true));
+
+    return state;
+}
+
+describe('the promise of a change', () => {
+    it('answers none for a change it ignores', async () => {
+        vi.stubGlobal('Turbo', { visit: vi.fn() });
+        await mount();
+        expect(
+            cardChanged({ cardId: '0199aaaa-0000-7000-8000-000000000002' }),
+        ).toBeUndefined();
+        expect(cardChanged({ local: true, own: true })).toBeUndefined();
+        expect(cardChanged({ change: 'deleted' })).toBeUndefined();
+    });
+
+    it('settles when the morph shows the change, and not before', async () => {
+        const root = await mount();
+        let resolve;
+        fetch.mockImplementationOnce(
+            () => new Promise((done) => (resolve = done)),
+        );
+        const change = tracked(cardChanged());
+        await settle();
+        expect(change.settled).toBe(false);
+
+        resolve({
+            ok: true,
+            text: async () => page(cardHtml({ column: 'Done' })),
+        });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(root.querySelector('[data-column]').textContent).toBe('Done');
+        expect(change.settled).toBe(true);
+    });
+
+    it('keeps an earlier change waiting for the read that a newer change starts', async () => {
+        const root = await mount();
+        fetch.mockImplementationOnce(
+            (url, options) =>
+                new Promise((done, fail) =>
+                    options.signal.addEventListener('abort', () =>
+                        fail(new DOMException('Aborted', 'AbortError')),
+                    ),
+                ),
+        );
+        const first = tracked(cardChanged());
+        await settle();
+        let resolve;
+        fetch.mockImplementationOnce(
+            () => new Promise((done) => (resolve = done)),
+        );
+        const second = tracked(cardChanged());
+        await settle();
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(first.settled).toBe(false);
+
+        resolve({
+            ok: true,
+            text: async () => page(cardHtml({ column: 'Done' })),
+        });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(root.querySelector('[data-column]').textContent).toBe('Done');
+        expect(first.settled).toBe(true);
+        expect(second.settled).toBe(true);
+    });
+
+    it('waits through a retry, and settles after the last one fails', async () => {
+        await mount();
+        responses.push(
+            ...Array.from({ length: 4 }, () => ({ ok: false, status: 500 })),
+        );
+        const change = tracked(cardChanged());
+        await settle();
+        await vi.advanceTimersByTimeAsync(
+            RETRY_MILLISECONDS.slice(0, -1).reduce((sum, wait) => sum + wait),
+        );
+        expect(change.settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(RETRY_MILLISECONDS.at(-1));
+        expect(fetch).toHaveBeenCalledTimes(1 + RETRY_MILLISECONDS.length);
+        expect(change.settled).toBe(true);
+    });
+
+    it('settles on an answer that a retry cannot fix', async () => {
+        await mount();
+        responses.push({ ok: false, status: 404 });
+        const change = tracked(cardChanged());
+        await settle();
+        expect(change.settled).toBe(true);
+    });
+
+    it('waits while an open dialog holds the update, and settles when the read after it closes renders', async () => {
+        const root = await mount();
+        const dialog = root.querySelector('#delete');
+        dialog.setAttribute('open', '');
+        const change = tracked(cardChanged());
+        await settle();
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(fetch).not.toHaveBeenCalled();
+        expect(change.settled).toBe(false);
+
+        answer(cardHtml({ column: 'Done' }));
+        dialog.removeAttribute('open');
+        dialog.dispatchEvent(new Event('close'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(root.querySelector('[data-column]').textContent).toBe('Done');
+        expect(change.settled).toBe(true);
+    });
+
+    it('keeps waiting when a dialog opens while a read runs', async () => {
+        const root = await mount();
+        const dialog = root.querySelector('#delete');
+        let resolve;
+        fetch.mockImplementationOnce(
+            () => new Promise((done) => (resolve = done)),
+        );
+        const change = tracked(cardChanged());
+        await settle();
+        dialog.setAttribute('open', '');
+        resolve({
+            ok: true,
+            text: async () => page(cardHtml({ column: 'Done' })),
+        });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(change.settled).toBe(false);
+
+        answer(cardHtml({ column: 'Done' }));
+        dialog.removeAttribute('open');
+        dialog.dispatchEvent(new Event('close'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(root.querySelector('[data-column]').textContent).toBe('Done');
+        expect(change.settled).toBe(true);
+    });
+
+    it('settles when it disconnects while a dialog holds the update', async () => {
+        const root = await mount();
+        root.querySelector('#delete').setAttribute('open', '');
+        const change = tracked(cardChanged());
+        await settle();
+        expect(change.settled).toBe(false);
+
+        root.remove();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(change.settled).toBe(true);
+    });
+
+    it('settles when it disconnects with a read in flight', async () => {
+        const root = await mount();
+        fetch.mockImplementationOnce(() => new Promise(() => {}));
+        const change = tracked(cardChanged());
+        await settle();
+        expect(change.settled).toBe(false);
+
+        root.remove();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(change.settled).toBe(true);
+    });
 });

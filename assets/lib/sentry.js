@@ -4,6 +4,7 @@ import {
     scrubSpan,
     scrubTransaction,
 } from './sentry_scrub.js';
+import { enableSpans } from './sentry_spans.js';
 
 function meta(name) {
     return document.querySelector(`meta[name="${name}"]`)?.content ?? null;
@@ -71,6 +72,7 @@ export function initSentry(Sentry = window.Sentry) {
         Sentry.getCurrentScope().setTransactionName(route() ?? undefined);
     nameScope();
     document.addEventListener('turbo:load', nameScope);
+    enableSpans(Sentry);
 
     return true;
 }
