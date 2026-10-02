@@ -616,6 +616,40 @@ The reverse also applies. When you close the epic pull request on GitHub and
 none merged, the card goes back to the Backlog after about ten minutes, as for
 any card.
 
+### The epic branch
+
+A repository profile can give each epic its own branch. Its `.loupe/lifecycle.md`
+file then holds an `Epics` section. Under that profile, the breakdown of epic
+number n pushes a branch `epic/<n>` from `main`.
+
+Each child of the epic starts from `epic/<n>`, and its pull request targets
+`epic/<n>`. A child that waits on blockers starts when they are done, so its
+branch already holds their code. Before a merge, the merge stage updates the
+child branch when it is behind `epic/<n>`. When the required checks pass, the
+stage squash-merges the child into `epic/<n>`. That merge needs no approval.
+
+A merged child moves to `done` as any card does. Its code is on `epic/<n>`, and
+not yet on `main`. The epic card stays open until its own pull request merges.
+
+After the first child merge, the merge stage opens a draft pull request from
+`epic/<n>` to `main` and links it to the epic. GitHub refuses a pull request
+with no changes, so the stage cannot open it earlier. From then on, the epic
+pull request behaves as the section above says. You approve it once, and the
+merge stage squash-merges it into `main`.
+
+Two cases do not work yet. The stage that meets one records a block on the
+epic card:
+
+- The epic pull request falls behind `main`. Loupe does not update it yet.
+- The epic pull request gets review feedback. A fix round cannot push to
+  `epic/<n>`, because the branch accepts changes through pull requests only.
+
+An epic with one child can close before the stage links its pull request. The
+merge stage then records a block on the epic card.
+
+An epic whose breakdown ran before its profile had an `Epics` section has no
+`epic/<n>` branch. Its children keep their pull requests to `main`.
+
 ## What a card holds
 
 | Field | What it is |
@@ -760,6 +794,7 @@ gets these requests. A card in a terminal column never gets one.
 | **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
 | **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
+| **Comment on a pull request when new commits follow its approval** | off | When on, Loupe posts one comment for each new head that the approval does not cover |
 | **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base, one at a time |
 
 The comment gives the reason for the fix and the failed checks. It also gives
@@ -777,6 +812,15 @@ cause. The tab hides it when a later comment posts, or when you turn the
 setting off. The GitHub App must
 have Pull requests: read and write. The comment needs a bridge that reports
 the event that queued a run. An older bridge sends none, so no comment posts.
+
+An approval that does not cover the newest commit starts no merge. GitHub says
+which commit the approval covers. When the approval comment setting is on, Loupe posts
+one comment on the pull request, such as "Not merged: commit `abc1234` came
+after your approval. Approve the new head to merge." Each head gets one
+comment at most. A push of another commit gets a new comment. The setting needs
+**Send fix and merge requests** on, and the GitHub App must have Pull requests:
+read and write. A comment that fails retries like a fix run comment. The tab
+does not show its failure.
 
 The sync setting keeps approved work up to date with its base, so it can merge.
 Loupe syncs one pull request of the project at a time. It picks the pull

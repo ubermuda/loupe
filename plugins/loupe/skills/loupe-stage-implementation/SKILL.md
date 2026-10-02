@@ -34,17 +34,17 @@ Build the approved tech design of one card into a ready, linked pull request. An
 5. Choose the mode, in this order, per `references/breakdown.md`:
    - A Breakdown child builds only the entry that its body names, from step 6 on.
    - A standalone child builds its own tech design as any other card, from step 6 on.
-   - An epic, or a card whose tech design has a Breakdown section, runs the breakdown. It gets no worktree and no code. Run the five breakdown steps. Their last step moves each child with no open blocker from the default column to `implementation`. Those are the only moves this mode makes (contract rule 4). Stop with `STAGE RESULT: breakdown <n> children, <m> started`.
+   - An epic, or a card whose tech design has a Breakdown section, runs the breakdown. It gets no worktree and no code. Run the six breakdown steps, which push the epic branch when the profile has an `Epics` section. Their last step moves each child with no open blocker from the default column to `implementation`. Those are the only moves this mode makes (contract rule 4). Stop with `STAGE RESULT: breakdown <n> children, <m> started`.
    - Every other card continues at step 6.
 6. Read each linked pull request with the forge adapter. An open one on a `card-<number>-` branch: take step 7, restore it per "Reruns", and skip to the gate. Any other open one: stop with `STAGE RESULT: open pull request exists <url>`.
 7. Read `references/commands.md` and the profile, and load its `Instruction files`.
-8. From the main checkout, create the card worktree on a `card-<number>-<short-slug>` branch, per `references/commands.md`.
+8. From the main checkout, find the base branch, and create the card worktree on a `card-<number>-<short-slug>` branch, per `references/commands.md`. A child of an epic with an epic branch takes that branch as its base.
 9. Bind writes to the worktree, and verify it. When that fails, stop with `STAGE RESULT: blocked: worktree binding failed`.
 10. Load `loupe-documents`. Write the plan, and submit it tagged `plan`, referencing the tech design id. Link it (contract rule 5).
 11. Run the plan task by task. Dispatch a sub-agent for each implementer and reviewer (contract rule 6).
 12. Run the gate in `references/commands.md`.
 13. Push, open or link the pull request, add its changelog entry, and push. Link it (contract rule 5).
 14. Stop with `STAGE RESULT: waiting <pr url>`. Never wait for CI, and never move the card. The app reads the checks of the pushed head. It sends a fix request when a check fails, and it moves the card when the checks pass.
-15. When a step above cannot go on, record the block as `references/commands.md` says. Stop with `STAGE RESULT: blocked: <reason>`.
+15. When a step above cannot go on, record the block as `references/commands.md` says. When a pull request exists, post the refusal comment as it says. Stop with `STAGE RESULT: blocked: <reason>`.
 
 Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. Set the structured result as the table in `../loupe-stage-product-design/references/stage-contract.md` "Final reply" says.
