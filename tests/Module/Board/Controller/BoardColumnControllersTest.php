@@ -11,6 +11,7 @@ use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Form\ConfigureBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -57,6 +58,28 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->client->followRedirect();
         self::assertSelectorExists('[data-board-column-settings]');
         self::assertSame(['backlog', 'next', 'in-progress', 'done', 'parked'], $this->slugs($project));
+    }
+
+    public function test_settings_saves_the_terminal_window_and_refuses_a_window_out_of_range(): void
+    {
+        [, $project] = $this->ownedBoard('columns-settings-window@example.com');
+        $url = '/projects/'.$project->id.'/settings/columns';
+        $crawler = $this->settings($project);
+        self::assertSame('3', $crawler->filter('input[name="save_board_terminal_window_form[terminalWindowDays]"]')->attr('value'));
+
+        $crawler = $this->client->submit($crawler->filter('form[name="save_board_terminal_window_form"]')->form(['save_board_terminal_window_form[terminalWindowDays]' => '0']));
+        self::assertResponseStatusCodeSame(422);
+        self::assertCount(1, $crawler->filter('[data-board-column-settings]'));
+        self::assertNotSame('', trim($crawler->filter('form[name="save_board_terminal_window_form"] .lp-field-errors')->text()));
+        self::assertSame(3, $this->terminalWindowDays($project));
+
+        $this->client->submit($crawler->filter('form[name="save_board_terminal_window_form"]')->form(['save_board_terminal_window_form[terminalWindowDays]' => '1']));
+        self::assertResponseRedirects($url);
+        $crawler = $this->client->followRedirect();
+        self::assertSame(1, $this->terminalWindowDays($project));
+        self::assertSame('1', $crawler->filter('input[name="save_board_terminal_window_form[terminalWindowDays]"]')->attr('value'));
+        self::assertSelectorTextContains('body', 'The board now shows the cards finished in the last day.');
+        self::assertStringContainsString('Finished in the last day.', $this->board($project)->filter('.lp-board__column-note')->text());
     }
 
     public function test_the_add_dialog_preselects_a_colour_no_column_uses_and_saves_the_one_chosen(): void
@@ -400,6 +423,7 @@ final class BoardColumnControllersTest extends WebTestCase
         yield 'rename preview' => [Request::METHOD_GET, 'rename-preview'];
         yield 'delete' => [Request::METHOD_POST, 'delete'];
         yield 'configure' => [Request::METHOD_POST, 'configure'];
+        yield 'terminal window' => [Request::METHOD_POST, '/terminal-window'];
     }
 
     #[DataProvider('managedRoutes')]
@@ -462,6 +486,17 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->client->loginUser($owner);
 
         return [$owner, $project];
+    }
+
+    private function terminalWindowDays(Project $project): int
+    {
+        $this->em->clear();
+        $automation = static::getContainer()->get(BoardAutomation::class);
+        self::assertInstanceOf(BoardAutomation::class, $automation);
+        $stored = $this->em->find(Project::class, $project->id);
+        self::assertInstanceOf(Project::class, $stored);
+
+        return $automation->settingsOf($stored)->terminalWindowDays;
     }
 
     private function board(Project $project): Crawler

@@ -11,6 +11,7 @@ use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
@@ -21,8 +22,6 @@ use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
 {
-    public const int TERMINAL_WINDOW_DAYS = BoardColumnCards::TERMINAL_WINDOW_DAYS;
-
     public function __construct(
         private CardRepository $cards,
         private BoardColumnRepository $boardColumns,
@@ -36,6 +35,7 @@ final readonly class ShowBoardHandler
         private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
         private RacingBridgeRules $racingRules,
+        private BoardAutomation $automation,
     ) {
     }
 
@@ -44,13 +44,15 @@ final readonly class ShowBoardHandler
         $project = $command->project;
         $columns = [];
         $backlog = null;
+        $terminalWindowDays = $this->automation->settingsOf($project)->terminalWindowDays;
+        $windowStart = BoardColumnCards::windowStart($terminalWindowDays);
 
         foreach ($this->boardColumns->findForProject($project) as $column) {
             if ($column->backlog) {
                 $backlog = $column;
                 continue;
             }
-            $shown = $this->columnCards->shown($column);
+            $shown = $this->columnCards->shown($column, $windowStart);
             $columns[] = new BoardColumnView(
                 $column,
                 $shown,
@@ -118,7 +120,7 @@ final readonly class ShowBoardHandler
         return new BoardView(
             $project,
             $columns,
-            self::TERMINAL_WINDOW_DAYS,
+            $terminalWindowDays,
             $backlog,
             $this->cards->countInColumn($backlog),
             $pendingComments,

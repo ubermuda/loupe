@@ -20,6 +20,8 @@ use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
+use App\Module\Board\Form\SaveBoardTerminalWindowFormType;
+use App\Module\Board\Form\SaveBoardTerminalWindowRequest;
 use App\Module\Board\Form\SetCardLaneFormType;
 use App\Module\Board\Form\SetCardLaneRequest;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -85,6 +87,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             new TwigFunction('card_digest', $this->cardDigest(...)),
             new TwigFunction('lane_head_digest', $this->digest->forLaneHead(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
+            new TwigFunction('board_terminal_window_form', $this->boardTerminalWindowForm(...)),
             new TwigFunction('board_column_configure_form', $this->boardColumnConfigureForm(...)),
             new TwigFunction('board_column_delete_form', $this->boardColumnDeleteForm(...)),
             new TwigFunction('board_columns_reorder_form', $this->boardColumnsReorderForm(...)),
@@ -187,6 +190,11 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
         return $refused ?? $this->formFactory->create(AddBoardColumnFormType::class, new AddBoardColumnRequest(
             tone: $this->tonePicker->pick($this->boardColumns->findForProject($project)),
         ))->createView();
+    }
+
+    public function boardTerminalWindowForm(int $terminalWindowDays, ?FormView $refused = null): FormView
+    {
+        return $refused ?? $this->formFactory->create(SaveBoardTerminalWindowFormType::class, new SaveBoardTerminalWindowRequest($terminalWindowDays))->createView();
     }
 
     /**
