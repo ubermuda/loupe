@@ -2,8 +2,9 @@
 // secret, so no path or query leaves the browser. Asset URLs stay whole.
 const URL_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi;
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-// A browser error can name a same-origin path with no scheme.
-const PATH_PATTERN = /(^|[\s"'(=])\/(?!\/|assets\/)[^\s"'<>)]+/g;
+// A browser error can name a path, or a URL with no scheme such as //host/x.
+const PATH_PATTERN = /(^|[\s"'(=])\/(?!assets\/)[^\s"'<>)]+/g;
+const SELECTOR_ID = /#[^\s.#[>]+/g;
 const URL_DATA_KEYS = new Set([
     'url',
     'http.url',
@@ -64,9 +65,12 @@ function scrubLocation(text) {
 }
 
 // The SDK builds a selector from tag, id, classes, then the values of
-// aria-label, type, name, title and alt, which can hold user content.
+// aria-label, type, name, title and alt. Those values and a heading id, which
+// the Markdown renderer derives from the text, can hold user content.
 export function scrubSelector(selector) {
-    const stripped = selector.replace(SELECTOR_ATTRIBUTE, '');
+    const stripped = selector
+        .replace(SELECTOR_ATTRIBUTE, '')
+        .replace(SELECTOR_ID, '');
 
     return stripped.includes('"') ? '[Filtered]' : stripped;
 }

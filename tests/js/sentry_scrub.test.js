@@ -31,7 +31,13 @@ describe('redact', () => {
         ).toBe('GET [path] failed ("[path]")');
     });
 
-    it('keeps an asset path and a protocol-relative URL host', () => {
+    it('replaces a URL with no scheme', () => {
+        expect(redact('load //app.test/reset/secret?token=x failed')).toBe(
+            'load [path] failed',
+        );
+    });
+
+    it('keeps an asset path and text with a slash inside a word', () => {
         expect(redact('at /assets/app-abc.js')).toBe('at /assets/app-abc.js');
         expect(redact('a/b and 1/2')).toBe('a/b and 1/2');
     });
@@ -42,12 +48,12 @@ describe('redact', () => {
 });
 
 describe('scrubSelector', () => {
-    it('drops attribute values and keeps tag, id and classes', () => {
+    it('drops attribute values and ids, and keeps tags and classes', () => {
         expect(
             scrubSelector(
-                'div#board.lp-board > span.lp-board-card__parent[title="Fix the login page"]',
+                'div#board.lp-board > h2#fix-the-login-page > span.lp-board-card__parent[title="Fix the login page"]',
             ),
-        ).toBe('div#board.lp-board > span.lp-board-card__parent');
+        ).toBe('div.lp-board > h2 > span.lp-board-card__parent');
     });
 
     it('drops several attributes on one element', () => {
