@@ -939,9 +939,6 @@
     .lp-board-list {
         @apply overflow-x-auto rounded-xl border border-line bg-surface-1;
     }
-    .lp-board-list[hidden] {
-        @apply hidden;
-    }
     .lp-board-list__header,
     .lp-board-list__row {
         display: grid;
