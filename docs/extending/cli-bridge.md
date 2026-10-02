@@ -882,6 +882,28 @@ a worker, the bridge reads the card. When the card is no longer in the column
 that the event names, the bridge drops the event and logs `event_stale`. When
 the read fails, the event runs.
 
+### Held cards
+
+A person pauses the agents on a card, and Loupe then holds the card. Loupe
+writes a `board.card_held` event when a person pauses the agents, and a
+`board.card_released` event when a person lets them run again. Both events
+carry `type`, `subject` with the card id, `projectId` and `actor`, which is
+`human`.
+
+`GET /api/card-holds` returns the held cards of every project that the user
+owns, in the order of the holds.
+
+```json
+{
+  "holds": [
+    {"projectId": "0192f3a1-...", "cardId": "01a0a1b2-..."}
+  ]
+}
+```
+
+The list is empty when no card is held. The route needs an agent-scoped token,
+and allows 60 calls per minute per token. An older server answers `404`.
+
 ## The inbox.ask_closed event
 
 Loupe writes `inbox.ask_closed` when an [inbox](../using/inbox.md) ask closes
