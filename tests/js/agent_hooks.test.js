@@ -55,6 +55,8 @@ describe('no-full-ci.sh', () => {
         ['just phpunit --log-junit tests/results.xml', 'deny'],
         ['just phpunit --log-junit=var/junit.xml tests/Module/Board', 'allow'],
         ['just phpunit --testdox-summary tests/Module/Board', 'allow'],
+        ['just phpunit --log-otr tests/report.xml', 'deny'],
+        ['just phpunit --coverage-openclover tests/report.xml', 'deny'],
         ['just phpunit --coverage-text tests/Module/Board', 'allow'],
         ['just phpunit --filter FooTest', 'allow'],
         ['just phpunit --filter=FooTest', 'allow'],
