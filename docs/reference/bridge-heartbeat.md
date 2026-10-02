@@ -418,6 +418,6 @@ report time, the pause state and the capabilities. It holds the commands in
 
 Deleting a project deletes its work requests. The data export holds the work
 requests of the projects the account owns in `bridge_work_requests.json`. Each
-row has its project, its card, its kind, its capability, its rule, its state,
-its bridge, its claim count, its lease, its reason and its times. The claim
+row has its project, its card, its kind, its capability and its rule. It also
+has its state, its bridge, its claim count, its lease, its reason and its times. The claim
 token stays out of the export, because a bridge uses it as a credential.
