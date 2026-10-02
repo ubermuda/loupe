@@ -61,6 +61,8 @@ class CardPullRequestRepository extends ServiceEntityRepository
             ->setParameter('forge', $forge)
             ->setParameter('repository', mb_strtolower($repository))
             ->setParameter('number', $number)
+            ->orderBy('card.number')
+            ->addOrderBy('link.id')
             ->getQuery()
             ->getResult();
     }
