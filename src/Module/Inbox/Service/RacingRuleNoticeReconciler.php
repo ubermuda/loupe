@@ -7,6 +7,7 @@ namespace App\Module\Inbox\Service;
 use App\Module\Board\Command\RacingBridgeRuleView;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Service\RacingBridgeRules;
+use App\Module\Bridge\Service\BridgeLabels;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -31,6 +32,7 @@ final readonly class RacingRuleNoticeReconciler
         private InboxSearchIndexer $searchIndexer,
         private InboxOpenCountPublisher $openCount,
         private InboxAvailability $inbox,
+        private BridgeLabels $bridgeLabels,
     ) {
     }
 
@@ -55,7 +57,10 @@ final readonly class RacingRuleNoticeReconciler
             }
 
             $title = self::title($racing);
-            $body = self::body($racing);
+            $body = self::body($racing, $this->bridgeLabels->forOwner($project->owner, array_values(array_unique(array_map(
+                static fn (RacingBridgeRuleView $rule): string => $rule->bridgeId,
+                $racing,
+            )))));
             if (null === $notice) {
                 $notice = new InboxItem(
                     project: $project,
@@ -104,14 +109,30 @@ final readonly class RacingRuleNoticeReconciler
         return 1 === \count($racing) ? 'A bridge rule races the app sync' : \sprintf('%d bridge rules race the app sync', \count($racing));
     }
 
-    /** @param non-empty-list<RacingBridgeRuleView> $racing */
-    private static function body(array $racing): string
+    /**
+     * @param non-empty-list<RacingBridgeRuleView> $racing
+     * @param array<string, string>                $labels bridge id => its label
+     */
+    private static function body(array $racing, array $labels): string
     {
         $lines = array_map(
-            static fn (RacingBridgeRuleView $rule): string => \sprintf('- `%s` on bridge `%s`', $rule->name, mb_substr($rule->bridgeId, 0, 8)),
+            static fn (RacingBridgeRuleView $rule): string => \sprintf('- %s on bridge %s', self::code($rule->name), self::code($labels[$rule->bridgeId])),
             $racing,
         );
 
         return implode("\n", $lines)."\n\nThe app syncs a pull request that is behind. Remove each rule on `pull_request.behind` from rules.yaml.";
+    }
+
+    /** A Markdown code span that a backtick in the bridge-written text cannot close. */
+    private static function code(string $text): string
+    {
+        preg_match_all('/`+/', $text, $runs);
+        $longest = max([0, ...array_map(strlen(...), $runs[0])]);
+        if (0 === $longest) {
+            return '`'.$text.'`';
+        }
+        $fence = str_repeat('`', $longest + 1);
+
+        return $fence.' '.$text.' '.$fence;
     }
 }

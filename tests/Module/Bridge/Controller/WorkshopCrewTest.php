@@ -21,6 +21,8 @@ final class WorkshopCrewTest extends WebTestCase
         $otherProject = $this->project($em, $owner, 'Other project');
         $healthy = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: 'healthy-version');
         $stale = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: 'stale-version', lastSeenAt: new \DateTimeImmutable('-1 day'));
+        $healthy->name = 'laptop';
+        $em->flush();
         $this->seedBridge($em, $owner, projects: [(string) $otherProject->id], cliVersion: 'other-project-version');
         $stranger = $this->user($em, 'workshop-crew-stranger@example.com');
         $this->seedBridge($em, $stranger, projects: [(string) $project->id], cliVersion: 'foreign-version');
@@ -34,6 +36,8 @@ final class WorkshopCrewTest extends WebTestCase
         self::assertSelectorTextContains('[data-workshop-connection="'.$healthy->id.'"]', 'healthy-version');
         self::assertSelectorTextSame('[data-workshop-connection="'.$healthy->id.'"] .lp-workshop-crew__status', 'Healthy');
         self::assertSelectorTextSame('[data-workshop-connection="'.$stale->id.'"] .lp-workshop-crew__status', 'Stale');
+        self::assertSelectorTextSame('[data-workshop-connection="'.$healthy->id.'"] [data-bridge-label]', 'laptop');
+        self::assertSelectorTextSame('[data-workshop-connection="'.$stale->id.'"] [data-bridge-label]', substr((string) $stale->id, -12));
         self::assertStringNotContainsString('other-project-version', $crawler->text());
         self::assertStringNotContainsString('foreign-version', $crawler->text());
         self::assertSelectorNotExists('[data-workshop-crew-empty]');

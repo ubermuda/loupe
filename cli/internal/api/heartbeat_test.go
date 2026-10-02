@@ -297,3 +297,27 @@ func TestAnEmptyCapabilityListIsSent(t *testing.T) {
 		}
 	}
 }
+
+func TestHeartbeatSendsTheNameOnlyWhenSet(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+
+	empty, named := "", "studio"
+	for want, name := range map[string]*string{
+		`{"projects":[],"cliVersion":"v"}`:                 nil,
+		`{"projects":[],"cliVersion":"v","name":""}`:       &empty,
+		`{"projects":[],"cliVersion":"v","name":"studio"}`: &named,
+	} {
+		if _, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Name: name}); err != nil {
+			t.Fatal(err)
+		}
+		if body != want {
+			t.Fatalf("body = %s, want %s", body, want)
+		}
+	}
+}

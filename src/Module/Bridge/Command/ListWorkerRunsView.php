@@ -13,6 +13,7 @@ final readonly class ListWorkerRunsView
      * @param list<WorkerRunListItem> $items
      * @param list<int|null>          $pageList
      * @param list<Uuid>              $bridgeIds
+     * @param array<string, string>   $bridgeLabels RFC 4122 bridge id => its label
      */
     public function __construct(
         public array $items,
@@ -23,6 +24,7 @@ final readonly class ListWorkerRunsView
         public ?int $clampedPage,
         public int $page,
         public int $perPage,
+        public array $bridgeLabels = [],
     ) {
     }
 }

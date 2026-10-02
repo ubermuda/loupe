@@ -22,6 +22,7 @@ final readonly class RecordBridgeHeartbeatCommand
      * @param list<WorkerPoolRow>|null $workerPools  null keeps the stored rows, because a bridge that predates worker pools sends none
      * @param bool|null                $paused       null keeps the stored value, because a bridge that predates the pause sends none
      * @param list<string>|null        $capabilities null keeps the stored names, because a bridge that predates capabilities sends none
+     * @param string|null              $name         null keeps the stored names, because a bridge that predates names sends none; '' clears both; any other value claims the name
      */
     public function __construct(
         public User $owner,
@@ -35,6 +36,7 @@ final readonly class RecordBridgeHeartbeatCommand
         public ?bool $paused = null,
         public ?array $capabilities = null,
         public ?CliInstallMethod $installMethod = null,
+        public ?string $name = null,
     ) {
     }
 }

@@ -666,6 +666,8 @@ type Heartbeat struct {
 	// server holds.
 	Paused       *bool    `json:"paused,omitempty"`
 	Capabilities []string `json:"capabilities,omitzero"`
+	// Name sends no key when nil, which keeps the stored name, and "" clears it.
+	Name *string `json:"name,omitempty"`
 }
 
 // HeartbeatReply is what the server answers to a heartbeat. Paused is nil when

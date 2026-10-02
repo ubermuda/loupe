@@ -532,15 +532,17 @@ func startEvents(ctx context.Context, cfg config.Config, set *rules.Set) (api.Ev
 	return events, nil
 }
 
-// heartbeatBody names the projects the rule file maps, by id, and the CLI
-// version.
+// heartbeatBody names the projects the rule file maps, by id, the CLI version
+// and the bridge name.
 func heartbeatBody(set *rules.Set) api.Heartbeat {
 	ids := []string{}
 	for _, slug := range set.Projects() {
 		ids = append(ids, set.ProjectID(slug))
 	}
 
-	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion()}
+	name := set.Name()
+
+	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Name: &name}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:
