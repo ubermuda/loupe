@@ -10,8 +10,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * Deletes the card holds, the commands, the run rows, the usage rows, the
- * experiment pins and the experiment weights of a project that is going away.
+ * Deletes the card holds, the commands, the work requests, the run rows, the
+ * usage rows, the experiment pins and the experiment weights of a project that
+ * is going away.
  * A usage row outlives its run, so it goes on its own. Runs inside
  * ProjectDeleter's transaction.
  */
@@ -36,6 +37,10 @@ final readonly class DeleteWorkerRunsOnProjectDeleting
 
         $this->em->createQuery(
             'DELETE App\Module\Bridge\Entity\BridgeCommand c WHERE c.project = :project',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
+            'DELETE App\Module\Bridge\Entity\WorkRequest w WHERE w.project = :project',
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(

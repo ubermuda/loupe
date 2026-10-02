@@ -527,6 +527,34 @@ func TestTheBridgeReadsTheCardBeforeItResumes(t *testing.T) {
 	}
 }
 
+// The reason rides the outcome trimmed. Loupe refuses a report whose reason is
+// no kebab-case code of at most 40 characters, so the bridge drops such a reason.
+func TestTheOutcomeCarriesTheResultReason(t *testing.T) {
+	for name, tc := range map[string]struct{ reason, want string }{
+		"a code":          {"needs-owner", "needs-owner"},
+		"padded":          {"  ci-red\n", "ci-red"},
+		"none":            {"", ""},
+		"40 characters":   {"a" + strings.Repeat("b", 39), "a" + strings.Repeat("b", 39)},
+		"41 characters":   {"a" + strings.Repeat("b", 40), ""},
+		"capitals":        {"Needs-Owner", ""},
+		"a leading digit": {"1-fail", ""},
+		"a space inside":  {"needs owner", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			rec := h.states()
+			h.worker.result = workerResult{hasResult: true, status: "blocked", reason: tc.reason}
+
+			h.send(cardMoved(87))
+
+			sent := rec.states()
+			if got := outcomeOf(t, sent, runIDs(sent)[0]); got.ResultReason != tc.want {
+				t.Fatalf("ResultReason = %q, want %q", got.ResultReason, tc.want)
+			}
+		})
+	}
+}
+
 // The result fields ride the outcome, unless their JSON passes the server's
 // limit, when none are sent.
 func TestTheOutcomeCarriesTheResultFields(t *testing.T) {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -117,17 +118,34 @@ func cleanLaunchScripts(root string, now time.Time, log *slog.Logger) {
 	}
 }
 
+// launchAborted is the failure of a launch whose work request ended first.
+const launchAborted = "the work request ended before the session opened"
+
+// errLaunchAborted stops a launch command from starting.
+var errLaunchAborted = errors.New(launchAborted)
+
 // runLauncher runs the launch command and returns why it failed, or "" when it
 // launched. A command still running at the timeout counts as launched. The
-// bridge never kills it, because it may be the terminal the session runs in.
-func runLauncher(argv []string, timeout time.Duration) string {
+// bridge never kills it then, because it may be the terminal the session runs
+// in. A ctx that ends before kills the command, and no session opens.
+//
+// begin starts the command, so a caller can start it under a lock. A nil one
+// starts it at once.
+func runLauncher(ctx context.Context, argv []string, timeout time.Duration, begin func(start func() error) error) string {
 	cmd := exec.Command(argv[0], argv[1:]...)
 	out := &capWriter{limit: 4 * maxLaunchReason}
 	cmd.Stdout, cmd.Stderr = out, out
 	// A launcher can leave a child that holds its output open after it exits.
 	cmd.WaitDelay = launchWaitDelay
 	newProcessGroup(cmd)
-	if err := cmd.Start(); err != nil {
+	if begin == nil {
+		begin = func(start func() error) error { return start() }
+	}
+	err := begin(cmd.Start)
+	if errors.Is(err, errLaunchAborted) {
+		return launchAborted
+	}
+	if err != nil {
 		return err.Error()
 	}
 	// The channel has room, so the reaper never blocks after the timeout.
@@ -136,11 +154,15 @@ func runLauncher(argv []string, timeout time.Duration) string {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
-	var err error
 	select {
 	case err = <-done:
 	case <-timer.C:
 		return ""
+	case <-ctx.Done():
+		_ = signalGroup(cmd.Process.Pid, stopKill)
+		<-done
+
+		return launchAborted
 	}
 	var exitErr *exec.ExitError
 	switch {
@@ -174,17 +196,20 @@ type launch struct {
 	claude  string
 	command rules.Launch
 	dir     string
+	// ctx ends when the work request of the launch is no longer the bridge's.
+	ctx context.Context
 }
 
 // launchLocked opens an interactive session for p on its own goroutine. It
 // takes no worker slot and no card key, so a worker of the card runs beside
-// it. A shut router opens nothing. The caller holds mu.
-func (r *router) launchLocked(p pending) {
+// it. A shut router opens nothing. ctx aborts the launch until its command
+// returns. The caller holds mu.
+func (r *router) launchLocked(p pending, ctx context.Context) {
 	if r.shut() {
 		return
 	}
 	p.spec.sessionID = r.worker.sessionID()
-	l := launch{p: p, claude: r.claude, command: p.set.Launch(), dir: r.scriptDir}
+	l := launch{p: p, claude: r.claude, command: p.set.Launch(), dir: r.scriptDir, ctx: ctx}
 	if l.dir == "" {
 		l.dir = defaultScriptDir()
 	}
@@ -197,19 +222,48 @@ func (r *router) launchLocked(p pending) {
 	}()
 }
 
+// beginLaunch starts the launch command of a work claim under mu, after a last
+// check that the claim holds. endClaimLocked cancels ctx under mu too, so a
+// claim that ends before the start keeps the command from starting. A rule
+// launch starts at once.
+func (r *router) beginLaunch(l launch) func(start func() error) error {
+	if !l.p.isWork() {
+		return nil
+	}
+
+	return func(start func() error) error {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if l.ctx.Err() != nil {
+			return errLaunchAborted
+		}
+
+		return start()
+	}
+}
+
 // runLaunch writes the script, runs the launch command and reports how it went.
 // The count drops under mu with the enqueue, so a drain never misses the report.
 func (r *router) runLaunch(l launch) {
 	p := l.p
 	reason := ""
 	path, err := writeLaunchScript(l.dir, p.spec.sessionID, launchScript(l.claude, p.spec))
-	if err != nil {
+	switch {
+	case l.ctx.Err() != nil:
+		reason = launchAborted
+		if err == nil {
+			os.Remove(path)
+		}
+	case err != nil:
 		reason = err.Error()
-	} else {
+	default:
+		if r.beforeLaunch != nil {
+			r.beforeLaunch()
+		}
 		_, number := cardOf(p.event)
-		reason = runLauncher(l.command.Argv(rules.LaunchValues{
+		reason = runLauncher(l.ctx, l.command.Argv(rules.LaunchValues{
 			Script: path, Dir: p.spec.dir, SessionID: p.spec.sessionID, CardNumber: strconv.Itoa(number), Project: p.project,
-		}), l.command.Timeout)
+		}), l.command.Timeout, r.beginLaunch(l))
 		if reason != "" {
 			os.Remove(path)
 		}
@@ -224,12 +278,20 @@ func (r *router) runLaunch(l launch) {
 	}
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.launching--
 	cardID, number := cardOf(p.event)
-	if !r.reporting() || number < 1 {
-		return
+	if r.reporting() && number >= 1 {
+		report.BridgeID, report.CardID, report.CardNumber, report.RuleName, report.At = r.bridgeID, cardID, number, p.rule, time.Now()
+		r.reports.Enqueue(r.runs.launch(p.event.ProjectID, p.spec.sessionID, report))
 	}
-	report.BridgeID, report.CardID, report.CardNumber, report.RuleName, report.At = r.bridgeID, cardID, number, p.rule, time.Now()
-	r.reports.Enqueue(r.runs.launch(p.event.ProjectID, p.spec.sessionID, report))
+	// A launch of a work request is its whole run, so its result follows.
+	launched := workerResult{command: true}
+	if reason != "" {
+		launched.exitCode = -1
+	}
+	state, why, post := r.workResultLocked(p, launched, false)
+	r.mu.Unlock()
+	if post {
+		r.settleWork(p, state, why)
+	}
 }

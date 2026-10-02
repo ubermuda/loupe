@@ -37,6 +37,7 @@ final readonly class PullRequestSnapshot
         public ?string $approvalId = null,
         /** The head the approval covers, as Loupe judged it. A forge read leaves it null, and apply() ignores it. */
         public ?string $coveredSha = null,
+        public ?string $headBranch = null,
     ) {
     }
 

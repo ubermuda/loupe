@@ -23,15 +23,13 @@ final readonly class ProjectTopicBuilder
     ) {
     }
 
+    /** The legacy topic an outbox row records. Nothing publishes on it. */
     public function forProject(Uuid $projectId): string
     {
         return rtrim($this->appUrl, '/').'/projects/'.$projectId.'/events';
     }
 
-    /**
-     * The topic open boards listen on. A browser gets a token for this topic
-     * only, so it never receives the agent payloads published on forProject().
-     */
+    /** The topic open boards listen on. A browser gets a token for this topic only. */
     public function forBoard(Uuid $projectId): string
     {
         return rtrim($this->appUrl, '/').'/projects/'.$projectId.'/board';

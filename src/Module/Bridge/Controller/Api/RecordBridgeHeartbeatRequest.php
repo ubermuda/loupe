@@ -28,12 +28,16 @@ final class RecordBridgeHeartbeatRequest
     /** Far above the features one bridge reports, and small enough to bound the JSON column. */
     public const int MAX_CAPABILITIES = 20;
 
+    /** Far above the work one bridge runs at a time, and small enough to bound the renewal statement. */
+    public const int MAX_WORK_CLAIMS = 200;
+
     /**
      * @param list<string>|null                $projects
      * @param list<BridgeHookInput>|null       $hooks        null from a bridge that predates hooks
      * @param list<BridgeWorkerPoolInput>|null $workerPools  null from a bridge that predates worker pools
      * @param bool|null                        $paused       null from a bridge that predates the pause
      * @param list<string>|null                $capabilities null from a bridge that predates capabilities
+     * @param list<BridgeWorkClaimInput>|null  $workClaims   null from a bridge that predates work requests
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -66,7 +70,35 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Count(max: self::MAX_CAPABILITIES)]
         #[Assert\Type('list')]
         public ?array $capabilities = null,
+
+        #[Assert\All([new Assert\Type(BridgeWorkClaimInput::class)])]
+        #[Assert\Count(max: self::MAX_WORK_CLAIMS)]
+        #[Assert\Type('list')]
+        #[Assert\Valid]
+        public ?array $workClaims = null,
     ) {
+    }
+
+    /**
+     * The pairs of a request id and its claim token, once each. Null when the
+     * bridge sent no list.
+     *
+     * @return list<array{Uuid, Uuid}>|null
+     */
+    public function workClaims(): ?array
+    {
+        if (null === $this->workClaims) {
+            return null;
+        }
+
+        $claims = [];
+        foreach ($this->workClaims as $claim) {
+            $id = Uuid::fromString($claim->id ?? '');
+            $token = Uuid::fromString($claim->claimToken ?? '');
+            $claims[$id->toRfc4122().' '.$token->toRfc4122()] = [$id, $token];
+        }
+
+        return array_values($claims);
     }
 
     /**

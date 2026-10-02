@@ -146,7 +146,7 @@ func placeholdersOf(on string) []string {
 
 // knownPlaceholder reports whether some event type fills the name.
 func knownPlaceholder(name string) bool {
-	for _, set := range [][]string{cardMovedPlaceholders, askClosedPlaceholders, reviewSubmittedPlaceholders, pullRequestPlaceholders} {
+	for _, set := range [][]string{cardMovedPlaceholders, askClosedPlaceholders, reviewSubmittedPlaceholders, pullRequestPlaceholders, workPlaceholders} {
 		if slices.Contains(set, name) {
 			return true
 		}
@@ -202,6 +202,8 @@ type File struct {
 	AutoUpdate  *bool                 `yaml:"autoUpdate"`
 	MaxWorkers  *int                  `yaml:"maxWorkers"`
 	WorkerPools map[string]WorkerPool `yaml:"workerPools"`
+	// Work maps each work request kind the bridge claims to what it runs.
+	Work map[string]WorkEntry `yaml:"work"`
 }
 
 // WorkerPool is one named share of maxWorkers.
@@ -379,11 +381,15 @@ type Set struct {
 	maxWorkers    int
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
+	// work has the defaults of each worker entry filled.
+	work map[string]WorkEntry
 
-	// dead maps a rule name to the reason it died. The bridge reads and writes
-	// it on the stream goroutine alone. mu guards it for any other caller.
-	mu   sync.RWMutex
-	dead map[string]string
+	// dead maps a rule name to the reason it died, and deadWork a project slug
+	// to the reason its work died. The bridge reads and writes both on the
+	// stream goroutine alone. mu guards them for any other caller.
+	mu       sync.RWMutex
+	dead     map[string]string
+	deadWork map[string]string
 }
 
 // ErrMissing marks a rule file that does not exist.
@@ -419,7 +425,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
+	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
 	var errs []error
 	for _, err := range []error{
 		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
@@ -447,8 +453,8 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 		s.dirs[slug] = dir
 	}
-	if len(f.Rules) == 0 {
-		errs = append(errs, errors.New("the rule file has no rules"))
+	if len(f.Rules) == 0 && len(f.Work) == 0 {
+		errs = append(errs, errors.New("the rule file has no rules and no work"))
 	}
 	s.maxWorkers = DefaultMaxWorkers
 	if f.MaxWorkers != nil {
@@ -478,6 +484,9 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		} else {
 			r.Name = trimmed
 		}
+		if strings.HasPrefix(r.Name, WorkRulePrefix) {
+			errs = append(errs, fmt.Errorf("rule %q: a rule name does not start with %s, which names the runs of work requests", r.Name, WorkRulePrefix))
+		}
 		perProject[r.Project]++
 		if names[r.Name] {
 			errs = append(errs, fmt.Errorf("rule %q: another rule has the same name", r.Name))
@@ -488,12 +497,8 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
 		}
 		if r.Action == "" {
-			pool := cmp.Or(r.WorkerPool, DefaultPool)
-			// A declared pool with an invalid size has its own error already.
-			if _, declared := f.WorkerPools[pool]; !declared && pool != DefaultPool {
-				errs = append(errs, fmt.Errorf("rule %q: workerPool %q is not in workerPools, which declares %s", r.Name, pool, strings.Join(known, ", ")))
-			} else if size, ok := pools[DefaultPool]; ok && size == 0 && pool == DefaultPool {
-				errs = append(errs, fmt.Errorf("rule %q: the default pool has no slot, because workerPools take all %d of maxWorkers; give the rule a workerPool or raise maxWorkers", r.Name, s.maxWorkers))
+			if err := checkPool(r.WorkerPool, f.WorkerPools, pools, known, s.maxWorkers); err != nil {
+				errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
 			}
 		}
 		if r.Experiment != "" {
@@ -528,7 +533,29 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 		s.rules = append(s.rules, r)
 	}
-	launch, err := checkLaunch(f.Launch, slices.ContainsFunc(f.Rules, func(r Rule) bool { return r.Action == ActionInteractive }))
+	for _, kind := range slices.Sorted(maps.Keys(f.Work)) {
+		w := f.Work[kind]
+		if err := checkWork(kind, &w, experiments); err != nil {
+			errs = append(errs, fmt.Errorf("work %q: %w", kind, err))
+		}
+		if w.Action == "" {
+			if err := checkPool(w.WorkerPool, f.WorkerPools, pools, known, s.maxWorkers); err != nil {
+				errs = append(errs, fmt.Errorf("work %q: %w", kind, err))
+			}
+			// A nil map of fields always builds.
+			w.schema, _ = resultSchema(nil)
+			if w.PermissionMode == "" {
+				w.PermissionMode = defaults.PermissionMode
+			}
+			if w.Model == "" && w.Variants == nil {
+				w.Model = defaults.Model
+			}
+		}
+		s.work[kind] = w
+	}
+	interactive := slices.ContainsFunc(f.Rules, func(r Rule) bool { return r.Action == ActionInteractive }) ||
+		slices.ContainsFunc(slices.Collect(maps.Values(f.Work)), func(w WorkEntry) bool { return w.Action == ActionInteractive })
+	launch, err := checkLaunch(f.Launch, interactive)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -541,7 +568,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 	}
 
-	if len(f.Rules) == 0 {
+	if len(f.Rules) == 0 && len(f.Work) == 0 {
 		return nil, withExample(errors.Join(errs...))
 	}
 	if len(errs) > 0 {
@@ -643,7 +670,7 @@ func checkLaunch(c LaunchConfig, interactive bool) (Launch, error) {
 	}
 	if len(c.Command) == 0 {
 		if interactive {
-			errs = append(errs, fmt.Errorf("launch.command is required for a rule with action: %s", ActionInteractive))
+			errs = append(errs, fmt.Errorf("launch.command is required for action: %s", ActionInteractive))
 		}
 
 		return l, errors.Join(errs...)
@@ -706,6 +733,21 @@ func checkPools(budget int, declared map[string]WorkerPool) (map[string]int, []e
 	return pools, errs
 }
 
+// checkPool refuses a pool that workerPools does not declare, and the default
+// pool when it has no slot. A declared pool with an invalid size has its own
+// error already.
+func checkPool(name string, declared map[string]WorkerPool, pools map[string]int, known []string, maxWorkers int) error {
+	pool := cmp.Or(name, DefaultPool)
+	if _, ok := declared[pool]; !ok && pool != DefaultPool {
+		return fmt.Errorf("workerPool %q is not in workerPools, which declares %s", pool, strings.Join(known, ", "))
+	}
+	if size, ok := pools[DefaultPool]; ok && size == 0 && pool == DefaultPool {
+		return fmt.Errorf("the default pool has no slot, because workerPools take all %d of maxWorkers; give it a workerPool or raise maxWorkers", maxWorkers)
+	}
+
+	return nil
+}
+
 // refusal is a set of fields a rule of one action must not set. why takes the
 // name of the field.
 type refusal struct {
@@ -766,6 +808,13 @@ func checkAction(r Rule) []error {
 		"when":           len(r.When) > 0,
 		"workerPool":     r.WorkerPool != "",
 	}
+
+	return append(errs, refuse(table, set)...)
+}
+
+// refuse names each field of set that a refusal of table lists.
+func refuse(table []refusal, set map[string]bool) []error {
+	var errs []error
 	for _, rf := range table {
 		for _, name := range rf.fields {
 			if set[name] {
@@ -990,18 +1039,20 @@ var ResultStatuses = []string{"finished", "blocked", "unfinished", "waiting"}
 // resultFieldPattern is the shape of a result field name.
 var resultFieldPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 
-// resultSchema builds the JSON Schema of a worker's final reply. The extra
-// fields are optional. claude checks each fragment, and the bridge does not.
+// resultSchema builds the JSON Schema of a worker's final reply. The core
+// reason and the extra fields are optional. claude checks each fragment, and
+// the bridge does not.
 func resultSchema(fields map[string]any) (string, error) {
 	props := map[string]any{
 		"status":  map[string]any{"type": "string", "enum": ResultStatuses},
 		"summary": map[string]any{"type": "string"},
+		"reason":  map[string]any{"type": "string"},
 	}
 	var errs []error
 	for _, name := range slices.Sorted(maps.Keys(fields)) {
 		fragment, isMap := fields[name].(map[string]any)
 		switch {
-		case name == "status" || name == "summary":
+		case name == "status" || name == "summary" || name == "reason":
 			errs = append(errs, fmt.Errorf("resultFields: %q is a core field, and every result has it", name))
 		case !resultFieldPattern.MatchString(name):
 			errs = append(errs, fmt.Errorf("resultFields: %q is not a field name, such as prUrl", name))
@@ -1050,9 +1101,11 @@ func (s *Set) Launch() Launch {
 	return Launch{Command: slices.Clone(s.launch.Command), Timeout: s.launch.Timeout}
 }
 
-// HasInteractive reports whether a rule has action interactive.
+// HasInteractive reports whether a rule or a work entry has action
+// interactive.
 func (s *Set) HasInteractive() bool {
-	return slices.ContainsFunc(s.rules, func(r Rule) bool { return r.Action == ActionInteractive })
+	return slices.ContainsFunc(s.rules, func(r Rule) bool { return r.Action == ActionInteractive }) ||
+		slices.ContainsFunc(slices.Collect(maps.Values(s.work)), func(w WorkEntry) bool { return w.Action == ActionInteractive })
 }
 
 // ProjectID is the id Check resolved for a mapped slug.
@@ -1433,11 +1486,17 @@ func (s *Set) KillProject(slug, reason string) []Dead {
 	return s.kill(slug, "", reason)
 }
 
-// kill marks dead the live rules of a project, or with a column only the rules
-// whose to or from names it.
+// kill marks dead the live rules and the work of a project, or with a column
+// only the rules whose to or from names it.
 func (s *Set) kill(slug, column, reason string) []Dead {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if column == "" && s.deadWork[slug] == "" {
+		if s.deadWork == nil {
+			s.deadWork = map[string]string{}
+		}
+		s.deadWork[slug] = reason
+	}
 	var out []Dead
 	for _, r := range s.rules {
 		if r.Project != slug || s.dead[r.Name] != "" {

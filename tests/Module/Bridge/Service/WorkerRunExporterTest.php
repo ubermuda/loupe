@@ -11,6 +11,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunExporter;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\MockObject\Stub;
@@ -81,6 +82,7 @@ final class WorkerRunExporterTest extends TestCase
             'output' => 'all good',
             'receivedAt' => '2026-09-13T10:00:22+00:00',
             'resultStatus' => null,
+            'resultReason' => null,
             'resultFields' => null,
             'continues' => null,
             'resumeIndex' => null,
@@ -177,12 +179,13 @@ final class WorkerRunExporterTest extends TestCase
             resumeCap: 2,
             cardColumn: 'implementation',
         );
-        $resume->recordOutcome(WorkerRunState::GaveUp, new \DateTimeImmutable('2026-09-13T10:00:21+00:00'), 0, true, null, 'CI still runs', 'unfinished', ['pullRequest' => 'https://example.com/pull/1'], 'card_moved');
+        $resume->recordOutcome(WorkerRunState::GaveUp, new \DateTimeImmutable('2026-09-13T10:00:21+00:00'), 0, true, null, 'CI still runs', 'unfinished', ['pullRequest' => 'https://example.com/pull/1'], 'card_moved', WorkerRunReason::WorkRemains);
 
         $rows = iterator_to_array($this->exporter([$resume], [])->export($owner));
 
         self::assertSame('gave-up', $rows[0]['state']);
         self::assertSame('unfinished', $rows[0]['resultStatus']);
+        self::assertSame('work-remains', $rows[0]['resultReason']);
         self::assertSame(['pullRequest' => 'https://example.com/pull/1'], $rows[0]['resultFields']);
         self::assertSame($first->runKey?->toRfc4122(), $rows[0]['continues']);
         self::assertSame(2, $rows[0]['resumeIndex']);

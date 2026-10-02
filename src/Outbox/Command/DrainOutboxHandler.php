@@ -63,7 +63,7 @@ final readonly class DrainOutboxHandler
             try {
                 $ownerId = $event->project->owner->id ?? throw new \LogicException('Project owner has no id.');
                 $this->hub->publish(new Update(
-                    [$event->topic, $this->userTopics->forUser($ownerId)],
+                    [$this->userTopics->forUser($ownerId)],
                     $event->payload,
                     true,
                     id: $event->sequence,

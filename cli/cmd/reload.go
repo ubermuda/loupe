@@ -260,7 +260,7 @@ func (r *router) rewriteLocked(set *rules.Set) []pending {
 	var dropped []pending
 	kept := r.queue[:0]
 	for _, p := range r.queue {
-		m, ok := matchAction(set, p.event, p.rule, p.action)
+		m, ok := matchPending(set, p)
 		if !ok {
 			p.dropReason = api.DropReload
 			dropped = append(dropped, p)

@@ -46,6 +46,9 @@ class ForgePullRequest
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $baseBranch = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    public ?string $headBranch = null;
+
     #[ORM\Column(length: 20, enumType: PullRequestChecks::class)]
     public PullRequestChecks $checks = PullRequestChecks::Pending;
 
@@ -122,6 +125,20 @@ class ForgePullRequest
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $syncedSha = null;
 
+    /** The head of a merge by Loupe in flight. A read clears it when the head moves or the pull request leaves the open state. */
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $mergeRequestedSha = null;
+
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $mergeRequestedAt = null;
+
+    /** The base of a base change by Loupe in flight. A read clears it when the base changes, matches, or the pull request leaves the open state. */
+    #[ORM\Column(length: 255, nullable: true)]
+    public ?string $baseChangeRequestedTo = null;
+
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $baseChangeRequestedAt = null;
+
     /** @var list<string> the newest forge ids of the reviews whose verdict went out, so a redelivered review is announced once */
     #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
     public array $announcedReviewIds = [];
@@ -182,9 +199,19 @@ class ForgePullRequest
             $this->syncRequestedAt = null;
             $this->syncFailedReason = null;
         }
+        $open = PullRequestState::Open === $snapshot->state;
+        if ($headMoved || !$open) {
+            $this->mergeRequestedSha = null;
+            $this->mergeRequestedAt = null;
+        }
+        if (!$open || $snapshot->baseBranch !== $this->baseBranch || $snapshot->baseBranch === $this->baseChangeRequestedTo) {
+            $this->baseChangeRequestedTo = null;
+            $this->baseChangeRequestedAt = null;
+        }
         $this->state = $snapshot->state;
         $this->draft = $snapshot->draft;
         $this->headSha = $snapshot->headSha;
+        $this->headBranch = $snapshot->headBranch;
         $this->baseBranch = $snapshot->baseBranch;
         $this->checks = $snapshot->checks;
         $this->checksSha = $snapshot->checksSha;
@@ -244,6 +271,7 @@ class ForgePullRequest
             $this->headParents,
             $this->approvalId,
             $this->coveredSha,
+            $this->headBranch,
         );
     }
 }

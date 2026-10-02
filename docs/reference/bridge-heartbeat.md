@@ -48,7 +48,8 @@ The path holds no project, because one bridge follows several projects.
 | `hooks` | optional. A list of at most 100 rows, one for each event of each [hook package](../extending/bridge-hooks.md) the bridge runs. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `workerPools` | optional. A list of at most 50 rows, one for each worker pool of the bridge. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `paused` | optional. `true` when the bridge takes no new work now. A missing or `null` value keeps the state the server holds. See [Pause and commands](#pause-and-commands) |
-| `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. A missing or `null` value keeps the list the server holds |
+| `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. `work-requests` says that the bridge claims [work requests](#work-requests), and `interactive` says that it runs an interactive session. A missing or `null` value keeps the list the server holds |
+| `workClaims` | optional. A list of at most 200 rows, one for each work request the bridge holds. Each row has an `id` and a `claimToken`, both uuids. The server renews the lease of each claim the bridge still holds, as [Work requests](#work-requests) says. A missing or `null` value renews nothing |
 
 Each row of `hooks` holds these fields:
 
@@ -116,7 +117,7 @@ heartbeat never delays a run report.
 
 | Status | Body | When |
 |---|---|---|
-| 200 | `{"cliRange":"^1.0","paused":false,"commands":[]}` | the heartbeat is accepted |
+| 200 | `{"cliRange":"^1.0","paused":false,"commands":[],"workRequests":[],"lostClaims":[]}` | the heartbeat is accepted |
 | 401 | | the request carries no token |
 | 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | | `bridgeId` is not a uuid the server accepts, or agent push is switched off on the instance |
@@ -137,6 +138,16 @@ the range answers 204 with no body, and the bridge then checks for no update.
 
 The limit counts per token. Several bridges can share one token, and at the
 default interval each one posts once a minute.
+
+The reply carries these fields:
+
+| Field | Meaning |
+|---|---|
+| `cliRange` | the range of CLI versions the server supports |
+| `paused` | `true` when the server asks the bridge to take no new work. See [Pause and commands](#pause-and-commands) |
+| `commands` | the pending commands of the bridge, oldest first |
+| `workRequests` | the open work requests the bridge can claim, oldest first. It is empty for a bridge that does not report `work-requests`. See [Work requests](#work-requests) |
+| `lostClaims` | the ids from `workClaims` that the bridge no longer holds. It is empty when the body has no `workClaims` |
 
 ## The interval
 
@@ -271,6 +282,139 @@ answer settles a command.
 | 422 | `{"error":"invalid_state"}`, `{"error":"invalid_reason"}` or `{"error":"reason_too_long"}` | the body is invalid |
 | 429 | | the token sent too many reports. The route shares the limit of the [worker run reports](worker-runs.md) |
 
+## Work requests
+
+A work request is a piece of agent work on one card that the server asks a
+bridge to run. One bridge claims it, runs it, and sends the result. No part of
+the app creates a work request yet. A later release does.
+
+A bridge that claims work requests reports the `work-requests` capability. A
+request can also name a capability that the bridge must report, such as
+`interactive`. A request with no capability goes to each bridge that reports
+`work-requests`.
+
+The `loupe` CLI always reports `commands` and `rerun-command`. It reports
+`work-requests` when the `work:` map of its rule file has an entry, and
+`interactive` when an entry has `action: interactive`. Each heartbeat sends
+`workClaims`, with a row for each claim the CLI holds. A CLI that holds no
+claim leaves the key out.
+[The work map](../../cli/README.md#the-work-map) says how the CLI runs a
+request.
+
+The server offers a request to each bridge that follows the project of the
+request and can run it. It sends a `bridge.work_request` event on the topic of
+the project. The heartbeat reply lists the open requests again in
+`workRequests`, so a bridge that missed the event gets the offer at its next
+heartbeat. The reply holds at most 100 requests. The server sends the event
+again each time the state of a request changes, so a bridge drops an offer that
+another bridge claimed. Each request carries these fields:
+
+| Field | Meaning |
+|---|---|
+| `type` | `bridge.work_request` |
+| `projectId` | the project of the card |
+| `subject` | `{"type":"work-request","id":<workRequestId>}` |
+| `workRequestId` | the id of the request |
+| `kind` | the kind of work, such as `implement` |
+| `capability` | the capability a bridge must report to claim the request, or `null` |
+| `state` | `open`, `claimed`, `done`, `refused`, `expired` or `cancelled` |
+| `cardId`, `cardNumber` | the card of the work |
+| `ruleId` | the id of the rule that opened the request |
+| `createdAt` | the time the request opened, as an RFC 3339 date |
+
+The event and the reply never carry the claim token.
+
+### Claiming a request
+
+`POST /api/bridges/{bridgeId}/work-requests/{workRequestId}/claim`
+
+The bridge claims an open request before it starts the work. It uses the same
+token as the heartbeat, and the request has no body. Of two bridges that claim
+one request, one gets the claim and the other gets `already_claimed`.
+
+```json
+{
+  "workRequestId": "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
+  "claimToken": "5b0a4c8e-2f61-4d3a-9c7e-8a1b2c3d4e5f",
+  "leaseUntil": "2026-10-01T12:32:00+00:00",
+  "workRequest": {"type": "bridge.work_request", "state": "claimed"}
+}
+```
+
+`workRequest` holds every field of the table above. The bridge keeps
+`claimToken`, and sends it back with the result and with each heartbeat. The
+server writes a `bridge.work_request_claimed` record to the audit log. The
+record holds no claim token.
+
+| Status | Body | When |
+|---|---|---|
+| 200 | the claim | the bridge holds the claim |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope |
+| 404 | `{"error":"work_request_not_found"}` | the request does not exist, belongs to another account, or belongs to a project the bridge does not follow |
+| 404 | | an id is not a uuid, or agent push is switched off on the instance |
+| 409 | `{"error":"already_claimed"}` | the request is not open. Another bridge holds it, or its state is `done`, `refused`, `expired` or `cancelled` |
+| 422 | `{"error":"unknown_bridge"}` | the server has no heartbeat of this bridge from this account |
+| 422 | `{"error":"capability_missing"}` | the bridge does not report `work-requests`, or the capability the request needs |
+| 429 | | more than 60 claims in one minute from one token |
+
+### The lease
+
+A claim holds a lease of 2 minutes. `app.bridge.work_request_lease_seconds` in
+`config/services.yaml` sets it. Each heartbeat renews the leases of the claims
+it names in `workClaims`. The server renews a claim only when this bridge holds
+it with that token, and the project of the request belongs to the account of
+the heartbeat. The reply names each other id in `lostClaims`. The bridge then
+stops the worker of each lost claim, because another bridge can take the work.
+
+A task runs each minute and opens again each claimed request whose lease ran
+out. It clears the bridge and the token of the claim, and sends a
+`bridge.work_request` event with the state `open`. Another bridge can then claim
+the work of a bridge that stopped. `app.bridge.work_request_reopen_schedule` in
+the same file sets when that task runs. `app:reopen-lapsed-work-requests` runs
+the same sweep once by hand.
+
+The claim stays with its holder after `leaseUntil` passes, until that task
+opens the request again. Until then, the holder can still renew or settle the
+claim. A bridge must therefore treat a claim as lost only when the reply names
+it in `lostClaims`, or when the result answers `claim_lost`.
+
+### Sending the result
+
+`PUT /api/bridges/{bridgeId}/work-requests/{workRequestId}/result`
+
+The bridge sends the result after it ends the work. It uses the same token as
+the heartbeat.
+
+```json
+{"claimToken": "5b0a4c8e-2f61-4d3a-9c7e-8a1b2c3d4e5f", "state": "refused", "reason": "worktree-dirty"}
+```
+
+| Field | Rule |
+|---|---|
+| `claimToken` | required. The token of the claim, a uuid |
+| `state` | required. `done` or `refused` |
+| `reason` | optional. A code, not text. It starts with a lower-case letter, and holds 1 to 64 lower-case letters, digits and hyphens. A blank value reads as no reason |
+
+The claim token fences the claim. A bridge whose lease ran out, and whose
+request another bridge then claimed, gets `claim_lost`, and the result of the
+new holder stands. A second result with the same token and the same state
+answers 200 and changes nothing. The first result wins, so the stored reason
+stays the reason of the first result.
+A result that settles the request sends a `bridge.work_request` event, and
+writes a `bridge.work_request_settled` record to the audit log.
+
+| Status | Body | When |
+|---|---|---|
+| 200 | `{"workRequestId":"…","state":"done"}` | the result is accepted. `state` is the stored state |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope |
+| 404 | `{"error":"work_request_not_found"}` | the request does not exist, or belongs to another account |
+| 404 | | an id is not a uuid, or agent push is switched off on the instance |
+| 409 | `{"error":"claim_lost"}` | this bridge does not hold the claim with this token, or the request already settled with another state |
+| 422 | `{"error":"invalid_state"}`, `{"error":"invalid_claim_token"}` or `{"error":"invalid_reason"}` | the body is invalid |
+| 429 | | more than 60 results in one minute from one token |
+
 ## Deletion and export
 
 Deleting an account deletes the rows of its bridges and their commands. The
@@ -278,3 +422,9 @@ data export holds the bridges in `bridges.json`, with the stored update state,
 version and install method, the hook rows, the worker pool rows with their
 report time, the pause state and the capabilities. It holds the commands in
 `bridge_commands.json`.
+
+Deleting a project deletes its work requests. The data export holds the work
+requests of the projects the account owns in `bridge_work_requests.json`. Each
+row has its project, its card, its kind, its capability and its rule. It also
+has its state, its bridge, its claim count, its lease, its reason and its times. The claim
+token stays out of the export, because a bridge uses it as a credential.

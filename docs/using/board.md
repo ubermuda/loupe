@@ -802,6 +802,8 @@ gets these requests. A card in a terminal column never gets one.
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
 | **Comment on a pull request when new commits follow its approval** | off | When on, Loupe posts one comment for each new head that the approval does not cover |
 | **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base, one at a time |
+| **Merge a pull request when the workflow asks** | off | When on, Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write" |
+| **Change the base of a pull request when the workflow asks** | off | When on, Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write" |
 
 The comment gives the reason for the fix and the failed checks. It also gives
 the fix round against the loop limit, and a link to the card. The card page

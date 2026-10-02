@@ -19,6 +19,8 @@ final readonly class SaveBoardAutomationSettingsCommand
         public bool $commentOnFixQueued,
         public bool $commentOnStaleApproval,
         public bool $syncBehind,
+        public bool $mergePullRequests,
+        public bool $changeBase,
     ) {
     }
 }

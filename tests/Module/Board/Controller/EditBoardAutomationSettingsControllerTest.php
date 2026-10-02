@@ -57,6 +57,10 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[commentOnStaleApproval]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[syncBehind]"]'));
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[syncBehind]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[mergePullRequests]"]'));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[mergePullRequests]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[changeBase]"]'));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[changeBase]"]:checked'));
         self::assertSelectorTextContains('[data-board-automation-settings]', 'Contents: read and write');
         self::assertSelectorNotExists('[data-fix-run-comment-failure]');
         self::assertNull($this->stored($project));
@@ -74,6 +78,9 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $syncBehind = $submit[self::FORM.'[syncBehind]'];
         self::assertInstanceOf(ChoiceFormField::class, $syncBehind);
         $syncBehind->tick();
+        $mergePullRequests = $submit[self::FORM.'[mergePullRequests]'];
+        self::assertInstanceOf(ChoiceFormField::class, $mergePullRequests);
+        $mergePullRequests->tick();
         $this->client->submit($submit, [
             self::FORM.'[mergeStrategy]' => 'off',
             self::FORM.'[fixStrategy]' => 'resume',
@@ -91,6 +98,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertTrue($settings->commentOnFixQueued);
         self::assertTrue($settings->commentOnStaleApproval);
         self::assertTrue($settings->syncBehind);
+        self::assertTrue($settings->mergePullRequests);
+        self::assertFalse($settings->changeBase);
         self::assertSame(BoardMergeStrategy::Off, $settings->mergeStrategy);
         self::assertSame(BoardFixStrategy::Resume, $settings->fixStrategy);
         self::assertSame(7, $settings->loopLimit);
@@ -100,6 +109,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnStaleApproval]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[syncBehind]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[mergePullRequests]"]:checked'));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[changeBase]"]:checked'));
         self::assertSame('off', $form->filter('select[name="'.self::FORM.'[mergeStrategy]"] option[selected]')->attr('value'));
         self::assertSame('resume', $form->filter('select[name="'.self::FORM.'[fixStrategy]"] option[selected]')->attr('value'));
         self::assertSame('7', $form->filter('input[name="'.self::FORM.'[loopLimit]"]')->attr('value'));

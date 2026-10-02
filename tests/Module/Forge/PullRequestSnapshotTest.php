@@ -44,6 +44,9 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertNull($pullRequest->syncRequestedAt);
         self::assertNull($pullRequest->syncFailedReason);
         self::assertNull($pullRequest->syncedSha);
+        self::assertNull($pullRequest->headBranch);
+        self::assertNull($pullRequest->mergeRequestedSha);
+        self::assertNull($pullRequest->baseChangeRequestedTo);
         self::assertTrue($pullRequest->snapshot()->equals(new PullRequestSnapshot()));
     }
 
@@ -81,6 +84,8 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame('PRR_review1', $pullRequest->approvalId);
         self::assertSame('PRR_review1', $pullRequest->snapshot()->approvalId);
         self::assertSame('approved1', $pullRequest->snapshot()->coveredSha);
+        self::assertSame('feature/x', $pullRequest->headBranch);
+        self::assertSame('feature/x', $pullRequest->snapshot()->headBranch);
     }
 
     public function test_the_first_approval_sets_the_covered_sha(): void
@@ -364,6 +369,77 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertTrue($pullRequest->readyToMerge);
     }
 
+    public function test_a_read_of_the_same_open_head_keeps_the_merge_marker(): void
+    {
+        $pullRequest = $this->requested();
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'epic/1'));
+
+        self::assertSame('head1', $pullRequest->mergeRequestedSha);
+        self::assertNotNull($pullRequest->mergeRequestedAt);
+    }
+
+    public function test_a_moved_head_clears_the_merge_marker(): void
+    {
+        $pullRequest = $this->requested();
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head2', baseBranch: 'epic/1'));
+
+        self::assertNull($pullRequest->mergeRequestedSha);
+        self::assertNull($pullRequest->mergeRequestedAt);
+    }
+
+    /** @return iterable<string, array{PullRequestState}> */
+    public static function endedStates(): iterable
+    {
+        yield 'merged' => [PullRequestState::Merged];
+        yield 'closed' => [PullRequestState::Closed];
+    }
+
+    #[DataProvider('endedStates')]
+    public function test_a_pull_request_that_leaves_the_open_state_clears_both_markers(PullRequestState $state): void
+    {
+        $pullRequest = $this->requested();
+
+        $pullRequest->apply(new PullRequestSnapshot(state: $state, headSha: 'head1', baseBranch: 'epic/1'));
+
+        self::assertNull($pullRequest->mergeRequestedSha);
+        self::assertNull($pullRequest->mergeRequestedAt);
+        self::assertNull($pullRequest->baseChangeRequestedTo);
+        self::assertNull($pullRequest->baseChangeRequestedAt);
+    }
+
+    public function test_a_read_of_another_base_keeps_the_base_marker(): void
+    {
+        $pullRequest = $this->requested();
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head2', baseBranch: 'epic/1'));
+
+        self::assertSame('main', $pullRequest->baseChangeRequestedTo);
+        self::assertNotNull($pullRequest->baseChangeRequestedAt);
+    }
+
+    public function test_a_base_that_a_person_changed_to_another_branch_clears_the_base_marker(): void
+    {
+        $pullRequest = $this->requested();
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'release'));
+
+        self::assertNull($pullRequest->baseChangeRequestedTo);
+        self::assertNull($pullRequest->baseChangeRequestedAt);
+    }
+
+    public function test_a_read_of_the_requested_base_clears_the_base_marker(): void
+    {
+        $pullRequest = $this->requested();
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main'));
+
+        self::assertNull($pullRequest->baseChangeRequestedTo);
+        self::assertNull($pullRequest->baseChangeRequestedAt);
+        self::assertSame('head1', $pullRequest->mergeRequestedSha);
+    }
+
     public function test_equal_snapshots_are_equal(): void
     {
         self::assertTrue($this->changed()->equals($this->changed()));
@@ -378,7 +454,7 @@ final class PullRequestSnapshotTest extends TestCase
 
     public function test_the_approval_and_branch_facts_do_not_break_equality(): void
     {
-        $arguments = [...self::changedArguments(), 'approvedAt' => null, 'approvalSha' => null, 'defaultBranch' => null, 'headParents' => [], 'approvalId' => null, 'coveredSha' => 'other1'];
+        $arguments = [...self::changedArguments(), 'approvedAt' => null, 'approvalSha' => null, 'defaultBranch' => null, 'headParents' => [], 'approvalId' => null, 'coveredSha' => 'other1', 'headBranch' => 'other/branch'];
 
         self::assertTrue($this->changed()->equals(new PullRequestSnapshot(...$arguments)));
     }
@@ -457,6 +533,7 @@ final class PullRequestSnapshotTest extends TestCase
             'defaultBranch' => 'main',
             'headParents' => ['parent1', 'parent2'],
             'approvalId' => 'PRR_review1',
+            'headBranch' => 'feature/x',
         ];
     }
 
@@ -473,6 +550,19 @@ final class PullRequestSnapshotTest extends TestCase
         $pullRequest->apply($this->approved('review1', 'approved1', head: 'approved1'));
         $pullRequest->syncFromSha = 'approved1';
         $pullRequest->syncRequestedAt = new \DateTimeImmutable('2026-09-20 11:00:00');
+
+        return $pullRequest;
+    }
+
+    /** An open pull request on head1 and base epic/1, with a merge of head1 and a base change to main asked. */
+    private function requested(): ForgePullRequest
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'epic/1'));
+        $pullRequest->mergeRequestedSha = 'head1';
+        $pullRequest->mergeRequestedAt = new \DateTimeImmutable('2026-10-02 10:00:00');
+        $pullRequest->baseChangeRequestedTo = 'main';
+        $pullRequest->baseChangeRequestedAt = new \DateTimeImmutable('2026-10-02 10:00:00');
 
         return $pullRequest;
     }
