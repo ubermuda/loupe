@@ -6,11 +6,13 @@ namespace App\Module\Bridge\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\CardHold;
+use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -24,6 +26,7 @@ final readonly class CardHolds
         private CardHoldRepository $cardHolds,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -62,7 +65,12 @@ final readonly class CardHolds
             return 0;
         }
 
-        return $this->cardHolds->deleteOfCards($project, $cardIds);
+        $released = $this->cardHolds->deleteOfCards($project, $cardIds);
+        if ([] !== $released) {
+            $this->events->dispatch(new CardHoldsReleased($project->id ?? throw new \LogicException('A persisted project has an id.'), $released));
+        }
+
+        return \count($released);
     }
 
     public function isHeld(Project $project, Uuid $cardId): bool

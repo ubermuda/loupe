@@ -19,6 +19,8 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Event\CardHoldsReleased;
+use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
@@ -34,14 +36,18 @@ use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Engine\Engine;
+use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
 use App\Module\Workflow\Event\CardPaused;
+use App\Module\Workflow\EventListener\BaselineCardsOnCardHoldsReleased;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
+use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Service\CardPullRequests;
+use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Template\ProjectTemplateCopy;
@@ -53,6 +59,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Ubermuda\AuditBundle\Auditor;
 
 final class EngineTest extends KernelTestCase
@@ -438,11 +445,62 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
         self::assertSame([], $this->firedRecords());
 
-        $this->releaseHold($card);
+        $this->dropHold($card);
         $this->evaluate($card, '2026-10-02 12:01:00');
 
         self::assertSame(WorkRequestState::Cancelled, $stale->state);
         self::assertCount(1, $this->liveRequests($card));
+    }
+
+    public function test_after_a_release_a_rule_that_was_already_true_fires_nothing_and_a_later_rule_still_fires(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('work', self::ALWAYS),
+            self::requestRule('fix', ['card.type' => ['type' => 'bug']]),
+            self::moveRule('stuck', 'three', self::NOT_EPIC),
+        ]);
+        $this->hold($card);
+        $stale = new WorkflowRuleState($card, $card->project, 'stuck');
+        $stale->attempts = 2;
+        $stale->dueAt = new \DateTimeImmutable(self::NOON);
+        $stale->lastRefusal = 'workflow-slot-missing';
+        $stale->lastRefusalAt = new \DateTimeImmutable(self::NOON);
+        $this->em()->persist($stale);
+        $this->em()->flush();
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertSame([], $this->firedRecords());
+        self::assertSame([true, false], [$this->ruleState($card, 'work')->truth, $this->ruleState($card, 'fix')->truth]);
+        $state = $this->ruleState($card, 'stuck');
+        self::assertSame([true, 0, null, null, null], [$state->truth, $state->attempts, $state->dueAt, $state->lastRefusal, $state->lastRefusalAt]);
+        self::assertNotNull($state->fingerprint);
+
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card, '2026-10-02 12:02:00');
+
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame('fix', $live[0]->ruleId);
+    }
+
+    public function test_a_card_held_again_before_its_baseline_keeps_it_for_the_next_release(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->hold($card);
+        $this->releaseHold($card);
+        $this->hold($card);
+
+        $this->evaluate($card);
+        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+
+        $this->dropHold($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertTrue($this->ruleState($card, 'work')->truth);
     }
 
     public function test_a_project_with_no_workflow_is_left_alone(): void
@@ -588,6 +646,7 @@ final class EngineTest extends KernelTestCase
             new FactFingerprint(),
             $this->service(WorkflowRuleStateRepository::class),
             $this->service(CardHolds::class),
+            $this->service(WorkflowPendingBaselineRepository::class),
             $workRequests,
             new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class)),
             $cardPauses,
@@ -630,9 +689,24 @@ final class EngineTest extends KernelTestCase
         $this->service(CardHolds::class)->hold($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), null);
     }
 
+    /** The hold goes with the engine on, so the card gets its baseline. */
     private function releaseHold(Card $card): void
     {
-        $this->service(CardHolds::class)->release($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);
+        $events = new EventDispatcher();
+        $events->addListener(CardHoldsReleased::class, new BaselineCardsOnCardHoldsReleased(
+            new EngineSwitch(true),
+            $this->service(WorkflowPendingBaselineRepository::class),
+            new EvaluationTrigger($this->service(MessageBusInterface::class), new EngineSwitch(true)),
+        ));
+        $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), new MockClock(self::NOON), $events);
+
+        $holds->release($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);
+    }
+
+    /** The hold goes with no baseline, as it did before the engine ran. */
+    private function dropHold(Card $card): void
+    {
+        $this->service(CardHoldRepository::class)->deleteOfCards($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);
     }
 
     private function setType(Card $card, CardType $type): void

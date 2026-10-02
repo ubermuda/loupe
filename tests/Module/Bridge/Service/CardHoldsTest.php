@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Service;
 
 use App\Module\Bridge\Entity\CardHold;
+use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use Doctrine\Persistence\ManagerRegistry;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
@@ -70,22 +73,30 @@ final class CardHoldsTest extends KernelTestCase
         $this->holds()->hold($project, $kept, null);
         $this->holds()->hold($other, $released, null);
 
+        $events = DispatchedEvents::of(self::getContainer(), CardHoldsReleased::class);
+
         self::assertSame(1, $this->holds()->release($project, [$released, Uuid::v7()]));
 
+        self::assertCount(1, $events->events());
+        self::assertSame((string) $project->id, (string) $events->events()[0]->projectId);
+        self::assertSame([$released->toRfc4122()], array_map(static fn (Uuid $id): string => $id->toRfc4122(), $events->events()[0]->cardIds));
         self::assertFalse($this->holds()->isHeld($project, $released));
         self::assertTrue($this->holds()->isHeld($project, $kept));
         self::assertTrue($this->holds()->isHeld($other, $released));
     }
 
-    public function test_release_of_no_cards_removes_nothing(): void
+    public function test_release_of_no_held_card_removes_nothing_and_announces_nothing(): void
     {
         self::bootKernel();
         $em = $this->em();
         $project = $this->project($em, $this->user($em, 'hold-release-none@example.com'), 'Nothing Released');
         $this->holds()->hold($project, Uuid::v7(), null);
+        $events = DispatchedEvents::of(self::getContainer(), CardHoldsReleased::class);
 
         self::assertSame(0, $this->holds()->release($project, []));
+        self::assertSame(0, $this->holds()->release($project, [Uuid::v7()]));
         self::assertSame(1, $this->countHolds());
+        self::assertSame([], $events->events());
     }
 
     public function test_a_card_with_no_hold_is_not_held(): void
@@ -117,7 +128,10 @@ final class CardHoldsTest extends KernelTestCase
         $registry = self::getContainer()->get('doctrine');
         self::assertInstanceOf(ManagerRegistry::class, $registry);
 
-        return new CardHolds(new CardHoldRepository($registry), $this->em(), new MockClock(new \DateTimeImmutable(self::NOW)));
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+
+        return new CardHolds(new CardHoldRepository($registry), $this->em(), new MockClock(new \DateTimeImmutable(self::NOW)), $dispatcher);
     }
 
     private function reload(Project $project): Project

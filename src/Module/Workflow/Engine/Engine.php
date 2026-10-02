@@ -23,6 +23,7 @@ use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Event\CardPaused;
+use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
@@ -51,6 +52,7 @@ final readonly class Engine
         private FactFingerprint $fingerprint,
         private WorkflowRuleStateRepository $workflowRuleStates,
         private CardHolds $cardHolds,
+        private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private WorkRequestRepository $workRequests,
         private WithdrawWorkRequestHandler $withdrawWorkRequest,
         private CardPauseRepository $cardPauses,
@@ -66,6 +68,11 @@ final readonly class Engine
     {
         $run = $this->em->wrapInTransaction(fn (): ?Evaluation => $this->evaluateLocked($cardId, $now));
         if (null === $run) {
+            return;
+        }
+        if ($run->baselined) {
+            $this->logger->info('workflow.card_baselined', ['cardId' => $cardId->toRfc4122()]);
+
             return;
         }
 
@@ -92,6 +99,7 @@ final readonly class Engine
         if (null === $card || $this->cardHolds->isHeld($card->project, $cardId)) {
             return null;
         }
+        $baseline = $this->workflowPendingBaselines->consume($cardId);
         $this->cards->refreshColumn($card);
         $this->cards->refreshTypeAndParent($card);
 
@@ -102,6 +110,12 @@ final readonly class Engine
         }
 
         $run = new Evaluation($card, $template, $this->factsBuilder->build($card, $now), $this->workflowRuleStates->findForCard($card), $now);
+        if ($baseline) {
+            $this->baseline($run);
+            $this->em->flush();
+
+            return $run;
+        }
         $this->settleWorkRequests($run, $cardId);
         // A pause ends the pass, so it is never released in the pass that made it.
         if (!$run->ended && (!$this->stillPaused($run) || $this->releasedByRule($run))) {
@@ -110,6 +124,25 @@ final readonly class Engine
         $this->em->flush();
 
         return $run;
+    }
+
+    /** Records the truth of each rule the card reads now and clears its retries. Runs no action. */
+    private function baseline(Evaluation $run): void
+    {
+        $run->baselined = true;
+        foreach ($run->template->rules as $rule) {
+            if (!$run->applies($rule)) {
+                continue;
+            }
+            $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
+                $state->truth = $rule->when->evaluate($run->facts);
+                $state->fingerprint = $this->fingerprint->of($run->facts, $rule->when->reads());
+                $state->attempts = 0;
+                $state->dueAt = null;
+                $state->lastRefusal = null;
+                $state->lastRefusalAt = null;
+            });
+        }
     }
 
     /** Cancels the live requests of rules that no longer apply, and expires the open ones no bridge took in time. */

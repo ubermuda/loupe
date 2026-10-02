@@ -8,7 +8,7 @@ use App\Module\Project\Event\ProjectDeleting;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
-/** Bulk-deletes the rule states, the slot links, then the binding, of a project inside ProjectDeleter's transaction. */
+/** Bulk-deletes the rule states, the pending baselines, the slot links, then the binding, of a project inside ProjectDeleter's transaction. */
 #[AsEventListener]
 final readonly class DeleteWorkflowDataOnProjectDeleting
 {
@@ -21,6 +21,10 @@ final readonly class DeleteWorkflowDataOnProjectDeleting
     {
         $this->em->createQuery(
             'DELETE App\Module\Workflow\Entity\WorkflowRuleState s WHERE s.project = :project',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
+            'DELETE App\Module\Workflow\Entity\WorkflowPendingBaseline p WHERE p.project = :project',
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(
