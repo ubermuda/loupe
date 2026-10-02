@@ -32,9 +32,24 @@ git -C "$main" fetch origin
 # A tree deleted from disk stays registered until a prune, and holds its branch.
 git -C "$main" worktree prune --expire now
 
+head=""
+if [ -n "$pr" ]; then
+    head=$(cd "$main" && gh pr view "$pr" --json headRefName -q .headRefName)
+    if [ -z "$head" ]; then
+        echo "bridge-before: pull request $pr has no head branch." >&2
+        exit 1
+    fi
+    git -C "$main" fetch origin "$head"
+fi
+
 registered=$(git -C "$main" worktree list --porcelain)
 if grep -qxF "worktree $root" <<<"$registered"; then
     echo "bridge-before: $name already exists; re-provisioning it." >&2
+    # A new head can fix what made the last provisioning fail, so provision that head.
+    if [ -n "$head" ] && [ "$(git -C "$root" branch --show-current)" = "$head" ]; then
+        git -C "$root" merge --ff-only "origin/$head" \
+            || echo "bridge-before: $head did not fast-forward; the worker syncs it." >&2
+    fi
 elif [ -e "$root" ]; then
     echo "bridge-before: $root exists but is not a registered worktree. Remove it and retry." >&2
     exit 1
@@ -42,13 +57,7 @@ else
     # The '-' after the number keeps card-4 from matching card-40-*.
     branch=$(git -C "$main" for-each-ref --sort=-committerdate --count=1 \
         --format='%(refname:short)' "refs/heads/$name-*")
-    if [ -n "$pr" ]; then
-        head=$(cd "$main" && gh pr view "$pr" --json headRefName -q .headRefName)
-        if [ -z "$head" ]; then
-            echo "bridge-before: pull request $pr has no head branch." >&2
-            exit 1
-        fi
-        git -C "$main" fetch origin "$head"
+    if [ -n "$head" ]; then
         if git -C "$main" show-ref --verify --quiet "refs/heads/$head"; then
             git -C "$main" worktree add "$root" "$head"
         else
