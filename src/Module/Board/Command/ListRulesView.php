@@ -12,6 +12,7 @@ final readonly class ListRulesView
     /**
      * @param list<ReportedRule>    $rules
      * @param array<string, string> $columnLabels the project's column labels, keyed by slug
+     * @param array<string, string> $bridgeLabels RFC 4122 bridge id => its label
      */
     public function __construct(
         public Project $project,
@@ -19,6 +20,7 @@ final readonly class ListRulesView
         public int $liveCount,
         public array $columnLabels,
         public string $search = '',
+        public array $bridgeLabels = [],
     ) {
     }
 }

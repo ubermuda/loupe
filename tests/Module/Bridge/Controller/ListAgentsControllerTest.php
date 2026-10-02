@@ -295,6 +295,50 @@ final class ListAgentsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$other->id.'"] [data-agent-paused]'));
     }
 
+    public function test_a_named_bridge_shows_its_name_and_an_unnamed_one_the_tail_of_its_id(): void
+    {
+        $client = static::createClient();
+        [$owner, $project, $named] = $this->pauseScenario('named');
+        $named->name = 'laptop';
+        $unnamed = $this->seedBridge($this->em(), $owner, projects: [(string) $project->id]);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $namedLabel = $crawler->filter('[data-agent-connection-id="'.$named->id.'"] [data-bridge-label]');
+        self::assertSame('laptop', $namedLabel->text());
+        self::assertSame((string) $named->id, $namedLabel->attr('title'));
+        $unnamedLabel = $crawler->filter('[data-agent-connection-id="'.$unnamed->id.'"] [data-bridge-label]');
+        self::assertSame(substr((string) $unnamed->id, -12), $unnamedLabel->text());
+        self::assertSame((string) $unnamed->id, $unnamedLabel->attr('title'));
+        self::assertCount(0, $crawler->filter('[data-agent-name-clash]'));
+    }
+
+    public function test_a_bridge_whose_name_another_bridge_holds_shows_the_clash(): void
+    {
+        $client = static::createClient();
+        [$owner, $project, $holder] = $this->pauseScenario('clash');
+        $holder->name = 'laptop';
+        $holder->requestedName = 'laptop';
+        $claimer = $this->seedBridge($this->em(), $owner, projects: [(string) $project->id]);
+        $claimer->requestedName = 'laptop';
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $card = $crawler->filter('[data-agent-connection-id="'.$claimer->id.'"]');
+        self::assertSame(substr((string) $claimer->id, -12), $card->filter('[data-bridge-label]')->text());
+        $warning = preg_replace('/\s+/', ' ', trim($card->filter('[data-agent-name-clash]')->text()));
+        self::assertSame('Name already in use laptop Another bridge already holds this name. This bridge shows its id until the name is free, or until you change it in its rules.yaml.', $warning);
+        self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$holder->id.'"] [data-agent-name-clash]'));
+    }
+
     public function test_a_pause_the_bridge_has_not_confirmed_reads_as_requested(): void
     {
         $client = static::createClient();
