@@ -24,4 +24,10 @@ final readonly class BoardCardColumnLookup implements CardColumnLookupInterface
     {
         return $this->cards->findColumnSlug($project, $cardId);
     }
+
+    #[\Override]
+    public function cardIdOfNumber(Project $project, int $number): ?Uuid
+    {
+        return $this->cards->findOneByProjectAndNumber($project, $number)?->id;
+    }
 }

@@ -14,6 +14,8 @@ final readonly class ReleaseCardAgentsCommand
         public Project $project,
         public Uuid $cardId,
         public User $requestedBy,
+        /** @var 'human'|'agent' */
+        public string $actor = 'human',
     ) {
     }
 }

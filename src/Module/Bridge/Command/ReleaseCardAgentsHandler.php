@@ -16,7 +16,7 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * A person lets the agents on a card run again. The delete and its outbox
+ * A person or an agent lets the agents on a card run again. The delete and its outbox
  * event commit together, so a bridge never learns of a release that rolled back.
  */
 final readonly class ReleaseCardAgentsHandler
@@ -38,7 +38,7 @@ final readonly class ReleaseCardAgentsHandler
         $cardId = $command->cardId;
 
         // Returns the refusal, because an exception inside the closure closes the entity manager.
-        $refusal = $this->em->wrapInTransaction(function () use ($project, $cardId): ?string {
+        $refusal = $this->em->wrapInTransaction(function () use ($command, $project, $cardId): ?string {
             // The lock a pause takes, so a pause and a release of one card run one after the other.
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
             if (0 === $this->cardHolds->release($project, [$cardId])) {
@@ -49,7 +49,7 @@ final readonly class ReleaseCardAgentsHandler
                 'type' => BridgeEventType::CARD_RELEASED,
                 'subject' => ['type' => 'card', 'id' => (string) $cardId],
                 'projectId' => (string) $project->id,
-                'actor' => 'human',
+                'actor' => $command->actor,
             ]);
             $this->em->flush();
 
