@@ -71,6 +71,12 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 3. A child merges into `epic/<n>` with `squash` and no approval, once its required checks pass.
 4. The `Epics` ruleset of GitHub covers `refs/heads/epic/*`. It requires the checks of `main`, is not strict, and takes every change through a pull request. A direct push and `gh pr update-branch` into `epic/<n>` fail. The rule also applies on create, so the breakdown pushes a `main` commit whose required checks passed.
 5. The epic pull request goes from `epic/<n>` to `main`, and merges as the `Merge` section says.
+6. The epic preview is the worktree `.worktrees/epic-<n>`, detached at `origin/epic/<n>`. It serves `https://epic-<n>.loupe.dev.localhost`. Run its commands from the main checkout, and wrap a command that needs the preview as its working directory in a subshell: `( cd .worktrees/epic-<n> && <command> )`. Never commit in it.
+7. `<epicId>` is the `parent.cardId` of the merged child in `card_get`. Never derive it from a branch name, a worktree name or a card number.
+8. Create the epic preview when `git worktree list --porcelain` has no line `worktree <main checkout>/.worktrees/epic-<n>`. Run `git fetch origin`, then `git worktree add --detach .worktrees/epic-<n> origin/epic/<n>`, then `just worktree-up epic-<n> card:<epicId>`.
+9. Refresh an epic preview that exists. Run `git fetch origin`, then `git -C .worktrees/epic-<n> checkout --detach origin/epic/<n>`, then `just worktree-up epic-<n> card:<epicId>`. Then run `bin/worktrees/compose-exec.sh bin/console cache:clear` in the preview, and the same command with `--env=test`.
+10. A child preview link is a signed link of the form `https://<host>/dev/preview-login?_hash=…&email=<account>&to=<path>`, and its line names its marker in backticks. To carry it, URL-decode `email` and `to`. Mint the new link with `( cd .worktrees/epic-<n> && bin/worktrees/compose-exec.sh bin/console app:dev:preview-login-link --email=<account> --path=<path> ) | tail -1`. Prove it as `working-with-prs` "Prove each preview link shows its state" says, with the marker of the child line.
+11. A child seeds its preview state into its own database, and the epic preview holds only `app:dev:seed`. So a carried link can fail its proof. The merge stage then writes the line as not proved, and records no block for it.
 
 ## Merge
 
