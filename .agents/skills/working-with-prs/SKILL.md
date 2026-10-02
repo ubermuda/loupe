@@ -682,7 +682,7 @@ Do not diagnose a rejected merge with `gh repo view`. It reports repository
 ruleset forbids two. The ruleset is the authority:
 
 ```bash
-id=$(gh api repos/ubermuda/loupe/rulesets -q '.[0].id')
+id=$(gh api repos/ubermuda/loupe/rulesets -q '.[]|select(.name=="main")|.id')
 gh api repos/ubermuda/loupe/rulesets/$id -q '.rules[]|select(.type=="pull_request")|.parameters'
 ```
 
@@ -700,6 +700,17 @@ On 2026-09-21 it printed thirteen contexts: `lint`, `cs-check`, `phpstan`,
 `e2e-chromium`, `e2e-rest` and `e2e-chromium-2`. Run the command rather than
 trust that snapshot. It read ten before the e2e shard jobs arrived, and nothing
 in the repository fails when it goes stale.
+
+A second ruleset, named `Epics`, covers `refs/heads/epic/*`. On 2026-10-01 it
+required the same thirteen checks as `main`, with
+`strict_required_status_checks_policy` set to `false`. It needs no approving
+review, allows squash merges only, and blocks force pushes. Every change must
+come through a pull request, so a direct push to `epic/<n>` fails with GH013,
+"Changes must be made through a pull request". Read its id by name:
+
+```bash
+gh api repos/ubermuda/loupe/rulesets -q '.[]|select(.name=="Epics")|.id'
+```
 
 An approval in chat is not a GitHub approval. Check before concluding a merge is
 blocked by something else:
@@ -769,10 +780,11 @@ gh pr edit <n> --base <parent-branch>   # fix one opened against main
 - Write `Stacks on #<parent>. Merge #<parent> first.` near the top of the body.
 - Run the Codex review with `base: "origin/<parent-branch>"`, so it reads the
   child's own work.
-- CI runs on every pull request, whatever its base. The ruleset requires checks
-  on `main` only, so `gh pr checks <n> --required` prints "no required checks
-  reported". That is expected. Read `gh pr checks <n>` without `--required`,
-  and count every check.
+- CI runs on every pull request, whatever its base. A pull request into an
+  `epic/*` branch gets the thirteen required checks of the `Epics` ruleset, so
+  `--required` works there. A pull request stacked on any other branch has no
+  required checks. Read `gh pr checks <n>` without `--required`, and count
+  every check.
 - Never merge the child while it targets its parent's branch. That merge lands
   on the parent branch with no required check, and never reaches `main`.
 
