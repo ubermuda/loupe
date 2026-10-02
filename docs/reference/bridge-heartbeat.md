@@ -390,7 +390,9 @@ the heartbeat.
 
 The claim token fences the claim. A bridge whose lease ran out, and whose
 request another bridge then claimed, gets `claim_lost`, and the result of the
-new holder stands. The same result sent again answers 200 and changes nothing.
+new holder stands. A second result with the same token and the same state
+answers 200 and changes nothing. The first result wins, so the stored reason
+stays the reason of the first result.
 A result that settles the request sends a `bridge.work_request` event, and
 writes a `bridge.work_request_settled` record to the audit log.
 
