@@ -283,6 +283,29 @@ func TestARenameLogsTheDeadWorkOnce(t *testing.T) {
 	}
 }
 
+// A claim that ends just before its launch command starts keeps the command
+// from starting at all, so a fast launcher opens no session. The launcher
+// does not exist, so any start of it fails with another reason.
+func TestAClaimThatEndsBeforeTheStartOpensNoSession(t *testing.T) {
+	h, rec := launchHarnessWith(t, interactiveWorkRules, `[/nonexistent/launcher, '{script}']`)
+	f := h.withWork()
+	w := workRequest(1, 87, "design", api.WorkRequestOpen)
+	f.requests[w.WorkRequestID] = w
+	h.router.beforeLaunch = func() {
+		h.router.loseClaims([]api.WorkClaim{{ID: w.WorkRequestID, ClaimToken: tokenOf(1)}})
+	}
+
+	h.send(workPayload(w))
+
+	launches := rec.launches()
+	if len(launches) != 1 || launches[0].report.State != api.RunNotStarted || launches[0].report.FailureReason != launchAborted {
+		t.Fatalf("launches = %+v", launches)
+	}
+	if got := f.settled(); len(got) != 0 {
+		t.Fatalf("results = %v", got)
+	}
+}
+
 // A claim that ends while its launch command runs kills the command, so no
 // session opens for work the bridge no longer holds. The launch posts no
 // result.

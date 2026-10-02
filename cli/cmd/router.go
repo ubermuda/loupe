@@ -101,8 +101,10 @@ type router struct {
 	pauseFile  string
 	baseURL    string
 	// workAPI claims and settles work requests. A nil one, as in most tests,
-	// claims none.
-	workAPI workClient
+	// claims none. beforeLaunch runs just before a launch command starts, and
+	// a nil one does nothing. Tests set it.
+	workAPI      workClient
+	beforeLaunch func()
 	// signal sends one step of the stop ladder to the process group of a
 	// worker, and stopAfter times the waits between two steps. A nil one is
 	// signalGroup or time.After, which tests replace.
