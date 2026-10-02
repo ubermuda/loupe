@@ -65,6 +65,15 @@ framework:
         agent_bridge_heartbeats:
             <<: *agent_per_token
 
+        # Bounds the bridge's work request claims. A bridge claims each offer
+        # it can run once, and loses most races to other bridges.
+        agent_work_request_claims:
+            <<: *agent_per_token
+
+        # Bounds the bridge's work request results, one for each claim it won.
+        agent_work_request_results:
+            <<: *agent_per_token
+
         # Bounds the bridge's event replay, a GET. A bridge reads it after each
         # connect, about seven an hour, and pages 200 rows at a time.
         agent_event_replay:

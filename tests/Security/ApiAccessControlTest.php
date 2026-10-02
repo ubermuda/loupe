@@ -93,6 +93,20 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/bridges/a/b/commands/'.$command, self::ALL_ROLES));
     }
 
+    /** The work request rules grant the claim and the result of one request, and to an agent token alone. */
+    public function test_the_work_request_rules_do_not_open_the_rest_of_a_bridge(): void
+    {
+        $prefix = '/api/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/work-requests/1a2b3c4d-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
+        foreach (['claim', 'result'] as $action) {
+            self::assertTrue($this->decide($prefix.'/'.$action, ['ROLE_USER', 'ROLE_API_AGENT']));
+            self::assertFalse($this->decide($prefix.'/'.$action, ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+            self::assertFalse($this->decide($prefix.'/'.$action.'/extra', self::ALL_ROLES));
+        }
+        self::assertFalse($this->decide($prefix, self::ALL_ROLES));
+        self::assertFalse($this->decide($prefix.'/withdraw', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/a/b/work-requests/c/claim', self::ALL_ROLES));
+    }
+
     /** The rules rule grants one route, so nothing beside it under a bridge opens. */
     public function test_the_bridge_rules_rule_does_not_open_the_rest_of_a_project(): void
     {
