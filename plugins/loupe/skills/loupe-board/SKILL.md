@@ -368,8 +368,8 @@ For a repository connected through the GitHub App, with the board automation
 on, Loupe moves the card itself. Green checks move a card from `implementation`
 to `in-review`. A merge moves the card to a terminal column once each of its
 pull requests is merged or closed. When each pull request is closed and none
-merged, the card moves to the Backlog about ten minutes after the last close.
-For any other link, an agent or a person moves the card.
+merged, the card stays where it is. For any other link, an agent or a person
+moves the card.
 
 ## Common mistakes
 

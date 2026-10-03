@@ -11,7 +11,6 @@ use App\Module\Workflow\Condition\CardInSlot;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
 use App\Module\Workflow\Condition\PullRequestOpen;
-use App\Module\Workflow\Condition\PullRequestsAllClosedUnmerged;
 use App\Module\Workflow\Condition\RunWorkActive;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
@@ -36,7 +35,6 @@ final class TemplateParserTest extends TestCase
             new CardInSlot(),
             new PullRequestApprovalCoversHead(),
             new PullRequestOpen(),
-            new PullRequestsAllClosedUnmerged(),
             new RunWorkActive(),
         ]));
     }
@@ -270,10 +268,10 @@ final class TemplateParserTest extends TestCase
             return $t;
         }, 'rules[2] (merge) when: pr.approval_covers_head: parameter "min" must be a positive integer'];
         yield 'negative integer parameter' => [static function (array $t): array {
-            $t['rules'][2]['when'] = ['pr.all_closed_unmerged' => ['minutes' => -5]];
+            $t['rules'][2]['when'] = ['pr.approval_covers_head' => ['min' => -5]];
 
             return $t;
-        }, 'rules[2] (merge) when: pr.all_closed_unmerged: parameter "minutes" must be a positive integer'];
+        }, 'rules[2] (merge) when: pr.approval_covers_head: parameter "min" must be a positive integer'];
         yield 'slot parameter naming no slot' => [static function (array $t): array {
             $t['rules'][1]['when']['any'][1] = ['card.in_slot' => ['slot' => 'shipping']];
 

@@ -648,19 +648,19 @@ final class EngineTest extends KernelTestCase
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
     }
 
-    public function test_a_lifecycle_card_in_done_whose_pull_requests_all_closed_unmerged_stays_in_done(): void
+    public function test_a_lifecycle_card_in_an_open_column_whose_pull_requests_all_closed_unmerged_stays_in_its_column(): void
     {
         self::bootKernel();
-        $project = $this->workflowProject('engine-lifecycle-done');
+        $project = $this->workflowProject('engine-lifecycle-closed');
         $this->bindLifecycle($project);
-        $card = $this->card($project, 'done');
+        $card = $this->card($project, 'in-progress');
         $closed = $this->pullRequest($card, PullRequestState::Closed);
         $closed->refreshedAt = new \DateTimeImmutable('2026-10-02 11:00:00');
         $this->em()->flush();
 
         $this->evaluate($card);
 
-        self::assertSame('done', $card->column->slug);
+        self::assertSame('in-progress', $card->column->slug);
     }
 
     /**
