@@ -4,6 +4,7 @@ import {
     subscribe,
     watchConnection,
 } from './mercure.js';
+import { now, traceLive } from './sentry_spans.js';
 
 /**
  * One event layer for live changes. A handler gets a change from the hub and
@@ -24,7 +25,7 @@ let reported;
 
 /**
  * @param {string|string[]} types
- * @param {(change: object) => void} handler
+ * @param {(change: object) => Promise|void} handler may answer a promise that settles once the page shows the change
  * @param {{onReconnect?: Function, onOpen?: Function, onError?: Function}} options
  * @returns {() => void} removes the handler
  */
@@ -41,12 +42,15 @@ export function on(types, handler, options = {}) {
     let opened = false;
     const unsubscribe = subscribe(
         types,
-        (data) =>
-            handler({
+        (data) => {
+            const start = now();
+            const result = handler({
                 ...data,
                 local: false,
                 own: data.origin === originId(),
-            }),
+            });
+            traceLive(data.type, start, result);
+        },
         {
             onOpen: () => {
                 if (opened) {

@@ -413,6 +413,18 @@ variable "sentry_profiles_sample_rate" {
   description = "SENTRY_PROFILES_SAMPLE_RATE, from 0.0 to 1.0, relative to the traced requests. Empty keeps the committed default of 1.0."
 }
 
+variable "sentry_browser_dsn" {
+  type        = string
+  default     = ""
+  description = "SENTRY_BROWSER_DSN for the browser SDK. Not secret: each page with the SDK shows it. Optional: empty loads no browser SDK."
+}
+
+variable "sentry_browser_traces_sample_rate" {
+  type        = string
+  default     = ""
+  description = "SENTRY_BROWSER_TRACES_SAMPLE_RATE, from 0.0 to 1.0, the share of page loads the browser SDK traces. Empty keeps the committed default of 1.0."
+}
+
 variable "github_app_slug" {
   type        = string
   default     = ""

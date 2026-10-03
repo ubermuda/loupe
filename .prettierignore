@@ -1,5 +1,6 @@
 assets/icons/
 assets/vendor/
+assets/sentry/
 # Managed by Symfony UX (importmap/asset commands rewrite it, with 4-space
 # indent) — keep prettier from fighting that on every `just cs`.
 assets/controllers.json

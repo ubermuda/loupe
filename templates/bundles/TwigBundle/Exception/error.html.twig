@@ -12,6 +12,7 @@
         {# Standalone, so it carries its own stylesheet: app.js no longer
            imports the CSS, and this page does not extend layout_base. #}
         <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+        {% include '_sentry_browser.html.twig' only %}
         {{ importmap('app', {nonce: csp_nonce('script')}) }}
     </head>
     <body>

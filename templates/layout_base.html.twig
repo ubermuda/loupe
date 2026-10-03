@@ -10,6 +10,7 @@
            import into a `data:application/javascript,` entry in the import map,
            which an enforcing script-src blocks outright. #}
         {% block stylesheets %}<link rel="stylesheet" href="{{ asset('styles/app.css') }}">{% endblock %}
+        {% include '_sentry_browser.html.twig' only %}
         {% block javascripts %}
             {# The importmap renders two inline <script> tags, which are the only
                inline scripts this app emits. Nonces are what will let script-src
