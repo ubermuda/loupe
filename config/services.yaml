@@ -7,6 +7,15 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    # The merge method of a workflow rule that merges a pull request: merge, squash or rebase.
+    app.workflow.merge_method: squash
+    # Off keeps the workflow engine inert: no evaluation is queued, and a queued one does nothing.
+    workflow.engine_enabled: false
+    # Every minute, so a refused rule retries soon after its backoff ends, and a timed condition acts soon after it comes due.
+    app.workflow.evaluate_due_schedule: '* * * * *'
+    # The backstop for a card change that no event reported.
+    app.workflow.sweep_schedule: '*/10 * * * *'
+
     # Client ids Loupe vouches for on the consent page. A full client_id URL,
     # or an origin that serves one tenant. Never a bare host: a document on a
     # shared host would borrow the trust of every other document there.
@@ -99,6 +108,10 @@ parameters:
     app.bridge.default_stop_sigkill_after_ms: 2500
     # Every minute, so an expired command leaves the pending list soon after its time.
     app.bridge.command_expiry_schedule: '* * * * *'
+    # How long a claim of a work request holds, in seconds. A heartbeat renews it.
+    app.bridge.work_request_lease_seconds: 120
+    # Every minute, so the work of a bridge that died waits at most a minute past its lease.
+    app.bridge.work_request_reopen_schedule: '* * * * *'
     # Monthly price of the hosted plan during beta, in whole dollars. Shown on
     # the landing page only — Stripe remains the source of truth for what is
     # actually charged.
@@ -322,3 +335,24 @@ when@test:
 
         App\Tests\Support\FirstAdminUserPanelFixture:
             autoconfigure: true
+
+        # Nothing consumes these Workflow services yet, so the compiler removes them.
+        App\Module\Workflow\Condition\Conditions:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Template\TemplateParser:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Template\ShippedTemplates:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Template\ProjectTemplateCopy:
+            autowire: true
+            public: true
+
+        App\Module\Workflow\Command\BindWorkflowTemplateHandler:
+            autowire: true
+            public: true

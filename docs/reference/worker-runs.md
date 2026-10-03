@@ -104,6 +104,7 @@ order.
 | `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished`, `blocked` and `waiting-on-forge` need 0, `failed` needs any other code, and `not-started` needs `null` |
 | `hasResult` | whether the worker gave a structured result. `no-result` needs `false`, and `succeeded`, `unfinished`, `blocked` and `waiting-on-forge` refuse `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null`. The server ignores it on a command run |
 | `resultStatus` | the `status` of the structured result: `finished`, `blocked`, `unfinished` or `waiting`. It needs `hasResult: true`, so a command run cannot send it. `blocked` and `unfinished` need the state of the same name, `waiting` needs `waiting-on-forge`, and `succeeded` takes `finished` or `null` |
+| `resultReason` | why the run ended the way it did, such as `stacked` or `approval-stale`. It has at most 40 characters of lower-case letters, digits and hyphens, and starts with a letter. It needs `hasResult: true`, as `resultStatus` does. The server stores a code it does not know as `other` |
 | `failureReason` | why the process never started, at most 1000 characters. Required for `not-started`, and refused with an exit code |
 | `output` | what the worker printed, at most 4000 characters. Required for an outcome, and it may be empty. A `stopped` report may carry it, and a run keeps its output when the report has none |
 | `askId` | the ask a `resumed` run continues, at most 100 characters |
@@ -131,8 +132,8 @@ So the run keeps the fault it had.
 The server stores `continues`, `resumeIndex`, `resumeCap` and `cardColumn` from
 the report that creates the run, and ignores them on a later report. It resolves
 `continues` to a run of the same project and bridge, and stores no link for an
-unknown `runId`. It stores `resultStatus`, `resultFields` and `resumeSkipped`
-from an outcome only.
+unknown `runId`. It stores `resultStatus`, `resultReason`, `resultFields` and
+`resumeSkipped` from an outcome only.
 
 The server stores `workerPool` from every report that carries it, a repeat of a
 state included, so the run keeps the pool that the last report named. A report

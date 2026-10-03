@@ -104,6 +104,18 @@ const AskClosedType = "inbox.ask_closed"
 // run. No rule acts on it, so Parse drops it and ParseCommand reads it.
 const CommandType = "bridge.command"
 
+// WorkRequestType is published when the server offers a work request, and
+// again each time its state changes. No rule acts on it, so Parse drops it and
+// ParseWorkRequest reads it.
+const WorkRequestType = "bridge.work_request"
+
+// KindPattern is the shape of a work request kind, and of a capability.
+var KindPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+
+// ruleIDPattern is the shape of the id of the server rule that opened a work
+// request.
+var ruleIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,99}$`)
+
 // ReviewSubmittedType is published when a person approves a document or asks
 // for changes. The bridge parses it only when a rule names it.
 const ReviewSubmittedType = "document.review_submitted"
@@ -214,7 +226,7 @@ func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 	}
 
 	switch {
-	case e.Type == CommandType:
+	case e.Type == CommandType, e.Type == WorkRequestType:
 		return e, fmt.Errorf("%w %q", ErrUnknownType, e.Type)
 	case e.Type == CardMovedType:
 		if err := checkCardMoved(e); err != nil {
@@ -541,6 +553,64 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	c.SessionID = strings.ToLower(c.SessionID)
 
 	return c, nil
+}
+
+// ParseWorkRequest decodes a bridge.work_request payload and checks it with
+// CheckWorkRequest.
+func ParseWorkRequest(data []byte) (api.WorkRequest, error) {
+	var w api.WorkRequest
+	if err := json.Unmarshal(data, &w); err != nil {
+		return w, fmt.Errorf("parse work request: %w", err)
+	}
+
+	return w, CheckWorkRequest(&w)
+}
+
+// CheckWorkRequest checks a work request from any channel, and puts its ids in
+// lower case, as Parse does for an event.
+func CheckWorkRequest(w *api.WorkRequest) error {
+	if w.Type != WorkRequestType {
+		return fmt.Errorf("work request has the type %q", w.Type)
+	}
+	for _, f := range []struct{ name, value string }{
+		{"projectId", w.ProjectID},
+		{"workRequestId", w.WorkRequestID},
+		{"cardId", w.CardID},
+	} {
+		if !uuidPattern.MatchString(f.value) {
+			return fmt.Errorf("work request has a %s that is not a uuid", f.name)
+		}
+	}
+	if w.Subject.Type != "work-request" || !strings.EqualFold(w.Subject.ID, w.WorkRequestID) {
+		return fmt.Errorf("work request %s names another subject", w.WorkRequestID)
+	}
+	if !KindPattern.MatchString(w.Kind) {
+		return fmt.Errorf("work request has an invalid kind %q", w.Kind)
+	}
+	if w.Capability != "" && !KindPattern.MatchString(w.Capability) {
+		return fmt.Errorf("work request has an invalid capability %q", w.Capability)
+	}
+	switch w.State {
+	case api.WorkRequestOpen, api.WorkRequestClaimed, api.WorkRequestDone, api.WorkRequestRefused, api.WorkRequestExpired, api.WorkRequestCancelled:
+	default:
+		return fmt.Errorf("work request has an unknown state %q", w.State)
+	}
+	if w.CardNumber <= 0 {
+		return fmt.Errorf("work request has an invalid cardNumber %d", w.CardNumber)
+	}
+	if !ruleIDPattern.MatchString(w.RuleID) {
+		return fmt.Errorf("work request has an invalid ruleId %q", w.RuleID)
+	}
+	if w.CreatedAt.IsZero() {
+		return errors.New("work request has no createdAt")
+	}
+
+	w.ProjectID = strings.ToLower(w.ProjectID)
+	w.WorkRequestID = strings.ToLower(w.WorkRequestID)
+	w.Subject.ID = strings.ToLower(w.Subject.ID)
+	w.CardID = strings.ToLower(w.CardID)
+
+	return nil
 }
 
 func checkCardHold(e Event) error {

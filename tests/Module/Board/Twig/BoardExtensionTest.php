@@ -124,7 +124,7 @@ final class BoardExtensionTest extends KernelTestCase
         $html = $this->renderFields($project);
 
         $name = 'move_card_'.MoveCardFormType::PLACEHOLDER_CARD_ID;
-        foreach (['_token', 'column', 'position', 'parent', 'beforeCardId', 'afterCardId'] as $field) {
+        foreach (['_token', 'column', 'position', 'parent', 'beforeCardId', 'afterCardId', 'unmanage'] as $field) {
             self::assertStringContainsString('name="'.$name.'['.$field.']"', $html);
         }
         self::assertStringContainsString('id="'.$name.'_column"', $html);

@@ -19,6 +19,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Board\Service\CardLinkSync;
+use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
@@ -27,6 +28,7 @@ use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Bridge\Service\CardPause;
 use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -61,6 +63,8 @@ final readonly class UpdateCardHandler
         private EventDispatcherInterface $events,
         private InteractiveRuns $interactiveRuns,
         private CardHolds $cardHolds,
+        private CardMoveGuard $moveGuard,
+        private CardPause $cardPause,
     ) {
     }
 
@@ -99,7 +103,7 @@ final readonly class UpdateCardHandler
         // so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards, $newParent): UpdateCardOutcome|string|DomainErrors|EpicChildrenOpen {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards, $newParent): UpdateCardOutcome|string|DomainErrors|EpicChildrenOpen|CardManaged {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
@@ -136,7 +140,6 @@ final readonly class UpdateCardHandler
             if (null !== $relatedCards && $this->cardLinkSync->anyCardGone($relatedCards)) {
                 return self::LINKED_CARD_GONE;
             }
-
             // Only a write that names a type or a parent can break a parent
             // rule, so a plain move pays no extra read.
             $oldParent = $card->parent;
@@ -155,6 +158,15 @@ final readonly class UpdateCardHandler
                 // A lane toggle or a move decides whether a lane shows, from the committed setting.
                 $this->cards->refreshTypeAndParent($card);
             }
+            // After the parent step, so the guard reads the parent the move keeps or sets.
+            // A card the update holds is unmanaged, so the guard has nothing to refuse.
+            $needsHold = $column !== $card->column && !$this->moveGuard->allows($card, $column, $command->actor, $command->cause);
+            if ($needsHold && null === $command->unmanageBy) {
+                // A returned refusal commits, so the parent goes back first.
+                $card->parent = $oldParent;
+
+                return new CardManaged($card->number);
+            }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
             $lanesBefore = $card->drawsLane();
 
@@ -166,6 +178,14 @@ final readonly class UpdateCardHandler
                     return new EpicChildrenOpen($open);
                 }
             }
+
+            // After every refusal that returns a value, because a value commits.
+            $held = $needsHold && null !== $command->unmanageBy && $this->cardPause->take(
+                $card->project,
+                $card->id ?? throw new \LogicException('A persisted card has an id.'),
+                $command->unmanageBy,
+                CardReporter::Agent === $command->actor ? 'agent' : 'human',
+            );
 
             // A terminal column keeps no rank, so it reads no neighbour.
             $position = $column->terminal || (null === $command->beforeCardId && null === $command->afterCardId)
@@ -179,7 +199,7 @@ final readonly class UpdateCardHandler
                 : null;
 
             // Before CardMoved, so the outbox row of this move reads the card as released.
-            if (null !== $move && $move->fromColumn !== $card->column && CardReporter::Human === $command->actor) {
+            if (null !== $move && $move->fromColumn !== $card->column && CardReporter::Human === $command->actor && !$needsHold && $this->moveGuard->releasesHoldOnMove()) {
                 $this->cardHolds->release($card->project, [$card->id ?? throw new \LogicException('A persisted card has an id.')]);
             }
 
@@ -253,11 +273,11 @@ final readonly class UpdateCardHandler
                 $this->events->dispatch(new CardBlockersRemoved($card->project, $unblocked, $command->actor));
             }
 
-            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $lanesBefore !== $lanesAfter, $contentChanged, $openedRun);
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $lanesBefore !== $lanesAfter, $contentChanged, $openedRun, $held);
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        if ($outcome instanceof DomainErrors || $outcome instanceof EpicChildrenOpen) {
+        if ($outcome instanceof DomainErrors || $outcome instanceof EpicChildrenOpen || $outcome instanceof CardManaged) {
             throw $outcome;
         }
         if (self::NOT_WHERE_EXPECTED === $outcome) {
@@ -275,6 +295,9 @@ final readonly class UpdateCardHandler
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback. The move comes
         // first, so the pair reads in the order the board applied it.
+        if ($outcome->held) {
+            $this->cardPause->announce($card->project, $card->id ?? throw new \LogicException('A persisted card has an id.'));
+        }
         if (null !== $outcome->move) {
             $this->auditor->record(
                 'board.card_moved',

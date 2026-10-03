@@ -410,6 +410,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.ackCommand == nil {
 		r.ackCommand = apiClient(cfg).AckCommand
 	}
+	if r.workAPI == nil {
+		r.workAPI = apiClient(cfg)
+	}
 	if r.replay == nil {
 		r.replay = apiClient(cfg).Replay
 	}
@@ -446,13 +449,14 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		if r.update != nil {
 			hb.onSent = r.update.markBeat
 		}
-		hb.onReply = r.onHeartbeatReply
+		hb.onReply, hb.onLost = r.onHeartbeatReply, r.loseClaims
 		// Adopted runs can end on their own goroutines, and read heartbeat
 		// under mu.
 		r.mu.Lock()
 		hb.paused = r.personPaused
 		r.heartbeat = hb
 		r.notePoolsLocked()
+		r.noteClaimsLocked()
 		r.mu.Unlock()
 		r.hookRunner.attach(r.heartbeat)
 		r.heartbeat.start()
@@ -532,8 +536,8 @@ func startEvents(ctx context.Context, cfg config.Config, set *rules.Set) (api.Ev
 	return events, nil
 }
 
-// heartbeatBody names the projects the rule file maps, by id, the CLI version
-// and the bridge name.
+// heartbeatBody names the projects the rule file maps, by id, the CLI
+// version, the capabilities of the work map and the bridge name.
 func heartbeatBody(set *rules.Set) api.Heartbeat {
 	ids := []string{}
 	for _, slug := range set.Projects() {
@@ -542,7 +546,7 @@ func heartbeatBody(set *rules.Set) api.Heartbeat {
 
 	name := set.Name()
 
-	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Name: &name}
+	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Capabilities: set.Capabilities(), Name: &name}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

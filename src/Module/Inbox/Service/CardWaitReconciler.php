@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
+use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -68,10 +69,11 @@ final readonly class CardWaitReconciler
         private CardAutomationRepository $cardAutomations,
         private BoardAutomation $boardAutomation,
         private StageCard $stageCard,
+        private CardPauseRepository $cardPauses,
     ) {
     }
 
-    /** @param list<string>|null $cardIds null for every card that has an open watch, a document in review, a newest run that waits or an open GitHub pull request */
+    /** @param list<string>|null $cardIds null for every card that has an open watch, a document in review, a newest run that waits, an open GitHub pull request or an active pause */
     public function reconcile(Project $project, ?array $cardIds): void
     {
         $countChanged = $this->em->wrapInTransaction(function () use ($project, $cardIds): bool {
@@ -161,6 +163,7 @@ final readonly class CardWaitReconciler
                 array_filter($this->workerRuns->findLatestRunRows($project, null), static fn (array $row): bool => null !== self::runTrigger($row['state'])),
             ),
             ...$this->cardPullRequests->findCardIdsWithOpenGitHubPullRequest($project),
+            ...$this->cardPauses->findActiveCardIdsForProject($project),
         ];
 
         $ids = [];
@@ -181,7 +184,7 @@ final readonly class CardWaitReconciler
     {
         $open = array_filter($cards, static fn (Card $card): bool => !$card->column->terminal);
         $cardIds = array_values(array_map(static fn (Card $card): Uuid => $card->id ?? throw new \LogicException('A stored card has an id.'), $open));
-        $candidates = [...$this->documentWaits($project, $cardIds), ...$this->runWaits($project, $cardIds, $open), ...$this->pullRequestWaits($project, $cardIds)];
+        $candidates = [...$this->documentWaits($project, $cardIds), ...$this->runWaits($project, $cardIds, $open), ...$this->pullRequestWaits($project, $cardIds), ...$this->pauseWaits($cardIds)];
         if ([] === $candidates) {
             return [];
         }
@@ -332,6 +335,21 @@ final readonly class CardWaitReconciler
     }
 
     /**
+     * @param list<Uuid> $cardIds
+     *
+     * @return list<array{string, WantedCardWait}>
+     */
+    private function pauseWaits(array $cardIds): array
+    {
+        $waits = [];
+        foreach ($this->cardPauses->findActiveForCardIds($cardIds) as $cardId => $pause) {
+            $waits[] = [$cardId, WantedCardWait::forPause($pause)];
+        }
+
+        return $waits;
+    }
+
+    /**
      * A changes-requested review on an older commit waits again, because GitHub keeps it until someone reviews anew.
      * An approval waits again once the head has commits it does not cover.
      */
@@ -436,6 +454,7 @@ final readonly class CardWaitReconciler
                 pullRequestId: $wanted->pullRequestId,
                 headSha: $wanted->headSha,
                 startedAt: $now,
+                pauseId: $wanted->pauseId,
             );
             $watch->waits->add($open[$key]);
             if (null !== $wanted->document) {

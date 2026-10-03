@@ -83,6 +83,16 @@
                     {{ form_help(form.syncBehind, {help_attr: {class: 'lp-form-hint'}}) }}
                     <div class="lp-field-errors" data-field-errors="syncBehind">{{ form_errors(form.syncBehind) }}</div>
                 </div>
+                {% for field in [form.mergePullRequests, form.changeBase] %}
+                <div class="lp-form-field">
+                    <label class="lp-choice">
+                        {{ form_widget(field) }}
+                        {{ field.vars.label|trans }}
+                    </label>
+                    {{ form_help(field, {help_attr: {class: 'lp-form-hint'}}) }}
+                    <div class="lp-field-errors" data-field-errors="{{ field.vars.name }}">{{ form_errors(field) }}</div>
+                </div>
+                {% endfor %}
                 <div class="lp-settings-form-actions">
                     <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.automation.submit'|trans }}</button>
                 </div>

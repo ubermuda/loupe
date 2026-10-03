@@ -102,9 +102,11 @@ type RunStateReport struct {
 	// pool its rule names while it waits. An interactive run has none.
 	WorkerPool string `json:"workerPool,omitzero"`
 
-	// ResultStatus and ResultFields come from the worker's structured result.
-	// ResumeSkipped says why the bridge did not resume a run that did not finish.
+	// ResultStatus, ResultReason and ResultFields come from the worker's
+	// structured result. ResumeSkipped says why the bridge did not resume a run
+	// that did not finish.
 	ResultStatus  string         `json:"resultStatus,omitempty"`
+	ResultReason  string         `json:"resultReason,omitempty"`
 	ResultFields  map[string]any `json:"resultFields,omitempty"`
 	ResumeSkipped string         `json:"resumeSkipped,omitempty"`
 	// Continues is the id of the run a resume continues. CardColumn is the

@@ -102,6 +102,8 @@ final class ReleaseCardAgentsHandlerTest extends KernelTestCase
     /** @return array{User, Project} */
     private function scenario(string $name): array
     {
+        // Before a hold, because the listeners of its events build the auditor.
+        $this->audit ??= RecordingAuditor::installedIn(self::getContainer());
         $em = $this->em();
         $owner = $this->user($em, $name.'@example.com');
 

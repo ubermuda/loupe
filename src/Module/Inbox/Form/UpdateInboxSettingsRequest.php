@@ -15,6 +15,7 @@ class UpdateInboxSettingsRequest
         public bool $runWaitingForPerson = true,
         public bool $pullRequestReady = true,
         public bool $pullRequestFixStopped = true,
+        public bool $cardPaused = true,
     ) {
     }
 
@@ -27,6 +28,7 @@ class UpdateInboxSettingsRequest
             runWaitingForPerson: $settings->runWaitingForPerson,
             pullRequestReady: $settings->pullRequestReady,
             pullRequestFixStopped: $settings->pullRequestFixStopped,
+            cardPaused: $settings->cardPaused,
         );
     }
 }

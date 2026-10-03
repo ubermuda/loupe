@@ -2041,6 +2041,7 @@
                 <target>Add project</target>
             </trans-unit>
             <trans-unit id="project.form.create_project_form.description.label"><source>project.form.create_project_form.description.label</source><target>Description (optional)</target></trans-unit>
+            <trans-unit id="project.form.create_project_form.workflow_template.label"><source>project.form.create_project_form.workflow_template.label</source><target>Workflow</target></trans-unit>
             <trans-unit id="project.form.create_project_form.name.label">
                 <source>project.form.create_project_form.name.label</source>
                 <target>Project name</target>
@@ -2547,15 +2548,15 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.worker_run_stop">
                 <source>project.connect.tool.worker_run_stop</source>
-                <target>Ask the bridge to stop a queued or running worker run. The stop ends this run only. Call card_hold to pause the agents on the card.</target>
+                <target>Ask the bridge to stop a queued or running worker run. The stop ends this run only. Call card_hold to make the card unmanaged.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_hold">
                 <source>project.connect.tool.card_hold</source>
-                <target>Pause the agents on a card. No bridge starts a worker on the card until the pause ends.</target>
+                <target>Make a card unmanaged. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until card_release.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_release">
                 <source>project.connect.tool.card_release</source>
-                <target>Let the agents run on a paused card. The queued runs on the card then start.</target>
+                <target>Manage an unmanaged card again. The queued runs on the card then start.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.bridge_command_cancel">
                 <source>project.connect.tool.bridge_command_cancel</source>
@@ -4733,6 +4734,8 @@
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_ready.help"><source>inbox.form.update_inbox_settings_form.pull_request_ready.help</source><target>A linked GitHub pull request passed its checks and waits for a review.</target></trans-unit>
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label"><source>inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label</source><target>Pull request fix loop stopped</target></trans-unit>
             <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help"><source>inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help</source><target>Loupe stopped asking for fixes on a linked GitHub pull request.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.card_paused.label"><source>inbox.form.update_inbox_settings_form.card_paused.label</source><target>Workflow paused the card</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.card_paused.help"><source>inbox.form.update_inbox_settings_form.card_paused.help</source><target>The workflow stopped acting on a card, and a person must look at it.</target></trans-unit>
             <trans-unit id="inbox.page.empty">
                 <source>inbox.page.empty</source>
                 <target>No agent has asked you anything yet.</target>
@@ -5248,6 +5251,18 @@
             <trans-unit id="board.card.error.epic_children_open">
                 <source>board.card.error.epic_children_open</source>
                 <target>This epic has open child cards. Move %cards% to a done column first.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.managed">
+                <source>board.card.error.managed</source>
+                <target>This card is managed. Make it unmanaged to move it there.</target>
+            </trans-unit>
+            <trans-unit id="board.card.flash.managed_card_page">
+                <source>board.card.flash.managed_card_page</source>
+                <target>This card is managed. Select %action% on this page, then move it.</target>
+            </trans-unit>
+            <trans-unit id="board.card.managed_offer">
+                <source>board.card.managed_offer</source>
+                <target>This card is managed. Make it unmanaged and move it?</target>
             </trans-unit>
             <trans-unit id="board.card.error.changed_since_opened">
                 <source>board.card.error.changed_since_opened</source>
@@ -6035,6 +6050,7 @@
             <trans-unit id="bridge.worker_runs.details.experiment"><source>bridge.worker_runs.details.experiment</source><target>Experiment</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.switched_from"><source>bridge.worker_runs.details.switched_from</source><target>switched from %variant%</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.result_status"><source>bridge.worker_runs.details.result_status</source><target>Result status</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.result_reason"><source>bridge.worker_runs.details.result_reason</source><target>Reason</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.resume_skipped"><source>bridge.worker_runs.details.resume_skipped</source><target>Resume skipped</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.result_fields"><source>bridge.worker_runs.details.result_fields</source><target>Result fields</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.unreported"><source>bridge.worker_runs.details.unreported</source><target>The bridge does not report the agent identity or the triggering event.</target></trans-unit>
@@ -6198,6 +6214,74 @@
                 <source>bridge.worker_runs.resume</source>
                 <target>Resume %index% of %cap%</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.done">
+                <source>bridge.worker_runs.result_reason.done</source>
+                <target>Work done</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.card-left">
+                <source>bridge.worker_runs.result_reason.card-left</source>
+                <target>Card left the column</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.waiting-checks">
+                <source>bridge.worker_runs.result_reason.waiting-checks</source>
+                <target>Waiting on checks</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.not-approved">
+                <source>bridge.worker_runs.result_reason.not-approved</source>
+                <target>Pull request not approved</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.approval-stale">
+                <source>bridge.worker_runs.result_reason.approval-stale</source>
+                <target>Approval does not cover the head</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.stacked">
+                <source>bridge.worker_runs.result_reason.stacked</source>
+                <target>Stacked on another pull request</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.conflicting">
+                <source>bridge.worker_runs.result_reason.conflicting</source>
+                <target>Pull request has conflicts</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.not-behind">
+                <source>bridge.worker_runs.result_reason.not-behind</source>
+                <target>Pull request is not behind its base</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.no-design">
+                <source>bridge.worker_runs.result_reason.no-design</source>
+                <target>No approved design</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.open-pull-request">
+                <source>bridge.worker_runs.result_reason.open-pull-request</source>
+                <target>A pull request is already open</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.no-pull-request">
+                <source>bridge.worker_runs.result_reason.no-pull-request</source>
+                <target>No pull request</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.tool-unavailable">
+                <source>bridge.worker_runs.result_reason.tool-unavailable</source>
+                <target>A tool is not available</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.worktree-failed">
+                <source>bridge.worker_runs.result_reason.worktree-failed</source>
+                <target>Worktree setup failed</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.merge-refused">
+                <source>bridge.worker_runs.result_reason.merge-refused</source>
+                <target>Merge refused</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.needs-person">
+                <source>bridge.worker_runs.result_reason.needs-person</source>
+                <target>Needs a person</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.work-remains">
+                <source>bridge.worker_runs.result_reason.work-remains</source>
+                <target>Work remains</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.other">
+                <source>bridge.worker_runs.result_reason.other</source>
+                <target>Unknown reason</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.result_status.finished">
                 <source>bridge.worker_runs.result_status.finished</source>
                 <target>Finished</target>
@@ -6281,6 +6365,7 @@
             <trans-unit id="board.card.history.cause.unblocked_any"><source>board.card.history.cause.unblocked_any</source><target>After it had no open blocker left.</target></trans-unit>
             <trans-unit id="board.card.history.cause.abandoned"><source>board.card.history.cause.abandoned</source><target>After every pull request closed without a merge.</target></trans-unit>
             <trans-unit id="board.card.history.cause.run"><source>board.card.history.cause.run</source><target>Via the %rule% run.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.workflow_rule"><source>board.card.history.cause.workflow_rule</source><target>Via the %rule% workflow rule.</target></trans-unit>
             <trans-unit id="board.card.history.cause.column_deleted"><source>board.card.history.cause.column_deleted</source><target>After the %column% column was deleted.</target></trans-unit>
             <trans-unit id="board.card.overview.description"><source>board.card.overview.description</source><target>Description</target></trans-unit>
             <trans-unit id="board.card.overview.status"><source>board.card.overview.status</source><target>Status</target></trans-unit>
@@ -6292,9 +6377,9 @@
             <trans-unit id="board.card.runs.title"><source>board.card.runs.title</source><target>Agent runs</target></trans-unit>
             <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
             <trans-unit id="board.card.runs.open_title"><source>board.card.runs.open_title</source><target>Runs in progress</target></trans-unit>
-            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Agents paused: no worker starts on this card until you let agents run or move it.</target></trans-unit>
-            <trans-unit id="board.card.runs.pause"><source>board.card.runs.pause</source><target>Pause agents</target></trans-unit>
-            <trans-unit id="board.card.runs.release"><source>board.card.runs.release</source><target>Let agents run</target></trans-unit>
+            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Unmanaged: the workflow makes no move and starts no work on this card.</target></trans-unit>
+            <trans-unit id="board.card.runs.pause"><source>board.card.runs.pause</source><target>Make unmanaged</target></trans-unit>
+            <trans-unit id="board.card.runs.release"><source>board.card.runs.release</source><target>Manage again</target></trans-unit>
             <trans-unit id="board.card.runs.usage.total"><source>board.card.runs.usage.total</source><target>Total usage</target></trans-unit>
             <trans-unit id="board.card.runs.usage.tokens"><source>board.card.runs.usage.tokens</source><target>%input% input · %output% output · %cacheRead% cache read · %cacheWrite% cache write</target></trans-unit>
             <trans-unit id="board.card.runs.usage.estimated"><source>board.card.runs.usage.estimated</source><target>Estimated</target></trans-unit>
@@ -6333,6 +6418,8 @@
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
             <trans-unit id="board.card.badge.blocked"><source>board.card.badge.blocked</source><target>Automation blocked</target></trans-unit>
+            <trans-unit id="board.card.badge.paused"><source>board.card.badge.paused</source><target>Paused</target></trans-unit>
+            <trans-unit id="board.card.badge.unmanaged"><source>board.card.badge.unmanaged</source><target>Unmanaged</target></trans-unit>
             <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for a fix.</target></trans-unit>
             <trans-unit id="board.card.automation.stopped"><source>board.card.automation.stopped</source><target>The automation stopped.</target></trans-unit>
             <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>
@@ -6472,9 +6559,10 @@
             <trans-unit id="activity.event_type.pull_request.fix_requested"><source>activity.event_type.pull_request.fix_requested</source><target>Fix requested</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.ready_to_merge"><source>activity.event_type.pull_request.ready_to_merge</source><target>Ready to merge</target></trans-unit>
             <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
-            <trans-unit id="activity.event_type.board.card_held"><source>activity.event_type.board.card_held</source><target>Agents paused on a card</target></trans-unit>
-            <trans-unit id="activity.event_type.board.card_released"><source>activity.event_type.board.card_released</source><target>Agents released on a card</target></trans-unit>
+            <trans-unit id="activity.event_type.board.card_held"><source>activity.event_type.board.card_held</source><target>Card made unmanaged</target></trans-unit>
+            <trans-unit id="activity.event_type.board.card_released"><source>activity.event_type.board.card_released</source><target>Card managed again</target></trans-unit>
             <trans-unit id="activity.event_type.bridge.command"><source>activity.event_type.bridge.command</source><target>Command sent to a bridge</target></trans-unit>
+            <trans-unit id="activity.event_type.bridge.work_request"><source>activity.event_type.bridge.work_request</source><target>Work requested from a bridge</target></trans-unit>
             <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.review_submitted"><source>activity.event_type.pull_request.review_submitted</source><target>Pull request reviewed</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.checks_concluded"><source>activity.event_type.pull_request.checks_concluded</source><target>Checks concluded</target></trans-unit>
@@ -6776,6 +6864,22 @@
                 <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
                 <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.label">
+                <source>board.form.save_board_automation_settings_form.merge_pull_requests.label</source>
+                <target>Merge a pull request when the workflow asks</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.help">
+                <source>board.form.save_board_automation_settings_form.merge_pull_requests.help</source>
+                <target>Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.change_base.label">
+                <source>board.form.save_board_automation_settings_form.change_base.label</source>
+                <target>Change the base of a pull request when the workflow asks</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.change_base.help">
+                <source>board.form.save_board_automation_settings_form.change_base.help</source>
+                <target>Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
                 <target>Loupe could not post the last fix run comment on %pull_request%</target>
@@ -6843,6 +6947,7 @@
             <trans-unit id="board.live.stale"><source>board.live.stale</source><target>This card may be out of date</target></trans-unit>
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
             <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>
+            <trans-unit id="nav.link.workflow"><source>nav.link.workflow</source><target>Workflow</target></trans-unit>
             <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>
             <trans-unit id="bridge.agents.page.title"><source>bridge.agents.page.title</source><target>Agents</target></trans-unit>
             <trans-unit id="bridge.agents.heading"><source>bridge.agents.heading</source><target>Your crew</target></trans-unit>
@@ -6888,9 +6993,9 @@
             <trans-unit id="bridge.command.error.not_controllable"><source>bridge.command.error.not_controllable</source><target>You cannot control an interactive session from here.</target></trans-unit>
             <trans-unit id="bridge.command.error.no_session"><source>bridge.command.error.no_session</source><target>This run has no session to resume.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_resumable"><source>bridge.command.error.not_resumable</source><target>Only an ended run can resume.</target></trans-unit>
-            <trans-unit id="bridge.command.error.card_held"><source>bridge.command.error.card_held</source><target>Agents are paused on this card. Let agents run first.</target></trans-unit>
-            <trans-unit id="bridge.card_hold.error.already_paused"><source>bridge.card_hold.error.already_paused</source><target>Agents are already paused on this card.</target></trans-unit>
-            <trans-unit id="bridge.card_hold.error.not_paused"><source>bridge.card_hold.error.not_paused</source><target>Agents are not paused on this card.</target></trans-unit>
+            <trans-unit id="bridge.command.error.card_held"><source>bridge.command.error.card_held</source><target>This card is unmanaged. Select Manage again first.</target></trans-unit>
+            <trans-unit id="bridge.card_hold.error.already_paused"><source>bridge.card_hold.error.already_paused</source><target>This card is already unmanaged.</target></trans-unit>
+            <trans-unit id="bridge.card_hold.error.not_paused"><source>bridge.card_hold.error.not_paused</source><target>This card is already managed.</target></trans-unit>
             <trans-unit id="bridge.card_hold.error.card_gone"><source>bridge.card_hold.error.card_gone</source><target>This card no longer exists.</target></trans-unit>
             <trans-unit id="bridge.command.error.card_left"><source>bridge.command.error.card_left</source><target>The card left the column of this run.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_stoppable"><source>bridge.command.error.not_stoppable</source><target>Only a queued or running run can stop.</target></trans-unit>
@@ -7177,6 +7282,138 @@
             <trans-unit id="github.app.flash.connected"><source>github.app.flash.connected</source><target>Loupe is connected to the GitHub App on %account%.</target></trans-unit>
             <trans-unit id="github.app.flash.repositories_incomplete"><source>github.app.flash.repositories_incomplete</source><target>GitHub listed more repositories than Loupe reads at one time, so the repository list may be incomplete. A missing repository joins the list on its first delivery.</target></trans-unit>
             <trans-unit id="github.app.flash.repositories_elsewhere"><source>github.app.flash.repositories_elsewhere</source><target>{0}No repository belongs to another project.|{1}1 repository belongs to another project, so Loupe did not connect it.|]1,Inf[%count% repositories belong to another project, so Loupe did not connect them.</target></trans-unit>
+
+            <!-- Workflow conditions: what a rule waits for -->
+            <trans-unit id="workflow.waiting.card_in_slot"><source>workflow.waiting.card_in_slot</source><target>Waiting: the card is not in the %slot% slot.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_in_slot"><source>workflow.waiting.not.card_in_slot</source><target>Waiting: the card is still in the %slot% slot.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_type"><source>workflow.waiting.card_type</source><target>Waiting: the card type is not %type%.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_type"><source>workflow.waiting.not.card_type</source><target>Waiting: the card type is %type%.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_has_open_blocker"><source>workflow.waiting.card_has_open_blocker</source><target>Waiting: the card has no open blocker.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_has_open_blocker"><source>workflow.waiting.not.card_has_open_blocker</source><target>Waiting: a blocking card is still open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_is_child"><source>workflow.waiting.card_is_child</source><target>Waiting: the card is not a child of an epic.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_is_child"><source>workflow.waiting.not.card_is_child</source><target>Waiting: the card is a child of an epic.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_has_children"><source>workflow.waiting.card_has_children</source><target>Waiting: the card has no child cards.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_has_children"><source>workflow.waiting.not.card_has_children</source><target>Waiting: the card has child cards.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_children_finished"><source>workflow.waiting.card_children_finished</source><target>Waiting: a child card is still open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_children_finished"><source>workflow.waiting.not.card_children_finished</source><target>Waiting: no child card is open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_document_approved"><source>workflow.waiting.card_document_approved</source><target>Waiting: no %tag% document is approved.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_document_approved"><source>workflow.waiting.not.card_document_approved</source><target>Waiting: a %tag% document is approved.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_document_changes_requested"><source>workflow.waiting.card_document_changes_requested</source><target>Waiting: no reviewer asked for changes on a %tag% document.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_document_changes_requested"><source>workflow.waiting.not.card_document_changes_requested</source><target>Waiting: a reviewer asked for changes on a %tag% document.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_open"><source>workflow.waiting.pr_open</source><target>Waiting: the pull request is not open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_open"><source>workflow.waiting.not.pr_open</source><target>Waiting: the pull request is still open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_draft"><source>workflow.waiting.pr_draft</source><target>Waiting: the pull request is not an open draft.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_draft"><source>workflow.waiting.not.pr_draft</source><target>Waiting: the pull request is a draft.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_checks_passed"><source>workflow.waiting.pr_checks_passed</source><target>Waiting: the required checks have not passed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_checks_passed"><source>workflow.waiting.not.pr_checks_passed</source><target>Waiting: the required checks passed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_checks_failed"><source>workflow.waiting.pr_checks_failed</source><target>Waiting: no required check has failed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_checks_failed"><source>workflow.waiting.not.pr_checks_failed</source><target>Waiting: a required check failed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_conflicting"><source>workflow.waiting.pr_conflicting</source><target>Waiting: the pull request has no conflict with its base.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_conflicting"><source>workflow.waiting.not.pr_conflicting</source><target>Waiting: the pull request conflicts with its base.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_behind"><source>workflow.waiting.pr_behind</source><target>Waiting: the pull request is not behind its base.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_behind"><source>workflow.waiting.not.pr_behind</source><target>Waiting: the pull request is behind its base.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_approval_covers_head"><source>workflow.waiting.pr_approval_covers_head</source><target>Waiting: fewer than %min% approvals cover the head commit.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_approval_covers_head"><source>workflow.waiting.not.pr_approval_covers_head</source><target>Waiting: %min% or more approvals cover the head commit.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_changes_requested"><source>workflow.waiting.pr_changes_requested</source><target>Waiting: no review asks for changes on the head commit.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_changes_requested"><source>workflow.waiting.not.pr_changes_requested</source><target>Waiting: a review asks for changes on the head commit.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_base_is_merge_target"><source>workflow.waiting.pr_base_is_merge_target</source><target>Waiting: the pull request targets neither the default branch nor the epic branch.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_base_is_merge_target"><source>workflow.waiting.not.pr_base_is_merge_target</source><target>Waiting: the pull request targets the default branch or the epic branch.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_base_is_epic_branch"><source>workflow.waiting.pr_base_is_epic_branch</source><target>Waiting: the pull request does not target the epic branch.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_base_is_epic_branch"><source>workflow.waiting.not.pr_base_is_epic_branch</source><target>Waiting: the pull request targets the epic branch.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_stacked"><source>workflow.waiting.pr_stacked</source><target>Waiting: the pull request is not stacked on another pull request.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_stacked"><source>workflow.waiting.not.pr_stacked</source><target>Waiting: the pull request is stacked on another pull request.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_parent_merged"><source>workflow.waiting.pr_parent_merged</source><target>Waiting: the parent pull request is not merged.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_parent_merged"><source>workflow.waiting.not.pr_parent_merged</source><target>Waiting: the parent pull request is merged.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_linked"><source>workflow.waiting.pr_linked</source><target>Waiting: no pull request is linked to the card.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_linked"><source>workflow.waiting.not.pr_linked</source><target>Waiting: a pull request is linked to the card.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_all_finished_one_merged"><source>workflow.waiting.pr_all_finished_one_merged</source><target>Waiting: a pull request is still open, or none is merged.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_all_finished_one_merged"><source>workflow.waiting.not.pr_all_finished_one_merged</source><target>Waiting: no pull request is open, and one is merged.</target></trans-unit>
+            <trans-unit id="workflow.waiting.pr_all_closed_unmerged"><source>workflow.waiting.pr_all_closed_unmerged</source><target>Waiting: the pull requests are not all closed unmerged for %minutes% minutes.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.pr_all_closed_unmerged"><source>workflow.waiting.not.pr_all_closed_unmerged</source><target>Waiting: all pull requests are closed unmerged for %minutes% minutes.</target></trans-unit>
+            <trans-unit id="workflow.waiting.run_work_active"><source>workflow.waiting.run_work_active</source><target>Waiting: no matching work request is active.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.run_work_active"><source>workflow.waiting.not.run_work_active</source><target>Waiting: a matching work request is still active.</target></trans-unit>
+            <trans-unit id="workflow.waiting.run_last_refusal"><source>workflow.waiting.run_last_refusal</source><target>Waiting: the last run did not refuse with the code %code%.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.run_last_refusal"><source>workflow.waiting.not.run_last_refusal</source><target>Waiting: the last run refused with the code %code%.</target></trans-unit>
+            <trans-unit id="workflow.slot.next"><source>workflow.slot.next</source><target>Next</target></trans-unit>
+            <trans-unit id="workflow.slot.product_design"><source>workflow.slot.product_design</source><target>Product design</target></trans-unit>
+            <trans-unit id="workflow.slot.tech_design"><source>workflow.slot.tech_design</source><target>Tech design</target></trans-unit>
+            <trans-unit id="workflow.slot.implementation"><source>workflow.slot.implementation</source><target>Implementation</target></trans-unit>
+            <trans-unit id="workflow.slot.in_review"><source>workflow.slot.in_review</source><target>In review</target></trans-unit>
+            <trans-unit id="workflow.template.lifecycle.label"><source>workflow.template.lifecycle.label</source><target>Lifecycle</target></trans-unit>
+            <trans-unit id="workflow.template.lifecycle.description"><source>workflow.template.lifecycle.description</source><target>Product design, tech design, implementation and review, with an agent at each stage.</target></trans-unit>
+            <trans-unit id="workflow.template.simple.label"><source>workflow.template.simple.label</source><target>Simple</target></trans-unit>
+            <trans-unit id="workflow.template.simple.description"><source>workflow.template.simple.description</source><target>Four columns. A merged pull request finishes the card.</target></trans-unit>
+            <trans-unit id="workflow.settings.page.title"><source>workflow.settings.page.title</source><target>Workflow</target></trans-unit>
+            <trans-unit id="workflow.settings.unbound"><source>workflow.settings.unbound</source><target>This project runs no workflow template yet.</target></trans-unit>
+            <trans-unit id="workflow.settings.version"><source>workflow.settings.version</source><target>Version %version%</target></trans-unit>
+            <trans-unit id="workflow.settings.bound_at"><source>workflow.settings.bound_at</source><target>Bound on %date%</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.heading"><source>workflow.settings.slots.heading</source><target>Slots and columns</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.slot"><source>workflow.settings.slots.slot</source><target>Slot</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.column"><source>workflow.settings.slots.column</source><target>Column</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.not_linked"><source>workflow.settings.slots.not_linked</source><target>Not linked</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.none"><source>workflow.settings.slots.none</source><target>This template has no slots.</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.heading"><source>workflow.settings.rules.heading</source><target>Rules</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.id"><source>workflow.settings.rules.id</source><target>Rule</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.applies_to"><source>workflow.settings.rules.applies_to</source><target>Applies in</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.action"><source>workflow.settings.rules.action</source><target>Action</target></trans-unit>
+            <trans-unit id="workflow.settings.where.backlog"><source>workflow.settings.where.backlog</source><target>the Backlog</target></trans-unit>
+            <trans-unit id="workflow.settings.where.any_terminal"><source>workflow.settings.where.any_terminal</source><target>a terminal column</target></trans-unit>
+            <trans-unit id="workflow.settings.where.any"><source>workflow.settings.where.any</source><target>any column</target></trans-unit>
+            <trans-unit id="workflow.settings.action.move"><source>workflow.settings.action.move</source><target>Move the card to %target%</target></trans-unit>
+            <trans-unit id="workflow.settings.action.request"><source>workflow.settings.action.request</source><target>Request work: %kind%</target></trans-unit>
+            <trans-unit id="workflow.settings.action.forge_write"><source>workflow.settings.action.forge_write</source><target>Forge write: %kind%</target></trans-unit>
+            <trans-unit id="workflow.settings.action.pause"><source>workflow.settings.action.pause</source><target>Pause the card</target></trans-unit>
+            <trans-unit id="workflow.settings.action.release"><source>workflow.settings.action.release</source><target>Release the pause</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A person may move a managed card along these paths.</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.to"><source>workflow.settings.moves.to</source><target>To</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.none"><source>workflow.settings.moves.none</source><target>This template allows no manual moves.</target></trans-unit>
+            <trans-unit id="workflow.settings.timings.heading"><source>workflow.settings.timings.heading</source><target>Retry timings</target></trans-unit>
+            <trans-unit id="workflow.settings.timings.backoff"><source>workflow.settings.timings.backoff</source><target>Retry delays: %minutes% minutes</target></trans-unit>
+            <trans-unit id="workflow.settings.timings.work_timeout"><source>workflow.settings.timings.work_timeout</source><target>Work timeout: %minutes% minutes</target></trans-unit>
+            <trans-unit id="workflow.bind.error.already_bound"><source>workflow.bind.error.already_bound</source><target>This project already runs a workflow template.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.unknown_template"><source>workflow.bind.error.unknown_template</source><target>No workflow template has this key.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.slot_unlinked"><source>workflow.bind.error.slot_unlinked</source><target>Choose a column for this slot.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.unknown_slot"><source>workflow.bind.error.unknown_slot</source><target>The workflow template has no slot with this key.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.foreign_column"><source>workflow.bind.error.foreign_column</source><target>This column is not a column of the project.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.column_reused"><source>workflow.bind.error.column_reused</source><target>Another slot already uses this column.</target></trans-unit>
+            <trans-unit id="workflow.bind.error.flag_column"><source>workflow.bind.error.flag_column</source><target>A slot cannot use the Backlog or a terminal column.</target></trans-unit>
+            <trans-unit id="workflow.panel.title"><source>workflow.panel.title</source><target>Workflow</target></trans-unit>
+            <trans-unit id="workflow.panel.paused"><source>workflow.panel.paused</source><target>Paused: %kind%.</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.rule"><source>workflow.panel.pause_kind.rule</source><target>a rule of the template paused the card</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.retries"><source>workflow.panel.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.work_limit"><source>workflow.panel.pause_kind.work_limit</source><target>the rule reached its work limit</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.work_timeout"><source>workflow.panel.pause_kind.work_timeout</source><target>no bridge took the work in time</target></trans-unit>
+            <trans-unit id="workflow.panel.release.left_slot"><source>workflow.panel.release.left_slot</source><target>The pause ends when the card leaves its slot.</target></trans-unit>
+            <trans-unit id="workflow.panel.release.facts_changed"><source>workflow.panel.release.facts_changed</source><target>The pause ends when the facts that the rule reads change.</target></trans-unit>
+            <trans-unit id="workflow.panel.release.next_evaluation"><source>workflow.panel.release.next_evaluation</source><target>The workflow ends the pause when it next evaluates the card.</target></trans-unit>
+            <trans-unit id="workflow.panel.release.met"><source>workflow.panel.release.met</source><target>The release condition is met. The workflow ends the pause when it next evaluates the card.</target></trans-unit>
+            <trans-unit id="workflow.panel.slot.label"><source>workflow.panel.slot.label</source><target>Slot</target></trans-unit>
+            <trans-unit id="workflow.panel.slot.none"><source>workflow.panel.slot.none</source><target>No slot</target></trans-unit>
+            <trans-unit id="workflow.panel.slot.backlog"><source>workflow.panel.slot.backlog</source><target>Backlog</target></trans-unit>
+            <trans-unit id="workflow.panel.slot.terminal"><source>workflow.panel.slot.terminal</source><target>Terminal column</target></trans-unit>
+            <trans-unit id="workflow.panel.next_action"><source>workflow.panel.next_action</source><target>Next action</target></trans-unit>
+            <trans-unit id="workflow.panel.waiting"><source>workflow.panel.waiting</source><target>Condition</target></trans-unit>
+            <trans-unit id="workflow.panel.last_refusal"><source>workflow.panel.last_refusal</source><target>Last refusal</target></trans-unit>
+            <trans-unit id="workflow.panel.attempts"><source>workflow.panel.attempts</source><target>{0}No attempt|{1}1 attempt|]1,Inf[%count% attempts</target></trans-unit>
+            <trans-unit id="workflow.panel.action.move"><source>workflow.panel.action.move</source><target>Move the card to %slot%</target></trans-unit>
+            <trans-unit id="workflow.panel.action.move_backlog"><source>workflow.panel.action.move_backlog</source><target>Move the card to the Backlog</target></trans-unit>
+            <trans-unit id="workflow.panel.action.move_terminal"><source>workflow.panel.action.move_terminal</source><target>Move the card to a terminal column</target></trans-unit>
+            <trans-unit id="workflow.panel.action.request"><source>workflow.panel.action.request</source><target>Request %kind% work from a bridge</target></trans-unit>
+            <trans-unit id="workflow.panel.action.forge_write"><source>workflow.panel.action.forge_write</source><target>Write %write% to the pull request</target></trans-unit>
+            <trans-unit id="workflow.panel.action.pause"><source>workflow.panel.action.pause</source><target>Pause the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.release"><source>workflow.panel.action.release</source><target>End the pause of the card</target></trans-unit>
+            <trans-unit id="workflow.pause.no-bridge-took-work"><source>workflow.pause.no-bridge-took-work</source><target>No bridge took the requested work in time.</target></trans-unit>
+            <trans-unit id="workflow.pause.work-limit-reached"><source>workflow.pause.work-limit-reached</source><target>The rule requested the most work that it may request for this card.</target></trans-unit>
+            <trans-unit id="workflow.refusal.move-refused"><source>workflow.refusal.move-refused</source><target>The board refused the move.</target></trans-unit>
+            <trans-unit id="workflow.refusal.epic-children-open"><source>workflow.refusal.epic-children-open</source><target>The epic still has open child cards.</target></trans-unit>
+            <trans-unit id="workflow.refusal.workflow-slot-missing"><source>workflow.refusal.workflow-slot-missing</source><target>No column of the board is linked to the target slot.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-pull-request"><source>workflow.refusal.no-pull-request</source><target>The card has no pull request.</target></trans-unit>
+            <trans-unit id="workflow.refusal.unsupported-write"><source>workflow.refusal.unsupported-write</source><target>The forge cannot do this write.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-parent-base"><source>workflow.refusal.no-parent-base</source><target>The parent pull request has no base branch.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-head"><source>workflow.refusal.no-head</source><target>The pull request has no head commit.</target></trans-unit>
+            <trans-unit id="workflow.refusal.invalid-work-request"><source>workflow.refusal.invalid-work-request</source><target>The app refused to open the work request.</target></trans-unit>
         </body>
     </file>
 </xliff>

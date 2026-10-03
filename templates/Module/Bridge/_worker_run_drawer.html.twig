@@ -43,6 +43,7 @@
             {% if item.isResume %}<div><dt>{{ 'bridge.worker_runs.details.series'|trans }}</dt><dd>{{ 'bridge.worker_runs.resume'|trans({'%index%': run.resumeIndex, '%cap%': run.resumeCap}) }}</dd></div>{% endif %}
             {% if run.continuesRun is not null %}<div><dt>{{ 'bridge.worker_runs.details.continues'|trans }}</dt><dd><a href="{{ path('app_project_worker_runs', {id: project.id, search: run.continuesRun.id}) }}" data-worker-run-continues>{{ run.continuesRun.id }}</a></dd></div>{% endif %}
             {% if run.resultStatus is not null %}<div data-worker-run-result-status><dt>{{ 'bridge.worker_runs.details.result_status'|trans }}</dt><dd>{{ ('bridge.worker_runs.result_status.' ~ run.resultStatus)|trans }}</dd></div>{% endif %}
+            {% if run.resultReason is not null %}<div data-worker-run-result-reason><dt>{{ 'bridge.worker_runs.details.result_reason'|trans }}</dt><dd>{{ ('bridge.worker_runs.result_reason.' ~ run.resultReason.value)|trans }}</dd></div>{% endif %}
             {% if run.resumeSkipped is not null %}<div data-worker-run-resume-skipped><dt>{{ 'bridge.worker_runs.details.resume_skipped'|trans }}</dt><dd><code>{{ run.resumeSkipped }}</code></dd></div>{% endif %}
         </dl>
         {% if item.resultFields is not empty %}

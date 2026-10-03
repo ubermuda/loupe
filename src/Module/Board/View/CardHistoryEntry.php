@@ -185,6 +185,7 @@ final readonly class CardHistoryEntry
             'column-deleted' => ['board.card.history.cause.column_deleted', 'column', '%column%'],
             'abandoned' => ['board.card.history.cause.abandoned', null, null],
             'run' => ['board.card.history.cause.run', 'rule', '%rule%'],
+            'workflow-rule' => ['board.card.history.cause.workflow_rule', 'rule', '%rule%'],
             default => [null, null, null],
         };
         if (null === $key) {

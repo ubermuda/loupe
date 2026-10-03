@@ -51,6 +51,18 @@ type handoverState struct {
 	OldVersion   string        `json:"oldVersion"`
 	OldBinary    string        `json:"oldBinary"`
 	NewVersion   string        `json:"newVersion,omitempty"`
+	// WorkClaims are the work requests the bridge holds, so the next image
+	// renews their leases. An older image writes none.
+	WorkClaims []handoverClaim `json:"workClaims,omitempty"`
+}
+
+// handoverClaim is one claim of a work request, with the run it belongs to.
+type handoverClaim struct {
+	ID      string          `json:"id"`
+	Token   string          `json:"token"`
+	RunID   string          `json:"runId,omitempty"`
+	Request api.WorkRequest `json:"request"`
+	Running bool            `json:"running,omitempty"`
 }
 
 // handoverPending is a queued event. The adopter matches it again against its
@@ -71,6 +83,8 @@ type handoverPending struct {
 	Pool      string `json:"pool,omitempty"`
 	// Action is the action of the rule, and empty for a worker.
 	Action string `json:"action,omitempty"`
+	// Work is the work request of a queued offer.
+	Work *api.WorkRequest `json:"work,omitempty"`
 }
 
 // handoverSeries is where a run stands in its series of resumes.
@@ -124,6 +138,9 @@ type handoverRun struct {
 	PermissionMode string `json:"permissionMode,omitempty"`
 	Model          string `json:"model,omitempty"`
 	Schema         string `json:"schema,omitempty"`
+	// Work is the work request of the run, and ClaimToken its claim.
+	Work       *api.WorkRequest `json:"work,omitempty"`
+	ClaimToken string           `json:"claimToken,omitempty"`
 }
 
 // phaseBefore is the phase of a run whose before command runs, and
@@ -331,6 +348,7 @@ func (r *router) freeze() handoverState {
 		if p.continues != "" {
 			q.SessionID, q.Prompt = p.spec.sessionID, p.spec.prompt
 		}
+		q.Work = workOf(p)
 		st.Queue = append(st.Queue, q)
 	}
 	for _, run := range r.live {
@@ -338,6 +356,7 @@ func (r *router) freeze() handoverState {
 			RunID: run.p.runID, Key: run.p.key, Rule: run.p.rule, Event: run.p.event, SessionID: run.p.spec.sessionID,
 			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, Resume: run.p.spec.resume, Fresh: run.p.fresh,
 			Pool: run.p.slot, handoverSeries: seriesOf(run.p), runPin: run.p.pin,
+			Work: workOf(run.p), ClaimToken: run.p.claimToken,
 		}
 		switch {
 		case run.p.isCommand():
@@ -350,8 +369,23 @@ func (r *router) freeze() handoverState {
 	slices.SortFunc(st.Live, func(a, b handoverRun) int {
 		return cmp.Or(a.Began.Compare(b.Began), cmp.Compare(a.RunID, b.RunID))
 	})
+	for _, id := range slices.Sorted(maps.Keys(r.claims)) {
+		if c := r.claims[id]; c.token != "" {
+			st.WorkClaims = append(st.WorkClaims, handoverClaim{ID: id, Token: c.token, RunID: c.runID, Request: c.req, Running: c.running})
+		}
+	}
 
 	return st
+}
+
+// workOf is the work request of p for a handover, and nil for an event's run.
+func workOf(p pending) *api.WorkRequest {
+	if !p.isWork() {
+		return nil
+	}
+	w := p.work
+
+	return &w
 }
 
 // adopt takes the state a former image froze, on a router that has not
@@ -379,10 +413,20 @@ func (r *router) adopt(st handoverState) {
 			r.sessions[id] = sessionCard{key: s.Key, id: s.CardID, number: s.CardNumber, column: s.Column}
 		}
 	}
+	for _, c := range st.WorkClaims {
+		if r.claims == nil {
+			r.claims = map[string]*heldClaim{}
+		}
+		r.claims[c.ID] = &heldClaim{token: c.Token, runID: c.RunID, req: c.Request, running: c.Running}
+	}
+	r.noteClaimsLocked()
 	for _, q := range st.Queue {
 		p := pending{
 			key: q.Key, rule: q.Rule, event: q.Event, runID: q.RunID, seq: q.Seq, checked: q.Checked, dropReason: q.DropReason, fresh: q.Fresh,
 			pool: q.Pool, action: q.Action,
+		}
+		if q.Work != nil {
+			p.work = *q.Work
 		}
 		q.applyTo(&p)
 		if p.continues != "" {
@@ -404,7 +448,10 @@ func (r *router) adopt(st handoverState) {
 // adoptLocked waits for one worker a former image started, on its own
 // goroutine. The caller holds mu.
 func (r *router) adoptLocked(run handoverRun) {
-	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh, pin: run.runPin}
+	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh, pin: run.runPin, claimToken: run.ClaimToken}
+	if run.Work != nil {
+		p.work = *run.Work
+	}
 	run.applyTo(&p)
 	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume
 	// A command run takes no slot.
@@ -418,7 +465,7 @@ func (r *router) adoptLocked(run handoverRun) {
 	}
 	p.pool = run.Pool
 	if p.pool == "" {
-		m, _ := r.rules().MatchRule(run.Event, run.Rule)
+		m, _ := matchPending(r.rules(), p)
 		p.pool = cmp.Or(m.Pool, rules.DefaultPool)
 	}
 	p.slot = p.pool

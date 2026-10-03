@@ -12,6 +12,7 @@ enum InboxCardWaitTrigger: string
     case RunWaitingForPerson = 'run-waiting-for-person';
     case PullRequestReady = 'pull-request-ready';
     case PullRequestFixStopped = 'pull-request-fix-stopped';
+    case CardPaused = 'card-paused';
 
     public function isDocument(): bool
     {
@@ -21,5 +22,10 @@ enum InboxCardWaitTrigger: string
     public function isPullRequest(): bool
     {
         return self::PullRequestReady === $this || self::PullRequestFixStopped === $this;
+    }
+
+    public function isPause(): bool
+    {
+        return self::CardPaused === $this;
     }
 }

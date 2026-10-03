@@ -15,6 +15,7 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
+use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Board\Service\RacingBridgeRules;
@@ -36,6 +37,7 @@ final readonly class ShowBoardHandler
         private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
         private RacingBridgeRules $racingRules,
+        private CardMarkers $markers,
         private BoardAutomation $automation,
         private BridgeLabels $bridgeLabels,
     ) {
@@ -111,9 +113,10 @@ final readonly class ShowBoardHandler
         $runWarnings = $this->runWarnings->forProject($project);
         $shownCards = array_merge(...array_map(static fn (BoardColumnView $view): array => $view->cards, $columns));
         $states = $this->pullRequestStates->forCards($shownCards);
+        $markers = $this->markers->forCards($project, $shownCards);
         $badges = [];
         foreach ($shownCards as $card) {
-            $cardBadges = $states->badgesOf($card);
+            $cardBadges = [...$states->badgesOf($card), ...($markers[(string) $card->id] ?? [])];
             if ([] !== $cardBadges) {
                 $badges[(string) $card->id] = $cardBadges;
             }

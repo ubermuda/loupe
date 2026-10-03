@@ -22,7 +22,7 @@
             <h2 class="lp-section-title">{{ 'inbox.settings.heading'|trans }}</h2>
             <p class="lp-connect-hint">{{ 'inbox.settings.description'|trans }}</p>
             {{ form_start(form, {attr: {class: 'lp-form'}}) }}
-                {% for field in [form.documentInReview, form.runBlocked, form.runGaveUp, form.runWaitingForPerson, form.pullRequestReady, form.pullRequestFixStopped] %}
+                {% for field in [form.documentInReview, form.runBlocked, form.runGaveUp, form.runWaitingForPerson, form.pullRequestReady, form.pullRequestFixStopped, form.cardPaused] %}
                 <div class="lp-form-field">
                     <label class="lp-choice">
                         {{ form_widget(field) }}

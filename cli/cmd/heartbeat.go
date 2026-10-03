@@ -57,6 +57,9 @@ type heartbeater struct {
 	// its reply first, both on the goroutine of the lane. Either may be nil.
 	onSent  func()
 	onReply func(api.HeartbeatReply)
+	// onLost gets the claims the reply names lost, each with the token this
+	// heartbeat sent, before onReply. It may be nil.
+	onLost func([]api.WorkClaim)
 
 	mu   sync.Mutex
 	body api.Heartbeat
@@ -69,7 +72,10 @@ type heartbeater struct {
 	poolsSent []api.WorkerPoolReport
 	// paused is the pause of a person that the router applies. It lives apart
 	// from body too.
-	paused   bool
+	paused bool
+	// claims are the work claims the router holds. They live apart from body
+	// too.
+	claims   []api.WorkClaim
 	sentAt   time.Time
 	interval time.Duration
 	// reset wakes the loop to arm its timer with a new interval.
@@ -178,6 +184,14 @@ func (h *heartbeater) setPaused(paused bool) {
 	}
 }
 
+// setClaims applies the work claims the router holds, which the next
+// heartbeat renews. It never blocks, so the router calls it under its lock.
+func (h *heartbeater) setClaims(claims []api.WorkClaim) {
+	h.mu.Lock()
+	h.claims = claims
+	h.mu.Unlock()
+}
+
 // setPools applies the rows of the worker pools. The loop sends a change, at
 // most once per poolsWindow. It never blocks, so the router calls it under its
 // lock. A nil heartbeater drops the rows.
@@ -256,8 +270,9 @@ func (h *heartbeater) send() {
 	body := h.body
 	body.Hooks = h.hooks
 	body.WorkerPools = h.pools
+	body.WorkClaims = h.claims
 	paused := h.paused
-	body.Paused, body.Capabilities = &paused, bridgeCapabilities
+	body.Paused, body.Capabilities = &paused, slices.Concat(bridgeCapabilities, body.Capabilities)
 	h.poolsSent, h.sentAt = h.pools, h.now()
 	h.mu.Unlock()
 	if h.update != nil {
@@ -270,6 +285,11 @@ func (h *heartbeater) send() {
 		reply, err := h.client.Heartbeat(ctx, h.bridgeID, body)
 		if err == nil && h.onRange != nil {
 			h.onRange(reply.CLIRange)
+		}
+		// A lost claim goes first, so an offer of the same request in the reply
+		// finds the claim gone and is claimed again.
+		if lost := lostOf(body.WorkClaims, reply.LostClaims); err == nil && h.onLost != nil && len(lost) > 0 {
+			h.onLost(lost)
 		}
 		if err == nil && h.onReply != nil {
 			h.onReply(reply)

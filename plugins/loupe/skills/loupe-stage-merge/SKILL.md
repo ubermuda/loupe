@@ -110,4 +110,4 @@ When a step fails, record the block on the epic card, with the epic pull request
 
 A `not ready` run posts at most one refusal comment, and changes nothing else. The app reads the pull request again, and sends the next event when the state changes.
 
-Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. Set the structured result as the table in `../loupe-stage-product-design/references/stage-contract.md` "Final reply" says.
+Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. End the first line with its reason code, and set the structured result, as `../loupe-stage-product-design/references/stage-contract.md` "Final reply" says.

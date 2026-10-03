@@ -30,4 +30,4 @@ Change nothing but Loupe documents, and never move the card. `references/stage-c
 
 1. Stop with `STAGE RESULT: no product document; run /loupe:product-design`. The owner writes the document in that session.
 
-Write the final reply as the contract says.
+Write the final reply, its reason code and the structured result as the contract "Final reply" section says.

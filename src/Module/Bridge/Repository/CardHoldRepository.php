@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\CardHold;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -46,17 +47,33 @@ class CardHoldRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** @param non-empty-list<Uuid> $cardIds */
-    public function deleteOfCards(Project $project, array $cardIds): int
+    /** @return list<string> the RFC 4122 ids of the held cards of the project */
+    public function findCardIdsOfProject(Project $project): array
     {
-        return (int) $this->createQueryBuilder('h')
-            ->delete()
-            ->andWhere('h.project = :project')
-            ->andWhere('h.cardId IN (:cardIds)')
-            ->setParameter('project', $project)
-            ->setParameter('cardIds', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
-            ->getQuery()
-            ->execute();
+        return array_map(strval(...), $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT card_id FROM bridge_card_holds WHERE project_id = :project',
+            ['project' => $project->id],
+            ['project' => UuidType::NAME],
+        ));
+    }
+
+    /**
+     * One statement, so it joins a caller's transaction.
+     *
+     * @param non-empty-list<Uuid> $cardIds
+     *
+     * @return list<Uuid> the cards whose hold went
+     */
+    public function deleteOfCards(Project $project, array $cardIds): array
+    {
+        return array_map(Uuid::fromString(...), $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'DELETE FROM bridge_card_holds WHERE project_id = :project AND card_id IN (:cardIds) RETURNING card_id',
+            [
+                'project' => ($project->id ?? throw new \LogicException('A persisted project has an id.'))->toRfc4122(),
+                'cardIds' => array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds),
+            ],
+            ['cardIds' => ArrayParameterType::STRING],
+        ));
     }
 
     /** @return list<CardHold> */

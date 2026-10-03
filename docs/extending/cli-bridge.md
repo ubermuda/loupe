@@ -88,13 +88,17 @@ device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `PUT /api/projects/{handle}/interactive-runs/{sessionId}`,
 `PUT /api/bridges/{bridgeId}/runs`,
 `GET /api/projects/{handle}/inbox/asks/{askId}`,
-`PUT /api/projects/{handle}/bridges/{bridgeId}/rules` and
-`PUT /api/bridges/{bridgeId}/heartbeat`, and no other endpoint.
+`PUT /api/projects/{handle}/bridges/{bridgeId}/rules`,
+`PUT /api/bridges/{bridgeId}/heartbeat`,
+`POST /api/bridges/{bridgeId}/work-requests/{workRequestId}/claim` and
+`PUT /api/bridges/{bridgeId}/work-requests/{workRequestId}/result`, and no
+other endpoint.
 The three worker runs endpoints record the states of each worker run, and the
 [Worker run API](../reference/worker-runs.md) page covers them. The heartbeat
 endpoint records that the bridge runs, and the
 [Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
-rule health endpoint is below. The firewall refuses a token that carries the
+same page covers the two work request endpoints. The rule health endpoint is
+below. The firewall refuses a token that carries the
 `site-review` or the `mcp` scope.
 
 The handle is a project id or a project slug. A project name does not resolve.
@@ -200,6 +204,14 @@ no valid structured result logs `worker_no_result` at `ERROR`, and its record
 carries `hasResult: false`. The stage skills still print a `STAGE RESULT:`
 line, and the bridge does not read it. `cli/README.md` covers the schema and
 the resume rules in full.
+
+The core schema also takes an optional `reason`, a short code that says why
+the run ended. The stage skills set it from the `[reason: <code>]` tag that ends
+their `STAGE RESULT:` line. The bridge sends it as `resultReason`. The app keeps
+a code it knows, stores `other` for a code it does not know, and stores nothing
+when the field is absent. The worker run drawer shows the code. The reason
+table in `plugins/loupe/skills/loupe-stage-product-design/references/stage-contract.md`
+lists each code.
 
 A worker reports `waiting` when its work waits on the forge, such as checks on
 a pushed pull request. The bridge reports that run as `waiting-on-forge` and
@@ -441,6 +453,26 @@ page compares the variants of each experiment.
 To end an experiment, give each rule that joins it a plain `model:` again, and
 remove its `experiment:` key. You can keep the `experiments:` block or delete
 it. Then run `loupe bridge reload`.
+
+A worker entry of the [work map](#work-requests) lists its variants inline, and
+its kind names the experiment:
+
+```yaml
+work:
+  implement:
+    prompt: Implement card {cardNumber}.
+    variants:
+      - name: opus
+        weight: 1
+        model: opus
+      - name: sonnet
+        weight: 1
+        model: claude-sonnet-5-5
+```
+
+The variants follow the rules above. The entry sets no `model`. A kind with
+variants cannot share its name with an experiment of `experiments`, because the
+two would share the variant of each card.
 
 ## Updates
 
@@ -722,6 +754,53 @@ when the bridge updates itself is handed over, and the new image waits for it.
 [The command action](../../cli/README.md#the-command-action) in
 `cli/README.md` gives every field and the queue rules.
 
+## Work requests
+
+A work request is one piece of work on one card that the server offers to the
+bridges. One bridge claims it, runs it, and posts the result. The top-level
+`work:` map of `rules.yaml` says what the bridge runs for each kind of request.
+No part of the app opens a work request yet, so the map stays idle until the
+cutover to the workflow engine.
+
+```yaml
+work:
+  implement:
+    prompt: Implement card {cardNumber} in project {project}.
+  product-design:
+    action: interactive
+    prompt: /loupe:product-design {cardNumber}
+  teardown:
+    action: command
+    run: ["bin/teardown.sh", "{cardNumber}"]
+```
+
+The key is the kind of work. A worker entry takes `prompt`, `model`,
+`permissionMode`, `before`, `workerPool` and `variants`. A command entry takes
+`run` and `timeout`. The rule check
+refuses a field that the action does not use. The `teardown` entry above
+replaces a command rule on a terminal column, such as the one in
+[Command action](#command-action).
+
+The file needs `rules:`, `work:`, or both. `rules:` stays until the cutover to
+the workflow engine, and a later CLI release removes it.
+
+The bridge finds the project of a request in `projects` through the project
+id. A project rename marks the work of that project dead until you fix the file
+and run `loupe bridge reload`, as it does for rules.
+
+The bridge claims a request when the run gets its worker slot, just before the
+`before` command. When another bridge won the claim, the bridge runs nothing
+and reports no run. Each heartbeat renews the lease of each claim the bridge
+holds. The bridge stops the run, and posts no result, when the server says the
+claim is lost, or when the request is cancelled or expires. Otherwise the run
+posts `done` when it finishes, and `refused` with a reason when it does not. A
+work run never resumes, and its run report names the rule `work:<kind>`.
+
+[The work map](../../cli/README.md#the-work-map) in `cli/README.md` gives every
+field, the placeholders and the result of each outcome.
+[Work requests](../reference/bridge-heartbeat.md#work-requests) gives the
+protocol.
+
 ## Hooks
 
 A hook package runs a local program when the bridge starts, stops, gets busy or
@@ -897,10 +976,10 @@ the read fails, the event runs.
 
 ### Held cards
 
-A person or an agent pauses the agents on a card, and Loupe then holds the
-card. A stop of a run holds nothing. Loupe writes a `board.card_held` event when
-a person selects **Pause agents** or an agent calls `card_hold`. It writes a
-`board.card_released` event when a person selects **Let agents run** or an agent
+A person or an agent makes a card unmanaged, and Loupe then holds the card. A
+stop of a run holds nothing. Loupe writes a `board.card_held` event when a
+person selects **Make unmanaged** or an agent calls `card_hold`. It writes a
+`board.card_released` event when a person selects **Manage again** or an agent
 calls `card_release`. The two events have the same payload.
 
 ```json

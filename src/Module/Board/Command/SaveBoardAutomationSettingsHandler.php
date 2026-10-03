@@ -35,6 +35,8 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
         $settings->syncBehind = $command->syncBehind;
+        $settings->mergePullRequests = $command->mergePullRequests;
+        $settings->changeBase = $command->changeBase;
         $this->em->flush();
         $this->events->dispatch(new BoardAutomationSettingsSaved($command->project));
 
@@ -52,6 +54,8 @@ final readonly class SaveBoardAutomationSettingsHandler
             'commentOnFixQueued' => $command->commentOnFixQueued,
             'commentOnStaleApproval' => $command->commentOnStaleApproval,
             'syncBehind' => $command->syncBehind,
+            'mergePullRequests' => $command->mergePullRequests,
+            'changeBase' => $command->changeBase,
         ]);
     }
 }

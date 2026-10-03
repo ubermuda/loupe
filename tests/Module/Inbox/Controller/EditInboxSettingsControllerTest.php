@@ -21,7 +21,7 @@ final class EditInboxSettingsControllerTest extends WebTestCase
     use InboxScenario;
 
     private const string FORM = 'update_inbox_settings_form';
-    private const array SWITCHES = ['documentInReview', 'runBlocked', 'runGaveUp', 'runWaitingForPerson', 'pullRequestReady', 'pullRequestFixStopped'];
+    private const array SWITCHES = ['documentInReview', 'runBlocked', 'runGaveUp', 'runWaitingForPerson', 'pullRequestReady', 'pullRequestFixStopped', 'cardPaused'];
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -68,6 +68,9 @@ final class EditInboxSettingsControllerTest extends WebTestCase
         $pullRequestFixStopped = $submit[self::FORM.'[pullRequestFixStopped]'];
         self::assertInstanceOf(ChoiceFormField::class, $pullRequestFixStopped);
         $pullRequestFixStopped->untick();
+        $cardPaused = $submit[self::FORM.'[cardPaused]'];
+        self::assertInstanceOf(ChoiceFormField::class, $cardPaused);
+        $cardPaused->untick();
         $this->client->submit($submit);
 
         self::assertResponseRedirects($this->url($project));
@@ -90,6 +93,7 @@ final class EditInboxSettingsControllerTest extends WebTestCase
         self::assertTrue($settings->runWaitingForPerson);
         self::assertTrue($settings->pullRequestReady);
         self::assertFalse($settings->pullRequestFixStopped);
+        self::assertFalse($settings->cardPaused);
     }
 
     public function test_a_user_who_does_not_own_the_project_is_forbidden(): void

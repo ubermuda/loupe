@@ -64,7 +64,7 @@ final class CardAgentsControllersTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertStringContainsString(
-            'Agents are already paused on this card.',
+            'This card is already unmanaged.',
             $crawler->filter('turbo-frame#card-worker-runs [data-worker-run-command-flash]')->text(),
         );
         self::assertSame([], $this->flashes($client, 'error'));
@@ -97,7 +97,7 @@ final class CardAgentsControllersTest extends WebTestCase
         $this->post($client, $this->url($project, $cardId, 'release'));
 
         self::assertResponseRedirects('/projects/'.$project->id.'/board/cards/'.$cardId);
-        self::assertSame(['Agents are not paused on this card.'], $this->flashes($client, 'error'));
+        self::assertSame(['This card is already managed.'], $this->flashes($client, 'error'));
         self::assertSame(0, $this->countEvents('board.card_released', $cardId));
     }
 
