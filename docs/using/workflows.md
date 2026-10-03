@@ -25,7 +25,8 @@ Loupe ships two templates.
 A new project picks its template during setup. The template creates its columns
 with its slots linked. A project that existed before the workflow engine got a
 template when the engine was switched on. A board that had a column for each
-Lifecycle slot got Lifecycle, and every other board got Simple. The engine
+Lifecycle slot got Lifecycle, and every other board got Simple. A project that already had a
+template got the current copy of it. The engine
 treated every condition that was true at that time as handled, so nothing moved
 at once.
 

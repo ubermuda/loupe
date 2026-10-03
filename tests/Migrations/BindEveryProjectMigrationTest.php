@@ -100,6 +100,22 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         self::assertSame([(string) $card->id], $this->baselinedCardIds($project));
     }
 
+    public function test_a_bound_project_gets_the_shipped_copy_of_its_template(): void
+    {
+        $project = $this->workflowProject('migration-stale');
+        $this->bindHandler()(new BindWorkflowTemplateCommand($project, 'simple', []));
+        $this->em()->getConnection()->executeStatement(
+            "UPDATE workflow_bindings SET template_version = 0, definition = jsonb_set(definition, '{rules}', '[]'::jsonb) WHERE project_id = ?",
+            [$this->id($project)->toRfc4122()],
+        );
+
+        $this->migrate();
+
+        $source = $this->service(ShippedTemplates::class)->source('simple');
+        self::assertEquals($source, json_decode($this->row($project)['definition'], true));
+        self::assertSame($source['version'] ?? null, (int) $this->em()->getConnection()->fetchOne('SELECT template_version FROM workflow_bindings WHERE project_id = ?', [$this->id($project)->toRfc4122()]));
+    }
+
     public function test_every_card_gets_one_baseline_and_a_second_run_changes_nothing(): void
     {
         $project = $this->lifecycleBoard('migration-baseline');
