@@ -19,6 +19,10 @@ new Dotenv()->bootEnv(dirname(__DIR__).'/.env');
 
 if (false !== $paratestWorker) {
     $token = ($_SERVER['TEST_TOKEN'] ?? '').'__p'.$paratestWorker;
+    // Postgres truncates a longer name, so two workers would share one database.
+    if (\strlen('app_test'.$token) > 63) {
+        throw new RuntimeException(sprintf('The test database name app_test%s is longer than 63 bytes. Use a shorter worktree name.', $token));
+    }
     putenv('TEST_TOKEN='.$token);
     $_ENV['TEST_TOKEN'] = $_SERVER['TEST_TOKEN'] = $token;
 }
