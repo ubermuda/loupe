@@ -13,8 +13,11 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Bridge\BridgeEventType;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Engine\EngineSwitch;
 use App\Outbox\Entity\OutboxEvent;
@@ -84,6 +87,42 @@ final class ManagedCardMoveTest extends KernelTestCase
         self::assertCount(1, $this->heldEvents());
     }
 
+    public function test_a_breakdown_run_may_set_the_parent_and_move_the_child_in_one_update(): void
+    {
+        $epic = $this->card('in-progress', CardType::Epic);
+        $child = $this->card('next');
+
+        $this->updateCard()(new UpdateCardCommand(
+            card: $child,
+            actor: CardReporter::Agent,
+            column: $this->column($this->project, 'in-progress'),
+            parentCardId: (string) $epic->id,
+            cause: $this->breakdownRunOf($epic),
+        ));
+
+        self::assertSame('in-progress', $child->column->slug);
+        self::assertSame($epic, $child->parent);
+    }
+
+    public function test_a_refused_move_keeps_the_parent_the_update_named(): void
+    {
+        $epic = $this->card('in-progress', CardType::Epic);
+        $card = $this->card('next');
+        $cardId = $this->idOf($card);
+
+        try {
+            $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress'), parentCardId: (string) $epic->id));
+            self::fail('A move the template does not list must be refused.');
+        } catch (CardManaged) {
+        }
+
+        $this->em()->clear();
+        $stored = $this->em()->find(Card::class, $cardId);
+        self::assertInstanceOf(Card::class, $stored);
+        self::assertNull($stored->parent);
+        self::assertSame('next', $stored->column->slug);
+    }
+
     public function test_an_accepted_offer_for_a_move_the_guard_allows_holds_nothing(): void
     {
         $card = $this->card('next');
@@ -146,7 +185,23 @@ final class ManagedCardMoveTest extends KernelTestCase
         return $updateCard;
     }
 
-    private function card(string $column): Card
+    private function breakdownRunOf(Card $epic): CardEventCause
+    {
+        $run = new WorkerRun(
+            project: $this->project,
+            bridgeId: Uuid::v7(),
+            cardId: $this->idOf($epic),
+            cardNumber: $epic->number,
+            ruleName: 'work:breakdown',
+            state: WorkerRunState::Running,
+        );
+        $this->em()->persist($run);
+        $this->em()->flush();
+
+        return CardEventCause::run($run->id ?? throw new \LogicException('A stored run has an id.'), $run->ruleName);
+    }
+
+    private function card(string $column, CardType $type = CardType::Feature): Card
     {
         $create = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $create);
@@ -155,7 +210,7 @@ final class ManagedCardMoveTest extends KernelTestCase
             project: $this->project,
             title: 'Card',
             body: 'Body',
-            type: CardType::Feature,
+            type: $type,
             column: $this->column($this->project, $column),
             reporter: CardReporter::Human,
         ));

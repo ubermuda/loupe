@@ -140,12 +140,6 @@ final readonly class UpdateCardHandler
             if (null !== $relatedCards && $this->cardLinkSync->anyCardGone($relatedCards)) {
                 return self::LINKED_CARD_GONE;
             }
-            // A card the update holds is unmanaged, so the guard has nothing to refuse.
-            $needsHold = $column !== $card->column && !$this->moveGuard->allows($card, $column, $command->actor, $command->cause);
-            if ($needsHold && null === $command->unmanageBy) {
-                return new CardManaged($card->number);
-            }
-
             // Only a write that names a type or a parent can break a parent
             // rule, so a plain move pays no extra read.
             $oldParent = $card->parent;
@@ -163,6 +157,15 @@ final readonly class UpdateCardHandler
             } elseif (null !== $command->laneEnabled || null !== $command->column) {
                 // A lane toggle or a move decides whether a lane shows, from the committed setting.
                 $this->cards->refreshTypeAndParent($card);
+            }
+            // After the parent step, so the guard reads the parent the move keeps or sets.
+            // A card the update holds is unmanaged, so the guard has nothing to refuse.
+            $needsHold = $column !== $card->column && !$this->moveGuard->allows($card, $column, $command->actor, $command->cause);
+            if ($needsHold && null === $command->unmanageBy) {
+                // A returned refusal commits, so the parent goes back first.
+                $card->parent = $oldParent;
+
+                return new CardManaged($card->number);
             }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
             $lanesBefore = $card->drawsLane();
