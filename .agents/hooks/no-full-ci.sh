@@ -6,6 +6,7 @@ set -uo pipefail
 
 command="$(jq -r '.tool_input.command // empty')"
 [ -n "$command" ] || exit 0
+. "$(dirname "$0")/lib/segments.sh"
 
 deny() {
     jq -nc --arg reason "$1" '{
@@ -79,7 +80,7 @@ skip_prefix() {
 
 judge_command() {
     local -a words=("$@")
-    local i=0
+    local i=0 payload
     skip_prefix
 
     case "${words[i]:-}" in
@@ -87,17 +88,18 @@ judge_command() {
         bin/worktrees/compose-exec.sh|./bin/worktrees/compose-exec.sh) i=$((i + 1)) ;;
     esac
     skip_prefix
+    if payload="$(wrapped_command "${words[@]:i}")"; then
+        judge_text "$payload"
+        return
+    fi
     [ "${words[i]:-}" = php ] && i=$((i + 1))
     if is_phpunit "${words[i]:-}"; then
         targeted "${words[@]:i+1}" || deny "$full_phpunit"
     fi
 }
 
-# Matching is on the first word of each segment, so a grep that quotes
-# `just ci` is left alone.
-while IFS= read -r segment; do
-    read -ra words <<< "$segment"
-    [ "${#words[@]}" -gt 0 ] && judge_command "${words[@]}"
-done < <(printf '%s\n' "$command" | tr ';&|' '\n')
+# The filter drops here-document bodies and quotes before the split, so a
+# quoted `just ci` is data. The quoted text of a shell wrapper is a command.
+judge_text "$command"
 
 exit 0

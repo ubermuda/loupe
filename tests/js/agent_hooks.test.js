@@ -84,6 +84,29 @@ describe('no-full-ci.sh', () => {
         ['just phpunit-coverage tests/X', 'allow'],
         ['just js-test', 'allow'],
         ['just js-test tests/js/agent_hooks.test.js', 'allow'],
+        ["cat > /tmp/x.md <<'EOF'\nRun the gate:\njust ci\nEOF", 'allow'],
+        ['cat > x <<EOF\njust phpunit\nEOF', 'allow'],
+        ["cat > x <<'EOF'\njust ci\nEOF\ncd x && just ci", 'deny'],
+        ['cat <<<"just ci"\njust cs', 'allow'],
+        ['cat <<<"x"\njust ci', 'deny'],
+        ['cat <<-EOF\n\tjust ci\n\tEOF', 'allow'],
+        ['cat <<A <<B\njust ci\nA\njust ci\nB', 'allow'],
+        ['cat <<A <<B\njust ci\nA\njust ci\nB\njust ci', 'deny'],
+        [`git commit -m "$(cat <<'EOF'\nSay "hi"\njust ci\nEOF\n)"`, 'allow'],
+        ['git commit -m "fix\n\njust ci\n\nmore"', 'allow'],
+        ['grep "x" f; just ci', 'deny'],
+        ['echo "a; just ci"', 'allow'],
+        ['bash -c "just ci"', 'deny'],
+        ["bash -lc 'cd x && just ci'", 'deny'],
+        ['sh -c "echo a\njust ci"', 'deny'],
+        ['eval "just ci"', 'deny'],
+        ['timeout 60 bash -c "just ci"', 'deny'],
+        ['bash -c "eval just ci"', 'deny'],
+        ['just exec bash -c "vendor/bin/phpunit"', 'deny'],
+        ['bash -c "just phpunit tests/Module/Board"', 'allow'],
+        ['git commit -m "bash -c just ci"', 'allow'],
+        ['bash script.sh', 'allow'],
+        ['just phpunit "tests/Module/Board"', 'allow'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });
@@ -99,7 +122,21 @@ describe('no-full-e2e.sh', () => {
         ['just e2e-up && just e2e', 'deny'],
         ['just e2e-coverage', 'deny'],
         ['grep "just e2e" AGENTS.md', 'allow'],
+        ['cat > x <<EOF\njust e2e\nEOF', 'allow'],
+        ["gh pr create --body 'x\njust e2e\ny'", 'allow'],
+        ['bash -c "just e2e"', 'deny'],
+        ["sh -c 'just e2e-up && just e2e'", 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-e2e.sh', command)).toBe(expected);
+    });
+});
+
+describe('a 20 KB here-document', () => {
+    it.each([
+        ['no-full-ci.sh', 'just ci\n'],
+        ['no-full-e2e.sh', 'just e2e\n'],
+    ])('is allowed by %s', (hook, line) => {
+        const body = line.repeat(Math.ceil(20000 / line.length));
+        expect(decide(hook, 'cat <<EOF\n' + body + 'EOF')).toBe('allow');
     });
 });
