@@ -515,6 +515,11 @@ When a card is managed again, the workflow takes the card as it is at that
 time. A condition that became true while the card was unmanaged does not fire.
 The workflow acts only on the changes that come after.
 
+A timed condition waits for time to pass, such as ten minutes after the last
+pull request of the card closed with no merge. It applies only to a card in a
+column that is not terminal. Loupe checks those cards every ten minutes, so a
+timed condition can act up to ten minutes after its time.
+
 #### The Workflow panel
 
 The card page and the drawer show a **Workflow** panel when the panel has

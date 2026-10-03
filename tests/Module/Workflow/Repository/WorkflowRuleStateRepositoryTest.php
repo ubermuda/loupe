@@ -80,23 +80,6 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         self::assertSame([(string) $later->id, (string) $late->id, (string) $third->id], $repository->findDueCardIds($now, 10));
     }
 
-    public function test_find_due_card_ids_gives_a_card_whose_timed_condition_is_due_in_any_column_by_the_earlier_time(): void
-    {
-        self::bootKernel();
-        $project = $this->workflowProject('rule-state-wake');
-        $now = new \DateTimeImmutable('2026-10-02 12:00:00');
-        $done = $this->card($project, 'done');
-        $retry = $this->card($project);
-        $notYet = $this->card($project, 'done');
-        $both = $this->card($project);
-        $this->state($done, 'a', wakeAt: $now->modify('-1 hour'));
-        $this->state($retry, 'a', $now->modify('-30 minutes'));
-        $this->state($notYet, 'a', wakeAt: $now->modify('+1 minute'));
-        $this->state($both, 'a', $now->modify('+1 hour'), $now->modify('-2 hours'));
-
-        self::assertSame([(string) $both->id, (string) $done->id, (string) $retry->id], $this->repository()->findDueCardIds($now, 10));
-    }
-
     public function test_find_due_card_ids_skips_a_paused_card_and_keeps_its_due_time_for_after_the_release(): void
     {
         self::bootKernel();
@@ -143,7 +126,6 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         $state->fires = 2;
         $state->fingerprint = 'abc';
         $state->dueAt = new \DateTimeImmutable();
-        $state->wakeAt = new \DateTimeImmutable();
         $state->lastRefusal = 'no-capacity';
         $state->lastRefusalAt = new \DateTimeImmutable();
 
@@ -153,26 +135,24 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         self::assertSame(0, $state->attempts);
         self::assertSame(0, $state->fires);
         self::assertNull($state->dueAt);
-        self::assertNull($state->wakeAt);
         self::assertNull($state->lastRefusal);
         self::assertNull($state->lastRefusalAt);
         self::assertSame('abc', $state->fingerprint);
     }
 
-    private function card(Project $project, string $column = 'next'): Card
+    private function card(Project $project): Card
     {
-        $card = new Card($project, $this->column($project, $column), 'Card', '', ++$this->cardNumber);
+        $card = new Card($project, $this->column($project, 'next'), 'Card', '', ++$this->cardNumber);
         $this->em()->persist($card);
         $this->em()->flush();
 
         return $card;
     }
 
-    private function state(Card $card, string $ruleId, ?\DateTimeImmutable $dueAt = null, ?\DateTimeImmutable $wakeAt = null): void
+    private function state(Card $card, string $ruleId, ?\DateTimeImmutable $dueAt = null): void
     {
         $state = new WorkflowRuleState($card, $card->project, $ruleId);
         $state->dueAt = $dueAt;
-        $state->wakeAt = $wakeAt;
         $this->em()->persist($state);
         $this->em()->flush();
     }
