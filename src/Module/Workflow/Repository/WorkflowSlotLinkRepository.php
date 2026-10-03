@@ -23,6 +23,26 @@ class WorkflowSlotLinkRepository extends ServiceEntityRepository
         return $this->findOneBy(['project' => $project, 'column' => $column])?->slotKey;
     }
 
+    /** @return array<string, ?BoardColumn> each slot key, mapped to its column, or null when the column is deleted */
+    public function findColumnsBySlot(Project $project): array
+    {
+        /** @var list<WorkflowSlotLink> $links */
+        $links = $this->createQueryBuilder('l')
+            ->leftJoin('l.column', 'c')
+            ->addSelect('c')
+            ->where('l.project = :project')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getResult();
+
+        $columns = [];
+        foreach ($links as $link) {
+            $columns[$link->slotKey] = $link->column;
+        }
+
+        return $columns;
+    }
+
     public function findColumnForSlot(Project $project, string $slotKey): ?BoardColumn
     {
         return $this->findOneBy(['project' => $project, 'slotKey' => $slotKey])?->column;

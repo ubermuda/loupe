@@ -108,6 +108,12 @@
                         <twig:ux:icon name="lucide:zap" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.rules'|trans }}</span>
                     </a>
+                    <a href="{{ path('app_project_workflow', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_workflow' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_workflow' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:workflow" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.workflow'|trans }}</span>
+                    </a>
                     {% endif %}
                     {% set activityActive = route in ['app_project_worker_runs', 'app_project_activity', 'app_project_worker_run_cost', 'app_project_experiments', 'app_project_experiment', 'app_project_experiment_cards'] %}
                     <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"

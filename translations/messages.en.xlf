@@ -2041,6 +2041,7 @@
                 <target>Add project</target>
             </trans-unit>
             <trans-unit id="project.form.create_project_form.description.label"><source>project.form.create_project_form.description.label</source><target>Description (optional)</target></trans-unit>
+            <trans-unit id="project.form.create_project_form.workflow_template.label"><source>project.form.create_project_form.workflow_template.label</source><target>Workflow</target></trans-unit>
             <trans-unit id="project.form.create_project_form.name.label">
                 <source>project.form.create_project_form.name.label</source>
                 <target>Project name</target>
@@ -6930,6 +6931,7 @@
             <trans-unit id="board.live.stale"><source>board.live.stale</source><target>This card may be out of date</target></trans-unit>
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
             <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>
+            <trans-unit id="nav.link.workflow"><source>nav.link.workflow</source><target>Workflow</target></trans-unit>
             <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>
             <trans-unit id="bridge.agents.page.title"><source>bridge.agents.page.title</source><target>Agents</target></trans-unit>
             <trans-unit id="bridge.agents.heading"><source>bridge.agents.heading</source><target>Your crew</target></trans-unit>
@@ -7321,6 +7323,39 @@
             <trans-unit id="workflow.slot.tech_design"><source>workflow.slot.tech_design</source><target>Tech design</target></trans-unit>
             <trans-unit id="workflow.slot.implementation"><source>workflow.slot.implementation</source><target>Implementation</target></trans-unit>
             <trans-unit id="workflow.slot.in_review"><source>workflow.slot.in_review</source><target>In review</target></trans-unit>
+            <trans-unit id="workflow.template.lifecycle.label"><source>workflow.template.lifecycle.label</source><target>Lifecycle</target></trans-unit>
+            <trans-unit id="workflow.template.lifecycle.description"><source>workflow.template.lifecycle.description</source><target>Product design, tech design, implementation and review, with an agent at each stage.</target></trans-unit>
+            <trans-unit id="workflow.template.simple.label"><source>workflow.template.simple.label</source><target>Simple</target></trans-unit>
+            <trans-unit id="workflow.template.simple.description"><source>workflow.template.simple.description</source><target>Four columns. A merged pull request finishes the card.</target></trans-unit>
+            <trans-unit id="workflow.settings.page.title"><source>workflow.settings.page.title</source><target>Workflow</target></trans-unit>
+            <trans-unit id="workflow.settings.unbound"><source>workflow.settings.unbound</source><target>This project runs no workflow template yet.</target></trans-unit>
+            <trans-unit id="workflow.settings.version"><source>workflow.settings.version</source><target>Version %version%</target></trans-unit>
+            <trans-unit id="workflow.settings.bound_at"><source>workflow.settings.bound_at</source><target>Bound on %date%</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.heading"><source>workflow.settings.slots.heading</source><target>Slots and columns</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.slot"><source>workflow.settings.slots.slot</source><target>Slot</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.column"><source>workflow.settings.slots.column</source><target>Column</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.not_linked"><source>workflow.settings.slots.not_linked</source><target>Not linked</target></trans-unit>
+            <trans-unit id="workflow.settings.slots.none"><source>workflow.settings.slots.none</source><target>This template has no slots.</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.heading"><source>workflow.settings.rules.heading</source><target>Rules</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.id"><source>workflow.settings.rules.id</source><target>Rule</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.applies_to"><source>workflow.settings.rules.applies_to</source><target>Applies in</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.action"><source>workflow.settings.rules.action</source><target>Action</target></trans-unit>
+            <trans-unit id="workflow.settings.where.backlog"><source>workflow.settings.where.backlog</source><target>the Backlog</target></trans-unit>
+            <trans-unit id="workflow.settings.where.any_terminal"><source>workflow.settings.where.any_terminal</source><target>a terminal column</target></trans-unit>
+            <trans-unit id="workflow.settings.where.any"><source>workflow.settings.where.any</source><target>any column</target></trans-unit>
+            <trans-unit id="workflow.settings.action.move"><source>workflow.settings.action.move</source><target>Move the card to %target%</target></trans-unit>
+            <trans-unit id="workflow.settings.action.request"><source>workflow.settings.action.request</source><target>Request work: %kind%</target></trans-unit>
+            <trans-unit id="workflow.settings.action.forge_write"><source>workflow.settings.action.forge_write</source><target>Forge write: %kind%</target></trans-unit>
+            <trans-unit id="workflow.settings.action.pause"><source>workflow.settings.action.pause</source><target>Pause the card</target></trans-unit>
+            <trans-unit id="workflow.settings.action.release"><source>workflow.settings.action.release</source><target>Release the pause</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A person may move a managed card along these paths.</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.to"><source>workflow.settings.moves.to</source><target>To</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.none"><source>workflow.settings.moves.none</source><target>This template allows no manual moves.</target></trans-unit>
+            <trans-unit id="workflow.settings.timings.heading"><source>workflow.settings.timings.heading</source><target>Retry timings</target></trans-unit>
+            <trans-unit id="workflow.settings.timings.backoff"><source>workflow.settings.timings.backoff</source><target>Retry delays: %minutes% minutes</target></trans-unit>
+            <trans-unit id="workflow.settings.timings.work_timeout"><source>workflow.settings.timings.work_timeout</source><target>Work timeout: %minutes% minutes</target></trans-unit>
             <trans-unit id="workflow.bind.error.already_bound"><source>workflow.bind.error.already_bound</source><target>This project already runs a workflow template.</target></trans-unit>
             <trans-unit id="workflow.bind.error.unknown_template"><source>workflow.bind.error.unknown_template</source><target>No workflow template has this key.</target></trans-unit>
             <trans-unit id="workflow.bind.error.slot_unlinked"><source>workflow.bind.error.slot_unlinked</source><target>Choose a column for this slot.</target></trans-unit>
