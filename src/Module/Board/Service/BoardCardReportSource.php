@@ -59,7 +59,7 @@ final readonly class BoardCardReportSource implements CardReportSourceInterface
                 case CardEventKind::Moved:
                     // A move by hand to a terminal column carries no cause, so it is no merge.
                     $cause = $detail['cause'] ?? null;
-                    if (\is_array($cause) && 'merged' === ($cause['type'] ?? null)) {
+                    if (\is_array($cause) && ('merged' === ($cause['type'] ?? null) || ('workflow-rule' === ($cause['type'] ?? null) && 'merged' === ($cause['rule'] ?? null)))) {
                         $card['merged'] = true;
                     }
                     break;
