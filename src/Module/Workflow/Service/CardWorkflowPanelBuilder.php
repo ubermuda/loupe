@@ -10,7 +10,6 @@ use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Workflow\Action\ActionParams;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Fact\Facts;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Template\ActionType;
@@ -30,7 +29,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 final readonly class CardWorkflowPanelBuilder
 {
     public function __construct(
-        private EngineSwitch $engine,
+        private WorkflowAutomation $automation,
         private CardHolds $cardHolds,
         private CardPauseRepository $cardPauses,
         private TemplateSource $templates,
@@ -46,7 +45,7 @@ final readonly class CardWorkflowPanelBuilder
     {
         $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
         $projectId = $card->project->id ?? throw new \LogicException('A stored project has an id.');
-        $held = $this->cardHolds->isHeld($card->project, $cardId);
+        $managed = !$this->cardHolds->isHeld($card->project, $cardId) && $this->automation->runsFor($card->project);
         $pause = $this->cardPauses->findActiveForCard($card);
 
         $template = null;
@@ -54,10 +53,10 @@ final readonly class CardWorkflowPanelBuilder
         $progress = null;
         try {
             $template = $this->templates->forProject($projectId);
-            if (($this->engine->isOn() && !$held) || CardPauseKind::Rule === $pause?->kind) {
+            if ($managed || CardPauseKind::Rule === $pause?->kind) {
                 $facts = $this->factsBuilder->build($card, $this->clock->now());
             }
-            if ($this->engine->isOn() && !$held && null !== $facts) {
+            if ($managed && null !== $facts) {
                 $progress = $this->progress($card, $template, $facts);
             }
         } catch (TemplateMissing) {

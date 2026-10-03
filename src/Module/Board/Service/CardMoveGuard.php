@@ -13,7 +13,4 @@ interface CardMoveGuard
 {
     /** Asked under the project lock, with the card's column fresh, for a move to another column. */
     public function allows(Card $card, BoardColumn $to, CardReporter $actor, ?CardEventCause $cause): bool;
-
-    /** Whether a person's move to another column releases the card's hold. */
-    public function releasesHoldOnMove(): bool;
 }

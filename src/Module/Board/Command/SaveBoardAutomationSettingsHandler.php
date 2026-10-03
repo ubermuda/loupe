@@ -27,6 +27,7 @@ final readonly class SaveBoardAutomationSettingsHandler
     public function __invoke(SaveBoardAutomationSettingsCommand $command): void
     {
         $settings = $this->automation->settingsForUpdate($command->project);
+        $wasEnabled = $settings->enabled;
         $wasSyncing = $settings->enabled && $settings->syncBehind;
         $settings->enabled = $command->enabled;
         $settings->mergeStrategy = $command->mergeStrategy;
@@ -38,7 +39,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->mergePullRequests = $command->mergePullRequests;
         $settings->changeBase = $command->changeBase;
         $this->em->flush();
-        $this->events->dispatch(new BoardAutomationSettingsSaved($command->project));
+        $this->events->dispatch(new BoardAutomationSettingsSaved($command->project, !$wasEnabled && $command->enabled));
 
         // A pull request that fell behind while the sync was off waits for no other trigger.
         if (!$wasSyncing && $command->enabled && $command->syncBehind) {

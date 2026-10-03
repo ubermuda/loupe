@@ -11,7 +11,7 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
-/** A work request keeps the card id without a foreign key, so it outlives its card until this cancels it, whatever the engine switch says. */
+/** A work request keeps the card id without a foreign key, so it outlives its card until this cancels it. */
 #[AsEventListener]
 final readonly class WithdrawWorkRequestsOnCardDeleted
 {

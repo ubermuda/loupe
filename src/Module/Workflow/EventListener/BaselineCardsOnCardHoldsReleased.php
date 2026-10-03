@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Workflow\EventListener;
 
 use App\Module\Bridge\Event\CardHoldsReleased;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -18,7 +17,6 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 final readonly class BaselineCardsOnCardHoldsReleased
 {
     public function __construct(
-        private EngineSwitch $engine,
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private EvaluationTrigger $trigger,
     ) {
@@ -26,10 +24,6 @@ final readonly class BaselineCardsOnCardHoldsReleased
 
     public function __invoke(CardHoldsReleased $event): void
     {
-        if (!$this->engine->isOn()) {
-            return;
-        }
-
         $this->workflowPendingBaselines->markCards($event->projectId, $event->cardIds);
         $this->trigger->forCards($event->cardIds);
     }

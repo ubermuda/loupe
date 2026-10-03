@@ -19,7 +19,6 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Workflow\WorkflowProjects;
@@ -35,7 +34,6 @@ final class ManagedCardMoveTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-        self::getContainer()->set(EngineSwitch::class, new EngineSwitch(true));
         $this->project = $this->workflowProject('managed-move');
         $this->bindLifecycle($this->project);
     }

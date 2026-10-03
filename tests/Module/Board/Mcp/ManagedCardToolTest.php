@@ -12,7 +12,6 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\CardRunOpenTool;
 use App\Module\Board\Mcp\CardUpdateTool;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\McpTokenScenario;
 use Mcp\Exception\ToolCallException;
@@ -30,7 +29,6 @@ final class ManagedCardToolTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-        self::getContainer()->set(EngineSwitch::class, new EngineSwitch(true));
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
         $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;

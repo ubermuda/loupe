@@ -9,6 +9,8 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -18,14 +20,16 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Service\FactsBuilder;
+use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Service\WorkflowCardMoveGuard;
 use App\Module\Workflow\Template\TemplateSource;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class WorkflowCardMoveGuardTest extends KernelTestCase
 {
@@ -44,19 +48,28 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         self::assertInstanceOf(WorkflowCardMoveGuard::class, self::getContainer()->get(CardMoveGuard::class));
     }
 
-    public function test_with_the_engine_off_every_move_is_allowed_and_a_person_releases_the_hold(): void
+    public function test_with_the_board_automation_off_every_move_is_allowed(): void
     {
         $this->bindLifecycle($this->project);
         $card = $this->card('next');
-        $guard = $this->guard(false);
+        $this->boardAutomation()->settingsForUpdate($this->project)->enabled = false;
+        $this->em()->flush();
 
-        self::assertTrue($guard->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
-        self::assertTrue($guard->releasesHoldOnMove());
+        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
-    public function test_with_the_engine_on_a_person_keeps_the_hold(): void
+    public function test_with_the_board_off_for_the_instance_every_move_is_allowed(): void
     {
-        self::assertFalse($this->guard(true)->releasesHoldOnMove());
+        $this->bindLifecycle($this->project);
+        $card = $this->card('next');
+        $flags = self::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = false;
+        $reader = self::getContainer()->get(DoctrineFeatureFlagReader::class);
+        self::assertInstanceOf(DoctrineFeatureFlagReader::class, $reader);
+        $reader->reset();
+
+        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
     /** @return iterable<string, array{CardReporter}> */
@@ -73,7 +86,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->bindLifecycle($this->project);
         $card = $this->card('next');
 
-        self::assertFalse($this->guard(true)->allows($card, $this->column($this->project, 'in-progress'), $actor, null));
+        self::assertFalse($this->guard()->allows($card, $this->column($this->project, 'in-progress'), $actor, null));
     }
 
     public function test_the_app_itself_may_make_any_move(): void
@@ -81,7 +94,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->bindLifecycle($this->project);
         $card = $this->card('next');
 
-        self::assertTrue($this->guard(true)->allows($card, $this->column($this->project, 'in-progress'), CardReporter::System, null));
+        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::System, null));
     }
 
     public function test_a_held_card_is_unmanaged_and_moves_anywhere(): void
@@ -90,14 +103,14 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $card = $this->card('next');
         $this->holds()->hold($this->project, $this->idOf($card), null);
 
-        self::assertTrue($this->guard(true)->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
+        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
     public function test_a_project_with_no_template_manages_no_card(): void
     {
         $card = $this->card('next');
 
-        self::assertTrue($this->guard(true)->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
+        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
     public function test_a_move_to_the_column_the_card_is_in_is_allowed(): void
@@ -105,7 +118,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->bindLifecycle($this->project);
         $card = $this->card('in-progress');
 
-        self::assertTrue($this->guard(true)->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
+        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
     public function test_a_breakdown_worker_run_of_the_epic_may_move_its_child(): void
@@ -113,7 +126,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->bindLifecycle($this->project);
         $epic = $this->card('in-progress', CardType::Epic);
         $child = $this->card('next', parent: $epic);
-        $guard = $this->guard(true);
+        $guard = $this->guard();
         $target = $this->column($this->project, 'in-progress');
 
         self::assertTrue($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown')));
@@ -127,7 +140,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $epic = $this->card('in-progress', CardType::Epic);
         $child = $this->card('next', parent: $epic);
         $orphan = $this->card('next');
-        $guard = $this->guard(true);
+        $guard = $this->guard();
         $target = $this->column($this->project, 'in-progress');
         $elsewhere = $this->workflowProject('move-guard-elsewhere');
 
@@ -158,7 +171,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
     public function test_a_manual_move_of_the_template_is_allowed_in_its_direction_only(): void
     {
         $this->bindLifecycle($this->project);
-        $guard = $this->guard(true);
+        $guard = $this->guard();
 
         self::assertTrue($guard->allows($this->card('backlog'), $this->column($this->project, 'next'), CardReporter::Human, null));
         self::assertTrue($guard->allows($this->card('next'), $this->column($this->project, 'tech-design'), CardReporter::Human, null));
@@ -169,13 +182,13 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
     public function test_a_wildcard_manual_move_matches_any_column(): void
     {
         $this->bindHandler()(new BindWorkflowTemplateCommand($this->project, 'simple', []));
-        $guard = $this->guard(true);
+        $guard = $this->guard();
 
         self::assertTrue($guard->allows($this->card('next'), $this->column($this->project, 'done'), CardReporter::Human, null));
         self::assertTrue($guard->allows($this->card('backlog'), $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
-    private function guard(bool $engineOn): WorkflowCardMoveGuard
+    private function guard(): WorkflowCardMoveGuard
     {
         $holds = $this->holds();
         $templates = self::getContainer()->get(TemplateSource::class);
@@ -186,7 +199,18 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $workerRuns = self::getContainer()->get(WorkerRunRepository::class);
         self::assertInstanceOf(WorkerRunRepository::class, $workerRuns);
 
-        return new WorkflowCardMoveGuard(new EngineSwitch($engineOn), $holds, $templates, $facts, $workerRuns);
+        $automation = self::getContainer()->get(WorkflowAutomation::class);
+        self::assertInstanceOf(WorkflowAutomation::class, $automation);
+
+        return new WorkflowCardMoveGuard($automation, $holds, $templates, $facts, $workerRuns);
+    }
+
+    private function boardAutomation(): BoardAutomation
+    {
+        $automation = self::getContainer()->get(BoardAutomation::class);
+        self::assertInstanceOf(BoardAutomation::class, $automation);
+
+        return $automation;
     }
 
     private function holds(): CardHolds

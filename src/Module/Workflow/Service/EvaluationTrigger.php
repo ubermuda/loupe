@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
@@ -14,17 +13,12 @@ final readonly class EvaluationTrigger
 {
     public function __construct(
         private MessageBusInterface $bus,
-        private EngineSwitch $engine,
     ) {
     }
 
     /** @param list<string|Uuid> $cardIds */
     public function forCards(array $cardIds): void
     {
-        if (!$this->engine->isOn()) {
-            return;
-        }
-
         $unique = [];
         foreach ($cardIds as $cardId) {
             $unique[($cardId instanceof Uuid ? $cardId : Uuid::fromString($cardId))->toRfc4122()] = true;

@@ -18,7 +18,6 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -36,14 +35,7 @@ final class CardHoldReleaseTest extends KernelTestCase
 
     protected function setUp(): void
     {
-        $this->start(false);
-    }
-
-    /** Reboots the kernel, because a handler built before the switch is set keeps the old switch. */
-    private function start(bool $engineOn): void
-    {
         self::bootKernel();
-        self::getContainer()->set(EngineSwitch::class, new EngineSwitch($engineOn));
 
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
@@ -65,19 +57,8 @@ final class CardHoldReleaseTest extends KernelTestCase
         $this->em->flush();
     }
 
-    public function test_a_human_move_to_another_column_releases_the_hold(): void
+    public function test_a_human_move_keeps_the_hold(): void
     {
-        $card = $this->heldCard('next');
-
-        $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress')));
-
-        self::assertSame('in-progress', $card->column->slug);
-        self::assertFalse($this->holds->isHeld($this->project, $this->idOf($card)));
-    }
-
-    public function test_with_the_engine_on_a_human_move_keeps_the_hold(): void
-    {
-        $this->start(true);
         $card = $this->heldCard('next');
 
         $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress')));
@@ -142,7 +123,6 @@ final class CardHoldReleaseTest extends KernelTestCase
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($kept)));
     }
 
-    /** Fetched late, so a test can switch the engine on before the guard is built. */
     private function updateCard(): UpdateCardHandler
     {
         $updateCard = self::getContainer()->get(UpdateCardHandler::class);

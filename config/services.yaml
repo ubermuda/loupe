@@ -9,8 +9,6 @@
 parameters:
     # The merge method of a workflow rule that merges a pull request: merge, squash or rebase.
     app.workflow.merge_method: squash
-    # Off keeps the workflow engine inert: no evaluation is queued, and a queued one does nothing.
-    workflow.engine_enabled: false
     # Every minute, so a refused rule retries soon after its backoff ends.
     app.workflow.evaluate_due_schedule: '* * * * *'
     # The backstop for a card change that no event reported.
@@ -336,23 +334,7 @@ when@test:
         App\Tests\Support\FirstAdminUserPanelFixture:
             autoconfigure: true
 
-        # Nothing consumes these Workflow services yet, so the compiler removes them.
-        App\Module\Workflow\Condition\Conditions:
-            autowire: true
-            public: true
-
-        App\Module\Workflow\Template\TemplateParser:
-            autowire: true
-            public: true
-
-        App\Module\Workflow\Template\ShippedTemplates:
-            autowire: true
-            public: true
-
-        App\Module\Workflow\Template\ProjectTemplateCopy:
-            autowire: true
-            public: true
-
+        # Only tests bind a project by hand, so the compiler would remove it.
         App\Module\Workflow\Command\BindWorkflowTemplateHandler:
             autowire: true
             public: true

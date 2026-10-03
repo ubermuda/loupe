@@ -12,13 +12,12 @@ use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Template\ManualMove;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-/** A card is managed while the engine runs, its project has a template, and nobody holds it. */
+/** A card is managed while the engine runs for its project, its project has a template, and nobody holds it. */
 #[AsAlias(CardMoveGuard::class)]
 final readonly class WorkflowCardMoveGuard implements CardMoveGuard
 {
@@ -27,7 +26,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
     private const string ANY_COLUMN = '*';
 
     public function __construct(
-        private EngineSwitch $engine,
+        private WorkflowAutomation $automation,
         private CardHolds $cardHolds,
         private TemplateSource $templates,
         private FactsBuilder $facts,
@@ -38,7 +37,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
     #[\Override]
     public function allows(Card $card, BoardColumn $to, CardReporter $actor, ?CardEventCause $cause): bool
     {
-        if (!$this->engine->isOn()
+        if (!$this->automation->runsFor($card->project)
             || CardReporter::System === $actor
             || $to === $card->column
             || $this->isBreakdownRun($card, $cause)) {
@@ -64,12 +63,6 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
             $template->manualMoves,
             static fn (ManualMove $move): bool => self::matches($move->from, $from) && self::matches($move->to, $target),
         );
-    }
-
-    #[\Override]
-    public function releasesHoldOnMove(): bool
-    {
-        return !$this->engine->isOn();
     }
 
     /**

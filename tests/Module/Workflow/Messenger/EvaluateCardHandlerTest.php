@@ -11,7 +11,6 @@ use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Command\EvaluateWorkflowCardHandler;
 use App\Module\Workflow\Engine\Engine;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Messenger\EvaluateCardHandler;
 use App\Tests\Module\Workflow\Action\ActionScenario;
@@ -26,18 +25,9 @@ final class EvaluateCardHandlerTest extends KernelTestCase
     {
         $card = $this->approvedProductDesignCard();
 
-        $this->handler(true)(new EvaluateCard((string) $card->id));
+        $this->handler()(new EvaluateCard((string) $card->id));
 
         self::assertSame('tech-design', $this->columnOf($card));
-    }
-
-    public function test_a_message_does_nothing_while_the_engine_is_off(): void
-    {
-        $card = $this->approvedProductDesignCard();
-
-        $this->handler(false)(new EvaluateCard((string) $card->id));
-
-        self::assertSame('product-design', $this->columnOf($card));
     }
 
     private function approvedProductDesignCard(): Card
@@ -66,11 +56,10 @@ final class EvaluateCardHandlerTest extends KernelTestCase
         return $this->em()->find(Card::class, $card->id)?->column->slug;
     }
 
-    private function handler(bool $on): EvaluateCardHandler
+    private function handler(): EvaluateCardHandler
     {
         return new EvaluateCardHandler(
             new EvaluateWorkflowCardHandler($this->service(Engine::class), new MockClock('2026-10-02 12:00:00')),
-            new EngineSwitch($on),
         );
     }
 }

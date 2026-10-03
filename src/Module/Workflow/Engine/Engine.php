@@ -27,6 +27,7 @@ use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
+use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\TemplateMissing;
@@ -52,6 +53,7 @@ final readonly class Engine
         private FactFingerprint $fingerprint,
         private WorkflowRuleStateRepository $workflowRuleStates,
         private CardHolds $cardHolds,
+        private WorkflowAutomation $automation,
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private WorkRequestRepository $workRequests,
         private WithdrawWorkRequestHandler $withdrawWorkRequest,
@@ -97,6 +99,12 @@ final readonly class Engine
         $card = $this->cards->find($cardId);
         // A held card is unmanaged: settling its requests would cancel or expire them.
         if (null === $card || $this->cardHolds->isHeld($card->project, $cardId)) {
+            return null;
+        }
+        // The mark makes the first pass after the automation is on again quiet.
+        if (!$this->automation->runsFor($card->project)) {
+            $this->workflowPendingBaselines->markCards($card->project->id ?? throw new \LogicException('A persisted project has an id.'), [$cardId]);
+
             return null;
         }
         $baseline = $this->workflowPendingBaselines->consume($cardId);

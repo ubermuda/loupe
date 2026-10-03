@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Service\EvaluationTrigger;
 
@@ -12,7 +11,6 @@ use App\Module\Workflow\Service\EvaluationTrigger;
 final readonly class SweepWorkflowCardsHandler
 {
     public function __construct(
-        private EngineSwitch $engine,
         private WorkflowBindingRepository $workflowBindings,
         private EvaluationTrigger $trigger,
     ) {
@@ -20,10 +18,6 @@ final readonly class SweepWorkflowCardsHandler
 
     public function __invoke(SweepWorkflowCardsCommand $command): int
     {
-        if (!$this->engine->isOn()) {
-            return 0;
-        }
-
         $cardIds = $this->workflowBindings->findOpenBoundCardIds();
         $this->trigger->forCards($cardIds);
 
