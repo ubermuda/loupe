@@ -25,6 +25,7 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
@@ -601,6 +602,21 @@ final class EngineTest extends KernelTestCase
         $live = $this->liveRequests($card);
         self::assertCount(1, $live);
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
+    }
+
+    public function test_a_lifecycle_card_in_done_whose_pull_requests_all_closed_unmerged_stays_in_done(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-lifecycle-done');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'done');
+        $closed = $this->pullRequest($card, PullRequestState::Closed);
+        $closed->refreshedAt = new \DateTimeImmutable('2026-10-02 11:00:00');
+        $this->em()->flush();
+
+        $this->evaluate($card);
+
+        self::assertSame('done', $card->column->slug);
     }
 
     /**
