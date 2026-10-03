@@ -150,6 +150,8 @@ One php-fpm container serves every worktree. `bin/worktrees/compose-exec.sh`
 execs into `loupe-php-fpm-1` and varies only `--workdir`. Isolation between
 worktrees is per test database, through the `TEST_TOKEN` that
 `worktree-bootstrap.sh` writes into each `.env.test.local`, never per container.
+`tests/bootstrap.php` adds `_p<n>` for ParaTest worker `n`, so one worktree
+holds `app_test_<slug>_p1` to `_p4` beside `app_test_<slug>`.
 
 Two consequences. `docker compose exec php-fpm pkill -f phpunit` kills every
 worktree's run. A pattern that names the worktree matches nothing, because

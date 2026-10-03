@@ -41,6 +41,8 @@ dies with the command:
 
 PHPUnit's database is `app_test<TEST_TOKEN>`, so exporting a unique `TEST_TOKEN`
 per worktree gives each its own schema. `just worktree-up` writes one for you.
+ParaTest adds the worker number, so worker 3 of `card-116` uses
+`app_test_card_116_p3`. `just worktree-down` drops the worker databases too.
 
 The e2e suite is the exception and cannot be parallelised — Mailpit is shared.
 

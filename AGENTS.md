@@ -274,7 +274,7 @@ just open-coverage            # Open the merged HTML coverage report
 just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing, phpunit-timing
 just browser-sync             # Live-reload proxy for template changes
 
-just phpunit tests/<path>     # Run the PHPUnit tests under one path; a hook refuses a full run for an agent
+just phpunit tests/<path>     # Run the PHPUnit tests under one path through ParaTest (PHPUNIT_PROCESSES, default 4); a hook refuses a full run for an agent
 bin/console debug:router      # List all routes
 bin/console cache:clear       # Clear cache
 ```
