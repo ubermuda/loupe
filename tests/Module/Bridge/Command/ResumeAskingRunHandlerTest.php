@@ -12,6 +12,7 @@ use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Service\BridgeCommandPayload;
 use App\Module\Bridge\ValueObject\BridgeCommandCause;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
+use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -76,6 +77,30 @@ final class ResumeAskingRunHandlerTest extends KernelTestCase
         self::assertSame([], $this->commands());
     }
 
+    public function test_a_resume_requested_since_the_close_gets_no_second_one(): void
+    {
+        self::bootKernel();
+        [$project, $bridge] = $this->scenario('ask-resume-since');
+        $run = $this->seedRun($this->em(), $project, bridgeId: $bridge->id, state: WorkerRunState::Blocked);
+        $this->seedCommand($this->em(), $run, BridgeCommandState::Done, new \DateTimeImmutable('2026-10-01 12:00:00'), kind: BridgeCommandKind::ResumeRun);
+
+        $this->resume($project, $bridge->id, $run->sessionId ?? throw new \LogicException('A worker run has a session.'), new \DateTimeImmutable('2026-10-01 12:00:00'));
+
+        self::assertCount(1, $this->commands());
+    }
+
+    public function test_a_resume_requested_before_the_close_does_not_stop_a_new_one(): void
+    {
+        self::bootKernel();
+        [$project, $bridge] = $this->scenario('ask-resume-before');
+        $run = $this->seedRun($this->em(), $project, bridgeId: $bridge->id, state: WorkerRunState::Blocked);
+        $this->seedCommand($this->em(), $run, BridgeCommandState::Done, new \DateTimeImmutable('2026-10-01 11:59:59'), kind: BridgeCommandKind::ResumeRun);
+
+        $this->resume($project, $bridge->id, $run->sessionId ?? throw new \LogicException('A worker run has a session.'), new \DateTimeImmutable('2026-10-01 12:00:00'));
+
+        self::assertCount(2, $this->commands());
+    }
+
     /**
      * @param list<string> $capabilities
      *
@@ -92,11 +117,11 @@ final class ResumeAskingRunHandlerTest extends KernelTestCase
         return [$project, $bridge];
     }
 
-    private function resume(Project $project, Uuid $bridgeId, Uuid $sessionId): void
+    private function resume(Project $project, Uuid $bridgeId, Uuid $sessionId, \DateTimeImmutable $askClosedAt = new \DateTimeImmutable('2026-10-01 12:00:00')): void
     {
         $handler = self::getContainer()->get(ResumeAskingRunHandler::class);
         self::assertInstanceOf(ResumeAskingRunHandler::class, $handler);
-        $handler(new ResumeAskingRunCommand($project, $bridgeId, $sessionId));
+        $handler(new ResumeAskingRunCommand($project, $bridgeId, $sessionId, $askClosedAt));
     }
 
     /** @return list<BridgeCommand> */

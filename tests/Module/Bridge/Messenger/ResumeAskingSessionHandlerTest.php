@@ -48,7 +48,7 @@ final class ResumeAskingSessionHandlerTest extends KernelTestCase
     {
         self::bootKernel();
 
-        $this->handler()(new ResumeAskingSession((string) Uuid::v7(), (string) Uuid::v4(), (string) Uuid::v4()));
+        $this->handler()(new ResumeAskingSession((string) Uuid::v7(), (string) Uuid::v4(), (string) Uuid::v4(), new \DateTimeImmutable()));
 
         self::assertSame(0, $this->countCommands($this->em()));
     }
@@ -62,7 +62,7 @@ final class ResumeAskingSessionHandlerTest extends KernelTestCase
         $this->em()->flush();
         $run = $this->seedRun($this->em(), $project, bridgeId: $bridge->id, state: WorkerRunState::Blocked);
 
-        return new ResumeAskingSession((string) $project->id, (string) $bridge->id, (string) $run->sessionId);
+        return new ResumeAskingSession((string) $project->id, (string) $bridge->id, (string) $run->sessionId, new \DateTimeImmutable('2026-01-01 10:10:00'));
     }
 
     private function handler(): ResumeAskingSessionHandler

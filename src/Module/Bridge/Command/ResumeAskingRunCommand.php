@@ -13,6 +13,7 @@ final readonly class ResumeAskingRunCommand
         public Project $project,
         public Uuid $bridgeId,
         public Uuid $sessionId,
+        public \DateTimeImmutable $askClosedAt,
     ) {
     }
 }

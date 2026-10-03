@@ -56,7 +56,7 @@ final readonly class InboxAskCloser
             if (null !== $ask->bridgeId) {
                 $ask->card = $this->cardOfSession($ask);
                 $this->writeEvent($ask, $actor);
-                $this->resumeSession($ask);
+                $this->resumeSession($ask, $now);
             }
         }
     }
@@ -81,13 +81,13 @@ final readonly class InboxAskCloser
     }
 
     /** The Doctrine transport commits the message with the close, and the queue sends the resume after it. */
-    private function resumeSession(InboxAsk $ask): void
+    private function resumeSession(InboxAsk $ask, \DateTimeImmutable $closedAt): void
     {
         if (null === $ask->sessionId || null === $ask->bridgeId) {
             return;
         }
 
-        $this->bus->dispatch(new ResumeAskingSession((string) $ask->project->id, (string) $ask->bridgeId, (string) $ask->sessionId));
+        $this->bus->dispatch(new ResumeAskingSession((string) $ask->project->id, (string) $ask->bridgeId, (string) $ask->sessionId, $closedAt));
     }
 
     /** @param InboxEventType::ACTOR_* $actor */

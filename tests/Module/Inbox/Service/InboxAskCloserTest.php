@@ -165,11 +165,17 @@ final class InboxAskCloserTest extends KernelTestCase
 
         $this->answer($item);
 
-        self::assertEquals([new ResumeAskingSession(
-            (string) $this->project->id,
-            (string) $ask->bridgeId,
-            (string) $ask->sessionId,
-        )], $this->resumeMessages());
+        $messages = $this->resumeMessages();
+        self::assertCount(1, $messages);
+        self::assertSame(
+            [(string) $this->project->id, (string) $ask->bridgeId, (string) $ask->sessionId],
+            [$messages[0]->projectId, $messages[0]->bridgeId, $messages[0]->sessionId],
+        );
+        // The column keeps whole seconds, and the message keeps the clock time of the close.
+        self::assertSame(
+            $this->reloadAsk($ask)->closedAt?->format('Y-m-d H:i:s'),
+            $messages[0]->askClosedAt->format('Y-m-d H:i:s'),
+        );
     }
 
     public function test_the_card_comes_from_the_oldest_run_of_the_session(): void

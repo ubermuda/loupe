@@ -40,6 +40,6 @@ final readonly class ResumeAskingSessionHandler
             return;
         }
 
-        ($this->resume)(new ResumeAskingRunCommand($project, Uuid::fromString($message->bridgeId), Uuid::fromString($message->sessionId)));
+        ($this->resume)(new ResumeAskingRunCommand($project, Uuid::fromString($message->bridgeId), Uuid::fromString($message->sessionId), $message->askClosedAt));
     }
 }

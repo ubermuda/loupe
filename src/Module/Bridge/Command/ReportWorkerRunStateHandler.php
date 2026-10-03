@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\ResumableWorkerRunEnded;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkerRunQueued;
 use App\Module\Bridge\Repository\WorkerRunRepository;
@@ -13,6 +14,7 @@ use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\Service\WorkerRunUsageRecorder;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -139,6 +141,10 @@ final readonly class ReportWorkerRunStateHandler
         }
         if ($closes && null !== $result->run) {
             $this->audit($result->run);
+            $ended = self::resumableEnd($result->run);
+            if (null !== $ended) {
+                $this->events->dispatch($ended);
+            }
         }
         if ($created && null !== $result->run && WorkerRunState::Queued === $command->state
             && self::FIX_KIND === $result->run->workKind) {
@@ -171,6 +177,22 @@ final readonly class ReportWorkerRunStateHandler
         }
 
         return $current->isOpen() && $reported->rank() > $current->rank();
+    }
+
+    /** A stop is the choice of a person, so no later resume overrides it. */
+    private static function resumableEnd(WorkerRun $run): ?ResumableWorkerRunEnded
+    {
+        if (WorkerRunKind::Worker !== $run->kind || WorkerRunState::Stopped === $run->state || !$run->state->isResumable()
+            || null === $run->bridgeId || null === $run->sessionId) {
+            return null;
+        }
+
+        return new ResumableWorkerRunEnded(
+            projectId: $run->project->id ?? throw new \LogicException('A persisted project has an id.'),
+            bridgeId: $run->bridgeId,
+            sessionId: $run->sessionId,
+            startedAt: $run->startedAt ?? $run->receivedAt,
+        );
     }
 
     private static function queued(WorkerRun $run): WorkerRunQueued
