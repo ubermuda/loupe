@@ -136,8 +136,8 @@ CI catches the rest. `DeploymentConfigParityCheck` cross-checks a new environmen
 
 Invoke the `working-with-prs` skill before you open, gate or merge a pull request. It carries the full gate, the merge protocol, the ruleset facts and the wave rules. This is the irreducible summary, so that a session which skips the skill still does the right thing:
 
-- The gate is `just cs`, then `just ci`, then a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-sol"`, against `origin/main`, or against `origin/<parent-branch>` for a stacked branch. Fix every failure, including pre-existing ones. e2e is not in the local gate: push, then read the `e2e` check on the pull request, and fix every failure it reports. If the Codex MCP is missing, stop and tell the owner rather than routing around it.
-- A branch whose every changed file ends in `.md` runs steps 1 and 2 only, and says so in the body. Verify with `git diff --name-only origin/main...HEAD | grep -v '\.md$'`. Any output means the full gate applies.
+- The local gate is `just cs`, then `just phpstan`, `just arkitect` and `just gamache`. Then run PHPUnit on the tests for what changed, with `just phpunit tests/<path>` or `just phpunit --filter <name>`. Run `just js-test` when JavaScript changed, and `just cli-test` when `cli/` or `hooks/` changed. Then run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-sol"`, against `origin/main`, or against `origin/<parent-branch>` for a stacked branch. Then push. CI's required checks, e2e included, are the full gate: read them on the pull request, and fix every failure, including pre-existing ones. A `PreToolUse` hook, `.agents/hooks/no-full-ci.sh`, refuses `just ci` and a full PHPUnit run. If the Codex MCP is missing, stop and tell the owner rather than routing around it.
+- A branch whose every changed file ends in `.md` runs `just cs` and pushes, and says so in the body. Verify with `git diff --name-only origin/main...HEAD | grep -v '\.md$'`. Any output means the full gate applies.
 - `main` is protected and takes `--squash` only. **Put the reasoning in the commit messages, not only in the PR body.** GitHub's squash default concatenates the branch's commit messages, so what survives in `git log` is what the commits said; the body survives only on the pull request page unless you pass `gh pr merge <n> --squash --body-file <file>`. A branch with substantive commit messages loses only the body's framing. A branch with thin ones loses everything. It requires one approving review and thirteen CI checks. On 2026-09-21 the ruleset named `lint`, `cs-check`, `phpstan`, `arkitect`, `gamache`, `audit`, `phpunit`, `e2e`, `js-test`, `cli-test`, `e2e-chromium`, `e2e-rest` and `e2e-chromium-2`. `e2e` registers last, so a reading that counts twelve checks looks settled and is not. Read that list from the ruleset rather than from here, because nothing in the repository fails when it goes stale. `working-with-prs` carries the command. An approval in chat is not a GitHub approval.
 - Never approve your own work, because the review stays with a human. Merging does not: a PR that is approved with all required checks green is good to merge, without asking. Never merge one that is unapproved, has a failing or pending check, or would need `--admin`. A stacked pull request has no required checks, so never merge it while it targets its parent's branch.
 - A green gate is not evidence the change is correct. Read the diff.
@@ -259,12 +259,12 @@ just rector                   # Run Rector (PHP modernization)
 just phpstan                  # Run static analysis (level 8)
 just arkitect                 # Check module boundary rules (phparkitect)
 just cs                       # Write-mode fixer pipeline: prettier, lint, rector, cs-fix, twig-cs-fix
-just ci                       # Check-only gate (never rewrites files): lint, cs-check (rector/cs-fixer/twig-cs-fixer dry-run), phpstan, arkitect, gamache, composer audit, PHPUnit, Vitest (e2e is separate)
+just ci                       # Full check-only run for a person in a terminal; a hook refuses it for an agent: lint, cs-check (rector/cs-fixer/twig-cs-fixer dry-run), phpstan, arkitect, gamache, composer audit, PHPUnit, Vitest (e2e is separate)
 just audit                    # Security advisories against composer.lock (also runs inside `just ci`)
 just gamache                  # Run Gamache convention checker (replaces the seven custom check scripts)
 just mutation                 # Infection over all of `src`; 15-25 min on a CI runner, far longer on a Mac
 just mutation-diff            # Infection over the lines this branch changed; the one to run while developing
-just phpunit-coverage         # PHPUnit coverage report at var/phpunit-coverage/html (separate from `e2e-coverage`)
+just phpunit-coverage tests/<path>  # PHPUnit coverage report at var/phpunit-coverage/html (separate from `e2e-coverage`); a hook refuses a bare run
 just migrate-diff             # Generate migrations from entities
 just migrate-run              # Run migrations
 just js-test                  # Run Vitest over tests/js (needs Node alone)
@@ -274,12 +274,12 @@ just open-coverage            # Open the merged HTML coverage report
 just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing, phpunit-timing
 just browser-sync             # Live-reload proxy for template changes
 
-php vendor/bin/phpunit        # Run tests
+just phpunit tests/<path>     # Run the PHPUnit tests under one path; a hook refuses a full run for an agent
 bin/console debug:router      # List all routes
 bin/console cache:clear       # Clear cache
 ```
 
-To run a single test: `php vendor/bin/phpunit --filter TestClassName`
+To run a single test: `just phpunit --filter TestClassName`
 
 To run a single JavaScript test: `just js-test tests/js/<name>.test.js`
 
