@@ -11,8 +11,8 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * An ask that closed while its run still ran got no resume, because a running
- * run takes none. The end of the run queues that resume.
+ * An ask that closed while its run was live got no resume, because a live run
+ * takes none. The end of the run queues that resume.
  */
 #[AsEventListener]
 final readonly class ResumeAskingSessionOnResumableWorkerRunEnded
@@ -25,7 +25,7 @@ final readonly class ResumeAskingSessionOnResumableWorkerRunEnded
 
     public function __invoke(ResumableWorkerRunEnded $event): void
     {
-        $closedAt = $this->inboxAsks->findLatestBlockingCloseOfSessionAfter($event->projectId, $event->sessionId, $event->bridgeId, $event->startedAt);
+        $closedAt = $this->inboxAsks->findLatestBlockingCloseOfSessionAfter($event->projectId, $event->sessionId, $event->bridgeId, $event->liveSince);
         if (null === $closedAt) {
             return;
         }

@@ -26,10 +26,11 @@ use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
 
 /** The run that asked still ran when the ask closed, so its end sends the resume. */
-final class ResumeAskingSessionOnWorkerRunEndedTest extends KernelTestCase
+final class ResumeAskingSessionOnResumableWorkerRunEndedTest extends KernelTestCase
 {
     use BridgeScenario;
 
+    private const string RECEIVED = '2026-01-01 09:58:00';
     private const string STARTED = '2026-01-01 10:00:00';
 
     public function test_an_ask_closed_while_the_run_ran_resumes_the_run_once_it_ends(): void
@@ -69,10 +70,21 @@ final class ResumeAskingSessionOnWorkerRunEndedTest extends KernelTestCase
         self::assertCount(1, $this->commands());
     }
 
-    public function test_an_ask_closed_before_the_run_started_queues_nothing(): void
+    public function test_an_ask_closed_while_the_run_was_queued_resumes_the_run_once_it_ends(): void
+    {
+        [$project, $bridge, $run] = $this->runningRun('late-resume-queued');
+        $this->closedAsk($project, $bridge, $run, new \DateTimeImmutable('2026-01-01 09:59:00'));
+
+        $this->end($project, $run, WorkerRunState::Blocked);
+        $this->handleQueued();
+
+        self::assertCount(1, $this->commands());
+    }
+
+    public function test_an_ask_closed_before_the_first_report_of_the_run_queues_nothing(): void
     {
         [$project, $bridge, $run] = $this->runningRun('late-resume-earlier');
-        $this->closedAsk($project, $bridge, $run, new \DateTimeImmutable('2026-01-01 09:59:00'));
+        $this->closedAsk($project, $bridge, $run, new \DateTimeImmutable('2026-01-01 09:57:00'));
 
         $this->end($project, $run, WorkerRunState::Blocked);
 
@@ -128,7 +140,7 @@ final class ResumeAskingSessionOnWorkerRunEndedTest extends KernelTestCase
         $bridge = $this->seedBridge($this->em(), $owner);
         $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
         $this->em()->flush();
-        $run = $this->seedRun($this->em(), $project, bridgeId: $bridge->id, state: WorkerRunState::Running, runKey: Uuid::v4());
+        $run = $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable(self::RECEIVED), bridgeId: $bridge->id, state: WorkerRunState::Running, runKey: Uuid::v4());
         $this->transport()->reset();
 
         return [$project, $bridge, $run];

@@ -191,7 +191,7 @@ final readonly class ReportWorkerRunStateHandler
             projectId: $run->project->id ?? throw new \LogicException('A persisted project has an id.'),
             bridgeId: $run->bridgeId,
             sessionId: $run->sessionId,
-            startedAt: $run->startedAt ?? $run->receivedAt,
+            liveSince: $run->receivedAt,
         );
     }
 
