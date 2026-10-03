@@ -6,7 +6,8 @@ import { StreamActions, morphElements } from '@hotwired/turbo';
  * template, so every change carries the column counts through one path.
  * A page that lacks the container or an anchor, or shows the anchor card in
  * another container, changes nothing and reports board:place-missed, because
- * a guessed position would show a wrong order.
+ * a guessed position would show a wrong order. The list loads only while a
+ * person shows it, so a page with no list skips the row.
  */
 export function placeCard(stream) {
     const cardId = stream.getAttribute('target').replace(/^board-card-/, '');
@@ -47,15 +48,11 @@ export function placeCard(stream) {
     const group = container(stream, cardId);
     const list = document.querySelector('.lp-board-list');
     const after = anchor(stream.dataset.after, 'board-card-');
-    const rowAfter = anchor(stream.dataset.rowAfter, 'board-row-');
+    const rowAfter = list
+        ? anchor(stream.dataset.rowAfter, 'board-row-')
+        : null;
     const stale = after && after.parentElement !== group;
-    if (
-        !group ||
-        !list ||
-        after === undefined ||
-        rowAfter === undefined ||
-        stale
-    ) {
+    if (!group || after === undefined || rowAfter === undefined || stale) {
         missed(cardId);
 
         return;
@@ -63,17 +60,14 @@ export function placeCard(stream) {
 
     const leftDeck = leaveDeck(cardId, stream.dataset.columnId);
     const content = stream.querySelector('template').content.cloneNode(true);
-    const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
     place(
         `board-card-${cardId}`,
         content.querySelector('.lp-board-card'),
         (node) => (after ? after.after(node) : group.prepend(node)),
     );
-    place(
-        `board-row-${cardId}`,
-        content.querySelector('.lp-board-list__row'),
-        (node) => (rowAnchor ? rowAnchor.after(node) : list.prepend(node)),
-    );
+    if (list) {
+        placeRow(list, rowAfter, cardId, content);
+    }
     updateTexts('board-count-', counts);
     updateTexts('board-history-', history);
     updateHistoryTotals(historyTotals);
@@ -112,17 +106,13 @@ function container(stream, cardId) {
 function placeLaneHead(stream, cardId, counts, history, historyTotals) {
     const section = document.getElementById(`board-lane-${cardId}`);
     const list = document.querySelector('.lp-board-list');
-    const rowAfter = anchor(stream.dataset.rowAfter, 'board-row-');
+    const rowAfter = list
+        ? anchor(stream.dataset.rowAfter, 'board-row-')
+        : null;
     const head = section?.querySelector('.lp-board-lane__head');
     const laneAfter = anchor(stream.dataset.laneAfter, 'board-lane-');
     const lanes = document.querySelector('.lp-board-lanes');
-    if (
-        !head ||
-        !list ||
-        !lanes ||
-        rowAfter === undefined ||
-        laneAfter === undefined
-    ) {
+    if (!head || !lanes || rowAfter === undefined || laneAfter === undefined) {
         missed(cardId);
 
         return;
@@ -130,7 +120,6 @@ function placeLaneHead(stream, cardId, counts, history, historyTotals) {
 
     leaveDeck(cardId, stream.dataset.columnId);
     const content = stream.querySelector('template').content.cloneNode(true);
-    const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
     // The lane controller owns the collapse, and the fresh head always says expanded.
     const toggle = head.querySelector('.lp-board-lane__collapse');
     const expanded = toggle?.getAttribute('aria-expanded');
@@ -155,14 +144,8 @@ function placeLaneHead(stream, cardId, counts, history, historyTotals) {
             lanes.prepend(section);
         }
     }
-    // A lane epic in the Backlog has no list row.
-    const freshRow = content.querySelector('.lp-board-list__row');
-    if (freshRow) {
-        place(`board-row-${cardId}`, freshRow, (node) =>
-            rowAnchor ? rowAnchor.after(node) : list.prepend(node),
-        );
-    } else {
-        document.getElementById(`board-row-${cardId}`)?.remove();
+    if (list) {
+        placeRow(list, rowAfter, cardId, content);
     }
     updateTexts('board-count-', counts);
     updateTexts('board-history-', history);
@@ -209,6 +192,20 @@ function leaveDeck(cardId, columnId) {
     deckCard.remove();
 
     return deck?.dataset.lane;
+}
+
+/** A lane epic in the Backlog comes with no row, so the list drops the one it had. */
+function placeRow(list, rowAfter, cardId, content) {
+    const fresh = content.querySelector('.lp-board-list__row');
+    if (!fresh) {
+        document.getElementById(`board-row-${cardId}`)?.remove();
+
+        return;
+    }
+    const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
+    place(`board-row-${cardId}`, fresh, (node) =>
+        rowAnchor ? rowAnchor.after(node) : list.prepend(node),
+    );
 }
 
 function missed(cardId) {

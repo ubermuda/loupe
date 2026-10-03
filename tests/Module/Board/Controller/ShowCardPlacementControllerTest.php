@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -347,7 +346,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $this->addTriageColumn($project);
         $em->flush();
         $old = $this->card($em, $project, 'Long finished', 'done');
-        $old->completedAt = new \DateTimeImmutable(\sprintf('-%d days', ShowBoardHandler::TERMINAL_WINDOW_DAYS + 1));
+        $old->completedAt = new \DateTimeImmutable('-4 days');
         $em->flush();
         $done = $this->column($project, 'done');
         $url = $this->placementUrl((string) $project->id, (string) $old->id);
@@ -468,7 +467,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('section#board-column-'.$next->id));
         self::assertCount(1, $crawler->filter('#board-group-'.$next->id.' > #board-card-'.$card->id));
         self::assertSame('1', $crawler->filter('#board-count-'.$next->id)->text());
-        $row = $crawler->filter('#board-row-'.$card->id);
+        $row = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/list')->filter('#board-row-'.$card->id);
         self::assertSame((string) $card->id, $row->attr('data-card-id'));
         self::assertSame((string) $next->id, $row->attr('data-column-id'));
 

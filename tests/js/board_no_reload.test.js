@@ -46,6 +46,8 @@ const GROUPS = [
             'board-frame',
             'board-refresh',
         ],
+        // The list view loads its own frame while a person shows it.
+        allowed: ["this.listTarget.setAttribute('src'"],
     },
     {
         name: 'the card drawer',
@@ -65,7 +67,7 @@ const GROUPS = [
     },
 ];
 
-describe.each(GROUPS)('$name', ({ files, forbidden }) => {
+describe.each(GROUPS)('$name', ({ files, forbidden, allowed = [] }) => {
     it('scans at least one file', () => {
         expect(files().length).toBeGreaterThan(0);
     });
@@ -76,7 +78,13 @@ describe.each(GROUPS)('$name', ({ files, forbidden }) => {
                 .split('\n')
                 .flatMap((line, index) =>
                     forbidden
-                        .filter((token) => line.includes(token))
+                        .filter(
+                            (token) =>
+                                line.includes(token) &&
+                                !allowed.some((exception) =>
+                                    line.includes(exception),
+                                ),
+                        )
                         .map((token) => `${file}:${index + 1} holds ${token}`),
                 ),
         );

@@ -208,7 +208,7 @@ final class ShowBoardStructureControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/list');
 
         self::assertResponseIsSuccessful();
         $tag = $crawler->filter('#board-row-'.$card->id.' > [data-column-tag]');

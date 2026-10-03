@@ -309,7 +309,10 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $live = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], cliVersion: '1.6.0', workerPools: [['name' => 'default', 'size' => 2, 'inUse' => 1, 'queued' => 0]], workerPoolsReportedAt: new \DateTimeImmutable('2026-09-30 11:00:00'));
         $live->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND];
         $live->pauseRequested = true;
+        $live->name = 'laptop';
+        $live->requestedName = 'laptop';
         $quiet = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('-1 day'));
+        $quiet->requestedName = 'laptop';
         $this->seedBridge($em, $project->owner, projects: [(string) $other->id]);
         $open = $this->seedRun($em, $project, cardNumber: 3, ruleName: 'plan', bridgeId: $live->id, state: WorkerRunState::Running);
         $this->seedRun($em, $project, bridgeId: $live->id, state: WorkerRunState::Succeeded);
@@ -326,6 +329,8 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $row = $bridges[$live->id->toRfc4122()];
         self::assertSame('live', $row['liveness']);
         self::assertSame('1.6.0', $row['cliVersion']);
+        self::assertSame('laptop', $row['name']);
+        self::assertSame('laptop', $row['requestedName']);
         self::assertTrue($row['pauseRequested']);
         self::assertNull($row['pausedReported']);
         self::assertTrue($row['takesCommands']);
@@ -334,6 +339,8 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertSame('2026-09-30T11:00:00+00:00', $row['workerPoolsReportedAt']);
         self::assertSame([['runId' => (string) $open->id, 'cardNumber' => 3, 'rule' => 'plan', 'state' => 'running']], $row['openRuns']);
         self::assertSame('quiet', $bridges[$quiet->id->toRfc4122()]['liveness']);
+        self::assertNull($bridges[$quiet->id->toRfc4122()]['name']);
+        self::assertSame('laptop', $bridges[$quiet->id->toRfc4122()]['requestedName']);
         self::assertFalse($bridges[$quiet->id->toRfc4122()]['takesCommands']);
         self::assertFalse($bridges[$quiet->id->toRfc4122()]['takesReruns']);
         self::assertSame([], $bridges[$quiet->id->toRfc4122()]['openRuns']);

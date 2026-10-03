@@ -76,8 +76,15 @@ export default class extends Controller {
         this.queue = Promise.resolve();
         this.onPlaced = (event) => this.placed(event.detail ?? {});
         this.onMissed = (event) => this.missed(event.detail ?? {});
+        // A row that changed while the list loaded missed its placement.
+        this.onFrameRender = (event) => {
+            if (event.target.id === 'board-list') {
+                this.catchUp();
+            }
+        };
         document.addEventListener('board:placed', this.onPlaced);
         document.addEventListener('board:place-missed', this.onMissed);
+        document.addEventListener('turbo:frame-render', this.onFrameRender);
         this.unsubscribe = on(
             ['board.card_changed', 'worker_run.card_warning_changed'],
             (change) => this.receive(change),
@@ -120,6 +127,7 @@ export default class extends Controller {
         this.element.removeAttribute(CONNECTED_ATTRIBUTE);
         document.removeEventListener('board:placed', this.onPlaced);
         document.removeEventListener('board:place-missed', this.onMissed);
+        document.removeEventListener('turbo:frame-render', this.onFrameRender);
         this.pending.forEach((entry) => clearTimeout(entry.timer));
         this.pending.clear();
         this.expected.clear();
@@ -488,31 +496,34 @@ export default class extends Controller {
                 ...listed.get(row.dataset.cardId),
             }));
         outOfOrder(rows).forEach((cardId) => moved.add(cardId));
-        // A lane head has no face, and the lane head stream keeps its list
-        // row's digest current.
-        const rowDigests = new Map();
+        // A row shares its card's digest. The list loads only while shown,
+        // so a page with no list checks the faces and lane heads alone.
+        const hasList = this.element.querySelector('.lp-board-list') !== null;
+        const rowsById = new Map();
         this.element
             .querySelectorAll('.lp-board-list__row[data-card-digest]')
-            .forEach((row) =>
-                rowDigests.set(row.dataset.cardId, row.dataset.cardDigest),
-            );
+            .forEach((row) => rowsById.set(row.dataset.cardId, row));
         const changed = manifest.cards
             .filter(([cardId, digest, columnId, , headDigest]) => {
                 if (moved.has(cardId)) {
                     return true;
                 }
                 if (headDigest === undefined) {
-                    return shown.get(cardId) !== digest;
+                    return (
+                        shown.get(cardId) !== digest ||
+                        (hasList &&
+                            rowsById.get(cardId)?.dataset.cardDigest !== digest)
+                    );
                 }
                 // A lane epic in the Backlog has a head and no list row.
-                if (columnId !== backlogId && !rowIds.has(cardId)) {
+                if (hasList && columnId !== backlogId && !rowIds.has(cardId)) {
                     return true;
                 }
                 const head = laneHeadOf(cardId);
 
                 return (
-                    (rowDigests.has(cardId) &&
-                        rowDigests.get(cardId) !== digest) ||
+                    (rowsById.has(cardId) &&
+                        rowsById.get(cardId).dataset.cardDigest !== digest) ||
                     (head?.dataset.laneDigest !== undefined &&
                         head.dataset.laneDigest !== headDigest)
                 );

@@ -6,6 +6,7 @@ const savedViews = new WeakMap();
 
 export default class extends Controller {
     static targets = ['board', 'list', 'boardButton', 'listButton'];
+    static values = { listUrl: String };
 
     connect() {
         this.stateKey = this.element.parentElement;
@@ -47,6 +48,13 @@ export default class extends Controller {
 
         this.boardTarget.hidden = !board;
         this.listTarget.hidden = board;
+        // The list frame loads only while shown. Turbo rewrites src to an absolute URL, so presence is the test.
+        if (board) {
+            this.listTarget.removeAttribute('src');
+            this.listTarget.replaceChildren();
+        } else if (!this.listTarget.hasAttribute('src')) {
+            this.listTarget.setAttribute('src', this.listUrlValue);
+        }
         this.boardButtonTarget.setAttribute('aria-pressed', String(board));
         this.listButtonTarget.setAttribute('aria-pressed', String(!board));
     }

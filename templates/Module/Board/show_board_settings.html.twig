@@ -132,6 +132,19 @@
                         {{ form_end(addForm) }}
                     </dialog>
                 </div>
+                {% set windowForm = board_terminal_window_form(board.terminalWindowDays, terminalWindowForm) %}
+                <h3 class="lp-section-title">{{ 'board.terminal_window.heading'|trans }}</h3>
+                {{ form_start(windowForm, {action: path('app_board_terminal_window_save', {id: board.project.id}), attr: {class: 'lp-form'}}) }}
+                    <div class="lp-form-field">
+                        {{ form_label(windowForm.terminalWindowDays, null, {label_attr: {class: 'lp-label'}}) }}
+                        {{ form_widget(windowForm.terminalWindowDays, {attr: {class: 'lp-input'}}) }}
+                        {{ form_help(windowForm.terminalWindowDays, {help_attr: {class: 'lp-form-hint'}}) }}
+                        <div class="lp-field-errors">{{ form_errors(windowForm.terminalWindowDays) }}</div>
+                    </div>
+                    <div class="lp-settings-form-actions">
+                        <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.terminal_window.submit'|trans }}</button>
+                    </div>
+                {{ form_end(windowForm) }}
             {% endif %}
         </section>
     </div>

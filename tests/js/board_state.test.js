@@ -23,7 +23,7 @@ afterEach(async () => {
 });
 
 function boardHtml() {
-    return `<div id="board" data-controller="board-filter board-view">
+    return `<div id="board" data-controller="board-filter board-view" data-board-view-list-url-value="/board/list">
         <div data-action="focusin->board-filter#revealField">
             <input data-board-filter-target="query" data-action="input->board-filter#filter">
         </div>
@@ -35,11 +35,18 @@ function boardHtml() {
             <article data-board-filter-target="card" data-card-title="Fix login"></article>
             <article data-board-filter-target="card" data-card-title="Write docs"></article>
         </div>
-        <div data-board-view-target="list" hidden>
+        <turbo-frame data-board-view-target="list" hidden></turbo-frame>
+    </div>`;
+}
+
+/** Stands in for the frame load that a src starts in a browser. */
+async function loadList() {
+    document.querySelector('[data-board-view-target="list"]').innerHTML =
+        `<div class="lp-board-list">
             <a data-board-filter-target="row" data-card-title="Fix login"></a>
             <a data-board-filter-target="row" data-card-title="Write docs"></a>
-        </div>
-    </div>`;
+        </div>`;
+    await Promise.resolve();
 }
 
 async function mount() {
@@ -92,9 +99,6 @@ it('keeps the filter query across a re-render of the board', async () => {
     const input = document.querySelector('[data-board-filter-target="query"]');
     expect(input.value).toBe('login');
     expect(visibleTitles('[data-board-filter-target="card"]')).toEqual([
-        'Fix login',
-    ]);
-    expect(visibleTitles('[data-board-filter-target="row"]')).toEqual([
         'Fix login',
     ]);
     expect(
@@ -165,6 +169,12 @@ it('keeps the query and the list view when a stream replaces the board', async (
     const oldBoard = document.getElementById('board');
 
     await replaceBoard();
+    expect(
+        document
+            .querySelector('[data-board-view-target="list"]')
+            .getAttribute('src'),
+    ).toBe('/board/list');
+    await loadList();
 
     expect(document.getElementById('board')).not.toBe(oldBoard);
     expect(

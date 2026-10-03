@@ -5,6 +5,7 @@ import BoardFilterController from '../../assets/controllers/board_filter_control
 import BoardViewController from '../../assets/controllers/board_view_controller.js';
 
 let application;
+const LIST_URL = '/projects/p/board/list';
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function card(id, title) {
@@ -13,6 +14,7 @@ function card(id, title) {
 
 beforeEach(async () => {
     document.body.innerHTML = `<div id="board" data-controller="board-filter board-view"
+            data-board-view-list-url-value="${LIST_URL}"
             data-action="turbo:frame-render@document->board-filter#filter board:placed@document->board-filter#filter turbo:frame-render@document->board-view#restore">
         <input data-board-filter-target="query">
         <span data-board-filter-target="count" data-one="1 card" data-many="%count% cards">2 cards</span>
@@ -20,7 +22,7 @@ beforeEach(async () => {
         <button data-board-view-target="listButton" aria-pressed="false"></button>
         <p data-board-filter-target="empty" hidden></p>
         <div id="columns" data-board-view-target="board">${card('a', 'Alpha')}${card('b', 'Beta')}</div>
-        <div id="list" data-board-view-target="list" hidden></div>
+        <turbo-frame id="list" data-board-view-target="list" hidden></turbo-frame>
     </div>`;
     application = Application.start();
     application.register('board-filter', BoardFilterController);
@@ -105,4 +107,37 @@ it('restores the list view when the board connects under a kept toolbar', async 
 
     expect(document.getElementById('columns').hidden).toBe(true);
     expect(document.getElementById('list').hidden).toBe(false);
+    expect(document.getElementById('list').getAttribute('src')).toBe(LIST_URL);
+});
+
+const viewController = () =>
+    application.getControllerForElementAndIdentifier(
+        document.getElementById('board'),
+        'board-view',
+    );
+
+it('loads the list when a person picks List, and drops it on Board', () => {
+    const list = document.getElementById('list');
+    viewController().showBoard();
+    expect(list.hasAttribute('src')).toBe(false);
+
+    viewController().showList();
+    expect(list.getAttribute('src')).toBe(LIST_URL);
+
+    list.innerHTML = '<div class="lp-board-list"></div>';
+    viewController().showBoard();
+    expect(list.hasAttribute('src')).toBe(false);
+    expect(list.childElementCount).toBe(0);
+    expect(list.hidden).toBe(true);
+});
+
+it('keeps a loaded list when a frame renders', () => {
+    viewController().showList();
+    const list = document.getElementById('list');
+    list.setAttribute('src', `https://loupe.test${LIST_URL}`);
+    list.innerHTML = '<div class="lp-board-list"></div>';
+    document.dispatchEvent(new CustomEvent('turbo:frame-render'));
+
+    expect(list.getAttribute('src')).toBe(`https://loupe.test${LIST_URL}`);
+    expect(list.childElementCount).toBe(1);
 });

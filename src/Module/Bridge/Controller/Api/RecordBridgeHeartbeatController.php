@@ -63,6 +63,7 @@ final class RecordBridgeHeartbeatController extends AppController
             paused: $payload->paused,
             capabilities: $payload->capabilities(),
             installMethod: $payload->update?->install(),
+            name: $payload->name(),
         ));
 
         return new JsonResponse([

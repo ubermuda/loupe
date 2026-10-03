@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\BridgeRuleReport;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
@@ -104,6 +105,45 @@ final class ListRulesControllerTest extends WebTestCase
         self::assertStringContainsString('gone', $crawler->filter('[data-rule-name="Lost column"] .lp-rule-flow')->text());
         self::assertCount(0, $crawler->filter('form[name="search_rules_form"] button[type="submit"]'));
         self::assertCount(1, $crawler->filter('form[name="search_rules_form"] [data-autosearch-target="clearButton"]'));
+    }
+
+    public function test_the_rule_flow_and_the_hooks_show_the_name_a_bridge_holds(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $owner = new User(fullName: 'Owner', email: 'rules-bridge-name@example.com', password: 'x');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
+        $project = new Project($owner, 'Named bridge rules');
+        $em->persist($owner);
+        $em->persist($project);
+        $em->flush();
+        $named = new Bridge($owner, Uuid::v7(), [(string) $project->id], 'b4e39aa7', new \DateTimeImmutable());
+        $named->name = 'laptop';
+        $unnamed = Uuid::v7();
+        $em->persist($named);
+        $em->persist(new BridgeRuleReport($project, $named->id, [
+            ['name' => 'Named', 'on' => 'board.card_moved', 'columns' => ['ready'], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
+        ]));
+        $em->persist(new BridgeRuleReport($project, $unnamed, [
+            ['name' => 'Unnamed', 'on' => 'board.card_moved', 'columns' => ['ready'], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
+        ]));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/rules');
+
+        self::assertResponseIsSuccessful();
+        $namedFlow = $crawler->filter('[data-rule-name="Named"] [data-rule-bridge]');
+        self::assertSame('laptop', trim($namedFlow->text()));
+        self::assertSame((string) $named->id, $namedFlow->attr('title'));
+        $unnamedFlow = $crawler->filter('[data-rule-name="Unnamed"] [data-rule-bridge]');
+        self::assertSame(substr((string) $unnamed, -12), trim($unnamedFlow->text()));
+        $hookBridge = $crawler->filter('[data-bridge-hooks="'.$named->id.'"] [data-hook-bridge-label]');
+        self::assertSame('laptop', trim($hookBridge->text()));
+        self::assertSame((string) $named->id, $hookBridge->attr('title'));
     }
 
     public function test_it_lists_reported_rule_health_without_edit_controls(): void
