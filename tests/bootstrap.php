@@ -41,19 +41,20 @@ if ($_SERVER['APP_DEBUG']) {
         return;
     }
 
-    // The ParaTest main process only lists the tests. Its workers reset their own databases.
-    if (!getenv('PARATEST') && 'paratest' === basename($_SERVER['argv'][0] ?? '')) {
-        return;
-    }
-
     $kernel = new App\Kernel('test', (bool) ($_SERVER['APP_DEBUG'] ?? false));
 
     // test.log then holds exactly one run, which a date-based rotation cannot
-    // give. test.deprecation.log is left alone: a phpunit run writes nothing to
-    // it, so truncating it would wipe what a console run found.
+    // give. The ParaTest main process empties it before any worker starts.
+    // test.deprecation.log is left alone: a phpunit run writes nothing to it,
+    // so truncating it would wipe what a console run found.
     $mainLog = $kernel->getLogDir().'/test.log';
-    if (is_file($mainLog)) {
+    if (!getenv('PARATEST') && is_file($mainLog)) {
         file_put_contents($mainLog, '');
+    }
+
+    // The ParaTest main process only lists the tests. Its workers reset their own databases.
+    if (!getenv('PARATEST') && 'paratest' === basename($_SERVER['argv'][0] ?? '')) {
+        return;
     }
 
     $kernel->boot();
