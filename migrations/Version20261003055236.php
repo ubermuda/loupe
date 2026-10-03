@@ -14,7 +14,7 @@ final class Version20261003055236 extends AbstractMigration
     #[\Override]
     public function getDescription(): string
     {
-        return 'Bind every project to a workflow template by its column slugs, refresh each stored template copy, and baseline every card before the engine runs';
+        return 'Bind every project to a workflow template by its column slugs, and baseline every card before the engine runs';
     }
 
     /**
@@ -33,14 +33,6 @@ final class Version20261003055236 extends AbstractMigration
             SQL;
         $params = ['slots' => $slots, 'slotCount' => \count($slots)];
         $types = ['slots' => ArrayParameterType::STRING];
-
-        // The engine reads the stored copy, so a project bound before this release gets the rules that the release adds.
-        foreach ([$lifecycle, $simple] as $template) {
-            $this->addSql(
-                'UPDATE workflow_bindings SET template_version = :version, definition = CAST(:definition AS JSONB) WHERE template_key = :key',
-                $template['params'],
-            );
-        }
 
         $this->addSql(<<<SQL
             INSERT INTO workflow_slot_links (id, project_id, slot_key, column_id)
