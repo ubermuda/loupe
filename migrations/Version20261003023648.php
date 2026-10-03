@@ -26,15 +26,15 @@ final class Version20261003023648 extends AbstractMigration
         $this->addSql('ALTER TABLE bridge_worker_runs ADD work_kind VARCHAR(100) DEFAULT NULL');
         $this->addSql('ALTER TABLE bridge_worker_runs ADD work_request_id UUID DEFAULT NULL');
         $this->addSql('ALTER TABLE bridge_worker_runs ADD rule_id VARCHAR(100) DEFAULT NULL');
-        // A run of a work request carries its kind after the prefix. An interactive run keeps its name.
+        // An interactive run keeps its name. A run of a work request, interactive too, carries its kind after the prefix.
         // No column links a run to its work request, so work_request_id and rule_id stay null.
-        $this->addSql("UPDATE bridge_worker_runs SET work_kind = SUBSTRING(rule_name FROM 6) WHERE rule_name LIKE 'work:%' AND LENGTH(rule_name) > 5");
         $this->addSql("UPDATE bridge_worker_runs SET work_kind = rule_name WHERE kind = 'interactive'");
+        $this->addSql("UPDATE bridge_worker_runs SET work_kind = SUBSTRING(rule_name FROM 6) WHERE rule_name LIKE 'work:%' AND LENGTH(rule_name) > 5");
         $this->addSql("ALTER TABLE bridge_worker_runs ALTER rule_name SET DEFAULT ''");
 
         $this->addSql('ALTER TABLE bridge_worker_run_usage ADD work_kind VARCHAR(100) DEFAULT NULL');
-        $this->addSql("UPDATE bridge_worker_run_usage SET work_kind = SUBSTRING(rule_name FROM 6) WHERE rule_name LIKE 'work:%' AND LENGTH(rule_name) > 5");
         $this->addSql("UPDATE bridge_worker_run_usage u SET work_kind = u.rule_name FROM bridge_worker_runs r WHERE r.id = u.run_id AND r.kind = 'interactive'");
+        $this->addSql("UPDATE bridge_worker_run_usage SET work_kind = SUBSTRING(rule_name FROM 6) WHERE rule_name LIKE 'work:%' AND LENGTH(rule_name) > 5");
         $this->addSql("ALTER TABLE bridge_worker_run_usage ALTER rule_name SET DEFAULT ''");
     }
 
