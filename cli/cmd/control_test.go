@@ -211,7 +211,7 @@ func TestAReloadMovesTheLockToTheNewTarget(t *testing.T) {
 	defer lock.Close()
 	repoint(t, link, other)
 
-	src := h.source("projects: {}\nrules: []\n")
+	src := h.source("projects: {}\nwork: {}\n")
 	src.lock = lock.follow
 	if res := h.router.reload(context.Background(), src); res.OK || res.Stage != "parse" {
 		t.Fatalf("result = %+v, want a parse failure", res)
@@ -476,8 +476,8 @@ func TestTheBridgeAnswersAReloadOnItsSocket(t *testing.T) {
 	t.Cleanup(server.Close)
 	cfg := testLogin(server.URL)
 	path := filepath.Join(t.TempDir(), "rules.yaml")
-	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nrules:\n" +
-		"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n"
+	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" +
+		"  plan:\n    prompt: go\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}

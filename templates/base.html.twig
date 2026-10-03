@@ -102,12 +102,6 @@
                         <span class="lp-sidebar__link-label">{{ 'nav.link.agents'|trans }}</span>
                     </a>
                     {% if is_feature_enabled('board.enabled') %}
-                    <a href="{{ path('app_project_rules', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route == 'app_project_rules' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_rules' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:zap" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.rules'|trans }}</span>
-                    </a>
                     <a href="{{ path('app_project_workflow', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_workflow' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_workflow' %}aria-current="page"{% endif %}>

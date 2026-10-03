@@ -24,8 +24,9 @@ use App\Module\Workflow\Template\Rule;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Writes to the primary pull request of a card through the forge. A write the project
- * did not opt into, or that no writer of the forge supports, opens the fallback work instead.
+ * Writes to the primary pull request of a card through the forge. A state write goes to each
+ * pull request of the card. A write the project did not opt into, or that no writer of the forge supports, opens the fallback
+ * work instead. A state write with no fallback then does nothing.
  */
 final readonly class ForgeWrite implements Action
 {
@@ -54,9 +55,21 @@ final readonly class ForgeWrite implements Action
     {
         $write = ForgeWriteKind::tryFrom(ActionParams::string($rule, 'write'))
             ?? throw new \LogicException(\sprintf('The rule "%s" names an unknown forge write.', $rule->id));
-        $fallback = fn (): ActionOutcome => $this->opener->open($rule, $card, ActionParams::string($rule, 'fallback'), null);
+        $fallbackKind = ActionParams::optionalString($rule, 'fallback');
+        $fallback = fn (): ActionOutcome => null === $fallbackKind ? ActionOutcome::done() : $this->opener->open($rule, $card, $fallbackKind, null);
 
-        $pullRequest = $this->cardPullRequests->primary($this->cardPullRequests->forCard($card));
+        $pullRequests = $this->cardPullRequests->forCard($card);
+        if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
+            if ([] === $pullRequests) {
+                return ActionOutcome::done();
+            }
+
+            return self::optedIn($write, $this->boardAutomation->settingsOf($card->project))
+                ? $this->writeStates($pullRequests, $write, $fallback)
+                : $fallback();
+        }
+
+        $pullRequest = $this->cardPullRequests->primary($pullRequests);
         if (null === $pullRequest) {
             return ActionOutcome::refused('no-pull-request');
         }
@@ -72,7 +85,6 @@ final readonly class ForgeWrite implements Action
                 ForgeWriteKind::Merge => $this->forgeWrite(fn () => $this->forgePullRequestWrites->merge($pullRequest, $this->mergeMethod), $fallback),
                 ForgeWriteKind::ChangeBase => $this->changeBase($pullRequest, $fallback),
                 ForgeWriteKind::UpdateBranch => $this->updateBranch($pullRequest, $fallback),
-                ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close => $this->writeState($pullRequest, $write, $fallback),
             };
         } catch (PullRequestWriteFailed|PullRequestSyncFailed $e) {
             return ActionOutcome::refused($e->cause);
@@ -159,19 +171,38 @@ final readonly class ForgeWrite implements Action
         return ActionOutcome::done();
     }
 
-    /** @param \Closure(): ActionOutcome $fallback */
-    private function writeState(ForgePullRequest $pullRequest, ForgeWriteKind $write, \Closure $fallback): ActionOutcome
+    /**
+     * Writes every pull request that a writer supports, so a failure on one does not hold back the
+     * others. The first failure refuses the action, and its retry writes each one again, which a writer allows.
+     *
+     * @param non-empty-list<ForgePullRequest> $pullRequests
+     * @param \Closure(): ActionOutcome        $fallback
+     */
+    private function writeStates(array $pullRequests, ForgeWriteKind $write, \Closure $fallback): ActionOutcome
     {
-        $writer = $this->stateWriters->for($pullRequest->forge);
-        if (null === $writer) {
-            return $fallback();
-        }
-        if (ForgeWriteKind::Close === $write) {
-            $writer->close($pullRequest);
-        } else {
-            $writer->setDraft($pullRequest, ForgeWriteKind::Draft === $write);
+        $failure = null;
+        $written = false;
+        foreach ($pullRequests as $pullRequest) {
+            $writer = $this->stateWriters->for($pullRequest->forge);
+            if (null === $writer) {
+                continue;
+            }
+            $written = true;
+            try {
+                if (ForgeWriteKind::Close === $write) {
+                    $writer->close($pullRequest);
+                } else {
+                    $writer->setDraft($pullRequest, ForgeWriteKind::Draft === $write);
+                }
+            } catch (PullRequestWriteFailed $e) {
+                $failure ??= $e;
+            }
         }
 
-        return ActionOutcome::done();
+        if (!$written) {
+            return $fallback();
+        }
+
+        return null === $failure ? ActionOutcome::done() : ActionOutcome::refused($failure->cause);
     }
 }

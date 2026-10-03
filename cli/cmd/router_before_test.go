@@ -20,19 +20,13 @@ maxWorkers: 2
 projects:
   loupe:
     dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
+work:
+  plan:
     prompt: Card {cardNumber}.
     before:
       run: [prepare, '{cardNumber}']
       timeout: TIMEOUT
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+  review:
     prompt: Review {cardNumber}.
 `
 
@@ -341,17 +335,19 @@ func TestAnotherCardStartsWhileABeforeCommandRuns(t *testing.T) {
 	}
 }
 
-// The resume of an unfinished run runs the before command again, and starts
-// in the folder it prints then.
+// A work request that resumes the session of an unfinished run runs the
+// before command again, and starts in the folder it prints then.
 func TestAResumeRunsTheBeforeCommandAgain(t *testing.T) {
 	h, f, folder := withBefore(t, "1m")
-	h.worker.results = []workerResult{unfinishedRun}
-	h.worker.result = finishedRun
+	h.router.findTranscript = func(string) error { return nil }
+	w := workRequest(1, 87, "plan", api.WorkRequestOpen)
+	w.ResumeSessionID = testSession
+	offered.Store(w.WorkRequestID, w)
 
-	h.send(cardMoved(87))
+	h.send(workPayload(w))
 
 	calls := h.worker.recorded()
-	if len(f.recorded()) != 2 || len(calls) != 2 || !calls[1].resume || calls[1].dir != folder {
+	if len(f.recorded()) != 1 || len(calls) != 1 || !calls[0].resume || calls[0].sessionID != testSession || calls[0].dir != folder {
 		t.Fatalf("before = %d, worker = %+v", len(f.recorded()), calls)
 	}
 }

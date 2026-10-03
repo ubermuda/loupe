@@ -240,6 +240,23 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /** The newest request of the card that the rule opened for the kind, in any state. */
+    public function findLatestOfCardKindRule(Uuid $cardId, string $kind, string $ruleId): ?WorkRequest
+    {
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.cardId = :cardId')
+            ->andWhere('w.kind = :kind')
+            ->andWhere('w.ruleId = :ruleId')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('kind', $kind)
+            ->setParameter('ruleId', $ruleId)
+            ->orderBy('w.createdAt', 'DESC')
+            ->addOrderBy('w.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** The request of the card that settled done or refused last. */
     public function findLatestSettledForCard(Uuid $cardId): ?WorkRequest
     {

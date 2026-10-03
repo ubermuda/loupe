@@ -1,8 +1,6 @@
-{# The board skeleton with no cards, read by the board-structure stream action: the rules banner,
-   the columns or lanes, and one column tag per column for the list rows. Props: board (BoardView). #}
+{# The board skeleton with no cards, read by the board-structure stream action: the columns or lanes, and one column tag per column for the list rows. Props: board (BoardView). #}
 <turbo-stream action="board-structure" target="board" data-structure-digest="{{ board.structureDigest }}">
     <template>
-        {% include '@Board/_board_rules_banner.html.twig' with {board: board} only %}
         {% if board.lanes is empty %}
             {% include '@Board/_board_plain_columns.html.twig' with {board: board, runWarnings: {}, withCards: false} only %}
         {% else %}

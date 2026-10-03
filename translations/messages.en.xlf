@@ -4563,7 +4563,7 @@
             </trans-unit>
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
-                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. When you connect a repository through the GitHub App, Loupe follows the pull request of each card and shows its checks, conflicts and review on the board.</target>
+                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Each board follows a workflow template, so Loupe moves a card through its stages and asks your bridge for the next piece of work. When you connect a repository through the GitHub App, Loupe follows the pull request of each card, shows its checks, conflicts and review on the board, and can carry it through to the merge.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>
@@ -5770,10 +5770,6 @@
                 <source>board.column.rename.cancel</source>
                 <target>Cancel</target>
             </trans-unit>
-            <trans-unit id="board.column.rename.bridge_rule_warning">
-                <source>board.column.rename.bridge_rule_warning</source>
-                <target>A bridge rule watches this column. Renaming it changes its slug, and the rule stops matching.</target>
-            </trans-unit>
             <trans-unit id="board.column.move.up">
                 <source>board.column.move.up</source>
                 <target>Move up</target>
@@ -5817,42 +5813,6 @@
             <trans-unit id="board.column.delete.submit_empty">
                 <source>board.column.delete.submit_empty</source>
                 <target>Delete the column</target>
-            </trans-unit>
-            <trans-unit id="board.column.delete.bridge_rule_warning">
-                <source>board.column.delete.bridge_rule_warning</source>
-                <target>A bridge rule watches this column. Deleting it removes its slug, and the rule stops matching.</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.title">
-                <source>board.bridge_rules.title</source>
-                <target>{0}No bridge rule is dead.|{1}A bridge reports a dead rule|]1,Inf]A bridge reports %count% dead rules</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.hint">
-                <source>board.bridge_rules.hint</source>
-                <target>A dead rule starts no agent. Fix the rule in rules.yaml, then restart the bridge.</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.racing_title">
-                <source>board.bridge_rules.racing_title</source>
-                <target>{0}No bridge rule races the app sync.|{1}1 bridge rule races the app sync|]1,Inf]%count% bridge rules race the app sync</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.racing_hint">
-                <source>board.bridge_rules.racing_hint</source>
-                <target>The app syncs a pull request that is behind. Remove each rule on pull_request.behind from rules.yaml.</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.columns">
-                <source>board.bridge_rules.columns</source>
-                <target>Columns:</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.reason">
-                <source>board.bridge_rules.reason</source>
-                <target>Reason:</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.bridge">
-                <source>board.bridge_rules.bridge</source>
-                <target>Bridge:</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.reported">
-                <source>board.bridge_rules.reported</source>
-                <target>Reported %date%</target>
             </trans-unit>
             <trans-unit id="board.column.flash.deleted">
                 <source>board.column.flash.deleted</source>
@@ -6044,7 +6004,6 @@
             <trans-unit id="bridge.worker_runs.details.close"><source>bridge.worker_runs.details.close</source><target>Close</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.card"><source>bridge.worker_runs.details.card</source><target>Card</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.details.series"><source>bridge.worker_runs.details.series</source><target>Series</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.continues"><source>bridge.worker_runs.details.continues</source><target>Resumes run</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.worker_pool"><source>bridge.worker_runs.details.worker_pool</source><target>Worker pool</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.experiment"><source>bridge.worker_runs.details.experiment</source><target>Experiment</target></trans-unit>
@@ -6077,7 +6036,6 @@
             <trans-unit id="bridge.worker_runs.control.refused_no_reason"><source>bridge.worker_runs.control.refused_no_reason</source><target>The bridge refused the request.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.control.bridge_outdated"><source>bridge.worker_runs.control.bridge_outdated</source><target>Update the bridge to %version% or later to control its runs.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.control.rerun_outdated"><source>bridge.worker_runs.control.rerun_outdated</source><target>Update the bridge to run a command again.</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.control.card_left"><source>bridge.worker_runs.control.card_left</source><target>The card left %column%.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.meta.shown">
                 <source>bridge.worker_runs.meta.shown</source>
                 <target>%count% shown</target>
@@ -6209,10 +6167,6 @@
             <trans-unit id="bridge.worker_runs.exit_code">
                 <source>bridge.worker_runs.exit_code</source>
                 <target>exit %code%</target>
-            </trans-unit>
-            <trans-unit id="bridge.worker_runs.resume">
-                <source>bridge.worker_runs.resume</source>
-                <target>Resume %index% of %cap%</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.result_reason.done">
                 <source>bridge.worker_runs.result_reason.done</source>
@@ -6352,8 +6306,10 @@
             <trans-unit id="board.card.history.stopped"><source>board.card.history.stopped</source><target>%actor% stopped the automation on #%pr%.</target></trans-unit>
             <trans-unit id="board.card.history.ready_to_merge"><source>board.card.history.ready_to_merge</source><target>#%pr% is ready to merge.</target></trans-unit>
             <trans-unit id="board.card.history.synced"><source>board.card.history.synced</source><target>%actor% updated #%pr% with its base branch.</target></trans-unit>
-            <trans-unit id="board.card.history.run_finished"><source>board.card.history.run_finished</source><target>%actor% ran the %rule% rule.</target></trans-unit>
-            <trans-unit id="board.card.history.run_not_started"><source>board.card.history.run_not_started</source><target>The %rule% rule did not run.</target></trans-unit>
+            <trans-unit id="board.card.history.run_finished"><source>board.card.history.run_finished</source><target>%actor% ran the %kind% work.</target></trans-unit>
+            <trans-unit id="board.card.history.run_finished_no_kind"><source>board.card.history.run_finished_no_kind</source><target>%actor% ran a worker.</target></trans-unit>
+            <trans-unit id="board.card.history.run_not_started"><source>board.card.history.run_not_started</source><target>The %kind% work did not run.</target></trans-unit>
+            <trans-unit id="board.card.history.run_not_started_no_kind"><source>board.card.history.run_not_started_no_kind</source><target>A worker did not run.</target></trans-unit>
             <trans-unit id="board.card.history.changed"><source>board.card.history.changed</source><target>%actor% changed the card.</target></trans-unit>
             <trans-unit id="board.card.history.reason"><source>board.card.history.reason</source><target>Because %reason%.</target></trans-unit>
             <trans-unit id="board.card.history.run_state_unknown"><source>board.card.history.run_state_unknown</source><target>Unknown</target></trans-unit>
@@ -6364,7 +6320,8 @@
             <trans-unit id="board.card.history.cause.unblocked"><source>board.card.history.cause.unblocked</source><target>After #%blocker% finished.</target></trans-unit>
             <trans-unit id="board.card.history.cause.unblocked_any"><source>board.card.history.cause.unblocked_any</source><target>After it had no open blocker left.</target></trans-unit>
             <trans-unit id="board.card.history.cause.abandoned"><source>board.card.history.cause.abandoned</source><target>After every pull request closed without a merge.</target></trans-unit>
-            <trans-unit id="board.card.history.cause.run"><source>board.card.history.cause.run</source><target>Via the %rule% run.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.run"><source>board.card.history.cause.run</source><target>Via the %kind% run.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.run_no_kind"><source>board.card.history.cause.run_no_kind</source><target>Via a run.</target></trans-unit>
             <trans-unit id="board.card.history.cause.workflow_rule"><source>board.card.history.cause.workflow_rule</source><target>Via the %rule% workflow rule.</target></trans-unit>
             <trans-unit id="board.card.history.cause.column_deleted"><source>board.card.history.cause.column_deleted</source><target>After the %column% column was deleted.</target></trans-unit>
             <trans-unit id="board.card.overview.description"><source>board.card.overview.description</source><target>Description</target></trans-unit>
@@ -6417,15 +6374,11 @@
             <trans-unit id="board.card.link.review.approval_outdated"><source>board.card.link.review.approval_outdated</source><target>Approval outdated</target></trans-unit>
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
-            <trans-unit id="board.card.badge.blocked"><source>board.card.badge.blocked</source><target>Automation blocked</target></trans-unit>
             <trans-unit id="board.card.badge.paused"><source>board.card.badge.paused</source><target>Paused</target></trans-unit>
             <trans-unit id="board.card.badge.unmanaged"><source>board.card.badge.unmanaged</source><target>Unmanaged</target></trans-unit>
             <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for a fix.</target></trans-unit>
-            <trans-unit id="board.card.automation.stopped"><source>board.card.automation.stopped</source><target>The automation stopped.</target></trans-unit>
             <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>
             <trans-unit id="board.card.automation.synced"><source>board.card.automation.synced</source><target>The automation updated the pull request branch with its base.</target></trans-unit>
-            <trans-unit id="board.card.held_by"><source>board.card.held_by</source><target>Approved, and waits for its blockers:</target></trans-unit>
-            <trans-unit id="board.card.automation.blocked"><source>board.card.automation.blocked</source><target>The automation is blocked: %reason%. The block clears when a person moves the card, when the checks pass, or when a reviewer approves or requests changes.</target></trans-unit>
             <trans-unit id="board.card.automation.reason.conflict"><source>board.card.automation.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
             <trans-unit id="board.card.automation.reason.checks_failed"><source>board.card.automation.reason.checks_failed</source><target>the checks fail</target></trans-unit>
             <trans-unit id="board.card.automation.reason.changes_requested"><source>board.card.automation.reason.changes_requested</source><target>a reviewer requested changes</target></trans-unit>
@@ -6475,7 +6428,8 @@
             <trans-unit id="activity.family.pull_request"><source>activity.family.pull_request</source><target>Pull requests</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.work"><source>bridge.worker_runs.column.work</source><target>Work</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.outcome"><source>bridge.worker_runs.column.outcome</source><target>Outcome</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.column.rule"><source>bridge.worker_runs.column.rule</source><target>Rule</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.column.work_kind"><source>bridge.worker_runs.column.work_kind</source><target>Work kind</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.no_work_kind"><source>bridge.worker_runs.no_work_kind</source><target>None</target></trans-unit>
             <trans-unit id="bridge.worker_runs.worker_pool_label"><source>bridge.worker_runs.worker_pool_label</source><target>%pool% pool</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.duration"><source>bridge.worker_runs.column.duration</source><target>Duration</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.started"><source>bridge.worker_runs.column.started</source><target>Started</target></trans-unit>
@@ -6790,51 +6744,11 @@
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.enabled.label">
                 <source>board.form.save_board_automation_settings_form.enabled.label</source>
-                <target>Send fix and merge requests</target>
+                <target>Run the workflow of the board</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.enabled.help">
                 <source>board.form.save_board_automation_settings_form.enabled.help</source>
-                <target>When this is on, Loupe sends fix and merge requests for the pull requests of your cards. Loupe sends the pull request facts in all cases.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.label">
-                <source>board.form.save_board_automation_settings_form.merge_strategy.label</source>
-                <target>Merge strategy</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.help">
-                <source>board.form.save_board_automation_settings_form.merge_strategy.help</source>
-                <target>Worker sends a ready-to-merge event when a pull request can merge. A bridge rule can act on that event. Off sends no such event.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.choice.worker">
-                <source>board.form.save_board_automation_settings_form.merge_strategy.choice.worker</source>
-                <target>Worker</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.choice.off">
-                <source>board.form.save_board_automation_settings_form.merge_strategy.choice.off</source>
-                <target>Off</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.label">
-                <source>board.form.save_board_automation_settings_form.fix_strategy.label</source>
-                <target>Fix strategy</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.help">
-                <source>board.form.save_board_automation_settings_form.fix_strategy.help</source>
-                <target>Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card. When it cannot, the bridge starts a new worker.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.choice.fresh">
-                <source>board.form.save_board_automation_settings_form.fix_strategy.choice.fresh</source>
-                <target>Fresh</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.choice.resume">
-                <source>board.form.save_board_automation_settings_form.fix_strategy.choice.resume</source>
-                <target>Resume</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.loop_limit.label">
-                <source>board.form.save_board_automation_settings_form.loop_limit.label</source>
-                <target>Loop limit</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.loop_limit.help">
-                <source>board.form.save_board_automation_settings_form.loop_limit.help</source>
-                <target>The number of automatic fix rounds a card gets in a row. At this limit, Loupe stops and marks the card blocked.</target>
+                <target>When this is on, the workflow of the board moves the cards and asks for their work. Loupe records the pull request facts in all cases.</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.label">
                 <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.label</source>
@@ -6879,6 +6793,22 @@
             <trans-unit id="board.form.save_board_automation_settings_form.change_base.help">
                 <source>board.form.save_board_automation_settings_form.change_base.help</source>
                 <target>Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.label">
+                <source>board.form.save_board_automation_settings_form.epic_draft_switch.label</source>
+                <target>Switch an epic pull request between draft and ready when the workflow asks</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.help">
+                <source>board.form.save_board_automation_settings_form.epic_draft_switch.help</source>
+                <target>Loupe marks the pull request of an epic as a draft while the epic is in implementation, and as ready when it moves to review. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.label">
+                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.label</source>
+                <target>Close the pull requests of an epic when the workflow asks</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.help">
+                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.help</source>
+                <target>Loupe closes the pull requests of an epic that a person moves back to the Backlog. The GitHub App needs "Pull requests: read and write".</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
@@ -6946,7 +6876,6 @@
             <trans-unit id="board.live.catch_up_failed"><source>board.live.catch_up_failed</source><target>Live updates stopped. Reload the page to catch up.</target></trans-unit>
             <trans-unit id="board.live.stale"><source>board.live.stale</source><target>This card may be out of date</target></trans-unit>
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
-            <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>
             <trans-unit id="nav.link.workflow"><source>nav.link.workflow</source><target>Workflow</target></trans-unit>
             <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>
             <trans-unit id="bridge.agents.page.title"><source>bridge.agents.page.title</source><target>Agents</target></trans-unit>
@@ -6997,7 +6926,6 @@
             <trans-unit id="bridge.card_hold.error.already_paused"><source>bridge.card_hold.error.already_paused</source><target>This card is already unmanaged.</target></trans-unit>
             <trans-unit id="bridge.card_hold.error.not_paused"><source>bridge.card_hold.error.not_paused</source><target>This card is already managed.</target></trans-unit>
             <trans-unit id="bridge.card_hold.error.card_gone"><source>bridge.card_hold.error.card_gone</source><target>This card no longer exists.</target></trans-unit>
-            <trans-unit id="bridge.command.error.card_left"><source>bridge.command.error.card_left</source><target>The card left the column of this run.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_stoppable"><source>bridge.command.error.not_stoppable</source><target>Only a queued or running run can stop.</target></trans-unit>
             <trans-unit id="bridge.command.error.bridge_outdated"><source>bridge.command.error.bridge_outdated</source><target>Update the bridge to control its runs.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_a_command"><source>bridge.command.error.not_a_command</source><target>Only a command run can run again.</target></trans-unit>
@@ -7005,39 +6933,21 @@
             <trans-unit id="bridge.command.error.nothing_pending"><source>bridge.command.error.nothing_pending</source><target>This run has no command that waits.</target></trans-unit>
             <trans-unit id="bridge.pause.error.bridge_outdated"><source>bridge.pause.error.bridge_outdated</source><target>Update the bridge to pause it.</target></trans-unit>
             <trans-unit id="bridge.pause.error.unknown_bridge"><source>bridge.pause.error.unknown_bridge</source><target>This bridge is not connected to your account.</target></trans-unit>
-            <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
-            <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>
-            <trans-unit id="board.rules.heading"><source>board.rules.heading</source><target>The handoffs</target></trans-unit>
-            <trans-unit id="board.rules.description"><source>board.rules.description</source><target>A small set of rules keeps work moving between people and agents.</target></trans-unit>
-            <trans-unit id="board.rules.live_count"><source>board.rules.live_count</source><target>{0} No live rules|{1} 1 live rule|]1,Inf[ %count% live rules</target></trans-unit>
-            <trans-unit id="board.rules.status.live"><source>board.rules.status.live</source><target>Live</target></trans-unit>
-            <trans-unit id="board.rules.status.dead"><source>board.rules.status.dead</source><target>Invalid</target></trans-unit>
-            <trans-unit id="board.rules.races_sync"><source>board.rules.races_sync</source><target>Races the app sync. Remove it from rules.yaml.</target></trans-unit>
-            <trans-unit id="board.rules.event_description"><source>board.rules.event_description</source><target>Listens for %event%.</target></trans-unit>
-            <trans-unit id="board.rules.flow_label"><source>board.rules.flow_label</source><target>Rule handoff</target></trans-unit>
-            <trans-unit id="board.rules.reported_at"><source>board.rules.reported_at</source><target>Reported %time%</target></trans-unit>
-            <trans-unit id="board.form.search_rules_form.search.label"><source>board.form.search_rules_form.search.label</source><target>Find a rule</target></trans-unit>
-            <trans-unit id="board.form.search_rules_form.search.placeholder"><source>board.form.search_rules_form.search.placeholder</source><target>Find a rule…</target></trans-unit>
-            <trans-unit id="board.rules.search.clear"><source>board.rules.search.clear</source><target>Clear</target></trans-unit>
-            <trans-unit id="board.rules.search.empty"><source>board.rules.search.empty</source><target>No matching rules</target></trans-unit>
-            <trans-unit id="board.rules.search.try_again"><source>board.rules.search.try_again</source><target>Try another rule name or clear the search.</target></trans-unit>
-            <trans-unit id="board.rules.empty.title"><source>board.rules.empty.title</source><target>No rules reported</target></trans-unit>
-            <trans-unit id="board.rules.empty.description"><source>board.rules.empty.description</source><target>A connected bridge reports the rules it has loaded for this project.</target></trans-unit>
-            <trans-unit id="board.rules.hooks.heading"><source>board.rules.hooks.heading</source><target>Hooks</target></trans-unit>
-            <trans-unit id="board.rules.hooks.description"><source>board.rules.hooks.description</source><target>Each bridge that follows this project reports the hooks it runs and how their last run went.</target></trans-unit>
-            <trans-unit id="board.rules.hooks.last_seen"><source>board.rules.hooks.last_seen</source><target>Last heartbeat %time%</target></trans-unit>
-            <trans-unit id="board.rules.hooks.last_run"><source>board.rules.hooks.last_run</source><target>Last run %time%</target></trans-unit>
-            <trans-unit id="board.rules.hooks.pinned"><source>board.rules.hooks.pinned</source><target>Pinned at %ref%.</target></trans-unit>
-            <trans-unit id="board.rules.hooks.flow_label"><source>board.rules.hooks.flow_label</source><target>Hook trigger</target></trans-unit>
-            <trans-unit id="board.rules.hooks.none"><source>board.rules.hooks.none</source><target>No hook is installed.</target></trans-unit>
-            <trans-unit id="board.rules.hooks.event.start"><source>board.rules.hooks.event.start</source><target>On start</target></trans-unit>
-            <trans-unit id="board.rules.hooks.event.stop"><source>board.rules.hooks.event.stop</source><target>On stop</target></trans-unit>
-            <trans-unit id="board.rules.hooks.event.busy"><source>board.rules.hooks.event.busy</source><target>On busy</target></trans-unit>
-            <trans-unit id="board.rules.hooks.event.idle"><source>board.rules.hooks.event.idle</source><target>On idle</target></trans-unit>
-            <trans-unit id="board.rules.hooks.outcome.ok"><source>board.rules.hooks.outcome.ok</source><target>OK</target></trans-unit>
-            <trans-unit id="board.rules.hooks.outcome.failed"><source>board.rules.hooks.outcome.failed</source><target>Failed</target></trans-unit>
-            <trans-unit id="board.rules.hooks.outcome.timeout"><source>board.rules.hooks.outcome.timeout</source><target>Timed out</target></trans-unit>
-            <trans-unit id="board.rules.hooks.outcome.never"><source>board.rules.hooks.outcome.never</source><target>Not run yet</target></trans-unit>
+            <trans-unit id="bridge.hooks.heading"><source>bridge.hooks.heading</source><target>Hooks</target></trans-unit>
+            <trans-unit id="bridge.hooks.description"><source>bridge.hooks.description</source><target>Each bridge that follows this project reports the hooks it runs and how their last run went.</target></trans-unit>
+            <trans-unit id="bridge.hooks.last_seen"><source>bridge.hooks.last_seen</source><target>Last heartbeat %time%</target></trans-unit>
+            <trans-unit id="bridge.hooks.last_run"><source>bridge.hooks.last_run</source><target>Last run %time%</target></trans-unit>
+            <trans-unit id="bridge.hooks.pinned"><source>bridge.hooks.pinned</source><target>Pinned at %ref%.</target></trans-unit>
+            <trans-unit id="bridge.hooks.flow_label"><source>bridge.hooks.flow_label</source><target>Hook trigger</target></trans-unit>
+            <trans-unit id="bridge.hooks.none"><source>bridge.hooks.none</source><target>No hook is installed.</target></trans-unit>
+            <trans-unit id="bridge.hooks.event.start"><source>bridge.hooks.event.start</source><target>On start</target></trans-unit>
+            <trans-unit id="bridge.hooks.event.stop"><source>bridge.hooks.event.stop</source><target>On stop</target></trans-unit>
+            <trans-unit id="bridge.hooks.event.busy"><source>bridge.hooks.event.busy</source><target>On busy</target></trans-unit>
+            <trans-unit id="bridge.hooks.event.idle"><source>bridge.hooks.event.idle</source><target>On idle</target></trans-unit>
+            <trans-unit id="bridge.hooks.outcome.ok"><source>bridge.hooks.outcome.ok</source><target>OK</target></trans-unit>
+            <trans-unit id="bridge.hooks.outcome.failed"><source>bridge.hooks.outcome.failed</source><target>Failed</target></trans-unit>
+            <trans-unit id="bridge.hooks.outcome.timeout"><source>bridge.hooks.outcome.timeout</source><target>Timed out</target></trans-unit>
+            <trans-unit id="bridge.hooks.outcome.never"><source>bridge.hooks.outcome.never</source><target>Not run yet</target></trans-unit>
             <trans-unit id="activity.page.title"><source>activity.page.title</source><target>Activity</target></trans-unit>
             <trans-unit id="activity.description"><source>activity.description</source><target>Every worker run and project event, with the context to understand it.</target></trans-unit>
             <trans-unit id="activity.tabs.label"><source>activity.tabs.label</source><target>Activity views</target></trans-unit>
@@ -7110,7 +7020,6 @@
             <trans-unit id="inbox.answer.unsent"><source>inbox.answer.unsent</source><target>Your unsent answer</target></trans-unit>
             <trans-unit id="inbox.answer.unsent_closed"><source>inbox.answer.unsent_closed</source><target>This request no longer accepts responses. This draft was not sent.</target></trans-unit>
             <trans-unit id="inbox.answer.discard_draft"><source>inbox.answer.discard_draft</source><target>Discard draft</target></trans-unit>
-            <trans-unit id="board.rules.explanation"><source>board.rules.explanation</source><target>Rules come from bridge configuration. This page reports their health and does not change them.</target></trans-unit>
             <trans-unit id="inbox.account.project.open"><source>inbox.account.project.open</source><target>Open inbox</target></trans-unit>
             <trans-unit id="about.hero.licence"><source>about.hero.licence</source><target>Free software, AGPL-3.0</target></trans-unit>
             <trans-unit id="board.card.tab.details"><source>board.card.tab.details</source><target>Details</target></trans-unit>

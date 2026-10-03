@@ -80,7 +80,7 @@ func TestASuccessBodyPastTheCapIsRefused(t *testing.T) {
 	for name, call := range map[string]func() error{
 		"columns": func() error { _, err := client.Columns(ctx, "loupe"); return err },
 		"sites":   func() error { _, err := client.Sites(ctx); return err },
-		"events":  func() error { _, err := client.Events(ctx); return err },
+		"events":  func() error { _, err := client.Events(ctx, testBridge); return err },
 	} {
 		if err := call(); err == nil || !strings.Contains(err.Error(), "larger than") {
 			t.Fatalf("%s: err = %v, want the cap to refuse the body", name, err)

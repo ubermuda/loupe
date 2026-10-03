@@ -149,37 +149,6 @@ final class CardDocumentRepository extends ServiceEntityRepository
     }
 
     /**
-     * The tag names of each approved, unarchived document linked to the card, as the
-     * database holds them now, so a document loaded earlier cannot answer with
-     * a stale status. An approved document with no tag maps to an empty list.
-     *
-     * @return array<string, list<string>> document id => tag names
-     */
-    public function findApprovedTagNamesForCard(Card $card): array
-    {
-        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT d.id AS document_id, t.name AS tag_name FROM board_card_documents cd
-             JOIN documents d ON d.id = cd.document_id
-             LEFT JOIN document_tags dt ON dt.document_id = d.id
-             LEFT JOIN tags t ON t.id = dt.tag_id
-             WHERE cd.card_id = :card AND d.status = :status AND d.archived_at IS NULL
-             ORDER BY cd.linked_at, d.id',
-            ['card' => (string) $card->id, 'status' => DocumentStatus::Approved->value],
-        );
-
-        $names = [];
-        foreach ($rows as $row) {
-            $documentId = (string) $row['document_id'];
-            $names[$documentId] ??= [];
-            if (null !== $row['tag_name']) {
-                $names[$documentId][] = (string) $row['tag_name'];
-            }
-        }
-
-        return $names;
-    }
-
-    /**
      * The status and the tag names of each unarchived document linked to the card, as the
      * database holds them now, in link order.
      *

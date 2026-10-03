@@ -30,4 +30,10 @@ final readonly class Not extends Expression
     {
         return $this->inner->reads();
     }
+
+    #[\Override]
+    public function leaves(): array
+    {
+        return $this->inner->leaves();
+    }
 }

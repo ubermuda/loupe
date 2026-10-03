@@ -53,7 +53,7 @@ func preflightCheck(ctx context.Context, path, handover string) error {
 	if err := set.Check(ctx, apiClient(cfg)); err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
 	}
-	_, err = startEvents(ctx, cfg, set)
+	_, err = startEvents(ctx, cfg, cfg.BridgeID, set)
 
 	return err
 }

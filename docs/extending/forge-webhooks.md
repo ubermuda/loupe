@@ -46,16 +46,16 @@ segment.
 
 ## One vocabulary for every forge
 
-No event name carries a forge, because a rule file and a bridge must not learn
-a new event type for each forge an instance connects.
+No event name carries a forge, because the workflow and the activity feed must
+not learn a new event type for each forge an instance connects.
 
 The payload carries identifiers and the forge, and no field in the shape of one
 forge. A review note and a commit message are text a person wrote, and the
 outbox never gives that text to an agent.
 
 Every event names `system` as its actor, because the fact arrived from outside
-Loupe and nobody here judged the card. A bridge older than that actor reads the
-event as malformed and drops it, so upgrade the CLI before you connect a forge.
+Loupe and nobody here judged the card. The events feed the activity feed and
+the workflow of the board. No bridge receives them.
 
 Loupe writes no event while the board is off.
 
@@ -65,8 +65,9 @@ A repository that an App installation feeds gets its events from
 [state reads](#pull-request-state). Loupe compares each read with the stored
 state, and writes an event for each change. A review delivery writes
 `review_submitted` with the verdict of the review that GitHub sent. It does so
-also when the branch requires no review. A fact describes the pull request. A
-decision asks an agent to act.
+also when the branch requires no review. Each event is a fact about the pull
+request. The [workflow](../using/workflows.md) of the board reads the stored
+state of the pull request, and decides what to do.
 
 | Event | Kind | When | Extra fields |
 |---|---|---|---|
@@ -76,47 +77,16 @@ decision asks an agent to act.
 | `pull_request.review_submitted` | fact | a person approved or requested changes. A comment review sends nothing | `verdict`, `approved` or `changes-requested` |
 | `pull_request.merged` | fact | the pull request merged | none |
 | `pull_request.closed` | fact | the pull request closed without a merge | none |
-| `pull_request.fix_requested` | decision | after a failed `checks_concluded`, a `conflicted`, or a `changes-requested` review | `reason`, `checks-failed`, `conflict` or `changes-requested`. `sessionId` and `bridgeId`, under the Resume fix strategy only |
-| `pull_request.ready_to_merge` | decision | the pull request became ready to merge: open, not a draft, required checks passed, GitHub lets it merge, and an approval, when there is one, covers the head | none |
 
 Every event carries `cardId`, `cardNumber`, `forge`, `repository`,
 `pullRequestNumber`, `pullRequestUrl` and `headSha`. Loupe leaves out a
-repository, a URL or a head commit that does not have the shape the bridge
-accepts. The bridge refuses the whole event for one bad field.
+repository, a URL or a head commit that does not have a strict shape.
 
-A fact goes to every card that links the pull request, in any column. A
-decision goes only to a card in a column that is not terminal, only while the
-pull request is open, and only while the automation of the board is on.
-`ready_to_merge` also needs the Worker merge strategy. [Automation](../using/board.md#automation) describes the settings.
-
-Under the Resume fix strategy, `fix_requested` names the newest session of the
-card and the bridge that ran it. It names them only when that bridge sent a
-heartbeat in the last 5 minutes. Otherwise the event names neither, and each
-bridge with a matching rule starts a new session.
-
-### The loop limit
-
-Each card counts its automatic fix rounds. Each `fix_requested` adds one. When
-the count reaches the loop limit, Loupe sends no more `fix_requested` for the
-card. It records the block and the reason, and the facts still go out.
-
-These events set the count back to zero and clear the block:
-
-- a `checks_concluded` with `passed`
-- a `review_submitted`, either verdict. A comment review sends no event, so it
-  resets nothing
-- a move of the card by a person. A move by an agent or by the system does not
-  reset the count.
-
-The reset comes before the decision. So the fix request after a
-`changes-requested` review is round 1, whatever the count was before. A
-redelivered review sends no second `review_submitted`, so it resets nothing and
-asks no second fix.
-
-One read sends at most one `fix_requested` to a card. A review delivery and a
-state change can come in the same read. When a read finds more than one reason,
-the reason is `conflict` first, then `checks-failed`, then `changes-requested`.
-The facts all go out.
+A fact goes to every card that links the pull request, in any column. The
+pull request events named `pull_request.fix_requested` and
+`pull_request.ready_to_merge` are gone. The workflow asks a bridge for a fix or
+a merge itself, as its template says. The Lifecycle template gives a card 3 fix
+rounds at most, and then pauses it.
 
 ### Events from a repository with no state reads
 

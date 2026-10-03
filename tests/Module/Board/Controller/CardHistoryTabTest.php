@@ -268,7 +268,7 @@ final class CardHistoryTabTest extends WebTestCase
             bridgeId: Uuid::v4(),
             cardId: $card->id ?? throw new \LogicException('A stored card has an id.'),
             cardNumber: $card->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::Succeeded,
             runKey: Uuid::v4(),
             startedAt: $endedAt->modify('-192 seconds'),
@@ -300,7 +300,7 @@ final class CardHistoryTabTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $row = $crawler->filter('#card-panel-history [data-card-history-entry]');
         self::assertCount(1, $row);
-        self::assertStringContainsString('Agent for Riley Chen ran the implement rule.', $row->text());
+        self::assertStringContainsString('Agent for Riley Chen ran the implement work.', $row->text());
         self::assertStringContainsString('3m 12s', $row->text());
         self::assertSame('Succeeded', trim($row->filter('.lp-status-chip--ok')->text()));
         $link = $row->filter('a[data-card-history-run="'.$runId.'"]');
@@ -315,7 +315,7 @@ final class CardHistoryTabTest extends WebTestCase
 
         $row = $crawler->filter('#card-panel-history [data-card-history-entry]');
         self::assertCount(1, $row);
-        self::assertStringContainsString('Agent for Riley Chen ran the implement rule.', $row->text());
+        self::assertStringContainsString('Agent for Riley Chen ran the implement work.', $row->text());
         self::assertCount(0, $row->filter('a[data-card-history-run]'));
     }
 

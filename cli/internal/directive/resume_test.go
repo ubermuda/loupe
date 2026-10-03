@@ -67,3 +67,27 @@ func TestRenderResumeByPersonAsksTheWorkerToGoOn(t *testing.T) {
 		t.Fatalf("RenderResumeByPerson() = %q, want it to end with the card footer", got)
 	}
 }
+
+// The resume after an ask close says the owner answered, and names the tools
+// that read the answers. The owner's answers are instructions, so it ends with
+// the resume footer, not the card footer.
+func TestRenderResumeAskClosedSaysTheOwnerAnswered(t *testing.T) {
+	got := RenderResumeAskClosed()
+
+	for _, want := range []string{
+		"The project owner closed your inbox ask",
+		"inbox_list or inbox_get",
+		"readerSessionId",
+		"Continue your task",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("RenderResumeAskClosed() = %q, want it to contain %q", got, want)
+		}
+	}
+	if strings.Contains(got, "fixed the cause") {
+		t.Fatalf("RenderResumeAskClosed() = %q, want no word of a person's resume", got)
+	}
+	if !strings.HasSuffix(got, "\n\n"+ResumeFooter) {
+		t.Fatalf("RenderResumeAskClosed() = %q, want it to end with the resume footer", got)
+	}
+}

@@ -67,6 +67,22 @@ func (p pending) isWork() bool {
 	return p.work.WorkRequestID != ""
 }
 
+// followsWork reports whether p continues a run of a work request, as a
+// person's resume or rerun asks.
+func (p pending) followsWork() bool {
+	return p.origin.Kind != ""
+}
+
+// workOrOrigin is the work request p runs or continues, and empty for the run
+// of an event.
+func (p pending) workOrOrigin() api.WorkRequest {
+	if p.isWork() {
+		return p.work
+	}
+
+	return p.origin
+}
+
 // workEvent is the event a run of the work request reports and logs with.
 func workEvent(w api.WorkRequest) event.Event {
 	return event.Event{
@@ -76,12 +92,18 @@ func workEvent(w api.WorkRequest) event.Event {
 }
 
 // matchPending matches a queued run again on set: a work request against the
-// work map, and an event against its rule by name. The match keeps the action.
+// work map, and the run of a person's command against the entry of its kind.
+// The match keeps the action.
 func matchPending(set *rules.Set, p pending) (rules.Match, bool) {
-	if !p.isWork() {
-		return matchAction(set, p.event, p.rule, p.action)
+	var m rules.Match
+	switch {
+	case p.isWork():
+		m = set.MatchWork(p.work)
+	case p.followsWork():
+		m = set.MatchKind(p.origin)
+	default:
+		return rules.Match{Skip: rules.NoRule}, false
 	}
-	m := set.MatchWork(p.work)
 
 	return m, m.Skip == rules.Run && m.Action == p.action
 }
@@ -163,6 +185,10 @@ func (r *router) offerWork(w api.WorkRequest, source string) {
 		return
 	}
 	p := pending{key: w.CardID, event: workEvent(w), work: w, set: set}
+	// A session that is not on this machine cannot resume, so the work starts fresh.
+	if w.ResumeSessionID != "" && m.Action == "" && r.hasTranscript(w.ResumeSessionID) {
+		p.event.SessionID = w.ResumeSessionID
+	}
 	p.apply(m)
 	r.enqueue(p)
 }
@@ -279,7 +305,7 @@ func (r *router) requestClaim(p pending) (api.Claim, error) {
 	id := p.work.WorkRequestID
 	timeout := r.checkTimeout
 	if timeout <= 0 {
-		timeout = askCheckTimeout
+		timeout = readTimeout
 	}
 	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
 	defer cancel()

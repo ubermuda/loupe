@@ -6,17 +6,22 @@ namespace App\Tests\Module\Workflow\Engine;
 
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
+use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
+use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
@@ -38,8 +43,8 @@ use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Action\WorkRequestOpener;
+use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Engine\Engine;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
@@ -53,17 +58,21 @@ use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
+use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\ProjectTemplateCopy;
 use App\Module\Workflow\Template\TemplateParser;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Support\RecordingLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class EngineTest extends KernelTestCase
 {
@@ -423,6 +432,22 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->liveRequests($card));
     }
 
+    public function test_an_open_request_that_expires_with_no_pause_leaves_the_card_running(): void
+    {
+        $rule = self::requestRule('work', self::ALWAYS);
+        $rule['then']['request']['onTimeout'] = 'expire';
+        $card = $this->boundCard([$rule]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+
+        $this->evaluate($card, '2026-10-02 14:00:00');
+
+        self::assertSame(WorkRequestState::Expired, $request->state);
+        self::assertNull($this->activePause($card));
+        self::assertSame([], $this->paused);
+        self::assertSame([], $this->liveRequests($card));
+    }
+
     public function test_a_reopened_request_counts_its_timeout_from_the_reopen(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
@@ -617,6 +642,46 @@ final class EngineTest extends KernelTestCase
         self::assertTrue($this->ruleState($card, 'work')->truth);
     }
 
+    public function test_a_card_whose_board_automation_is_off_fires_nothing_and_turning_it_on_again_is_quiet(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS), self::requestRule('fix', ['card.type' => ['type' => 'bug']])]);
+        $this->saveAutomation($card, false);
+
+        $this->evaluate($card);
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+
+        $this->saveAutomation($card, true);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertSame([], $this->firedRecords());
+        self::assertTrue($this->ruleState($card, 'work')->truth);
+
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card, '2026-10-02 12:02:00');
+
+        self::assertSame(['fix'], $this->firedRules());
+    }
+
+    public function test_a_card_evaluated_while_the_board_is_off_for_the_instance_gets_a_baseline_for_when_it_is_on(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->setBoardEnabled(false);
+
+        $this->evaluate($card);
+
+        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+
+        $this->setBoardEnabled(true);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertSame([], $this->firedRecords());
+        self::assertTrue($this->ruleState($card, 'work')->truth);
+    }
+
     public function test_a_project_with_no_workflow_is_left_alone(): void
     {
         self::bootKernel();
@@ -646,6 +711,94 @@ final class EngineTest extends KernelTestCase
         $live = $this->liveRequests($card);
         self::assertCount(1, $live);
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
+    }
+
+    /** The board updates live from CardChanged, so each change the engine makes to a card dispatches one. */
+    public function test_an_engine_move_and_its_work_request_reach_the_live_board(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-live');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'tech-design');
+        $this->approvedDocument($card, 'design');
+        $changed = [];
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(CardChanged::class, static function (CardChanged $event) use (&$changed): void {
+            $changed[] = (string) $event->cardId;
+        });
+
+        $this->evaluate($card);
+        $afterMove = \count($changed);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertGreaterThanOrEqual(1, $afterMove);
+        self::assertGreaterThan($afterMove, \count($changed));
+        self::assertSame([(string) $card->id], array_values(array_unique($changed)));
+    }
+
+    public function test_a_lifecycle_card_that_a_person_moves_to_the_backlog_stays_there_until_its_pull_request_reopens(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-reopen');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'in-progress');
+        $pullRequest = $this->pullRequest($card);
+        $this->evaluate($card);
+
+        $this->moveTo($card, 'backlog');
+        $this->evaluate($card, '2026-10-02 12:01:00');
+        self::assertSame('backlog', $card->column->slug);
+
+        $pullRequest->state = PullRequestState::Closed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:02:00');
+        self::assertSame('backlog', $card->column->slug);
+
+        $pullRequest->state = PullRequestState::Open;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:03:00');
+        self::assertSame('in-progress', $card->column->slug);
+    }
+
+    #[DataProvider('shippedTemplates')]
+    public function test_a_card_that_reaches_a_terminal_column_requests_one_teardown_per_arrival(string $template): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-teardown');
+        if ('lifecycle' === $template) {
+            $this->bindLifecycle($project);
+        } else {
+            $this->bindHandler()(new BindWorkflowTemplateCommand($project, 'simple', []));
+        }
+        $card = $this->card($project, 'done');
+
+        $this->evaluate($card);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame(['teardown', 'teardown', null], [$live[0]->kind, $live[0]->ruleId, $live[0]->capability]);
+
+        $this->evaluate($card, '2026-10-02 14:05:00');
+        self::assertSame(WorkRequestState::Expired, $live[0]->state);
+        self::assertNull($this->activePause($card));
+
+        $this->moveTo($card, 'next');
+        $this->evaluate($card, '2026-10-02 14:06:00');
+        $this->moveTo($card, 'done');
+        $this->evaluate($card, '2026-10-02 14:07:00');
+
+        $again = $this->liveRequests($card);
+        self::assertCount(1, $again);
+        self::assertNotSame($live[0], $again[0]);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function shippedTemplates(): iterable
+    {
+        yield 'lifecycle' => ['lifecycle'];
+        yield 'simple' => ['simple'];
     }
 
     public function test_a_lifecycle_card_in_an_open_column_whose_pull_requests_all_closed_unmerged_stays_in_its_column(): void
@@ -775,6 +928,7 @@ final class EngineTest extends KernelTestCase
             new FactFingerprint(),
             $this->service(WorkflowRuleStateRepository::class),
             $this->service(CardHolds::class),
+            $this->service(WorkflowAutomation::class),
             $this->service(WorkflowPendingBaselineRepository::class),
             $workRequests,
             new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class)),
@@ -783,7 +937,7 @@ final class EngineTest extends KernelTestCase
             $releaseCardPause,
             new Actions([
                 new MoveCard($this->service(BoardColumnRepository::class), $this->service(WorkflowSlotLinkRepository::class), $this->service(UpdateCardHandler::class)),
-                new RequestWork($opener),
+                new RequestWork($opener, $this->service(CardPullRequests::class), $this->service(\App\Module\Board\Repository\CardEventRepository::class)),
                 new PauseCard(),
                 new ReleasePause($cardPauses, $releaseCardPause),
             ]),
@@ -818,14 +972,13 @@ final class EngineTest extends KernelTestCase
         $this->service(CardHolds::class)->hold($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), null);
     }
 
-    /** The hold goes with the engine on, so the card gets its baseline. */
+    /** The hold goes through the listener, so the card gets its baseline. */
     private function releaseHold(Card $card): void
     {
         $events = new EventDispatcher();
         $events->addListener(CardHoldsReleased::class, new BaselineCardsOnCardHoldsReleased(
-            new EngineSwitch(true),
             $this->service(WorkflowPendingBaselineRepository::class),
-            new EvaluationTrigger($this->service(MessageBusInterface::class), new EngineSwitch(true)),
+            new EvaluationTrigger($this->service(MessageBusInterface::class)),
         ));
         $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), new MockClock(self::NOON), $events);
 
@@ -836,6 +989,26 @@ final class EngineTest extends KernelTestCase
     private function dropHold(Card $card): void
     {
         $this->service(CardHoldRepository::class)->deleteOfCards($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);
+    }
+
+    private function saveAutomation(Card $card, bool $enabled): void
+    {
+        $settings = $this->service(BoardAutomation::class)->settingsOf($card->project);
+        $this->service(SaveBoardAutomationSettingsHandler::class)(new SaveBoardAutomationSettingsCommand(
+            $card->project,
+            $enabled,
+            $settings->commentOnFixQueued,
+            $settings->commentOnStaleApproval,
+            $settings->syncBehind,
+            $settings->mergePullRequests,
+            $settings->changeBase,
+        ));
+    }
+
+    private function setBoardEnabled(bool $enabled): void
+    {
+        $this->service(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
+        $this->service(DoctrineFeatureFlagReader::class)->reset();
     }
 
     private function requestChangesOnHead(ForgePullRequest $pullRequest): void

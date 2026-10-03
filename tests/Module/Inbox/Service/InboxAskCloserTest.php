@@ -12,6 +12,7 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Messenger\ResumeAskingSession;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Inbox\Command\AnswerInboxItemCommand;
@@ -43,6 +44,7 @@ use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
 
 /** Driven through the real handlers, so each closing path runs where production calls it. */
@@ -146,11 +148,34 @@ final class InboxAskCloserTest extends KernelTestCase
     {
         $item = $this->question(1);
         $ask = $this->askHolding([$item], bridgeId: null);
+        $this->asyncTransport()->reset();
 
         $this->answer($item);
 
         self::assertNotNull($this->reloadAsk($ask)->closedAt);
         self::assertSame([], $this->askClosedEvents());
+        self::assertSame([], $this->resumeMessages());
+    }
+
+    public function test_a_closed_ask_asks_the_bridge_to_resume_its_session(): void
+    {
+        $item = $this->question(1);
+        $ask = $this->askHolding([$item]);
+        $this->asyncTransport()->reset();
+
+        $this->answer($item);
+
+        $messages = $this->resumeMessages();
+        self::assertCount(1, $messages);
+        self::assertSame(
+            [(string) $this->project->id, (string) $ask->bridgeId, (string) $ask->sessionId],
+            [$messages[0]->projectId, $messages[0]->bridgeId, $messages[0]->sessionId],
+        );
+        // The column keeps whole seconds, and the message keeps the clock time of the close.
+        self::assertSame(
+            $this->reloadAsk($ask)->closedAt?->format('Y-m-d H:i:s'),
+            $messages[0]->askClosedAt->format('Y-m-d H:i:s'),
+        );
     }
 
     public function test_the_card_comes_from_the_oldest_run_of_the_session(): void
@@ -542,7 +567,7 @@ final class InboxAskCloserTest extends KernelTestCase
             bridgeId: $interactive ? null : Uuid::v7(),
             cardId: $card->id ?? throw new \LogicException('The card has no id.'),
             cardNumber: $card->number,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: $interactive ? WorkerRunState::Running : WorkerRunState::Succeeded,
             sessionId: $sessionId ?? throw new \LogicException('An agent ask has a session.'),
             startedAt: $startedAt,
@@ -589,6 +614,23 @@ final class InboxAskCloserTest extends KernelTestCase
         );
 
         return array_map(static fn (string $payload): array => json_decode($payload, true, flags: \JSON_THROW_ON_ERROR), $payloads);
+    }
+
+    private function asyncTransport(): InMemoryTransport
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        return $transport;
+    }
+
+    /** @return list<ResumeAskingSession> */
+    private function resumeMessages(): array
+    {
+        return array_values(array_filter(
+            array_map(static fn ($envelope): object => $envelope->getMessage(), $this->asyncTransport()->getSent()),
+            static fn (object $message): bool => $message instanceof ResumeAskingSession,
+        ));
     }
 
     private function countEvents(string $type): int

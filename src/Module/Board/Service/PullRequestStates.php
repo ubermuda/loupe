@@ -55,9 +55,6 @@ final readonly class PullRequestStates
                 $found[CardBadge::Conflict->value] = true;
             }
         }
-        if (!$card->column->terminal && null !== $this->automationOf($card)?->blockedReason) {
-            $found[CardBadge::Blocked->value] = true;
-        }
 
         return array_values(array_filter(CardBadge::cases(), static fn (CardBadge $badge): bool => isset($found[$badge->value])));
     }

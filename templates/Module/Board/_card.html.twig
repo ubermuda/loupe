@@ -2,12 +2,12 @@
    Props: card (Card), pendingComments (int), documentCount (int), static (bool, optional): a card
    shown outside the board, which does not drag and names its column instead.
    A static card also skips the prefetch. progress (CardProgress, optional) shows on an epic. inLane (bool,
-   optional) hides the parent tag its lane gives. runWarning (CardRunWarning, optional) holds until the card leaves its column. badges (list<CardBadge>, optional). #}
+   optional) hides the parent tag its lane gives. runWarning (CardRunWarning, optional) holds until a later run outcome replaces it. badges (list<CardBadge>, optional). #}
 {% set static = static ?? false %}
 {% set badges = badges ?? [] %}
 {% set progress = progress ?? null %}
 {% set inLane = inLane ?? false %}
-{% set runWarning = (runWarning ?? null) is not null and runWarning.appliesTo(card.column.slug) ? runWarning : null %}
+{% set runWarning = runWarning ?? null %}
 <article class="lp-board-card{{ static ? ' lp-board-card--static' }}"
          {% if not static %}data-controller="card-prefetch"
          data-board-drag-target="card"

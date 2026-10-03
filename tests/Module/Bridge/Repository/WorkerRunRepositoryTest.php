@@ -68,7 +68,7 @@ final class WorkerRunRepositoryTest extends KernelTestCase
         );
         $byId = array_column($all, null, 'id');
         self::assertSame(
-            ['id' => (string) $newest->id, 'card_id' => (string) $closedCard, 'state' => WorkerRunState::Succeeded->value, 'output' => 'done', 'card_column' => null],
+            ['id' => (string) $newest->id, 'card_id' => (string) $closedCard, 'state' => WorkerRunState::Succeeded->value, 'output' => 'done'],
             $byId[(string) $newest->id],
         );
         self::assertSame(WorkerRunState::Running->value, $byId[(string) $open->id]['state']);

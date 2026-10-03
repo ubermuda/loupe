@@ -7,6 +7,7 @@ namespace App\Tests\Module\Workflow\Controller;
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\BindWorkflowTemplateHandler;
@@ -16,12 +17,12 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
-/** The card page shows the Workflow panel, with the engine off as it ships. */
+/** The card page shows the Workflow panel. */
 final class CardWorkflowPanelPageTest extends WebTestCase
 {
     use BoardScenario;
 
-    public function test_with_the_engine_off_a_card_with_no_pause_shows_no_panel(): void
+    public function test_with_the_board_automation_off_a_card_with_no_pause_shows_no_panel(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -30,6 +31,10 @@ final class CardWorkflowPanelPageTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->bindSimple($project);
         $card = $this->card($em, $project, 'Quiet', 'next');
+        $automation = static::getContainer()->get(BoardAutomation::class);
+        self::assertInstanceOf(BoardAutomation::class, $automation);
+        $automation->settingsForUpdate($project)->enabled = false;
+        $em->flush();
         $em->clear();
 
         $client->loginUser($owner);

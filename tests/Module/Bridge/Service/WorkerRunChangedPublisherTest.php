@@ -127,7 +127,6 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             sessionId: Uuid::v4(),
             cardId: Uuid::v7(),
             cardNumber: 3,
-            ruleName: 'plan',
             startedAt: new \DateTimeImmutable('2026-09-23 10:00:00'),
             endedAt: new \DateTimeImmutable('2026-09-23 10:01:00'),
             exitCode: 0,
@@ -478,7 +477,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             at: new \DateTimeImmutable('2026-09-23 10:00:00'),
             cardId: $cardId ?? Uuid::v7(),
             cardNumber: 1,
-            ruleName: 'plan',
+            workKind: 'plan',
             endedAt: $state->isOutcome() ? new \DateTimeImmutable('2026-09-23 10:05:00') : null,
         ));
     }
@@ -501,7 +500,6 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             sessionId: Uuid::v4(),
             cardId: $cardId,
             cardNumber: 3,
-            ruleName: 'plan',
             startedAt: new \DateTimeImmutable('2026-09-23 11:30:00'),
             endedAt: new \DateTimeImmutable('2026-09-23 11:31:00'),
             exitCode: 0,

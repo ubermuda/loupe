@@ -49,7 +49,10 @@ class WorkerRun implements ProjectScopedSubject
     /** Mirrors the cap the bridge applies to a worker's output before it reports. */
     public const int MAX_OUTPUT_LENGTH = 4000;
 
-    public const int MAX_RULE_NAME_LENGTH = 100;
+    /** A work kind, or the name of an interactive run such as a skill name. */
+    public const int MAX_WORK_KIND_LENGTH = 100;
+
+    public const int MAX_RULE_ID_LENGTH = 100;
 
     public const int MAX_WORKER_POOL_LENGTH = 40;
 
@@ -60,9 +63,6 @@ class WorkerRun implements ProjectScopedSubject
 
     /** The limit applies to the extra result fields once they are encoded as JSON. */
     public const int MAX_RESULT_FIELDS_BYTES = 4000;
-
-    /** A board column slug is text, and a 100-character label can give up to 1,700 characters. */
-    public const int MAX_CARD_COLUMN_LENGTH = 2000;
 
     public const int MAX_RESUME_SKIPPED_LENGTH = 50;
 
@@ -80,23 +80,6 @@ class WorkerRun implements ProjectScopedSubject
 
     public const string EXPERIMENT_NAME_PATTERN = '/^'.self::EXPERIMENT_NAME.'$/D';
 
-    /** The largest value of a smallint column. */
-    public const int MAX_RESUME_COUNT = 32767;
-
-    public const int MAX_TRIGGER_EVENT_TYPE_LENGTH = 100;
-
-    /** An event type such as pull_request.fix_requested. */
-    public const string TRIGGER_EVENT_TYPE_PATTERN = '/^[a-z][a-z_]*(\.[a-z_]+)+$/D';
-
-    /** The forge, repository and head lengths match the forge pull request columns. */
-    public const int MAX_TRIGGER_FORGE_LENGTH = 50;
-
-    public const int MAX_TRIGGER_REPOSITORY_LENGTH = 255;
-
-    public const int MAX_TRIGGER_HEAD_SHA_LENGTH = 64;
-
-    public const int MAX_TRIGGER_REASON_LENGTH = 100;
-
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -104,7 +87,7 @@ class WorkerRun implements ProjectScopedSubject
     public private(set) ?Uuid $id = null;
 
     /**
-     * The card number, the rule name and the output as one searchable vector.
+     * The card number, the work kind and the output as one searchable vector.
      *
      * Only Postgres can build a tsvector, so the ORM never writes this column:
      * WorkerRunSearchIndexer maintains it, and the mapping exists so DQL can
@@ -155,24 +138,6 @@ class WorkerRun implements ProjectScopedSubject
     /** The variant the card was pinned to before this run, when the rule no longer offered it. */
     #[ORM\Column(name: 'switched_from', length: self::MAX_EXPERIMENT_NAME_LENGTH, nullable: true)]
     public ?string $switchedFrom = null;
-    /** The event that queued the run, from its first report. Null from an older bridge. */
-    #[ORM\Column(name: 'trigger_event_type', length: self::MAX_TRIGGER_EVENT_TYPE_LENGTH, nullable: true)]
-    public ?string $triggerEventType = null;
-
-    #[ORM\Column(name: 'trigger_forge', length: self::MAX_TRIGGER_FORGE_LENGTH, nullable: true)]
-    public ?string $triggerForge = null;
-
-    #[ORM\Column(name: 'trigger_repository', length: self::MAX_TRIGGER_REPOSITORY_LENGTH, nullable: true)]
-    public ?string $triggerRepository = null;
-
-    #[ORM\Column(name: 'trigger_pull_request_number', nullable: true)]
-    public ?int $triggerPullRequestNumber = null;
-
-    #[ORM\Column(name: 'trigger_head_sha', length: self::MAX_TRIGGER_HEAD_SHA_LENGTH, nullable: true)]
-    public ?string $triggerHeadSha = null;
-
-    #[ORM\Column(name: 'trigger_reason', length: self::MAX_TRIGGER_REASON_LENGTH, nullable: true)]
-    public ?string $triggerReason = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
@@ -190,8 +155,9 @@ class WorkerRun implements ProjectScopedSubject
         #[ORM\Column(name: 'card_number')]
         public readonly int $cardNumber,
 
-        #[ORM\Column(name: 'rule_name', length: self::MAX_RULE_NAME_LENGTH)]
-        public readonly string $ruleName,
+        /** The kind of the work request, or the name of an interactive run. Null for a run of an old bridge rule. */
+        #[ORM\Column(name: 'work_kind', length: self::MAX_WORK_KIND_LENGTH, nullable: true)]
+        public readonly ?string $workKind,
 
         // The default fills a row that the previous image writes during a deploy or after a rollback.
         #[ORM\Column(name: 'state', length: 20, enumType: WorkerRunState::class, options: ['default' => WorkerRunState::Failed->value])]
@@ -237,20 +203,17 @@ class WorkerRun implements ProjectScopedSubject
         #[ORM\ManyToOne(targetEntity: self::class)]
         public ?WorkerRun $continuesRun = null,
 
-        /** The place of this run in its series of resumes, and the cap the rule set for the series. */
-        #[ORM\Column(name: 'resume_index', type: Types::SMALLINT, nullable: true)]
-        public ?int $resumeIndex = null,
-
-        #[ORM\Column(name: 'resume_cap', type: Types::SMALLINT, nullable: true)]
-        public ?int $resumeCap = null,
-
-        /** The slug of the column that started the series, as the bridge saw it. */
-        #[ORM\Column(name: 'card_column', type: Types::TEXT, nullable: true)]
-        public ?string $cardColumn = null,
-
         // Rows the previous image writes are worker runs.
         #[ORM\Column(name: 'kind', length: 20, enumType: WorkerRunKind::class, options: ['default' => WorkerRunKind::Worker->value])]
         public readonly WorkerRunKind $kind = WorkerRunKind::Worker,
+
+        /** A scalar, never a foreign key, so the run outlives its work request. */
+        #[ORM\Column(name: 'work_request_id', type: UuidType::NAME, nullable: true)]
+        public readonly ?Uuid $workRequestId = null,
+
+        /** The id of the template rule that opened the work request. */
+        #[ORM\Column(name: 'rule_id', length: self::MAX_RULE_ID_LENGTH, nullable: true)]
+        public readonly ?string $ruleId = null,
     ) {
     }
 

@@ -13,7 +13,7 @@ enum LeftOutReason: string
     /** The runs and the pin of the card name more than one variant. */
     case Mixed = 'mixed';
 
-    /** A run with no experiment worked the card in the same column before the experiment did. */
+    /** A run with no experiment did the same kind of work on the card before the experiment did. */
     case BeforeTest = 'before-test';
 
     /** The card history starts after the first experiment run of the card. */

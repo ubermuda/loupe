@@ -29,7 +29,7 @@ class CardAutomationRepository extends ServiceEntityRepository
     public function findOrCreateForUpdate(Card $card): CardAutomation
     {
         $this->getEntityManager()->getConnection()->executeStatement(
-            'INSERT INTO board_card_automations (id, card_id, fix_rounds) VALUES (:id, :card, 0) ON CONFLICT (card_id) DO NOTHING',
+            'INSERT INTO board_card_automations (id, card_id) VALUES (:id, :card) ON CONFLICT (card_id) DO NOTHING',
             ['id' => Uuid::v7()->toRfc4122(), 'card' => (string) $card->id],
         );
 
@@ -42,15 +42,6 @@ class CardAutomationRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
 
         return $automation instanceof CardAutomation ? $automation : throw new \LogicException('The row exists after the insert.');
-    }
-
-    /** Clears the queued Backlog move of the card when it is this one. A card with no row, or a deleted card, changes nothing. */
-    public function consumeAbandonedMoveToken(Card $card, Uuid $token): void
-    {
-        $this->getEntityManager()->getConnection()->executeStatement(
-            'UPDATE board_card_automations SET abandoned_move_token = NULL WHERE card_id = :card AND abandoned_move_token = :token',
-            ['card' => (string) $card->id, 'token' => $token->toRfc4122()],
-        );
     }
 
     /**
@@ -77,18 +68,5 @@ class CardAutomationRepository extends ServiceEntityRepository
         }
 
         return $byCard;
-    }
-
-    /** Clears the fix rounds and the block of the card. A card with no row keeps none. */
-    public function reset(Card $card): void
-    {
-        $this->createQueryBuilder('automation')
-            ->update()
-            ->set('automation.fixRounds', 0)
-            ->set('automation.blockedReason', 'NULL')
-            ->andWhere('automation.card = :card')
-            ->setParameter('card', $card)
-            ->getQuery()
-            ->execute();
     }
 }

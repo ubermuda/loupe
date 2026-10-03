@@ -54,7 +54,6 @@ final class WidgetTokenSurfaceTest extends WebTestCase
         yield 'events' => [Request::METHOD_GET, '/api/events'];
         yield 'columns' => [Request::METHOD_GET, '/api/projects/anything/board/columns'];
         yield 'card' => [Request::METHOD_GET, '/api/projects/anything/board/cards/'.Uuid::v4()];
-        yield 'bridge rules' => [Request::METHOD_PUT, '/api/projects/anything/bridges/'.Uuid::v4().'/rules'];
         yield 'bridge heartbeat' => [Request::METHOD_PUT, '/api/bridges/'.Uuid::v4().'/heartbeat'];
     }
 

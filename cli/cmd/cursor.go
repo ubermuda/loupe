@@ -10,8 +10,6 @@ import (
 	"slices"
 	"strconv"
 	"time"
-
-	"github.com/ubermuda/loupe/cli/internal/event"
 )
 
 // catchUpTimeout bounds the read of one replay page.
@@ -268,35 +266,4 @@ func (r *router) closeGap(read int64) int64 {
 	r.saveCursor(st)
 
 	return st.Cursor
-}
-
-// stale reports whether a replayed card move is out of date: its card has left
-// the column the move names. A failed card read runs the event.
-func (r *router) stale(p pending) bool {
-	e := p.event
-	cardID, _ := cardOf(e)
-	if e.Type != event.CardMovedType || r.readCard == nil || cardID == "" {
-		return false
-	}
-	timeout := r.checkTimeout
-	if timeout <= 0 {
-		timeout = askCheckTimeout
-	}
-	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-	card, err := r.readCard(ctx, e.ProjectID, cardID)
-	cancel()
-	if err != nil {
-		r.log.Warn("card_read_failed", append(about(e, p.rule),
-			"error", err.Error(),
-			"message", "the bridge could not read the card, so it runs the replayed event",
-		)...)
-
-		return false
-	}
-	if card.Column == e.ToStatus {
-		return false
-	}
-	r.log.Info("event_stale", append(about(e, p.rule), "column", card.Column, "to", e.ToStatus)...)
-
-	return true
 }

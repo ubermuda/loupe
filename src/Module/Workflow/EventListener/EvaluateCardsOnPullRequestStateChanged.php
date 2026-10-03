@@ -8,7 +8,6 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Forge\Event\PullRequestStateChanged;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -18,17 +17,11 @@ final readonly class EvaluateCardsOnPullRequestStateChanged
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
         private EvaluationTrigger $trigger,
-        private EngineSwitch $engine,
     ) {
     }
 
     public function __invoke(PullRequestStateChanged $event): void
     {
-        // The read below runs on every event, so an engine that is off skips it.
-        if (!$this->engine->isOn()) {
-            return;
-        }
-
         $pullRequest = $event->pullRequest;
         $forge = Forge::tryFrom($pullRequest->forge);
         if (null === $forge) {

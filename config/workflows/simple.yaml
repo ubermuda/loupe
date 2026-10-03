@@ -13,3 +13,8 @@ rules:
               - pr.all_finished_one_merged: {}
               - card.children_finished: {}
       then: { move: { to: '@terminal' } }
+
+    - id: teardown
+      slot: '@terminal'
+      when: { all: [] }
+      then: { request: { kind: teardown, onTimeout: expire } }

@@ -7,8 +7,8 @@ namespace App\Module\Bridge\Event;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * The bridge queued a new run to fix a pull request. Dispatched after the
- * commit, once per run, with ids and scalars only.
+ * The bridge queued a new run of the fix work kind. Dispatched after the
+ * commit, once per run, with ids only.
  */
 final readonly class WorkerRunQueued
 {
@@ -16,12 +16,6 @@ final readonly class WorkerRunQueued
         public Uuid $projectId,
         public Uuid $runId,
         public Uuid $cardId,
-        public string $eventType,
-        public ?string $forge,
-        public ?string $repository,
-        public ?int $pullRequestNumber,
-        public ?string $headSha,
-        public ?string $reason,
     ) {
     }
 }

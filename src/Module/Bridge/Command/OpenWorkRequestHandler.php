@@ -8,24 +8,34 @@ use App\Exception\DomainErrors;
 use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
-/** Opens a work request on a card, and writes the outbox event that offers it to the bridges. */
+/**
+ * Opens a work request on a card, and writes the outbox event that offers it to
+ * the bridges. The retry of a request whose run ended unfinished names the
+ * session of that run, so the bridge resumes it.
+ */
 final readonly class OpenWorkRequestHandler
 {
     public const string INVALID_KIND = 'bridge.work_request.error.invalid_kind';
     public const string INVALID_CAPABILITY = 'bridge.work_request.error.invalid_capability';
     public const string INVALID_RULE = 'bridge.work_request.error.invalid_rule';
     public const string LIVE = 'bridge.work_request.error.live';
+
+    /** Longer than the largest retry backoff of the seeded templates, six hours, so a later request starts fresh. */
+    public const string RESUME_WINDOW = '-24 hours';
 
     public function __construct(
         private WorkRequestRepository $workRequests,
@@ -34,6 +44,7 @@ final readonly class OpenWorkRequestHandler
         private ClockInterface $clock,
         private Auditor $auditor,
         private WorkRequestAnnouncer $announcer,
+        private WorkerRunRepository $workerRuns,
     ) {
     }
 
@@ -69,6 +80,7 @@ final readonly class OpenWorkRequestHandler
                     ruleId: $command->ruleId,
                     createdAt: $this->clock->now(),
                 );
+                $request->resumeSessionId = $this->sessionToResume($command);
                 $this->em->persist($request);
                 // The payload names the request, so the row needs its id first.
                 $this->em->flush();
@@ -105,5 +117,28 @@ final readonly class OpenWorkRequestHandler
         $this->announcer->announce($request);
 
         return $request;
+    }
+
+    /**
+     * The session of the run of the previous request of the rule, when that run
+     * ended unfinished, recently, and no other run of the card came after it.
+     */
+    private function sessionToResume(OpenWorkRequestCommand $command): ?Uuid
+    {
+        $previous = $this->workRequests->findLatestOfCardKindRule($command->cardId, $command->kind, $command->ruleId);
+        if (null === $previous) {
+            return null;
+        }
+        $run = $this->workerRuns->findLatestOfCard($command->project, $command->cardId);
+        if (null === $run
+            || WorkerRunState::Unfinished !== $run->state
+            || null === $run->workRequestId
+            || !$run->workRequestId->equals($previous->id)
+            || null === $run->endedAt
+            || $run->endedAt < $this->clock->now()->modify(self::RESUME_WINDOW)) {
+            return null;
+        }
+
+        return $run->sessionId;
     }
 }

@@ -6,7 +6,6 @@ namespace App\Tests\Module\Workflow\Scheduler;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Workflow\Command\EvaluateDueWorkflowCardsHandler;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -34,20 +33,11 @@ final class EvaluateDueCardsTaskTest extends KernelTestCase
     {
         [$due, $later] = $this->scenario();
 
-        $this->task(true)();
+        $this->task()();
 
         $sent = $this->sent();
         self::assertContains((string) $due->id, $sent);
         self::assertNotContains((string) $later->id, $sent);
-    }
-
-    public function test_the_switch_off_queues_nothing(): void
-    {
-        $this->scenario();
-
-        $this->task(false)();
-
-        self::assertSame([], $this->sent());
     }
 
     /** @return array{Card, Card} */
@@ -68,14 +58,11 @@ final class EvaluateDueCardsTaskTest extends KernelTestCase
         return [$due, $later];
     }
 
-    private function task(bool $on): EvaluateDueCardsTask
+    private function task(): EvaluateDueCardsTask
     {
-        $switch = new EngineSwitch($on);
-
         return new EvaluateDueCardsTask(new EvaluateDueWorkflowCardsHandler(
-            $switch,
             $this->service(WorkflowRuleStateRepository::class),
-            new EvaluationTrigger($this->service(MessageBusInterface::class), $switch),
+            new EvaluationTrigger($this->service(MessageBusInterface::class)),
             new MockClock('2026-10-02 12:00:00'),
         ));
     }

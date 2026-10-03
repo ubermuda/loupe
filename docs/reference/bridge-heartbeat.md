@@ -222,9 +222,10 @@ holds, by `commandId`. Each command carries these fields:
 | `kind` | `stop-run`, `resume-run` or `rerun-command` |
 | `bridgeId` | the bridge that must act. Another bridge drops the event |
 | `runKey`, `sessionId` | the run and its session, or `null` when the run has none |
-| `cardId`, `cardNumber`, `ruleName`, `cardColumn` | the card and the rule of the run |
-| `resumeIndex` | the place of the run in its resume series, or `null` when the bridge reported none, as for the first run |
+| `cardId`, `cardNumber` | the card of the run |
+| `workRequestId`, `workKind`, `ruleId` | the work request of the run, or `null` for a run from before the work map |
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
+| `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
 
 The `bridge.command_ttl_minutes` feature flag sets how long a command waits,
 and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from

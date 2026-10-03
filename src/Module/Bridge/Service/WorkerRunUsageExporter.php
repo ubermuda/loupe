@@ -29,7 +29,7 @@ final readonly class WorkerRunUsageExporter implements UserDataExporterInterface
             yield [
                 'project' => $usage->project->name,
                 'cardId' => (string) $usage->cardId,
-                'ruleName' => $usage->ruleName,
+                'workKind' => $usage->workKind,
                 'runKey' => $usage->run?->runKey?->toRfc4122(),
                 'model' => $usage->model,
                 'source' => $usage->source->value,

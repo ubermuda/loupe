@@ -39,6 +39,18 @@ class WorkflowPendingBaselineRepository extends ServiceEntityRepository
         );
     }
 
+    /** Marks every card of the project, in one statement. */
+    public function markProject(Uuid $projectId): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'INSERT INTO workflow_pending_baselines (id, card_id, project_id, created_at)
+             SELECT gen_random_uuid(), c.id, c.project_id, LOCALTIMESTAMP(0) FROM board_cards c
+             WHERE c.project_id = :project
+             ON CONFLICT (card_id) DO NOTHING',
+            ['project' => $projectId->toRfc4122()],
+        );
+    }
+
     /** Deletes the mark of the card. Answers whether it had one. */
     public function consume(Uuid $cardId): bool
     {

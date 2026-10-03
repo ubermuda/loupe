@@ -9,7 +9,6 @@ enum CardBadge: string
 {
     case ChecksFailed = 'checks-failed';
     case Conflict = 'conflict';
-    case Blocked = 'blocked';
     case Paused = 'paused';
     case Unmanaged = 'unmanaged';
 
@@ -18,7 +17,6 @@ enum CardBadge: string
         return match ($this) {
             self::ChecksFailed => 'board.card.link.checks.failed',
             self::Conflict => 'board.card.link.mergeability.conflicting',
-            self::Blocked => 'board.card.badge.blocked',
             self::Paused => 'board.card.badge.paused',
             self::Unmanaged => 'board.card.badge.unmanaged',
         };
@@ -28,7 +26,7 @@ enum CardBadge: string
     public function chipModifier(): string
     {
         return match ($this) {
-            self::ChecksFailed, self::Conflict, self::Blocked => 'failed',
+            self::ChecksFailed, self::Conflict => 'failed',
             self::Paused => 'pending',
             self::Unmanaged => 'neutral',
         };

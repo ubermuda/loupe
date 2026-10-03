@@ -33,7 +33,7 @@ final class WorkerRunExporterTest extends TestCase
             bridgeId: $bridgeId,
             cardId: $cardId,
             cardNumber: 7,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: WorkerRunState::Succeeded,
             runKey: $runKey,
             sessionId: $sessionId,
@@ -44,18 +44,14 @@ final class WorkerRunExporterTest extends TestCase
             failureReason: null,
             output: 'all good',
             receivedAt: new \DateTimeImmutable('2026-09-13T10:00:22+00:00'),
+            workRequestId: Uuid::fromString('0199a0e2-0000-7000-8000-000000000042'),
+            ruleId: 'plan-on-entry',
         );
         $run->workerPool = 'quick';
         $run->experiment = 'plan-model';
         $run->variant = 'opus';
         $run->requestedModel = 'claude-opus-4';
         $run->switchedFrom = 'sonnet';
-        $run->triggerEventType = 'pull_request.fix_requested';
-        $run->triggerForge = 'github';
-        $run->triggerRepository = 'owner/repo';
-        $run->triggerPullRequestNumber = 640;
-        $run->triggerHeadSha = 'abc123';
-        $run->triggerReason = 'checks-failed';
         $history = [
             new WorkerRunStateChange($run, WorkerRunState::Running, new \DateTimeImmutable('2026-09-13T10:00:00+00:00'), new \DateTimeImmutable('2026-09-13T10:00:01+00:00')),
             new WorkerRunStateChange($run, WorkerRunState::Succeeded, new \DateTimeImmutable('2026-09-13T10:00:21+00:00'), new \DateTimeImmutable('2026-09-13T10:00:22+00:00')),
@@ -73,7 +69,9 @@ final class WorkerRunExporterTest extends TestCase
             'sessionId' => (string) $sessionId,
             'cardId' => (string) $cardId,
             'cardNumber' => 7,
-            'ruleName' => 'plan',
+            'workRequestId' => '0199a0e2-0000-7000-8000-000000000042',
+            'workKind' => 'plan',
+            'ruleId' => 'plan-on-entry',
             'startedAt' => '2026-09-13T10:00:00+00:00',
             'endedAt' => '2026-09-13T10:00:21+00:00',
             'exitCode' => 0,
@@ -85,9 +83,6 @@ final class WorkerRunExporterTest extends TestCase
             'resultReason' => null,
             'resultFields' => null,
             'continues' => null,
-            'resumeIndex' => null,
-            'resumeCap' => null,
-            'cardColumn' => null,
             'resumeSkipped' => null,
             'usageSource' => null,
             'workerPool' => 'quick',
@@ -95,12 +90,6 @@ final class WorkerRunExporterTest extends TestCase
             'variant' => 'opus',
             'requestedModel' => 'claude-opus-4',
             'switchedFrom' => 'sonnet',
-            'triggerEventType' => 'pull_request.fix_requested',
-            'triggerForge' => 'github',
-            'triggerRepository' => 'owner/repo',
-            'triggerPullRequestNumber' => 640,
-            'triggerHeadSha' => 'abc123',
-            'triggerReason' => 'checks-failed',
             'history' => [
                 ['state' => 'running', 'at' => '2026-09-13T10:00:00+00:00', 'receivedAt' => '2026-09-13T10:00:01+00:00'],
                 ['state' => 'succeeded', 'at' => '2026-09-13T10:00:21+00:00', 'receivedAt' => '2026-09-13T10:00:22+00:00'],
@@ -144,7 +133,7 @@ final class WorkerRunExporterTest extends TestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 7,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: WorkerRunState::NotStarted,
             sessionId: Uuid::v4(),
             startedAt: new \DateTimeImmutable('2026-09-13T10:00:00+00:00'),
@@ -171,13 +160,10 @@ final class WorkerRunExporterTest extends TestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 7,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: WorkerRunState::Queued,
             runKey: Uuid::v7(),
             continuesRun: $first,
-            resumeIndex: 2,
-            resumeCap: 2,
-            cardColumn: 'implementation',
         );
         $resume->recordOutcome(WorkerRunState::GaveUp, new \DateTimeImmutable('2026-09-13T10:00:21+00:00'), 0, true, null, 'CI still runs', 'unfinished', ['pullRequest' => 'https://example.com/pull/1'], 'card_moved', WorkerRunReason::WorkRemains);
 
@@ -188,9 +174,6 @@ final class WorkerRunExporterTest extends TestCase
         self::assertSame('work-remains', $rows[0]['resultReason']);
         self::assertSame(['pullRequest' => 'https://example.com/pull/1'], $rows[0]['resultFields']);
         self::assertSame($first->runKey?->toRfc4122(), $rows[0]['continues']);
-        self::assertSame(2, $rows[0]['resumeIndex']);
-        self::assertSame(2, $rows[0]['resumeCap']);
-        self::assertSame('implementation', $rows[0]['cardColumn']);
         self::assertSame('card_moved', $rows[0]['resumeSkipped']);
     }
 
@@ -202,7 +185,7 @@ final class WorkerRunExporterTest extends TestCase
             bridgeId: null,
             cardId: Uuid::v7(),
             cardNumber: 7,
-            ruleName: 'Pairing on the tech design',
+            workKind: 'Pairing on the tech design',
             state: WorkerRunState::Closed,
             sessionId: Uuid::v4(),
             kind: WorkerRunKind::Interactive,
@@ -227,7 +210,7 @@ final class WorkerRunExporterTest extends TestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 7,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: WorkerRunState::Queued,
             runKey: Uuid::v7(),
         );

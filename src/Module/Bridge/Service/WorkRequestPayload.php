@@ -34,6 +34,7 @@ final class WorkRequestPayload
             'cardNumber' => $request->cardNumber,
             'ruleId' => $request->ruleId,
             'createdAt' => $request->createdAt->format(\DateTimeInterface::ATOM),
+            'resumeSessionId' => $request->resumeSessionId?->toRfc4122(),
         ];
     }
 }

@@ -34,7 +34,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
     public function test_the_list_reads_the_runs_of_the_bound_project_alone(): void
     {
         [$project, $other] = $this->projects('list-scope');
-        $run = $this->seedRun($this->em(), $project, cardNumber: 4, output: "first line\n  last line  \n\n", ruleName: 'implement');
+        $run = $this->seedRun($this->em(), $project, cardNumber: 4, output: "first line\n  last line  \n\n", workKind: 'implement');
         $this->seedRun($this->em(), $other);
         $this->actAsMcpTokenBoundTo($project);
 
@@ -45,7 +45,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $row = $result['runs'][0];
         self::assertSame((string) $run->id, $row['runId']);
         self::assertSame(4, $row['cardNumber']);
-        self::assertSame('implement', $row['rule']);
+        self::assertSame('implement', $row['workKind']);
         self::assertSame('succeeded', $row['state']);
         self::assertSame((string) $run->bridgeId, $row['bridgeId']);
         self::assertSame((string) $run->sessionId, $row['sessionId']);
@@ -77,14 +77,14 @@ final class WorkerRunReadToolsTest extends KernelTestCase
     public function test_each_row_names_the_kind_of_its_run(): void
     {
         [$project] = $this->projects('list-kind');
-        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-09-01 00:00:00'), ruleName: 'plan');
-        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-09-02 00:00:00'), exitCode: -1, ruleName: 'sync', kind: WorkerRunKind::Command);
+        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-09-01 00:00:00'), workKind: 'plan');
+        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-09-02 00:00:00'), exitCode: -1, workKind: 'sync', kind: WorkerRunKind::Command);
         $this->actAsMcpTokenBoundTo($project);
 
         $rows = $this->listTool()()['runs'];
 
         self::assertSame([['sync', 'command', null], ['plan', 'worker']], array_map(
-            static fn (array $row): array => 'command' === $row['kind'] ? [$row['rule'], $row['kind'], $row['sessionId']] : [$row['rule'], $row['kind']],
+            static fn (array $row): array => 'command' === $row['kind'] ? [$row['workKind'], $row['kind'], $row['sessionId']] : [$row['workKind'], $row['kind']],
             $rows,
         ));
     }
@@ -105,23 +105,23 @@ final class WorkerRunReadToolsTest extends KernelTestCase
     {
         [$project] = $this->projects('list-filters');
         $em = $this->em();
-        $kept = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-02 00:00:00'), cardNumber: 7, exitCode: 1, ruleName: 'plan');
+        $kept = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-02 00:00:00'), cardNumber: 7, exitCode: 1, workKind: 'plan');
         $kept->endedAt = new \DateTimeImmutable('2026-09-10 12:00:00');
-        $second = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-01 00:00:00'), cardNumber: 7, ruleName: 'plan', state: WorkerRunState::GaveUp);
+        $second = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-01 00:00:00'), cardNumber: 7, workKind: 'plan', state: WorkerRunState::GaveUp);
         $second->endedAt = new \DateTimeImmutable('2026-09-11 12:00:00');
-        $this->seedRun($em, $project, cardNumber: 7, ruleName: 'plan', state: WorkerRunState::Succeeded);
-        $this->seedRun($em, $project, cardNumber: 8, exitCode: 1, ruleName: 'plan');
+        $this->seedRun($em, $project, cardNumber: 7, workKind: 'plan', state: WorkerRunState::Succeeded);
+        $this->seedRun($em, $project, cardNumber: 8, exitCode: 1, workKind: 'plan');
         $em->flush();
         $this->actAsMcpTokenBoundTo($project);
 
-        $first = $this->listTool()(states: ['failed', 'gave-up'], cardNumber: 7, rule: ' plan ', endedAfter: '2026-09-10', endedBefore: '2026-09-12T00:00:00Z', perPage: 1);
+        $first = $this->listTool()(states: ['failed', 'gave-up'], cardNumber: 7, workKind: ' plan ', endedAfter: '2026-09-10', endedBefore: '2026-09-12T00:00:00Z', perPage: 1);
 
         self::assertSame(2, $first['total']);
         self::assertSame(1, $first['perPage']);
         self::assertTrue($first['hasMore']);
         self::assertSame((string) $kept->id, $first['runs'][0]['runId']);
 
-        $last = $this->listTool()(states: ['failed', 'gave-up'], cardNumber: 7, rule: 'plan', endedAfter: '2026-09-10', perPage: 1, page: 2);
+        $last = $this->listTool()(states: ['failed', 'gave-up'], cardNumber: 7, workKind: 'plan', endedAfter: '2026-09-10', perPage: 1, page: 2);
 
         self::assertFalse($last['hasMore']);
         self::assertSame((string) $second->id, $last['runs'][0]['runId']);
@@ -191,8 +191,6 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $grandchild = $this->continuing($child, new \DateTimeImmutable('2026-09-01 12:00:00'));
         $branch = $this->continuing($root, new \DateTimeImmutable('2026-09-01 13:00:00'));
         $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-01 10:30:00'));
-        $root->triggerEventType = 'pull_request.fix_requested';
-        $root->triggerPullRequestNumber = 12;
         $em->persist(new WorkerRunStateChange($root, WorkerRunState::Running, new \DateTimeImmutable('2026-09-01 10:00:05')));
         $em->persist(new WorkerRunStateChange($root, WorkerRunState::Unfinished, new \DateTimeImmutable('2026-09-01 10:04:00')));
         $em->flush();
@@ -208,8 +206,10 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         );
         $first = $result['runs'][0];
         self::assertNull($first['continuesRunId']);
-        self::assertSame('pull_request.fix_requested', $first['triggerEventType']);
-        self::assertSame(12, $first['triggerPullRequestNumber']);
+        self::assertSame('plan', $first['workKind']);
+        self::assertNull($first['workRequestId']);
+        self::assertNull($first['ruleId']);
+        self::assertArrayNotHasKey('triggerEventType', $first);
         self::assertSame('worker output', $first['output']);
         self::assertSame([
             ['state' => 'running', 'at' => '2026-09-01T10:00:05+00:00'],
@@ -314,7 +314,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $quiet = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('-1 day'));
         $quiet->requestedName = 'laptop';
         $this->seedBridge($em, $project->owner, projects: [(string) $other->id]);
-        $open = $this->seedRun($em, $project, cardNumber: 3, ruleName: 'plan', bridgeId: $live->id, state: WorkerRunState::Running);
+        $open = $this->seedRun($em, $project, cardNumber: 3, workKind: 'plan', bridgeId: $live->id, state: WorkerRunState::Running);
         $this->seedRun($em, $project, bridgeId: $live->id, state: WorkerRunState::Succeeded);
         $this->seedRun($em, $other, bridgeId: $live->id, state: WorkerRunState::Running);
         $em->flush();
@@ -337,7 +337,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertTrue($row['takesReruns']);
         self::assertSame([['name' => 'default', 'size' => 2, 'inUse' => 1, 'queued' => 0]], $row['workerPools']);
         self::assertSame('2026-09-30T11:00:00+00:00', $row['workerPoolsReportedAt']);
-        self::assertSame([['runId' => (string) $open->id, 'cardNumber' => 3, 'rule' => 'plan', 'state' => 'running']], $row['openRuns']);
+        self::assertSame([['runId' => (string) $open->id, 'cardNumber' => 3, 'workKind' => 'plan', 'state' => 'running']], $row['openRuns']);
         self::assertSame('quiet', $bridges[$quiet->id->toRfc4122()]['liveness']);
         self::assertNull($bridges[$quiet->id->toRfc4122()]['name']);
         self::assertSame('laptop', $bridges[$quiet->id->toRfc4122()]['requestedName']);
@@ -359,7 +359,6 @@ final class WorkerRunReadToolsTest extends KernelTestCase
     {
         $next = $this->seedRun($this->em(), $run->project, receivedAt: $receivedAt, bridgeId: $run->bridgeId, cardId: $run->cardId, state: WorkerRunState::Unfinished, runKey: Uuid::v7());
         $next->continuesRun = $run;
-        $next->resumeIndex = ($run->resumeIndex ?? 0) + 1;
         $this->em()->flush();
 
         return $next;

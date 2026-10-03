@@ -12,22 +12,21 @@ use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Template\ManualMove;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-/** A card is managed while the engine runs, its project has a template, and nobody holds it. */
+/** A card is managed while the engine runs for its project, its project has a template, and nobody holds it. */
 #[AsAlias(CardMoveGuard::class)]
 final readonly class WorkflowCardMoveGuard implements CardMoveGuard
 {
-    private const string BREAKDOWN_RULE = 'work:breakdown';
+    private const string BREAKDOWN_KIND = 'breakdown';
 
     private const string ANY_COLUMN = '*';
 
     public function __construct(
-        private EngineSwitch $engine,
+        private WorkflowAutomation $automation,
         private CardHolds $cardHolds,
         private TemplateSource $templates,
         private FactsBuilder $facts,
@@ -38,7 +37,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
     #[\Override]
     public function allows(Card $card, BoardColumn $to, CardReporter $actor, ?CardEventCause $cause): bool
     {
-        if (!$this->engine->isOn()
+        if (!$this->automation->runsFor($card->project)
             || CardReporter::System === $actor
             || $to === $card->column
             || $this->isBreakdownRun($card, $cause)) {
@@ -66,25 +65,19 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         );
     }
 
-    #[\Override]
-    public function releasesHoldOnMove(): bool
-    {
-        return !$this->engine->isOn();
-    }
-
     /**
      * An interactive run takes any name, so only a stored worker run counts.
      * A breakdown runs on the epic and moves its children, so the run's card is the moved card's parent.
      */
     private function isBreakdownRun(Card $card, ?CardEventCause $cause): bool
     {
-        if ('run' !== $cause?->type || self::BREAKDOWN_RULE !== ($cause->fields['rule'] ?? null) || null === $card->parent?->id) {
+        if ('run' !== $cause?->type || self::BREAKDOWN_KIND !== ($cause->fields['kind'] ?? null) || null === $card->parent?->id) {
             return false;
         }
         $run = $this->workerRuns->findOneByIdAndProjectId((string) ($cause->fields['run'] ?? ''), (string) $card->project->id);
 
         return WorkerRunKind::Worker === $run?->kind
-            && self::BREAKDOWN_RULE === $run->ruleName
+            && self::BREAKDOWN_KIND === $run->workKind
             && $card->parent->id->equals($run->cardId);
     }
 

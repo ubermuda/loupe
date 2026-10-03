@@ -211,7 +211,7 @@ final readonly class ShowExperimentHandler
         if (\count($variants) > 1) {
             $reasons[] = LeftOutReason::Mixed;
         }
-        if (null !== $first && [] !== array_filter($plainRuns, static fn (WorkerRun $run): bool => $run->cardColumn === $first->cardColumn && $run->receivedAt < $first->receivedAt)) {
+        if (null !== $first && [] !== array_filter($plainRuns, static fn (WorkerRun $run): bool => $run->workKind === $first->workKind && $run->receivedAt < $first->receivedAt)) {
             $reasons[] = LeftOutReason::BeforeTest;
         }
         if (null !== $first && (null === $historyStart || $first->receivedAt < $historyStart)) {

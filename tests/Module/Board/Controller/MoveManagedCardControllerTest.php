@@ -11,7 +11,6 @@ use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -39,7 +38,6 @@ final class MoveManagedCardControllerTest extends WebTestCase
     protected function setUp(): void
     {
         $this->client = static::createClient();
-        static::getContainer()->set(EngineSwitch::class, new EngineSwitch(true));
     }
 
     /** The checker must be replaced before any fixture write builds the real one. */

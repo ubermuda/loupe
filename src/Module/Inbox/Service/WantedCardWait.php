@@ -41,16 +41,6 @@ final readonly class WantedCardWait
         return new self(InboxCardWaitTrigger::PullRequestReady, mb_substr($reason, 0, InboxCardWait::MAX_REASON_LENGTH), pullRequestId: $pullRequestId, headSha: $headSha);
     }
 
-    public static function forPullRequestFixStopped(Uuid $pullRequestId, int $number, string $headSha, ?string $blockedReason): self
-    {
-        $reason = \sprintf('Pull request #%d: fix loop stopped', $number);
-        if (null !== $blockedReason && '' !== $blockedReason) {
-            $reason .= \sprintf(' (%s)', $blockedReason);
-        }
-
-        return new self(InboxCardWaitTrigger::PullRequestFixStopped, mb_substr($reason, 0, InboxCardWait::MAX_REASON_LENGTH), pullRequestId: $pullRequestId, headSha: $headSha);
-    }
-
     public static function forDocument(Document $document, int $versionNumber): self
     {
         $reason = \sprintf('%s in review, version %d', $document->title, $versionNumber);

@@ -37,7 +37,6 @@ final readonly class PageSearchProvider implements SearchProviderInterface
         ];
         if ($this->flags->isEnabled('board.enabled')) {
             $routes['app_project_board'] = 'nav.link.board';
-            $routes['app_project_rules'] = 'nav.link.rules';
         }
         if ($this->flags->isEnabled('inbox.enabled')) {
             $routes['app_project_inbox'] = 'nav.link.inbox';

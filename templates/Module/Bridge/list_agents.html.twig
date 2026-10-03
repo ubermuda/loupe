@@ -153,6 +153,7 @@
     </div>
     {% endif %}
     </turbo-frame>
+    {% include '@Bridge/_bridge_hooks.html.twig' with {project: project} only %}
     </div>
 </div>
 {% endblock %}

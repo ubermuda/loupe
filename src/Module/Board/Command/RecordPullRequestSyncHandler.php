@@ -20,8 +20,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Marks each unfinished card that links the pull request as synced. Forge calls
- * this inside the transaction of its read, after the project lock, so the
- * automation rows lock in the order PublishPullRequestEventsHandler uses.
+ * this inside the transaction of its read, after the project lock.
  */
 final readonly class RecordPullRequestSyncHandler
 {

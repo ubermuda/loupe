@@ -14,7 +14,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Environment
 
-1. A bridge `before` rule runs `bin/worktrees/bridge-before.sh`, and the worker starts in `.worktrees/card-<number>`. That worker folder is a full app of its own. A stage never creates or removes it. A `teardown` command rule removes it when the card reaches `done`.
+1. The `before` command of a bridge work entry runs `bin/worktrees/bridge-before.sh`, and the worker starts in `.worktrees/card-<number>`. That worker folder is a full app of its own. A stage never creates or removes it. The `teardown` work entry removes it when the card reaches `done`.
 2. Folder check: the two lines of `git rev-parse --path-format=absolute --git-dir --git-common-dir` must differ. They are equal in the main checkout, where a worker must never work.
 3. Refresh after a sync that brings commits: from the worker folder, run `( cd <main checkout> && just worktree-up card-<number> card:<cardId> )`. The main checkout is the first `worktree` line of `git worktree list --porcelain`. Then run `bin/worktrees/compose-exec.sh bin/console cache:clear`, and the same command with `--env=test`.
 4. `<cardId>` is the card id from the prompt line `Card <number> (cardId <id>)`. When the prompt has no such line, take `cardId` from `card_get`. Never derive it from a branch name, a folder name or a card number.

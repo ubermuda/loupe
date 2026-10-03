@@ -1,6 +1,6 @@
 ---
 name: loupe-stage-merge
-description: "Use when a card's pull request is ready to merge or behind its base, from a pull_request.ready_to_merge or pull_request.behind event, or when a prompt names loupe-stage-merge."
+description: "Use when a card's pull request is ready to merge or behind its base, from a merge or sync work request of the workflow, or when a prompt names loupe-stage-merge."
 ---
 
 # Merge stage
@@ -22,7 +22,7 @@ Merge one card's pull request when it is ready, or bring a branch that is behind
 
 1. Read `../loupe-stage-product-design/references/stage-contract.md` "Adapters and profile" and "First steps", and follow them. Pick the forge adapter as `../loupe-stage-implementation/references/commands.md` says.
 2. Load `working-with-prs` when the profile `Instruction files` section names it.
-3. Read the prompt. The line `Pull request <url> is ready to merge at <sha>.` asks for a merge. The line `Pull request <url> is behind its base.` asks for an update. Any other prompt: stop with `STAGE RESULT: blocked: no merge request in the prompt`.
+3. Read the prompt. The line `Pull request <url> is ready to merge at <sha>.` asks for a merge. The line `Pull request <url> is behind its base.` asks for an update. The line `Loupe asks for merge work.` asks for a merge, and `Loupe asks for sync work.` asks for an update. A work request names no pull request, so take the one open pull request of the card `pullRequests`, and its head commit from the forge adapter as the SHA of the prompt. When the card has no open pull request, stop with `STAGE RESULT: no open pull request`. When it has more than one, stop with `STAGE RESULT: blocked: more than one open pull request`. Any other prompt: stop with `STAGE RESULT: blocked: no merge request in the prompt`.
 4. The URL must be one of the card `pullRequests`. Otherwise stop with `STAGE RESULT: blocked: pull request not linked to the card`.
 5. Find and validate the pull request with the forge adapter. When it is outside this repository, stop with `STAGE RESULT: blocked: pull request outside this repository`. When its state is `MERGED`, stop with `STAGE RESULT: merged <url>`. When it is `CLOSED`, stop with `STAGE RESULT: no open pull request`.
 6. Read the merge state with the forge adapter. From this step on, post the refusal comment before each `not ready` or `blocked:` stop. Follow "Post a refusal comment" in `../loupe-stage-implementation/references/commands.md`.
@@ -40,7 +40,7 @@ An epic child merges with no approval, because the epic pull request carries the
 
 ### Update
 
-This step serves a project with the board automation setting "Sync an approved pull request that is behind" off. With it on, Loupe updates the branch itself, and a `pull_request.behind` rule races it.
+This step serves a project with the board automation setting "Sync an approved pull request that is behind" off. With it on, Loupe updates the branch itself, and the workflow asks for no sync work.
 
 An epic pull request updates as any other pull request. The update merges the base into the epic branch.
 

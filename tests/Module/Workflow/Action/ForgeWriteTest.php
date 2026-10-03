@@ -181,6 +181,49 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertEquals(ActionOutcome::refused('permission'), $this->write($card, 'close'));
     }
 
+    public function test_a_state_write_writes_every_pull_request_of_the_card(): void
+    {
+        $card = $this->card($this->project(epicDraftSwitch: true), 'in-review');
+        $first = $this->pullRequest($card);
+        $second = $this->pullRequest($card, state: PullRequestState::Closed);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'ready', fallback: null));
+
+        self::assertSame([['setDraft', $first->number, false], ['setDraft', $second->number, false]], $this->writer->calls);
+    }
+
+    public function test_a_state_write_on_a_card_with_no_pull_request_is_done(): void
+    {
+        $card = $this->card($this->project(closeEpicPullRequests: true), 'backlog');
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'close', fallback: null));
+        self::assertSame([], $this->writer->calls);
+    }
+
+    public function test_a_state_write_with_no_fallback_does_nothing_without_its_opt_in_or_a_writer(): void
+    {
+        $card = $this->card($this->project(epicDraftSwitch: true), 'in-review');
+        $this->pullRequest($card);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'close', fallback: null));
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'draft', fallback: null, writers: false));
+
+        self::assertSame([], $this->writer->calls);
+        self::assertSame([], $this->liveKinds($card));
+    }
+
+    public function test_a_failed_state_write_still_writes_the_other_pull_requests(): void
+    {
+        $card = $this->card($this->project(closeEpicPullRequests: true), 'backlog');
+        $first = $this->pullRequest($card);
+        $second = $this->pullRequest($card);
+        $this->writer->failure = new PullRequestWriteFailed('api_failed_rate_limited', permanent: false);
+        $this->writer->failingNumbers = [$first->number];
+
+        self::assertEquals(ActionOutcome::refused('api-failed-rate-limited'), $this->write($card, 'close', fallback: null));
+        self::assertSame([['close', $first->number], ['close', $second->number]], $this->writer->calls);
+    }
+
     public function test_a_comment_is_refused(): void
     {
         $card = $this->card($this->project(), 'in-review');
@@ -211,7 +254,7 @@ final class ForgeWriteTest extends KernelTestCase
         return $project;
     }
 
-    private function write(Card $card, string $write, string $fallback = 'fallback', bool $writers = true): ActionOutcome
+    private function write(Card $card, string $write, ?string $fallback = 'fallback', bool $writers = true): ActionOutcome
     {
         $registered = $writers ? [$this->writer] : [];
         $forgePullRequests = $this->service(ForgePullRequestRepository::class);
@@ -232,7 +275,9 @@ final class ForgeWriteTest extends KernelTestCase
             'squash',
         );
 
-        return $action->run($this->rule(ActionType::ForgeWrite, ['write' => $write, 'fallback' => $fallback]), $card, FactsMother::facts(), $this->state($card));
+        $params = null === $fallback ? ['write' => $write] : ['write' => $write, 'fallback' => $fallback];
+
+        return $action->run($this->rule(ActionType::ForgeWrite, $params), $card, FactsMother::facts(), $this->state($card));
     }
 
     /** @return list<string> */

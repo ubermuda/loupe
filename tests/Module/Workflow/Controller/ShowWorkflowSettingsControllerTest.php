@@ -132,7 +132,7 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         $link = 'a.lp-sidebar__link[href="/projects/'.$project->id.'/workflow"]';
 
         $this->enableBoard();
-        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/rules');
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents');
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains($link, 'Workflow');
 

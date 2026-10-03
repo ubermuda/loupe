@@ -85,7 +85,6 @@ security:
         - { path: '^/api/projects$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/board/columns$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/board/cards/[^/]+$', roles: ROLE_API_AGENT }
-        - { path: '^/api/projects/[^/]+/bridges/[^/]+/rules$', roles: ROLE_API_AGENT }
         - { path: '^/api/events$', roles: ROLE_API_AGENT }
         - { path: '^/api/events/replay$', roles: ROLE_API_AGENT }
         - { path: '^/api/card-holds$', roles: ROLE_API_AGENT }

@@ -6,7 +6,6 @@ namespace App\Module\Workflow\Scheduler;
 
 use App\Module\Workflow\Command\SweepWorkflowCardsCommand;
 use App\Module\Workflow\Command\SweepWorkflowCardsHandler;
-use App\Module\Workflow\Engine\EngineSwitch;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
@@ -19,17 +18,12 @@ final readonly class SweepWorkflowCardsTask
 {
     public function __construct(
         private SweepWorkflowCardsHandler $sweepWorkflowCards,
-        private EngineSwitch $engine,
         private LoggerInterface $logger,
     ) {
     }
 
     public function __invoke(): void
     {
-        if (!$this->engine->isOn()) {
-            return;
-        }
-
         $started = hrtime(true);
         $cards = ($this->sweepWorkflowCards)(new SweepWorkflowCardsCommand());
         $this->logger->info('workflow.sweep_finished', [

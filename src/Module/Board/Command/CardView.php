@@ -16,7 +16,6 @@ final readonly class CardView
      * @param list<RelatedCard>           $relatedCards
      * @param list<Card>                  $children        empty for a card that is not an epic
      * @param ?CardProgress               $progress        null for a card that is not an epic
-     * @param list<Card>                  $heldBy          the open blockers that keep an approved card in its stage column
      */
     public function __construct(
         public Card $card,
@@ -26,7 +25,6 @@ final readonly class CardView
         public CardHistoryView $history,
         public array $children = [],
         public ?CardProgress $progress = null,
-        public array $heldBy = [],
     ) {
     }
 }

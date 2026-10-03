@@ -59,23 +59,6 @@ func workRequest(kind string) api.WorkRequest {
 	}
 }
 
-// A file with work and no rules runs: a bridge that only claims work needs no
-// rule.
-func TestParseAcceptsAFileWithWorkAndNoRules(t *testing.T) {
-	s := parse(t, workFile)
-	if len(s.Rules()) != 0 {
-		t.Fatalf("rules = %+v", s.Rules())
-	}
-}
-
-func TestParseRefusesAFileWithNoRulesAndNoWork(t *testing.T) {
-	text, _ := file(t, "projects:\n  loupe:\n    dir: {dir}\nwork: {}\n")
-	_, err := Parse([]byte(text), Defaults{})
-	if err == nil || !strings.Contains(err.Error(), "has no rules and no work") || strings.Count(err.Error(), Example) != 1 {
-		t.Fatalf("err = %v, want the example once", err)
-	}
-}
-
 func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 	entry := func(kind, fields string) string {
 		return "projects:\n  loupe:\n    dir: {dir}\nlaunch:\n  command: ['{script}']\nworkerPools:\n  quick: {size: 1}\n" +
@@ -114,7 +97,7 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 		"command timeout too long":     {entry("x", command+"timeout: 2h"), "the most it takes is 1h0m0s"},
 		"command timeout not duration": {entry("x", command+"timeout: soon"), `timeout "soon" is not a duration`},
 		"unknown placeholder":          {entry("x", "prompt: 'Card {title}'"), `work "x": unknown placeholder {title}`},
-		"a rule placeholder":           {entry("x", "prompt: 'Moved to {to}'"), "placeholder {to} has no value for bridge.work_request events"},
+		"an old event placeholder":     {entry("x", "prompt: 'Moved to {to}'"), "unknown placeholder {to}"},
 		"unknown run placeholder":      {entry("x", "action: command\nrun: [make, '{title}']"), "run: unknown placeholder {title}"},
 		"unknown before placeholder":   {entry("x", "prompt: x\nbefore:\n  run: [prep, '{title}']"), "before.run: unknown placeholder {title}"},
 		"before without run":           {entry("x", "prompt: x\nbefore:\n  timeout: 1m"), "before.run is required"},
@@ -175,32 +158,6 @@ func TestParseRefusesAnEmptyDefaultPoolForAWorkerEntry(t *testing.T) {
 	}
 }
 
-// The pin of a card is kept per experiment name, so a kind with variants must
-// not share its name with an experiment.
-func TestParseRefusesVariantsOnAKindThatNamesAnExperiment(t *testing.T) {
-	text, _ := file(t, "projects:\n  loupe:\n    dir: {dir}\nexperiments:\n  - name: split\n    variants:\n      - {name: a, weight: 1, model: opus}\n"+
-		"work:\n  split:\n    prompt: x\n    variants:\n      - {name: a, weight: 1, model: opus}\n")
-	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), `work "split": an experiment has the same name`) {
-		t.Fatalf("err = %v", err)
-	}
-}
-
-// A work match carries the rule name work:<kind>, so a rule of that name would
-// share its runs.
-func TestParseRefusesARuleNamedLikeWork(t *testing.T) {
-	text, _ := file(t, strings.Replace(oneRule, "  - on:", "  - name: work:implement\n    on:", 1))
-	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), `rule "work:implement": a rule name does not start with work:`) {
-		t.Fatalf("err = %v", err)
-	}
-}
-
-func TestParseNamesAWorkPlaceholderInARuleAsMissing(t *testing.T) {
-	text, _ := file(t, strings.Replace(oneRule, "Card {cardNumber} entered {to}.", "Kind {kind}.", 1))
-	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), "{kind} has no value for board.card_moved events") {
-		t.Fatalf("err = %v", err)
-	}
-}
-
 func TestMatchWorkRunsAWorker(t *testing.T) {
 	text, dir := file(t, workFile)
 	s, err := Parse([]byte(text), Defaults{PermissionMode: "acceptEdits", Model: "sonnet"})
@@ -211,8 +168,7 @@ func TestMatchWorkRunsAWorker(t *testing.T) {
 
 	m := s.MatchWork(workRequest("implement"))
 	if m.Skip != Run || m.Rule != "work:implement" || m.Action != "" || m.Project != "loupe" || m.Dir != dir || m.Pool != "quick" ||
-		m.PermissionMode != "plan" || m.Model != "sonnet" || m.MaxChain != DefaultMaxChain || m.MaxResumes != DefaultMaxResumes ||
-		m.Resume || m.Schema == "" || m.Experiment != nil || m.Command != nil {
+		m.PermissionMode != "plan" || m.Model != "sonnet" || m.Schema == "" || m.Experiment != nil || m.Command != nil {
 		t.Fatalf("match = %+v", m)
 	}
 	want := directive.Render("Implement 87 "+cardID+" loupe "+projectID+" implement impl.rule "+workRequestID+".", nil)
@@ -242,6 +198,24 @@ func TestMatchWorkRunsACommand(t *testing.T) {
 		t.Fatalf("match = %+v", m)
 	}
 	if !slices.Equal(m.Command.Argv, []string{"make", "test", "CARD=87", "test"}) || m.Command.Timeout != 5*time.Minute {
+		t.Fatalf("command = %+v", m.Command)
+	}
+}
+
+// A teardown is a command entry like any other: the app requests it when a card
+// reaches a terminal column.
+func TestMatchWorkRunsATeardownCommand(t *testing.T) {
+	s := checked(t, workFile+`
+  teardown:
+    action: command
+    run: [just, worktree-down, 'card-{cardNumber}']
+`)
+
+	m := s.MatchWork(workRequest("teardown"))
+	if m.Skip != Run || m.Rule != "work:teardown" || m.Action != ActionCommand || m.Prompt != "" || m.Command == nil {
+		t.Fatalf("match = %+v", m)
+	}
+	if !slices.Equal(m.Command.Argv, []string{"just", "worktree-down", "card-87"}) || m.Command.Timeout != DefaultCommandTimeout {
 		t.Fatalf("command = %+v", m.Command)
 	}
 }
@@ -284,36 +258,15 @@ func TestMatchWorkSkipsWhatItCannotRun(t *testing.T) {
 	}
 }
 
-func TestARenamedProjectKillsItsWork(t *testing.T) {
-	s := checked(t, workFile+"rules:\n  - {name: plan, on: board.card_moved, project: loupe, to: ready, prompt: x}\n")
-	renamed := event.Event{Type: event.ProjectRenamedType, ProjectID: projectID, FromSlug: "loupe", ToSlug: "loupe-2"}
-
-	dead := s.Kill(renamed)
-	if len(dead) != 1 || dead[0].Rule != "plan" {
-		t.Fatalf("dead = %+v", dead)
-	}
-	if m := s.MatchWork(workRequest("implement")); m.Skip != NoRule {
-		t.Fatalf("match = %+v", m)
-	}
-}
-
-func TestARenamedColumnKeepsTheWork(t *testing.T) {
-	s := checked(t, workFile)
-	renamed := event.Event{Type: event.ColumnRenamedType, ProjectID: projectID, FromSlug: "ready", ToSlug: "next"}
-
-	s.Kill(renamed)
-	if m := s.MatchWork(workRequest("implement")); m.Skip != Run {
-		t.Fatalf("match = %+v", m)
-	}
-}
-
 func TestAGoneProjectKillsItsWork(t *testing.T) {
 	s := checked(t, workFile)
 
 	if !s.HasWork() || s.WorkDead("loupe") != "" {
 		t.Fatalf("has work = %v, dead = %q before the kill", s.HasWork(), s.WorkDead("loupe"))
 	}
-	s.KillProject("loupe", api.ReasonProjectGone)
+	if !s.KillProjectWork("loupe", api.ReasonProjectGone) || s.KillProjectWork("loupe", api.ReasonProjectGone) {
+		t.Fatal("KillProjectWork reports a death once")
+	}
 	if m := s.MatchWork(workRequest("implement")); m.Skip != NoRule {
 		t.Fatalf("match = %+v", m)
 	}
@@ -327,7 +280,6 @@ func TestCapabilities(t *testing.T) {
 		body string
 		want []string
 	}{
-		"rules only":       {oneRule, nil},
 		"workers only":     {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n", []string{"work-requests"}},
 		"with interactive": {workFile, []string{"work-requests", "interactive"}},
 	} {
@@ -336,6 +288,26 @@ func TestCapabilities(t *testing.T) {
 				t.Fatalf("Capabilities = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// A project rename stops the work of the old slug, and any other event stops
+// nothing.
+func TestARenamedProjectKillsItsWork(t *testing.T) {
+	s := checked(t, workFile)
+	renamed := event.Event{Type: event.ProjectRenamedType, ProjectID: projectID, FromSlug: "loupe", ToSlug: "loupe-2"}
+
+	if slug, reason := s.KillWork(event.Event{Type: event.CardHeldType, ProjectID: projectID}); slug != "" || reason != "" {
+		t.Fatalf("a hold killed %q for %q", slug, reason)
+	}
+	if slug, reason := s.KillWork(renamed); slug != "loupe" || reason != api.ReasonProjectRenamed {
+		t.Fatalf("KillWork = %q, %q", slug, reason)
+	}
+	if m := s.MatchWork(workRequest("implement")); m.Skip != NoRule {
+		t.Fatalf("match = %+v", m)
+	}
+	if slug, _ := s.KillWork(renamed); slug != "" {
+		t.Fatal("a second rename killed the work again")
 	}
 }
 

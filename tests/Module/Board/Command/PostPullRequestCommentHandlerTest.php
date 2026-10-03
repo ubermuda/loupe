@@ -8,7 +8,6 @@ use App\Module\Board\Command\PostPullRequestCommentCommand;
 use App\Module\Board\Command\PostPullRequestCommentHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\Repository\PullRequestCommentRepository;
@@ -76,9 +75,6 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
 
     public function test_the_body_names_the_reason_the_checks_the_stored_round_and_links_the_card(): void
     {
-        $automation = new CardAutomation($this->card);
-        $automation->fixRounds = 3;
-        $this->em->persist($automation);
         $this->em->persist(new BoardAutomationSettings($this->project, loopLimit: 3));
         $this->em->flush();
 

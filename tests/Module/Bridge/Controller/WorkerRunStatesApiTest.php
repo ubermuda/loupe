@@ -155,9 +155,6 @@ final class WorkerRunStatesApiTest extends WebTestCase
         $this->put($client, $this->path($project->id, $first), $raw, $this->payload());
         $this->put($client, $this->path($project->id, $resume), $raw, $this->payload([
             'continues' => $first,
-            'resumeIndex' => 2,
-            'resumeCap' => 2,
-            'cardColumn' => 'implementation',
         ]));
         self::assertResponseStatusCodeSame(201);
         $this->put($client, $this->path($project->id, $resume), $raw, $this->payload([
@@ -179,9 +176,6 @@ final class WorkerRunStatesApiTest extends WebTestCase
         $run = $byKey[$resume];
         self::assertSame(WorkerRunState::GaveUp, $run->state);
         self::assertSame((string) $byKey[$first]->id, (string) $run->continuesRun?->id);
-        self::assertSame(2, $run->resumeIndex);
-        self::assertSame(2, $run->resumeCap);
-        self::assertSame('implementation', $run->cardColumn);
         self::assertSame('unfinished', $run->resultStatus);
         self::assertSame(['pullRequest' => 'https://example.com/pull/1'], $run->resultFields);
         self::assertSame('card_moved', $run->resumeSkipped);
@@ -370,7 +364,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
             'startedAt' => '2026-09-23T10:00:05+00:00',
         ];
 
-        $this->put($client, $path, $raw, $this->payload(['state' => 'running', 'trigger' => ['eventType' => 'bridge.command'], ...$start]));
+        $this->put($client, $path, $raw, $this->payload(['state' => 'running', ...$start]));
         self::assertResponseStatusCodeSame(201);
         $this->put($client, $path, $raw, $this->payload(['state' => 'stopping', 'at' => '2026-09-23T10:02:00+00:00']));
         self::assertResponseStatusCodeSame(201);
@@ -387,7 +381,6 @@ final class WorkerRunStatesApiTest extends WebTestCase
 
         $run = $this->onlyRun();
         self::assertSame(WorkerRunState::Stopped, $run->state);
-        self::assertSame('bridge.command', $run->triggerEventType);
         self::assertSame('2026-09-23T10:02:30+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
         self::assertSame('stopped halfway', $run->output);
         self::assertNull($run->exitCode);
@@ -433,7 +426,6 @@ final class WorkerRunStatesApiTest extends WebTestCase
         $run = $this->onlyRun();
         self::assertSame(WorkerRunState::Stopped, $run->state);
         self::assertNull($run->startedAt);
-        self::assertNull($run->triggerEventType);
         self::assertSame('2026-09-23T10:01:00+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
     }
 
@@ -527,7 +519,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         $project = $this->project($em, $owner, 'Run States Command');
         $raw = $this->agentToken($client, $owner);
         $path = $this->path($project->id, (string) Uuid::v4());
-        $command = ['kind' => 'command', 'ruleName' => 'sync'];
+        $command = ['kind' => 'command', 'workKind' => 'sync'];
 
         $this->put($client, $path, $raw, $this->payload($command));
         self::assertResponseStatusCodeSame(201);
@@ -688,41 +680,40 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame(WorkerRunState::Running, $this->onlyRun()->state);
     }
 
-    public function test_the_trigger_of_the_first_report_is_stored(): void
+    public function test_the_work_request_of_the_first_report_is_stored(): void
     {
         $client = static::createClient();
         $em = $this->em();
-        $owner = $this->user($em, 'run-states-trigger@example.com');
-        $project = $this->project($em, $owner, 'Run States Trigger');
+        $owner = $this->user($em, 'run-states-work@example.com');
+        $project = $this->project($em, $owner, 'Run States Work');
         $raw = $this->agentToken($client, $owner);
+        $workRequestId = (string) Uuid::v7();
 
-        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['trigger' => self::trigger()]));
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['workRequestId' => $workRequestId, 'workKind' => 'fix', 'ruleId' => 'fix-on-red']));
 
         self::assertResponseStatusCodeSame(201);
         $run = $this->onlyRun();
-        self::assertSame('pull_request.fix_requested', $run->triggerEventType);
-        self::assertSame('github', $run->triggerForge);
-        self::assertSame('owner/repo', $run->triggerRepository);
-        self::assertSame(640, $run->triggerPullRequestNumber);
-        self::assertSame('abc123', $run->triggerHeadSha);
-        self::assertSame('checks-failed', $run->triggerReason);
+        self::assertSame($workRequestId, $run->workRequestId?->toRfc4122());
+        self::assertSame('fix', $run->workKind);
+        self::assertSame('fix-on-red', $run->ruleId);
     }
 
-    public function test_a_trigger_with_the_event_type_alone_is_stored(): void
+    /** A run of an old bridge rule names no work request. */
+    public function test_a_report_with_no_work_fields_is_accepted(): void
     {
         $client = static::createClient();
         $em = $this->em();
-        $owner = $this->user($em, 'run-states-trigger-type@example.com');
-        $project = $this->project($em, $owner, 'Run States Trigger Type');
+        $owner = $this->user($em, 'run-states-no-work@example.com');
+        $project = $this->project($em, $owner, 'Run States No Work');
         $raw = $this->agentToken($client, $owner);
 
-        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['trigger' => ['eventType' => 'card.moved']]));
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['workKind' => null]));
 
         self::assertResponseStatusCodeSame(201);
         $run = $this->onlyRun();
-        self::assertSame('card.moved', $run->triggerEventType);
-        self::assertNull($run->triggerForge);
-        self::assertNull($run->triggerPullRequestNumber);
+        self::assertNull($run->workRequestId);
+        self::assertNull($run->workKind);
+        self::assertNull($run->ruleId);
     }
 
     /** A newer bridge can send a field this server does not know. */
@@ -736,11 +727,11 @@ final class WorkerRunStatesApiTest extends WebTestCase
 
         $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
             'futureField' => ['any' => 'shape'],
-            'trigger' => array_merge(self::trigger(), ['futureField' => 'x']),
+            'trigger' => ['eventType' => 'pull_request.fix_requested'],
         ]));
 
         self::assertResponseStatusCodeSame(201);
-        self::assertSame('pull_request.fix_requested', $this->onlyRun()->triggerEventType);
+        self::assertSame('plan', $this->onlyRun()->workKind);
     }
 
     public function test_another_users_project_answers_project_not_found(): void
@@ -820,7 +811,12 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a missing moment' => [['at' => null]];
         yield 'a bridge id that is not a uuid' => [['bridgeId' => 'nope']];
         yield 'a card number of zero' => [['cardNumber' => 0]];
-        yield 'a blank rule name' => [['ruleName' => ' ']];
+        yield 'a blank work kind' => [['workKind' => ' ']];
+        yield 'a work kind with a colon' => [['workKind' => 'work:fix']];
+        yield 'a work kind above the limit' => [['workKind' => 'a'.str_repeat('b', 40)]];
+        yield 'a work request id that is not a uuid' => [['workRequestId' => 'nope']];
+        yield 'a blank rule id' => [['ruleId' => '']];
+        yield 'a rule id with a space' => [['ruleId' => 'not a rule']];
         yield 'running with no session' => [['state' => 'running', 'startedAt' => '2026-09-23T10:00:00+00:00']];
         yield 'a worker kind running with no session' => [['kind' => 'worker', 'state' => 'running', 'startedAt' => '2026-09-23T10:00:00+00:00']];
         yield 'an interactive kind, which a bridge never reports' => [['kind' => 'interactive']];
@@ -859,38 +855,13 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a result reason with capitals' => [array_merge($result, ['state' => 'succeeded', 'resultReason' => 'Stacked'])];
         yield 'a result reason with a newline' => [array_merge($result, ['state' => 'succeeded', 'resultReason' => "stacked\n"])];
         yield 'a continued run that is not a uuid' => [['continues' => 'nope']];
-        yield 'a negative resume index' => [['resumeIndex' => -1]];
-        yield 'a negative resume cap' => [['resumeCap' => -1]];
-        yield 'a resume cap above the column' => [['resumeCap' => 32768]];
         yield 'a skip reason above the limit' => [array_merge($outcome, ['state' => 'succeeded', 'resumeSkipped' => str_repeat('x', 51)])];
         yield 'a drop reason the bridge does not send' => [['state' => 'dropped', 'reason' => 'bored']];
         yield 'a replacement that is not a uuid' => [['state' => 'replaced', 'replacedBy' => 'nope']];
         yield 'a chain cap of zero' => [['state' => 'waiting-for-person', 'maxChain' => 0]];
-        foreach (self::invalidTriggers() as $name => $trigger) {
-            yield $name => [['trigger' => $trigger]];
-        }
         foreach (self::invalidUsage() as $name => $usage) {
             yield $name => [array_merge($result, ['state' => 'succeeded', 'usage' => $usage])];
         }
-    }
-
-    /** @return iterable<string, array<string, mixed>> */
-    public static function invalidTriggers(): iterable
-    {
-        $trigger = self::trigger();
-
-        yield 'a trigger with no event type' => array_diff_key($trigger, ['eventType' => true]);
-        yield 'a trigger with a blank event type' => array_merge($trigger, ['eventType' => '']);
-        yield 'a trigger event type with no dot' => array_merge($trigger, ['eventType' => 'fix']);
-        yield 'a trigger event type with capitals' => array_merge($trigger, ['eventType' => 'Pull_Request.Fix']);
-        yield 'a trigger event type with a trailing newline' => array_merge($trigger, ['eventType' => "pull_request.fix_requested\n"]);
-        yield 'a trigger event type above the limit' => array_merge($trigger, ['eventType' => 'a.'.str_repeat('b', 99)]);
-        yield 'a trigger forge above the limit' => array_merge($trigger, ['forge' => str_repeat('f', 51)]);
-        yield 'a trigger repository above the limit' => array_merge($trigger, ['repository' => str_repeat('r', 256)]);
-        yield 'a trigger pull request number of zero' => array_merge($trigger, ['pullRequestNumber' => 0]);
-        yield 'a trigger pull request number as text' => array_merge($trigger, ['pullRequestNumber' => 'many']);
-        yield 'a trigger head above the limit' => array_merge($trigger, ['headSha' => str_repeat('a', 65)]);
-        yield 'a trigger reason above the limit' => array_merge($trigger, ['reason' => str_repeat('x', 101)]);
     }
 
     /** @return iterable<string, array<string, mixed>> */
@@ -983,19 +954,6 @@ final class WorkerRunStatesApiTest extends WebTestCase
     }
 
     /** @return array<string, mixed> */
-    private static function trigger(): array
-    {
-        return [
-            'eventType' => 'pull_request.fix_requested',
-            'forge' => 'github',
-            'repository' => 'owner/repo',
-            'pullRequestNumber' => 640,
-            'headSha' => 'abc123',
-            'reason' => 'checks-failed',
-        ];
-    }
-
-    /** @return array<string, mixed> */
     private static function outcome(): array
     {
         return [
@@ -1028,7 +986,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
             'at' => '2026-09-23T10:00:00+00:00',
             'cardId' => '0199a0e2-b1f3-7a44-9c11-2d3e4f506172',
             'cardNumber' => 1,
-            'ruleName' => 'plan',
+            'workKind' => 'plan',
         ], $overrides);
     }
 

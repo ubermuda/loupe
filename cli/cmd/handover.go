@@ -35,7 +35,6 @@ type handoverState struct {
 	Format   int                         `json:"format"`
 	Queue    []handoverPending           `json:"queue"`
 	Running  map[string]bool             `json:"running"`
-	Chains   map[string]map[string]int   `json:"chains"`
 	Sessions map[string]handoverSession  `json:"sessions"`
 	Held     map[string]api.InventoryRun `json:"held"`
 	Holds    []string                    `json:"holds,omitempty"`
@@ -74,7 +73,6 @@ type handoverPending struct {
 	Key        string      `json:"key"`
 	RunID      string      `json:"runId"`
 	Seq        uint64      `json:"seq"`
-	Checked    bool        `json:"checked,omitempty"`
 	DropReason string      `json:"dropReason,omitempty"`
 	Fresh      bool        `json:"fresh,omitempty"`
 	handoverSeries
@@ -83,31 +81,29 @@ type handoverPending struct {
 	Pool      string `json:"pool,omitempty"`
 	// Action is the action of the rule, and empty for a worker.
 	Action string `json:"action,omitempty"`
-	// Work is the work request of a queued offer.
-	Work *api.WorkRequest `json:"work,omitempty"`
+	// Work is the work request of a queued offer, and Origin the work of the
+	// run a person's resume or rerun continues.
+	Work   *api.WorkRequest `json:"work,omitempty"`
+	Origin *api.WorkRequest `json:"origin,omitempty"`
 }
 
-// handoverSeries is where a run stands in its series of resumes.
+// handoverSeries names the run that a person's resume or rerun continues.
 type handoverSeries struct {
-	Continues   string `json:"continues,omitempty"`
-	ResumeIndex int    `json:"resumeIndex,omitempty"`
-	MaxResumes  int    `json:"maxResumes,omitempty"`
-	Column      string `json:"column,omitempty"`
+	Continues string `json:"continues,omitempty"`
 }
 
 func seriesOf(p pending) handoverSeries {
-	return handoverSeries{Continues: p.continues, ResumeIndex: p.resumeIndex, MaxResumes: p.maxResumes, Column: p.column}
+	return handoverSeries{Continues: p.continues}
 }
 
 func (s handoverSeries) applyTo(p *pending) {
-	p.continues, p.resumeIndex, p.maxResumes, p.column = s.Continues, s.ResumeIndex, s.MaxResumes, s.Column
+	p.continues = s.Continues
 }
 
 type handoverSession struct {
 	Key        string `json:"key"`
 	CardID     string `json:"cardId,omitempty"`
 	CardNumber int    `json:"cardNumber,omitempty"`
-	Column     string `json:"column,omitempty"`
 }
 
 // handoverRun is a worker in flight, with what its report needs.
@@ -138,9 +134,11 @@ type handoverRun struct {
 	PermissionMode string `json:"permissionMode,omitempty"`
 	Model          string `json:"model,omitempty"`
 	Schema         string `json:"schema,omitempty"`
-	// Work is the work request of the run, and ClaimToken its claim.
+	// Work is the work request of the run, and ClaimToken its claim. Origin
+	// is the work of the run a person's resume or rerun continues.
 	Work       *api.WorkRequest `json:"work,omitempty"`
 	ClaimToken string           `json:"claimToken,omitempty"`
+	Origin     *api.WorkRequest `json:"origin,omitempty"`
 }
 
 // phaseBefore is the phase of a run whose before command runs, and
@@ -279,29 +277,29 @@ func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 	tick := time.NewTicker(20 * time.Millisecond)
 	defer tick.Stop()
 	for {
-		reports, checks, gates, starting, launches, stops, commands := r.inFlight()
-		if reports == 0 && checks == 0 && gates == 0 && starting == 0 && launches == 0 && stops == 0 && commands == 0 {
+		reports, starting, launches, stops, commands := r.inFlight()
+		if reports == 0 && starting == 0 && launches == 0 && stops == 0 && commands == 0 {
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-deadline.C:
-			return fmt.Errorf("after %s the bridge still holds %d run reports, %d ask checks, %d resume gates, %d starting workers, %d launches, %d stops and %d commands", timeout, reports, checks, gates, starting, launches, stops, commands)
+			return fmt.Errorf("after %s the bridge still holds %d run reports, %d starting workers, %d launches, %d stops and %d commands", timeout, reports, starting, launches, stops, commands)
 		case <-tick.C:
 		}
 	}
 }
 
-func (r *router) inFlight() (reports, checks, gates, starting, launches, stops, commands int) {
+func (r *router) inFlight() (reports, starting, launches, stops, commands int) {
 	r.mu.Lock()
-	checks, gates, starting, launches, stops, commands = r.checking, r.gating, r.usedLocked()+r.commandRuns-len(r.live), r.launching, len(r.stops), r.commanding
+	starting, launches, stops, commands = r.usedLocked()+r.commandRuns-len(r.live), r.launching, len(r.stops), r.commanding
 	r.mu.Unlock()
 	if r.reports != nil {
 		reports = r.reports.Pending()
 	}
 
-	return reports, checks, gates, starting, launches, stops, commands
+	return reports, starting, launches, stops, commands
 }
 
 // freeze takes the routing state for the next image, and holds back what
@@ -328,27 +326,21 @@ func (r *router) freeze() handoverState {
 		RecentIDs:    slices.Clone(r.recent),
 		Seq:          r.seq,
 	}
-	if r.chains != nil {
-		st.Chains = make(map[string]map[string]int, len(r.chains))
-		for key, counts := range r.chains {
-			st.Chains[key] = maps.Clone(counts)
-		}
-	}
 	if r.sessions != nil {
 		st.Sessions = make(map[string]handoverSession, len(r.sessions))
 		for id, s := range r.sessions {
-			st.Sessions[id] = handoverSession{Key: s.key, CardID: s.id, CardNumber: s.number, Column: s.column}
+			st.Sessions[id] = handoverSession{Key: s.key, CardID: s.id, CardNumber: s.number}
 		}
 	}
 	for _, p := range r.queue {
 		q := handoverPending{
-			Event: p.event, Rule: p.rule, Key: p.key, RunID: p.runID, Seq: p.seq, Checked: p.checked, DropReason: p.dropReason, Fresh: p.fresh,
+			Event: p.event, Rule: p.rule, Key: p.key, RunID: p.runID, Seq: p.seq, DropReason: p.dropReason, Fresh: p.fresh,
 			Pool: p.pool, handoverSeries: seriesOf(p), Action: p.action,
 		}
 		if p.continues != "" {
 			q.SessionID, q.Prompt = p.spec.sessionID, p.spec.prompt
 		}
-		q.Work = workOf(p)
+		q.Work, q.Origin = workOf(p), originOf(p)
 		st.Queue = append(st.Queue, q)
 	}
 	for _, run := range r.live {
@@ -356,7 +348,7 @@ func (r *router) freeze() handoverState {
 			RunID: run.p.runID, Key: run.p.key, Rule: run.p.rule, Event: run.p.event, SessionID: run.p.spec.sessionID,
 			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, Resume: run.p.spec.resume, Fresh: run.p.fresh,
 			Pool: run.p.slot, handoverSeries: seriesOf(run.p), runPin: run.p.pin,
-			Work: workOf(run.p), ClaimToken: run.p.claimToken,
+			Work: workOf(run.p), ClaimToken: run.p.claimToken, Origin: originOf(run.p),
 		}
 		switch {
 		case run.p.isCommand():
@@ -388,13 +380,22 @@ func workOf(p pending) *api.WorkRequest {
 	return &w
 }
 
+// originOf is the work a run of a person's command continues, for a handover.
+func originOf(p pending) *api.WorkRequest {
+	if !p.followsWork() {
+		return nil
+	}
+	w := p.origin
+
+	return &w
+}
+
 // adopt takes the state a former image froze, on a router that has not
 // subscribed yet. The queue matches again against this image's rule set, and
 // each live run gets a wait that reports it as a finished worker would be.
 func (r *router) adopt(st handoverState) {
 	r.mu.Lock()
 	r.running = maps.Clone(st.Running)
-	r.chains = st.Chains
 	r.held = maps.Clone(st.Held)
 	for _, id := range st.Holds {
 		r.holdCardLocked(id)
@@ -410,7 +411,7 @@ func (r *router) adopt(st handoverState) {
 	if st.Sessions != nil {
 		r.sessions = make(map[string]sessionCard, len(st.Sessions))
 		for id, s := range st.Sessions {
-			r.sessions[id] = sessionCard{key: s.Key, id: s.CardID, number: s.CardNumber, column: s.Column}
+			r.sessions[id] = sessionCard{key: s.Key, id: s.CardID, number: s.CardNumber}
 		}
 	}
 	for _, c := range st.WorkClaims {
@@ -422,11 +423,14 @@ func (r *router) adopt(st handoverState) {
 	r.noteClaimsLocked()
 	for _, q := range st.Queue {
 		p := pending{
-			key: q.Key, rule: q.Rule, event: q.Event, runID: q.RunID, seq: q.Seq, checked: q.Checked, dropReason: q.DropReason, fresh: q.Fresh,
+			key: q.Key, rule: q.Rule, event: q.Event, runID: q.RunID, seq: q.Seq, dropReason: q.DropReason, fresh: q.Fresh,
 			pool: q.Pool, action: q.Action,
 		}
 		if q.Work != nil {
 			p.work = *q.Work
+		}
+		if q.Origin != nil {
+			p.origin = *q.Origin
 		}
 		q.applyTo(&p)
 		if p.continues != "" {
@@ -451,6 +455,9 @@ func (r *router) adoptLocked(run handoverRun) {
 	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh, pin: run.runPin, claimToken: run.ClaimToken}
 	if run.Work != nil {
 		p.work = *run.Work
+	}
+	if run.Origin != nil {
+		p.origin = *run.Origin
 	}
 	run.applyTo(&p)
 	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume

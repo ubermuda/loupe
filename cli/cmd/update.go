@@ -43,7 +43,7 @@ func readServerRange(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	events, err := apiClient(cfg).Events(ctx)
+	events, err := apiClient(cfg).Events(ctx, cfg.BridgeID)
 	if err != nil {
 		return "", err
 	}

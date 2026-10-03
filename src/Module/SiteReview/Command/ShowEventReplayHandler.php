@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
+use App\Module\Bridge\Service\BridgeUpgradeRequired;
+use App\Module\Bridge\Service\EventStreamGate;
+use App\Outbox\AgentPush;
 use App\Outbox\Repository\OutboxEventRepository;
 
 final readonly class ShowEventReplayHandler
@@ -21,17 +24,22 @@ final readonly class ShowEventReplayHandler
 
     public function __construct(
         private OutboxEventRepository $outboxEvents,
+        private EventStreamGate $gate,
     ) {
     }
 
+    /** @throws BridgeUpgradeRequired */
     public function __invoke(ShowEventReplayCommand $command): ShowEventReplayView
     {
-        $newer = $this->outboxEvents->findOwnedAbove($command->user, $command->after, self::PAGE_SIZE + 1);
+        $this->gate->admit($command->user, $command->bridgeId);
+
+        $newer = $this->outboxEvents->findOwnedAbove($command->user, AgentPush::BRIDGE_TYPES, $command->after, self::PAGE_SIZE + 1);
         $hasMore = \count($newer) > self::PAGE_SIZE;
 
         $anchor = $this->outboxEvents->createdAtOfHighestAtOrBelow($command->after);
         $overlap = null === $anchor ? [] : $this->outboxEvents->findOwnedAtOrBelowSince(
             $command->user,
+            AgentPush::BRIDGE_TYPES,
             $command->after,
             $anchor->modify(self::OVERLAP_WINDOW),
             self::OVERLAP_LIMIT,

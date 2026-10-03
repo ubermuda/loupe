@@ -8,9 +8,6 @@
 <dialog data-modal-target="dialog" class="lp-dialog">
     <h3 class="lp-dialog-title">{{ 'board.column.delete.title'|trans({'%label%': column.label|trans}) }}</h3>
     <p class="lp-dialog-desc">{{ 'board.column.delete.cards'|trans({'%count%': cardCount}) }}</p>
-    {% if column.slug in board.watchedColumnSlugs %}
-    <p class="lp-board__rule-warning">{{ 'board.column.delete.bridge_rule_warning'|trans }}</p>
-    {% endif %}
     {{ form_start(deleteForm, {action: path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}), attr: {class: 'lp-form'}}) }}
         {% if cardCount > 0 %}
         <div class="lp-form-field">

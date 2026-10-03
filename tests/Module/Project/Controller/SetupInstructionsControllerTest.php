@@ -43,6 +43,8 @@ final class SetupInstructionsControllerTest extends WebTestCase
         self::assertLessThan(strpos($body, '## 10. Finish'), strpos($body, '## 9. Worker folders'));
         self::assertStringContainsString('before:', $body);
         self::assertStringContainsString('action: command', $body);
+        self::assertStringContainsString("work:\n  implement:", $body);
+        self::assertStringNotContainsString('on: board.card_moved', $body);
         self::assertStringContainsString('Go to step 8.', $body);
     }
 

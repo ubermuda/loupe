@@ -20,7 +20,7 @@ use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 
-/** Moves a card to the column of a slot, of the backlog, or of the first terminal column. */
+/** Moves a card to the column of a slot, of the backlog, or of the first terminal column, and only from the slot `from` names. */
 final readonly class MoveCard implements Action
 {
     public function __construct(
@@ -39,6 +39,10 @@ final readonly class MoveCard implements Action
     #[\Override]
     public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
     {
+        $from = ActionParams::optionalString($rule, 'from');
+        if (null !== $from && $from !== $facts->card->slot) {
+            return ActionOutcome::done();
+        }
         $target = $this->column($card, ActionParams::string($rule, 'to'));
         if (null === $target) {
             return ActionOutcome::refused('workflow-slot-missing');

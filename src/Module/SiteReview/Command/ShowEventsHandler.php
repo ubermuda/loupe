@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Command;
 
 use App\Mercure\UserTopicBuilder;
+use App\Module\Bridge\Service\BridgeUpgradeRequired;
+use App\Module\Bridge\Service\EventStreamGate;
 use App\Module\Bridge\Service\HeartbeatInterval;
 use App\Module\Bridge\Service\StopLadder;
 use App\Module\Project\Repository\ProjectRepository;
@@ -31,6 +33,7 @@ final readonly class ShowEventsHandler
         private FeatureFlagService $featureFlags,
         private HeartbeatInterval $heartbeatInterval,
         private StopLadder $stopLadder,
+        private EventStreamGate $gate,
 
         /**
          * A closure, because the factory reads MERCURE_JWT_SECRET, which an
@@ -48,8 +51,11 @@ final readonly class ShowEventsHandler
     ) {
     }
 
+    /** @throws BridgeUpgradeRequired */
     public function __invoke(ShowEventsCommand $command): ShowEventsView
     {
+        $this->gate->admit($command->user, $command->bridgeId);
+
         // The JWT names the caller's own topic only, so no other user's events reach it.
         $topic = $this->userTopics->forUser($command->user->id ?? throw new \LogicException('User has no id.'));
 

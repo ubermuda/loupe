@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Entity;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
+use App\Module\Bridge\ValueObject\BridgeCommandCause;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Project\Entity\Project;
@@ -15,9 +16,9 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * A request from a person to one bridge about one of its worker runs. The
- * outbox carries it to the bridge, and the heartbeat reply carries it again
- * until the bridge settles it or it expires.
+ * A request from a person or from Loupe to one bridge about one of its worker
+ * runs. The outbox carries it to the bridge, and the heartbeat reply carries it
+ * again until the bridge settles it or it expires.
  */
 #[ORM\Entity(repositoryClass: BridgeCommandRepository::class)]
 // The heartbeat reply reads the pending commands of one bridge.
@@ -79,6 +80,9 @@ class BridgeCommand
         /** The reason the person gave, until the bridge settles the command with a reason of its own. */
         #[ORM\Column(name: 'reason', type: Types::TEXT, nullable: true)]
         public ?string $reason = null,
+
+        #[ORM\Column(name: 'cause', length: 20, enumType: BridgeCommandCause::class, options: ['default' => 'person'])]
+        public BridgeCommandCause $cause = BridgeCommandCause::Person,
     ) {
     }
 

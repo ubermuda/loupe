@@ -6,7 +6,6 @@ namespace App\Tests\Module\Workflow\Scheduler;
 
 use App\Module\Bridge\Entity\CardHold;
 use App\Module\Workflow\Command\SweepWorkflowCardsHandler;
-use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Scheduler\SweepWorkflowCardsTask;
@@ -44,7 +43,7 @@ final class SweepWorkflowCardsTaskTest extends KernelTestCase
         $this->transport()->reset();
         $logger = new RecordingLogger();
 
-        $this->task(true, $logger)();
+        $this->task($logger)();
 
         $sent = $this->sent();
         self::assertContains((string) $open->id, $sent);
@@ -58,32 +57,13 @@ final class SweepWorkflowCardsTaskTest extends KernelTestCase
         self::assertIsInt($logger->records[0]['context']['durationMs']);
     }
 
-    public function test_the_switch_off_queues_and_logs_nothing(): void
+    private function task(RecordingLogger $logger): SweepWorkflowCardsTask
     {
-        self::bootKernel();
-        $bound = $this->workflowProject('sweep-off');
-        $this->bindLifecycle($bound);
-        $this->card($bound, 'next');
-        $this->transport()->reset();
-        $logger = new RecordingLogger();
-
-        $this->task(false, $logger)();
-
-        self::assertSame([], $this->sent());
-        self::assertSame([], $logger->records);
-    }
-
-    private function task(bool $on, RecordingLogger $logger): SweepWorkflowCardsTask
-    {
-        $switch = new EngineSwitch($on);
-
         return new SweepWorkflowCardsTask(
             new SweepWorkflowCardsHandler(
-                $switch,
                 $this->service(WorkflowBindingRepository::class),
-                new EvaluationTrigger($this->service(MessageBusInterface::class), $switch),
+                new EvaluationTrigger($this->service(MessageBusInterface::class)),
             ),
-            $switch,
             $logger,
         );
     }

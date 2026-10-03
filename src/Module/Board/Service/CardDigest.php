@@ -26,8 +26,6 @@ final readonly class CardDigest
         ?CardRunWarning $runWarning,
         array $badges,
     ): string {
-        $warning = null !== $runWarning && $runWarning->appliesTo($card->column->slug) ? $runWarning : null;
-
         return substr(sha1(json_encode([
             $card->number,
             $card->title,
@@ -40,8 +38,8 @@ final readonly class CardDigest
             $card->parent?->title,
             $progress?->done,
             $progress?->total,
-            $warning?->runId,
-            $warning?->state->value,
+            $runWarning?->runId,
+            $runWarning?->state->value,
             array_map(static fn (CardBadge $badge): string => $badge->value, $badges),
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }

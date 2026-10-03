@@ -38,6 +38,9 @@ type WorkRequest struct {
 	CardNumber    int                `json:"cardNumber"`
 	RuleID        string             `json:"ruleId"`
 	CreatedAt     time.Time          `json:"createdAt"`
+	// ResumeSessionID is the session of an unfinished run of the card and
+	// kind, which the run of this request resumes. A null decodes as "".
+	ResumeSessionID string `json:"resumeSessionId,omitempty"`
 }
 
 // WorkRequestSubject names the work request itself.

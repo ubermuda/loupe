@@ -14,24 +14,18 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
-// commandRunRules starts a worker when a card enters next, and runs a command
-// when it enters done. One slot is free for workers.
+// commandRunRules runs a worker for plan work, and a command for teardown
+// work. One slot is free for workers.
 const commandRunRules = `
 maxWorkers: 1
 projects:
   loupe:
     dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
+work:
+  plan:
     prompt: Card {cardNumber}.
-  - name: teardown
+  teardown:
     action: command
-    on: board.card_moved
-    project: loupe
-    to: done
     run: [teardown, '{cardNumber}']
     timeout: TIMEOUT
 `
@@ -91,8 +85,9 @@ func withCommand(t *testing.T, timeout string) (*harness, *fakeCommand) {
 	return h, f
 }
 
+// doneMoved offers a teardown work request for the card.
 func doneMoved(number int) string {
-	return movedPayload(number, "review", "done", "human")
+	return offerPayload(number, "teardown")
 }
 
 // wantCommandReports checks that every report of the run names the kind
@@ -116,7 +111,7 @@ func wantCommandReports(t *testing.T, sent []stateSent) {
 	}
 }
 
-// A command rule runs its command in the project dir under the run's id. The
+// A command entry runs its command in the project dir under the run's id. The
 // run reports queued, running with a start, and succeeded with the output,
 // starts no claude and takes no worker slot.
 func TestACommandRuleRunsItsCommand(t *testing.T) {
@@ -169,7 +164,7 @@ func TestAFailedCommandReportsItsExitCode(t *testing.T) {
 	h.only(t, "command_failed")
 }
 
-// The rule's timeout ends a command that runs too long, with exit code -1.
+// The entry's timeout ends a command that runs too long, with exit code -1.
 func TestACommandThatRunsPastItsTimeoutFails(t *testing.T) {
 	h, f := withCommand(t, "20ms")
 	rec := h.states()
@@ -243,39 +238,6 @@ func TestACommandDoesNotWaitForAWorkerSlot(t *testing.T) {
 	}
 	close(h.worker.block)
 	h.router.wg.Wait()
-}
-
-// An agent's move that runs a command never counts toward the chain cap.
-func TestACommandRunCountsNoChain(t *testing.T) {
-	h, f := withCommand(t, "1m")
-
-	for range 5 {
-		h.send(movedPayload(87, "review", "done", "agent"))
-	}
-
-	h.router.mu.Lock()
-	chains := len(h.router.chains)
-	h.router.mu.Unlock()
-	if len(f.recorded()) != 5 || chains != 0 {
-		t.Fatalf("commands = %d, chains = %d", len(f.recorded()), chains)
-	}
-}
-
-// A chain count that a worker rule of the same name left before a reload
-// never refuses a command.
-func TestACommandIgnoresAChainCountLeftByAWorkerRule(t *testing.T) {
-	h, f := withCommand(t, "1m")
-	h.router.mu.Lock()
-	h.router.chains = map[string]map[string]int{cardUUID(87): {"teardown": 99}}
-	h.router.mu.Unlock()
-	rec := h.states()
-
-	h.send(movedPayload(87, "review", "done", "agent"))
-
-	wantStates(t, rec.states(), api.RunQueued, api.RunRunning, api.RunSucceeded)
-	if len(f.recorded()) != 1 {
-		t.Fatalf("commands = %d, want 1", len(f.recorded()))
-	}
 }
 
 // A person's stop reaches the process group of the command, and the run

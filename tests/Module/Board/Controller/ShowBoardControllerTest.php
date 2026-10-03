@@ -469,7 +469,7 @@ final class ShowBoardControllerTest extends WebTestCase
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), CardType::Epic);
         $epic->laneEnabled = false;
         $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next'));
-        $this->workerRun($em, $project, $epic, WorkerRunState::GaveUp, 'in-progress', 'Gave up.');
+        $this->workerRun($em, $project, $epic, WorkerRunState::GaveUp, 'Gave up.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -639,8 +639,8 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame(['selects' => $reads['three-cards']['selects'], 'pauses' => 1, 'holds' => 1], $reads['twelve-cards']);
     }
 
-    /** The warning holds while the card stays in the column that started the run, or when the run names none. */
-    public function test_a_card_shows_the_run_that_gave_up_until_it_leaves_the_column(): void
+    /** The warning holds wherever the card goes, until a later outcome replaces it. */
+    public function test_a_card_shows_the_run_that_gave_up_in_any_column(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -652,10 +652,10 @@ final class ShowBoardControllerTest extends WebTestCase
         $moved = $this->card($em, $project, 'Moved', 'next');
         $unnamed = $this->card($em, $project, 'Unnamed', 'next');
         $quiet = $this->card($em, $project, 'Quiet', 'next');
-        $gaveUp = $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'in-progress', 'Tests <em>still</em> fail.');
-        $this->workerRun($em, $project, $moved, WorkerRunState::GaveUp, 'in-progress', 'Moved away.');
-        $blocked = $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, null, 'Needs a token.');
-        $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'next', 'Done.');
+        $gaveUp = $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'Tests <em>still</em> fail.');
+        $this->workerRun($em, $project, $moved, WorkerRunState::GaveUp, 'Moved away.');
+        $blocked = $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, 'Needs a token.');
+        $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'Done.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -673,7 +673,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertStringContainsString('Tests &lt;em&gt;still&lt;/em&gt; fail.', (string) $client->getResponse()->getContent());
 
         self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
-        self::assertCount(0, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
 
         $list = $this->listOf($client, $project);
@@ -697,8 +697,8 @@ final class ShowBoardControllerTest extends WebTestCase
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'in-progress'));
         $loose = $this->card($em, $project, 'Loose', 'in-progress');
-        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'in-progress', 'Child gave up.');
-        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'in-progress', 'Loose is blocked.');
+        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'Child gave up.');
+        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'Loose is blocked.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -746,10 +746,10 @@ final class ShowBoardControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'ordered');
         $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
         $warned = $this->card($em, $project, 'Warned', 'in-progress');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
-        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
-        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'Done.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'Gave up.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'Gave up.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'Done.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
         $em->clear();
 
         $client->loginUser($owner);
@@ -771,10 +771,10 @@ final class ShowBoardControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'clocks');
         $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
         $warned = $this->card($em, $project, 'Warned', 'in-progress');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
-        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
-        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'Gave up.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'Done.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'Done.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'Gave up.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
         $em->clear();
 
         $client->loginUser($owner);
@@ -785,14 +785,14 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
     }
 
-    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, ?string $column, string $output, string $receivedAt = 'now', string $endedAt = 'now', string $closedAt = 'now'): WorkerRun
+    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, string $output, string $receivedAt = 'now', string $endedAt = 'now', string $closedAt = 'now'): WorkerRun
     {
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
             cardId: $card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $card->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: $state,
             runKey: Uuid::v7(),
             endedAt: new \DateTimeImmutable($endedAt),
@@ -800,7 +800,6 @@ final class ShowBoardControllerTest extends WebTestCase
             hasResult: true,
             output: $output,
             receivedAt: new \DateTimeImmutable($receivedAt),
-            cardColumn: $column,
         );
         $em->persist($run);
         $em->persist(new WorkerRunStateChange($run, $state, new \DateTimeImmutable($endedAt), new \DateTimeImmutable($closedAt)));

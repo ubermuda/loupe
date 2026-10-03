@@ -54,22 +54,22 @@ final class ShowWorkerRunCostHandlerTest extends KernelTestCase
         $this->third = new FinishedCard(Uuid::v7(), 3, 'Third', new \DateTimeImmutable('2026-09-20 10:00:00'));
         $this->noUsage = new FinishedCard(Uuid::v7(), 4, 'No usage', new \DateTimeImmutable('2026-09-21 10:00:00'));
 
-        $this->seedUsage($em, $this->seedRun($em, $this->project, ruleName: 'plan', cardId: $this->first->id), model: 'claude-opus-5-5', costUsd: '1.000000');
-        $this->seedUsage($em, $this->seedRun($em, $this->project, ruleName: 'build', cardId: $this->first->id), model: 'claude-sonnet-5', costUsd: '0.500000');
+        $this->seedUsage($em, $this->seedRun($em, $this->project, workKind: 'plan', cardId: $this->first->id), model: 'claude-opus-5-5', costUsd: '1.000000');
+        $this->seedUsage($em, $this->seedRun($em, $this->project, workKind: 'build', cardId: $this->first->id), model: 'claude-sonnet-5', costUsd: '0.500000');
         // Started, closed, and reported nothing.
-        $this->seedRun($em, $this->project, ruleName: 'build', cardId: $this->first->id);
+        $this->seedRun($em, $this->project, workKind: 'build', cardId: $this->first->id);
         // Still running, so it is not partial yet.
-        $this->seedRun($em, $this->project, ruleName: 'build', cardId: $this->first->id, state: WorkerRunState::Running);
-        $this->seedRun($em, $this->project, ruleName: 'plan', cardId: $this->first->id, kind: WorkerRunKind::Interactive);
+        $this->seedRun($em, $this->project, workKind: 'build', cardId: $this->first->id, state: WorkerRunState::Running);
+        $this->seedRun($em, $this->project, workKind: 'plan', cardId: $this->first->id, kind: WorkerRunKind::Interactive);
 
-        $this->seedUsage($em, $this->seedRun($em, $this->project, ruleName: 'build', cardId: $this->second->id), model: 'claude-sonnet-5', source: WorkerRunUsageSource::Estimated, costUsd: '0.250000');
+        $this->seedUsage($em, $this->seedRun($em, $this->project, workKind: 'build', cardId: $this->second->id), model: 'claude-sonnet-5', source: WorkerRunUsageSource::Estimated, costUsd: '0.250000');
 
-        $this->seedUsage($em, $this->seedRun($em, $this->project, ruleName: 'plan', cardId: $this->third->id), model: 'claude-opus-5-5', costUsd: '2.000000');
-        $this->seedUsage($em, $this->seedRun($em, $this->project, ruleName: 'plan', cardId: $this->third->id), model: 'unpriced-model', costUsd: null);
+        $this->seedUsage($em, $this->seedRun($em, $this->project, workKind: 'plan', cardId: $this->third->id), model: 'claude-opus-5-5', costUsd: '2.000000');
+        $this->seedUsage($em, $this->seedRun($em, $this->project, workKind: 'plan', cardId: $this->third->id), model: 'unpriced-model', costUsd: null);
 
-        $this->seedRun($em, $this->project, ruleName: 'plan', cardId: $this->noUsage->id);
+        $this->seedRun($em, $this->project, workKind: 'plan', cardId: $this->noUsage->id);
         // Another project's spend on the same card id stays out.
-        $this->seedUsage($em, $this->seedRun($em, $other, ruleName: 'plan', cardId: $this->first->id), costUsd: '9.000000');
+        $this->seedUsage($em, $this->seedRun($em, $other, workKind: 'plan', cardId: $this->first->id), costUsd: '9.000000');
     }
 
     public function test_it_sums_the_usage_of_each_finished_card_with_usage(): void

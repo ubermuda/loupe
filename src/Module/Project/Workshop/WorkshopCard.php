@@ -17,7 +17,7 @@ final readonly class WorkshopCard
         public string $stateLabel,
         /** The .lp-status-chip modifier of the open run's state. */
         public string $stateTone,
-        /** The rule name of a worker run, blank when the rule has none. Null for an interactive session. */
+        /** The work kind of a worker run. Null for an interactive session, or for a run of an old bridge rule. */
         public ?string $kind,
         /** When the open run started, or when it began to wait for a start. */
         public \DateTimeImmutable $since,

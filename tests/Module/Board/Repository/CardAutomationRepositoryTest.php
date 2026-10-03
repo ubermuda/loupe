@@ -36,7 +36,7 @@ final class CardAutomationRepositoryTest extends KernelTestCase
         $this->automations = $automations;
     }
 
-    public function test_find_or_create_for_update_creates_a_row_with_no_rounds(): void
+    public function test_find_or_create_for_update_creates_an_empty_row(): void
     {
         $card = $this->cardIn($this->makeProject('automation-create'));
         self::assertSame(0, $this->rowCount($card));
@@ -45,8 +45,6 @@ final class CardAutomationRepositoryTest extends KernelTestCase
 
         self::assertSame(1, $this->rowCount($card));
         self::assertSame((string) $card->id, (string) $automation->card->id);
-        self::assertSame(0, $automation->fixRounds);
-        self::assertNull($automation->blockedReason);
         self::assertNull($automation->lastAction);
         self::assertNull($automation->lastActionAt);
     }
@@ -55,19 +53,17 @@ final class CardAutomationRepositoryTest extends KernelTestCase
     {
         $card = $this->cardIn($this->makeProject('automation-reuse'));
         $first = $this->lockedRow($card);
-        $first->fixRounds = 2;
         $first->lastAction = CardAutomationAction::FixRequested;
         $this->em->flush();
 
         $this->em->getConnection()->executeStatement(
-            'UPDATE board_card_automations SET fix_rounds = 5 WHERE card_id = :card',
-            ['card' => (string) $card->id],
+            'UPDATE board_card_automations SET last_action = :action WHERE card_id = :card',
+            ['action' => CardAutomationAction::Synced->value, 'card' => (string) $card->id],
         );
         $second = $this->lockedRow($card);
 
         self::assertSame($first, $second);
-        self::assertSame(5, $second->fixRounds);
-        self::assertSame(CardAutomationAction::FixRequested, $second->lastAction);
+        self::assertSame(CardAutomationAction::Synced, $second->lastAction);
         self::assertSame(1, $this->rowCount($card));
     }
 
@@ -90,13 +86,13 @@ final class CardAutomationRepositoryTest extends KernelTestCase
         $project = $this->makeProject('automation-find');
         $withRow = $this->cardIn($project);
         $withoutRow = $this->cardIn($project);
-        $this->lockedRow($withRow)->fixRounds = 3;
+        $this->lockedRow($withRow)->lastAction = CardAutomationAction::Synced;
         $this->em->flush();
 
         $rows = $this->automations->findByCardIds([$withRow->id ?? throw new \LogicException(), $withoutRow->id ?? throw new \LogicException()]);
 
         self::assertSame([(string) $withRow->id], array_keys($rows));
-        self::assertSame(3, $rows[(string) $withRow->id]->fixRounds);
+        self::assertSame(CardAutomationAction::Synced, $rows[(string) $withRow->id]->lastAction);
         self::assertSame([], $this->automations->findByCardIds([]));
     }
 

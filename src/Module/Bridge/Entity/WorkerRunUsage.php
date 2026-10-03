@@ -46,8 +46,9 @@ class WorkerRunUsage
         #[ORM\Column(name: 'card_id', type: UuidType::NAME)]
         public readonly Uuid $cardId,
 
-        #[ORM\Column(name: 'rule_name', length: WorkerRun::MAX_RULE_NAME_LENGTH)]
-        public readonly string $ruleName,
+        /** The work kind of the run. Null for a run of an old bridge rule. */
+        #[ORM\Column(name: 'work_kind', length: WorkerRun::MAX_WORK_KIND_LENGTH, nullable: true)]
+        public readonly ?string $workKind,
 
         #[ORM\Column(name: 'model', length: self::MAX_MODEL_LENGTH)]
         public readonly string $model,

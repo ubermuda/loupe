@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -57,6 +58,7 @@ trait ActionScenario
             new MockClock('2026-10-02 12:00:00'),
             $this->service(Auditor::class),
             $this->service(WorkRequestAnnouncer::class),
+            $this->service(WorkerRunRepository::class),
         );
     }
 

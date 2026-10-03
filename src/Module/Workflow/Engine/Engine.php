@@ -27,6 +27,7 @@ use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
+use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\TemplateMissing;
@@ -52,6 +53,7 @@ final readonly class Engine
         private FactFingerprint $fingerprint,
         private WorkflowRuleStateRepository $workflowRuleStates,
         private CardHolds $cardHolds,
+        private WorkflowAutomation $automation,
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private WorkRequestRepository $workRequests,
         private WithdrawWorkRequestHandler $withdrawWorkRequest,
@@ -97,6 +99,12 @@ final readonly class Engine
         $card = $this->cards->find($cardId);
         // A held card is unmanaged: settling its requests would cancel or expire them.
         if (null === $card || $this->cardHolds->isHeld($card->project, $cardId)) {
+            return null;
+        }
+        // The mark makes the first pass after the automation is on again quiet.
+        if (!$this->automation->runsFor($card->project)) {
+            $this->workflowPendingBaselines->markCards($card->project->id ?? throw new \LogicException('A persisted project has an id.'), [$cardId]);
+
             return null;
         }
         $baseline = $this->workflowPendingBaselines->consume($cardId);
@@ -154,6 +162,7 @@ final readonly class Engine
 
     /**
      * Cancels the live requests of rules that no longer apply, and expires the open ones no bridge took in time.
+     * An expiry pauses the card, unless the rule expires its work with no pause.
      * A baseline pauses nothing, so it leaves an overdue request to the next pass.
      */
     private function settleWorkRequests(Evaluation $run, Uuid $cardId, bool $expire = true): void
@@ -171,7 +180,9 @@ final readonly class Engine
             if ($expire && WorkRequestState::Open === $request->state && $deadline <= $run->now
                 && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($requestId, WorkRequestState::Expired))) {
                 $withdrawn = true;
-                $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
+                if ('expire' !== ActionParams::optionalString($rule, 'onTimeout')) {
+                    $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
+                }
             }
         }
 
