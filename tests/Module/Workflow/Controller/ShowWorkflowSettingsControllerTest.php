@@ -6,6 +6,7 @@ namespace App\Tests\Module\Workflow\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\AcceptedTerms;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -51,6 +52,7 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
 
     public function test_a_deleted_column_reads_as_not_linked(): void
     {
+        $this->enableBoard();
         $project = $this->workflowProject('workflow-page-deleted');
         $this->bindLifecycle($project);
         $this->em()->remove($this->column($project, 'tech-design'));
@@ -65,6 +67,7 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
 
     public function test_an_unbound_project_says_it_runs_no_template(): void
     {
+        $this->enableBoard();
         $project = $this->workflowProject('workflow-page-unbound');
         $owner = $this->stampedOwner($project);
 
@@ -78,6 +81,7 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
 
     public function test_a_user_outside_the_project_is_refused(): void
     {
+        $this->enableBoard();
         $project = $this->workflowProject('workflow-page-stranger');
         $this->bindLifecycle($project);
         $stranger = new User(fullName: 'Stranger', email: 'workflow-stranger-'.uniqid().'@example.com', password: 'x');
@@ -91,6 +95,34 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/workflow');
 
         self::assertResponseStatusCodeSame(403);
+    }
+
+    public function test_a_rule_names_the_column_flags_without_a_column_label(): void
+    {
+        $this->enableBoard();
+        $project = $this->workflowProject('workflow-page-simple');
+        $this->bindHandler()(new BindWorkflowTemplateCommand($project, 'simple', []));
+        $owner = $this->stampedOwner($project);
+
+        $this->client->loginUser($owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/workflow');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[data-rule-id="merged"]', 'Move the card to a terminal column');
+        self::assertSelectorTextContains('[data-rule-id="closed-unmerged"]', 'Move the card to the Backlog');
+    }
+
+    public function test_the_page_is_not_found_when_the_board_is_off(): void
+    {
+        $this->enableBoard(false);
+        $project = $this->workflowProject('workflow-page-board-off');
+        $this->bindLifecycle($project);
+        $owner = $this->stampedOwner($project);
+
+        $this->client->loginUser($owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/workflow');
+
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_the_sidebar_links_the_page_only_when_the_board_is_on(): void

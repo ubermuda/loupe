@@ -82,7 +82,7 @@ final readonly class ShowWorkflowSettingsHandler
     {
         return match ($place) {
             '@backlog' => 'workflow.settings.where.backlog',
-            '@terminal' => 'workflow.settings.where.terminal',
+            '@terminal' => 'workflow.settings.where.any_terminal',
             '*' => 'workflow.settings.where.any',
             default => ($template->slot($place) ?? throw new \LogicException(\sprintf('The template has no slot "%s".', $place)))->label,
         };
