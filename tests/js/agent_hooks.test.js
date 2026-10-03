@@ -97,6 +97,7 @@ describe('no-full-ci.sh', () => {
         ['grep "x" f; just ci', 'deny'],
         ['echo "a; just ci"', 'allow'],
         ['bash -c "just ci"', 'deny'],
+        ['/bin/bash -c "just ci"', 'deny'],
         ["bash -lc 'cd x && just ci'", 'deny'],
         ['sh -c "echo a\njust ci"', 'deny'],
         ['eval "just ci"', 'deny'],
