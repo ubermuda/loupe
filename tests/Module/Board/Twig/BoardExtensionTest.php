@@ -207,7 +207,7 @@ final class BoardExtensionTest extends KernelTestCase
 
     private function gaveUp(string $runId): CardRunWarning
     {
-        return new CardRunWarning($runId, WorkerRunState::GaveUp, 'Tests fail.', null);
+        return new CardRunWarning($runId, WorkerRunState::GaveUp, 'Tests fail.');
     }
 
     private function makeCard(): Card

@@ -184,7 +184,7 @@ final readonly class CardWaitReconciler
     {
         $open = array_filter($cards, static fn (Card $card): bool => !$card->column->terminal);
         $cardIds = array_values(array_map(static fn (Card $card): Uuid => $card->id ?? throw new \LogicException('A stored card has an id.'), $open));
-        $candidates = [...$this->documentWaits($project, $cardIds), ...$this->runWaits($project, $cardIds, $open), ...$this->pullRequestWaits($project, $cardIds), ...$this->pauseWaits($cardIds)];
+        $candidates = [...$this->documentWaits($project, $cardIds), ...$this->runWaits($project, $cardIds), ...$this->pullRequestWaits($project, $cardIds), ...$this->pauseWaits($cardIds)];
         if ([] === $candidates) {
             return [];
         }
@@ -260,20 +260,19 @@ final readonly class CardWaitReconciler
     }
 
     /**
-     * The newest run of a card waits only while the card stays in the column that started it.
+     * The newest run of a card opens a wait when it needs a person.
      *
-     * @param list<Uuid>          $cardIds
-     * @param array<string, Card> $cards
+     * @param list<Uuid> $cardIds
      *
      * @return list<array{string, WantedCardWait}>
      */
-    private function runWaits(Project $project, array $cardIds, array $cards): array
+    private function runWaits(Project $project, array $cardIds): array
     {
         $waits = [];
         foreach ($this->workerRuns->findLatestRunRows($project, $cardIds) as $row) {
             $cardId = Uuid::fromString($row['card_id'])->toRfc4122();
             $trigger = self::runTrigger($row['state']);
-            if (null === $trigger || null === $row['card_column'] || $row['card_column'] !== ($cards[$cardId] ?? null)?->column->slug) {
+            if (null === $trigger) {
                 continue;
             }
             $waits[] = [$cardId, WantedCardWait::forRun($trigger, Uuid::fromString($row['id']), $row['output'])];

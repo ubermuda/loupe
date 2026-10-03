@@ -126,7 +126,17 @@ func (r *router) takeCommand(c api.Command, source string) {
 
 // commandAttrs names a command in a log line.
 func commandAttrs(c api.Command, source string) []any {
-	return []any{"command", c.CommandID, "kind", c.Kind, "card", c.CardNumber, "project", c.ProjectID, "rule", c.RuleName, "run_key", c.RunKey, "source", source}
+	return []any{"command", c.CommandID, "kind", c.Kind, "card", c.CardNumber, "project", c.ProjectID, "rule", commandRule(c), "run_key", c.RunKey, "source", source}
+}
+
+// commandRule is the rule name of the run a command names. A run of a rules:
+// entry names no work kind, so it has none, and no rule matches it.
+func commandRule(c api.Command) string {
+	if c.WorkKind == "" {
+		return ""
+	}
+
+	return rules.WorkRulePrefix + c.WorkKind
 }
 
 // handleCommand runs the handler of the command's kind, and returns the
@@ -403,7 +413,6 @@ func (r *router) noteCardHold(e event.Event) bool {
 const (
 	noSession       = "The run has no session to resume."
 	noWorkerRule    = "The rule of the run no longer runs workers on this bridge."
-	cardMovedAway   = "The card left the column of the run."
 	noTranscript    = "The session of the run is not on the machine of this bridge."
 	bridgeShutting  = "The bridge is shutting down."
 	runOpen         = "The run is still open."
@@ -425,14 +434,10 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 			timeout = askCheckTimeout
 		}
 		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-		card, err := r.readCard(ctx, c.ProjectID, c.CardID)
+		_, err := r.readCard(ctx, c.ProjectID, c.CardID)
 		cancel()
 		if err != nil {
 			return api.CommandRefused, "The bridge could not read the card: " + err.Error()
-		}
-		// A run of a pull request event records no column, so it has none to leave.
-		if c.CardColumn != "" && card.Column != c.CardColumn {
-			return api.CommandRefused, cardMovedAway
 		}
 	}
 	find := r.findTranscript
@@ -451,7 +456,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	defer r.quiesce.RUnlock()
 	r.mu.Lock()
 	current := r.rules()
-	m, ok := matchWorker(current, e, c.RuleName)
+	m, ok := matchWorker(current, e, commandRule(c))
 	_, held := r.held[c.RunKey]
 	_, live := r.live[c.RunKey]
 	continued := slices.ContainsFunc(r.queue, func(p pending) bool { return p.continues == c.RunKey })
@@ -477,19 +482,16 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	}
 
 	p := pending{
-		key: keyFor(e), event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, column: c.CardColumn,
+		key: keyFor(e), event: e, set: current, runID: config.NewUUID(), continues: c.RunKey,
 		spec: workerSpec{resume: true, sessionID: c.SessionID, prompt: directive.RenderResumeByPerson()},
 	}
 	p.apply(m)
-	if c.ResumeIndex != nil {
-		p.resumeIndex = *c.ResumeIndex
-	}
-	p.resumeIndex++
+	p.resumeIndex = 1
 	p.maxResumes = p.resumeIndex + m.MaxResumes
 	if r.sessions == nil {
 		r.sessions = map[string]sessionCard{}
 	}
-	r.sessions[c.SessionID] = sessionCard{key: p.key, id: c.CardID, number: c.CardNumber, column: c.CardColumn}
+	r.sessions[c.SessionID] = sessionCard{key: p.key, id: c.CardID, number: c.CardNumber}
 	r.seq++
 	p.seq = r.seq
 	r.queue = append(r.queue, p)
@@ -527,7 +529,7 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	defer r.quiesce.RUnlock()
 	r.mu.Lock()
 	current := r.rules()
-	m, ok := matchAction(current, e, c.RuleName, rules.ActionCommand)
+	m, ok := matchAction(current, e, commandRule(c), rules.ActionCommand)
 	queued := slices.ContainsFunc(r.queue, func(p pending) bool { return p.key == key })
 	switch {
 	case r.frozen:
@@ -540,7 +542,7 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 		reason = cardBusy
 	}
 	// A value of the first event would render empty, so the command would differ.
-	if gaps := current.RerunGaps(c.RuleName); reason == "" && len(gaps) > 0 {
+	if gaps := current.RerunGaps(commandRule(c)); reason == "" && len(gaps) > 0 {
 		reason = needsEvent + " {" + strings.Join(gaps, "} {") + "}"
 	}
 	if reason != "" {
@@ -549,13 +551,10 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 		return api.CommandRefused, reason
 	}
 
-	p := pending{key: key, event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, column: c.CardColumn}
+	p := pending{key: key, event: e, set: current, runID: config.NewUUID(), continues: c.RunKey}
 	p.apply(m)
-	if c.ResumeIndex != nil {
-		p.resumeIndex = *c.ResumeIndex
-	}
 	// A command run never resumes on its own, so its cap is its own place.
-	p.resumeIndex++
+	p.resumeIndex = 1
 	p.maxResumes = p.resumeIndex
 	r.seq++
 	p.seq = r.seq
@@ -590,7 +589,7 @@ func (r *router) sendAck(c api.Command, state, reason string) {
 	}
 	r.reports.Enqueue(outbound.Report{
 		Card: c.CardNumber,
-		Rule: c.RuleName,
+		Rule: commandRule(c),
 		Send: func(ctx context.Context) (bool, error) {
 			stored, err := r.ackCommand(ctx, r.bridgeID, c.CommandID, state, reason)
 			switch {

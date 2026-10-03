@@ -263,7 +263,7 @@ final readonly class UpdateCardHandler
             // commit: nothing survives a rollback, and nothing is lost when the
             // process dies after it.
             if (null !== $move) {
-                $cause = $command->cause ?? (null === $openedRun ? null : CardEventCause::run($openedRun->id ?? throw new \LogicException('A persisted run has an id.'), $openedRun->ruleName));
+                $cause = $command->cause ?? (null === $openedRun ? null : CardEventCause::run($openedRun->id ?? throw new \LogicException('A persisted run has an id.'), $openedRun->workKind));
                 $this->events->dispatch(new CardMoved($card, $move, $command->actor, $cause));
             }
             if ($parentChanged) {

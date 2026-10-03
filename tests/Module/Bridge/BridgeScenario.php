@@ -69,7 +69,7 @@ trait BridgeScenario
         ?int $exitCode = 0,
         ?string $failureReason = null,
         string $output = 'worker output',
-        string $ruleName = 'plan',
+        ?string $workKind = 'plan',
         ?Uuid $bridgeId = null,
         ?Uuid $cardId = null,
         ?WorkerRunState $state = null,
@@ -83,7 +83,7 @@ trait BridgeScenario
             bridgeId: WorkerRunKind::Interactive === $kind ? $bridgeId : $bridgeId ?? Uuid::v7(),
             cardId: $cardId ?? Uuid::v7(),
             cardNumber: $cardNumber,
-            ruleName: $ruleName,
+            workKind: $workKind,
             state: $state ?? WorkerRunState::fromOutcome($exitCode, $hasResult),
             runKey: $runKey,
             sessionId: WorkerRunKind::Command === $kind ? null : Uuid::v4(),
@@ -114,7 +114,7 @@ trait BridgeScenario
         ?string $costUsd = '0.012345',
         int $inputTokens = 100,
     ): WorkerRunUsage {
-        $usage = new WorkerRunUsage($run, $run->project, $run->cardId, $run->ruleName, $model, $source, $inputTokens, 20, 300, 40, $costUsd);
+        $usage = new WorkerRunUsage($run, $run->project, $run->cardId, $run->workKind, $model, $source, $inputTokens, 20, 300, 40, $costUsd);
         $run->usageSource = $source;
         $em->persist($usage);
         $em->flush();

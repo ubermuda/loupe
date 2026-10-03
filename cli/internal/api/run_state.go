@@ -70,15 +70,22 @@ func IsOutcome(state string) bool {
 
 // RunStateReport is one state of a run, as PUT
 // /api/projects/{handle}/worker-runs/{runId} takes it. Every report carries the
-// card and the rule, so the first one the server reads can create the run. A
-// field that the state does not use stays zero and is not sent.
+// card and the work request, so the first one the server reads can create the
+// run. A run of a rules: entry names no work request. A field that the state
+// does not use stays zero and is not sent.
 type RunStateReport struct {
 	BridgeID   string    `json:"bridgeId"`
 	State      string    `json:"state"`
 	At         time.Time `json:"at"`
 	CardID     string    `json:"cardId"`
 	CardNumber int       `json:"cardNumber"`
-	RuleName   string    `json:"ruleName"`
+	// WorkRequestID, WorkKind and RuleID come from the work request of the run.
+	WorkRequestID string `json:"workRequestId,omitempty"`
+	WorkKind      string `json:"workKind,omitempty"`
+	RuleID        string `json:"ruleId,omitempty"`
+	// Rule names the run in the bridge log and in the old report. The run
+	// state endpoint does not take it.
+	Rule string `json:"-"`
 	// Kind is RunKindCommand for the run of a command rule, and empty for a
 	// worker run.
 	Kind string `json:"kind,omitempty"`
@@ -109,12 +116,8 @@ type RunStateReport struct {
 	ResultReason  string         `json:"resultReason,omitempty"`
 	ResultFields  map[string]any `json:"resultFields,omitempty"`
 	ResumeSkipped string         `json:"resumeSkipped,omitempty"`
-	// Continues is the id of the run a resume continues. CardColumn is the
-	// column that started the series.
-	Continues   string `json:"continues,omitempty"`
-	ResumeIndex int    `json:"resumeIndex,omitempty"`
-	ResumeCap   int    `json:"resumeCap,omitempty"`
-	CardColumn  string `json:"cardColumn,omitempty"`
+	// Continues is the id of the run a resume continues.
+	Continues string `json:"continues,omitempty"`
 	// Usage goes on an outcome alone. A nil usage is unknown.
 	Usage *Usage `json:"usage,omitempty"`
 	// The experiment fields go on running and on the outcome of a run whose
@@ -123,19 +126,6 @@ type RunStateReport struct {
 	Variant        string `json:"variant,omitempty"`
 	RequestedModel string `json:"requestedModel,omitempty"`
 	SwitchedFrom   string `json:"switchedFrom,omitempty"`
-	// Trigger goes on a queued report alone.
-	Trigger *RunTrigger `json:"trigger,omitempty"`
-}
-
-// RunTrigger names the event that queued a run. A pull request event also
-// names its pull request.
-type RunTrigger struct {
-	EventType         string `json:"eventType"`
-	Forge             string `json:"forge,omitzero"`
-	Repository        string `json:"repository,omitzero"`
-	PullRequestNumber int    `json:"pullRequestNumber,omitzero"`
-	HeadSHA           string `json:"headSha,omitzero"`
-	Reason            string `json:"reason,omitzero"`
 }
 
 // MarshalJSON sends every field of an outcome, as the old report does, so an
@@ -174,7 +164,6 @@ var ErrRunStatesUnsupported = errors.New("the server has no run state endpoint, 
 // projects. It answers whether the state is new for the run: the server answers
 // 201 for a new state and 200 for a state the run already holds.
 func (c *Client) ReportRunState(ctx context.Context, handle, runID string, report RunStateReport) (bool, error) {
-	report.RuleName = clip(strings.TrimSpace(report.RuleName), maxRuleName)
 	report.Output = clip(report.Output, maxRunOutput)
 	if report.FailureReason != nil {
 		reason := clip(*report.FailureReason, maxFailureReason)

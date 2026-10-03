@@ -28,20 +28,20 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $other = $this->project($em, $owner, 'Other runs');
         $cardId = Uuid::v7();
         $at = static fn (string $time): \DateTimeImmutable => new \DateTimeImmutable('2026-01-01 '.$time);
-        $this->seedRun($em, $project, receivedAt: $at('09:00'), ruleName: 'queued', cardId: $cardId, state: WorkerRunState::Queued);
-        $this->seedRun($em, $project, receivedAt: $at('09:10'), ruleName: 'resumed', cardId: $cardId, state: WorkerRunState::Resumed);
-        $this->seedRun($em, $project, receivedAt: $at('09:20'), ruleName: 'running', cardId: $cardId, state: WorkerRunState::Running);
-        $this->seedRun($em, $project, receivedAt: $at('09:30'), ruleName: 'stopping', cardId: $cardId, state: WorkerRunState::Stopping);
-        $this->seedRun($em, $project, receivedAt: $at('11:00'), ruleName: 'succeeded', cardId: $cardId);
-        $this->seedRun($em, $project, receivedAt: $at('11:05'), ruleName: 'closed', cardId: $cardId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
-        $this->seedRun($em, $project, receivedAt: $at('11:10'), ruleName: 'another card', state: WorkerRunState::Running);
-        $this->seedRun($em, $other, receivedAt: $at('11:15'), ruleName: 'another project', cardId: $cardId, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, receivedAt: $at('09:00'), workKind: 'queued', cardId: $cardId, state: WorkerRunState::Queued);
+        $this->seedRun($em, $project, receivedAt: $at('09:10'), workKind: 'resumed', cardId: $cardId, state: WorkerRunState::Resumed);
+        $this->seedRun($em, $project, receivedAt: $at('09:20'), workKind: 'running', cardId: $cardId, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, receivedAt: $at('09:30'), workKind: 'stopping', cardId: $cardId, state: WorkerRunState::Stopping);
+        $this->seedRun($em, $project, receivedAt: $at('11:00'), workKind: 'succeeded', cardId: $cardId);
+        $this->seedRun($em, $project, receivedAt: $at('11:05'), workKind: 'closed', cardId: $cardId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $this->seedRun($em, $project, receivedAt: $at('11:10'), workKind: 'another card', state: WorkerRunState::Running);
+        $this->seedRun($em, $other, receivedAt: $at('11:15'), workKind: 'another project', cardId: $cardId, state: WorkerRunState::Running);
 
         $runs = self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) $cardId);
 
         self::assertSame(
             ['stopping', 'running', 'resumed', 'queued'],
-            array_map(static fn (WorkerRunListItem $item): string => $item->run->ruleName, $runs),
+            array_map(static fn (WorkerRunListItem $item): ?string => $item->run->workKind, $runs),
         );
     }
 
@@ -52,14 +52,14 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $project = $this->project($em, $this->user($em, 'card-many-open-runs@example.com'), 'Many open runs');
         $cardId = Uuid::v7();
         for ($minute = 1; $minute <= 7; ++$minute) {
-            $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 11:0'.$minute.':00'), ruleName: 'rule-'.$minute, cardId: $cardId, state: WorkerRunState::Running);
+            $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 11:0'.$minute.':00'), workKind: 'rule-'.$minute, cardId: $cardId, state: WorkerRunState::Running);
         }
 
         $runs = self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) $cardId);
 
         self::assertSame(
             ['rule-7', 'rule-6', 'rule-5', 'rule-4', 'rule-3'],
-            array_map(static fn (WorkerRunListItem $item): string => $item->run->ruleName, $runs),
+            array_map(static fn (WorkerRunListItem $item): ?string => $item->run->workKind, $runs),
         );
     }
 
@@ -110,7 +110,6 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
 
         $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $gaveUp, state: WorkerRunState::Unfinished, hasResult: true);
         $lastTry = $this->seedRun($em, $project, receivedAt: $at('10:10'), output: 'Tests still fail.', cardId: $gaveUp, state: WorkerRunState::GaveUp, hasResult: true);
-        $lastTry->cardColumn = 'implementation';
         $blockedRun = $this->seedRun($em, $project, receivedAt: $at('10:00'), output: 'Needs a token.', cardId: $blocked, state: WorkerRunState::Blocked, hasResult: true);
         $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $cleared, state: WorkerRunState::GaveUp, hasResult: true);
         $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $cleared, state: WorkerRunState::Succeeded, hasResult: true);
@@ -134,10 +133,8 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         self::assertSame((string) $lastTry->id, $warning->runId);
         self::assertSame(WorkerRunState::GaveUp, $warning->state);
         self::assertSame('Tests still fail.', $warning->summary);
-        self::assertSame('implementation', $warning->cardColumn);
 
         self::assertSame((string) $blockedRun->id, $warnings[(string) $blocked]->runId);
-        self::assertNull($warnings[(string) $blocked]->cardColumn);
         // An open run is not an outcome, so the blocked outcome before it still stands.
         self::assertSame((string) $waiting->id, $warnings[(string) $stillRunning]->runId);
     }
@@ -156,7 +153,6 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $at = static fn (string $time): \DateTimeImmutable => new \DateTimeImmutable('2026-01-01 '.$time);
 
         $gaveUpRun = $this->seedRun($em, $project, receivedAt: $at('10:00'), output: 'Tests still fail.', cardId: $gaveUp, state: WorkerRunState::GaveUp, hasResult: true);
-        $gaveUpRun->cardColumn = 'implementation';
         $blockedRun = $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $blocked, state: WorkerRunState::Blocked, hasResult: true);
         $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $cleared, state: WorkerRunState::GaveUp, hasResult: true);
         $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $cleared, state: WorkerRunState::Succeeded, hasResult: true);
@@ -169,7 +165,6 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         self::assertSame((string) $gaveUpRun->id, $warning->runId);
         self::assertSame(WorkerRunState::GaveUp, $warning->state);
         self::assertSame('Tests still fail.', $warning->summary);
-        self::assertSame('implementation', $warning->cardColumn);
 
         self::assertSame((string) $blockedRun->id, $extension->cardRunWarning($project, $blocked)?->runId);
         self::assertSame(WorkerRunState::Blocked, $extension->cardRunWarning($project, $blocked)->state);

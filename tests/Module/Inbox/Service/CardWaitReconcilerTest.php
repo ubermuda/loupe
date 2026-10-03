@@ -558,7 +558,8 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(InboxCardWaitEndReason::Resolved, $this->onlyWait($watch)->endReason);
     }
 
-    public function test_a_move_to_another_open_column_ends_the_run_wait_done(): void
+    /** A run records no column, so a move to another open column keeps its wait. */
+    public function test_a_move_to_another_open_column_keeps_the_run_wait(): void
     {
         $this->workerRun(WorkerRunState::Blocked, 'Stuck');
         $this->reconcile();
@@ -568,19 +569,8 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $this->reconcile();
 
         $watch = $this->onlyWatch();
-        self::assertSame(InboxItemState::Done, $watch->item->state);
-        self::assertSame(InboxCardWaitEndReason::Resolved, $this->onlyWait($watch)->endReason);
-    }
-
-    public function test_a_run_of_another_column_or_of_no_column_gives_no_wait(): void
-    {
-        $this->workerRun(WorkerRunState::Blocked, 'Stuck', column: 'next', receivedAt: new \DateTimeImmutable('-1 minute'));
-        $this->reconcile();
-        self::assertSame([], $this->watches());
-
-        $this->workerRun(WorkerRunState::Blocked, 'Stuck', column: null);
-        $this->reconcile();
-        self::assertSame([], $this->watches());
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        self::assertNull($this->onlyWait($watch)->endReason);
     }
 
     public function test_a_run_that_does_not_wait_gives_no_wait(): void
@@ -621,13 +611,13 @@ final class CardWaitReconcilerTest extends KernelTestCase
     public function test_a_document_wait_and_a_run_wait_share_one_item_and_the_end_of_one_keeps_it_open(): void
     {
         $document = $this->linkedDocument('Tech design');
-        $this->workerRun(WorkerRunState::Blocked, 'Stuck', 'tech-design', new \DateTimeImmutable('-1 minute'));
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', new \DateTimeImmutable('-1 minute'));
         $this->reconcile();
         $watch = $this->onlyWatch();
         self::assertCount(2, $this->openWaits($watch));
         self::assertCount(1, $watch->item->documents);
 
-        $this->workerRun(WorkerRunState::Running, '', 'tech-design');
+        $this->workerRun(WorkerRunState::Running, '');
         $this->reconcile();
 
         self::assertSame(InboxItemState::Open, $watch->item->state);
@@ -664,7 +654,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
     public function test_a_run_blocked_switch_off_ends_the_run_wait_and_keeps_the_document_wait_open(): void
     {
         $document = $this->linkedDocument('Tech design');
-        $this->workerRun(WorkerRunState::Blocked, 'Stuck', 'tech-design');
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck');
         $this->reconcile();
         $watch = $this->onlyWatch();
         self::assertCount(2, $this->openWaits($watch));
@@ -694,7 +684,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
     public function test_a_card_with_a_run_wait_in_a_terminal_column_closes_the_item_obsolete(): void
     {
-        $this->workerRun(WorkerRunState::Blocked, 'Stuck', column: 'backlog');
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck');
         $this->reconcile();
         $this->card->column = $this->column($this->project, 'done');
         $this->em->flush();
@@ -1112,18 +1102,17 @@ final class CardWaitReconcilerTest extends KernelTestCase
         return $document;
     }
 
-    private function workerRun(WorkerRunState $state, string $output, ?string $column = 'backlog', \DateTimeImmutable $receivedAt = new \DateTimeImmutable()): WorkerRun
+    private function workerRun(WorkerRunState $state, string $output, \DateTimeImmutable $receivedAt = new \DateTimeImmutable()): WorkerRun
     {
         $run = new WorkerRun(
             project: $this->project,
             bridgeId: Uuid::v7(),
             cardId: $this->card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $this->card->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: $state,
             output: $output,
             receivedAt: $receivedAt,
-            cardColumn: $column,
         );
         $this->em->persist($run);
         $this->em->flush();

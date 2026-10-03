@@ -19,7 +19,7 @@ func launchReport(state string) InteractiveLaunchReport {
 		BridgeID:   "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
 		CardID:     "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
 		CardNumber: 42,
-		RuleName:   "design",
+		WorkKind:   "design",
 		State:      state,
 		At:         time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC),
 	}
@@ -56,10 +56,10 @@ func TestReportInteractiveLaunchPutsTheLaunchOnTheSession(t *testing.T) {
 	if path != "/api/projects/loupe/interactive-runs/"+testSessionID {
 		t.Fatalf("path = %s", path)
 	}
-	if got := keys(body); got != "at,bridgeId,cardId,cardNumber,ruleName,state" {
+	if got := keys(body); got != "at,bridgeId,cardId,cardNumber,state,workKind" {
 		t.Fatalf("keys = %s", got)
 	}
-	if body["state"] != "running" || body["cardNumber"] != float64(42) || body["ruleName"] != "design" || body["at"] != "2026-09-25T10:00:00Z" {
+	if body["state"] != "running" || body["cardNumber"] != float64(42) || body["workKind"] != "design" || body["at"] != "2026-09-25T10:00:00Z" {
 		t.Fatalf("body = %v", body)
 	}
 }
@@ -67,7 +67,7 @@ func TestReportInteractiveLaunchPutsTheLaunchOnTheSession(t *testing.T) {
 func TestReportInteractiveLaunchSendsTheReasonOfAFailedLaunch(t *testing.T) {
 	report := launchReport(RunNotStarted)
 	report.FailureReason = "exit code 3: " + strings.Repeat("é", maxFailureReason)
-	report.RuleName = "  " + strings.Repeat("r", maxRuleName+5)
+	report.WorkKind = "  " + strings.Repeat("r", maxRuleName+5)
 
 	_, body, _, err := putLaunch(t, report, http.StatusCreated)
 	if err != nil {
@@ -80,8 +80,8 @@ func TestReportInteractiveLaunchSendsTheReasonOfAFailedLaunch(t *testing.T) {
 	if len([]rune(reason)) != maxFailureReason || !strings.HasPrefix(reason, "exit code 3: é") {
 		t.Fatalf("failureReason = %q", reason)
 	}
-	if body["ruleName"] != strings.Repeat("r", maxRuleName) {
-		t.Fatalf("ruleName = %v", body["ruleName"])
+	if body["workKind"] != strings.Repeat("r", maxRuleName) {
+		t.Fatalf("workKind = %v", body["workKind"])
 	}
 }
 

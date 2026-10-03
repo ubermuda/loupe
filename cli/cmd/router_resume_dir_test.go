@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -222,87 +221,5 @@ func TestAnAdoptedResumeStartsInTheFolderItsConversationStartedIn(t *testing.T) 
 
 	if calls := h2.worker.recorded(); len(calls) != 1 || !calls[0].resume || calls[0].sessionID != askSession || calls[0].dir != recorded {
 		t.Fatalf("worker = %+v, want a resume in %s", calls, recorded)
-	}
-}
-
-// A person's resume of a conversation whose folder is gone fails with the
-// reason, and starts no claude, because the rule's prompt has nothing of the
-// event that started the series.
-func TestAPersonsResumeWhoseFolderIsGoneFails(t *testing.T) {
-	h := newHarness(t)
-	rec := h.states()
-	h.transcripts(true)
-	gone := filepath.Join(t.TempDir(), "gone")
-	withStartDirs(h, map[string]string{testSession: gone})
-
-	if state, reason := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
-		t.Fatalf("resume = %s %q", state, reason)
-	}
-
-	sent := rec.states()
-	wantStates(t, sent, api.RunQueued, api.RunFailed)
-	failed := sent[1].report
-	if failed.ExitCode == nil || *failed.ExitCode != -1 || !strings.Contains(failed.Output, gone) || failed.ResumeSkipped != "" {
-		t.Fatalf("failed = %+v", failed)
-	}
-	if h.runs() != 0 || h.used() != 0 || h.cardHeld(87) {
-		t.Fatalf("runs = %d, used = %d, card held = %v", h.runs(), h.used(), h.cardHeld(87))
-	}
-	// The rule has no before command, so the log names the resume folder.
-	if line := h.only(t, "resume_failed"); !strings.Contains(str(t, line, "output"), gone) {
-		t.Fatalf("resume_failed = %v", line)
-	}
-	if got := h.events(t, "before_failed"); len(got) != 0 {
-		t.Fatalf("before_failed = %v", got)
-	}
-}
-
-// A recorded folder the bridge cannot read may still exist, so the resume
-// fails rather than replace the conversation with a fresh session.
-func TestAResumeWhoseFolderCannotBeReadFails(t *testing.T) {
-	h := newHarness(t)
-	rec := h.states()
-	h.transcripts(true)
-	loop := filepath.Join(t.TempDir(), "loop")
-	if err := os.Symlink(loop, loop); err != nil {
-		t.Fatal(err)
-	}
-	withStartDirs(h, map[string]string{testSession: loop})
-
-	if state, reason := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
-		t.Fatalf("resume = %s %q", state, reason)
-	}
-
-	sent := rec.states()
-	wantStates(t, sent, api.RunQueued, api.RunFailed)
-	if failed := sent[1].report; !strings.Contains(failed.Output, "the bridge cannot read "+loop) {
-		t.Fatalf("failed = %+v", failed)
-	}
-	if h.runs() != 0 {
-		t.Fatalf("runs = %d", h.runs())
-	}
-}
-
-// A recorded folder under a parent that is now a file is gone, as a missing
-// folder is.
-func TestAResumeWhoseFolderParentIsAFileReadsAsGone(t *testing.T) {
-	h := newHarness(t)
-	rec := h.states()
-	h.transcripts(true)
-	file := filepath.Join(t.TempDir(), "file")
-	if err := os.WriteFile(file, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gone := filepath.Join(file, "sub")
-	withStartDirs(h, map[string]string{testSession: gone})
-
-	if state, reason := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
-		t.Fatalf("resume = %s %q", state, reason)
-	}
-
-	sent := rec.states()
-	wantStates(t, sent, api.RunQueued, api.RunFailed)
-	if failed := sent[1].report; !strings.Contains(failed.Output, gone+", which is gone") {
-		t.Fatalf("failed = %+v", failed)
 	}
 }

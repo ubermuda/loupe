@@ -487,9 +487,6 @@ func checkFixSession(e Event) error {
 	return nil
 }
 
-// maxResumeIndex is the server's cap on the place of a run in its resume series.
-const maxResumeIndex = 32767
-
 // ParseCommand decodes a bridge.command payload and checks it with
 // CheckCommand.
 func ParseCommand(data []byte) (api.Command, error) {
@@ -517,6 +514,7 @@ func CheckCommand(c api.Command) (api.Command, error) {
 		{"cardId", c.CardID, false},
 		{"runKey", c.RunKey, true},
 		{"sessionId", c.SessionID, true},
+		{"workRequestId", c.WorkRequestID, true},
 	} {
 		if (f.value != "" || !f.optional) && !uuidPattern.MatchString(f.value) {
 			return c, fmt.Errorf("command has a %s that is not a uuid", f.name)
@@ -531,14 +529,8 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	if c.CardNumber <= 0 {
 		return c, fmt.Errorf("command has an invalid cardNumber %d", c.CardNumber)
 	}
-	if c.RuleName == "" {
-		return c, errors.New("command names no rule")
-	}
-	if c.CardColumn != "" && !SlugPattern.MatchString(c.CardColumn) {
-		return c, errors.New("command has a cardColumn that is not a slug")
-	}
-	if c.ResumeIndex != nil && (*c.ResumeIndex < 0 || *c.ResumeIndex > maxResumeIndex) {
-		return c, fmt.Errorf("command has an invalid resumeIndex %d", *c.ResumeIndex)
+	if c.WorkKind != "" && !KindPattern.MatchString(c.WorkKind) {
+		return c, fmt.Errorf("command has an invalid workKind %q", c.WorkKind)
 	}
 	if c.ExpiresAt.IsZero() {
 		return c, errors.New("command has no expiresAt")
@@ -551,6 +543,7 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	c.CardID = strings.ToLower(c.CardID)
 	c.RunKey = strings.ToLower(c.RunKey)
 	c.SessionID = strings.ToLower(c.SessionID)
+	c.WorkRequestID = strings.ToLower(c.WorkRequestID)
 
 	return c, nil
 }

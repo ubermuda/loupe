@@ -123,7 +123,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
         $doneChild = $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
         $this->linkPullRequest($em, $child);
-        $this->warn($em, $project, $triageFirst, 'triage');
+        $this->warn($em, $project, $triageFirst);
         $em->clear();
 
         $client->loginUser($owner);
@@ -317,7 +317,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $client->loginUser($owner);
         $before = $this->digestOf($this->manifest($client, $project), $card);
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->warn($em, $em->find(Project::class, $project->id) ?? throw new \LogicException('No project.'), $card, 'next');
+        $this->warn($em, $em->find(Project::class, $project->id) ?? throw new \LogicException('No project.'), $card);
         $em->clear();
         $after = $this->manifest($client, $project);
 
@@ -638,14 +638,14 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $em->flush();
     }
 
-    private function warn(EntityManagerInterface $em, Project $project, Card $card, string $columnSlug): void
+    private function warn(EntityManagerInterface $em, Project $project, Card $card): void
     {
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
             cardId: $card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $card->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::GaveUp,
             runKey: Uuid::v7(),
             endedAt: new \DateTimeImmutable(),
@@ -653,7 +653,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
             hasResult: true,
             output: 'Tests still fail.',
             receivedAt: new \DateTimeImmutable(),
-            cardColumn: $columnSlug,
         );
         $em->persist($run);
         $em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, new \DateTimeImmutable(), new \DateTimeImmutable()));

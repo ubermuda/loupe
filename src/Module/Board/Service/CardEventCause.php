@@ -52,9 +52,10 @@ final readonly class CardEventCause
         return new self('column-deleted', ['column' => $label]);
     }
 
-    public static function run(Uuid|string $runId, string $rule): self
+    /** A run of an old bridge rule has no work kind. */
+    public static function run(Uuid|string $runId, ?string $workKind): self
     {
-        return new self('run', ['run' => (string) $runId, 'rule' => $rule]);
+        return new self('run', ['run' => (string) $runId] + (null === $workKind ? [] : ['kind' => $workKind]));
     }
 
     public static function workflowRule(string $ruleId): self

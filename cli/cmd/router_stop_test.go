@@ -404,26 +404,19 @@ func TestAHeldEventHoldsTheCard(t *testing.T) {
 	h.only(t, "card_held")
 }
 
-// A card_released event ends the hold and starts the run that waits for it.
-func TestAReleasedEventStartsTheRunThatWaits(t *testing.T) {
+// A card_released event ends the hold.
+func TestAReleasedEventEndsTheHold(t *testing.T) {
 	h := newHarness(t)
 	h.withHoldList()
-	rec := h.states()
-	h.transcripts(true)
-	h.router.readCard = (&cardReads{column: "next"}).read
 
 	h.send(holdPayload("board.card_held", 87))
-	if state, _ := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
-		t.Fatalf("resume = %s", state)
+	if !h.cardHoldOf(87) {
+		t.Fatal("the card is not held")
 	}
-	if h.runs() != 0 {
-		t.Fatalf("workers = %d while held", h.runs())
-	}
-	wantStates(t, rec.states(), api.RunQueued)
 
 	h.send(holdPayload("board.card_released", 87))
-	if h.runs() != 1 {
-		t.Fatalf("workers = %d after the release", h.runs())
+	if h.cardHoldOf(87) {
+		t.Fatal("the card is still held after the release")
 	}
 	h.only(t, "card_hold_released")
 }

@@ -35,9 +35,9 @@ final class BridgeCommandPayload
             'sessionId' => null === $run->sessionId ? null : (string) $run->sessionId,
             'cardId' => (string) $run->cardId,
             'cardNumber' => $run->cardNumber,
-            'ruleName' => $run->ruleName,
-            'cardColumn' => $run->cardColumn,
-            'resumeIndex' => $run->resumeIndex,
+            'workRequestId' => $run->workRequestId?->toRfc4122(),
+            'workKind' => $run->workKind,
+            'ruleId' => $run->ruleId,
             'expiresAt' => $command->expiresAt->format(\DateTimeInterface::ATOM),
         ];
     }

@@ -53,24 +53,6 @@ final class WorkerRunListItemTest extends TestCase
         self::assertNull(new WorkerRunListItem($run, new \DateTimeImmutable(), [], null)->duration());
     }
 
-    public function test_only_a_run_past_the_first_of_its_series_is_a_resume(): void
-    {
-        $first = $this->queuedRun();
-        self::assertFalse(new WorkerRunListItem($first, new \DateTimeImmutable(), [], null)->isResume());
-
-        $first->resumeIndex = 0;
-        $first->resumeCap = 3;
-        self::assertFalse(new WorkerRunListItem($first, new \DateTimeImmutable(), [], null)->isResume());
-
-        $resume = $this->queuedRun();
-        $resume->resumeIndex = 2;
-        $resume->resumeCap = 3;
-        self::assertTrue(new WorkerRunListItem($resume, new \DateTimeImmutable(), [], null)->isResume());
-
-        $resume->resumeCap = null;
-        self::assertFalse(new WorkerRunListItem($resume, new \DateTimeImmutable(), [], null)->isResume());
-    }
-
     public function test_the_result_fields_read_as_text(): void
     {
         $run = $this->queuedRun();
@@ -118,7 +100,7 @@ final class WorkerRunListItemTest extends TestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 7,
-            ruleName: 'sync',
+            workKind: 'sync',
             state: WorkerRunState::Running,
             startedAt: new \DateTimeImmutable('2026-09-23 10:00:00'),
             kind: WorkerRunKind::Command,
@@ -140,7 +122,7 @@ final class WorkerRunListItemTest extends TestCase
             bridgeId: null,
             cardId: Uuid::v7(),
             cardNumber: 7,
-            ruleName: 'loupe:product-design',
+            workKind: 'loupe:product-design',
             state: $state,
             startedAt: new \DateTimeImmutable('2026-09-23 10:00:00'),
             kind: WorkerRunKind::Interactive,
@@ -154,7 +136,7 @@ final class WorkerRunListItemTest extends TestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 7,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: WorkerRunState::Queued,
             runKey: Uuid::v7(),
         );

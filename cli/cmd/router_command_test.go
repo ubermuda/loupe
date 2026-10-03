@@ -36,7 +36,7 @@ const testCommandID = "0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f90"
 func testCommand(id, kind, bridgeID string, expires time.Time) api.Command {
 	return api.Command{
 		Type: event.CommandType, ProjectID: testProject, Subject: api.CommandSubject{Type: "bridge-command", ID: id}, CommandID: id,
-		Kind: kind, BridgeID: bridgeID, CardID: cardUUID(87), CardNumber: 87, RuleName: "plan", CardColumn: "next", ExpiresAt: expires,
+		Kind: kind, BridgeID: bridgeID, CardID: cardUUID(87), CardNumber: 87, WorkKind: "plan", ExpiresAt: expires,
 	}
 }
 
@@ -270,7 +270,7 @@ func TestAnAckGoesOutThroughTheQueue(t *testing.T) {
 		t.Fatalf("acks = %v, queued = %d", acks.recorded(), len(queue.reports))
 	}
 	report := queue.reports[0]
-	if report.Card != 87 || report.Rule != "plan" {
+	if report.Card != 87 || report.Rule != rules.WorkRulePrefix+"plan" {
 		t.Fatalf("report names card %d and rule %q", report.Card, report.Rule)
 	}
 	for _, tc := range []struct {

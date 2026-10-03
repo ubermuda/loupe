@@ -14,7 +14,6 @@ use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\Service\WorkerRunUsageRecorder;
 use App\Module\Bridge\ValueObject\WorkerRunState;
-use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
@@ -34,6 +33,9 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class ReportWorkerRunStateHandler
 {
+    /** The work kind of a run that fixes a pull request. */
+    public const string FIX_KIND = 'fix';
+
     public function __construct(
         private ProjectRepository $projects,
         private WorkerRunRepository $workerRuns,
@@ -72,21 +74,17 @@ final readonly class ReportWorkerRunStateHandler
                     bridgeId: $command->bridgeId,
                     cardId: $command->cardId,
                     cardNumber: $command->cardNumber,
-                    ruleName: $command->ruleName,
+                    workKind: $command->workKind,
                     state: $command->state,
                     runKey: $command->runKey,
                     receivedAt: $receivedAt,
                     continuesRun: null === $command->continues
                         ? null
                         : $this->workerRuns->findOneByRunKey($project, $command->bridgeId, $command->continues),
-                    resumeIndex: $command->resumeIndex,
-                    resumeCap: $command->resumeCap,
-                    cardColumn: $command->cardColumn,
                     kind: $command->kind,
+                    workRequestId: $command->workRequestId,
+                    ruleId: $command->ruleId,
                 );
-                if (null !== $command->trigger) {
-                    self::recordTrigger($run, $command->trigger);
-                }
                 $this->em->persist($run);
                 $created = true;
                 $moves = true;
@@ -143,8 +141,8 @@ final readonly class ReportWorkerRunStateHandler
             $this->audit($result->run);
         }
         if ($created && null !== $result->run && WorkerRunState::Queued === $command->state
-            && WorkerRunTrigger::FIX_REQUESTED === $command->trigger?->eventType) {
-            $this->events->dispatch(self::queued($result->run, $command->trigger));
+            && self::FIX_KIND === $result->run->workKind) {
+            $this->events->dispatch(self::queued($result->run));
         }
 
         return $result;
@@ -175,28 +173,12 @@ final readonly class ReportWorkerRunStateHandler
         return $current->isOpen() && $reported->rank() > $current->rank();
     }
 
-    private static function recordTrigger(WorkerRun $run, WorkerRunTrigger $trigger): void
-    {
-        $run->triggerEventType = $trigger->eventType;
-        $run->triggerForge = $trigger->forge;
-        $run->triggerRepository = $trigger->repository;
-        $run->triggerPullRequestNumber = $trigger->pullRequestNumber;
-        $run->triggerHeadSha = $trigger->headSha;
-        $run->triggerReason = $trigger->reason;
-    }
-
-    private static function queued(WorkerRun $run, WorkerRunTrigger $trigger): WorkerRunQueued
+    private static function queued(WorkerRun $run): WorkerRunQueued
     {
         return new WorkerRunQueued(
             projectId: $run->project->id ?? throw new \LogicException('A persisted project has an id.'),
             runId: $run->id ?? throw new \LogicException('A flushed run has an id.'),
             cardId: $run->cardId,
-            eventType: $trigger->eventType,
-            forge: $trigger->forge,
-            repository: $trigger->repository,
-            pullRequestNumber: $trigger->pullRequestNumber,
-            headSha: $trigger->headSha,
-            reason: $trigger->reason,
         );
     }
 
@@ -275,7 +257,9 @@ final readonly class ReportWorkerRunStateHandler
                 'runKey' => (string) $run->runKey,
                 'sessionId' => null === $run->sessionId ? null : (string) $run->sessionId,
                 'cardNumber' => $run->cardNumber,
-                'ruleName' => $run->ruleName,
+                'workRequestId' => $run->workRequestId?->toRfc4122(),
+                'workKind' => $run->workKind,
+                'ruleId' => $run->ruleId,
                 'state' => $run->state->value,
                 'exitCode' => $run->exitCode,
                 'hasResult' => $run->hasResult,
@@ -285,9 +269,6 @@ final readonly class ReportWorkerRunStateHandler
                 // The values are worker prose, so the record keeps the names alone.
                 'resultFieldNames' => null === $run->resultFields ? null : implode(',', array_keys($run->resultFields)),
                 'continuesRunKey' => $run->continuesRun?->runKey?->toRfc4122(),
-                'resumeIndex' => $run->resumeIndex,
-                'resumeCap' => $run->resumeCap,
-                'cardColumn' => $run->cardColumn,
                 'resumeSkipped' => $run->resumeSkipped,
             ],
             new AuditSubject('worker_run', (string) $run->id),

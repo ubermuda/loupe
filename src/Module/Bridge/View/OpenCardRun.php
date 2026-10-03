@@ -15,7 +15,7 @@ final readonly class OpenCardRun
         public Uuid $cardId,
         public WorkerRunState $state,
         public WorkerRunKind $kind,
-        public string $ruleName,
+        public ?string $workKind,
         /** When the run started, or when it began to wait for a start. */
         public \DateTimeImmutable $since,
     ) {

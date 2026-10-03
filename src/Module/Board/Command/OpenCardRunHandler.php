@@ -23,7 +23,7 @@ final readonly class OpenCardRunHandler
         if ('' === $name) {
             throw new DomainErrors(['name' => self::NAME_BLANK]);
         }
-        if (mb_strlen($name) > WorkerRun::MAX_RULE_NAME_LENGTH) {
+        if (mb_strlen($name) > WorkerRun::MAX_WORK_KIND_LENGTH) {
             throw new DomainErrors(['name' => self::NAME_TOO_LONG]);
         }
 

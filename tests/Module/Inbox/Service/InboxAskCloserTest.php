@@ -542,7 +542,7 @@ final class InboxAskCloserTest extends KernelTestCase
             bridgeId: $interactive ? null : Uuid::v7(),
             cardId: $card->id ?? throw new \LogicException('The card has no id.'),
             cardNumber: $card->number,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: $interactive ? WorkerRunState::Running : WorkerRunState::Succeeded,
             sessionId: $sessionId ?? throw new \LogicException('An agent ask has a session.'),
             startedAt: $startedAt,

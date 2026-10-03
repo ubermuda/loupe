@@ -20,7 +20,6 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunModelUsage;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
-use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
@@ -150,7 +149,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         $runKey = Uuid::v4();
         $cardId = Uuid::v7();
 
-        $result = $this->report($owner, $project, $runKey, WorkerRunState::Queued, cardId: $cardId, cardNumber: 12, ruleName: 'review');
+        $result = $this->report($owner, $project, $runKey, WorkerRunState::Queued, cardId: $cardId, cardNumber: 12, workKind: 'review');
 
         self::assertTrue($result->newState);
         self::assertInstanceOf(WorkerRun::class, $result->run);
@@ -159,7 +158,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame(WorkerRunKind::Worker, $result->run->kind);
         self::assertSame($cardId->toRfc4122(), $result->run->cardId->toRfc4122());
         self::assertSame(12, $result->run->cardNumber);
-        self::assertSame('review', $result->run->ruleName);
+        self::assertSame('review', $result->run->workKind);
         self::assertSame(WorkerRunState::Queued, $result->run->state);
     }
 
@@ -336,7 +335,9 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             'runKey' => $runKey->toRfc4122(),
             'sessionId' => self::SESSION,
             'cardNumber' => 1,
-            'ruleName' => 'plan',
+            'workRequestId' => null,
+            'workKind' => 'plan',
+            'ruleId' => null,
             'state' => 'failed',
             'exitCode' => 1,
             'hasResult' => false,
@@ -345,9 +346,6 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             'resultReason' => null,
             'resultFieldNames' => null,
             'continuesRunKey' => null,
-            'resumeIndex' => null,
-            'resumeCap' => null,
-            'cardColumn' => null,
             'resumeSkipped' => null,
         ], $record->context);
         self::assertCount(1, $audit->records('bridge.worker_run_recorded'));
@@ -376,14 +374,11 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         $firstKey = Uuid::v4();
 
         $first = $this->report($owner, $project, $firstKey, WorkerRunState::Queued)->run;
-        $resume = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, continues: $firstKey, resumeIndex: 1, resumeCap: 2, cardColumn: 'implementation')->run;
+        $resume = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, continues: $firstKey)->run;
 
         self::assertInstanceOf(WorkerRun::class, $first);
         self::assertInstanceOf(WorkerRun::class, $resume);
         self::assertSame((string) $first->id, (string) $resume->continuesRun?->id);
-        self::assertSame(1, $resume->resumeIndex);
-        self::assertSame(2, $resume->resumeCap);
-        self::assertSame('implementation', $resume->cardColumn);
     }
 
     public function test_a_run_key_the_server_does_not_hold_leaves_no_link(): void
@@ -391,11 +386,10 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::bootKernel();
         [$owner, $project] = $this->scenario('handler-link-unknown');
 
-        $resume = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, continues: Uuid::v4(), resumeIndex: 1, resumeCap: 2)->run;
+        $resume = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, continues: Uuid::v4())->run;
 
         self::assertInstanceOf(WorkerRun::class, $resume);
         self::assertNull($resume->continuesRun);
-        self::assertSame(1, $resume->resumeIndex);
     }
 
     public function test_a_run_of_another_bridge_is_never_the_continued_run(): void
@@ -420,11 +414,10 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
 
         $this->report($owner, $project, $firstKey, WorkerRunState::Queued);
         $this->report($owner, $project, $resumeKey, WorkerRunState::Queued);
-        $resume = $this->report($owner, $project, $resumeKey, WorkerRunState::Running, continues: $firstKey, resumeIndex: 1)->run;
+        $resume = $this->report($owner, $project, $resumeKey, WorkerRunState::Running, continues: $firstKey)->run;
 
         self::assertInstanceOf(WorkerRun::class, $resume);
         self::assertNull($resume->continuesRun);
-        self::assertNull($resume->resumeIndex);
     }
 
     public function test_an_outcome_stores_the_structured_result(): void
@@ -436,7 +429,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         $resumeKey = Uuid::v4();
 
         $this->report($owner, $project, $firstKey, WorkerRunState::Queued);
-        $this->report($owner, $project, $resumeKey, WorkerRunState::Queued, continues: $firstKey, resumeIndex: 2, resumeCap: 2, cardColumn: 'implementation');
+        $this->report($owner, $project, $resumeKey, WorkerRunState::Queued, continues: $firstKey);
         $run = $this->report($owner, $project, $resumeKey, WorkerRunState::GaveUp, resultStatus: 'unfinished', resultFields: ['pullRequest' => 'https://example.com/pull/1'], resumeSkipped: 'card_moved', resultReason: WorkerRunReason::WaitingChecks)->run;
 
         self::assertInstanceOf(WorkerRun::class, $run);
@@ -450,9 +443,6 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame('waiting-checks', $context['resultReason']);
         self::assertSame('pullRequest', $context['resultFieldNames']);
         self::assertSame($firstKey->toRfc4122(), $context['continuesRunKey']);
-        self::assertSame(2, $context['resumeIndex']);
-        self::assertSame(2, $context['resumeCap']);
-        self::assertSame('implementation', $context['cardColumn']);
         self::assertSame('card_moved', $context['resumeSkipped']);
     }
 
@@ -785,76 +775,50 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame(['experiment' => null, 'variant' => null, 'requestedModel' => null, 'switchedFrom' => null], $this->storedExperiment($run));
     }
 
-    public function test_the_report_that_creates_the_run_stores_its_trigger(): void
+    public function test_the_report_that_creates_the_run_stores_its_work_request(): void
     {
         self::bootKernel();
-        [$owner, $project] = $this->scenario('handler-trigger-store');
+        [$owner, $project] = $this->scenario('handler-work-store');
+        $workRequestId = Uuid::v7();
 
-        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, trigger: self::fixTrigger())->run;
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, workKind: 'implement', workRequestId: $workRequestId, ruleId: 'implement-on-entry')->run;
 
         self::assertInstanceOf(WorkerRun::class, $run);
-        self::assertSame([
-            'trigger_event_type' => 'pull_request.fix_requested',
-            'trigger_forge' => 'github',
-            'trigger_repository' => 'owner/repo',
-            'trigger_pull_request_number' => 640,
-            'trigger_head_sha' => 'abc123',
-            'trigger_reason' => 'checks-failed',
-        ], $this->storedTrigger($run));
+        $this->em()->clear();
+        $stored = $this->em()->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $stored);
+        self::assertSame($workRequestId->toRfc4122(), $stored->workRequestId?->toRfc4122());
+        self::assertSame('implement', $stored->workKind);
+        self::assertSame('implement-on-entry', $stored->ruleId);
     }
 
-    public function test_a_later_report_does_not_change_the_trigger(): void
+    public function test_a_later_report_does_not_change_the_work_request(): void
     {
         self::bootKernel();
-        [$owner, $project] = $this->scenario('handler-trigger-keep');
+        [$owner, $project] = $this->scenario('handler-work-keep');
         $runKey = Uuid::v4();
-        $this->report($owner, $project, $runKey, WorkerRunState::Queued, trigger: self::fixTrigger());
+        $workRequestId = Uuid::v7();
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, workKind: 'implement', workRequestId: $workRequestId, ruleId: 'implement-on-entry');
 
-        $later = new WorkerRunTrigger('pull_request.review_requested', 'gitlab', 'other/repo', 7, 'def456', 'other');
-        $this->report($owner, $project, $runKey, WorkerRunState::Queued, trigger: $later);
-        $run = $this->report($owner, $project, $runKey, WorkerRunState::Running, trigger: $later)->run;
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Running, workKind: 'fix', workRequestId: Uuid::v7(), ruleId: 'fix-on-red')->run;
 
         self::assertInstanceOf(WorkerRun::class, $run);
-        self::assertSame('pull_request.fix_requested', $this->storedTrigger($run)['trigger_event_type']);
-        self::assertSame(640, $this->storedTrigger($run)['trigger_pull_request_number']);
+        self::assertSame($workRequestId->toRfc4122(), $run->workRequestId?->toRfc4122());
+        self::assertSame('implement', $run->workKind);
+        self::assertSame('implement-on-entry', $run->ruleId);
     }
 
-    public function test_a_later_report_does_not_add_a_trigger(): void
+    public function test_a_run_of_an_old_bridge_rule_stores_no_work_request(): void
     {
         self::bootKernel();
-        [$owner, $project] = $this->scenario('handler-trigger-late');
-        $runKey = Uuid::v4();
-        $this->report($owner, $project, $runKey, WorkerRunState::Queued);
+        [$owner, $project] = $this->scenario('handler-work-none');
 
-        $run = $this->report($owner, $project, $runKey, WorkerRunState::Running, trigger: self::fixTrigger())->run;
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, workKind: null)->run;
 
         self::assertInstanceOf(WorkerRun::class, $run);
-        self::assertSame(array_fill_keys(self::TRIGGER_COLUMNS, null), $this->storedTrigger($run));
-    }
-
-    public function test_a_report_with_no_trigger_leaves_the_trigger_empty(): void
-    {
-        self::bootKernel();
-        [$owner, $project] = $this->scenario('handler-trigger-none');
-
-        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued)->run;
-
-        self::assertInstanceOf(WorkerRun::class, $run);
-        self::assertSame(array_fill_keys(self::TRIGGER_COLUMNS, null), $this->storedTrigger($run));
-    }
-
-    public function test_a_trigger_with_the_event_type_alone_stores_it_alone(): void
-    {
-        self::bootKernel();
-        [$owner, $project] = $this->scenario('handler-trigger-type-only');
-
-        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, trigger: new WorkerRunTrigger('card.moved'))->run;
-
-        self::assertInstanceOf(WorkerRun::class, $run);
-        self::assertSame(
-            array_merge(array_fill_keys(self::TRIGGER_COLUMNS, null), ['trigger_event_type' => 'card.moved']),
-            $this->storedTrigger($run),
-        );
+        self::assertNull($run->workRequestId);
+        self::assertNull($run->workKind);
+        self::assertNull($run->ruleId);
     }
 
     public function test_a_new_queued_fix_run_is_announced_after_the_commit(): void
@@ -865,7 +829,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         $queued = DispatchedEvents::of(self::getContainer(), WorkerRunQueued::class);
         $depth = $this->em()->getConnection()->getTransactionNestingLevel();
 
-        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, cardId: $cardId, trigger: self::fixTrigger())->run;
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, cardId: $cardId, workKind: 'fix')->run;
 
         self::assertInstanceOf(WorkerRun::class, $run);
         self::assertCount(1, $queued->events());
@@ -873,12 +837,6 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertEquals($project->id, $event->projectId);
         self::assertEquals($run->id, $event->runId);
         self::assertSame($cardId->toRfc4122(), $event->cardId->toRfc4122());
-        self::assertSame(WorkerRunTrigger::FIX_REQUESTED, $event->eventType);
-        self::assertSame('github', $event->forge);
-        self::assertSame('owner/repo', $event->repository);
-        self::assertSame(640, $event->pullRequestNumber);
-        self::assertSame('abc123', $event->headSha);
-        self::assertSame('checks-failed', $event->reason);
         self::assertSame([$depth], $queued->transactionDepths());
     }
 
@@ -888,59 +846,33 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         [$owner, $project] = $this->scenario('handler-queued-fix-repeat');
         $runKey = Uuid::v4();
         $queued = DispatchedEvents::of(self::getContainer(), WorkerRunQueued::class);
-        $this->report($owner, $project, $runKey, WorkerRunState::Queued, trigger: self::fixTrigger());
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, workKind: 'fix');
         // The guard: the first report announces, so the recording works.
         self::assertCount(1, $queued->events());
 
-        $repeat = $this->report($owner, $project, $runKey, WorkerRunState::Queued, trigger: self::fixTrigger());
+        $repeat = $this->report($owner, $project, $runKey, WorkerRunState::Queued, workKind: 'fix');
 
         self::assertFalse($repeat->newState);
         self::assertCount(1, $queued->events());
     }
 
-    public function test_a_new_run_of_another_trigger_or_state_is_not_announced(): void
+    public function test_a_new_run_of_another_kind_or_state_is_not_announced(): void
     {
         self::bootKernel();
         [$owner, $project] = $this->scenario('handler-queued-other');
         $queued = DispatchedEvents::of(self::getContainer(), WorkerRunQueued::class);
         // The guard: a fix run announces, so the recording works.
-        $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, trigger: self::fixTrigger());
+        $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, workKind: 'fix');
         self::assertCount(1, $queued->events());
 
-        $other = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, trigger: new WorkerRunTrigger('card.moved'));
-        $none = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued);
-        $running = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Running, trigger: self::fixTrigger());
+        $other = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, workKind: 'implement');
+        $none = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, workKind: null);
+        $running = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Running, workKind: 'fix');
 
         self::assertTrue($other->newState);
         self::assertTrue($none->newState);
         self::assertTrue($running->newState);
         self::assertCount(1, $queued->events());
-    }
-
-    private const array TRIGGER_COLUMNS = [
-        'trigger_event_type',
-        'trigger_forge',
-        'trigger_repository',
-        'trigger_pull_request_number',
-        'trigger_head_sha',
-        'trigger_reason',
-    ];
-
-    private static function fixTrigger(): WorkerRunTrigger
-    {
-        return new WorkerRunTrigger(WorkerRunTrigger::FIX_REQUESTED, 'github', 'owner/repo', 640, 'abc123', 'checks-failed');
-    }
-
-    /** @return array<string, mixed> */
-    private function storedTrigger(WorkerRun $run): array
-    {
-        $row = $this->em()->getConnection()->fetchAssociative(
-            'SELECT '.implode(', ', self::TRIGGER_COLUMNS).' FROM bridge_worker_runs WHERE id = ?',
-            [(string) $run->id],
-        );
-        self::assertIsArray($row);
-
-        return $row;
     }
 
     /** @return array{User, Project} */
@@ -963,13 +895,10 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         WorkerRunState $state,
         ?Uuid $cardId = null,
         int $cardNumber = 1,
-        string $ruleName = 'plan',
+        ?string $workKind = 'plan',
         ?string $failureReason = null,
         bool $withStart = true,
         ?Uuid $continues = null,
-        ?int $resumeIndex = null,
-        ?int $resumeCap = null,
-        ?string $cardColumn = null,
         ?string $resultStatus = null,
         ?array $resultFields = null,
         ?string $resumeSkipped = null,
@@ -979,8 +908,9 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?array $experiment = null,
         ?\DateTimeImmutable $endedAt = null,
         ?string $output = null,
-        ?WorkerRunTrigger $trigger = null,
         ?WorkerRunReason $resultReason = null,
+        ?Uuid $workRequestId = null,
+        ?string $ruleId = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -997,7 +927,9 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             at: new \DateTimeImmutable('2026-09-23 10:0'.$state->rank().':00'),
             cardId: $cardId ?? Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506172'),
             cardNumber: $cardNumber,
-            ruleName: $ruleName,
+            workRequestId: $workRequestId,
+            workKind: $workKind,
+            ruleId: $ruleId,
             sessionId: $started ? Uuid::fromString(self::SESSION) : null,
             startedAt: $started ? new \DateTimeImmutable('2026-09-23 10:00:00') : null,
             endedAt: $endedAt ?? ($outcome ? new \DateTimeImmutable('2026-09-23 10:05:00') : null),
@@ -1017,9 +949,6 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             resultReason: $resultReason,
             resultFields: $resultFields,
             continues: $continues,
-            resumeIndex: $resumeIndex,
-            resumeCap: $resumeCap,
-            cardColumn: $cardColumn,
             resumeSkipped: $resumeSkipped,
             usage: $usage,
             workerPool: $workerPool,
@@ -1027,7 +956,6 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             variant: $experiment['variant'] ?? null,
             requestedModel: $experiment['requestedModel'] ?? null,
             switchedFrom: $experiment['switchedFrom'] ?? null,
-            trigger: $trigger,
         ));
     }
 

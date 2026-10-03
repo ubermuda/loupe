@@ -30,9 +30,9 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $owner = $this->user($em, 'card-fragment-owner@example.com');
         $project = $this->project($em, $owner, 'Fragment');
         $cardId = Uuid::v7();
-        $run = $this->seedRun($em, $project, ruleName: 'plan the card', cardId: $cardId, state: WorkerRunState::Running);
-        $this->seedRun($em, $project, ruleName: 'finished work', cardId: $cardId, state: WorkerRunState::Succeeded, hasResult: true);
-        $this->seedRun($em, $project, ruleName: 'another card', state: WorkerRunState::Running);
+        $run = $this->seedRun($em, $project, workKind: 'plan the card', cardId: $cardId, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, workKind: 'finished work', cardId: $cardId, state: WorkerRunState::Succeeded, hasResult: true);
+        $this->seedRun($em, $project, workKind: 'another card', state: WorkerRunState::Running);
 
         $projectId = (string) $project->id;
         $runId = (string) $run->id;
@@ -57,32 +57,6 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertSame('/projects/'.$projectId.'/worker-runs', $frame->filter('[data-card-runs] [data-card-runs-all]')->attr('href'));
     }
 
-    public function test_a_resumed_run_names_its_place_in_the_series(): void
-    {
-        $client = static::createClient();
-        $em = $this->em();
-
-        $owner = $this->user($em, 'card-fragment-resume@example.com');
-        $project = $this->project($em, $owner, 'Fragment resume');
-        $cardId = Uuid::v7();
-        $run = $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Running);
-        $run->resumeIndex = 3;
-        $run->resumeCap = 3;
-        $em->flush();
-
-        $projectId = (string) $project->id;
-        $runId = (string) $run->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
-
-        self::assertResponseIsSuccessful();
-        $row = $crawler->filter('[data-card-run-row="'.$runId.'"]');
-        self::assertSame('Resume 3 of 3', $row->filter('[data-worker-run-resume]')->text());
-        self::assertSame('Running', $row->filter('.lp-status-chip')->text());
-    }
-
     public function test_a_running_interactive_session_offers_a_close_control_and_a_closed_one_is_gone(): void
     {
         $client = static::createClient();
@@ -91,9 +65,9 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $owner = $this->user($em, 'card-fragment-close@example.com');
         $project = $this->project($em, $owner, 'Fragment close');
         $cardId = Uuid::v7();
-        $open = $this->seedRun($em, $project, ruleName: 'loupe:product-design', cardId: $cardId, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
-        $closed = $this->seedRun($em, $project, ruleName: 'loupe:tech-design', cardId: $cardId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
-        $worker = $this->seedRun($em, $project, ruleName: 'plan', cardId: $cardId, state: WorkerRunState::Running);
+        $open = $this->seedRun($em, $project, workKind: 'loupe:product-design', cardId: $cardId, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $closed = $this->seedRun($em, $project, workKind: 'loupe:tech-design', cardId: $cardId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $worker = $this->seedRun($em, $project, workKind: 'plan', cardId: $cardId, state: WorkerRunState::Running);
 
         $projectId = (string) $project->id;
         $openId = (string) $open->id;
@@ -132,8 +106,8 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $owner = $this->user($em, 'card-fragment-command@example.com');
         $project = $this->project($em, $owner, 'Fragment command');
         $cardId = Uuid::v7();
-        $command = $this->seedRun($em, $project, ruleName: 'sync', cardId: $cardId, state: WorkerRunState::Running, runKey: Uuid::v4(), kind: WorkerRunKind::Command);
-        $worker = $this->seedRun($em, $project, ruleName: 'plan', cardId: $cardId, state: WorkerRunState::Running);
+        $command = $this->seedRun($em, $project, workKind: 'sync', cardId: $cardId, state: WorkerRunState::Running, runKey: Uuid::v4(), kind: WorkerRunKind::Command);
+        $worker = $this->seedRun($em, $project, workKind: 'plan', cardId: $cardId, state: WorkerRunState::Running);
 
         $projectId = (string) $project->id;
         $commandId = (string) $command->id;
@@ -486,7 +460,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $stranger = $this->user($em, 'card-fragment-stranger@example.com');
         $project = $this->project($em, $owner, 'Fragment private');
         $cardId = Uuid::v7();
-        $this->seedUsage($em, $this->seedRun($em, $project, ruleName: 'private rule', cardId: $cardId));
+        $this->seedUsage($em, $this->seedRun($em, $project, workKind: 'private rule', cardId: $cardId));
 
         $projectId = (string) $project->id;
         $em->clear();

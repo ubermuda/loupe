@@ -162,12 +162,9 @@ func TestAWorkOfferClaimsRunsAndSettles(t *testing.T) {
 	sent := rec.states()
 	wantStates(t, sent, api.RunQueued, api.RunRunning, api.RunSucceeded)
 	for _, s := range sent {
-		if s.report.RuleName != "work:implement" || s.report.CardID != cardUUID(87) || s.report.CardNumber != 87 || s.handle != testProject {
+		if s.report.WorkKind != "implement" || s.report.WorkRequestID != workID(1) || s.report.RuleID == "" || s.report.Rule != "work:implement" || s.report.CardID != cardUUID(87) || s.report.CardNumber != 87 || s.handle != testProject {
 			t.Fatalf("report = %+v", s.report)
 		}
-	}
-	if tr := sent[0].report.Trigger; tr == nil || tr.EventType != event.WorkRequestType {
-		t.Fatalf("trigger = %+v", tr)
 	}
 	if got := f.settled(); !slices.Equal(got, []string{workID(1) + " " + tokenOf(1) + " done"}) {
 		t.Fatalf("results = %v", got)
@@ -699,7 +696,7 @@ func TestAnInteractiveWorkEntryLaunchesAfterItsClaim(t *testing.T) {
 			if got := f.settled(); !slices.Equal(got, tc.want) {
 				t.Fatalf("results = %v, want %v", got, tc.want)
 			}
-			if tc.launches > 0 && rec.launches()[0].report.RuleName != "work:design" {
+			if tc.launches > 0 && rec.launches()[0].report.WorkKind != "design" {
 				t.Fatalf("launch = %+v", rec.launches()[0].report)
 			}
 			h.assertNoWorkerState(t, rec)

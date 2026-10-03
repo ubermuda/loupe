@@ -129,13 +129,13 @@ final class ListWorkerRunsHandlerTest extends KernelTestCase
         self::assertSame([(string) $kept->id], $this->ids($view));
     }
 
-    public function test_the_rule_filter_keeps_the_runs_of_that_rule(): void
+    public function test_the_work_kind_filter_keeps_the_runs_of_that_kind(): void
     {
-        [$project, $handler] = $this->filterScenario('rule');
-        $kept = $this->seedRun($this->em(), $project, ruleName: 'implement');
-        $this->seedRun($this->em(), $project, ruleName: 'plan');
+        [$project, $handler] = $this->filterScenario('work-kind');
+        $kept = $this->seedRun($this->em(), $project, workKind: 'implement');
+        $this->seedRun($this->em(), $project, workKind: 'plan');
 
-        $view = $handler(new ListWorkerRunsCommand($project, new WorkerRunListQuery(rule: 'implement')));
+        $view = $handler(new ListWorkerRunsCommand($project, new WorkerRunListQuery(workKind: 'implement')));
 
         self::assertSame([(string) $kept->id], $this->ids($view));
     }

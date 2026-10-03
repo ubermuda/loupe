@@ -697,7 +697,7 @@ func TestAnAdoptedResumeKeepsItsSeries(t *testing.T) {
 		t.Fatalf("runs = %v", ids)
 	}
 	queued := ofRun(sent, ids[1])[0].report
-	if queued.State != api.RunQueued || queued.Continues != "run-9" || queued.ResumeIndex != 2 || queued.ResumeCap != 2 || queued.CardColumn != "next" {
+	if queued.State != api.RunQueued || queued.Continues != "run-9" {
 		t.Fatalf("the resume queued as %+v", queued)
 	}
 }
@@ -773,7 +773,7 @@ func TestAnAdoptedFailedRunWaitsAndResumes(t *testing.T) {
 		t.Fatalf("runs = %v", ids)
 	}
 	queued := ofRun(sent, ids[1])[0].report
-	if queued.State != api.RunQueued || queued.Continues != "run-9" || queued.ResumeIndex != 2 || queued.ResumeCap != 2 || queued.CardColumn != "next" {
+	if queued.State != api.RunQueued || queued.Continues != "run-9" {
 		t.Fatalf("the resume queued as %+v", queued)
 	}
 }

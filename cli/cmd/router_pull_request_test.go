@@ -149,7 +149,7 @@ func TestAFixRequestWhoseSessionIsMissingStartsAFreshRun(t *testing.T) {
 	}
 	wantStates(t, ofRun(sent, ids[0]), api.RunQueued, api.RunResumed, api.RunRunning, api.RunFailed)
 	wantStates(t, ofRun(sent, ids[1]), api.RunQueued, api.RunRunning, api.RunSucceeded)
-	if queued := ofRun(sent, ids[1])[0].report; queued.Continues != "" || queued.ResumeIndex != 0 {
+	if queued := ofRun(sent, ids[1])[0].report; queued.Continues != "" {
 		t.Fatalf("fresh queued = %+v", queued)
 	}
 	line := h.only(t, "resume_session_missing")

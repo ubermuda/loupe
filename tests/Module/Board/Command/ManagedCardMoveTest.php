@@ -192,13 +192,13 @@ final class ManagedCardMoveTest extends KernelTestCase
             bridgeId: Uuid::v7(),
             cardId: $this->idOf($epic),
             cardNumber: $epic->number,
-            ruleName: 'work:breakdown',
+            workKind: 'breakdown',
             state: WorkerRunState::Running,
         );
         $this->em()->persist($run);
         $this->em()->flush();
 
-        return CardEventCause::run($run->id ?? throw new \LogicException('A stored run has an id.'), $run->ruleName);
+        return CardEventCause::run($run->id ?? throw new \LogicException('A stored run has an id.'), $run->workKind);
     }
 
     private function card(string $column, CardType $type = CardType::Feature): Card

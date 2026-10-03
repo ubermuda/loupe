@@ -24,12 +24,12 @@ page describes it. **Events** lists the [project events](activity.md).
 |---|---|
 | Work | the number of the card the worker was started for, then its title. A card that is gone, or a board that is off, shows the number alone. An interactive run adds the tag **Interactive session**, and a command run adds the tag **Command** |
 | Outcome | the state of the run, from the list below. A run with a failure reason shows a help icon, and the reason shows when you hover over or focus the outcome |
-| Rule | the bridge rule that matched the event. A long rule name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool** |
+| Work kind | the kind of the work request the run ran, such as `implement` or `fix`, or the name of an interactive session. A run of a bridge `rules:` entry shows **None**. A long name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool** |
 | Duration | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
 | Started | how long ago the worker started, on the bridge clock. Hover over it to see the exact time. A run that has not started shows when its first report arrived |
 
 Select a row to open its drawer. The drawer holds the detail the row
-leaves out: the bridge, the exit code, the place of a resume in its series, the
+leaves out: the bridge, the exit code, the run a resume continues, the
 failure reason and the output.
 
 A bridge runs its workers in named worker pools, and each report of a run names
@@ -99,8 +99,7 @@ check, and its outcome comes from the exit code alone.
 
 The bridge resumes a run that did not finish, on the same session. A run did
 not finish when it failed, gave no result, or said **Unfinished**. Each resume
-is a new row. Its drawer shows **Resume n of N**, its place in the series and
-the cap of its rule. The first run of a series shows no place. When the last
+is a new row, and its drawer links to the run it continues. When the last
 resume allowed still does not finish, that run shows **Gave up**.
 The bridge does not resume a **Blocked** run.
 
@@ -139,9 +138,7 @@ machine. The notice goes when a person sends a new request, or when the control
 no longer applies to the run. A queued run of a paused bridge shows
 **Waiting: bridge paused**.
 
-A control can show and be disabled. Point at it to read the reason. Resume is
-disabled with **The card left** and the column slug when the card is no longer
-in the column of the rule that started the run. When the bridge does not
+A control can show and be disabled. Point at it to read the reason. When the bridge does not
 report the `commands` capability, every control is disabled with **Update the
 bridge to 1.5.0 or later to control its runs.** **Run again** is also disabled
 with **Update the bridge to run a command again.** when the bridge does not
@@ -178,8 +175,7 @@ does, and `card_release` makes it managed again. The connection acts as the proj
 owner, on its own project only.
 
 The tools apply the same checks as the controls on this page. A resume needs a
-session, an ended run in a state that can resume, and a card still in the column
-that started the series. A run with a request that still waits refuses a second
+session and an ended run in a state that can resume. A run with a request that still waits refuses a second
 one, and so does a bridge that does not take commands. A refused run gives a
 code and a message, and `worker_run_resume` takes up to 50 runs in one call.
 There is no tool that pauses a bridge, and no tool that runs a command again.
@@ -353,8 +349,8 @@ pause, and the menu says to update it to 1.5.0 or later.
 ## The output
 
 Select a row to open a read-only drawer without leaving the list.
-It shows the attempt ID, card, rule, experiment, worker pool, bridge, session and duration. A run with no worker pool shows no pool row. An interactive run shows a bridge only when a bridge launched it.
-A resume also shows its place in the series, and a link to the run it resumes.
+It shows the attempt ID, card, work kind, experiment, worker pool, bridge, session and duration. A run with no worker pool shows no pool row. An interactive run shows a bridge only when a bridge launched it.
+A resume also shows a link to the run it resumes.
 The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.
 Agent identity and the triggering event remain unreported rather than inferred.
@@ -387,7 +383,7 @@ An open drawer holds the reload. The list reloads when you close the drawer.
 
 ## Search and filters
 
-The search box covers the card number, the rule name and the output text.
+The search box covers the card number, the work kind and the output text.
 It matches whole words and accepts quoted phrases and a leading `-` to exclude a word.
 Paste a complete run ID to find that attempt in the current project.
 Run IDs match without regard to letter case, and the outcome and bridge filters still apply.
@@ -403,7 +399,7 @@ Search and Outcome stay on one row on narrow screens.
 With enlarged text, the row scrolls horizontally when needed. Keyboard focus brings each control into view.
 The Bridge filter remains available below them when space is limited.
 It stays within the form width at enlarged text sizes.
-Long rule names wrap within their column, while outcome badges keep their compact height.
+Long work kinds wrap within their column, while outcome badges keep their compact height.
 
 ## A card that no longer exists
 

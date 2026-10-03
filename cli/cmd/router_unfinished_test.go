@@ -151,10 +151,10 @@ func TestAResumeContinuesTheSessionOfItsRun(t *testing.T) {
 	wantStates(t, ofRun(sent, ids[0]), api.RunQueued, api.RunRunning, api.RunUnfinished)
 	wantStates(t, ofRun(sent, ids[1]), api.RunQueued, api.RunRunning, api.RunSucceeded)
 	first, queued := ofRun(sent, ids[0])[0].report, ofRun(sent, ids[1])[0].report
-	if first.CardColumn != "next" || first.Continues != "" || first.ResumeIndex != 0 {
+	if first.Continues != "" {
 		t.Fatalf("first queued = %+v", first)
 	}
-	if queued.Continues != ids[0] || queued.ResumeIndex != 1 || queued.ResumeCap != rules.DefaultMaxResumes || queued.CardColumn != "next" {
+	if queued.Continues != ids[0] {
 		t.Fatalf("resume queued = %+v", queued)
 	}
 	if ended := outcomeOf(t, sent, ids[0]); ended.ResultStatus != "unfinished" || ended.ResumeSkipped != "" {

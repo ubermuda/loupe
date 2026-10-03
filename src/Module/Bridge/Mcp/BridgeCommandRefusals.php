@@ -59,7 +59,7 @@ final readonly class BridgeCommandRefusals
 
     /**
      * The code is the last segment of the translation key in kebab case, so
-     * bridge.command.error.card_left gives card-left.
+     * bridge.command.error.no_session gives no-session.
      *
      * @return array{code: string, message: string}
      */

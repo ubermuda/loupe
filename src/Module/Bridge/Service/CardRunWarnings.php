@@ -27,7 +27,7 @@ final readonly class CardRunWarnings
     {
         $warnings = [];
         foreach ($this->workerRuns->findWarningRowsOfProject($project) as $row) {
-            $warnings[$row['card_id']] = new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
+            $warnings[$row['card_id']] = new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output']);
         }
 
         return $warnings;
@@ -38,6 +38,6 @@ final readonly class CardRunWarnings
     {
         $row = $this->workerRuns->findWarningRowOfCard($project, $cardId);
 
-        return null === $row ? null : new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
+        return null === $row ? null : new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output']);
     }
 }

@@ -112,7 +112,7 @@ func TestAnInteractiveMatchLaunchesASession(t *testing.T) {
 		t.Fatalf("launch = %+v", got)
 	}
 	r := got.report
-	if r.State != api.RunRunning || r.FailureReason != "" || r.BridgeID != testBridgeID || r.CardID != cardUUID(87) || r.CardNumber != 87 || r.RuleName != "design" || r.At.IsZero() {
+	if r.State != api.RunRunning || r.FailureReason != "" || r.BridgeID != testBridgeID || r.CardID != cardUUID(87) || r.CardNumber != 87 || r.WorkKind != "design" || r.At.IsZero() {
 		t.Fatalf("report = %+v", r)
 	}
 
@@ -311,7 +311,7 @@ func TestAReloadTakesTheClaudePathOfAnInteractiveSet(t *testing.T) {
 func TestALaunchReportToAnOldServerCountsAsDelivered(t *testing.T) {
 	client := &fakeRunClient{launch: func() (bool, error) { return false, api.ErrInteractiveRunsUnsupported }}
 	reports, log := newTestRunReports(client)
-	report := api.InteractiveLaunchReport{CardNumber: 87, RuleName: "design", State: api.RunRunning}
+	report := api.InteractiveLaunchReport{CardNumber: 87, WorkKind: "design", State: api.RunRunning}
 
 	for range 2 {
 		if ok, err := reports.launch(testProject, testSession, report).Send(context.Background()); !ok || err != nil {

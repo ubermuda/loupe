@@ -22,7 +22,7 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 #[AsAlias(CardMoveGuard::class)]
 final readonly class WorkflowCardMoveGuard implements CardMoveGuard
 {
-    private const string BREAKDOWN_RULE = 'work:breakdown';
+    private const string BREAKDOWN_KIND = 'breakdown';
 
     private const string ANY_COLUMN = '*';
 
@@ -78,13 +78,13 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
      */
     private function isBreakdownRun(Card $card, ?CardEventCause $cause): bool
     {
-        if ('run' !== $cause?->type || self::BREAKDOWN_RULE !== ($cause->fields['rule'] ?? null) || null === $card->parent?->id) {
+        if ('run' !== $cause?->type || self::BREAKDOWN_KIND !== ($cause->fields['kind'] ?? null) || null === $card->parent?->id) {
             return false;
         }
         $run = $this->workerRuns->findOneByIdAndProjectId((string) ($cause->fields['run'] ?? ''), (string) $card->project->id);
 
         return WorkerRunKind::Worker === $run?->kind
-            && self::BREAKDOWN_RULE === $run->ruleName
+            && self::BREAKDOWN_KIND === $run->workKind
             && $card->parent->id->equals($run->cardId);
     }
 

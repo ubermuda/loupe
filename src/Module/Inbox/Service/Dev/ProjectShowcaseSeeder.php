@@ -611,7 +611,7 @@ final readonly class ProjectShowcaseSeeder
             bridgeId: Uuid::v4(),
             cardId: $cardId,
             cardNumber: $card->number,
-            ruleName: 'fix',
+            workKind: 'fix',
             state: WorkerRunState::Succeeded,
             runKey: Uuid::v4(),
             startedAt: $endedAt->modify('-434 seconds'),
@@ -620,7 +620,6 @@ final readonly class ProjectShowcaseSeeder
             hasResult: true,
             output: 'The failing test now passes. The run pushed one commit.',
             receivedAt: $endedAt,
-            cardColumn: $inProgress['slug'],
         );
         $startedAt = new \DateTimeImmutable('-4 minutes');
         $open = new WorkerRun(
@@ -628,12 +627,11 @@ final readonly class ProjectShowcaseSeeder
             bridgeId: Uuid::v4(),
             cardId: $cardId,
             cardNumber: $card->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::Running,
             runKey: Uuid::v4(),
             startedAt: $startedAt,
             receivedAt: $startedAt,
-            cardColumn: $inProgress['slug'],
         );
         $this->em->persist($finished);
         $this->em->persist($open);
@@ -646,14 +644,12 @@ final readonly class ProjectShowcaseSeeder
         $this->cardEvents->record($card, CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks-failed', 'pullRequest' => 441], new \DateTimeImmutable('-48 hours'));
         $this->cardEvents->record($card, CardEventKind::RunFinished, CardReporter::Agent, $owner, [
             'runId' => (string) $finished->id,
-            'ruleName' => $finished->ruleName,
+            'workKind' => $finished->workKind,
             'state' => $finished->state->value,
             'interactive' => false,
             'startedAt' => $finished->startedAt?->format(\DateTimeInterface::ATOM),
             'endedAt' => $endedAt->format(\DateTimeInterface::ATOM),
             'durationSeconds' => 434,
-            'resumeIndex' => null,
-            'resumeCap' => null,
         ], $endedAt);
         $this->cardEvents->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => 441], new \DateTimeImmutable('-30 hours'));
         $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::System, null, ['from' => $inProgress, 'to' => $done, 'cause' => CardEventCause::merged(441)->detail()], new \DateTimeImmutable('-28 hours'));
@@ -698,7 +694,7 @@ final readonly class ProjectShowcaseSeeder
             bridgeId: Uuid::v4(),
             cardId: $child->id ?? throw new \LogicException('A stored card has an id.'),
             cardNumber: $child->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::GaveUp,
             runKey: Uuid::v4(),
             endedAt: $endedAt,
@@ -706,7 +702,6 @@ final readonly class ProjectShowcaseSeeder
             hasResult: true,
             output: 'The export tests still fail after three attempts. The archive writer cannot read a document that has no version.',
             receivedAt: $endedAt,
-            cardColumn: $inProgress->slug,
         );
         $this->em->persist($run);
         $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, $endedAt, $endedAt));

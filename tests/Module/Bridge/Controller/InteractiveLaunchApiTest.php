@@ -37,7 +37,7 @@ final class InteractiveLaunchApiTest extends WebTestCase
         $raw = $this->agentToken($client, $owner);
         $sessionId = (string) Uuid::v4();
 
-        $this->put($client, $this->path($project->id, $sessionId), $raw, $this->payload(['cardNumber' => 7, 'ruleName' => 'Pair on design']));
+        $this->put($client, $this->path($project->id, $sessionId), $raw, $this->payload(['cardNumber' => 7, 'workKind' => 'Pair on design']));
 
         self::assertResponseStatusCodeSame(201);
         $run = $this->onlyRun();
@@ -48,8 +48,28 @@ final class InteractiveLaunchApiTest extends WebTestCase
         self::assertSame(self::BRIDGE_ID, (string) $run->bridgeId);
         self::assertSame(self::CARD_ID, (string) $run->cardId);
         self::assertSame(7, $run->cardNumber);
-        self::assertSame('Pair on design', $run->ruleName);
+        self::assertSame('Pair on design', $run->workKind);
+        self::assertNull($run->workRequestId);
+        self::assertNull($run->ruleId);
         self::assertNull($run->runKey);
+    }
+
+    public function test_a_launch_of_a_work_request_stores_the_request(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'launch-work-request@example.com');
+        $project = $this->project($em, $owner, 'Launch Work Request');
+        $raw = $this->agentToken($client, $owner);
+        $workRequestId = (string) Uuid::v7();
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['workKind' => 'design', 'workRequestId' => $workRequestId, 'ruleId' => 'design-on-entry']));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame('design', $run->workKind);
+        self::assertSame($workRequestId, $run->workRequestId?->toRfc4122());
+        self::assertSame('design-on-entry', $run->ruleId);
     }
 
     public function test_a_retry_of_a_running_launch_answers_200_with_the_same_run(): void
@@ -217,8 +237,10 @@ final class InteractiveLaunchApiTest extends WebTestCase
         yield 'a card id that is not a uuid' => [['cardId' => 'nope']];
         yield 'a missing card number' => [['cardNumber' => null]];
         yield 'a card number of zero' => [['cardNumber' => 0]];
-        yield 'a blank rule name' => [['ruleName' => ' ']];
-        yield 'a rule name above the limit' => [['ruleName' => str_repeat('x', WorkerRun::MAX_RULE_NAME_LENGTH + 1)]];
+        yield 'a blank work kind' => [['workKind' => ' ']];
+        yield 'a work kind above the limit' => [['workKind' => str_repeat('x', WorkerRun::MAX_WORK_KIND_LENGTH + 1)]];
+        yield 'a work request id that is not a uuid' => [['workRequestId' => 'nope']];
+        yield 'a rule id with a space' => [['ruleId' => 'not a rule']];
         yield 'not-started with no reason' => [['state' => 'not-started']];
         yield 'not-started with a blank reason' => [['state' => 'not-started', 'failureReason' => '  ']];
         yield 'a reason above the limit' => [['state' => 'not-started', 'failureReason' => str_repeat('x', WorkerRun::MAX_FAILURE_REASON_LENGTH + 1)]];
@@ -294,7 +316,7 @@ final class InteractiveLaunchApiTest extends WebTestCase
             'bridgeId' => self::BRIDGE_ID,
             'cardId' => self::CARD_ID,
             'cardNumber' => 1,
-            'ruleName' => 'design',
+            'workKind' => 'design',
             'state' => 'running',
             'at' => '2026-09-23T10:00:00+00:00',
         ], $overrides);

@@ -281,7 +281,10 @@ func (r *router) runLaunch(l launch) {
 	r.launching--
 	cardID, number := cardOf(p.event)
 	if r.reporting() && number >= 1 {
-		report.BridgeID, report.CardID, report.CardNumber, report.RuleName, report.At = r.bridgeID, cardID, number, p.rule, time.Now()
+		report.BridgeID, report.CardID, report.CardNumber, report.WorkKind, report.At = r.bridgeID, cardID, number, p.rule, time.Now()
+		if p.isWork() {
+			report.WorkRequestID, report.WorkKind, report.RuleID = p.work.WorkRequestID, p.work.Kind, p.work.RuleID
+		}
 		r.reports.Enqueue(r.runs.launch(p.event.ProjectID, p.spec.sessionID, report))
 	}
 	// A launch of a work request is its whole run, so its result follows.

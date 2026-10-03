@@ -116,9 +116,9 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $guard = $this->guard(true);
         $target = $this->column($this->project, 'in-progress');
 
-        self::assertTrue($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:breakdown')));
+        self::assertTrue($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown')));
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:implement')));
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::workflowRule('work:breakdown')));
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::workflowRule('breakdown')));
     }
 
     public function test_a_run_that_only_carries_the_breakdown_name_is_refused(): void
@@ -131,11 +131,11 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $target = $this->column($this->project, 'in-progress');
         $elsewhere = $this->workflowProject('move-guard-elsewhere');
 
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:breakdown', WorkerRunKind::Interactive)), 'an interactive run takes any name');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:breakdown', project: $elsewhere)), 'a run of another project');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'work:breakdown')), 'no stored run');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($orphan, 'work:breakdown')), 'a run of a card that is not the parent');
-        self::assertFalse($guard->allows($orphan, $target, CardReporter::Agent, $this->runCause($orphan, 'work:breakdown')), 'a card with no parent');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', WorkerRunKind::Interactive)), 'an interactive run takes any name');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', project: $elsewhere)), 'a run of another project');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'breakdown')), 'no stored run');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a run of a card that is not the parent');
+        self::assertFalse($guard->allows($orphan, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a card with no parent');
     }
 
     private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null): CardEventCause
@@ -145,14 +145,14 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
             bridgeId: Uuid::v7(),
             cardId: $this->idOf($card),
             cardNumber: $card->number,
-            ruleName: $rule,
+            workKind: $rule,
             state: WorkerRunState::Running,
             kind: $kind,
         );
         $this->em()->persist($run);
         $this->em()->flush();
 
-        return CardEventCause::run($run->id ?? throw new \LogicException('A stored run has an id.'), $run->ruleName);
+        return CardEventCause::run($run->id ?? throw new \LogicException('A stored run has an id.'), $run->workKind);
     }
 
     public function test_a_manual_move_of_the_template_is_allowed_in_its_direction_only(): void

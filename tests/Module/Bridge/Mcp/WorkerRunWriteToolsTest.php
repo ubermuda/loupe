@@ -12,7 +12,7 @@ use App\Module\Bridge\Mcp\BridgeCommandCancelTool;
 use App\Module\Bridge\Mcp\WorkerRunResumeTool;
 use App\Module\Bridge\Mcp\WorkerRunStopTool;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
-use App\Module\Bridge\Service\CardColumnLookupInterface;
+use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
@@ -21,6 +21,7 @@ use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\McpTokenScenario;
+use Doctrine\Persistence\ManagerRegistry;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -101,28 +102,32 @@ final class WorkerRunWriteToolsTest extends KernelTestCase
      */
     public function test_an_unexpected_failure_stops_the_batch_and_keeps_the_earlier_rows(): void
     {
-        // The setup builds the lookup, and a built service cannot be replaced.
+        // The setup builds the repository, and a built service cannot be replaced.
         self::ensureKernelShutdown();
         self::bootKernel();
-        self::getContainer()->set(CardColumnLookupInterface::class, new class implements CardColumnLookupInterface {
-            #[\Override]
-            public function columnOf(Project $project, Uuid $cardId): ?string
-            {
-                throw new \RuntimeException('The board is down.');
+        $failingCard = Uuid::v7();
+        self::getContainer()->set(CardHoldRepository::class, new class(self::getContainer()->get('doctrine'), $failingCard) extends CardHoldRepository {
+            public function __construct(
+                ManagerRegistry $registry,
+                private readonly Uuid $failingCard,
+            ) {
+                parent::__construct($registry);
             }
 
             #[\Override]
-            public function cardIdOfNumber(Project $project, int $number): ?Uuid
+            public function existsForCard(Project $project, Uuid $cardId): bool
             {
-                throw new \RuntimeException('The board is down.');
+                if ($cardId->equals($this->failingCard)) {
+                    throw new \RuntimeException('The database is down.');
+                }
+
+                return parent::existsForCard($project, $cardId);
             }
         });
         $this->project = $this->em()->find(Project::class, $this->project->id) ?? throw new \LogicException('The setup project exists.');
         $this->actAsMcpTokenBoundTo($this->project);
         $first = $this->runIn(WorkerRunState::Unfinished);
-        $failing = $this->runIn(WorkerRunState::Unfinished);
-        $failing->cardColumn = 'implementation';
-        $this->em()->flush();
+        $failing = $this->seedRun($this->em(), $this->project, exitCode: 0, bridgeId: $this->bridge->id, cardId: $failingCard, state: WorkerRunState::Unfinished, runKey: Uuid::v7());
         $later = $this->runIn(WorkerRunState::Unfinished);
 
         $unknown = '0199a1b2-0000-7000-8000-00000000abcd';
@@ -198,15 +203,6 @@ final class WorkerRunWriteToolsTest extends KernelTestCase
         $this->em()->flush();
 
         self::assertSame('no-session', $this->resumeRefusal($run)[0]);
-    }
-
-    public function test_a_run_whose_card_left_its_column_is_refused(): void
-    {
-        $run = $this->runIn(WorkerRunState::Unfinished);
-        $run->cardColumn = 'implementation';
-        $this->em()->flush();
-
-        self::assertSame(['card-left', 'The card left the column of this run.'], $this->resumeRefusal($run));
     }
 
     public function test_a_run_on_a_paused_card_is_refused(): void

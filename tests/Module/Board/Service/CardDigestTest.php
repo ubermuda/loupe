@@ -86,28 +86,17 @@ final class CardDigestTest extends TestCase
         );
     }
 
-    public function test_the_digest_changes_with_a_warning_that_applies_to_the_column(): void
+    public function test_the_digest_changes_with_a_warning(): void
     {
         $card = $this->makeCard();
         $digest = new CardDigest();
 
         $none = $digest->forCard($card, 0, 0, 0, null, null, []);
-        $gaveUp = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::GaveUp, 'Tests fail.', 'backlog'), []);
-        $blocked = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::Blocked, 'Tests fail.', 'backlog'), []);
-        $otherRun = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-2', WorkerRunState::GaveUp, 'Tests fail.', null), []);
+        $gaveUp = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::GaveUp, 'Tests fail.'), []);
+        $blocked = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::Blocked, 'Tests fail.'), []);
+        $otherRun = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-2', WorkerRunState::GaveUp, 'Tests fail.'), []);
 
         self::assertCount(4, array_unique([$none, $gaveUp, $blocked, $otherRun]));
-    }
-
-    public function test_the_digest_ignores_a_warning_from_another_column(): void
-    {
-        $card = $this->makeCard();
-        $digest = new CardDigest();
-
-        self::assertSame(
-            $digest->forCard($card, 0, 0, 0, null, null, []),
-            $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::GaveUp, 'Tests fail.', 'in-progress'), []),
-        );
     }
 
     public function test_the_digest_changes_with_each_badge(): void

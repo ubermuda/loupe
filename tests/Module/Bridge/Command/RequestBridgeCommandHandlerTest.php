@@ -39,10 +39,6 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         $this->boot();
         $audit = RecordingAuditor::installedIn(self::getContainer());
         [$owner, $run] = $this->scenario('command-stored', state: WorkerRunState::Unfinished, cardColumn: 'implementation');
-        $run->cardColumn = 'implementation';
-        $run->resumeIndex = 2;
-        $this->em()->flush();
-
         $command = $this->request($run, BridgeCommandKind::ResumeRun, $owner, '  resume it  ');
 
         $this->em()->clear();
@@ -71,9 +67,9 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'sessionId' => (string) $run->sessionId,
             'cardId' => (string) $run->cardId,
             'cardNumber' => 7,
-            'ruleName' => 'plan',
-            'cardColumn' => 'implementation',
-            'resumeIndex' => 2,
+            'workRequestId' => null,
+            'workKind' => 'plan',
+            'ruleId' => null,
             'expiresAt' => '2026-09-29T12:15:00+00:00',
         ]], $this->outboxPayloads());
 
@@ -96,8 +92,8 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         $payload = $this->outboxPayloads()[0];
         self::assertNull($payload['runKey']);
         self::assertNull($payload['sessionId']);
-        self::assertNull($payload['cardColumn']);
-        self::assertNull($payload['resumeIndex']);
+        self::assertNull($payload['workRequestId']);
+        self::assertNull($payload['ruleId']);
         self::assertSame('stop-run', $payload['kind']);
     }
 
@@ -222,25 +218,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         $this->assertRefused(['run' => 'bridge.command.error.not_resumable'], $run, $owner, kind: BridgeCommandKind::ResumeRun);
     }
 
-    /** @return iterable<string, array{?string}> */
-    public static function otherColumns(): iterable
-    {
-        yield 'another column' => ['review'];
-        yield 'a deleted card' => [null];
-    }
-
-    #[DataProvider('otherColumns')]
-    public function test_a_resume_after_the_card_left_the_column_is_refused(?string $column): void
-    {
-        $this->boot();
-        [$owner, $run] = $this->scenario('command-card-left-'.($column ?? 'none'), state: WorkerRunState::Blocked, cardColumn: $column);
-        $run->cardColumn = 'implementation';
-        $this->em()->flush();
-
-        $this->assertRefused(['run' => 'bridge.command.error.card_left'], $run, $owner, kind: BridgeCommandKind::ResumeRun);
-    }
-
-    public function test_a_resume_of_a_run_with_no_column_skips_the_column_check(): void
+    public function test_a_resume_of_a_lost_run_is_stored(): void
     {
         $this->boot();
         [$owner, $run] = $this->scenario('command-no-column', state: WorkerRunState::Lost);

@@ -8,7 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
-use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use Symfony\Component\Uid\Uuid;
 
@@ -16,8 +15,9 @@ use Symfony\Component\Uid\Uuid;
  * One state of one run, keyed by the id the bridge gave the run. The session
  * and the start come with a running report and an outcome. The end, the exit
  * code, the result flag, the failure reason and the output come with an outcome
- * alone. The link to a resumed run and the card column come with the first
- * report, and the structured result and the usage come with an outcome.
+ * alone. The link to a resumed run comes with the first report, and the
+ * structured result and the usage come with an outcome. The work fields are
+ * null for a run of an old bridge rule.
  */
 final readonly class ReportWorkerRunStateCommand
 {
@@ -30,7 +30,9 @@ final readonly class ReportWorkerRunStateCommand
         public \DateTimeImmutable $at,
         public Uuid $cardId,
         public int $cardNumber,
-        public string $ruleName,
+        public ?Uuid $workRequestId = null,
+        public ?string $workKind = null,
+        public ?string $ruleId = null,
         public ?Uuid $sessionId = null,
         public ?\DateTimeImmutable $startedAt = null,
         public ?\DateTimeImmutable $endedAt = null,
@@ -43,9 +45,6 @@ final readonly class ReportWorkerRunStateCommand
         /** @var array<string, mixed>|null */
         public ?array $resultFields = null,
         public ?Uuid $continues = null,
-        public ?int $resumeIndex = null,
-        public ?int $resumeCap = null,
-        public ?string $cardColumn = null,
         public ?string $resumeSkipped = null,
         /** Null when the bridge sent no usage, which leaves the usage of the run unknown. */
         public ?WorkerRunUsageReport $usage = null,
@@ -55,8 +54,6 @@ final readonly class ReportWorkerRunStateCommand
         public ?string $variant = null,
         public ?string $requestedModel = null,
         public ?string $switchedFrom = null,
-        /** Stored when the report creates the run. A later report never changes it. */
-        public ?WorkerRunTrigger $trigger = null,
         /** Stored when the report creates the run. A later report never changes it. */
         public WorkerRunKind $kind = WorkerRunKind::Worker,
     ) {

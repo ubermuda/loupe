@@ -12,7 +12,6 @@ use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeCommandPayload;
 use App\Module\Bridge\Service\BridgeCommandTtl;
-use App\Module\Bridge\Service\CardColumnLookupInterface;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
@@ -40,7 +39,6 @@ final readonly class RequestBridgeCommandHandler
     public const string NOT_CONTROLLABLE = 'bridge.command.error.not_controllable';
     public const string NO_SESSION = 'bridge.command.error.no_session';
     public const string NOT_RESUMABLE = 'bridge.command.error.not_resumable';
-    public const string CARD_LEFT = 'bridge.command.error.card_left';
     public const string NOT_STOPPABLE = 'bridge.command.error.not_stoppable';
     public const string BRIDGE_OUTDATED = 'bridge.command.error.bridge_outdated';
     public const string NOT_A_COMMAND = 'bridge.command.error.not_a_command';
@@ -52,7 +50,6 @@ final readonly class RequestBridgeCommandHandler
         private BridgeCommandRepository $bridgeCommands,
         private BridgeCommandTtl $ttl,
         private OutboxWriter $outbox,
-        private CardColumnLookupInterface $cardColumns,
         private CardHolds $cardHolds,
         private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
@@ -165,7 +162,6 @@ final readonly class RequestBridgeCommandHandler
             BridgeCommandKind::ResumeRun => match (true) {
                 null === $run->sessionId => self::NO_SESSION,
                 !$run->state->isResumable() => self::NOT_RESUMABLE,
-                null !== $run->cardColumn && $this->cardColumns->columnOf($run->project, $run->cardId) !== $run->cardColumn => self::CARD_LEFT,
                 $this->cardHolds->isHeld($run->project, $run->cardId) => self::CARD_HELD,
                 default => null,
             },

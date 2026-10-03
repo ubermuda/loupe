@@ -24,7 +24,7 @@ func stateReport(state string) RunStateReport {
 		At:         time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC),
 		CardID:     "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
 		CardNumber: 42,
-		RuleName:   "plan",
+		Rule:       "plan",
 	}
 }
 
@@ -65,7 +65,7 @@ func keys(body map[string]any) string {
 // withBase lists the fields every report carries, plus extra, in the order
 // keys gives them.
 func withBase(extra ...string) string {
-	all := append([]string{"at", "bridgeId", "cardId", "cardNumber", "ruleName", "state"}, extra...)
+	all := append([]string{"at", "bridgeId", "cardId", "cardNumber", "state"}, extra...)
 	slices.Sort(all)
 
 	return strings.Join(all, ",")
@@ -232,16 +232,12 @@ func TestReportRunStateSendsTheSessionOfAnOutcome(t *testing.T) {
 
 func TestReportRunStateCutsEachValueToTheServersCap(t *testing.T) {
 	report := stateReport(RunFailed)
-	report.RuleName = "  " + strings.Repeat("r", maxRuleName+5)
 	report.Output = strings.Repeat("é", maxRunOutput+10)
 	report.FailureReason = reason(strings.Repeat("f", maxFailureReason+10))
 
 	_, body, _, err := putState(t, report, http.StatusCreated)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if got := body["ruleName"].(string); got != strings.Repeat("r", maxRuleName) {
-		t.Fatalf("ruleName has %d characters", len([]rune(got)))
 	}
 	if got := body["output"].(string); len([]rune(got)) != maxRunOutput {
 		t.Fatalf("output has %d characters", len([]rune(got)))
@@ -328,15 +324,15 @@ func TestReportRunStateSendsTheResultAndTheResumeFields(t *testing.T) {
 	}
 
 	queued := stateReport(RunQueued)
-	queued.Continues, queued.ResumeIndex, queued.ResumeCap, queued.CardColumn = testRunID, 1, 2, "implementation"
+	queued.Continues = testRunID
 	_, body, _, err = putState(t, queued, http.StatusCreated)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := withBase("cardColumn", "continues", "resumeCap", "resumeIndex"); keys(body) != want {
+	if want := withBase("continues"); keys(body) != want {
 		t.Fatalf("keys = %s, want %s", keys(body), want)
 	}
-	if body["continues"] != testRunID || body["resumeIndex"] != 1.0 || body["resumeCap"] != 2.0 || body["cardColumn"] != "implementation" {
+	if body["continues"] != testRunID {
 		t.Fatalf("body = %v", body)
 	}
 
@@ -349,50 +345,29 @@ func TestReportRunStateSendsTheResultAndTheResumeFields(t *testing.T) {
 	}
 }
 
-// A queued report names the event that queued the run. A field that the event
-// does not carry is not sent, and a report with no trigger sends none.
-func TestReportRunStateSendsTheTrigger(t *testing.T) {
+// A run of a work request names the request, its kind and the rule that
+// opened it. A run of a rules: entry names none, and the rule name stays in
+// the bridge.
+func TestReportRunStateSendsTheWorkRequest(t *testing.T) {
 	queued := stateReport(RunQueued)
-	queued.Trigger = &RunTrigger{
-		EventType:         "pull_request.fix_requested",
-		Forge:             "github",
-		Repository:        "ubermuda/loupe",
-		PullRequestNumber: 644,
-		HeadSHA:           "9b84e07b",
-		Reason:            "checks-failed",
-	}
+	queued.WorkRequestID, queued.WorkKind, queued.RuleID = testRunID, "implement", "implement-on-entry"
 	_, body, _, err := putState(t, queued, http.StatusCreated)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if keys(body) != withBase("trigger") {
-		t.Fatalf("keys = %s, want %s", keys(body), withBase("trigger"))
+	if want := withBase("ruleId", "workKind", "workRequestId"); keys(body) != want {
+		t.Fatalf("keys = %s, want %s", keys(body), want)
 	}
-	trigger := body["trigger"].(map[string]any)
-	if want := "eventType,forge,headSha,pullRequestNumber,reason,repository"; keys(trigger) != want {
-		t.Fatalf("trigger keys = %s, want %s", keys(trigger), want)
-	}
-	if trigger["eventType"] != "pull_request.fix_requested" || trigger["forge"] != "github" || trigger["repository"] != "ubermuda/loupe" ||
-		trigger["pullRequestNumber"] != 644.0 || trigger["headSha"] != "9b84e07b" || trigger["reason"] != "checks-failed" {
-		t.Fatalf("trigger = %v", trigger)
+	if body["workRequestId"] != testRunID || body["workKind"] != "implement" || body["ruleId"] != "implement-on-entry" {
+		t.Fatalf("body = %v", body)
 	}
 
-	queued.Trigger = &RunTrigger{EventType: "board.card_moved"}
-	_, body, _, err = putState(t, queued, http.StatusCreated)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if trigger := body["trigger"].(map[string]any); keys(trigger) != "eventType" || trigger["eventType"] != "board.card_moved" {
-		t.Fatalf("trigger = %v", trigger)
-	}
-
-	queued.Trigger = nil
-	_, body, _, err = putState(t, queued, http.StatusCreated)
+	_, body, _, err = putState(t, stateReport(RunQueued), http.StatusCreated)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if keys(body) != withBase() {
-		t.Fatalf("keys = %s, want no trigger", keys(body))
+		t.Fatalf("keys = %s, want no work request and no rule name", keys(body))
 	}
 }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -28,9 +29,17 @@ final class ReportInteractiveLaunchRequest
         #[Assert\Range(min: 1, max: ReportWorkerRunRequest::MAX_CARD_NUMBER)]
         public ?int $cardNumber = null,
 
-        #[Assert\Length(max: WorkerRun::MAX_RULE_NAME_LENGTH, normalizer: 'trim')]
+        /** The kind of the work request, or the name of the session when it runs no work request. */
+        #[Assert\Length(max: WorkerRun::MAX_WORK_KIND_LENGTH, normalizer: 'trim')]
         #[Assert\NotBlank(normalizer: 'trim')]
-        public ?string $ruleName = null,
+        public ?string $workKind = null,
+
+        #[Assert\Uuid]
+        public ?string $workRequestId = null,
+
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkRequest::RULE_ID_PATTERN)]
+        public ?string $ruleId = null,
 
         #[Assert\Choice(choices: self::STATES)]
         #[Assert\NotBlank]
@@ -78,9 +87,14 @@ final class ReportInteractiveLaunchRequest
     }
 
     /** Trimmed, because the length constraint measured the trimmed value. */
-    public function ruleName(): string
+    public function workKind(): string
     {
-        return trim($this->ruleName ?? '');
+        return trim($this->workKind ?? '');
+    }
+
+    public function workRequestId(): ?Uuid
+    {
+        return null === $this->workRequestId || '' === $this->workRequestId ? null : Uuid::fromString($this->workRequestId);
     }
 
     public function failureReason(): ?string

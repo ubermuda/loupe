@@ -44,26 +44,17 @@ func (h *harness) cardHoldOf(number int) bool {
 	return h.router.cardHolds[cardUUID(number)]
 }
 
-// A list that leaves out a held card ends its hold, and the run that waits
-// for the card starts.
+// A list that leaves out a held card ends its hold.
 func TestTheHeldListReleasesACardItLeavesOut(t *testing.T) {
 	h := newHarness(t)
 	h.withHoldList()
-	h.transcripts(true)
-	h.router.readCard = (&cardReads{column: "next"}).read
 	h.holdCard(87)
 	h.holdCard(88)
-	if state, _ := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
-		t.Fatalf("resume = %s", state)
-	}
 	h.router.readHolds = (&holdLists{holds: []api.CardHold{{ProjectID: testProject, CardID: strings.ToUpper(cardUUID(88))}}}).read
 
 	h.router.handler().OnConnect()
 	h.router.wg.Wait()
 
-	if h.runs() != 1 {
-		t.Fatalf("workers = %d after the list", h.runs())
-	}
 	if h.cardHoldOf(87) || !h.cardHoldOf(88) {
 		t.Fatalf("held 87 = %v, held 88 = %v", h.cardHoldOf(87), h.cardHoldOf(88))
 	}

@@ -253,41 +253,15 @@ final class WorkerRunControlsTest extends KernelTestCase
         self::assertTrue($control->enabled);
     }
 
-    public function test_a_resume_in_the_column_of_the_run_is_enabled(): void
+    public function test_a_resume_after_the_card_moved_is_enabled(): void
     {
-        [$project, $bridge] = $this->scenario('controls-same-column');
-        $run = $this->seedWorkerRun($project, $bridge, WorkerRunState::Blocked, cardId: $this->card($project, 'implementation'));
-        $run->cardColumn = 'implementation';
-        $this->em()->flush();
+        [$project, $bridge] = $this->scenario('controls-card-moved');
+        $run = $this->seedWorkerRun($project, $bridge, WorkerRunState::Blocked, cardId: $this->card($project, 'review'));
 
         $control = $this->controlOf($project, $run);
 
         self::assertSame(WorkerRunAction::Resume, $control?->action);
         self::assertTrue($control->enabled);
-    }
-
-    /** @return iterable<string, array{?string}> */
-    public static function otherColumns(): iterable
-    {
-        yield 'another column' => ['review'];
-        yield 'card gone' => [null];
-    }
-
-    #[DataProvider('otherColumns')]
-    public function test_a_resume_after_the_card_left_the_column_is_disabled(?string $column): void
-    {
-        [$project, $bridge] = $this->scenario('controls-card-left-'.($column ?? 'none'));
-        $cardId = null === $column ? Uuid::v7() : $this->card($project, $column);
-        $run = $this->seedWorkerRun($project, $bridge, WorkerRunState::Blocked, cardId: $cardId);
-        $run->cardColumn = 'implementation';
-        $this->em()->flush();
-
-        $control = $this->controlOf($project, $run);
-
-        self::assertSame(WorkerRunAction::Resume, $control?->action);
-        self::assertFalse($control->enabled);
-        self::assertSame('bridge.worker_runs.control.card_left', $control->disabledReason);
-        self::assertSame(['%column%' => 'implementation'], $control->disabledParameters);
     }
 
     public function test_a_queued_run_on_a_paused_bridge_says_it_waits(): void
@@ -406,7 +380,6 @@ final class WorkerRunControlsTest extends KernelTestCase
         $runs = [];
         for ($i = 0; $i < 6; ++$i) {
             $run = $this->seedWorkerRun($project, 0 === $i % 2 ? $bridge : $other, 0 === $i % 3 ? WorkerRunState::Running : WorkerRunState::Blocked, cardId: $card);
-            $run->cardColumn = 'implementation';
             $this->seedCommand($this->em(), $run, state: BridgeCommandState::Done, requestedAt: new \DateTimeImmutable('2026-09-29 10:00:00'));
             $this->seedCommand($this->em(), $run, state: BridgeCommandState::Expired, requestedAt: new \DateTimeImmutable('2026-09-29 11:00:00'));
             $runs[] = $run;
@@ -491,7 +464,7 @@ final class WorkerRunControlsTest extends KernelTestCase
 
     private function seedCommandRun(Project $project, Bridge $bridge, WorkerRunState $state): WorkerRun
     {
-        return $this->seedRun($this->em(), $project, ruleName: 'sync', bridgeId: $bridge->id, state: $state, runKey: Uuid::v7(), kind: WorkerRunKind::Command);
+        return $this->seedRun($this->em(), $project, workKind: 'sync', bridgeId: $bridge->id, state: $state, runKey: Uuid::v7(), kind: WorkerRunKind::Command);
     }
 
     private function card(Project $project, string $column): Uuid

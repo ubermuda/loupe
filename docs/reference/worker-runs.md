@@ -79,14 +79,16 @@ identifies a run by its project, its `bridgeId` and its `runId`.
   "at": "2026-09-13T10:00:00+00:00",
   "cardId": "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
   "cardNumber": 42,
-  "ruleName": "plan",
+  "workRequestId": "0199a0e2-c4d5-7e6f-8a9b-0c1d2e3f4a5b",
+  "workKind": "implement",
+  "ruleId": "implement-on-entry",
   "sessionId": "5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f",
   "startedAt": "2026-09-13T10:00:00+00:00"
 }
 ```
 
-Every report carries the card and the rule, so the first report the server
-reads can create the run. The reports of one run can therefore arrive in any
+Every report carries the card and the work request, so the first report the
+server reads can create the run. The reports of one run can therefore arrive in any
 order.
 
 | Field | Rule |
@@ -96,7 +98,9 @@ order.
 | `at` | required. When the run reached the state, on the bridge clock, as an ISO 8601 timestamp |
 | `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
-| `ruleName` | required. The rule that matched, 1 to 100 characters after trimming |
+| `workRequestId` | the uuid of the work request the run runs. A run of a `rules:` entry sends none |
+| `workKind` | the kind of the work request, such as `implement` or `fix`. It matches `^[a-z][a-z0-9-]{0,39}$`. A run of a `rules:` entry sends none |
+| `ruleId` | the id of the workflow rule that opened the work request. It matches `^[a-z0-9][a-z0-9._-]{0,99}$` |
 | `kind` | `worker` or `command`. A missing or `null` value means `worker`. See [Command runs](#command-runs) |
 | `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running`, except on a command run |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
@@ -114,23 +118,21 @@ order.
 | `resultFields` | the optional fields of the structured result, as a JSON object of at most 4000 bytes. A list is refused |
 | `resumeSkipped` | why the bridge did not resume a run that did not finish, at most 50 characters. The bridge sends `card_moved`, `shutdown`, `rule_dead` or `reload` |
 | `continues` | the `runId` of the run that this run resumes, a uuid |
-| `resumeIndex` | the place of this run in its series, between 0 and 32767. The bridge sends none for the first run |
-| `resumeCap` | the `maxResumes` cap of the series, between 0 and 32767 |
-| `cardColumn` | the slug of the column that started the series, at most 2000 characters |
 | `usage` | the tokens the worker spent. See [Usage](#usage) |
 | `workerPool` | the worker pool the bridge runs the worker in. It starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens, such as `default` |
 | `experiment` | the experiment of the rule that ran the worker, such as `impl-model`. It matches `^[a-z0-9][a-z0-9_-]{0,63}$` |
 | `variant` | the variant of the experiment that the card runs with, such as `sonnet`. It matches the same pattern |
 | `requestedModel` | the model the variant asked for, such as `claude-sonnet-5-5`, at most 100 characters with no control characters |
 | `switchedFrom` | the variant the card was pinned to before this run, when the rule no longer offers it. It matches the same pattern |
-| `trigger` | the event that queued the run, as an object. It always holds `eventType`, and a pull request event adds `forge`, `repository`, `pullRequestNumber`, `headSha` and `reason`. A person's Resume from the web UI sends the `eventType` `bridge.command` |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
 outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
 So the run keeps the fault it had.
 
-The server stores `continues`, `resumeIndex`, `resumeCap` and `cardColumn` from
-the report that creates the run, and ignores them on a later report. It resolves
+The server stores `continues`, `workRequestId`, `workKind` and `ruleId` from
+the report that creates the run, and ignores them on a later report. A new run
+of the `fix` kind queues the fix-run comment on the open pull request of its
+card. It resolves
 `continues` to a run of the same project and bridge, and stores no link for an
 unknown `runId`. It stores `resultStatus`, `resultReason`, `resultFields` and
 `resumeSkipped` from an outcome only.
@@ -151,10 +153,6 @@ ignores them on a later report. A `not-started` outcome also fills them, because
 the bridge resolves the [experiment pin](#resolving-an-experiment-pin) before it
 starts the worker. A blank value, a value that breaks its rule, or a field
 without its partner gets a 422.
-
-The server stores `trigger` from the report that creates the run, and ignores
-it on a later report. A run with no `trigger` comes from a bridge that predates
-triggers. An `eventType` that is not a dotted lower-case name gets a 422.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
@@ -456,7 +454,6 @@ follows the same rules as above.
   "sessionId": "5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f",
   "cardId": "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
   "cardNumber": 42,
-  "ruleName": "plan",
   "startedAt": "2026-09-13T10:00:00+00:00",
   "endedAt": "2026-09-13T10:00:21+00:00",
   "exitCode": 0,
@@ -472,7 +469,6 @@ follows the same rules as above.
 | `sessionId` | required. The uuid of the Claude Code session the worker ran as. The bridge generates a new one for each worker and passes it to `claude --session-id` |
 | `cardId` | the uuid of the card the worker was started for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | the short number the card shows, counting from 1 inside the project, at most 2147483647 |
-| `ruleName` | the rule that matched, 1 to 100 characters |
 | `startedAt` | when the worker started, on the bridge clock, as an ISO 8601 timestamp |
 | `endedAt` | when the worker finished, on the bridge clock. It cannot be before `startedAt`, because both come from the same clock |
 | `exitCode` | the process exit code, between -255 and 255. Send `null` when the process never started |
@@ -573,7 +569,6 @@ error:
 | You cannot control an interactive session from here | the run is interactive |
 | This run has no session to resume | a resume of a run with no `sessionId` |
 | Only an ended run can resume | a resume of an open run, or of a run that ended as `succeeded`, `waiting-on-forge`, `dropped`, `replaced`, `skipped`, `not-started` or `closed` |
-| The card left the column of this run | a resume when the card is no longer in the `cardColumn` of the run |
 | Only a queued or running run can stop | a stop of a run that is not `queued`, `resumed` or `running` |
 | Only a command run can run again | a rerun of a run that is not a command run |
 | Only a failed, timed-out or lost command run can run again | a rerun of a command run in any other state |
@@ -629,7 +624,7 @@ typed zero cannot take the whole history.
 [Console commands](commands.md).
 
 The sweep keeps the usage of a run it deletes. The usage row loses the link to
-its run, and keeps its project, its card, its rule and its source, so the spend
+its run, and keeps its project, its card, its work kind and its source, so the spend
 of a card outlives the run records.
 
 The sweep cuts on the server's arrival time rather than on the bridge clock. A
@@ -646,7 +641,7 @@ its experiment weights and its card holds with it. Deleting an account deletes
 the same data of every project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
-`requestedModel` and `switchedFrom`, and its trigger fields. It holds every usage
+`requestedModel` and `switchedFrom`, and its `workRequestId`, `workKind` and `ruleId`. It holds every usage
 row in `worker_run_usage.json`. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of

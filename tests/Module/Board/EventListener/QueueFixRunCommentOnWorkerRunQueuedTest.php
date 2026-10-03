@@ -7,16 +7,22 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
+use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\EventListener\QueueFixRunCommentOnWorkerRunQueued;
 use App\Module\Board\Messenger\PostFixRunComment;
 use App\Module\Board\Repository\CardAutomationRepository;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Event\WorkerRunQueued;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestCommenters;
 use App\Module\Project\Entity\Project;
@@ -53,10 +59,13 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         $this->project = $this->makeProject('fix-run-comment');
     }
 
-    public function test_a_queued_fix_run_stores_one_pending_comment_and_queues_one_message(): void
+    public function test_a_queued_fix_run_stores_one_pending_comment_for_the_open_pull_request_of_its_card(): void
     {
         $this->commentOnFixQueued(true);
-        $event = $this->event();
+        $card = $this->card();
+        $this->link($card, Forge::GitHub, 'Acme/Widgets', 5);
+        $pullRequest = $this->tracked('acme/widgets', 5, headSha: 'abc1234', checks: PullRequestChecks::Failed);
+        $event = $this->event(cardId: $card->id);
 
         $this->listener()($event);
 
@@ -66,14 +75,14 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertEquals($event->runId, $comment->runId);
         self::assertEquals($event->cardId, $comment->cardId);
         self::assertSame('github', $comment->forge);
-        self::assertSame('Acme/Widgets', $comment->repository);
+        self::assertSame('acme/widgets', $comment->repository);
         self::assertSame(5, $comment->number);
         self::assertSame('abc1234', $comment->headSha);
         self::assertSame('checks-failed', $comment->reason);
         self::assertSame(PullRequestCommentState::Pending, $comment->state);
         self::assertSame(0, $comment->attempts);
         self::assertNull($comment->fixRound);
-        self::assertNull($comment->forgePullRequestId);
+        self::assertEquals($pullRequest->id, $comment->forgePullRequestId);
 
         $sent = $this->transport->getSent();
         self::assertCount(1, $sent);
@@ -82,23 +91,46 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertEquals($comment->id, $message->commentId);
     }
 
-    public function test_the_comment_stores_the_id_of_the_tracked_pull_request(): void
+    public function test_the_comment_picks_the_open_pull_request_over_a_merged_one(): void
     {
         $this->commentOnFixQueued(true);
-        $pullRequest = new ForgePullRequest($this->project, 'github', 'acme/widgets', 5);
-        $this->em->persist($pullRequest);
+        $card = $this->card();
+        $this->link($card, Forge::GitHub, 'acme/widgets', 4);
+        $this->link($card, Forge::GitHub, 'acme/widgets', 5);
+        $merged = $this->tracked('acme/widgets', 4);
+        $merged->state = PullRequestState::Merged;
         $this->em->flush();
+        $this->tracked('acme/widgets', 5, conflicting: true);
 
-        $this->listener()($this->event());
+        $this->listener()($this->event(cardId: $card->id));
 
-        self::assertEquals($pullRequest->id, $this->comments()[0]->forgePullRequestId);
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame(5, $rows[0]->number);
+        self::assertSame('conflict', $rows[0]->reason);
+    }
+
+    public function test_an_untracked_pull_request_gets_a_comment_with_no_head_and_no_reason(): void
+    {
+        $this->commentOnFixQueued(true);
+        $card = $this->card();
+        $this->link($card, Forge::GitHub, 'Acme/Widgets', 5);
+
+        $this->listener()($this->event(cardId: $card->id));
+
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame('Acme/Widgets', $rows[0]->repository);
+        self::assertNull($rows[0]->headSha);
+        self::assertNull($rows[0]->reason);
+        self::assertNull($rows[0]->forgePullRequestId);
     }
 
     public function test_the_comment_stores_the_fix_round_of_the_card(): void
     {
         $this->commentOnFixQueued(true);
-        $card = new Card($this->project, $this->column($this->project, 'backlog'), 'Fix it', '', 1);
-        $this->em->persist($card);
+        $card = $this->card();
+        $this->link($card, Forge::GitHub, 'acme/widgets', 5);
         $automation = new CardAutomation($card);
         $automation->fixRounds = 2;
         $this->em->persist($automation);
@@ -114,7 +146,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
     public function test_the_same_run_queued_twice_stores_and_queues_once(): void
     {
         $this->commentOnFixQueued(true);
-        $event = $this->event();
+        $event = $this->linkedEvent();
 
         $this->listener()($event);
         $this->listener()($event);
@@ -127,7 +159,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
     {
         $this->commentOnFixQueued(false);
 
-        $this->listener()($this->event());
+        $this->listener()($this->linkedEvent());
 
         self::assertSame([], $this->comments());
         self::assertSame([], $this->transport->getSent());
@@ -136,19 +168,23 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
     public function test_nothing_is_queued_while_the_board_is_off(): void
     {
         $this->commentOnFixQueued(true);
+        $event = $this->linkedEvent();
         $this->disableBoard();
 
-        $this->listener()($this->event());
+        $this->listener()($event);
 
         self::assertSame([], $this->comments());
         self::assertSame([], $this->transport->getSent());
     }
 
-    public function test_nothing_is_queued_for_a_run_without_a_pull_request(): void
+    public function test_nothing_is_queued_for_a_card_without_a_numbered_pull_request(): void
     {
         $this->commentOnFixQueued(true);
+        $card = $this->card();
+        $this->em->persist(new CardPullRequest($card, 'https://example.com/pr', Forge::Other));
+        $this->em->flush();
 
-        $this->listener()($this->event(repository: null, number: null));
+        $this->listener()($this->event(cardId: $card->id));
 
         self::assertSame([], $this->comments());
         self::assertSame([], $this->transport->getSent());
@@ -157,8 +193,10 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
     public function test_nothing_is_queued_for_a_forge_that_cannot_comment(): void
     {
         $this->commentOnFixQueued(true);
+        $card = $this->card();
+        $this->link($card, Forge::GitLab, 'acme/widgets', 5);
 
-        $this->listener()($this->event(forge: 'gitlab'));
+        $this->listener()($this->event(cardId: $card->id));
 
         self::assertSame([], $this->comments());
         self::assertSame([], $this->transport->getSent());
@@ -168,7 +206,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
     {
         $this->commentOnFixQueued(true);
 
-        $this->listener()($this->event(projectId: Uuid::v7()));
+        $this->listener()($this->event(projectId: Uuid::v7(), cardId: $this->linkedEvent()->cardId));
 
         self::assertSame([], $this->comments());
         self::assertSame([], $this->transport->getSent());
@@ -177,7 +215,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
     public function test_a_failure_is_logged_and_never_reaches_the_bridge_report(): void
     {
         $this->commentOnFixQueued(true);
-        $event = $this->event();
+        $event = $this->linkedEvent();
         $bus = $this->createStub(MessageBusInterface::class);
         $bus->method('dispatch')->willThrowException(new \RuntimeException('transport down'));
         $logger = new RecordingLogger();
@@ -190,6 +228,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
             $container->get(PullRequestCommenters::class),
             $container->get(PullRequestCommentRepository::class),
             $container->get(CardAutomationRepository::class),
+            $container->get(CardPullRequestRepository::class),
             $container->get(ForgePullRequestRepository::class),
             $this->em,
             $bus,
@@ -216,19 +255,50 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function event(?Uuid $projectId = null, ?Uuid $cardId = null, ?string $forge = 'github', ?string $repository = 'Acme/Widgets', ?int $number = 5): WorkerRunQueued
+    private function event(?Uuid $projectId = null, ?Uuid $cardId = null): WorkerRunQueued
     {
         return new WorkerRunQueued(
             projectId: $projectId ?? $this->project->id ?? throw new \LogicException('A persisted project has an id.'),
             runId: Uuid::v7(),
             cardId: $cardId ?? Uuid::v7(),
-            eventType: 'pull_request.fix_requested',
-            forge: $forge,
-            repository: $repository,
-            pullRequestNumber: $number,
-            headSha: 'abc1234',
-            reason: 'checks-failed',
         );
+    }
+
+    private function linkedEvent(): WorkerRunQueued
+    {
+        $card = $this->card();
+        $this->link($card, Forge::GitHub, 'acme/widgets', 5);
+
+        return $this->event(cardId: $card->id);
+    }
+
+    private function card(): Card
+    {
+        $card = new Card($this->project, $this->column($this->project, 'backlog'), 'Fix it', '', 1);
+        $this->em->persist($card);
+        $this->em->flush();
+
+        return $card;
+    }
+
+    private function link(Card $card, Forge $forge, string $repository, int $number): void
+    {
+        $this->em->persist(new CardPullRequest($card, 'https://example.com/'.$repository.'/pull/'.$number, $forge, $repository, $number));
+        $this->em->flush();
+    }
+
+    private function tracked(string $repository, int $number, ?string $headSha = null, PullRequestChecks $checks = PullRequestChecks::Pending, bool $conflicting = false): ForgePullRequest
+    {
+        $pullRequest = new ForgePullRequest($this->project, 'github', $repository, $number);
+        $pullRequest->headSha = $headSha;
+        $pullRequest->checks = $checks;
+        if ($conflicting) {
+            $pullRequest->mergeability = PullRequestMergeability::Conflicting;
+        }
+        $this->em->persist($pullRequest);
+        $this->em->flush();
+
+        return $pullRequest;
     }
 
     private function listener(): QueueFixRunCommentOnWorkerRunQueued

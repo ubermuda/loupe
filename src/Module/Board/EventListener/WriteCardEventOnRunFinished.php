@@ -104,15 +104,13 @@ final readonly class WriteCardEventOnRunFinished
 
         return [
             'runId' => $runId,
-            'ruleName' => $run->ruleName,
+            'workKind' => $run->workKind,
             'state' => $run->state->value,
             'interactive' => WorkerRunKind::Interactive === $run->kind,
             'command' => WorkerRunKind::Command === $run->kind,
             'startedAt' => $startedAt?->format(\DateTimeInterface::ATOM),
             'endedAt' => $endedAt?->format(\DateTimeInterface::ATOM),
             'durationSeconds' => null !== $startedAt && null !== $endedAt ? $endedAt->getTimestamp() - $startedAt->getTimestamp() : null,
-            'resumeIndex' => $run->resumeIndex,
-            'resumeCap' => $run->resumeCap,
             'closedAt' => $closedAt->format(\DateTimeInterface::ATOM),
         ];
     }

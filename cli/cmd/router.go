@@ -2120,25 +2120,15 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		delete(r.stops, p.runID)
 	}
 
-	// The server stores the series links from the report that creates the run.
-	if report.State == api.RunQueued {
-		report.CardColumn = p.column
-		if p.continues != "" {
-			report.Continues, report.ResumeIndex, report.ResumeCap = p.continues, p.resumeIndex, p.maxResumes
-		}
-		if e := p.event; e.Type != "" {
-			report.Trigger = &api.RunTrigger{
-				EventType:         e.Type,
-				Forge:             e.Forge,
-				Repository:        e.Repository,
-				PullRequestNumber: e.PullRequestNumber,
-				HeadSHA:           e.HeadSHA,
-				Reason:            e.Reason,
-			}
-		}
+	// The server stores the series link from the report that creates the run.
+	if report.State == api.RunQueued && p.continues != "" {
+		report.Continues = p.continues
 	}
 	report.BridgeID, report.At = r.bridgeID, time.Now()
-	report.CardID, report.CardNumber, report.RuleName = cardID, cardNumber, p.rule
+	report.CardID, report.CardNumber, report.Rule = cardID, cardNumber, p.rule
+	if p.isWork() {
+		report.WorkRequestID, report.WorkKind, report.RuleID = p.work.WorkRequestID, p.work.Kind, p.work.RuleID
+	}
 	report.WorkerPool = cmp.Or(p.slot, p.pool)
 	if p.isCommand() {
 		report.Kind = api.RunKindCommand
