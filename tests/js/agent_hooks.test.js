@@ -152,6 +152,9 @@ describe('no-full-ci.sh', () => {
         ['x="$(bash <<EOF\njust ci\nEOF\n)"', 'deny'],
         ['cat <<EOF 2>&1 | bash\njust ci\nEOF', 'deny'],
         ['bash <<EOF\necho "x\nEOF\njust ci', 'deny'],
+        ['env bash <<EOF\njust ci\nEOF', 'deny'],
+        ['timeout 5 bash <<EOF\njust ci\nEOF', 'deny'],
+        ['nice -n 5 sh <<EOF\njust ci\nEOF', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });

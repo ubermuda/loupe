@@ -6,7 +6,7 @@
 BEGIN {
     sp = 1; floor = 1; ctx[1] = "U"; paren[1] = 0; quoted[1] = 0
     arith = 0; tick = 0; cont = 0; nq = 0; qi = 0; body = 0; incode = 0
-    st = 0; wd = ""; inw = 0; pshell = 0; pstart = 1
+    st = 0; skip = 0; wd = ""; inw = 0; pshell = 0; pstart = 1
 }
 
 function push(t) {
@@ -43,11 +43,16 @@ function sep(c) { if (quoted[sp]) printf "%s", c; else printf "\n" }
 
 # Word tracking finds a segment that runs a shell with no -c flag. In st 0 the
 # segment waits for its command word, st 2 means a shell, and st 3 means done.
+# It skips the same wrappers as skip_prefix in lib/segments.sh.
 function wc(c) { if (st < 3 && length(wd) < 64) wd = wd c; inw = 1 }
 
 function we(    base) {
     if (!inw) return
-    if (st == 0 && wd != "(" && wd != "{" && wd !~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+    if (st == 0 && skip) {
+        skip = 0
+    } else if (st == 0 && (wd == "-n" || wd == "-u" || wd == "timeout")) {
+        skip = 1
+    } else if (st == 0 && wd !~ /^(time|nice|env|\(|\{|-.*|[A-Za-z_][A-Za-z0-9_]*=.*)$/) {
         base = wd; sub(/.*\//, "", base)
         st = (base ~ /^(bash|sh|zsh|dash|ksh)$/) ? 2 : 3
     } else if (st == 2 && wd ~ /^-[^-]*c/) {
@@ -56,7 +61,7 @@ function we(    base) {
     wd = ""; inw = 0
 }
 
-function seg_end() { we(); if (st == 2) pshell = 1; st = 0 }
+function seg_end() { we(); if (st == 2) pshell = 1; st = 0; skip = 0 }
 
 # A pipeline that runs a shell reads the here-documents it opened as code.
 function pipe_end(    k) {
@@ -66,9 +71,12 @@ function pipe_end(    k) {
 }
 
 # A `$(` starts a new command, so it keeps its own word state until its `)`.
-function sub_open() { sst[sp] = st; swd[sp] = wd; spsh[sp] = pshell; st = 0; wd = ""; inw = 0; pshell = 0 }
+function sub_open() {
+    sst[sp] = st; sskip[sp] = skip; swd[sp] = wd; spsh[sp] = pshell
+    st = 0; skip = 0; wd = ""; inw = 0; pshell = 0
+}
 
-function sub_close() { pipe_end(); st = sst[sp]; wd = swd[sp]; pshell = spsh[sp]; inw = 1 }
+function sub_close() { pipe_end(); st = sst[sp]; skip = sskip[sp]; wd = swd[sp]; pshell = spsh[sp]; inw = 1 }
 
 function begin_code() {
     printf "\n"; saved_sp = sp; saved_arith = arith; saved_tick = tick
