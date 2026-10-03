@@ -6,7 +6,8 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
+use App\Module\Board\Entity\CardPause;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
@@ -342,9 +343,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $linked = $this->digestOf($this->manifest($client, $project), $card);
         $em->clear();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $blocked = new CardAutomation($em->find(Card::class, $card->id) ?? throw new \LogicException('No card.'));
-        $blocked->blockedReason = 'checks-failed';
-        $em->persist($blocked);
+        $paused = $em->find(Card::class, $card->id) ?? throw new \LogicException('No card.');
+        $em->persist(new CardPause($paused, $paused->project, 'on-hold', 'hold', CardPauseKind::Rule, new \DateTimeImmutable()));
         $em->flush();
         $em->clear();
         $after = $this->manifest($client, $project);

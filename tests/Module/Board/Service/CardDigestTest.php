@@ -108,9 +108,9 @@ final class CardDigestTest extends TestCase
         $checks = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::ChecksFailed]);
         $conflict = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::Conflict]);
         $both = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::ChecksFailed, CardBadge::Conflict]);
-        $blocked = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::Blocked]);
+        $paused = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::Paused]);
 
-        self::assertCount(5, array_unique([$none, $checks, $conflict, $both, $blocked]));
+        self::assertCount(5, array_unique([$none, $checks, $conflict, $both, $paused]));
     }
 
     private function digest(Card $card): string

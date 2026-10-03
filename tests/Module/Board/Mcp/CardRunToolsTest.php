@@ -100,7 +100,6 @@ final class CardRunToolsTest extends KernelTestCase
         self::assertSame('running', $result['run']['state']);
         $payload = CardMovedOutbox::onlyPayload(self::getContainer(), $this->project);
         self::assertSame('agent', $payload['actor'] ?? null);
-        self::assertSame(['interactiveRun' => true, 'held' => false], $payload['card'] ?? null);
     }
 
     public function test_open_with_a_status_names_the_opened_run_as_the_cause_of_the_move(): void

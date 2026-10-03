@@ -309,9 +309,7 @@ final readonly class ProjectShowcaseSeeder
         $this->linkPullRequest($onboarding, 447, PullRequestChecks::Passed, PullRequestMergeability::Mergeable, PullRequestReview::Approved);
 
         $automation = new CardAutomation($columnRules);
-        $automation->fixRounds = 3;
-        $automation->blockedReason = 'checks-failed';
-        $automation->lastAction = CardAutomationAction::Stopped;
+        $automation->lastAction = CardAutomationAction::Synced;
         $automation->lastActionAt = new \DateTimeImmutable('-20 minutes');
         $this->em->persist($automation);
         $this->em->flush();

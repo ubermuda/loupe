@@ -989,7 +989,7 @@ Each entry of `pullRequests` carries `state`, the last state Loupe read:
 as for a link it cannot parse or a pull request it never read. The card page
 shows a pull request that Loupe never read as **Not reported**. The card also
 carries `automation`, with
-`fixRounds`, `blockedReason`, `lastAction` and `lastActionAt`. It is null when
+`lastAction` and `lastActionAt`. It is null when
 the automation never acted on the card. `card_update`, `card_create`,
 `card_run_open` and `card_list` with `full` return the same two keys. A
 `card_list` row without `full` carries neither.
@@ -1002,12 +1002,6 @@ an approval covers the newest commit.
 `card_get` also returns `relatedCards`, the cards linked to this one. Each entry
 carries `cardId`, `number`, `title`, `status` and `kind`, where `kind` is how
 this card reads the link. `card_search` does not carry `relatedCards`.
-
-`card_get` also returns `heldBy`, the open blocking cards that keep an approved
-card in its stage column. Each entry carries `cardId`, `number`, `title` and
-`status`. The list is empty when the card is not held. `card_create`,
-`card_update` and `card_run_open` return it too, and `card_list` does not. See
-[An approval waits for open blockers](#an-approval-waits-for-open-blockers).
 
 `card_get_history` reads what happened to one card, newest first. It pages the
 same way `card_list` does, with 50 events by default and 100 at most. Each event
@@ -1095,8 +1089,7 @@ The card then moves to the column the stage leads to, as the app. It moves only
 while it still sits in the stage column and its document is still approved. A
 card that a person moved away since stays where it is.
 
-The card page names the open blockers, and `card_get` lists them under `heldBy`.
-The board tile and `card_list` do not show the hold. A move by a person or an
+The card page and `card_get` do not show the hold. A move by a person or an
 agent is never held, so a card with an open blocker still moves by hand.
 
 ## Cards linked to a card

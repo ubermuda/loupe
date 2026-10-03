@@ -35,36 +35,6 @@ final class WantedCardWaitTest extends TestCase
         self::assertSame(InboxCardWait::computeKey(InboxCardWaitTrigger::PullRequestReady, pullRequestId: $pullRequestId, headSha: $headSha), $wait->key());
     }
 
-    public function test_a_stopped_fix_loop_names_its_blocked_reason(): void
-    {
-        $pullRequestId = Uuid::v7();
-        $headSha = str_repeat('b2', 20);
-
-        $wait = WantedCardWait::forPullRequestFixStopped($pullRequestId, 640, $headSha, 'checks-failed');
-
-        self::assertSame(InboxCardWaitTrigger::PullRequestFixStopped, $wait->trigger);
-        self::assertSame('Pull request #640: fix loop stopped (checks-failed)', $wait->reason);
-        self::assertSame($pullRequestId, $wait->pullRequestId);
-        self::assertSame($headSha, $wait->headSha);
-        self::assertSame(InboxCardWait::computeKey(InboxCardWaitTrigger::PullRequestFixStopped, pullRequestId: $pullRequestId, headSha: $headSha), $wait->key());
-    }
-
-    #[TestWith([null])]
-    #[TestWith([''])]
-    public function test_a_stopped_fix_loop_without_a_blocked_reason_names_none(?string $blockedReason): void
-    {
-        $wait = WantedCardWait::forPullRequestFixStopped(Uuid::v7(), 640, 'abc123', $blockedReason);
-
-        self::assertSame('Pull request #640: fix loop stopped', $wait->reason);
-    }
-
-    public function test_a_long_blocked_reason_fits_the_reason_column(): void
-    {
-        $wait = WantedCardWait::forPullRequestFixStopped(Uuid::v7(), 640, 'abc123', str_repeat('x', 300));
-
-        self::assertSame(InboxCardWait::MAX_REASON_LENGTH, mb_strlen($wait->reason));
-    }
-
     #[TestWith([InboxCardWaitTrigger::PullRequestReady])]
     #[TestWith([InboxCardWaitTrigger::PullRequestFixStopped])]
     #[TestWith([InboxCardWaitTrigger::DocumentInReview])]

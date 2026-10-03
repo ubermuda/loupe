@@ -6373,9 +6373,6 @@
     .lp-card-automation {
         @apply flex items-center gap-1.5 text-xs text-fg-mute m-0 mt-3;
     }
-    .lp-card-automation--blocked {
-        @apply mt-2 rounded-md border border-status-danger-border bg-status-danger-bg text-status-danger-deep py-1.5 px-2.5;
-    }
     /* Site-review feedback left on a page that named this card. Read only
        here: the status is owned by the site-review screen and by the MCP tool
        that marks a comment addressed. */

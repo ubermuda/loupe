@@ -171,21 +171,13 @@ A removed target shows an unavailable state, while completed results retain thei
 Loupe opens an item by itself when a card waits for a person. A card waits in
 these cases:
 
-- A product design of the card is in review, and the card sits in the Product
-  design column. A product design is a linked document with the tag `product`.
-- A tech design of the card is in review, and the card sits in the Tech design
-  column. A tech design is a linked document with the tags `design` and
-  `decisions`.
+- A linked document of the card is in review, and the card does not sit in a
+  terminal column.
 - The newest worker run of the card is blocked, gave up, or waits for a person.
   The card must stay in the column that started the run.
 - A GitHub pull request that is linked to the card is ready for review.
-- The board automation stopped the fix loop of a GitHub pull request that is
-  linked to the card.
 - The workflow paused the card. The wait names the reason code of the pause,
   and it ends when the pause is released. A new pause starts a new wait.
-
-Other linked documents, such as a plan, open no wait. A change to the tags of
-a document makes Loupe check each card that links it again.
 
 The item has the kind **Waiting**, and it is always blocking.
 
@@ -248,13 +240,8 @@ count, with or without a conflict resolution. A force push, such as a rebase,
 counts, so you approve the rewritten branch again. A new approval of the newest
 commit ends the wait.
 
-The fix loop wait opens when the board automation stops asking for fixes,
-because the card used all of its fix rounds. The wait names the reason of the
-fix that the automation did not ask for, such as `checks-failed`. While a
-worker run of the card is open, used fix rounds alone give no wait, because the
-run can still push a fix. The wait ends when the pull request closes or merges.
-It also ends when the automation of the card starts again, for example after a
-move of the card.
+A workflow that stops asking for fixes pauses the card, and the pause opens
+the wait.
 
 ### Choosing which waits open an item
 
@@ -265,7 +252,7 @@ Each project has seven switches, one for each cause of a wait:
 - **Run gave up**
 - **Run waiting for a person**
 - **Pull request ready for review**
-- **Pull request fix loop stopped**
+- **Pull request fix loop stopped**, which no longer opens a wait
 - **Workflow paused the card**
 
 The switches are on the inbox settings page, at **Project settings > Inbox**.
@@ -283,8 +270,8 @@ A wait ends when its document leaves review. A verdict does this, and so does
 an archive. A new version of the document also ends the wait, and a new wait
 for the new version replaces it. The item then stays open. An open review
 request from an agent for the same document holds back the wait, because it
-asks for the same verdict. A document wait also ends when the card leaves the
-column of the stage, or when the document loses its stage tags.
+asks for the same verdict. A document wait also ends when the card moves to a
+terminal column.
 
 A run wait ends when a newer run of the card starts. It also ends when the card
 moves to another column.

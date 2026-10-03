@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Messenger\PostFixRunComment;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -39,7 +38,6 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
         private BoardAutomation $boardAutomation,
         private PullRequestCommenters $commenters,
         private PullRequestCommentRepository $pullRequestComments,
-        private CardAutomationRepository $cardAutomations,
         private CardPullRequestRepository $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
         private EntityManagerInterface $em,
@@ -89,13 +87,12 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
         $headSha = $tracked?->headSha;
         $reason = null === $tracked ? null : self::reasonOf($tracked);
 
-        $fixRound = $this->cardAutomations->findByCardIds([$event->cardId])[(string) $event->cardId]->fixRounds ?? null;
         // Forge keeps its row through a repository rename, so the post finds the pull request by id.
         $forgePullRequestId = $tracked?->id;
 
         // One transaction, so a message that fails to queue leaves no pending row behind.
         // It is a DBAL one, because a failed ORM transaction closes the entity manager of the bridge request.
-        $commentId = $this->em->getConnection()->transactional(function () use ($event, $forge, $repository, $number, $headSha, $reason, $fixRound, $forgePullRequestId) {
+        $commentId = $this->em->getConnection()->transactional(function () use ($event, $forge, $repository, $number, $headSha, $reason, $forgePullRequestId) {
             $commentId = $this->pullRequestComments->insertIfMissing(
                 $event->projectId,
                 $event->runId,
@@ -105,7 +102,7 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
                 $number,
                 $headSha,
                 $reason,
-                $fixRound,
+                null,
                 $forgePullRequestId,
                 $this->clock->now(),
             );

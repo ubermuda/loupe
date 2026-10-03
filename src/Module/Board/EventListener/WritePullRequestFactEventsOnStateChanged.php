@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
-use App\Module\Board\Command\PublishPullRequestEventsCommand;
-use App\Module\Board\Command\PublishPullRequestEventsHandler;
+use App\Module\Board\Command\WritePullRequestFactEventsCommand;
+use App\Module\Board\Command\WritePullRequestFactEventsHandler;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
-/** A throw here rolls back the state Forge stored, so the next read publishes again. */
+/** A throw here rolls back the state Forge stored, so the next read writes again. */
 #[AsEventListener]
-final readonly class PublishPullRequestEventsOnStateChanged
+final readonly class WritePullRequestFactEventsOnStateChanged
 {
     public function __construct(
-        private PublishPullRequestEventsHandler $publish,
+        private WritePullRequestFactEventsHandler $write,
         private BoardAvailability $board,
     ) {
     }
@@ -26,6 +26,6 @@ final readonly class PublishPullRequestEventsOnStateChanged
             return;
         }
 
-        ($this->publish)(new PublishPullRequestEventsCommand($event->pullRequest, $event->previous, $event->current, $event->reviewVerdict));
+        ($this->write)(new WritePullRequestFactEventsCommand($event->pullRequest, $event->previous, $event->current, $event->reviewVerdict));
     }
 }

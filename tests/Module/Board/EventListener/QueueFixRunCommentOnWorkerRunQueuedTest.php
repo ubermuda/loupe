@@ -6,14 +6,12 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\EventListener\QueueFixRunCommentOnWorkerRunQueued;
 use App\Module\Board\Messenger\PostFixRunComment;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -126,23 +124,6 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertNull($rows[0]->forgePullRequestId);
     }
 
-    public function test_the_comment_stores_the_fix_round_of_the_card(): void
-    {
-        $this->commentOnFixQueued(true);
-        $card = $this->card();
-        $this->link($card, Forge::GitHub, 'acme/widgets', 5);
-        $automation = new CardAutomation($card);
-        $automation->fixRounds = 2;
-        $this->em->persist($automation);
-        $this->em->flush();
-
-        $this->listener()($this->event(cardId: $card->id));
-
-        $rows = $this->comments();
-        self::assertCount(1, $rows);
-        self::assertSame(2, $rows[0]->fixRound);
-    }
-
     public function test_the_same_run_queued_twice_stores_and_queues_once(): void
     {
         $this->commentOnFixQueued(true);
@@ -227,7 +208,6 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
             $container->get(BoardAutomation::class),
             $container->get(PullRequestCommenters::class),
             $container->get(PullRequestCommentRepository::class),
-            $container->get(CardAutomationRepository::class),
             $container->get(CardPullRequestRepository::class),
             $container->get(ForgePullRequestRepository::class),
             $this->em,

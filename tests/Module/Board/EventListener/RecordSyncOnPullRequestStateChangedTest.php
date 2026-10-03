@@ -74,21 +74,6 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
         self::assertSame([], $this->cardEvents($doneCard));
     }
 
-    public function test_a_confirming_read_that_is_also_ready_to_merge_ends_on_ready_to_merge(): void
-    {
-        $card = $this->linkedCard();
-
-        $this->read(from: 'approved1', to: 'synced1', syncedSha: 'synced1', readyToMerge: true);
-
-        $automation = $this->automationOf($card);
-        self::assertNotNull($automation);
-        self::assertSame(CardAutomationAction::ReadyToMerge, $automation->lastAction);
-        self::assertEqualsCanonicalizing(
-            [CardEventKind::Synced, CardEventKind::ReadyToMerge],
-            array_map(static fn (CardEvent $event): CardEventKind => $event->kind, $this->cardEvents($card)),
-        );
-    }
-
     public function test_a_force_push_back_to_a_synced_head_records_nothing(): void
     {
         $card = $this->linkedCard();

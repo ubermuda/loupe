@@ -6,13 +6,10 @@ namespace App\Module\Inbox\Service;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\Forge;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\StageCard;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -66,9 +63,6 @@ final readonly class CardWaitReconciler
         private WorkerRunRepository $workerRuns,
         private CardPullRequestRepository $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
-        private CardAutomationRepository $cardAutomations,
-        private BoardAutomation $boardAutomation,
-        private StageCard $stageCard,
         private CardPauseRepository $cardPauses,
     ) {
     }
@@ -224,9 +218,8 @@ final readonly class CardWaitReconciler
     }
 
     /**
-     * Only a stage document of the card waits, and only while the card sits in
-     * the column the stage starts from. An open review of an agent on the
-     * document holds its wait back.
+     * A document in review waits on each linked card that is not finished. An
+     * open review of an agent on the document holds its wait back.
      *
      * @param list<Uuid> $cardIds
      *
@@ -236,7 +229,7 @@ final readonly class CardWaitReconciler
     {
         $rows = array_values(array_filter(
             $this->cardDocuments->findInReviewForCards($project, $cardIds),
-            fn (array $row): bool => $this->stageCard->forDocument($row['link']->document, [$row['link']]) === $row['link']->card,
+            static fn (array $row): bool => !$row['link']->card->column->terminal,
         ));
         if ([] === $rows) {
             return [];
@@ -282,8 +275,7 @@ final readonly class CardWaitReconciler
     }
 
     /**
-     * An open run on the card holds back a ready wait, and a fix-stopped wait
-     * with no blocked reason, because the run can still push a fix.
+     * An open run on the card holds back a ready wait, because the run can still push.
      *
      * @param list<Uuid> $cardIds
      *
@@ -305,8 +297,6 @@ final readonly class CardWaitReconciler
             return [];
         }
 
-        $automations = $this->cardAutomations->findByCardIds($cardIds);
-        $loopLimit = $this->boardAutomation->settingsOf($project)->loopLimit;
         $running = array_flip($this->workerRuns->findCardIdsWithOpenRun($project, $cardIds));
 
         $waits = [];
@@ -318,15 +308,11 @@ final readonly class CardWaitReconciler
             $cardId = $link['cardId'];
             $rowId = $row->id ?? throw new \LogicException('A stored pull request has an id.');
             $idle = !isset($running[$cardId]);
-            $automation = $automations[$cardId] ?? null;
 
             if ($idle && self::waitsForReview($row, $row->headSha)) {
                 $waits[] = [$cardId, PullRequestReview::Approved === $row->review
                     ? WantedCardWait::forPullRequestChangedAfterApproval($rowId, $row->number, $row->headSha)
                     : WantedCardWait::forPullRequestReady($rowId, $row->number, $row->headSha)];
-            }
-            if (null !== $automation && (null !== $automation->blockedReason || ($idle && $automation->fixRounds >= $loopLimit))) {
-                $waits[] = [$cardId, WantedCardWait::forPullRequestFixStopped($rowId, $row->number, $row->headSha, $automation->blockedReason)];
             }
         }
 
