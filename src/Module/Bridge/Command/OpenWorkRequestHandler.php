@@ -17,13 +17,14 @@ use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Opens a work request on a card, and writes the outbox event that offers it to
- * the bridges. A request that follows an unfinished run of its kind names the
+ * the bridges. The retry of a request whose run ended unfinished names the
  * session of that run, so the bridge resumes it.
  */
 final readonly class OpenWorkRequestHandler
@@ -32,6 +33,9 @@ final readonly class OpenWorkRequestHandler
     public const string INVALID_CAPABILITY = 'bridge.work_request.error.invalid_capability';
     public const string INVALID_RULE = 'bridge.work_request.error.invalid_rule';
     public const string LIVE = 'bridge.work_request.error.live';
+
+    /** Longer than the largest retry backoff of the seeded templates, six hours, so a later request starts fresh. */
+    public const string RESUME_WINDOW = '-24 hours';
 
     public function __construct(
         private WorkRequestRepository $workRequests,
@@ -76,11 +80,7 @@ final readonly class OpenWorkRequestHandler
                     ruleId: $command->ruleId,
                     createdAt: $this->clock->now(),
                 );
-                // A request after an unfinished run of the kind retries that run, so it resumes its session.
-                $previous = $this->workerRuns->findLatestWorkerOfCardKind($command->project, $command->cardId, $command->kind);
-                if (WorkerRunState::Unfinished === $previous?->state) {
-                    $request->resumeSessionId = $previous->sessionId;
-                }
+                $request->resumeSessionId = $this->sessionToResume($command);
                 $this->em->persist($request);
                 // The payload names the request, so the row needs its id first.
                 $this->em->flush();
@@ -117,5 +117,28 @@ final readonly class OpenWorkRequestHandler
         $this->announcer->announce($request);
 
         return $request;
+    }
+
+    /**
+     * The session of the run of the previous request of the rule, when that run
+     * ended unfinished, recently, and no other run of the card came after it.
+     */
+    private function sessionToResume(OpenWorkRequestCommand $command): ?Uuid
+    {
+        $previous = $this->workRequests->findLatestOfCardKindRule($command->cardId, $command->kind, $command->ruleId);
+        if (null === $previous) {
+            return null;
+        }
+        $run = $this->workerRuns->findLatestOfCard($command->project, $command->cardId);
+        if (null === $run
+            || WorkerRunState::Unfinished !== $run->state
+            || null === $run->workRequestId
+            || !$run->workRequestId->equals($previous->id)
+            || null === $run->endedAt
+            || $run->endedAt < $this->clock->now()->modify(self::RESUME_WINDOW)) {
+            return null;
+        }
+
+        return $run->sessionId;
     }
 }

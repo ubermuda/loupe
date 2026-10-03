@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Command;
 use App\Exception\DomainErrors;
 use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
@@ -81,19 +82,72 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertSame([$depth], $changes->transactionDepths());
     }
 
-    public function test_a_request_after_an_unfinished_run_of_the_kind_resumes_its_session(): void
+    public function test_the_retry_of_a_request_whose_run_ended_unfinished_resumes_its_session(): void
     {
         $this->boot();
         $project = $this->scenario('open-resume');
         $cardId = Uuid::v7();
-        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 10:00:00'), workKind: 'implement', cardId: $cardId, state: WorkerRunState::Failed);
-        $unfinished = $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 11:00:00'), workKind: 'implement', cardId: $cardId, state: WorkerRunState::Unfinished);
-        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 11:30:00'), workKind: 'plan', cardId: $cardId, state: WorkerRunState::Succeeded);
+        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 09:00:00'), workKind: 'implement', cardId: $cardId, state: WorkerRunState::Failed);
+        $unfinished = $this->unfinishedRunOf($this->seedWorkRequest($this->em(), $project, cardId: $cardId, state: WorkRequestState::Done, createdAt: new \DateTimeImmutable('2026-10-01 10:00:00')));
 
         $request = $this->open($project, $cardId);
 
         self::assertSame((string) $unfinished->sessionId, (string) $request->resumeSessionId);
         self::assertSame((string) $unfinished->sessionId, $this->outboxPayloads()[0]['resumeSessionId']);
+    }
+
+    public function test_a_run_that_ended_unfinished_more_than_a_day_ago_is_not_resumed(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-stale');
+        $cardId = Uuid::v7();
+        $previous = $this->seedWorkRequest($this->em(), $project, cardId: $cardId, state: WorkRequestState::Done, createdAt: new \DateTimeImmutable('2026-09-01 10:00:00'));
+        $this->unfinishedRunOf($previous, endedAt: new \DateTimeImmutable('2026-09-30 11:59:00'));
+
+        self::assertNull($this->open($project, $cardId)->resumeSessionId);
+    }
+
+    public function test_a_run_that_ended_unfinished_within_a_day_is_resumed(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-fresh-enough');
+        $cardId = Uuid::v7();
+        $previous = $this->seedWorkRequest($this->em(), $project, cardId: $cardId, state: WorkRequestState::Done, createdAt: new \DateTimeImmutable('2026-09-30 10:00:00'));
+        $unfinished = $this->unfinishedRunOf($previous, endedAt: new \DateTimeImmutable('2026-09-30 12:01:00'));
+
+        self::assertSame((string) $unfinished->sessionId, (string) $this->open($project, $cardId)->resumeSessionId);
+    }
+
+    public function test_another_run_of_the_card_since_the_unfinished_run_starts_fresh(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-other-run');
+        $cardId = Uuid::v7();
+        $this->unfinishedRunOf($this->seedWorkRequest($this->em(), $project, cardId: $cardId, state: WorkRequestState::Done, createdAt: new \DateTimeImmutable('2026-10-01 10:00:00')));
+        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 11:30:00'), workKind: 'plan', cardId: $cardId, state: WorkerRunState::Succeeded);
+
+        self::assertNull($this->open($project, $cardId)->resumeSessionId);
+    }
+
+    public function test_a_request_of_another_rule_starts_fresh(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-other-rule');
+        $cardId = Uuid::v7();
+        $this->unfinishedRunOf($this->seedWorkRequest($this->em(), $project, cardId: $cardId, state: WorkRequestState::Done, createdAt: new \DateTimeImmutable('2026-10-01 10:00:00'), ruleId: 'implement-on-retry'));
+
+        self::assertNull($this->open($project, $cardId)->resumeSessionId);
+    }
+
+    public function test_a_later_request_of_the_rule_with_no_run_starts_fresh(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-later-request');
+        $cardId = Uuid::v7();
+        $this->unfinishedRunOf($this->seedWorkRequest($this->em(), $project, cardId: $cardId, state: WorkRequestState::Done, createdAt: new \DateTimeImmutable('2026-10-01 10:00:00')));
+        $this->seedWorkRequest($this->em(), $project, cardId: $cardId, state: WorkRequestState::Expired, createdAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+
+        self::assertNull($this->open($project, $cardId)->resumeSessionId);
     }
 
     /** @return iterable<string, array{WorkerRunState}> */
@@ -110,12 +164,10 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $this->boot();
         $project = $this->scenario('open-fresh-'.$state->value);
         $cardId = Uuid::v7();
-        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 10:00:00'), workKind: 'implement', cardId: $cardId, state: WorkerRunState::Unfinished);
-        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 11:00:00'), workKind: 'implement', cardId: $cardId, state: $state);
+        $previous = $this->seedWorkRequest($this->em(), $project, cardId: $cardId, state: WorkRequestState::Done, createdAt: new \DateTimeImmutable('2026-10-01 10:00:00'));
+        $this->unfinishedRunOf($previous, state: $state);
 
-        $request = $this->open($project, $cardId);
-
-        self::assertNull($request->resumeSessionId);
+        self::assertNull($this->open($project, $cardId)->resumeSessionId);
     }
 
     public function test_a_second_live_request_for_the_card_and_kind_is_refused(): void
@@ -280,6 +332,23 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $handler = $this->handler();
 
         return $handler(new OpenWorkRequestCommand($project, $cardId, 7, $kind, $capability, $ruleId));
+    }
+
+    private function unfinishedRunOf(
+        WorkRequest $request,
+        \DateTimeImmutable $endedAt = new \DateTimeImmutable('2026-10-01 11:00:00'),
+        WorkerRunState $state = WorkerRunState::Unfinished,
+    ): WorkerRun {
+        return $this->seedRun(
+            $this->em(),
+            $request->project,
+            receivedAt: $request->createdAt->modify('+1 minute'),
+            workKind: $request->kind,
+            cardId: $request->cardId,
+            state: $state,
+            workRequestId: $request->id,
+            endedAt: $endedAt,
+        );
     }
 
     private function countRequests(): int

@@ -72,18 +72,14 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** The newest worker run of the card that did work of the kind. */
-    public function findLatestWorkerOfCardKind(Project $project, Uuid $cardId, string $workKind): ?WorkerRun
+    /** The newest run of the card of any kind, an interactive run too. */
+    public function findLatestOfCard(Project $project, Uuid $cardId): ?WorkerRun
     {
         return $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
             ->andWhere('r.cardId = :cardId')
-            ->andWhere('r.workKind = :workKind')
-            ->andWhere('r.kind = :worker')
             ->setParameter('project', $project)
             ->setParameter('cardId', $cardId, UuidType::NAME)
-            ->setParameter('workKind', $workKind)
-            ->setParameter('worker', WorkerRunKind::Worker->value)
             ->orderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults(1)

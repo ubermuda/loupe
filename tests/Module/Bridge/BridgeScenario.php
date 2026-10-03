@@ -77,6 +77,8 @@ trait BridgeScenario
         ?bool $hasResult = null,
         WorkerRunKind $kind = WorkerRunKind::Worker,
         ?string $workerPool = null,
+        ?Uuid $workRequestId = null,
+        \DateTimeImmutable $endedAt = new \DateTimeImmutable('2026-01-01 10:05:00'),
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -88,13 +90,14 @@ trait BridgeScenario
             runKey: $runKey,
             sessionId: WorkerRunKind::Command === $kind ? null : Uuid::v4(),
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:00'),
-            endedAt: new \DateTimeImmutable('2026-01-01 10:05:00'),
+            endedAt: $endedAt,
             exitCode: $exitCode,
             hasResult: $hasResult,
             failureReason: $failureReason,
             output: $output,
             receivedAt: $receivedAt,
             kind: $kind,
+            workRequestId: $workRequestId,
         );
         $run->workerPool = $workerPool;
         $em->persist($run);
@@ -192,6 +195,7 @@ trait BridgeScenario
         ?Uuid $bridgeId = null,
         ?Uuid $claimToken = null,
         ?\DateTimeImmutable $leaseUntil = null,
+        string $ruleId = 'implement-on-entry',
     ): WorkRequest {
         $request = new WorkRequest(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -199,7 +203,7 @@ trait BridgeScenario
             cardNumber: 7,
             kind: $kind,
             capability: $capability,
-            ruleId: 'implement-on-entry',
+            ruleId: $ruleId,
             createdAt: $createdAt,
         );
         $request->state = $state;
