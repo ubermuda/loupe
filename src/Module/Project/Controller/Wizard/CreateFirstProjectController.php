@@ -63,6 +63,7 @@ class CreateFirstProjectController extends AppController
                     domain: trim($data->domain ?? '') ?: null,
                     searchLanguage: $data->searchLanguage ?? throw new \LogicException('search language required after validation'),
                     description: $data->description,
+                    workflowTemplate: $data->workflowTemplate ?? throw new \LogicException('workflow template required after validation'),
                 ));
 
                 return $this->redirectToRoute('app_welcome_connect');

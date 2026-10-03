@@ -2041,6 +2041,7 @@
                 <target>Add project</target>
             </trans-unit>
             <trans-unit id="project.form.create_project_form.description.label"><source>project.form.create_project_form.description.label</source><target>Description (optional)</target></trans-unit>
+            <trans-unit id="project.form.create_project_form.workflow_template.label"><source>project.form.create_project_form.workflow_template.label</source><target>Workflow</target></trans-unit>
             <trans-unit id="project.form.create_project_form.name.label">
                 <source>project.form.create_project_form.name.label</source>
                 <target>Project name</target>
@@ -7307,6 +7308,10 @@
             <trans-unit id="workflow.slot.tech_design"><source>workflow.slot.tech_design</source><target>Tech design</target></trans-unit>
             <trans-unit id="workflow.slot.implementation"><source>workflow.slot.implementation</source><target>Implementation</target></trans-unit>
             <trans-unit id="workflow.slot.in_review"><source>workflow.slot.in_review</source><target>In review</target></trans-unit>
+            <trans-unit id="workflow.template.lifecycle.label"><source>workflow.template.lifecycle.label</source><target>Lifecycle</target></trans-unit>
+            <trans-unit id="workflow.template.lifecycle.description"><source>workflow.template.lifecycle.description</source><target>Product design, tech design, implementation and review, with an agent at each stage.</target></trans-unit>
+            <trans-unit id="workflow.template.simple.label"><source>workflow.template.simple.label</source><target>Simple</target></trans-unit>
+            <trans-unit id="workflow.template.simple.description"><source>workflow.template.simple.description</source><target>Four columns. A merged pull request finishes the card.</target></trans-unit>
             <trans-unit id="workflow.bind.error.already_bound"><source>workflow.bind.error.already_bound</source><target>This project already runs a workflow template.</target></trans-unit>
             <trans-unit id="workflow.bind.error.unknown_template"><source>workflow.bind.error.unknown_template</source><target>No workflow template has this key.</target></trans-unit>
             <trans-unit id="workflow.bind.error.slot_unlinked"><source>workflow.bind.error.slot_unlinked</source><target>Choose a column for this slot.</target></trans-unit>
