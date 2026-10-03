@@ -1,13 +1,25 @@
 # Prints a shell command one segment per line, with quotes removed and
 # here-document bodies dropped. Inside quotes a newline prints as \036, a
 # blank as \037 and a tab as \035, so each quoted argument stays one word.
-# An empty quoted argument prints as \034. lib/segments.sh undoes all four.
+# An empty quoted word prints as \034. lib/segments.sh undoes all four.
 # The ctx stack holds U (unquoted or `$(`), D (double), S (single) and E ($'...').
-BEGIN { sp = 1; ctx[1] = "U"; paren[1] = 0; arith = 0; tick = 0; nq = 0; qi = 0; body = 0 }
+BEGIN { sp = 1; ctx[1] = "U"; paren[1] = 0; arith = 0; tick = 0; cont = 0; nq = 0; qi = 0; body = 0 }
 
 function push(t) { ctx[++sp] = t; paren[sp] = 0; qline[sp] = NR; qpos[sp] = i }
 
-function pop() { if (qline[sp] == NR && qpos[sp] == i - 1) printf "\034"; sp-- }
+# A joined line continues the word when no blank came before its backslash.
+function word_start(p) { return p == 1 ? !cont : index(" \t;&|()", substr(line, p - 1, 1)) > 0 }
+
+# Prints \034 for empty quotes that make a whole word, so read keeps that word.
+function pop(    j, c) {
+    if (qline[sp] == NR && qpos[sp] == i - 1 && word_start(qpos[sp] - (ctx[sp] == "E"))) {
+        j = i + 1
+        while (substr(line, j, 2) == "''" || substr(line, j, 2) == "\"\"") j += 2
+        c = substr(line, j, 1)
+        if (c == "" || index(" \t;&|()<>", c)) printf "\034"
+    }
+    sp--
+}
 
 function out(c) {
     if (c == " ") printf "\037"; else if (c == "\t") printf "\035"; else printf "%s", c
@@ -81,7 +93,7 @@ body {
             else if (c == "$" && substr(line, i, 3) == "$((") { printf "$(("; i += 2 }
             else if (c == "$" && substr(line, i, 2) == "$(") { printf "$("; push("U"); i++ }
             else out(c)
-        } else if (c == "#" && (i == 1 || index(" \t;&|()", substr(line, i - 1, 1)))) {
+        } else if (c == "#" && word_start(i)) {
             break
         } else if (c == "`") {
             printf "`"; tick = !tick
@@ -115,7 +127,8 @@ body {
         }
         i++
     }
-    if (joined) next
+    if (joined) { if (n > 1) cont = !index(" \t", substr(line, n - 1, 1)); next }
+    cont = 0
     printf "%s", (ctx[sp] == "U" ? "\n" : "\036")
     if (nq) { body = 1; qi = 1 }
 }

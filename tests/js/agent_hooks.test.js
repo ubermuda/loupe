@@ -131,6 +131,12 @@ describe('no-full-ci.sh', () => {
         ['eval just ci', 'deny'],
         ['eval "cd x;" "just ci"', 'deny'],
         ['env XDEBUG_MODE="a b" vendor/bin/phpunit', 'deny'],
+        ["ju''st ci", 'deny'],
+        ['"just" ci', 'deny'],
+        ['j"u"st ci', 'deny'],
+        ['ju""st phpunit', 'deny'],
+        ['echo hi\\\n# <<EOF\njust ci\nEOF', 'allow'],
+        ['echo hi \\\n# x\njust ci', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });
@@ -153,6 +159,7 @@ describe('no-full-e2e.sh', () => {
         ['timeout 60 bash -c "just e2e"', 'deny'],
         ['timeout 60 just e2e', 'deny'],
         ['echo hi # <<EOF\njust e2e', 'deny'],
+        ["ju''st e2e", 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-e2e.sh', command)).toBe(expected);
     });
