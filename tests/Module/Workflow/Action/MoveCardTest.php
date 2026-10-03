@@ -68,6 +68,28 @@ final class MoveCardTest extends KernelTestCase
         self::assertSame([], $this->service(CardEventRepository::class)->findForCard($card));
     }
 
+    public function test_a_card_outside_the_source_slot_stays_where_it_is(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('move-from');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'next');
+        $rule = $this->rule(ActionType::Move, ['to' => 'implementation', 'from' => '@backlog']);
+
+        $outcome = $this->action()->run($rule, $card, FactsMother::facts(card: FactsMother::card(slot: 'next')), $this->state($card));
+
+        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertSame('next', $card->column->slug);
+        self::assertSame([], $this->service(CardEventRepository::class)->findForCard($card));
+
+        $card->column = $this->column($project, 'backlog');
+        $this->em()->flush();
+        $outcome = $this->action()->run($rule, $card, FactsMother::facts(card: FactsMother::card(slot: '@backlog')), $this->state($card));
+
+        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertSame('in-progress', $card->column->slug);
+    }
+
     public function test_a_slot_with_no_linked_column_is_refused(): void
     {
         self::bootKernel();

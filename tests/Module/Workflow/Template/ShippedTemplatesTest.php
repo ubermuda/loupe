@@ -175,7 +175,7 @@ final class ShippedTemplatesTest extends KernelTestCase
 
     public function test_an_epic_in_the_backlog_with_an_open_pull_request_stays_there(): void
     {
-        $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
+        $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation', 'from' => '@backlog']);
 
         $epic = FactsMother::facts(card: FactsMother::card(slot: '@backlog', type: 'epic'), pullRequest: FactsMother::pullRequest());
         self::assertNotContainsEquals($toImplementation, $this->actions($epic));

@@ -25,6 +25,7 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
@@ -619,6 +620,30 @@ final class EngineTest extends KernelTestCase
         $live = $this->liveRequests($card);
         self::assertCount(1, $live);
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
+    }
+
+    public function test_a_lifecycle_card_that_a_person_moves_to_the_backlog_stays_there_until_its_pull_request_reopens(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-reopen');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'in-progress');
+        $pullRequest = $this->pullRequest($card);
+        $this->evaluate($card);
+
+        $this->moveTo($card, 'backlog');
+        $this->evaluate($card, '2026-10-02 12:01:00');
+        self::assertSame('backlog', $card->column->slug);
+
+        $pullRequest->state = PullRequestState::Closed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:02:00');
+        self::assertSame('backlog', $card->column->slug);
+
+        $pullRequest->state = PullRequestState::Open;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:03:00');
+        self::assertSame('in-progress', $card->column->slug);
     }
 
     #[DataProvider('shippedTemplates')]

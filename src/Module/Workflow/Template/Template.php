@@ -34,12 +34,13 @@ final readonly class Template
         return null;
     }
 
-    /** @return list<Rule> the rules of the slot and the global rules, in template order */
+    /** @return list<Rule> the rules of the slot and the global rules that can act in it, in template order */
     public function rulesFor(?string $slot): array
     {
         return array_values(array_filter(
             $this->rules,
-            static fn (Rule $rule): bool => null === $rule->slot || $rule->slot === $slot,
+            static fn (Rule $rule): bool => (null === $rule->slot || $rule->slot === $slot)
+                && (ActionType::Move !== $rule->then->type || ($rule->then->params['from'] ?? $slot) === $slot),
         ));
     }
 }

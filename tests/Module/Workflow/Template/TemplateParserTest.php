@@ -234,6 +234,11 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[1] (to-review) then.move.to: unknown slot "shipping"'];
+        yield 'unknown move source' => [static function (array $t): array {
+            $t['rules'][1]['then']['move']['from'] = 'shipping';
+
+            return $t;
+        }, 'rules[1] (to-review) then.move.from: unknown slot "shipping"'];
         yield 'unknown manual move end' => [static function (array $t): array {
             $t['manualMoves'][0]['from'] = 'shipping';
 

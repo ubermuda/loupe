@@ -366,8 +366,8 @@ final readonly class TemplateParser
             };
             if (null !== $error) {
                 $errors[] = $where.': '.$error;
-            } elseif ('to' === $param && \is_string($given) && !self::isColumn($given, $slotKeys, false)) {
-                $errors[] = \sprintf('%s.to: unknown slot "%s"', $where, $given);
+            } elseif (\in_array($param, ['to', 'from'], true) && \is_string($given) && !self::isColumn($given, $slotKeys, false)) {
+                $errors[] = \sprintf('%s.%s: unknown slot "%s"', $where, $param, $given);
             } elseif (\is_int($given) || \is_string($given)) {
                 $params[$param] = $given;
             }
@@ -385,7 +385,7 @@ final readonly class TemplateParser
     private static function actionParameters(ActionType $type): array
     {
         return match ($type) {
-            ActionType::Move => ['to' => true],
+            ActionType::Move => ['to' => true, 'from' => false],
             ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false],
             ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
             ActionType::Pause => ['reason' => true, 'until' => true],
