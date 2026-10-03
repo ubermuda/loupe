@@ -25,6 +25,56 @@ writes a debug log line, so nothing goes to Sentry. The *Sentry* row on
 `/admin/status`, and `bin/console health-check:status`, report a malformed DSN
 as a failure. They check the DSN format only, and never call Sentry.
 
+## Browser
+
+Loupe can also load the Sentry browser SDK on every page, the admin area and
+the error pages included. It is off until you
+set `SENTRY_BROWSER_DSN`. These variables control it:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SENTRY_BROWSER_DSN` | empty | Where browser events go. It is not a secret, because each page that loads the SDK shows it. Empty loads no SDK. |
+| `SENTRY_BROWSER_TRACES_SAMPLE_RATE` | `1.0` | The share of page loads that the browser SDK traces, from `0.0` to `1.0`. While `SENTRY_DSN` is set, a page load continues the server trace, and `SENTRY_TRACES_SAMPLE_RATE` decides for it. |
+
+The browser sends page loads, Web Vitals, interaction traces and JavaScript
+errors. It posts them
+directly to the ingest origin of the DSN, which Loupe adds to the
+Content-Security-Policy `connect-src` list. Loupe scrubs each browser event
+before it leaves the page. Every item in
+[What Sentry never receives](#what-sentry-never-receives) stays true for the
+browser: no URL or query string, no user content and no user identity.
+
+### Interaction traces
+
+Each sampled interaction starts its own trace, named after the route of the
+page:
+
+| Operation | Starts | Ends |
+|---|---|---|
+| `ui.turbo.submit` | A Turbo form submit starts. | The browser paints the response. A submit that redirects ends when the visit starts. |
+| `navigation` | A Turbo visit starts. | The browser paints the new page. The span takes the route of the new page. |
+| `ui.live` | A live change from the Mercure hub arrives. | The browser paints the change. Only the board, the card page and the decision summary record it. |
+
+A submit or a visit sends its trace headers with its request, so the PHP
+transaction joins the same trace. While the page load trace is still open, the
+request joins the page load trace instead. A span with no end after 10 seconds ends
+then, with the status `deadline_exceeded`. A Turbo stream or a frame that another
+part of the page renders during a submit can end the submit span before its
+own response paints.
+
+Each span has two attributes:
+
+| Attribute | Value |
+|---|---|
+| `loupe.tab_age_ms` | The time since the last full page load, in milliseconds. A Turbo visit keeps the page, so the value grows across visits. |
+| `loupe.heap_mb` | The JavaScript heap in use, in megabytes. Only Chromium browsers report it, and Chromium can round it on a page that is not cross-origin isolated. |
+
+These two values show whether a tab gets slower as it ages. The browser sends
+no profile.
+
+The *Sentry in the browser* row on `/admin/status` reports a malformed
+`SENTRY_BROWSER_DSN` as a failure, in the same way as the *Sentry* row.
+
 ## What Sentry receives
 
 - A trace for each sampled web request, with a span for each Doctrine query and
@@ -59,8 +109,9 @@ a run of repeated queries, and Sentry's N+1 query detector then misses it.
   the instance.
 - A console command line.
 - The arguments of a function in a stack trace.
-- Trace headers. Loupe adds none to an outbound request, so other hosts learn
-  nothing about the trace.
+- Trace headers. Loupe adds none to a request to another host, so other hosts
+  learn nothing about the trace. The browser SDK adds them only to requests to
+  the instance itself.
 
 ## Stay within a Sentry quota
 

@@ -57,5 +57,6 @@ when@prod:
                 # Umami Cloud loads its script from one origin and posts events to
                 # another, so the collect origin is listed separately. An open
                 # board subscribes to the hub, and a source with a path matches
-                # that path, so the full hub URL fits here as it is.
-                connect-src: ["'self'", "%env(default:app.default_csp_origin:ANALYTICS_ORIGIN)%", "%env(default:app.default_csp_origin:ANALYTICS_COLLECT_ORIGIN)%", "%env(default:app.default_csp_origin:SITE_REVIEW_WIDGET_BACKEND)%", "%env(default:app.default_csp_origin:MERCURE_PUBLIC_URL)%"]
+                # that path, so the full hub URL fits here as it is. The Sentry
+                # browser SDK posts to the ingest origin of its DSN.
+                connect-src: ["'self'", "%env(default:app.default_csp_origin:ANALYTICS_ORIGIN)%", "%env(default:app.default_csp_origin:ANALYTICS_COLLECT_ORIGIN)%", "%env(default:app.default_csp_origin:SITE_REVIEW_WIDGET_BACKEND)%", "%env(default:app.default_csp_origin:MERCURE_PUBLIC_URL)%", "%env(default:app.default_csp_origin:sentry_origin:SENTRY_BROWSER_DSN)%"]

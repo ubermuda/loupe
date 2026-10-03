@@ -2967,6 +2967,22 @@
                 <source>account.system_status.sentry.no_excimer</source>
                 <target>SENTRY_DSN is set and profiles are sampled, but the Excimer PHP extension is not loaded, so Sentry receives traces and no profiles. Install Excimer, or set SENTRY_PROFILES_SAMPLE_RATE to 0.</target>
             </trans-unit>
+            <trans-unit id="check.sentry_browser.label">
+                <source>check.sentry_browser.label</source>
+                <target>Sentry in the browser</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.sentry_browser.off">
+                <source>account.system_status.sentry_browser.off</source>
+                <target>SENTRY_BROWSER_DSN is empty or holds an off value such as "false", so pages load no Sentry browser SDK.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.sentry_browser.malformed">
+                <source>account.system_status.sentry_browser.malformed</source>
+                <target>SENTRY_BROWSER_DSN is set but is not a valid DSN, so pages load no Sentry browser SDK. Copy the DSN again from the Client Keys page of the Sentry project.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.sentry_browser.configured">
+                <source>account.system_status.sentry_browser.configured</source>
+                <target>SENTRY_BROWSER_DSN is set and well formed, so pages load the Sentry browser SDK. This page does not call Sentry to check that the DSN works.</target>
+            </trans-unit>
             <trans-unit id="account.system_status.failed_transport.heading">
                 <source>account.system_status.failed_transport.heading</source>
                 <target>Recovering failed messages</target>

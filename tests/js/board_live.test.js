@@ -2347,3 +2347,103 @@ describe('a structure resync', () => {
         expect(marked()).toBe(false);
     });
 });
+
+function tracked(promise) {
+    const state = { settled: false };
+    promise.then(() => (state.settled = true));
+
+    return state;
+}
+
+const cardChange = (cardId) => ({
+    type: 'board.card_changed',
+    cardId,
+    change: 'updated',
+    local: false,
+    own: false,
+});
+
+describe('the promise of a change', () => {
+    it('answers none for a change with no card', () => {
+        expect(change({ ...cardChange(''), cardId: undefined })).toBe(
+            undefined,
+        );
+        expect(change(cardChange(''))).toBeUndefined();
+    });
+
+    it('settles when its card is placed, and not before', async () => {
+        const result = tracked(change(cardChange('a')));
+        await vi.advanceTimersByTimeAsync(150);
+        expect(fetch).toHaveBeenCalledOnce();
+        expect(result.settled).toBe(false);
+
+        placed('b', 'new');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(result.settled).toBe(false);
+
+        placed('a', 'new');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(result.settled).toBe(true);
+    });
+
+    it('keeps waiting for the next fetch when a change arrives during a fetch', async () => {
+        let finish;
+        answer = () =>
+            new Promise((resolve) => {
+                finish = resolve;
+            });
+        const first = tracked(change(cardChange('a')));
+        await vi.advanceTimersByTimeAsync(150);
+        const second = tracked(change(cardChange('a')));
+        finish(stream());
+        await vi.advanceTimersByTimeAsync(0);
+        placed('a', 'new');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(first.settled).toBe(false);
+        expect(second.settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(150);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        finish(stream());
+        await vi.advanceTimersByTimeAsync(0);
+        placed('a', 'newer');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(first.settled).toBe(true);
+        expect(second.settled).toBe(true);
+    });
+
+    it('waits through a missed placement, and settles on the retry that places the card', async () => {
+        const result = tracked(change(cardChange('a')));
+        await vi.advanceTimersByTimeAsync(150);
+        missed('a');
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(result.settled).toBe(false);
+
+        placed('a', 'new');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(result.settled).toBe(true);
+    });
+
+    it('settles when the card is marked stale', async () => {
+        answer = () => Promise.resolve(failure(503));
+        const result = tracked(change(cardChange('a')));
+        await vi.advanceTimersByTimeAsync(150 + 1000 + 3000);
+        expect(result.settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(9000);
+        expect(isStale()).toBe(true);
+        expect(result.settled).toBe(true);
+    });
+
+    it('settles when it disconnects', async () => {
+        answer = () => new Promise(() => {});
+        const result = tracked(change(cardChange('a')));
+        await vi.advanceTimersByTimeAsync(150);
+        expect(result.settled).toBe(false);
+
+        document.getElementById('wrapper').remove();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(result.settled).toBe(true);
+    });
+});

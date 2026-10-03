@@ -1063,3 +1063,68 @@ it('listens only on a page that is not a comparison, and stops on disconnect', a
     await vi.advanceTimersByTimeAsync(0);
     expect(unsubscribe).toHaveBeenCalled();
 });
+
+function tracked(promise) {
+    const state = { settled: false };
+    promise.then(() => (state.settled = true));
+
+    return state;
+}
+
+it('answers no promise for a change this tab saved', async () => {
+    await mount();
+    expect(receive(change({ own: true }))).toBeUndefined();
+});
+
+it('settles the promise of a change once the summary it reads renders', async () => {
+    let answer;
+    fetch.mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve)),
+    );
+    await mount();
+    const result = tracked(receive(change()));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(result.settled).toBe(false);
+
+    answer(summary({}));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(renderStreamMessage).toHaveBeenCalledOnce();
+    expect(result.settled).toBe(true);
+});
+
+it('keeps a change during a read waiting for the read after it', async () => {
+    const answers = [];
+    fetch.mockImplementation(
+        () => new Promise((resolve) => answers.push(resolve)),
+    );
+    await mount();
+    const first = tracked(receive(change()));
+    const second = tracked(receive(change()));
+    answers[0](summary({}));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(renderStreamMessage).toHaveBeenCalledOnce();
+    expect(first.settled).toBe(false);
+    expect(second.settled).toBe(false);
+
+    answers[1](summary({}));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(first.settled).toBe(true);
+    expect(second.settled).toBe(true);
+});
+
+it('settles the promise of a read that answers after it disconnects', async () => {
+    let answer;
+    fetch.mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve)),
+    );
+    await mount();
+    const result = tracked(receive(change()));
+    document.body.replaceChildren();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(result.settled).toBe(false);
+
+    answer(summary({}));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(renderStreamMessage).not.toHaveBeenCalled();
+    expect(result.settled).toBe(true);
+});

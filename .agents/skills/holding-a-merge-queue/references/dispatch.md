@@ -58,7 +58,8 @@ Rules:
     comm -13 <(git show origin/main:$F | grep "^#" | sort) <(grep "^#" $F | sort)   # the branch's own additions
   Choose the grep to suit the file: headings for prose, test method names for a
   test file, entry prefixes for a list.
-- Run `just cs`, then `just ci`, and fix every failure.
+- Run `just cs`, then `just phpstan`, `just arkitect` and `just gamache`, and
+  fix every failure. Run PHPUnit only on the tests for the conflicting files.
 - Keep the `# Conflicts:` block in the commit message, and add one plain line
   per file that says how it was resolved. `git commit -m` drops the block, so
   commit like this:
@@ -66,8 +67,9 @@ Rules:
     { cat "$(git rev-parse --git-path MERGE_MSG)"; echo; echo "<file>: <how it was resolved>"; } > "$m"
     git commit -F "$m" --cleanup=verbatim
 - Push without force. Do not merge, approve or comment on the pull request.
+- Read CI on the pushed merge. CI's required checks are the full gate.
 - Return the merge commit SHA, each resolution with its reason, the comm output
-  and the `just ci` result.
+  and the CI result.
 ````
 
 For a fix that is not a conflict, keep the worktree, write-check, skill, gate
