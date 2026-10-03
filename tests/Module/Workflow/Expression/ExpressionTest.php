@@ -8,12 +8,14 @@ use App\Module\Workflow\Condition\CardHasOpenBlocker;
 use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\CardIsChild;
 use App\Module\Workflow\Condition\PullRequestChecksFailed;
+use App\Module\Workflow\Condition\PullRequestsAllClosedUnmerged;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Fact\ChecksState;
 use App\Module\Workflow\Fact\FactKey;
+use App\Module\Workflow\Fact\PullRequestState;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\TestCase;
 
@@ -182,5 +184,23 @@ final class ExpressionTest extends TestCase
         self::assertSame([FactKey::Parent, FactKey::Blockers], new AnyOf([$child, $blocker, $child])->reads());
         self::assertSame([FactKey::PullRequest], new Not($checks)->reads());
         self::assertSame([], new AllOf([])->reads());
+    }
+
+    public function test_an_expression_changes_at_the_earliest_time_one_of_its_timed_leaves_turns(): void
+    {
+        $closed = FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:58:00'));
+        $facts = FactsMother::facts(pullRequest: $closed, pullRequests: [$closed]);
+        $inTen = new ConditionLeaf(new PullRequestsAllClosedUnmerged(), ['minutes' => 10]);
+        $inFive = new ConditionLeaf(new PullRequestsAllClosedUnmerged(), ['minutes' => 5]);
+        $untimed = new ConditionLeaf(new CardIsChild(), []);
+        $at = static fn (?\DateTimeImmutable $time): ?string => $time?->format('Y-m-d H:i:s');
+
+        self::assertSame('2026-10-01 12:08:00', $at($inTen->changesAt($facts)));
+        self::assertNull($untimed->changesAt($facts));
+        self::assertSame('2026-10-01 12:08:00', $at(new Not($inTen)->changesAt($facts)));
+        self::assertSame('2026-10-01 12:08:00', $at(new AllOf([$untimed, $inTen])->changesAt($facts)));
+        self::assertSame('2026-10-01 12:03:00', $at(new AnyOf([$inTen, new Not($inFive), $untimed])->changesAt($facts)));
+        self::assertNull(new AllOf([])->changesAt($facts));
+        self::assertNull(new AnyOf([$untimed])->changesAt($facts));
     }
 }

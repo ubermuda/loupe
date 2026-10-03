@@ -619,6 +619,33 @@ final class EngineTest extends KernelTestCase
         self::assertSame('done', $card->column->slug);
     }
 
+    public function test_a_timed_rule_on_a_terminal_card_records_when_it_comes_due_and_fires_from_the_due_evaluation(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'reopen',
+            'slot' => '@terminal',
+            'when' => ['pr.all_closed_unmerged' => ['minutes' => 10]],
+            'then' => ['move' => ['to' => '@backlog']],
+        ]]);
+        $this->moveTo($card, 'done');
+        $closed = $this->pullRequest($card, PullRequestState::Closed);
+        $closed->refreshedAt = new \DateTimeImmutable('2026-10-02 11:55:00');
+        $this->em()->flush();
+        $states = $this->service(WorkflowRuleStateRepository::class);
+
+        $this->evaluate($card);
+
+        self::assertSame('done', $card->column->slug);
+        self::assertSame('2026-10-02 12:05:00', $this->ruleState($card, 'reopen')->wakeAt?->format('Y-m-d H:i:s'));
+        self::assertNotContains((string) $card->id, $states->findDueCardIds(new \DateTimeImmutable('2026-10-02 12:04:59'), 10));
+        self::assertContains((string) $card->id, $states->findDueCardIds(new \DateTimeImmutable('2026-10-02 12:05:00'), 10));
+
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame('backlog', $card->column->slug);
+        self::assertNull($this->ruleState($card, 'reopen')->wakeAt);
+    }
+
     /**
      * Binds a template whose slot "one" is the column "next", "two" is "in-progress" and "three" has no column.
      *

@@ -30,4 +30,10 @@ final readonly class Not extends Expression
     {
         return $this->inner->reads();
     }
+
+    #[\Override]
+    public function changesAt(Facts $facts): ?\DateTimeImmutable
+    {
+        return $this->inner->changesAt($facts);
+    }
 }
