@@ -108,29 +108,34 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         self::assertTrue($this->guard(true)->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
-    public function test_a_breakdown_worker_run_may_move_its_card(): void
+    public function test_a_breakdown_worker_run_of_the_epic_may_move_its_child(): void
     {
         $this->bindLifecycle($this->project);
-        $card = $this->card('next');
+        $epic = $this->card('in-progress', CardType::Epic);
+        $child = $this->card('next', parent: $epic);
         $guard = $this->guard(true);
         $target = $this->column($this->project, 'in-progress');
 
-        self::assertTrue($guard->allows($card, $target, CardReporter::Agent, $this->runCause($card, 'work:breakdown')));
-        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, $this->runCause($card, 'work:implement')));
-        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, CardEventCause::workflowRule('work:breakdown')));
+        self::assertTrue($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:breakdown')));
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:implement')));
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::workflowRule('work:breakdown')));
     }
 
     public function test_a_run_that_only_carries_the_breakdown_name_is_refused(): void
     {
         $this->bindLifecycle($this->project);
-        $card = $this->card('next');
+        $epic = $this->card('in-progress', CardType::Epic);
+        $child = $this->card('next', parent: $epic);
+        $orphan = $this->card('next');
         $guard = $this->guard(true);
         $target = $this->column($this->project, 'in-progress');
         $elsewhere = $this->workflowProject('move-guard-elsewhere');
 
-        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, $this->runCause($card, 'work:breakdown', WorkerRunKind::Interactive)), 'an interactive run takes any name');
-        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, $this->runCause($card, 'work:breakdown', project: $elsewhere)), 'a run of another project');
-        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'work:breakdown')), 'no stored run');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:breakdown', WorkerRunKind::Interactive)), 'an interactive run takes any name');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:breakdown', project: $elsewhere)), 'a run of another project');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'work:breakdown')), 'no stored run');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($orphan, 'work:breakdown')), 'a run of a card that is not the parent');
+        self::assertFalse($guard->allows($orphan, $target, CardReporter::Agent, $this->runCause($orphan, 'work:breakdown')), 'a card with no parent');
     }
 
     private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null): CardEventCause
@@ -192,7 +197,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         return $holds;
     }
 
-    private function card(string $column): Card
+    private function card(string $column, CardType $type = CardType::Feature, ?Card $parent = null): Card
     {
         $create = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $create);
@@ -201,9 +206,10 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
             project: $this->project,
             title: 'Card',
             body: 'Body',
-            type: CardType::Feature,
+            type: $type,
             column: $this->column($this->project, $column),
             reporter: CardReporter::Human,
+            parentCardId: null === $parent ? null : (string) $parent->id,
         ));
     }
 

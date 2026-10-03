@@ -72,15 +72,20 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         return !$this->engine->isOn();
     }
 
-    /** An interactive run takes any name, so only a stored worker run of the project counts. */
+    /**
+     * An interactive run takes any name, so only a stored worker run counts.
+     * A breakdown runs on the epic and moves its children, so the run's card is the moved card's parent.
+     */
     private function isBreakdownRun(Card $card, ?CardEventCause $cause): bool
     {
-        if ('run' !== $cause?->type || self::BREAKDOWN_RULE !== ($cause->fields['rule'] ?? null)) {
+        if ('run' !== $cause?->type || self::BREAKDOWN_RULE !== ($cause->fields['rule'] ?? null) || null === $card->parent?->id) {
             return false;
         }
         $run = $this->workerRuns->findOneByIdAndProjectId((string) ($cause->fields['run'] ?? ''), (string) $card->project->id);
 
-        return WorkerRunKind::Worker === $run?->kind && self::BREAKDOWN_RULE === $run->ruleName;
+        return WorkerRunKind::Worker === $run?->kind
+            && self::BREAKDOWN_RULE === $run->ruleName
+            && $card->parent->id->equals($run->cardId);
     }
 
     /** A column no slot links matches the wildcard alone. */
