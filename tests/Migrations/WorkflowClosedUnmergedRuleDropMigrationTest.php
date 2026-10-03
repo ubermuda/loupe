@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Migrations;
 
+use App\Module\Board\Entity\Card;
 use App\Module\Workflow\Entity\WorkflowBinding;
+use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Template\TemplateSource;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Doctrine\DBAL\Schema\Schema;
@@ -38,6 +40,25 @@ final class WorkflowClosedUnmergedRuleDropMigrationTest extends KernelTestCase
         self::assertEquals([self::MERGED], $this->rulesOf($current));
         $template = self::getContainer()->get(TemplateSource::class)->forProject($stale->project->id ?? throw new \LogicException('The project is flushed.'));
         self::assertSame(['merged'], array_map(static fn ($rule) => $rule->id, $template->rulesFor(null)));
+    }
+
+    public function test_the_rule_memory_of_a_dropped_rule_goes_so_its_retry_never_comes_due(): void
+    {
+        self::bootKernel();
+        $binding = $this->binding('memory', [self::MERGED, self::CLOSED_UNMERGED]);
+        $card = new Card($binding->project, $this->column($binding->project, 'in-progress'), 'Card', '', 1);
+        $this->em()->persist($card);
+        foreach (['closed-unmerged', 'merged'] as $ruleId) {
+            $state = new WorkflowRuleState($card, $card->project, $ruleId);
+            $state->attempts = 1;
+            $state->dueAt = new \DateTimeImmutable('2026-10-02 12:10:00');
+            $this->em()->persist($state);
+        }
+        $this->em()->flush();
+
+        $this->migrate();
+
+        self::assertSame(['merged'], $this->em()->getConnection()->fetchFirstColumn('SELECT rule_id FROM workflow_rule_states WHERE card_id = ?', [(string) $card->id]));
     }
 
     /** @param list<array<string, mixed>> $rules */

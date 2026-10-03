@@ -26,6 +26,12 @@ final class Version20261003140305 extends AbstractMigration
             ))
             WHERE strpos((definition->'rules')::text, '"pr.all_closed_unmerged"') > 0
             SQL);
+        // The engine reads only the states of the rules its template holds, so a due retry of a dropped rule would come due every minute.
+        $this->addSql(<<<'SQL'
+            DELETE FROM workflow_rule_states state USING workflow_bindings binding
+            WHERE binding.project_id = state.project_id AND state.rule_id = 'closed-unmerged'
+            AND NOT jsonb_path_exists(binding.definition, '$.rules[*] ? (@.id == "closed-unmerged")')
+            SQL);
     }
 
     /** The dropped rules name a condition that no longer exists, so nothing restores them. */
