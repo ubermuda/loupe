@@ -10,6 +10,7 @@ use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Event\ProjectCreating;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
+use App\Module\Workflow\Template\ShippedTemplateChoices;
 use App\Module\Workflow\Template\ShippedTemplates;
 use App\Module\Workflow\Template\Slot;
 use App\Module\Workflow\Template\TemplateParser;
@@ -17,7 +18,7 @@ use App\Module\Workflow\Template\UnknownTemplate;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
-/** Runs before the default column seeder, so a template with slots seeds its own columns instead. */
+/** Runs before the default column seeder, so a template with slots seeds its own columns instead. A project that names no template gets the default one. */
 #[AsEventListener(priority: 10)]
 final readonly class BindTemplateOnProjectCreating
 {
@@ -31,6 +32,7 @@ final readonly class BindTemplateOnProjectCreating
 
     public function __construct(
         private ShippedTemplates $shippedTemplates,
+        private ShippedTemplateChoices $choices,
         private TemplateParser $parser,
         private BoardColumnSeeder $seeder,
         private EntityManagerInterface $em,
@@ -39,12 +41,8 @@ final readonly class BindTemplateOnProjectCreating
 
     public function __invoke(ProjectCreating $event): void
     {
-        if (null === $event->workflowTemplate) {
-            return;
-        }
-
         try {
-            $source = $this->shippedTemplates->source($event->workflowTemplate);
+            $source = $this->shippedTemplates->source($event->workflowTemplate ?? $this->choices->defaultKey());
         } catch (UnknownTemplate) {
             throw new DomainErrors(['workflowTemplate' => 'workflow.bind.error.unknown_template']);
         }
