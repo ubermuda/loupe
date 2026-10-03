@@ -72,6 +72,7 @@ export default class extends Controller {
         this.pending = new Map();
         this.expected = new Map();
         this.flashes = new Map();
+        this.waiters = new Map();
         this.queue = Promise.resolve();
         this.onPlaced = (event) => this.placed(event.detail ?? {});
         this.onMissed = (event) => this.missed(event.detail ?? {});
@@ -132,6 +133,10 @@ export default class extends Controller {
         this.expected.clear();
         this.flashes.forEach((timer) => clearTimeout(timer));
         this.flashes.clear();
+        this.waiters.forEach((waiters) =>
+            waiters.forEach((resolve) => resolve()),
+        );
+        this.waiters.clear();
     }
 
     pausedTargetConnected(element) {
@@ -539,20 +544,33 @@ export default class extends Controller {
         );
     }
 
+    /** The promise settles once the card is placed or marked stale. */
     receive(change) {
         const cardId = change.cardId;
         if (typeof cardId !== 'string' || cardId === '') {
-            return;
+            return undefined;
         }
         const entry = this.entryFor(cardId);
         entry.attempts = 0;
         entry.remote ||= !change.local && !change.own;
         if (entry.inFlight) {
             entry.again = true;
-
-            return;
+        } else {
+            this.schedule(cardId, entry, SETTLE_MILLISECONDS);
         }
-        this.schedule(cardId, entry, SETTLE_MILLISECONDS);
+
+        return new Promise((resolve) => {
+            if (!this.waiters.has(cardId)) {
+                this.waiters.set(cardId, []);
+            }
+            this.waiters.get(cardId).push(resolve);
+        });
+    }
+
+    settle(cardId) {
+        const waiters = this.waiters.get(cardId) ?? [];
+        this.waiters.delete(cardId);
+        waiters.forEach((resolve) => resolve());
     }
 
     /**
@@ -676,6 +694,7 @@ export default class extends Controller {
         if (failure === STALE || entry.attempts > RETRY_MILLISECONDS.length) {
             this.pending.delete(cardId);
             this.markStale(cardId);
+            this.settle(cardId);
 
             return;
         }
@@ -755,6 +774,10 @@ export default class extends Controller {
             if (!entry.inFlight && entry.timer === undefined) {
                 this.pending.delete(cardId);
             }
+        }
+        // A fetch still to come covers a change that arrived after this one.
+        if (!this.pending.has(cardId)) {
+            this.settle(cardId);
         }
         const expected = this.expected.get(cardId);
         if (expected === undefined) {

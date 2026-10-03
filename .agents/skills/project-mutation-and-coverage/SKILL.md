@@ -20,6 +20,9 @@ Four recipes exist and the names do not make the difference obvious.
 | `just phpunit-coverage` | coverage, the PHPUnit suites | `var/phpunit-coverage/` |
 | `just e2e-coverage` | coverage, the Playwright suite | `var/coverage/` |
 
+A hook refuses a bare `just phpunit-coverage` for an agent. Pass a path, such as
+`just phpunit-coverage tests/Module/Review`, or fetch the weekly CI report.
+
 `just e2e-coverage` deletes `var/coverage` at the start of every run. Keep any
 report you want out of that directory. `just open-coverage` opens the e2e report
 and `just open-phpunit-coverage` opens the PHPUnit one.

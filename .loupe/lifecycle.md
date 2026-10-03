@@ -25,11 +25,13 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 1. Base branch: `main`. A child of an epic with an epic branch uses `epic/<n>` instead, as the `Epics` section says. A branch that stacks on an open pull request uses that pull request's head branch instead, as the stage `commands.md` says.
 2. Run `just cs`, and commit what it changes.
-3. Run `just ci`. It is long, so run it as the harness adapter says for a long command.
-4. Never start `just ci` again over a killed run. PHPUnit keeps running in the shared php-fpm container. Stop it as `project-worktrees` says.
-5. Never run the full e2e suite on this machine, and a hook refuses it. The CI `e2e` check gates it. Read a failed one in its shard job, `e2e-chromium` or `e2e-rest`. One named spec is still fine while you debug it.
-6. Fix every failure, including one that pre-dates the branch.
-7. The required checks come from the ruleset command in `working-with-prs` "What the ruleset actually requires".
+3. Run `just phpstan`, `just arkitect` and `just gamache`. These check the whole project.
+4. Run PHPUnit on the tests for what changed: `just phpunit tests/<path>` or `just phpunit --filter <name>`. A hook refuses `just ci` and a full PHPUnit run.
+5. Run `just js-test` when JavaScript changed, and `just cli-test` when `cli/` or `hooks/` changed.
+6. CI's required checks are the full gate. After the Codex review, push, then read them on the pull request. The board `checks-failed` fix round covers a failed one.
+7. Never run the full e2e suite on this machine, and a hook refuses it. The CI `e2e` check gates it. Read a failed one in its shard job, `e2e-chromium` or `e2e-rest`. One named spec is still fine while you debug it.
+8. Fix every failure, including one that pre-dates the branch.
+9. The required checks come from the ruleset command in `working-with-prs` "What the ruleset actually requires".
 
 ## Code review
 

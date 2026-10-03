@@ -296,7 +296,7 @@ that change from one setup to the next.
 1. The repository profile, `.loupe/lifecycle.md`, belongs to the repository. Its
    sections are `Instruction files`, `Environment`, `Gate`, `Code review`,
    `Changelog`, `Pull request`, `Board` and `Merge`. The profile of this repository names
-   `just cs`, `just ci`, the Codex review, `changelog.d/`, the merge method and
+   `just cs`, the targeted checks, the Codex review, `changelog.d/`, the merge method and
    the column slugs that a stage moves a card to or reads. The slugs live there because a stage
    skill never reads the column list, which can be missing.
 2. A harness adapter maps the steps of a worker to the tools of one agent

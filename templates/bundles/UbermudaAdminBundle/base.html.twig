@@ -7,6 +7,7 @@
 {% block stylesheets %}
     <meta name="turbo-cache-control" content="no-preview">
     <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    {% include '_sentry_browser.html.twig' only %}
 {% endblock %}
 
 {# The bundle renders its importmap without a nonce, so every inline script it

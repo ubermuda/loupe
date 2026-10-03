@@ -21,6 +21,7 @@ export default class extends Controller {
 
     connect() {
         this.held = false;
+        this.waiters = [];
         // A dialog's close event does not bubble, so the listener captures it.
         this.onDialogClose = () => {
             if (this.held) {
@@ -55,6 +56,7 @@ export default class extends Controller {
     disconnect() {
         clearTimeout(this.timeout);
         this.request?.abort();
+        this.settle();
         this.element.removeEventListener('close', this.onDialogClose, true);
         this.element.removeEventListener(
             'turbo:submit-start',
@@ -68,7 +70,9 @@ export default class extends Controller {
     /**
      * A local change is already on this page, and the card drawer shows a
      * deleted card. The hub echo of an own change still counts, because a drag
-     * on the board moves the card the drawer shows.
+     * on the board moves the card the drawer shows. The promise settles once
+     * a read covers the change, or once no read will. An open dialog keeps it
+     * waiting for the read after the dialog closes.
      */
     changed(change) {
         if (change.local) {
@@ -91,6 +95,14 @@ export default class extends Controller {
             }
         }
         this.schedule();
+
+        return new Promise((resolve) => this.waiters.push(resolve));
+    }
+
+    settle() {
+        const waiters = this.waiters;
+        this.waiters = [];
+        waiters.forEach((resolve) => resolve());
     }
 
     /** A newer change makes a read in flight stale, so it stops, and its failure retries nothing. */
@@ -102,6 +114,8 @@ export default class extends Controller {
 
     retry(attempt) {
         if (attempt >= RETRY_MILLISECONDS.length) {
+            this.settle();
+
             return;
         }
         clearTimeout(this.timeout);
@@ -141,9 +155,14 @@ export default class extends Controller {
                 signal: request.signal,
             });
             if (!response?.ok) {
+                if (request.signal.aborted) {
+                    return;
+                }
                 // A card the reader may no longer see answers the same on every try.
-                if (response?.status >= 500 && !request.signal.aborted) {
+                if (response?.status >= 500) {
                     this.retry(attempt);
+                } else {
+                    this.settle();
                 }
 
                 return;
@@ -158,7 +177,10 @@ export default class extends Controller {
         } finally {
             clearTimeout(timer);
         }
-        if (request.signal.aborted || this.holding()) {
+        if (request.signal.aborted) {
+            return;
+        }
+        if (this.holding()) {
             return;
         }
         if (this.activeTab() !== tab) {
@@ -178,6 +200,7 @@ export default class extends Controller {
             keepLoadedFrames(this.element, fresh);
             this.morph(fresh);
         }
+        this.settle();
     }
 
     holding() {
