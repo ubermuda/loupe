@@ -226,6 +226,29 @@ func TestAPersonsResumeContinuesTheSessionOfTheRun(t *testing.T) {
 	}
 }
 
+// Loupe resumes the session that asked once its ask closes. The prompt says
+// the owner answered, not that a person fixed a stop.
+func TestTheResumeOfAClosedAskSaysTheOwnerAnswered(t *testing.T) {
+	h := newWorkHarness(t)
+	h.withWork()
+	h.states()
+	h.worker.result = finishedRun
+	c := workResumeOf(endedRunKey)
+	c.Cause = api.CauseAskClosed
+
+	if state, reason := h.resume(c); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+
+	calls := h.worker.recorded()
+	if len(calls) != 1 {
+		t.Fatalf("workers = %+v", calls)
+	}
+	if spec := calls[0]; !spec.resume || spec.sessionID != testSession || spec.prompt != directive.RenderResumeAskClosed() {
+		t.Fatalf("spec = %+v", spec)
+	}
+}
+
 // The server decides each resume, so a resumed run that ends unfinished ends
 // there.
 func TestAPersonsResumeNeverResumesOnItsOwn(t *testing.T) {

@@ -36,6 +36,7 @@ func TestParseCommand(t *testing.T) {
 		WorkKind:      "plan",
 		RuleID:        "plan-on-entry",
 		ExpiresAt:     c.ExpiresAt,
+		Cause:         api.CausePerson,
 	}
 	if c != want || !c.ExpiresAt.Equal(time.Date(2026, 9, 29, 10, 15, 0, 0, time.UTC)) {
 		t.Fatalf("command = %+v", c)
@@ -78,6 +79,24 @@ func TestParseCommandTakesARerun(t *testing.T) {
 	}
 }
 
+// The close of an ask names its cause, so the bridge words the resume for it.
+// A server older than the cause sends none, and only a person asked then.
+func TestParseCommandReadsTheCause(t *testing.T) {
+	for payload, want := range map[string]string{
+		commandPayload: api.CausePerson,
+		strings.Replace(commandPayload, `"kind":"stop-run"`, `"kind":"resume-run","cause":"ask-closed"`, 1): api.CauseAskClosed,
+		strings.Replace(commandPayload, `"kind":"stop-run"`, `"kind":"resume-run","cause":"person"`, 1):     api.CausePerson,
+	} {
+		c, err := ParseCommand([]byte(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.Cause != want {
+			t.Fatalf("cause = %q, want %q", c.Cause, want)
+		}
+	}
+}
+
 func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 	for name, pair := range map[string][2]string{
 		"another type":       {`"type":"bridge.command"`, `"type":"board.card_moved"`},
@@ -93,6 +112,7 @@ func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 		"cardNumber":         {`"cardNumber":42`, `"cardNumber":0`},
 		"workRequestId":      {`"workRequestId":"0199A0E2-3333-7C5E-9F2A-3B1C6D7E8F90"`, `"workRequestId":"w"`},
 		"workKind":           {`"workKind":"plan"`, `"workKind":"Not A Kind"`},
+		"cause":              {`"kind":"stop-run"`, `"kind":"stop-run","cause":"a whim"`},
 		"no expiry":          {`,"expiresAt":"2026-09-29T10:15:00+00:00"`, ``},
 		"expiry not a date":  {`"expiresAt":"2026-09-29T10:15:00+00:00"`, `"expiresAt":"soon"`},
 	} {

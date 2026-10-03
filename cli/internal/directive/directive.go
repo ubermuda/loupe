@@ -47,6 +47,16 @@ func RenderResumeByPerson() string {
 		"\n\n" + Footer
 }
 
+// RenderResumeAskClosed is the whole prompt of the resume that Loupe asks for
+// once the owner closes an ask of the session. No rule edits it.
+func RenderResumeAskClosed() string {
+	return "The project owner closed your inbox ask. " +
+		"Read the answers with inbox_list or inbox_get, and pass your session id as readerSessionId. " +
+		"Continue your task with the answers, then finish the stage. " +
+		"Wait for each command in the foreground, and report your status." +
+		"\n\n" + ResumeFooter
+}
+
 // InboxLine ends the footer of a worker on an instance with the inbox on. An
 // agent copies both ids from it into inbox_ask. Loupe records a read only under
 // readerSessionId, and the bridge skips the resume of an ask read in full.

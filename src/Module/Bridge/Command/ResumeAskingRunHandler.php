@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\ValueObject\BridgeCommandCause;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use Psr\Log\LoggerInterface;
 
@@ -38,7 +39,7 @@ final readonly class ResumeAskingRunHandler
         }
 
         try {
-            ($this->requestCommand)(new RequestBridgeCommandCommand($run, BridgeCommandKind::ResumeRun, null));
+            ($this->requestCommand)(new RequestBridgeCommandCommand($run, BridgeCommandKind::ResumeRun, null, cause: BridgeCommandCause::AskClosed));
         } catch (DomainErrors $e) {
             $this->logger->info('bridge.ask_resume_skipped', $context + ['runId' => (string) $run->id, 'reason' => implode(',', $e->errors)]);
         }

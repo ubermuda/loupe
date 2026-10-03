@@ -9,6 +9,8 @@ use App\Module\Bridge\Command\ResumeAskingRunHandler;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
+use App\Module\Bridge\Service\BridgeCommandPayload;
+use App\Module\Bridge\ValueObject\BridgeCommandCause;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
@@ -37,6 +39,8 @@ final class ResumeAskingRunHandlerTest extends KernelTestCase
         self::assertSame((string) $newest->id, (string) $commands[0]->workerRun->id);
         self::assertSame(BridgeCommandKind::ResumeRun, $commands[0]->kind);
         self::assertNull($commands[0]->requestedBy);
+        self::assertSame(BridgeCommandCause::AskClosed, $commands[0]->cause);
+        self::assertSame('ask-closed', BridgeCommandPayload::of($commands[0])['cause']);
     }
 
     public function test_a_run_that_still_runs_gets_no_resume(): void

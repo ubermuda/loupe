@@ -20,6 +20,13 @@ const (
 	CommandRerunCommand = "rerun-command"
 )
 
+// The causes of a command. A resume after an ask close says that the owner
+// answered, and a person's resume says that a person fixed the cause.
+const (
+	CausePerson    = "person"
+	CauseAskClosed = "ask-closed"
+)
+
 // The states a bridge answers a command with.
 const (
 	CommandDone    = "done"
@@ -46,6 +53,7 @@ type Command struct {
 	WorkKind      string         `json:"workKind"`
 	RuleID        string         `json:"ruleId"`
 	ExpiresAt     time.Time      `json:"expiresAt"`
+	Cause         string         `json:"cause,omitempty"`
 }
 
 // CommandSubject names the command itself.

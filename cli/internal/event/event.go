@@ -535,6 +535,13 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	if c.ExpiresAt.IsZero() {
 		return c, errors.New("command has no expiresAt")
 	}
+	// A server older than the cause sends none, and only a person asked then.
+	if c.Cause == "" {
+		c.Cause = api.CausePerson
+	}
+	if c.Cause != api.CausePerson && c.Cause != api.CauseAskClosed {
+		return c, fmt.Errorf("command has an unknown cause %q", c.Cause)
+	}
 
 	c.ProjectID = strings.ToLower(c.ProjectID)
 	c.CommandID = strings.ToLower(c.CommandID)

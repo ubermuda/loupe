@@ -39,6 +39,7 @@ final class BridgeCommandPayload
             'workKind' => $run->workKind,
             'ruleId' => $run->ruleId,
             'expiresAt' => $command->expiresAt->format(\DateTimeInterface::ATOM),
+            'cause' => $command->cause->value,
         ];
     }
 }

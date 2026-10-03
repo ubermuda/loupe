@@ -15,6 +15,7 @@ use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\BridgeCommandTtl;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Bridge\ValueObject\BridgeCommandCause;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -51,6 +52,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         self::assertSame(BridgeCommandKind::ResumeRun, $stored->kind);
         self::assertSame(BridgeCommandState::Pending, $stored->state);
         self::assertSame('resume it', $stored->reason);
+        self::assertSame(BridgeCommandCause::Person, $stored->cause);
         self::assertSame((string) $owner->id, (string) $stored->requestedBy?->id);
         self::assertSame(self::NOW, $stored->requestedAt->format(\DateTimeInterface::ATOM));
         self::assertSame('2026-09-29T12:15:00+00:00', $stored->expiresAt->format(\DateTimeInterface::ATOM));
@@ -71,6 +73,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'workKind' => 'plan',
             'ruleId' => null,
             'expiresAt' => '2026-09-29T12:15:00+00:00',
+            'cause' => 'person',
         ]], $this->outboxPayloads());
 
         $record = $audit->record('bridge.command_requested');

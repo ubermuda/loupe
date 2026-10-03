@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Entity;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
+use App\Module\Bridge\ValueObject\BridgeCommandCause;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Project\Entity\Project;
@@ -79,6 +80,9 @@ class BridgeCommand
         /** The reason the person gave, until the bridge settles the command with a reason of its own. */
         #[ORM\Column(name: 'reason', type: Types::TEXT, nullable: true)]
         public ?string $reason = null,
+
+        #[ORM\Column(name: 'cause', length: 20, enumType: BridgeCommandCause::class, options: ['default' => 'person'])]
+        public BridgeCommandCause $cause = BridgeCommandCause::Person,
     ) {
     }
 

@@ -478,9 +478,13 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 		return api.CommandRefused, reason
 	}
 
+	prompt := directive.RenderResumeByPerson()
+	if c.Cause == api.CauseAskClosed {
+		prompt = directive.RenderResumeAskClosed()
+	}
 	p := pending{
 		key: keyFor(e), event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, origin: commandWork(c),
-		spec: workerSpec{resume: true, sessionID: c.SessionID, prompt: directive.RenderResumeByPerson()},
+		spec: workerSpec{resume: true, sessionID: c.SessionID, prompt: prompt},
 	}
 	p.apply(m)
 	if r.sessions == nil {

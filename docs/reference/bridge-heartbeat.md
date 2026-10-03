@@ -225,6 +225,7 @@ holds, by `commandId`. Each command carries these fields:
 | `cardId`, `cardNumber` | the card of the run |
 | `workRequestId`, `workKind`, `ruleId` | the work request of the run, or `null` for a run of a `rules:` entry |
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
+| `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
 
 The `bridge.command_ttl_minutes` feature flag sets how long a command waits,
 and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from

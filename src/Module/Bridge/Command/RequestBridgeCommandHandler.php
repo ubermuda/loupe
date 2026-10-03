@@ -113,6 +113,7 @@ final readonly class RequestBridgeCommandHandler
                     requestedAt: $now,
                     expiresAt: $this->ttl->expiresAt($now),
                     reason: $reason,
+                    cause: $command->cause,
                 );
                 $this->em->persist($bridgeCommand);
                 // The payload names the command, so the row needs its id first.
