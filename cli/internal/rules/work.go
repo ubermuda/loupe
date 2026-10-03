@@ -135,6 +135,14 @@ func (s *Set) MatchWork(w api.WorkRequest) Match {
 	if event.CheckWorkRequest(&w) != nil {
 		return Match{Skip: NoRule}
 	}
+
+	return s.MatchKind(w)
+}
+
+// MatchKind matches the run of a kind of work against the work map, as a
+// person's command names that run. It reads the project, the card, the kind
+// and the ids of w, and checks none of them, so the caller checks them first.
+func (s *Set) MatchKind(w api.WorkRequest) Match {
 	slug, ok := s.slugs[w.ProjectID]
 	if !ok {
 		return Match{Skip: Unmapped}
@@ -147,15 +155,7 @@ func (s *Set) MatchWork(w api.WorkRequest) Match {
 		return Match{Skip: NoRule, Project: slug}
 	}
 
-	v := map[string]string{
-		"cardId":        w.CardID,
-		"cardNumber":    strconv.Itoa(w.CardNumber),
-		"projectId":     w.ProjectID,
-		"project":       slug,
-		"kind":          w.Kind,
-		"ruleId":        w.RuleID,
-		"workRequestId": w.WorkRequestID,
-	}
+	v := workValues(w, slug)
 	m := Match{
 		Skip:           Run,
 		Rule:           WorkRulePrefix + w.Kind,
@@ -185,6 +185,40 @@ func (s *Set) MatchWork(w api.WorkRequest) Match {
 	}
 
 	return m
+}
+
+// workValues are the values a work entry fills its placeholders with.
+func workValues(w api.WorkRequest, slug string) map[string]string {
+	return map[string]string{
+		"cardId":        w.CardID,
+		"cardNumber":    strconv.Itoa(w.CardNumber),
+		"projectId":     w.ProjectID,
+		"project":       slug,
+		"kind":          w.Kind,
+		"ruleId":        w.RuleID,
+		"workRequestId": w.WorkRequestID,
+	}
+}
+
+// WorkGaps lists the placeholders of the command of the kind that w leaves
+// empty. A run of a migrated rule names no work request, so its rerun would
+// run a command that differs from the first.
+func (s *Set) WorkGaps(w api.WorkRequest) []string {
+	entry, ok := s.work[w.Kind]
+	if !ok {
+		return nil
+	}
+	v := workValues(w, s.slugs[w.ProjectID])
+	var gaps []string
+	for _, arg := range entry.Run {
+		for _, p := range directive.Placeholders(arg) {
+			if v[p] == "" && !slices.Contains(gaps, p) {
+				gaps = append(gaps, p)
+			}
+		}
+	}
+
+	return gaps
 }
 
 // HasWork reports whether the set has a work map.

@@ -597,11 +597,15 @@ func CheckWorkRequest(w *api.WorkRequest) error {
 	if w.CreatedAt.IsZero() {
 		return errors.New("work request has no createdAt")
 	}
+	if w.ResumeSessionID != "" && !uuidPattern.MatchString(w.ResumeSessionID) {
+		return errors.New("work request has a resumeSessionId that is not a uuid")
+	}
 
 	w.ProjectID = strings.ToLower(w.ProjectID)
 	w.WorkRequestID = strings.ToLower(w.WorkRequestID)
 	w.Subject.ID = strings.ToLower(w.Subject.ID)
 	w.CardID = strings.ToLower(w.CardID)
+	w.ResumeSessionID = strings.ToLower(w.ResumeSessionID)
 
 	return nil
 }

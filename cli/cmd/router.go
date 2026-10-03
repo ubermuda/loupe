@@ -290,6 +290,9 @@ type pending struct {
 	// none, and reports nothing.
 	work       api.WorkRequest
 	claimToken string
+	// origin is the work of the run that a person's resume or rerun
+	// continues. Such a run claims nothing and settles no request.
+	origin api.WorkRequest
 }
 
 // runPin is the variant a run in an experiment runs with, as its reports
@@ -317,6 +320,11 @@ func (p *pending) apply(m rules.Match) {
 	p.spec = workerSpec{
 		dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume && !p.fresh,
 		before: m.Before, command: m.Command,
+	}
+	// The server asks the work to resume the session of an unfinished run,
+	// which the offer found on this machine.
+	if p.isWork() && p.event.SessionID != "" && m.Action == "" && !p.fresh {
+		p.spec.resume, p.spec.prompt = true, directive.RenderResumeUnfinished("status unfinished")
 	}
 }
 
@@ -1194,8 +1202,8 @@ func (r *router) start(p pending) {
 	column := cmp.Or(p.column, r.sessions[p.spec.sessionID].column)
 	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number, column: column}
 	// A checked resume sent resumed when its check let it through. A resume
-	// that continues a run sends queued alone.
-	if p.spec.resume && !p.checked && p.continues == "" {
+	// that continues a run, or that a work request asks for, sends queued alone.
+	if p.spec.resume && !p.checked && p.continues == "" && !p.isWork() {
 		r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
 	}
 	r.wg.Add(1)
@@ -1287,7 +1295,7 @@ func (r *router) resumeDir(p pending) (pending, string) {
 		return p, gone + ", so the bridge cannot resume it"
 	}
 	r.mu.Lock()
-	m, ok := matchWorker(r.rules(), p.event, p.rule)
+	m, ok := matchPending(r.rules(), p)
 	if !ok {
 		r.mu.Unlock()
 
@@ -1554,8 +1562,9 @@ func (r *router) end(p pending, e endedRun) {
 	r.mu.Unlock()
 	var reason string
 	e.state, reason = classify(e.res)
-	// A work request takes one result, so its run never resumes.
-	if p.isWork() {
+	// A work request takes one result, so its run never resumes. The server
+	// decides each resume of a run that continues one.
+	if p.isWork() || p.followsWork() {
 		reason = ""
 	}
 
@@ -2126,8 +2135,8 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 	}
 	report.BridgeID, report.At = r.bridgeID, time.Now()
 	report.CardID, report.CardNumber, report.Rule = cardID, cardNumber, p.rule
-	if p.isWork() {
-		report.WorkRequestID, report.WorkKind, report.RuleID = p.work.WorkRequestID, p.work.Kind, p.work.RuleID
+	if w := p.workOrOrigin(); w.Kind != "" {
+		report.WorkRequestID, report.WorkKind, report.RuleID = w.WorkRequestID, w.Kind, w.RuleID
 	}
 	report.WorkerPool = cmp.Or(p.slot, p.pool)
 	if p.isCommand() {

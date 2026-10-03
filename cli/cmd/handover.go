@@ -83,8 +83,10 @@ type handoverPending struct {
 	Pool      string `json:"pool,omitempty"`
 	// Action is the action of the rule, and empty for a worker.
 	Action string `json:"action,omitempty"`
-	// Work is the work request of a queued offer.
-	Work *api.WorkRequest `json:"work,omitempty"`
+	// Work is the work request of a queued offer, and Origin the work of the
+	// run a person's resume or rerun continues.
+	Work   *api.WorkRequest `json:"work,omitempty"`
+	Origin *api.WorkRequest `json:"origin,omitempty"`
 }
 
 // handoverSeries is where a run stands in its series of resumes.
@@ -138,9 +140,11 @@ type handoverRun struct {
 	PermissionMode string `json:"permissionMode,omitempty"`
 	Model          string `json:"model,omitempty"`
 	Schema         string `json:"schema,omitempty"`
-	// Work is the work request of the run, and ClaimToken its claim.
+	// Work is the work request of the run, and ClaimToken its claim. Origin
+	// is the work of the run a person's resume or rerun continues.
 	Work       *api.WorkRequest `json:"work,omitempty"`
 	ClaimToken string           `json:"claimToken,omitempty"`
+	Origin     *api.WorkRequest `json:"origin,omitempty"`
 }
 
 // phaseBefore is the phase of a run whose before command runs, and
@@ -348,7 +352,7 @@ func (r *router) freeze() handoverState {
 		if p.continues != "" {
 			q.SessionID, q.Prompt = p.spec.sessionID, p.spec.prompt
 		}
-		q.Work = workOf(p)
+		q.Work, q.Origin = workOf(p), originOf(p)
 		st.Queue = append(st.Queue, q)
 	}
 	for _, run := range r.live {
@@ -356,7 +360,7 @@ func (r *router) freeze() handoverState {
 			RunID: run.p.runID, Key: run.p.key, Rule: run.p.rule, Event: run.p.event, SessionID: run.p.spec.sessionID,
 			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, Resume: run.p.spec.resume, Fresh: run.p.fresh,
 			Pool: run.p.slot, handoverSeries: seriesOf(run.p), runPin: run.p.pin,
-			Work: workOf(run.p), ClaimToken: run.p.claimToken,
+			Work: workOf(run.p), ClaimToken: run.p.claimToken, Origin: originOf(run.p),
 		}
 		switch {
 		case run.p.isCommand():
@@ -384,6 +388,16 @@ func workOf(p pending) *api.WorkRequest {
 		return nil
 	}
 	w := p.work
+
+	return &w
+}
+
+// originOf is the work a run of a person's command continues, for a handover.
+func originOf(p pending) *api.WorkRequest {
+	if !p.followsWork() {
+		return nil
+	}
+	w := p.origin
 
 	return &w
 }
@@ -428,6 +442,9 @@ func (r *router) adopt(st handoverState) {
 		if q.Work != nil {
 			p.work = *q.Work
 		}
+		if q.Origin != nil {
+			p.origin = *q.Origin
+		}
 		q.applyTo(&p)
 		if p.continues != "" {
 			p.spec.resume, p.spec.sessionID, p.spec.prompt = true, q.SessionID, q.Prompt
@@ -451,6 +468,9 @@ func (r *router) adoptLocked(run handoverRun) {
 	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh, pin: run.runPin, claimToken: run.ClaimToken}
 	if run.Work != nil {
 		p.work = *run.Work
+	}
+	if run.Origin != nil {
+		p.origin = *run.Origin
 	}
 	run.applyTo(&p)
 	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume

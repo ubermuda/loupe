@@ -12,7 +12,7 @@ import (
 const workRequestPayload = `{"type":"bridge.work_request","projectId":"0192F3A1-4B2C-7D3E-8F10-A2B3C4D5E6F7",` +
 	`"subject":{"type":"work-request","id":"0199A0E2-9D4C-7C5E-9F2A-3B1C6D7E8F90"},"workRequestId":"0199A0E2-9D4C-7C5E-9F2A-3B1C6D7E8F90",` +
 	`"kind":"implement","capability":"interactive","state":"open","cardId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7","cardNumber":42,` +
-	`"ruleId":"impl.rule-1","createdAt":"2026-10-01T12:30:00+00:00"}`
+	`"ruleId":"impl.rule-1","createdAt":"2026-10-01T12:30:00+00:00","resumeSessionId":null}`
 
 func TestParseWorkRequest(t *testing.T) {
 	w, err := ParseWorkRequest([]byte(workRequestPayload))
@@ -68,6 +68,7 @@ func TestParseWorkRequestRejectsEachMalformedField(t *testing.T) {
 		"ruleId too long":       {`"ruleId":"impl.rule-1"`, `"ruleId":"` + strings.Repeat("a", 101) + `"`},
 		"no createdAt":          {`,"createdAt":"2026-10-01T12:30:00+00:00"`, ``},
 		"createdAt not a date":  {`"createdAt":"2026-10-01T12:30:00+00:00"`, `"createdAt":"soon"`},
+		"resumeSessionId":       {`"resumeSessionId":null`, `"resumeSessionId":"s"`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			payload := strings.Replace(workRequestPayload, pair[0], pair[1], 1)
@@ -101,6 +102,15 @@ func TestCheckWorkRequestFoldsTheIDs(t *testing.T) {
 	}
 	if w.ProjectID != "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7" || w.Subject.ID != w.WorkRequestID || w.CardID != "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7" {
 		t.Fatalf("work request = %+v", w)
+	}
+}
+
+// A work request that resumes a session names it as a uuid, folded.
+func TestParseWorkRequestFoldsTheResumeSession(t *testing.T) {
+	payload := strings.Replace(workRequestPayload, `"resumeSessionId":null`, `"resumeSessionId":"0199A0E2-0000-4000-8000-0000000000AA"`, 1)
+	w, err := ParseWorkRequest([]byte(payload))
+	if err != nil || w.ResumeSessionID != "0199a0e2-0000-4000-8000-0000000000aa" {
+		t.Fatalf("work request = %+v, err = %v", w, err)
 	}
 }
 
