@@ -9,7 +9,9 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMoveGuard;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Template\ManualMove;
 use App\Module\Workflow\Template\TemplateMissing;
@@ -29,6 +31,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         private CardHolds $cardHolds,
         private TemplateSource $templates,
         private FactsBuilder $facts,
+        private WorkerRunRepository $workerRuns,
     ) {
     }
 
@@ -38,7 +41,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         if (!$this->engine->isOn()
             || CardReporter::System === $actor
             || $to === $card->column
-            || self::isBreakdownRun($cause)) {
+            || $this->isBreakdownRun($card, $cause)) {
             return true;
         }
 
@@ -69,9 +72,15 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         return !$this->engine->isOn();
     }
 
-    private static function isBreakdownRun(?CardEventCause $cause): bool
+    /** An interactive run takes any name, so only a stored worker run of the project counts. */
+    private function isBreakdownRun(Card $card, ?CardEventCause $cause): bool
     {
-        return 'run' === $cause?->type && self::BREAKDOWN_RULE === ($cause->fields['rule'] ?? null);
+        if ('run' !== $cause?->type || self::BREAKDOWN_RULE !== ($cause->fields['rule'] ?? null)) {
+            return false;
+        }
+        $run = $this->workerRuns->findOneByIdAndProjectId((string) ($cause->fields['run'] ?? ''), (string) $card->project->id);
+
+        return WorkerRunKind::Worker === $run?->kind && self::BREAKDOWN_RULE === $run->ruleName;
     }
 
     /** A column no slot links matches the wildcard alone. */

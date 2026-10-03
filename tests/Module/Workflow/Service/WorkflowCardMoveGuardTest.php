@@ -11,7 +11,11 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMoveGuard;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Engine\EngineSwitch;
@@ -104,16 +108,46 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         self::assertTrue($this->guard(true)->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
-    public function test_a_breakdown_run_may_move_its_card(): void
+    public function test_a_breakdown_worker_run_may_move_its_card(): void
     {
         $this->bindLifecycle($this->project);
         $card = $this->card('next');
         $guard = $this->guard(true);
         $target = $this->column($this->project, 'in-progress');
 
-        self::assertTrue($guard->allows($card, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'work:breakdown')));
-        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'work:implement')));
+        self::assertTrue($guard->allows($card, $target, CardReporter::Agent, $this->runCause($card, 'work:breakdown')));
+        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, $this->runCause($card, 'work:implement')));
         self::assertFalse($guard->allows($card, $target, CardReporter::Agent, CardEventCause::workflowRule('work:breakdown')));
+    }
+
+    public function test_a_run_that_only_carries_the_breakdown_name_is_refused(): void
+    {
+        $this->bindLifecycle($this->project);
+        $card = $this->card('next');
+        $guard = $this->guard(true);
+        $target = $this->column($this->project, 'in-progress');
+        $elsewhere = $this->workflowProject('move-guard-elsewhere');
+
+        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, $this->runCause($card, 'work:breakdown', WorkerRunKind::Interactive)), 'an interactive run takes any name');
+        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, $this->runCause($card, 'work:breakdown', project: $elsewhere)), 'a run of another project');
+        self::assertFalse($guard->allows($card, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'work:breakdown')), 'no stored run');
+    }
+
+    private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null): CardEventCause
+    {
+        $run = new WorkerRun(
+            project: $project ?? $this->project,
+            bridgeId: Uuid::v7(),
+            cardId: $this->idOf($card),
+            cardNumber: $card->number,
+            ruleName: $rule,
+            state: WorkerRunState::Running,
+            kind: $kind,
+        );
+        $this->em()->persist($run);
+        $this->em()->flush();
+
+        return CardEventCause::run($run->id ?? throw new \LogicException('A stored run has an id.'), $run->ruleName);
     }
 
     public function test_a_manual_move_of_the_template_is_allowed_in_its_direction_only(): void
@@ -144,7 +178,10 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $facts = self::getContainer()->get(FactsBuilder::class);
         self::assertInstanceOf(FactsBuilder::class, $facts);
 
-        return new WorkflowCardMoveGuard(new EngineSwitch($engineOn), $holds, $templates, $facts);
+        $workerRuns = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $workerRuns);
+
+        return new WorkflowCardMoveGuard(new EngineSwitch($engineOn), $holds, $templates, $facts, $workerRuns);
     }
 
     private function holds(): CardHolds
