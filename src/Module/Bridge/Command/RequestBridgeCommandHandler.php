@@ -26,9 +26,10 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * Stores a person's request to the bridge that holds a worker run, and writes
- * the outbox event that carries it to the bridge. A stop ends one run and holds
- * nothing. A resume waits until a person lets the agents on the card run again.
+ * Stores a request of a person or of Loupe to the bridge that holds a worker
+ * run, and writes the outbox event that carries it to the bridge. A stop ends
+ * one run and holds nothing. A resume waits until a person lets the agents on
+ * the card run again.
  */
 final readonly class RequestBridgeCommandHandler
 {
@@ -133,7 +134,7 @@ final readonly class RequestBridgeCommandHandler
             throw new DomainErrors(['run' => $result]);
         }
 
-        // After the commit, so a rollback leaves no record. No reason, because a person wrote it.
+        // After the commit, so a rollback leaves no record. No reason, because a person can write it.
         $this->auditor->record(
             'bridge.command_requested',
             AuditOutcome::Success,

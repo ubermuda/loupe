@@ -44,8 +44,8 @@ func (h *harness) resume(c api.Command) (string, string) {
 }
 
 // Each check that fails refuses the resume with a reason a person can read,
-// and starts nothing. The server names no rule for a run, so no rule matches
-// the run of a resume, and the bridge refuses each one it can read.
+// and starts nothing. The rules of this harness run no work kind, so no entry
+// matches the run of a resume.
 func TestAPersonsResumeIsRefusedWhenACheckFails(t *testing.T) {
 	for name, tc := range map[string]struct {
 		change func(t *testing.T, h *harness, c *api.Command)

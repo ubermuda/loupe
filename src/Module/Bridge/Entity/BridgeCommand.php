@@ -15,9 +15,9 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * A request from a person to one bridge about one of its worker runs. The
- * outbox carries it to the bridge, and the heartbeat reply carries it again
- * until the bridge settles it or it expires.
+ * A request from a person or from Loupe to one bridge about one of its worker
+ * runs. The outbox carries it to the bridge, and the heartbeat reply carries it
+ * again until the bridge settles it or it expires.
  */
 #[ORM\Entity(repositoryClass: BridgeCommandRepository::class)]
 // The heartbeat reply reads the pending commands of one bridge.

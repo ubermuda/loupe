@@ -27,8 +27,8 @@ func (h *harness) rerun(c api.Command) (string, string) {
 }
 
 // Each check that fails refuses the rerun with a reason a person can read,
-// and runs nothing. The server names no rule for a run, so no rule matches
-// the run of a rerun.
+// and runs nothing. The rules of this harness run no work kind, so no entry
+// matches the run of a rerun.
 func TestARerunIsRefusedWhenACheckFails(t *testing.T) {
 	for name, tc := range map[string]struct {
 		change func(t *testing.T, h *harness, f *fakeCommand, c *api.Command)
