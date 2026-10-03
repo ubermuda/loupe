@@ -15,6 +15,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Command\WithdrawWorkRequestCommand;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ActionOutcomeKind;
@@ -22,6 +23,7 @@ use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Event\CardPaused;
+use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
@@ -49,6 +51,8 @@ final readonly class Engine
         private FactsBuilder $factsBuilder,
         private FactFingerprint $fingerprint,
         private WorkflowRuleStateRepository $workflowRuleStates,
+        private CardHolds $cardHolds,
+        private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private WorkRequestRepository $workRequests,
         private WithdrawWorkRequestHandler $withdrawWorkRequest,
         private CardPauseRepository $cardPauses,
@@ -64,6 +68,11 @@ final readonly class Engine
     {
         $run = $this->em->wrapInTransaction(fn (): ?Evaluation => $this->evaluateLocked($cardId, $now));
         if (null === $run) {
+            return;
+        }
+        if ($run->baselined) {
+            $this->logger->info('workflow.card_baselined', ['cardId' => $cardId->toRfc4122()]);
+
             return;
         }
 
@@ -86,9 +95,11 @@ final readonly class Engine
         // and a FOR UPDATE on that row would deadlock against a claim or a settle.
         $this->workflowRuleStates->lockCard($cardId);
         $card = $this->cards->find($cardId);
-        if (null === $card) {
+        // A held card is unmanaged: settling its requests would cancel or expire them.
+        if (null === $card || $this->cardHolds->isHeld($card->project, $cardId)) {
             return null;
         }
+        $baseline = $this->workflowPendingBaselines->consume($cardId);
         $this->cards->refreshColumn($card);
         $this->cards->refreshTypeAndParent($card);
 
@@ -99,6 +110,15 @@ final readonly class Engine
         }
 
         $run = new Evaluation($card, $template, $this->factsBuilder->build($card, $now), $this->workflowRuleStates->findForCard($card), $now);
+        if ($baseline) {
+            $this->settleWorkRequests($run, $cardId, expire: false);
+            // Before the baseline, which replaces the fingerprint a retries pause compares against.
+            $this->stillPaused($run);
+            $this->baseline($run);
+            $this->em->flush();
+
+            return $run;
+        }
         $this->settleWorkRequests($run, $cardId);
         // A pause ends the pass, so it is never released in the pass that made it.
         if (!$run->ended && (!$this->stillPaused($run) || $this->releasedByRule($run))) {
@@ -109,8 +129,34 @@ final readonly class Engine
         return $run;
     }
 
-    /** Cancels the live requests of rules that no longer apply, and expires the open ones no bridge took in time. */
-    private function settleWorkRequests(Evaluation $run, Uuid $cardId): void
+    /** Records the truth of each rule the card reads now, clears its retries, and resets the rules of other slots. Fires none. */
+    private function baseline(Evaluation $run): void
+    {
+        $run->baselined = true;
+        foreach ($run->template->rules as $rule) {
+            if (!$run->applies($rule)) {
+                $state = $run->states[$rule->id] ?? null;
+                if (null !== $state) {
+                    $this->write($run, $state, static fn (WorkflowRuleState $state) => $state->reset());
+                }
+                continue;
+            }
+            $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
+                $state->truth = $rule->when->evaluate($run->facts);
+                $state->fingerprint = $this->fingerprint->of($run->facts, $rule->when->reads());
+                $state->attempts = 0;
+                $state->dueAt = null;
+                $state->lastRefusal = null;
+                $state->lastRefusalAt = null;
+            });
+        }
+    }
+
+    /**
+     * Cancels the live requests of rules that no longer apply, and expires the open ones no bridge took in time.
+     * A baseline pauses nothing, so it leaves an overdue request to the next pass.
+     */
+    private function settleWorkRequests(Evaluation $run, Uuid $cardId, bool $expire = true): void
     {
         $withdrawn = false;
         foreach ($this->workRequests->findLiveForCard($cardId) as $request) {
@@ -122,7 +168,7 @@ final readonly class Engine
             }
 
             $deadline = ($request->reopenedAt ?? $request->createdAt)->add(new \DateInterval(\sprintf('PT%dM', $run->template->workTimeoutMinutes)));
-            if (WorkRequestState::Open === $request->state && $deadline <= $run->now
+            if ($expire && WorkRequestState::Open === $request->state && $deadline <= $run->now
                 && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($requestId, WorkRequestState::Expired))) {
                 $withdrawn = true;
                 $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
@@ -227,6 +273,7 @@ final readonly class Engine
             $state->attempts = 0;
             $state->dueAt = null;
             $state->lastRefusal = null;
+            $state->lastRefusalAt = null;
             $state->fingerprint = $fingerprint;
 
             return true;
@@ -255,6 +302,7 @@ final readonly class Engine
                 $state->attempts = 0;
                 $state->dueAt = null;
                 $state->lastRefusal = null;
+                $state->lastRefusalAt = null;
                 if ((ActionType::Request === $type || ActionType::ForgeWrite === $type) && !$outcome->alreadyLive) {
                     ++$state->fires;
                 }
@@ -265,6 +313,7 @@ final readonly class Engine
                 $code = $outcome->code ?? throw new \LogicException('A refusal carries a code.');
                 ++$state->attempts;
                 $state->lastRefusal = $code;
+                $state->lastRefusalAt = $run->now;
                 $backoff = $run->template->backoffMinutes[$state->attempts - 1] ?? null;
                 if (null !== $backoff) {
                     $state->dueAt = $run->now->add(new \DateInterval(\sprintf('PT%dM', $backoff)));
@@ -311,7 +360,7 @@ final readonly class Engine
     /** @return list<mixed> */
     private static function snapshot(WorkflowRuleState $state): array
     {
-        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal];
+        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u')];
     }
 
     private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void

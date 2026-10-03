@@ -14,6 +14,7 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
+use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
 
@@ -28,6 +29,7 @@ final readonly class ShowCardPlacementHandler
         private CardDocumentRepository $cardDocuments,
         private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
+        private CardMarkers $markers,
         private BoardAutomation $automation,
     ) {
     }
@@ -118,7 +120,7 @@ final readonly class ShowCardPlacementHandler
             $laneHead,
             $laneAfter,
             $laneHead ? ($this->laneDecks->forEpics($backlog, [(string) $card->id])[(string) $card->id] ?? null) : null,
-            $this->pullRequestStates->forCards([$card])->badgesOf($card),
+            [...$this->pullRequestStates->forCards([$card])->badgesOf($card), ...($this->markers->forCards($card->project, [$card])[(string) $card->id] ?? [])],
         );
     }
 }

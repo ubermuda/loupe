@@ -5,16 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Service\CardColumnLookupInterface;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\Service\WorkerRunChangedPublisher;
-use App\Outbox\OutboxWriter;
+use App\Module\Bridge\Service\CardPause;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Ubermuda\AuditBundle\Auditor;
-use Ubermuda\AuditBundle\AuditOutcome;
-use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * A person or an agent pauses the agents on a card. The hold and its outbox event commit
@@ -27,12 +21,9 @@ final readonly class PauseCardAgentsHandler
     public const string CARD_GONE = 'bridge.card_hold.error.card_gone';
 
     public function __construct(
-        private CardHolds $cardHolds,
+        private CardPause $pause,
         private CardColumnLookupInterface $cards,
-        private OutboxWriter $outbox,
-        private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
-        private Auditor $auditor,
     ) {
     }
 
@@ -49,17 +40,9 @@ final readonly class PauseCardAgentsHandler
             if (null === $this->cards->columnOf($project, $cardId)) {
                 return self::CARD_GONE;
             }
-            if ($this->cardHolds->isHeld($project, $cardId)) {
+            if (!$this->pause->take($project, $cardId, $command->requestedBy, $command->actor)) {
                 return self::ALREADY_PAUSED;
             }
-
-            $this->cardHolds->hold($project, $cardId, $command->requestedBy);
-            $this->outbox->write($project, BridgeEventType::CARD_HELD, [
-                'type' => BridgeEventType::CARD_HELD,
-                'subject' => ['type' => 'card', 'id' => (string) $cardId],
-                'projectId' => (string) $project->id,
-                'actor' => $command->actor,
-            ]);
             $this->em->flush();
 
             return null;
@@ -69,12 +52,6 @@ final readonly class PauseCardAgentsHandler
             throw new DomainErrors(['card' => $refusal]);
         }
 
-        $this->auditor->record(
-            'bridge.card_held',
-            AuditOutcome::Success,
-            ['projectId' => (string) $project->id, 'cardId' => (string) $cardId],
-            new AuditSubject('card', (string) $cardId),
-        );
-        $this->runsChanged->runsChanged($project);
+        $this->pause->announce($project, $cardId);
     }
 }

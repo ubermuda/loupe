@@ -1266,6 +1266,20 @@
     .lp-card-field dd {
         @apply m-0 text-sm font-semibold text-ink whitespace-nowrap;
     }
+    /* A field whose value is a sentence, so it wraps. */
+    .lp-card-field--prose dd {
+        @apply whitespace-normal font-normal;
+    }
+    /* An active pause of the workflow on the card, with the condition that ends it. */
+    .lp-workflow-panel__pause {
+        @apply flex flex-col gap-1 rounded-lg bg-status-pending-bg px-3 py-2 text-sm text-status-pending-deep;
+    }
+    .lp-workflow-panel__pause-title {
+        @apply m-0 flex flex-wrap items-center gap-2 font-semibold;
+    }
+    .lp-workflow-panel__line {
+        @apply m-0;
+    }
     /* One agent run on the card. The pill column has a fixed width, so the pills and the action icons line up. */
     .lp-card-run-row {
         @apply relative grid items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-sm text-ink transition-colors hover:bg-surface-2;
@@ -6257,7 +6271,7 @@
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
     }
-    /* The pull request and automation problems of a card, on its tile and its list row. */
+    /* The pull request and automation problems and the workflow markers of a card, on its tile and its list row. */
     .lp-board-card__badges {
         @apply flex flex-wrap items-center gap-1;
     }

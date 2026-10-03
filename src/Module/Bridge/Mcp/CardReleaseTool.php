@@ -12,11 +12,11 @@ use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 
 /**
- * Lets the agents on one card run again.
+ * Makes one unmanaged card managed again.
  *
  * @phpstan-import-type CardRefusal from BridgeCommandRefusals
  */
-#[McpTool(name: self::NAME, description: 'Let the agents run on a card that card_hold paused. This ends the pause, so the queued runs on the card start. Pass one of cardId or number to name the card, never both. The result has cardId and outcome. Outcome released means that the pause ended. A result with outcome refused also carries code and message. The codes are: not-found (this project has no such card, and cardId is null when number names no card) and not-paused.')]
+#[McpTool(name: self::NAME, description: 'Manage a card again that card_hold made unmanaged. The queued runs on the card then start. The workflow takes the card as it is now, so a condition that is already true does not fire. Pass one of cardId or number to name the card, never both. The result has cardId and outcome. Outcome released means that the card is managed again. A result with outcome refused also carries code and message. The codes are: not-found (this project has no such card, and cardId is null when number names no card) and not-paused.')]
 final readonly class CardReleaseTool
 {
     public const string NAME = 'card_release';

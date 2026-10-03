@@ -20,6 +20,9 @@ final class Evaluation
     /** The pause that holds the card while only release rules run. */
     public ?CardPause $holdingPause = null;
 
+    /** True when the pass recorded a baseline instead of running the rules. */
+    public bool $baselined = false;
+
     /** True once the pass asked for a pause, which ends it. */
     public bool $ended = false;
 

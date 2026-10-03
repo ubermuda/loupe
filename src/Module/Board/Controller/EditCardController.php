@@ -6,6 +6,7 @@ namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Board\Command\CardManaged;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
@@ -87,6 +88,10 @@ final class EditCardController extends AppController
                 return $this->renderFormResponse('@Board/edit_card.html.twig', $form, ['card' => $card]);
             } catch (EpicChildrenOpen $e) {
                 $form->get('column')->addError(new FormError($this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()])));
+
+                return $this->renderFormResponse('@Board/edit_card.html.twig', $form, ['card' => $card]);
+            } catch (CardManaged) {
+                $form->get('column')->addError(new FormError($this->translator->trans(CardManaged::MESSAGE)));
 
                 return $this->renderFormResponse('@Board/edit_card.html.twig', $form, ['card' => $card]);
             }

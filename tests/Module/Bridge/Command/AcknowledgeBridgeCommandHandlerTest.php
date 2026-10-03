@@ -145,6 +145,11 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
         $run = $this->seedRun($em, $this->project($em, $owner, 'Ack Handler Hold'));
         $command = $this->seedCommand($em, $run, kind: $kind);
         $this->holds()->hold($run->project, $run->cardId, $owner);
+        // The hold redraws the tile of the card. Only what the ack publishes counts.
+        $live = self::getContainer()->get(LiveUpdatePublisher::class);
+        self::assertInstanceOf(LiveUpdatePublisher::class, $live);
+        $live->publish();
+        $published = [];
 
         return [$owner, $run, $command];
     }

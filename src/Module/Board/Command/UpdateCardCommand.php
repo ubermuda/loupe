@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
@@ -43,6 +44,9 @@ use App\Module\Board\Service\CardEventCause;
  *
  * $cause says why the card moved, for the card's history: an app rule or an agent's run.
  * A move that opens an interactive run and names no cause names that run.
+ *
+ * $unmanageBy holds the card in the same transaction, for a caller that
+ * checked the person may manage the project. A refused update holds nothing.
  */
 final readonly class UpdateCardCommand
 {
@@ -76,6 +80,7 @@ final readonly class UpdateCardCommand
         public ?BoardColumn $onlyFromColumn = null,
         public bool $onlyFromOpenColumn = false,
         public ?CardEventCause $cause = null,
+        public ?User $unmanageBy = null,
     ) {
     }
 }
