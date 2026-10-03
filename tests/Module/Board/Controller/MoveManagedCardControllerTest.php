@@ -91,16 +91,33 @@ final class MoveManagedCardControllerTest extends WebTestCase
         self::assertSame('next', $this->storedColumn());
     }
 
-    public function test_a_refused_form_move_flashes_the_refusal(): void
+    public function test_a_refused_form_move_sends_a_manager_back_to_the_card_with_the_way_out(): void
     {
         $this->given();
         $this->move(stream: false);
 
-        self::assertResponseRedirects();
+        self::assertResponseRedirects('/projects/'.$this->project->id.'/board/cards/'.$this->card->id);
+        self::assertSame(['This card is managed. Select Make unmanaged on this page, then move it.'], $this->errorFlashes());
+        self::assertSame('next', $this->storedColumn());
+    }
+
+    public function test_a_refused_form_move_flashes_the_plain_refusal_without_the_right_to_manage(): void
+    {
+        $this->given(canManage: false);
+        $this->move(stream: false);
+
+        self::assertResponseRedirects('/projects/'.$this->project->id.'/board');
+        self::assertSame(['This card is managed. Make it unmanaged to move it there.'], $this->errorFlashes());
+        self::assertSame('next', $this->storedColumn());
+    }
+
+    /** @return array<mixed> */
+    private function errorFlashes(): array
+    {
         $session = $this->client->getRequest()->getSession();
         self::assertInstanceOf(FlashBagAwareSessionInterface::class, $session);
-        self::assertSame(['This card is managed. Make it unmanaged to move it there.'], $session->getFlashBag()->peek('error'));
-        self::assertSame('next', $this->storedColumn());
+
+        return $session->getFlashBag()->peek('error');
     }
 
     public function test_a_drop_sent_again_with_unmanage_holds_the_card_and_moves_it(): void

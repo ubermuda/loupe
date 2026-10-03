@@ -118,6 +118,15 @@ final class MoveCardController extends AppController
                 : []);
         }
 
+        // The card page holds the control that makes the card unmanaged.
+        if (!$stream && $managed) {
+            $this->addFlash('error', $this->translator->trans('board.card.flash.managed_card_page', [
+                '%action%' => $this->translator->trans('board.card.runs.pause'),
+            ]));
+
+            return $this->redirectToRoute('app_board_card', ['projectId' => (string) $project->id, 'cardId' => (string) $card->id]);
+        }
+
         if (!$stream) {
             if (null !== $error) {
                 $this->addFlash('error', $error);
