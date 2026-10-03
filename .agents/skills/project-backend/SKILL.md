@@ -98,9 +98,9 @@ For PHPUnit patterns, including WebTestCase mocking, controller integration test
 
 ## Pre-delivery gate
 
-Before you mark a PHP task done, apply fixes with `just cs`, which runs prettier, rector, cs-fixer and twig-cs-fixer in write mode. Then run `just ci`, which runs lint, the fixers in dry-run, phpstan, arkitect, gamache and PHPUnit. `just e2e` is separate. To check static analysis alone, run `just phpstan`.
+Before you mark a PHP task done, apply fixes with `just cs`, which runs prettier, rector, cs-fixer and twig-cs-fixer in write mode. Then run `just phpstan`, `just arkitect` and `just gamache`, which check the whole project. Then run PHPUnit on the tests for what changed, with `just phpunit tests/<path>` or `just phpunit --filter <name>`. A hook refuses `just ci` and a full PHPUnit run, because CI's required checks are the full gate. `just e2e` is separate.
 
-Do not deliver code that fails either command. Fix the underlying issue. Never skip hooks, and never suppress an error with `@phpstan-ignore` without a comment that explains why.
+Do not deliver code that fails any of these commands. Fix the underlying issue. Never skip hooks, and never suppress an error with `@phpstan-ignore` without a comment that explains why.
 
 ## Property access in all PHP classes
 
@@ -296,7 +296,7 @@ Tests must never dictate what is nullable. Whether a constructor parameter is nu
 
 ## Custom static-analysis rules
 
-Custom PHPStan, PHP CS Fixer, Rector and TwigCsFixer rules live in the `ubermuda/gamache` package, in `vendor/ubermuda/gamache/src/`, consumed as `dev-main`. They are not in this repo. When a check fires for something that is not in the standard PHPStan, Rector or TwigCsFixer docs, look there first. The rule class names in the error output match the class names in that package. Add a new rule in the gamache repo. See "Gamache Checks" in `AGENTS.md`. Run `just ci` to exercise all of them.
+Custom PHPStan, PHP CS Fixer, Rector and TwigCsFixer rules live in the `ubermuda/gamache` package, in `vendor/ubermuda/gamache/src/`, consumed as `dev-main`. They are not in this repo. When a check fires for something that is not in the standard PHPStan, Rector or TwigCsFixer docs, look there first. The rule class names in the error output match the class names in that package. Add a new rule in the gamache repo. See "Gamache Checks" in `AGENTS.md`. Run `just cs` and `just phpstan` to exercise all of them.
 
 ## Event listeners
 

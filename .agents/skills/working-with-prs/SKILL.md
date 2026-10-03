@@ -13,14 +13,24 @@ path skips this.
 1. `just cs` applies the formatter and rector fixes. Commit anything it
    changed. It works from a worktree: the finder uses explicit excludes and
    throws if it matches zero files, so a vacuous pass is not possible.
-2. `just ci` is check-only. It reports style and rector violations but never
-   rewrites files; `just cs` is the step that applies them. Fix every failure,
-   including ones that pre-date your change.
-3. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-sol"`.
+2. Run `just phpstan`, `just arkitect` and `just gamache`. These check the
+   whole project.
+3. Run PHPUnit on the tests for what changed: `just phpunit tests/<path>` or
+   `just phpunit --filter <name>`.
+4. Run `just js-test` when JavaScript changed, and `just cli-test` when `cli/`
+   or `hooks/` changed.
+5. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-sol"`.
    Always pass the model explicitly. This Codex account rejects the model the
    tool picks by default.
    `gpt-6-sol` works with Codex CLI 0.155.1. An older CLI can answer "requires
    a newer version of Codex", so run `npm install -g @openai/codex@latest`.
+   Then push. CI's required checks are the full gate. Read them on the pull
+   request, and fix every failure, including ones that pre-date your change.
+
+A `PreToolUse` hook, `.agents/hooks/no-full-ci.sh`, refuses `just ci` and a
+full PHPUnit run for an agent. `just audit` is not in the local list, because
+CI runs it. A worker learns of a failed required check from the board: the
+`checks-failed` fix round covers every required check.
 
 Review against `origin/main`, never `main`. Review a stacked branch against
 `origin/<parent-branch>` instead. A worktree's local `main` is often
@@ -189,7 +199,7 @@ For any step that writes something, name what reads it, and require a grep that
 finds the reader. An input that exists is not evidence that anything consumes
 the output.
 
-## Documentation-only branches run steps 1 and 2 only
+## Documentation-only branches run `just cs` and push
 
 Skip the Codex review. Say so in the PR body, so the record shows the gate was
 reduced deliberately rather than forgotten. CI still runs its own checks
@@ -206,7 +216,7 @@ Any output at all means the full gate applies. A branch that also touches
 `.env`, a Twig template, a fixture, `composer.json` or a `justfile` recipe is
 not documentation-only, however small the change looks.
 
-`just ci` still runs, because Markdown is not inert here: prettier covers some
+CI still runs every check, because Markdown is not inert here: prettier covers some
 of it, gamache's checks read `docs/`, and a docs commit can break a build that
 greps them.
 
@@ -251,8 +261,9 @@ Write only these, and leave out any line that has nothing to say:
 - What you could not verify.
 - A decision the owner must make.
 - A deploy need, a breaking change, or a merge order.
-- One gate line, such as "Gate: cs, ci, e2e green. Codex: 2 clean passes (base,
-  commit)." Name a reduced gate on that line.
+- One gate line, such as "Gate: cs, phpstan, arkitect, gamache and
+  `tests/Module/Board` green. Codex: 2 clean passes (base, commit)." Name a
+  reduced gate on that line.
 
 Leave these out:
 
@@ -504,8 +515,8 @@ time.
 5. A conflict-free merge is not a correct merge. When one branch renames a
    class, a *new* file on another branch merges cleanly while still importing
    the old name. Git sees no conflict, because the file never existed on both
-   sides. Run `just ci` before trusting such a merge; phpstan catches this, git
-   does not.
+   sides. Push the merged result and read CI before you trust such a merge.
+   phpstan catches this, and git does not.
 
    The signature variant is the same blind spot with a different tell. A branch
    that makes an argument required lives on and absorbs merges, and each
@@ -762,8 +773,8 @@ what to avoid. Every failure in it was a merge that git could not see:
 3. A `CONFLICTING` pull request never ran CI at all, because `pull_request`
    does not fire without a merge commit.
 
-So the discipline is merge-protocol item 5, not abstinence. Run `just ci` on the
-merged result rather than trusting a clean `git merge`, and check that the stack
+So the discipline is merge-protocol item 5, not abstinence. Push the merged
+result and read CI rather than trusting a clean `git merge`, and check that the stack
 is not `CONFLICTING` before you believe a green check.
 
 Say in the body which pull request the branch stacks on. The reviewer needs it,

@@ -18,13 +18,19 @@ Run these in order; the checks must pass cleanly — including any pre-existing
 failures you notice:
 
 ```bash
-just cs     # applies PHP CS Fixer + Rector fixes — commit anything it changes
-just ci     # check-only: PHPStan (level 8), phparkitect, gamache, ESLint, PHPUnit, Vitest
+just cs                    # applies PHP CS Fixer + Rector fixes; commit anything it changes
+just phpstan               # PHPStan (level 8) over the whole project
+just arkitect              # phparkitect module boundaries
+just gamache               # project convention checks
+just phpunit tests/<path>  # PHPUnit on the tests for what changed, or --filter <name>
+just js-test               # Vitest, when JavaScript changed
+just cli-test              # Go CLI and hook tests, when cli/ or hooks/ changed
 just e2e    # Playwright end-to-end tests
 ```
 
-`just ci` never rewrites files, so run `just cs` first — otherwise style and
-Rector violations will fail `ci` with nothing having been fixed.
+CI's required checks are the full gate. Read them on the pull request, and fix
+every failure. `just ci` runs every check-only leg in one command. A person can
+run it in a terminal, and a hook refuses it for an agent.
 
 ## Conventions
 
