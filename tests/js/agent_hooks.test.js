@@ -108,6 +108,9 @@ describe('no-full-ci.sh', () => {
         ['git commit -m "bash -c just ci"', 'allow'],
         ['bash script.sh', 'allow'],
         ['just phpunit "tests/Module/Board"', 'allow'],
+        ['echo $((1<<2))\njust ci', 'deny'],
+        ['(( x = 1 << 2 ))\njust ci', 'deny'],
+        ['echo "$((a<<b))"; just ci', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });

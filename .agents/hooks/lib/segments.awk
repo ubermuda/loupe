@@ -1,7 +1,8 @@
 # Prints a shell command one segment per line, with quotes removed and
 # here-document bodies dropped. A quoted newline prints as " ; ", so a hook
-# that re-reads a `bash -c` payload still splits it there.
-BEGIN { sq = 0; dq = 0; nq = 0; qi = 0; body = 0 }
+# that re-reads a `bash -c` payload still splits it there. Inside `((` or `$((`,
+# `<<` is a shift, not a here-document.
+BEGIN { sq = 0; dq = 0; nq = 0; qi = 0; body = 0; arith = 0 }
 
 function word_end(c) {
     return c == " " || c == "\t" || c == ";" || c == "&" || c == "|" || c == "<" || c == ">" || c == ")"
@@ -54,8 +55,10 @@ body {
             if (i == n) joined = 1; else { i++; printf "%s", substr(line, i, 1) }
         } else if (dq) {
             if (c == "\"") dq = 0
+            else if (c == "$" && substr(line, i, 3) == "$((") { printf "$(("; arith++; i += 2 }
+            else if (c == ")" && arith && substr(line, i, 2) == "))") { printf "))"; arith--; i++ }
             else if (c == "<" && substr(line, i, 3) == "<<<") { printf "<<<"; i += 2 }
-            else if (c == "<" && substr(line, i, 2) == "<<") { printf "<<"; i = heredoc(line, i + 2, n); continue }
+            else if (c == "<" && !arith && substr(line, i, 2) == "<<") { printf "<<"; i = heredoc(line, i + 2, n); continue }
             else printf "%s", c
         } else if (c == "'") {
             sq = 1
@@ -63,9 +66,15 @@ body {
             dq = 1
         } else if (c == ";" || c == "&" || c == "|") {
             printf "\n"
+        } else if (c == "$" && substr(line, i, 3) == "$((") {
+            printf "$(("; arith++; i += 2
+        } else if (c == "(" && substr(line, i, 2) == "((") {
+            printf "(("; arith++; i++
+        } else if (c == ")" && arith && substr(line, i, 2) == "))") {
+            printf "))"; arith--; i++
         } else if (c == "<" && substr(line, i, 3) == "<<<") {
             printf "<<<"; i += 2
-        } else if (c == "<" && substr(line, i, 2) == "<<") {
+        } else if (c == "<" && !arith && substr(line, i, 2) == "<<") {
             printf "<<"; i = heredoc(line, i + 2, n); continue
         } else {
             printf "%s", c
