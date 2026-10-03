@@ -111,6 +111,13 @@ describe('no-full-ci.sh', () => {
         ['echo $((1<<2))\njust ci', 'deny'],
         ['(( x = 1 << 2 ))\njust ci', 'deny'],
         ['echo "$((a<<b))"; just ci', 'deny'],
+        ['x="$(cat <<EOF\nhi\nEOF)"\njust ci', 'deny'],
+        ['x=`cat <<EOF\nhi\nEOF`\njust ci', 'deny'],
+        ['echo "$(echo "it\'s")"; just ci', 'deny'],
+        ["echo $'it\\'s'; just ci", 'deny'],
+        ['echo "a<<b" && just ci', 'deny'],
+        ["bash -c 'cat <<EOF\njust ci\nEOF'", 'allow'],
+        ["bash -c 'cd x\njust ci'", 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });
@@ -130,17 +137,30 @@ describe('no-full-e2e.sh', () => {
         ["gh pr create --body 'x\njust e2e\ny'", 'allow'],
         ['bash -c "just e2e"', 'deny'],
         ["sh -c 'just e2e-up && just e2e'", 'deny'],
+        ['timeout 60 bash -c "just e2e"', 'deny'],
+        ['timeout 60 just e2e', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-e2e.sh', command)).toBe(expected);
     });
 });
 
-describe('a 20 KB here-document', () => {
+describe('a 20 KB input', () => {
     it.each([
-        ['no-full-ci.sh', 'just ci\n'],
-        ['no-full-e2e.sh', 'just e2e\n'],
-    ])('is allowed by %s', (hook, line) => {
-        const body = line.repeat(Math.ceil(20000 / line.length));
-        expect(decide(hook, 'cat <<EOF\n' + body + 'EOF')).toBe('allow');
+        [
+            'no-full-ci.sh',
+            'here-document',
+            'cat <<EOF\n' + 'just ci\n'.repeat(2500) + 'EOF',
+        ],
+        [
+            'no-full-e2e.sh',
+            'here-document',
+            'cat <<EOF\n' + 'just e2e\n'.repeat(2223) + 'EOF',
+        ],
+        ['no-full-ci.sh', 'lines', 'echo a\n'.repeat(2900)],
+        ['no-full-e2e.sh', 'lines', 'echo a\n'.repeat(2900)],
+        ['no-full-ci.sh', 'segments', 'echo a; '.repeat(2500)],
+        ['no-full-e2e.sh', 'segments', 'echo a; '.repeat(2500)],
+    ])('is allowed by %s as %s', (hook, kind, command) => {
+        expect(decide(hook, command)).toBe('allow');
     });
 });

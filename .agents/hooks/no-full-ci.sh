@@ -67,20 +67,9 @@ judge_just() {
     done
 }
 
-# Skips assignments and the wrappers that run the command after them.
-skip_prefix() {
-    while :; do
-        case "${words[i]:-}" in
-            -n|-u|timeout) i=$((i + 2)) ;;
-            time|nice|env|'('|'{'|-*) i=$((i + 1)) ;;
-            *) [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || return; i=$((i + 1)) ;;
-        esac
-    done
-}
-
 judge_command() {
     local -a words=("$@")
-    local i=0 payload
+    local i=0
     skip_prefix
 
     case "${words[i]:-}" in
@@ -88,8 +77,8 @@ judge_command() {
         bin/worktrees/compose-exec.sh|./bin/worktrees/compose-exec.sh) i=$((i + 1)) ;;
     esac
     skip_prefix
-    if payload="$(wrapped_command "${words[@]:i}")"; then
-        judge_text "$payload"
+    if wrapped_command "${words[@]:i}"; then
+        judge_text "$wrapped"
         return
     fi
     [ "${words[i]:-}" = php ] && i=$((i + 1))

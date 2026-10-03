@@ -17,21 +17,36 @@ judge_text() {
     done < <(segments "$1")
 }
 
-# Prints the command text that `eval` or a shell's -c flag runs.
+# Skips assignments and the wrappers that run the command after them. It moves
+# the caller's i along the caller's words.
+skip_prefix() {
+    while :; do
+        case "${words[i]:-}" in
+            -n|-u|timeout) i=$((i + 2)) ;;
+            time|nice|env|'('|'{'|-*) i=$((i + 1)) ;;
+            *) [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || return; i=$((i + 1)) ;;
+        esac
+    done
+}
+
+# Sets wrapped to the command text that `eval` or a shell's -c flag runs. It
+# sets a variable rather than printing, because a $(...) per segment is slow.
 wrapped_command() {
     local IFS=' ' name="${1:-}"
     case "${name##*/}" in
-        eval) shift; printf '%s' "$*"; return 0 ;;
+        eval) shift ;;
         bash|sh|zsh|dash|ksh)
             shift
             while [ "$#" -gt 0 ]; do
                 case "$1" in
                     --*) ;;
-                    -*c*) shift; printf '%s' "$*"; return 0 ;;
+                    -*c*) shift; break ;;
                 esac
                 shift
-            done ;;
+            done
+            [ "$#" -gt 0 ] || return 1 ;;
+        *) return 1 ;;
     esac
-
-    return 1
+    wrapped="$*"
+    wrapped="${wrapped//$'\036'/$'\n'}"
 }

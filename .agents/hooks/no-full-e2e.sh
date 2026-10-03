@@ -38,10 +38,10 @@ names_a_spec() {
 # data. The quoted text of a shell wrapper is a command.
 judge_command() {
     local -a words=("$@")
-    local i=0 payload
-    while [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do i=$((i + 1)); done
-    if payload="$(wrapped_command "${words[@]:i}")"; then
-        judge_text "$payload"
+    local i=0
+    skip_prefix
+    if wrapped_command "${words[@]:i}"; then
+        judge_text "$wrapped"
         return
     fi
 
