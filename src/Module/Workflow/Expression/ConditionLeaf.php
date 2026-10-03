@@ -33,4 +33,10 @@ final readonly class ConditionLeaf extends Expression
     {
         return $this->condition->reads($this->params);
     }
+
+    #[\Override]
+    public function leaves(): array
+    {
+        return [$this];
+    }
 }

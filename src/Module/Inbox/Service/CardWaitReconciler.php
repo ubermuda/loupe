@@ -37,6 +37,11 @@ use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Repository\InboxReviewRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
+use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
+use App\Module\Workflow\Service\FactsBuilder;
+use App\Module\Workflow\Template\TemplateMissing;
+use App\Module\Workflow\Template\TemplateSource;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -64,6 +69,8 @@ final readonly class CardWaitReconciler
         private CardPullRequestRepository $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
         private CardPauseRepository $cardPauses,
+        private TemplateSource $templates,
+        private WorkflowSlotLinkRepository $workflowSlotLinks,
     ) {
     }
 
@@ -218,8 +225,9 @@ final readonly class CardWaitReconciler
     }
 
     /**
-     * A document in review waits on each linked card that is not finished. An
-     * open review of an agent on the document holds its wait back.
+     * A document in review waits on a linked card when the rules of the card's
+     * workflow slot read a tag of the document. An open review of an agent on
+     * the document holds its wait back.
      *
      * @param list<Uuid> $cardIds
      *
@@ -227,10 +235,32 @@ final readonly class CardWaitReconciler
      */
     private function documentWaits(Project $project, array $cardIds): array
     {
-        $rows = array_values(array_filter(
-            $this->cardDocuments->findInReviewForCards($project, $cardIds),
-            static fn (array $row): bool => !$row['link']->card->column->terminal,
-        ));
+        $rows = $this->cardDocuments->findInReviewForCards($project, $cardIds);
+        if ([] === $rows) {
+            return [];
+        }
+        try {
+            $template = $this->templates->forProject($project->id ?? throw new \LogicException('Project has no id.'));
+        } catch (TemplateMissing) {
+            return [];
+        }
+
+        $slots = [];
+        foreach ($this->workflowSlotLinks->findColumnsBySlot($project) as $slot => $column) {
+            if (null !== $column) {
+                $slots[(string) $column->id] = $slot;
+            }
+        }
+        $rows = array_values(array_filter($rows, static function (array $row) use ($template, $slots): bool {
+            $column = $row['link']->card->column;
+            if ($column->terminal) {
+                return false;
+            }
+            $slot = $column->backlog ? FactsBuilder::BACKLOG_SLOT : $slots[(string) $column->id] ?? null;
+            $tags = array_map(static fn (Tag $tag): string => $tag->name, $row['link']->document->tags->toArray());
+
+            return [] !== array_intersect($template->documentTagsFor($slot), $tags);
+        }));
         if ([] === $rows) {
             return [];
         }

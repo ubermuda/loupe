@@ -171,13 +171,19 @@ A removed target shows an unavailable state, while completed results retain thei
 Loupe opens an item by itself when a card waits for a person. A card waits in
 these cases:
 
-- A linked document of the card is in review, and the card does not sit in a
-  terminal column.
+- A linked document of the card is in review, and the workflow of the card
+  waits for it in the column where the card sits. With the Lifecycle template,
+  that is a product design, a document with the tag `product`, in the Product
+  design column, or a tech design, a document with the tag `design`, in the
+  Tech design column.
 - The newest worker run of the card is blocked, gave up, or waits for a person.
   The card must stay in the column that started the run.
 - A GitHub pull request that is linked to the card is ready for review.
 - The workflow paused the card. The wait names the reason code of the pause,
   and it ends when the pause is released. A new pause starts a new wait.
+
+Other linked documents, such as a plan, open no wait. A change to the tags of
+a document makes Loupe check each card that links it again.
 
 The item has the kind **Waiting**, and it is always blocking.
 
@@ -270,8 +276,8 @@ A wait ends when its document leaves review. A verdict does this, and so does
 an archive. A new version of the document also ends the wait, and a new wait
 for the new version replaces it. The item then stays open. An open review
 request from an agent for the same document holds back the wait, because it
-asks for the same verdict. A document wait also ends when the card moves to a
-terminal column.
+asks for the same verdict. A document wait also ends when the card leaves the
+column that waits for the document, or when the document loses its tag.
 
 A run wait ends when a newer run of the card starts. It also ends when the card
 moves to another column.

@@ -26,6 +26,9 @@ abstract readonly class Expression
     /** @return list<FactKey> the fact groups the leaves read, each once, in first-seen order */
     abstract public function reads(): array;
 
+    /** @return list<ConditionLeaf> every leaf, in template order */
+    abstract public function leaves(): array;
+
     /**
      * @param list<Expression> $children
      *

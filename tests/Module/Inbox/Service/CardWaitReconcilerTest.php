@@ -35,6 +35,8 @@ use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\SetDocumentTagsCommand;
+use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Tests\Module\Inbox\InboxFixtures;
@@ -406,13 +408,38 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(InboxItemState::Done, $watch->item->state);
     }
 
-    public function test_an_untagged_document_in_review_opens_a_wait(): void
+    public function test_a_plan_in_review_opens_no_wait(): void
     {
-        $document = $this->untaggedLinkedDocument('Notes');
+        $plan = $this->untaggedLinkedDocument('Plan');
+        $this->tagDocument($this->em, $plan, ['plan']);
+        $this->card->column = $this->stageColumn($this->em, $this->project, 'tech-design');
+        $this->em->flush();
 
         $this->reconcile();
 
-        self::assertEquals($document->id, $this->onlyWait($this->onlyWatch())->documentId);
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_an_untagged_document_in_review_opens_no_wait(): void
+    {
+        $this->untaggedLinkedDocument('Notes');
+        $this->card->column = $this->stageColumn($this->em, $this->project, 'tech-design');
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_a_document_on_a_project_with_no_template_opens_no_wait(): void
+    {
+        $document = $this->untaggedLinkedDocument('Tech design');
+        $this->tagDocument($this->em, $document, ['design']);
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
     }
 
     public function test_a_tech_design_on_a_card_in_the_tech_design_column_opens_a_wait(): void
@@ -424,15 +451,15 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertEquals($document->id, $this->onlyWait($this->onlyWatch())->documentId);
     }
 
-    public function test_a_tech_design_on_a_card_in_another_open_column_opens_a_wait(): void
+    public function test_a_tech_design_on_a_card_in_another_open_column_opens_no_wait(): void
     {
-        $document = $this->linkedDocument('Tech design');
+        $this->linkedDocument('Tech design');
         $this->card->column = $this->stageColumn($this->em, $this->project, 'implementation');
         $this->em->flush();
 
         $this->reconcile();
 
-        self::assertEquals($document->id, $this->onlyWait($this->onlyWatch())->documentId);
+        self::assertSame([], $this->watches());
     }
 
     public function test_a_product_design_on_a_card_in_the_product_design_column_opens_a_wait(): void
@@ -448,7 +475,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame('Product design in review, version 1', $watch->item->body);
     }
 
-    public function test_a_move_to_another_open_column_keeps_the_document_wait(): void
+    public function test_a_move_out_of_the_stage_column_ends_the_document_wait_done(): void
     {
         $this->linkedDocument('Tech design');
         $this->reconcile();
@@ -458,8 +485,28 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $this->reconcile();
 
         $watch = $this->onlyWatch();
-        self::assertSame(InboxItemState::Open, $watch->item->state);
-        self::assertNull($this->onlyWait($watch)->endReason);
+        self::assertSame(InboxItemState::Done, $watch->item->state);
+        self::assertSame(InboxCardWaitEndReason::Resolved, $this->onlyWait($watch)->endReason);
+    }
+
+    public function test_stage_tags_set_later_open_the_wait(): void
+    {
+        $document = $this->untaggedLinkedDocument('Tech design');
+        $this->card->column = $this->stageColumn($this->em, $this->project, 'tech-design');
+        $this->em->flush();
+        $this->reconcile();
+        self::assertSame([], $this->watches());
+
+        $setTags = self::getContainer()->get(SetDocumentTagsHandler::class);
+        self::assertInstanceOf(SetDocumentTagsHandler::class, $setTags);
+        $setTags(new SetDocumentTagsCommand($document, ['design']));
+        $this->em->clear();
+        $project = $this->em->find(Project::class, $this->project->id);
+        self::assertInstanceOf(Project::class, $project);
+
+        $this->reconciler->reconcile($project, [(string) $this->card->id]);
+
+        self::assertEquals($document->id, $this->onlyWait($this->onlyWatch())->documentId);
     }
 
     /** @return iterable<string, array{WorkerRunState, InboxCardWaitTrigger, string}> */

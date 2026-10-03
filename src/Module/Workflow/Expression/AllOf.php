@@ -48,4 +48,10 @@ final readonly class AllOf extends Expression
     {
         return self::readsOf($this->children);
     }
+
+    #[\Override]
+    public function leaves(): array
+    {
+        return array_merge(...array_map(static fn (Expression $child): array => $child->leaves(), $this->children));
+    }
 }

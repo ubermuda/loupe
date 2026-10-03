@@ -396,6 +396,17 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals($update, $this->actions(FactsMother::facts(card: $child, pullRequest: $merged, pullRequests: [$merged])));
     }
 
+    public function test_a_stage_slot_reads_the_tag_of_its_document(): void
+    {
+        $lifecycle = $this->lifecycle();
+
+        self::assertSame(['product'], $lifecycle->documentTagsFor('product-design'));
+        self::assertSame(['design'], $lifecycle->documentTagsFor('tech-design'));
+        self::assertSame([], $lifecycle->documentTagsFor('implementation'));
+        self::assertSame([], $lifecycle->documentTagsFor(null));
+        self::assertSame([], $this->template('simple')->documentTagsFor(null));
+    }
+
     private function shipped(): ShippedTemplates
     {
         return static::getContainer()->get(ShippedTemplates::class);

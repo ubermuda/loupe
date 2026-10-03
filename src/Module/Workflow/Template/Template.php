@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
+use App\Module\Workflow\Condition\CardDocumentApproved;
+use App\Module\Workflow\Condition\CardDocumentChangesRequested;
+use App\Module\Workflow\Condition\ParameterValue;
+
 final readonly class Template
 {
     /**
@@ -42,5 +46,20 @@ final readonly class Template
             static fn (Rule $rule): bool => (null === $rule->slot || $rule->slot === $slot)
                 && (ActionType::Move !== $rule->then->type || ($rule->then->params['from'] ?? $slot) === $slot),
         ));
+    }
+
+    /** @return list<string> the document tags that the rules of the slot read, each once */
+    public function documentTagsFor(?string $slot): array
+    {
+        $tags = [];
+        foreach ($this->rulesFor($slot) as $rule) {
+            foreach ($rule->when->leaves() as $leaf) {
+                if ($leaf->condition instanceof CardDocumentApproved || $leaf->condition instanceof CardDocumentChangesRequested) {
+                    $tags[] = ParameterValue::string($leaf->params, 'tag');
+                }
+            }
+        }
+
+        return array_values(array_unique($tags));
     }
 }
