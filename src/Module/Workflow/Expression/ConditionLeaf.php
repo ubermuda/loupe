@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Expression;
 
 use App\Module\Workflow\Condition\Condition;
+use App\Module\Workflow\Condition\TimedCondition;
 use App\Module\Workflow\Fact\Facts;
 
 final readonly class ConditionLeaf extends Expression
@@ -32,5 +33,11 @@ final readonly class ConditionLeaf extends Expression
     public function reads(): array
     {
         return $this->condition->reads($this->params);
+    }
+
+    #[\Override]
+    public function changesAt(Facts $facts): ?\DateTimeImmutable
+    {
+        return $this->condition instanceof TimedCondition ? $this->condition->turnsAt($facts, $this->params) : null;
     }
 }

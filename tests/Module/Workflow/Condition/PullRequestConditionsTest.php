@@ -105,6 +105,26 @@ final class PullRequestConditionsTest extends TestCase
         yield 'all closed unmerged, none linked' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([]), false];
     }
 
+    #[DataProvider('closedUnmergedTurns')]
+    public function test_all_closed_unmerged_says_when_it_turns_true(Facts $facts, ?string $expected): void
+    {
+        self::assertSame($expected, new PullRequestsAllClosedUnmerged()->turnsAt($facts, ['minutes' => 10])?->format('Y-m-d H:i:s'));
+    }
+
+    /** @return iterable<string, array{Facts, ?string}> */
+    public static function closedUnmergedTurns(): iterable
+    {
+        $closedAnHourAgo = FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+
+        yield 'the last close was 9 minutes ago' => [self::all([$closedAnHourAgo, self::closedMinutesAgo(9)]), '2026-10-01 12:01:00'];
+        yield 'the last close was 2 minutes ago' => [self::all([self::closedMinutesAgo(2), $closedAnHourAgo]), '2026-10-01 12:08:00'];
+        yield 'already true' => [self::all([self::closedMinutesAgo(10)]), null];
+        yield 'one open' => [self::all([self::closedMinutesAgo(2), FactsMother::pullRequest(state: PullRequestState::Open)]), null];
+        yield 'one merged' => [self::all([self::closedMinutesAgo(2), FactsMother::pullRequest(state: PullRequestState::Merged, closedAt: new \DateTimeImmutable('2026-10-01 11:59:00'))]), null];
+        yield 'close time unknown' => [self::all([FactsMother::pullRequest(state: PullRequestState::Closed)]), null];
+        yield 'none linked' => [self::all([]), null];
+    }
+
     /** @param array<string, mixed> $params */
     #[DataProvider('singlePullRequestConditions')]
     public function test_a_single_pull_request_condition_is_false_with_no_current_pull_request(Condition $condition, array $params): void

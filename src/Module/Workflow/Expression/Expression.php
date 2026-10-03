@@ -26,6 +26,9 @@ abstract readonly class Expression
     /** @return list<FactKey> the fact groups the leaves read, each once, in first-seen order */
     abstract public function reads(): array;
 
+    /** The earliest time after the facts' now when a timed leaf changes its answer on the same facts, or null. */
+    abstract public function changesAt(Facts $facts): ?\DateTimeImmutable;
+
     /**
      * @param list<Expression> $children
      *
@@ -41,5 +44,19 @@ abstract readonly class Expression
         }
 
         return array_values($keys);
+    }
+
+    /** @param list<Expression> $children */
+    protected static function earliestChangeOf(array $children, Facts $facts): ?\DateTimeImmutable
+    {
+        $earliest = null;
+        foreach ($children as $child) {
+            $time = $child->changesAt($facts);
+            if (null !== $time && (null === $earliest || $time < $earliest)) {
+                $earliest = $time;
+            }
+        }
+
+        return $earliest;
     }
 }

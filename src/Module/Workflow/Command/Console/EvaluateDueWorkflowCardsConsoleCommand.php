@@ -15,7 +15,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /** The scheduler runs the same work every minute through the worker. This is the manual backstop. */
 #[AsCommand(
     name: 'app:evaluate-due-workflow-cards',
-    description: 'Queue an evaluation of the cards whose refused workflow rule is due to retry.',
+    description: 'Queue an evaluation of the cards whose refused workflow rule is due to retry, or whose timed condition is due.',
 )]
 final class EvaluateDueWorkflowCardsConsoleCommand extends Command
 {

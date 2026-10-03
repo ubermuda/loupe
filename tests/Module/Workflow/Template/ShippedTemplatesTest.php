@@ -171,6 +171,20 @@ final class ShippedTemplatesTest extends KernelTestCase
         }
     }
 
+    #[DataProvider('shippedKeys')]
+    public function test_closed_unmerged_does_not_move_a_card_out_of_a_terminal_column(string $key): void
+    {
+        $closed = FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+        $rule = array_find($this->template($key)->rulesFor(null), static fn ($rule) => 'closed-unmerged' === $rule->id)
+            ?? throw new \LogicException('The template has a closed-unmerged rule.');
+
+        $inDone = FactsMother::facts(card: FactsMother::card(slot: '@terminal'), pullRequest: $closed, pullRequests: [$closed]);
+        self::assertFalse($rule->when->evaluate($inDone));
+
+        $inProgress = FactsMother::facts(card: FactsMother::card(slot: null), pullRequest: $closed, pullRequests: [$closed]);
+        self::assertTrue($rule->when->evaluate($inProgress));
+    }
+
     /** @return iterable<string, array{string}> */
     public static function shippedKeys(): iterable
     {

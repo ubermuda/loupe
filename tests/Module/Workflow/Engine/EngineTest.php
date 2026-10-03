@@ -27,6 +27,7 @@ use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
@@ -645,6 +646,48 @@ final class EngineTest extends KernelTestCase
         $live = $this->liveRequests($card);
         self::assertCount(1, $live);
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
+    }
+
+    public function test_a_lifecycle_card_in_done_whose_pull_requests_all_closed_unmerged_stays_in_done(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-lifecycle-done');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'done');
+        $closed = $this->pullRequest($card, PullRequestState::Closed);
+        $closed->refreshedAt = new \DateTimeImmutable('2026-10-02 11:00:00');
+        $this->em()->flush();
+
+        $this->evaluate($card);
+
+        self::assertSame('done', $card->column->slug);
+    }
+
+    public function test_a_timed_rule_on_a_terminal_card_records_when_it_comes_due_and_fires_from_the_due_evaluation(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'reopen',
+            'slot' => '@terminal',
+            'when' => ['pr.all_closed_unmerged' => ['minutes' => 10]],
+            'then' => ['move' => ['to' => '@backlog']],
+        ]]);
+        $this->moveTo($card, 'done');
+        $closed = $this->pullRequest($card, PullRequestState::Closed);
+        $closed->refreshedAt = new \DateTimeImmutable('2026-10-02 11:55:00');
+        $this->em()->flush();
+        $states = $this->service(WorkflowRuleStateRepository::class);
+
+        $this->evaluate($card);
+
+        self::assertSame('done', $card->column->slug);
+        self::assertSame('2026-10-02 12:05:00', $this->ruleState($card, 'reopen')->wakeAt?->format('Y-m-d H:i:s'));
+        self::assertNotContains((string) $card->id, $states->findDueCardIds(new \DateTimeImmutable('2026-10-02 12:04:59'), 10));
+        self::assertContains((string) $card->id, $states->findDueCardIds(new \DateTimeImmutable('2026-10-02 12:05:00'), 10));
+
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame('backlog', $card->column->slug);
+        self::assertNull($this->ruleState($card, 'reopen')->wakeAt);
     }
 
     /**
