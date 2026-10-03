@@ -142,6 +142,16 @@ describe('no-full-ci.sh', () => {
         ['echo "$(echo x)"#y; just ci', 'deny'],
         ['( echo a )# <<EOF\njust ci', 'deny'],
         ['case a in a)# <<EOF\njust ci;; esac', 'deny'],
+        ['bash <<EOF\njust ci\nEOF', 'deny'],
+        ["sh <<'EOF'\ncd x && just ci\nEOF", 'deny'],
+        ['cat <<EOF | bash\njust ci\nEOF', 'deny'],
+        ['bash <<EOF\njust cs\nEOF', 'allow'],
+        ['cat <<EOF | grep x\njust ci\nEOF', 'allow'],
+        ["bash -c 'cat' <<EOF\njust ci\nEOF", 'allow'],
+        ['bash -c "echo $(echo hi); just ci"', 'deny'],
+        ['x="$(bash <<EOF\njust ci\nEOF\n)"', 'deny'],
+        ['cat <<EOF 2>&1 | bash\njust ci\nEOF', 'deny'],
+        ['bash <<EOF\necho "x\nEOF\njust ci', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });
@@ -165,6 +175,8 @@ describe('no-full-e2e.sh', () => {
         ['timeout 60 just e2e', 'deny'],
         ['echo hi # <<EOF\njust e2e', 'deny'],
         ["ju''st e2e", 'deny'],
+        ['bash <<EOF\njust e2e\nEOF', 'deny'],
+        ['bash -c "echo $(echo hi) && just e2e"', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-e2e.sh', command)).toBe(expected);
     });
