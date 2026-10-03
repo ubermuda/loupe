@@ -155,6 +155,18 @@ describe('no-full-ci.sh', () => {
         ['env bash <<EOF\njust ci\nEOF', 'deny'],
         ['timeout 5 bash <<EOF\njust ci\nEOF', 'deny'],
         ['nice -n 5 sh <<EOF\njust ci\nEOF', 'deny'],
+        [
+            'bin/worktrees/compose-exec.sh bash <<EOF\nvendor/bin/phpunit\nEOF',
+            'deny',
+        ],
+        ['just exec bash <<EOF\nvendor/bin/phpunit\nEOF', 'deny'],
+        ['just exec bash <<EOF\njust cs\nEOF', 'allow'],
+        ['bash <<OUTER\ncat > README.md <<DOC\njust ci\nDOC\nOUTER', 'allow'],
+        ['bash <<OUTER\ncat > x <<DOC\nhi\nDOC\njust ci\nOUTER', 'deny'],
+        ['timeout -k 5 60 just ci', 'deny'],
+        ['timeout --signal=KILL 60 just ci', 'deny'],
+        ["timeout -k 5 60 bash -c 'just ci'", 'deny'],
+        ['timeout -s INT 60 bash <<EOF\njust ci\nEOF', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });

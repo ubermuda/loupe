@@ -22,7 +22,17 @@ judge_text() {
 skip_prefix() {
     while :; do
         case "${words[i]:-}" in
-            -n|-u|timeout) i=$((i + 2)) ;;
+            -n|-u) i=$((i + 2)) ;;
+            timeout)
+                i=$((i + 1))
+                while :; do
+                    case "${words[i]:-}" in
+                        -k|-s|--kill-after|--signal) i=$((i + 2)) ;;
+                        -*) i=$((i + 1)) ;;
+                        *) break ;;
+                    esac
+                done
+                i=$((i + 1)) ;;
             time|nice|env|'('|'{'|-*) i=$((i + 1)) ;;
             *) [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || return; i=$((i + 1)) ;;
         esac

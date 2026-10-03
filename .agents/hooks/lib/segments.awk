@@ -5,8 +5,8 @@
 # The ctx stack holds U (unquoted or `$(`), D (double), S (single) and E ($'...').
 BEGIN {
     sp = 1; floor = 1; ctx[1] = "U"; paren[1] = 0; quoted[1] = 0
-    arith = 0; tick = 0; cont = 0; nq = 0; qi = 0; body = 0; incode = 0
-    st = 0; skip = 0; wd = ""; inw = 0; pshell = 0; pstart = 1
+    arith = 0; tick = 0; cont = 0; lv = 0; qn[0] = 0; pstart[0] = 1; bd = 0
+    st = 0; pend = ""; wd = ""; inw = 0; pshell = 0
 }
 
 function push(t) {
@@ -43,16 +43,25 @@ function sep(c) { if (quoted[sp]) printf "%s", c; else printf "\n" }
 
 # Word tracking finds a segment that runs a shell with no -c flag. In st 0 the
 # segment waits for its command word, st 2 means a shell, and st 3 means done.
-# It skips the same wrappers as skip_prefix in lib/segments.sh.
+# It skips the same wrappers as skip_prefix in lib/segments.sh, plus `just exec`.
+# pend says what the next word is: a value to skip, a timeout option, or `exec`.
 function wc(c) { if (st < 3 && length(wd) < 64) wd = wd c; inw = 1 }
 
 function we(    base) {
     if (!inw) return
-    if (st == 0 && skip) {
-        skip = 0
-    } else if (st == 0 && (wd == "-n" || wd == "-u" || wd == "timeout")) {
-        skip = 1
-    } else if (st == 0 && wd !~ /^(time|nice|env|\(|\{|-.*|[A-Za-z_][A-Za-z0-9_]*=.*)$/) {
+    if (st == 0 && pend == "skip") {
+        pend = ""
+    } else if (st == 0 && pend == "value") {
+        pend = "timeout"
+    } else if (st == 0 && pend == "timeout") {
+        if (wd ~ /^(-k|-s|--kill-after|--signal)$/) pend = "value"; else if (wd !~ /^-/) pend = ""
+    } else if (st == 0 && pend == "just") {
+        pend = ""; if (wd != "exec") st = 3
+    } else if (st == 0 && (wd == "-n" || wd == "-u")) {
+        pend = "skip"
+    } else if (st == 0 && (wd == "timeout" || wd == "just")) {
+        pend = wd
+    } else if (st == 0 && wd !~ /^(time|nice|env|\(|\{|-.*|[A-Za-z_][A-Za-z0-9_]*=.*|(\.\/)?bin\/worktrees\/compose-exec\.sh)$/) {
         base = wd; sub(/.*\//, "", base)
         st = (base ~ /^(bash|sh|zsh|dash|ksh)$/) ? 2 : 3
     } else if (st == 2 && wd ~ /^-[^-]*c/) {
@@ -61,31 +70,34 @@ function we(    base) {
     wd = ""; inw = 0
 }
 
-function seg_end() { we(); if (st == 2) pshell = 1; st = 0; skip = 0 }
+function seg_end() { we(); if (st == 2) pshell = 1; st = 0; pend = "" }
 
 # A pipeline that runs a shell reads the here-documents it opened as code.
 function pipe_end(    k) {
     seg_end()
-    if (pshell) for (k = pstart; k <= nq; k++) code[k] = 1
-    pshell = 0; pstart = nq + 1
+    if (pshell) for (k = pstart[lv]; k <= qn[lv]; k++) code[lv, k] = 1
+    pshell = 0; pstart[lv] = qn[lv] + 1
 }
 
 # A `$(` starts a new command, so it keeps its own word state until its `)`.
 function sub_open() {
-    sst[sp] = st; sskip[sp] = skip; swd[sp] = wd; spsh[sp] = pshell
-    st = 0; skip = 0; wd = ""; inw = 0; pshell = 0
+    sst[sp] = st; spend[sp] = pend; swd[sp] = wd; spsh[sp] = pshell
+    st = 0; pend = ""; wd = ""; inw = 0; pshell = 0
 }
 
-function sub_close() { pipe_end(); st = sst[sp]; skip = sskip[sp]; wd = swd[sp]; pshell = spsh[sp]; inw = 1 }
+function sub_close() { pipe_end(); st = sst[sp]; pend = spend[sp]; wd = swd[sp]; pshell = spsh[sp]; inw = 1 }
 
+# A code body is a script of its own: level lv + 1, with a fresh context and
+# its own here-document queue. The outer state comes back after its closing line.
 function begin_code() {
-    printf "\n"; saved_sp = sp; saved_arith = arith; saved_tick = tick
-    arith = 0; tick = 0; incode = 1
+    printf "\n"; lv++; ssp[lv] = sp; sarith[lv] = arith; stick[lv] = tick; sfloor[lv] = floor
+    arith = 0; tick = 0; cont = 0; qn[lv] = 0; pstart[lv] = 1
     ctx[++sp] = "U"; paren[sp] = 0; quoted[sp] = 0; floor = sp
 }
 
 function end_code() {
-    printf "\n"; sp = saved_sp; arith = saved_arith; tick = saved_tick; incode = 0; floor = 1
+    printf "\n"; sp = ssp[lv]; arith = sarith[lv]; tick = stick[lv]; floor = sfloor[lv]; lv--
+    st = 0; pend = ""; wd = ""; inw = 0; pshell = 0
 }
 
 function word_end(c) {
@@ -93,7 +105,7 @@ function word_end(c) {
 }
 
 # Reads the delimiter after `<<` at position j and queues it. Returns the next position.
-function heredoc(line, j, n,    c, strip, word, found) {
+function heredoc(line, j, n,    c, strip, word, found, k) {
     strip = 0
     if (substr(line, j, 1) == "-") { strip = 1; j++ }
     while (j <= n && (substr(line, j, 1) == " " || substr(line, j, 1) == "\t")) j++
@@ -119,8 +131,8 @@ function heredoc(line, j, n,    c, strip, word, found) {
         j++
     }
     if (found) {
-        nq++; delim[nq] = word; strips[nq] = strip; in_subst[nq] = sp > floor; in_tick[nq] = tick
-        code[nq] = 0
+        k = ++qn[lv]; delim[lv, k] = word; strips[lv, k] = strip
+        in_subst[lv, k] = sp > floor; in_tick[lv, k] = tick; code[lv, k] = 0
         printf "%s", word
     }
     return j
@@ -128,17 +140,18 @@ function heredoc(line, j, n,    c, strip, word, found) {
 
 # Inside `$(` bash also ends a here-document at `EOF)`, and inside backticks at
 # "EOF`". The rest of that line is code. A body that a shell reads is code too.
-body {
-    line = $0
-    if (strips[qi]) sub(/^\t+/, "", line)
-    k = length(delim[qi]); after = substr(line, k + 1, 1)
-    if (substr(line, 1, k) != delim[qi] || \
-        (after != "" && !(after == ")" && in_subst[qi]) && !(after == "`" && in_tick[qi]))) {
-        if (!code[qi]) next
+# The bd stack holds the queues being read, innermost last, as (level, index).
+bd {
+    L = blv[bd]; q = bqi[bd]; line = $0
+    if (strips[L, q]) sub(/^\t+/, "", line)
+    k = length(delim[L, q]); after = substr(line, k + 1, 1)
+    if (substr(line, 1, k) != delim[L, q] || \
+        (after != "" && !(after == ")" && in_subst[L, q]) && !(after == "`" && in_tick[L, q]))) {
+        if (!code[L, q]) next
     } else {
-        if (code[qi]) end_code()
-        if (++qi <= nq) { if (code[qi]) begin_code(); next }
-        body = 0; nq = 0; pstart = 1
+        if (code[L, q]) end_code()
+        if (++bqi[bd] <= qn[L]) { if (code[L, bqi[bd]]) begin_code(); next }
+        qn[L] = 0; pstart[L] = 1; bd--
         if (after == "") next
         $0 = substr(line, k + 1)
     }
@@ -194,7 +207,7 @@ body {
             if (paren[sp]) paren[sp]--; else if (sp > floor) { sub_close(); sp--; wclose = i }
         } else if (c == "<" && substr(line, i, 3) == "<<<") {
             printf "<<<"; i += 2; we()
-        } else if (c == "<" && !arith && !incode && substr(line, i, 2) == "<<") {
+        } else if (c == "<" && !arith && substr(line, i, 2) == "<<") {
             printf "<<"; we(); i = heredoc(line, i + 2, n); continue
         } else if (c == " " || c == "\t" || c == "<" || c == ">") {
             plain(c); we()
@@ -207,7 +220,7 @@ body {
     cont = 0
     if (ctx[sp] == "U") pipe_end()
     printf "%s", (ctx[sp] == "U" && !quoted[sp] ? "\n" : "\036")
-    if (nq && !body) { body = 1; qi = 1; if (code[1]) begin_code() }
+    if (qn[lv]) { blv[++bd] = lv; bqi[bd] = 1; if (code[lv, 1]) begin_code() }
 }
 
 END { printf "\n" }
