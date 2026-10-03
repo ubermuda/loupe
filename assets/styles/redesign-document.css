@@ -394,11 +394,8 @@
 .lp-review .lp-board-card--static {
     @apply gap-2.5 rounded-lg border border-line px-3 py-3.5 cursor-default select-text hover:border-line-strong;
 }
-.lp-review .lp-board-card--static .lp-board-card__identity {
-    @apply pr-0;
-}
 .lp-review .lp-board-card--static .lp-board-card__title {
-    @apply pr-0 text-sm leading-snug font-bold tracking-tight;
+    @apply text-sm leading-snug font-bold tracking-tight;
 }
 .lp-review .lp-board-card__status {
     @apply ml-0 self-start border-transparent bg-surface-3 text-fg-mute;

@@ -79,6 +79,12 @@ const (
 // launchPlaceholders are the names launch.command can hold.
 var launchPlaceholders = []string{"script", "dir", "sessionId", "cardNumber", "project"}
 
+// MaxBridgeNameLength is the longest bridge name the server takes, trimmed.
+const MaxBridgeNameLength = 40
+
+// hostname names the machine for a file that sets no name. Tests replace it.
+var hostname = os.Hostname
+
 // goos is the OS Parse checks an interactive rule against. Tests replace it.
 var goos = runtime.GOOS
 
@@ -204,6 +210,8 @@ type File struct {
 	WorkerPools map[string]WorkerPool `yaml:"workerPools"`
 	// Work maps each work request kind the bridge claims to what it runs.
 	Work map[string]WorkEntry `yaml:"work"`
+	// Name is the host name when absent, and a blank value opts out.
+	Name *string `yaml:"name"`
 }
 
 // WorkerPool is one named share of maxWorkers.
@@ -379,6 +387,7 @@ type Set struct {
 	autoUpdate    bool
 	autoUpdateSet bool
 	maxWorkers    int
+	name          string
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
 	// work has the defaults of each worker entry filled.
@@ -456,6 +465,11 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	if len(f.Rules) == 0 && len(f.Work) == 0 {
 		errs = append(errs, errors.New("the rule file has no rules and no work"))
 	}
+	name, err := bridgeName(f.Name)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	s.name = name
 	s.maxWorkers = DefaultMaxWorkers
 	if f.MaxWorkers != nil {
 		s.maxWorkers = *f.MaxWorkers
@@ -689,6 +703,39 @@ func checkLaunch(c LaunchConfig, interactive bool) (Launch, error) {
 	}
 
 	return l, errors.Join(errs...)
+}
+
+// bridgeName refuses a set name the server would refuse, and derives an absent
+// one from the first label of the host name.
+func bridgeName(set *string) (string, error) {
+	if set != nil {
+		name := strings.TrimSpace(*set)
+		if n := utf8.RuneCountInString(name); n > MaxBridgeNameLength {
+			return "", fmt.Errorf("name is %d characters, and the server takes at most %d", n, MaxBridgeNameLength)
+		}
+		if strings.ContainsFunc(name, unicode.IsControl) {
+			return "", errors.New("name holds a control character, and the server refuses it")
+		}
+
+		return name, nil
+	}
+	host, err := hostname()
+	if err != nil {
+		return "", nil
+	}
+	label, _, _ := strings.Cut(host, ".")
+	label = strings.TrimSpace(strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+
+		return r
+	}, label))
+	if runes := []rune(label); len(runes) > MaxBridgeNameLength {
+		label = strings.TrimSpace(string(runes[:MaxBridgeNameLength]))
+	}
+
+	return label, nil
 }
 
 // checkPools sizes each declared pool and gives DefaultPool the rest of the
@@ -1020,6 +1067,11 @@ func (s *Set) AutoUpdate() bool {
 // AutoUpdateSet reports whether the file holds a value for autoUpdate.
 func (s *Set) AutoUpdateSet() bool {
 	return s.autoUpdateSet
+}
+
+// Name is the bridge name the heartbeat sends. Empty clears the stored name.
+func (s *Set) Name() string {
+	return s.name
 }
 
 // MaxWorkers is the number of workers the bridge runs at once.

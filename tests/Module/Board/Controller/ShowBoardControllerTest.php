@@ -25,6 +25,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
@@ -147,16 +148,16 @@ final class ShowBoardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
 
         self::assertResponseIsSuccessful();
-        // The drag submits this form, so the fields are on the face. Dragging is
-        // the only interaction the face offers, so nothing renders a control.
+        // Dragging is the only interaction the face offers, so nothing renders a
+        // control. The drop submits the board's one hidden move form.
         $face = $crawler->filter('[data-card-id="'.$cardId.'"]');
         self::assertStringContainsString('pointerdown->board-drag#press', (string) $face->attr('data-action'));
         // Hovering the whole card hands the prefetch to the title link.
         self::assertStringContainsString('mouseenter->card-prefetch#enter', (string) $face->attr('data-action'));
         self::assertCount(1, $face->filter('a.lp-board-card__title[data-card-prefetch-target="link"]'));
         self::assertCount(1, $crawler->filter('#board [data-board-drag-target="message"]'));
-        self::assertCount(1, $face->filter('form[hidden][data-board-drag-target="moveForm"]'));
-        self::assertCount(1, $face->filter('select[name$="[column]"]'));
+        self::assertCount(0, $face->filter('form'));
+        self::assertCount(1, $crawler->filter('#board > form[hidden][data-board-drag-target="moveForm"] select[name$="[column]"]'));
         self::assertCount(0, $face->filter('details'));
         self::assertCount(0, $face->filter('button'));
     }
@@ -189,8 +190,9 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-board-card__pulls'));
         self::assertStringContainsString('Feature', $crawler->filter('[data-card-id="'.$plain->id.'"]')->text());
 
-        self::assertSame(['Work', 'Type', 'Status', 'Parent', 'Agent', 'Feedback'], $crawler->filter('.lp-board-list__header span')->each(static fn ($cell): string => $cell->text()));
-        $row = $crawler->filter('.lp-board-list__row[data-card-title="No links"] > span');
+        $list = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/list');
+        self::assertSame(['Work', 'Type', 'Status', 'Parent', 'Agent', 'Feedback'], $list->filter('.lp-board-list__header span')->each(static fn ($cell): string => $cell->text()));
+        $row = $list->filter('.lp-board-list__row[data-card-title="No links"] > span');
         self::assertCount(6, $row);
         self::assertSame('Feature', $row->eq(1)->text());
 
@@ -447,7 +449,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $boardDigest = $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest');
         self::assertNotEmpty($boardDigest);
-        self::assertSame($boardDigest, $crawler->filter('#board-row-'.$card->id)->attr('data-card-digest'));
+        self::assertSame($boardDigest, $this->listOf($client, $project)->filter('#board-row-'.$card->id)->attr('data-card-digest'));
 
         $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id.'/placement');
         self::assertResponseIsSuccessful();
@@ -476,7 +478,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('#board-card-'.$epic->id.' [data-card-progress]'));
         self::assertCount(1, $crawler->filter('#board-card-'.$epic->id.' [data-card-run-warning]'));
         $boardDigest = $crawler->filter('#board-card-'.$epic->id)->attr('data-card-digest');
-        self::assertSame($boardDigest, $crawler->filter('#board-row-'.$epic->id)->attr('data-card-digest'));
+        self::assertSame($boardDigest, $this->listOf($client, $project)->filter('#board-row-'.$epic->id)->attr('data-card-digest'));
 
         $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$epic->id.'/placement');
         self::assertResponseIsSuccessful();
@@ -505,10 +507,11 @@ final class ShowBoardControllerTest extends WebTestCase
         $face = $crawler->filter('#board-card-'.$failing->id.' [data-card-badges]');
         self::assertSame('checks-failed conflict', $face->attr('data-card-badges'));
         self::assertSame(['Checks failed', 'Conflict'], $face->filter('.lp-status-chip--failed')->each(static fn (Crawler $chip): string => trim($chip->text())));
-        self::assertSame('checks-failed conflict', $crawler->filter('#board-row-'.$failing->id.' [data-card-badges]')->attr('data-card-badges'));
+        $list = $this->listOf($client, $project);
+        self::assertSame('checks-failed conflict', $list->filter('#board-row-'.$failing->id.' [data-card-badges]')->attr('data-card-badges'));
         self::assertCount(0, $crawler->filter('#board-card-'.$unread->id.' [data-card-badges]'));
         $boardDigest = $crawler->filter('#board-card-'.$failing->id)->attr('data-card-digest');
-        self::assertSame($boardDigest, $crawler->filter('#board-row-'.$failing->id)->attr('data-card-digest'));
+        self::assertSame($boardDigest, $list->filter('#board-row-'.$failing->id)->attr('data-card-digest'));
 
         $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$failing->id.'/placement');
         self::assertResponseIsSuccessful();
@@ -540,7 +543,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame('Paused', trim($crawler->filter('#board-card-'.$paused->id.' .lp-status-chip--pending')->text()));
         self::assertSame('unmanaged', $crawler->filter('#board-card-'.$held->id.' [data-card-badges]')->attr('data-card-badges'));
         self::assertSame('Unmanaged', trim($crawler->filter('#board-card-'.$held->id.' .lp-status-chip--neutral')->text()));
-        self::assertSame('unmanaged', $crawler->filter('#board-row-'.$held->id.' [data-card-badges]')->attr('data-card-badges'));
+        self::assertSame('unmanaged', $this->listOf($client, $project)->filter('#board-row-'.$held->id.' [data-card-badges]')->attr('data-card-badges'));
         self::assertCount(0, $crawler->filter('#board-card-'.$plain->id.' [data-card-badges]'));
 
         foreach ([$paused, $held] as $card) {
@@ -673,10 +676,11 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
 
+        $list = $this->listOf($client, $project);
         foreach ([$stays, $moved, $unnamed, $quiet] as $card) {
             self::assertSame(
                 $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest'),
-                $crawler->filter('#board-row-'.$card->id)->attr('data-card-digest'),
+                $list->filter('#board-row-'.$card->id)->attr('data-card-digest'),
             );
         }
     }
@@ -846,5 +850,13 @@ final class ShowBoardControllerTest extends WebTestCase
         $holds = static::getContainer()->get(CardHolds::class);
         self::assertInstanceOf(CardHolds::class, $holds);
         $holds->hold($project, $card->id ?? throw new \LogicException('A flushed card has an id.'), null);
+    }
+
+    private function listOf(KernelBrowser $client, Project $project): Crawler
+    {
+        $list = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/list');
+        self::assertResponseIsSuccessful();
+
+        return $list;
     }
 }

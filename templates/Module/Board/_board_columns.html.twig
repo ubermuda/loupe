@@ -5,6 +5,7 @@
 <div id="board" class="lp-board"
      data-board-structure-digest="{{ board.structureDigest }}"
      data-controller="board-drag board-filter board-view"
+     data-board-view-list-url-value="{{ path('app_board_list', {projectId: board.project.id}) }}"
      data-action="turbo:frame-render@document->board-filter#filter board:placed@document->board-filter#filter board:structure-changed@document->board-filter#filter turbo:frame-render@document->board-view#restore turbo:frame-render@document->board-drag#markReady">
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + board.shownCounts[view.column.id ~ '']|default(view.count) %}{% endfor %}
@@ -79,24 +80,23 @@
        data-message="{{ 'board.drag.failed'|trans }}"
        role="status"
        aria-live="polite"></p>
+    {# Dragging is the only interaction a card face offers, so this form has no
+       controls. A drop names it after the card, fills it and submits it. The
+       card page carries the same form with its labels, for a keyboard. #}
+    {% set movePlaceholder = constant('App\\Module\\Board\\Form\\MoveCardFormType::PLACEHOLDER_CARD_ID') %}
+    {% set moveForm = board_move_form(board.project) %}
+    <form hidden
+          method="post"
+          action="{{ path('app_board_card_move', {projectId: board.project.id, cardId: movePlaceholder}) }}"
+          data-board-drag-target="moveForm"
+          data-move-card-id="{{ movePlaceholder }}">
+        {% for field in moveForm %}{{ form_widget(field) }}{% endfor %}
+    </form>
     {% if board.lanes is empty %}
     {% include '@Board/_board_plain_columns.html.twig' with {board: board, runWarnings: runWarnings} only %}
     {% else %}
     {% include '@Board/_board_lanes.html.twig' with {board: board, runWarnings: runWarnings} only %}
     {% endif %}
-    <div class="lp-board-list" data-board-view-target="list" hidden>
-        <div class="lp-board-list__header" aria-hidden="true">
-            <span>{{ 'board.list.work'|trans }}</span>
-            <span>{{ 'board.list.type'|trans }}</span>
-            <span>{{ 'board.list.status'|trans }}</span>
-            <span>{{ 'board.list.parent'|trans }}</span>
-            <span>{{ 'board.list.agent'|trans }}</span>
-            <span>{{ 'board.list.feedback'|trans }}</span>
-        </div>
-        {% for view in board.columns %}
-            {% for card in view.cards %}
-                {% include '@Board/_card_row.html.twig' with {card: card, column: view.column, feedbackCount: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null), badges: board.badges[card.id ~ '']|default([])} only %}
-            {% endfor %}
-        {% endfor %}
-    </div>
+    {# The list loads into this frame when a person picks List, and empties when they leave it. #}
+    <turbo-frame id="board-list" data-board-view-target="list" hidden></turbo-frame>
 </div>

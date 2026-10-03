@@ -60,6 +60,17 @@ restarts. The `--max-workers` flag is deprecated and does nothing. Set
 `maxWorkers` in `rules.yaml` instead. The bridge logs `max_workers_flag_ignored`
 when it starts with the flag.
 
+The optional `name:` key at the top of `rules.yaml` names the bridge. The web
+UI shows the name in place of the bridge id. When the key is absent, the bridge
+uses the host name of its machine up to the first dot, cut to 40 characters.
+The default thus sends the host name to the server with each heartbeat. Set
+`name: ""` to send no name, and the server then clears the name it holds. A
+name holds at most 40 characters after trimming, and no control character. The
+file fails to load for any other name, so the bridge refuses to start and a
+reload fails. A reload sends the new name with the next heartbeat. Two bridges
+of one account cannot hold one name, as
+[The bridge name](../reference/bridge-heartbeat.md#the-bridge-name) says.
+
 A worker rule can also split its runs between models with an experiment, as
 [Experiments](#experiments) describes. Such a rule takes no model from the
 `defaults:` block.

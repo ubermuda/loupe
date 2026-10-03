@@ -43,6 +43,7 @@ final class ListRulesController extends AppController
             'liveCount' => $view->liveCount,
             'columnLabels' => $view->columnLabels,
             'search' => $view->search,
+            'bridgeLabels' => $view->bridgeLabels,
             'searchForm' => $form->createView(),
         ])->setStatusCode($form->isSubmitted() && !$form->isValid() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK);
     }

@@ -7,6 +7,9 @@ namespace App\Tests\Module\Inbox\Service;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
+use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
+use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxAskOrigin;
 use App\Module\Inbox\Entity\InboxItem;
@@ -64,7 +67,7 @@ final class RacingRuleNoticeReconcilerTest extends KernelTestCase
         self::assertSame(1, $item->number);
         self::assertSame('A bridge rule races the app sync', $item->title);
         self::assertSame(
-            "- `sync-behind` on bridge `01990000`\n\nThe app syncs a pull request that is behind. Remove each rule on `pull_request.behind` from rules.yaml.",
+            "- `sync-behind` on bridge `00000000abcd`\n\nThe app syncs a pull request that is behind. Remove each rule on `pull_request.behind` from rules.yaml.",
             $item->body,
         );
         self::assertSame(0, (int) $this->em->getConnection()->fetchOne(
@@ -72,6 +75,55 @@ final class RacingRuleNoticeReconcilerTest extends KernelTestCase
             ['item' => (string) $item->id],
         ));
         self::assertSame(1, $this->searchHits('races'));
+    }
+
+    public function test_the_notice_names_a_bridge_that_holds_a_name(): void
+    {
+        $bridge = new Bridge($this->project->owner, Uuid::fromString(self::BRIDGE), [(string) $this->project->id], 'b4e39aa7', new \DateTimeImmutable());
+        $bridge->name = 'homelab';
+        $this->em->persist($bridge);
+        $this->report(['sync-behind']);
+
+        $this->reconciler->reconcile($this->project);
+
+        self::assertStringStartsWith("- `sync-behind` on bridge `homelab`\n\n", (string) $this->onlyNotice()->body);
+    }
+
+    public function test_a_heartbeat_that_changes_the_name_rewrites_the_open_notice(): void
+    {
+        $this->report(['sync-behind']);
+        $this->reconciler->reconcile($this->project);
+        $heartbeat = self::getContainer()->get(RecordBridgeHeartbeatHandler::class);
+        self::assertInstanceOf(RecordBridgeHeartbeatHandler::class, $heartbeat);
+
+        $heartbeat(new RecordBridgeHeartbeatCommand($this->project->owner, Uuid::fromString(self::BRIDGE), [(string) $this->project->id], 'b4e39aa7', name: 'homelab'));
+
+        self::assertStringStartsWith("- `sync-behind` on bridge `homelab`\n\n", (string) $this->onlyNotice()->body);
+    }
+
+    public function test_a_rename_rewrites_the_notice_of_a_project_the_bridge_stopped_following(): void
+    {
+        $this->report(['sync-behind']);
+        $this->reconciler->reconcile($this->project);
+        $heartbeat = self::getContainer()->get(RecordBridgeHeartbeatHandler::class);
+        self::assertInstanceOf(RecordBridgeHeartbeatHandler::class, $heartbeat);
+        $heartbeat(new RecordBridgeHeartbeatCommand($this->project->owner, Uuid::fromString(self::BRIDGE), [(string) $this->project->id], 'b4e39aa7'));
+
+        $heartbeat(new RecordBridgeHeartbeatCommand($this->project->owner, Uuid::fromString(self::BRIDGE), [], 'b4e39aa7', name: 'homelab'));
+
+        self::assertStringStartsWith("- `sync-behind` on bridge `homelab`\n\n", (string) $this->onlyNotice()->body);
+    }
+
+    public function test_a_backtick_in_a_bridge_name_cannot_close_its_code_span(): void
+    {
+        $bridge = new Bridge($this->project->owner, Uuid::fromString(self::BRIDGE), [(string) $this->project->id], 'b4e39aa7', new \DateTimeImmutable());
+        $bridge->name = 'a` [Open](https://example.com) `b';
+        $this->em->persist($bridge);
+        $this->report(['sync-behind']);
+
+        $this->reconciler->reconcile($this->project);
+
+        self::assertStringStartsWith("- `sync-behind` on bridge `` a` [Open](https://example.com) `b ``\n\n", (string) $this->onlyNotice()->body);
     }
 
     public function test_a_second_reconcile_changes_nothing(): void
@@ -96,7 +148,7 @@ final class RacingRuleNoticeReconcilerTest extends KernelTestCase
         $item = $this->onlyNotice();
         self::assertSame(InboxItemState::Open, $item->state);
         self::assertSame('2 bridge rules race the app sync', $item->title);
-        self::assertStringStartsWith("- `rebase` on bridge `01990000`\n- `sync-behind` on bridge `01990000`\n\n", (string) $item->body);
+        self::assertStringStartsWith("- `rebase` on bridge `00000000abcd`\n- `sync-behind` on bridge `00000000abcd`\n\n", (string) $item->body);
     }
 
     public function test_the_notice_closes_as_done_when_no_rule_races(): void

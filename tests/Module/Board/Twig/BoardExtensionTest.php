@@ -116,59 +116,19 @@ final class BoardExtensionTest extends KernelTestCase
         self::assertNotSame($extension->cardDigest($card, 0, 0, null, null, []), $extension->cardDigest($card, 0, 0, new CardProgress(0, 0), null, []));
     }
 
-    public function test_the_move_fields_of_two_cards_differ_only_by_the_card_name(): void
+    public function test_the_move_form_renders_under_the_placeholder_card(): void
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $project = $this->project($em, $this->user($em, 'fields-name@example.com'));
-        $first = $this->card($em, $project, 'First');
-        $second = $this->card($em, $project, 'Second', 'next');
 
-        $firstHtml = $this->renderFields($first);
-        $secondHtml = $this->renderFields($second);
+        $html = $this->renderFields($project);
 
-        foreach ([[$first, $firstHtml], [$second, $secondHtml]] as [$card, $html]) {
-            $name = MoveCardFormType::nameFor($card);
-            self::assertStringContainsString('name="'.$name.'[column]"', $html);
-            self::assertStringContainsString('id="'.$name.'_column"', $html);
-            self::assertStringContainsString('name="'.$name.'[unmanage]"', $html);
-            self::assertSame(substr_count($html, 'move_card_'), substr_count($html, $name));
+        $name = 'move_card_'.MoveCardFormType::PLACEHOLDER_CARD_ID;
+        foreach (['_token', 'column', 'position', 'parent', 'beforeCardId', 'afterCardId', 'unmanage'] as $field) {
+            self::assertStringContainsString('name="'.$name.'['.$field.']"', $html);
         }
-        self::assertNotSame($firstHtml, $secondHtml);
-        self::assertSame(
-            str_replace(MoveCardFormType::nameFor($first), 'CARD', $firstHtml),
-            str_replace(MoveCardFormType::nameFor($second), 'CARD', $secondHtml),
-        );
-    }
-
-    public function test_the_second_card_of_a_project_builds_no_form(): void
-    {
-        $container = static::getContainer();
-        $em = $container->get(EntityManagerInterface::class);
-        $project = $this->project($em, $this->user($em, 'fields-once@example.com'));
-        $first = $this->card($em, $project, 'First');
-        $second = $this->card($em, $project, 'Second');
-
-        $realFactory = $container->get(FormFactoryInterface::class);
-        self::assertInstanceOf(FormFactoryInterface::class, $realFactory);
-        $factory = $this->createMock(FormFactoryInterface::class);
-        $factory->expects($this->exactly(2))->method('createNamed')->willReturnCallback($realFactory->createNamed(...));
-        $extension = new BoardExtension(
-            $factory,
-            $container->get(MarkdownRenderer::class),
-            $container->get(TranslatorInterface::class),
-            $container->get(CardDocumentRepository::class),
-            $container->get(BoardColumnRepository::class),
-            $container->get(BoardColumnTonePicker::class),
-            new CardDigest(),
-        );
-
-        $extension->cardMoveFields($this->twig(), $first);
-        $html = $extension->cardMoveFields($this->twig(), $second);
-        self::assertStringContainsString('name="'.MoveCardFormType::nameFor($second).'[column]"', $html);
-
-        // The reset builds the prototype again, which is the second and last call.
-        $extension->reset();
-        $extension->cardMoveFields($this->twig(), $second);
+        self::assertStringContainsString('id="'.$name.'_column"', $html);
+        self::assertSame(substr_count($html, 'move_card_'), substr_count($html, $name));
     }
 
     public function test_the_add_form_preselects_no_colour_the_backlog_uses(): void
@@ -205,8 +165,8 @@ final class BoardExtensionTest extends KernelTestCase
         $alpha = $this->project($em, $owner, 'alpha');
         $beta = $this->project($em, $owner, 'beta');
 
-        $alphaOptions = $this->optionValues($this->renderFields($this->card($em, $alpha, 'Alpha card')));
-        $betaOptions = $this->optionValues($this->renderFields($this->card($em, $beta, 'Beta card')));
+        $alphaOptions = $this->optionValues($this->renderFields($alpha));
+        $betaOptions = $this->optionValues($this->renderFields($beta));
 
         self::assertSame($this->columnIds($alpha), $alphaOptions);
         self::assertSame($this->columnIds($beta), $betaOptions);
@@ -230,9 +190,11 @@ final class BoardExtensionTest extends KernelTestCase
         return array_map(static fn (BoardColumn $column): string => (string) $column->id, $columns->findForProject($project));
     }
 
-    private function renderFields(Card $card): string
+    private function renderFields(Project $project): string
     {
-        return $this->twig()->createTemplate('{{ card_move_fields(card) }}')->render(['card' => $card]);
+        return $this->twig()->createTemplate(
+            '{% set form = board_move_form(project) %}{% for field in form %}{{ form_widget(field) }}{% endfor %}',
+        )->render(['project' => $project]);
     }
 
     private function twig(): Environment

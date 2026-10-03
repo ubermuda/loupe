@@ -108,7 +108,8 @@ final class BoardLanesTest extends WebTestCase
         self::assertCount(4, $other->filter('.lp-board__add-card'));
         self::assertSelectorTextContains('.lp-board-toolbar__count', '3 cards');
         // The list view still lists the epic.
-        self::assertCount(1, $crawler->filter('.lp-board-list__row[data-card-id="'.$epicId.'"]'));
+        $list = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/list');
+        self::assertCount(1, $list->filter('.lp-board-list__row[data-card-id="'.$epicId.'"]'));
     }
 
     public function test_a_lane_switched_off_mixes_its_children_in_with_a_parent_tag(): void
@@ -280,7 +281,7 @@ final class BoardLanesTest extends WebTestCase
             \array_slice($waiting, 0, LaneDecks::DECK_SIZE),
             $deck->filter('[data-board-drag-target="card"]')->each(static fn (Crawler $card): string => (string) $card->attr('data-card-id')),
         );
-        self::assertCount(LaneDecks::DECK_SIZE, $deck->filter('[data-board-drag-target="card"] form[data-board-drag-target="moveForm"]'));
+        self::assertCount(0, $deck->filter('form'));
         self::assertCount(0, $deck->filter('[id^="board-card-"], [data-card-digest]'));
         $more = $deck->filter('.lp-deck__more');
         self::assertNull($more->attr('hidden'));

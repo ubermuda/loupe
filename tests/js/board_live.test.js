@@ -114,8 +114,10 @@ beforeEach(async () => {
                 <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
                 <article id="board-card-b" class="lp-board-card" data-card-id="b" data-card-digest="old"></article>
             </div>
-            <a id="board-row-a" class="lp-board-list__row" data-card-id="a" data-card-digest="old"></a>
-            <a class="lp-board-list__row" data-card-id="b" data-card-digest="old"></a>
+            <turbo-frame id="board-list"><div class="lp-board-list">
+                <a id="board-row-a" class="lp-board-list__row" data-card-id="a" data-column-id="k" data-card-digest="old"></a>
+                <a id="board-row-b" class="lp-board-list__row" data-card-id="b" data-column-id="k" data-card-digest="old"></a>
+            </div></turbo-frame>
         </div>
     </div>`;
     dispatch = vi.spyOn(BoardLiveController.prototype, 'dispatch');
@@ -251,6 +253,11 @@ it('fetches a card that moved in its column, and not its unchanged neighbours', 
         `<article id="board-card-c" class="lp-board-card" data-card-id="c" data-card-digest="old"></article>
             <article id="board-card-d" class="lp-board-card" data-card-id="d" data-card-digest="old"></article>`,
     );
+    document.querySelector('.lp-board-list').insertAdjacentHTML(
+        'beforeend',
+        `<a class="lp-board-list__row" data-card-id="c" data-card-digest="old"></a>
+            <a class="lp-board-list__row" data-card-id="d" data-card-digest="old"></a>`,
+    );
     answerManifest(
         json({
             cards: [
@@ -275,6 +282,10 @@ it('compares the order in each lane cell on its own', async () => {
         `<div class="lp-board-lane__cell" data-column="k" data-lane="epic">
             <article id="board-card-c" class="lp-board-card" data-card-id="c" data-card-digest="old"></article>
         </div>`,
+    );
+    row().insertAdjacentHTML(
+        'afterend',
+        '<a class="lp-board-list__row" data-card-id="c" data-card-digest="old"></a>',
     );
     answerManifest(
         json({
@@ -411,6 +422,81 @@ it('never counts a lane head with a list row as an added or a removed card', asy
 
     expect(placements()).toEqual([]);
     expect(dispatch).not.toHaveBeenCalled();
+});
+
+const twoCards = (digestA = 'old') =>
+    json({
+        cards: [
+            ['a', digestA, 'k', null],
+            ['b', 'old', 'k', null],
+        ],
+        structure: 'frame',
+    });
+
+it('skips the list row checks while the list is not loaded', async () => {
+    document.getElementById('board-list').remove();
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<section id="board-lane-epic"><header class="lp-board-lane__head" data-lane-digest="head"></header></section>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'old', 'k', 'epic', 'head'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(manifestReads()).toHaveLength(1);
+    expect(placements()).toEqual([]);
+});
+
+it('fetches a card whose list row lags its face', async () => {
+    card().dataset.cardDigest = 'new';
+    answerManifest(twoCards('new'));
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['a']);
+});
+
+it('fetches a card whose face has no list row', async () => {
+    document.getElementById('board-row-b').remove();
+    answerManifest(twoCards());
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['b']);
+});
+
+it('catches up when the list frame renders, and not for another frame', async () => {
+    answerManifest(twoCards());
+    document.body.insertAdjacentHTML(
+        'beforeend',
+        '<turbo-frame id="card-drawer-frame"></turbo-frame>',
+    );
+    document
+        .getElementById('card-drawer-frame')
+        .dispatchEvent(
+            new CustomEvent('turbo:frame-render', { bubbles: true }),
+        );
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(manifestReads()).toHaveLength(0);
+
+    document
+        .getElementById('board-list')
+        .dispatchEvent(
+            new CustomEvent('turbo:frame-render', { bubbles: true }),
+        );
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(manifestReads()).toHaveLength(1);
 });
 
 it('fetches a lane head that has no list row on the page', async () => {
@@ -845,24 +931,6 @@ it('resyncs the structure when a history total changed and the board has no card
 
     await vi.advanceTimersByTimeAsync(300);
     expect(structureReads()).toHaveLength(1);
-    expect(placements()).toEqual([]);
-    expect(dispatch).not.toHaveBeenCalled();
-});
-
-it('ignores the digest of the list row of a card with a face', async () => {
-    document.querySelector('.lp-board-list__row').dataset.cardDigest = 'stale';
-    answerManifest(
-        json({
-            cards: [
-                ['a', 'old', 'k', null],
-                ['b', 'old', 'k', null],
-            ],
-            structure: 'frame',
-        }),
-    );
-    reconnect();
-    await vi.advanceTimersByTimeAsync(1000);
-
     expect(placements()).toEqual([]);
     expect(dispatch).not.toHaveBeenCalled();
 });

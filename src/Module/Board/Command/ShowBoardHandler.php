@@ -11,6 +11,7 @@ use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
@@ -18,12 +19,11 @@ use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Board\Service\RacingBridgeRules;
+use App\Module\Bridge\Service\BridgeLabels;
 use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
 {
-    public const int TERMINAL_WINDOW_DAYS = BoardColumnCards::TERMINAL_WINDOW_DAYS;
-
     public function __construct(
         private CardRepository $cards,
         private BoardColumnRepository $boardColumns,
@@ -38,6 +38,8 @@ final readonly class ShowBoardHandler
         private CardPullRequestStates $pullRequestStates,
         private RacingBridgeRules $racingRules,
         private CardMarkers $markers,
+        private BoardAutomation $automation,
+        private BridgeLabels $bridgeLabels,
     ) {
     }
 
@@ -46,13 +48,15 @@ final readonly class ShowBoardHandler
         $project = $command->project;
         $columns = [];
         $backlog = null;
+        $terminalWindowDays = $this->automation->settingsOf($project)->terminalWindowDays;
+        $windowStart = BoardColumnCards::windowStart($terminalWindowDays);
 
         foreach ($this->boardColumns->findForProject($project) as $column) {
             if ($column->backlog) {
                 $backlog = $column;
                 continue;
             }
-            $shown = $this->columnCards->shown($column);
+            $shown = $this->columnCards->shown($column, $windowStart);
             $columns[] = new BoardColumnView(
                 $column,
                 $shown,
@@ -121,7 +125,7 @@ final readonly class ShowBoardHandler
         return new BoardView(
             $project,
             $columns,
-            self::TERMINAL_WINDOW_DAYS,
+            $terminalWindowDays,
             $backlog,
             $this->cards->countInColumn($backlog),
             $pendingComments,
@@ -132,11 +136,16 @@ final readonly class ShowBoardHandler
             $otherCards,
             $progress,
             $shownCounts,
-            $this->structureDigest->forBoard($columns, $lanes, $deadRules, $racingRules),
+            $this->structureDigest->forBoard($columns, $lanes, $terminalWindowDays, $deadRules, $racingRules),
             $runWarnings,
             $this->laneDecks->forEpics($backlog, array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->id, $lanes)),
             $badges,
             $racingRules,
+            // Empty ids skip the query, so a board with no problem rule pays nothing.
+            $this->bridgeLabels->forOwner($project->owner, array_values(array_unique(array_map(
+                static fn (DeadBridgeRuleView|RacingBridgeRuleView $rule): string => $rule->bridgeId,
+                [...$deadRules, ...$racingRules],
+            )))),
         );
     }
 }

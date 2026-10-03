@@ -10,19 +10,25 @@ let application;
 let controller;
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+const PROTOTYPE = '00000000-0000-4000-8000-000000000000';
+
 function card(id, prefix = 'board-card-') {
-    return `<article id="${prefix}${id}" data-card-id="${id}" data-board-drag-target="card">
-        <form hidden data-board-drag-target="moveForm">
-            <select name="move_${id}[column]"><option value="backlog">Backlog</option><option value="next">Next</option><option value="waiting">Waiting</option></select>
-            <input name="move_${id}[position]">
-            <input type="checkbox" value="1" name="move_${id}[unmanage]">
-        </form>
-    </article>`;
+    return `<article id="${prefix}${id}" data-card-id="${id}" data-board-drag-target="card"></article>`;
 }
+
+const MOVE_FORM = `<form hidden data-board-drag-target="moveForm" action="/cards/${PROTOTYPE}/move" data-move-card-id="${PROTOTYPE}">
+    <select id="move_card_${PROTOTYPE}_column" name="move_card_${PROTOTYPE}[column]"><option value="backlog">Backlog</option><option value="next">Next</option><option value="waiting">Waiting</option></select>
+    <input id="move_card_${PROTOTYPE}_position" name="move_card_${PROTOTYPE}[position]">
+    <input type="checkbox" value="1" id="move_card_${PROTOTYPE}_unmanage" name="move_card_${PROTOTYPE}[unmanage]">
+</form>`;
+
+const moveForm = () =>
+    document.querySelector('form[data-board-drag-target="moveForm"]');
 
 beforeEach(async () => {
     document.body.innerHTML = `<div id="board" data-controller="board-drag">
         <p data-board-drag-target="message" data-message="The move failed."></p>
+        ${MOVE_FORM}
         <a id="bucket" data-board-drag-target="group" data-board-bucket data-column="waiting" data-rankable="0">Waiting</a>
         <div id="board-group-backlog" data-board-drag-target="group" data-column="backlog" data-rankable="1">${card('a')}${card('b')}</div>
         <div id="board-group-next" data-board-drag-target="group" data-column="next" data-rankable="1"></div>
@@ -51,7 +57,7 @@ function drop() {
         group: document.getElementById('board-group-backlog'),
         before: document.getElementById('board-card-b'),
     };
-    const form = moved.querySelector('form');
+    const form = moveForm();
     form.requestSubmit = vi.fn();
     next.append(moved);
     controller.submitMove(moved, next, 0, origin);
@@ -161,7 +167,7 @@ it('adds the option of a column that appeared after the page loaded, and submits
     );
     const moved = document.getElementById('board-card-a');
     const review = document.getElementById('board-group-review');
-    const form = moved.querySelector('form');
+    const form = moveForm();
     form.requestSubmit = vi.fn();
     review.append(moved);
     controller.submitMove(moved, review, 0, {
@@ -181,6 +187,36 @@ it('adds no option for a column the select already has', () => {
 
     expect(form.querySelectorAll('option')).toHaveLength(3);
     expect(form.querySelector('select').value).toBe('next');
+});
+
+it('names the one move form after each card it submits', () => {
+    const form = drop();
+    const fields = () =>
+        [...form.elements].map((field) => [field.name, field.id]);
+
+    expect(form.getAttribute('action')).toBe('/cards/a/move');
+    expect(fields()).toEqual([
+        ['move_card_a[column]', 'move_card_a_column'],
+        ['move_card_a[position]', 'move_card_a_position'],
+        ['move_card_a[unmanage]', 'move_card_a_unmanage'],
+    ]);
+
+    finish(form, false);
+    const second = document.getElementById('board-card-b');
+    const next = document.getElementById('board-group-next');
+    next.append(second);
+    controller.submitMove(second, next, 0, {
+        group: document.getElementById('board-group-backlog'),
+        before: null,
+    });
+
+    expect(form.getAttribute('action')).toBe('/cards/b/move');
+    expect(fields()).toEqual([
+        ['move_card_b[column]', 'move_card_b_column'],
+        ['move_card_b[position]', 'move_card_b_position'],
+        ['move_card_b[unmanage]', 'move_card_b_unmanage'],
+    ]);
+    expect(form.requestSubmit).toHaveBeenCalledTimes(2);
 });
 
 it('releases the drag when the page cannot place the card', () => {
@@ -307,7 +343,7 @@ describe('a drop on the bucket', () => {
 
     it('sends the card to the end of the column it names, and hides it until the answer', () => {
         const moved = dragTo(50, 20);
-        const form = moved.querySelector('form');
+        const form = moveForm();
         form.requestSubmit = vi.fn();
 
         controller.pointerUp({
@@ -362,7 +398,7 @@ describe('a card of an Up next deck', () => {
 
     function dragDeckCard(x, y) {
         const moved = document.getElementById('board-deck-card-c');
-        moved.querySelector('form').requestSubmit = vi.fn();
+        moveForm().requestSubmit = vi.fn();
         controller.press({
             pointerId: 1,
             pointerType: 'mouse',
@@ -391,9 +427,7 @@ describe('a card of an Up next deck', () => {
     it('moves nothing when it is dropped back on its own deck', () => {
         const moved = dragDeckCard(650, 40);
 
-        expect(
-            moved.querySelector('form').requestSubmit,
-        ).not.toHaveBeenCalled();
+        expect(moveForm().requestSubmit).not.toHaveBeenCalled();
         expect(moved.classList.contains('lp-board-card--sent')).toBe(false);
         expect(document.getElementById('deck').contains(moved)).toBe(true);
     });
@@ -407,9 +441,7 @@ describe('a card of an Up next deck', () => {
         });
         const moved = dragDeckCard(50, 20);
 
-        expect(
-            moved.querySelector('form').requestSubmit,
-        ).not.toHaveBeenCalled();
+        expect(moveForm().requestSubmit).not.toHaveBeenCalled();
         expect(moved.classList.contains('lp-board-card--sent')).toBe(false);
         expect(document.getElementById('deck').contains(moved)).toBe(true);
     });
@@ -488,7 +520,7 @@ describe('a card of an Up next deck', () => {
         document.getElementById('board-group-next').getBoundingClientRect =
             () => ({ left: 400, top: 60, right: 500, bottom: 400 });
         const moved = dragDeckCard(450, 100);
-        const form = moved.querySelector('form');
+        const form = moveForm();
 
         expect(form.requestSubmit).toHaveBeenCalledOnce();
         expect(form.querySelector('select').value).toBe('next');

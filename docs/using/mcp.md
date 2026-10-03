@@ -291,7 +291,7 @@ Roughly in the order an agent uses them:
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
 | `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, rule, bridge, words or the time a run ended, each with the reason it ended |
 | `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
-| `bridge_list` | List the bridges that follow the project, with their heartbeat, their pause, their worker pools and their open runs |
+| `bridge_list` | List the bridges that follow the project, with their name, their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
 | `card_hold` | Make a card unmanaged, by `cardId` or `number`. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until `card_release`. A live run goes on |

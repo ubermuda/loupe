@@ -26,11 +26,19 @@ use Symfony\Component\Uid\Uuid;
  */
 #[ORM\Entity(repositoryClass: BridgeRepository::class)]
 #[ORM\Table(name: 'bridges')]
+// One owner's bridges hold distinct names. The predicate is written the way
+// Postgres stores it, so migrate-diff stays quiet.
+#[ORM\UniqueConstraint(name: 'uniq_bridges_owner_name', columns: ['owner_id', 'name'], options: ['where' => '(name IS NOT NULL)'])]
 class Bridge
 {
     public const int MAX_CLI_VERSION_LENGTH = 100;
 
     public const int MAX_UPDATE_VERSION_LENGTH = 100;
+
+    public const int MAX_NAME_LENGTH = 40;
+
+    /** Refuses control characters alone, as the CLI does before it sends, because a refused name fails the whole heartbeat. Empty matches, because a blank name clears it. */
+    public const string NAME_PATTERN = '/^\P{Cc}*$/uD';
 
     /** The capability of a bridge that reads commands from the outbox and the heartbeat reply. */
     public const string CAPABILITY_COMMANDS = 'commands';
@@ -103,6 +111,19 @@ class Bridge
     #[ORM\Column(name: 'capabilities', type: Types::JSON, nullable: true)]
     public ?array $capabilities = null;
 
+    /** The name the bridge holds. Null while it asked for none, or while another bridge of the owner holds the one it asked for. */
+    #[ORM\Column(name: 'name', length: self::MAX_NAME_LENGTH, nullable: true)]
+    public ?string $name = null;
+
+    /** The name the last heartbeat asked for. */
+    #[ORM\Column(name: 'requested_name', length: self::MAX_NAME_LENGTH, nullable: true)]
+    public ?string $requestedName = null;
+
+    /** What a page calls the bridge. */
+    public string $label {
+        get => self::labelFor($this->id, $this->name);
+    }
+
     /**
      * @param list<string> $projects
      */
@@ -149,5 +170,16 @@ class Bridge
     public function canRun(?string $capability): bool
     {
         return $this->takesWorkRequests() && (null === $capability || \in_array($capability, $this->capabilities ?? [], true));
+    }
+
+    public function nameClashes(): bool
+    {
+        return null !== $this->requestedName && null === $this->name;
+    }
+
+    /** The name the bridge holds, or the tail of its id, because the head of a uuid v7 is a timestamp that two bridges can share. */
+    public static function labelFor(Uuid|string $id, ?string $name): string
+    {
+        return $name ?? mb_substr(mb_strtolower((string) $id), -12);
     }
 }

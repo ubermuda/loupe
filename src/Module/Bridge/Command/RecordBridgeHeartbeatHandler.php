@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Event\BridgeNameChanged;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
@@ -14,6 +15,7 @@ use App\Module\Bridge\Service\WorkRequestLease;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -36,6 +38,7 @@ final readonly class RecordBridgeHeartbeatHandler
         private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
         private ClockInterface $clock,
     ) {
     }
@@ -48,12 +51,13 @@ final readonly class RecordBridgeHeartbeatHandler
 
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
-        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
+        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims, $renamedIn] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
             $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
             $bridge = $this->bridges->findOneByOwnerAndId($command->owner, $command->bridgeId);
             $created = null === $bridge;
+            $followed = $bridge->projects ?? [];
             if (null === $bridge) {
                 $bridge = new Bridge($command->owner, $command->bridgeId, $projects, $command->cliVersion, $now);
                 $bridge->hooks = $command->hooks ?? [];
@@ -81,6 +85,23 @@ final readonly class RecordBridgeHeartbeatHandler
             if (null !== $command->capabilities) {
                 $bridge->capabilities = $command->capabilities;
             }
+            $heldName = $bridge->name;
+            if ('' === $command->name) {
+                // A release holds the lock until it commits, so a claim waiting on it reads the free name.
+                if (null !== $bridge->name) {
+                    $this->bridges->lockNamesForWrite($ownerId);
+                }
+                $bridge->name = null;
+                $bridge->requestedName = null;
+            } elseif (null !== $command->name) {
+                $bridge->requestedName = $command->name;
+                // The unique index keeps a held name off every other bridge, so only a new claim needs the check.
+                if ($bridge->name !== $command->name) {
+                    // Always taken after the bridge lock, so two heartbeats never wait on each other in reverse.
+                    $this->bridges->lockNamesForWrite($ownerId);
+                    $bridge->name = $this->bridges->isNameHeldByOther($command->owner, $command->bridgeId, $command->name) ? null : $command->name;
+                }
+            }
 
             $lostClaims = [];
             if (null !== $command->workClaims) {
@@ -93,13 +114,20 @@ final readonly class RecordBridgeHeartbeatHandler
                 : [];
 
             // Read under the lock a new command takes, so the reply misses no command stored before it.
-            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged, $workRequests, $lostClaims];
+            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged, $workRequests, $lostClaims,
+                // A project the bridge stopped following can still hold a notice that names it.
+                $heldName === $bridge->name ? [] : array_values(array_unique([...$followed, ...$projects])),
+            ];
         });
 
         if ($pauseChanged) {
             foreach ($this->projects->findOwnedBy($command->owner, $projects) as $project) {
                 $this->runsChanged->runsChanged($project);
             }
+        }
+
+        if ([] !== $renamedIn) {
+            $this->events->dispatch(new BridgeNameChanged($this->projects->findOwnedBy($command->owner, $renamedIn)));
         }
 
         // A heartbeat that replaces the row is routine traffic, once a minute per

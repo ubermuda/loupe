@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\Service\BridgeLabels;
 use App\Module\Bridge\View\CardTitleSourceInterface;
 use App\Module\Bridge\View\WorkerRunControls;
 use App\Module\Bridge\View\WorkerRunListItem;
@@ -25,6 +26,7 @@ final readonly class ListWorkerRunsHandler
         private CardTitleSourceInterface $cardTitles,
         private WorkerRunControls $controls,
         private ClockInterface $clock,
+        private BridgeLabels $bridgeLabels,
     ) {
     }
 
@@ -53,6 +55,7 @@ final readonly class ListWorkerRunsHandler
         }
         $titles = $this->cardTitles->titlesFor($command->project, array_values($cardIds));
         $controls = $this->controls->forRuns($command->project, $runs);
+        $bridgeIds = $this->workerRuns->bridgeIdsOf($command->project);
 
         return new ListWorkerRunsView(
             items: array_map(
@@ -62,10 +65,11 @@ final readonly class ListWorkerRunsHandler
             filteredTotal: $total,
             totalPages: $totalPages,
             pageList: PageList::build($page, $totalPages),
-            bridgeIds: $this->workerRuns->bridgeIdsOf($command->project),
+            bridgeIds: $bridgeIds,
             clampedPage: PageList::clampedPage($page, $total, $perPage),
             page: $page,
             perPage: $perPage,
+            bridgeLabels: $this->bridgeLabels->forOwner($command->project->owner, $bridgeIds),
         );
     }
 }

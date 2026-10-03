@@ -30,9 +30,10 @@ These traps around the threshold each cost a cycle:
 
 Text selection is handled with `select-none` on the card face, rather than by
 arbitration between a selection and the gesture. The cost is that a title cannot
-be copied from the board, and the card page keeps it selectable. Keep
-`touch-action: none` on the grip alone. On every card it stops a touch reader
-scrolling the board at all.
+be copied from the board, and the card page keeps it selectable. Only the
+identity row of a card carries `touch-action: none`, because on the whole card
+it stops a touch reader scrolling the board at all. A touch press on the
+identity row drags the card, and a touch press anywhere else scrolls.
 
 ## Optimistic reconciliation needs no diff
 
@@ -96,10 +97,12 @@ The controller is `stimulusFetch: 'eager'` and publishes
 `data-board-drag-ready`. A lazily fetched controller leaves a window in which a
 grab reaches no listener. The spec waits on that attribute and hangs without it.
 
-The drop submits through a real per-card `<form>`, built with `createNamed` and
-hidden on the card face. That form is what keeps Turbo carrying the request and
-the eager CSRF controller stamping the token. Removing it means re-implementing
-both by hand.
+The drop submits through a real `<form>`. The board renders one hidden form under
+`MoveCardFormType::PLACEHOLDER_CARD_ID`, and at each drop the controller swaps the
+card's id into its action, field names and field ids. That form is what keeps
+Turbo carrying the request and the eager CSRF controller stamping the token.
+Removing it means re-implementing both by hand. The form sits inside `#board`, so
+a structure render refreshes its column options.
 
 ## The test race the optimistic move introduces
 

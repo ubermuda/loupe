@@ -106,9 +106,7 @@ test('a column renamed in one browser shows in another without a reload', async 
     const search = watcher.getByRole('searchbox', { name: 'Search cards' });
     await search.fill('no card has this title');
     await watcher.getByRole('button', { name: 'List', exact: true }).click();
-    await expect(
-        watcher.locator('[data-board-view-target="list"]'),
-    ).toBeVisible();
+    await expect(watcher.locator('.lp-board-list')).toBeVisible();
 
     // A full navigation would drop this marker, and an in-place update keeps it.
     await watcher.evaluate(() => {

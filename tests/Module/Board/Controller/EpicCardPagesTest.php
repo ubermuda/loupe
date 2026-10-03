@@ -251,7 +251,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/list');
 
         self::assertResponseIsSuccessful();
         $childRow = $crawler->filter('.lp-board-list__row[data-card-id="'.$childId.'"] [data-card-parent]');

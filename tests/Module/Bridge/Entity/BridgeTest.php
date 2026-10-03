@@ -33,4 +33,30 @@ final class BridgeTest extends TestCase
         self::assertSame($runs, $bridge->canRun($need));
         self::assertSame(null !== $capabilities && \in_array(Bridge::CAPABILITY_WORK_REQUESTS, $capabilities, true), $bridge->takesWorkRequests());
     }
+
+    public function test_a_named_bridge_takes_its_name_as_its_label(): void
+    {
+        $bridge = $this->bridge('0199a3c4-0000-7000-8000-0123456789ab');
+        $bridge->name = 'laptop';
+
+        self::assertSame('laptop', $bridge->label);
+    }
+
+    public function test_a_bridge_with_no_name_takes_the_tail_of_its_id(): void
+    {
+        $bridge = $this->bridge('0199a3c4-0000-7000-8000-0123456789ab');
+        $bridge->requestedName = 'laptop';
+
+        self::assertSame('0123456789ab', $bridge->label);
+    }
+
+    public function test_a_string_id_gives_the_same_label_as_a_uuid(): void
+    {
+        self::assertSame('0123456789ab', Bridge::labelFor('0199A3C4-0000-7000-8000-0123456789AB', null));
+    }
+
+    private function bridge(string $id): Bridge
+    {
+        return new Bridge(new User('Riley Chen', 'riley@example.com', 'x'), Uuid::fromString($id), [], 'b4e39aa7', new \DateTimeImmutable());
+    }
 }
