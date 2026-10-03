@@ -31,10 +31,11 @@ skip_prefix() {
 
 # Sets wrapped to the command text that `eval` or a shell's -c flag runs. It
 # sets a variable rather than printing, because a $(...) per segment is slow.
+# A shell runs only the word after -c, and the words after that are $0 and on.
 wrapped_command() {
     local IFS=' ' name="${1:-}"
     case "${name##*/}" in
-        eval) shift ;;
+        eval) shift; wrapped="$*" ;;
         bash|sh|zsh|dash|ksh)
             shift
             while [ "$#" -gt 0 ]; do
@@ -44,9 +45,12 @@ wrapped_command() {
                 esac
                 shift
             done
-            [ "$#" -gt 0 ] || return 1 ;;
+            [ "$#" -gt 0 ] || return 1
+            wrapped="$1" ;;
         *) return 1 ;;
     esac
-    wrapped="$*"
+    wrapped="${wrapped//$'\034'/}"
+    wrapped="${wrapped//$'\035'/$'\t'}"
     wrapped="${wrapped//$'\036'/$'\n'}"
+    wrapped="${wrapped//$'\037'/ }"
 }

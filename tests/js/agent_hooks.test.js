@@ -118,6 +118,19 @@ describe('no-full-ci.sh', () => {
         ['echo "a<<b" && just ci', 'deny'],
         ["bash -c 'cat <<EOF\njust ci\nEOF'", 'allow'],
         ["bash -c 'cd x\njust ci'", 'deny'],
+        ['echo hi # <<EOF\njust ci', 'deny'],
+        ['echo a#b; just ci', 'deny'],
+        ['echo ${#x}; just ci', 'deny'],
+        ['# just ci', 'allow'],
+        ['cat <<EOF\nEOF)\njust ci\nEOF', 'allow'],
+        ['x=$(cat <<EOF\nhi\nEOF)\njust ci', 'deny'],
+        ["bash -c '' 'just ci'", 'allow'],
+        ["bash -c 'just ci' x", 'deny'],
+        ["'just ci'", 'allow'],
+        ['bash -lc "cd x && just ci"', 'deny'],
+        ['eval just ci', 'deny'],
+        ['eval "cd x;" "just ci"', 'deny'],
+        ['env XDEBUG_MODE="a b" vendor/bin/phpunit', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });
@@ -139,6 +152,7 @@ describe('no-full-e2e.sh', () => {
         ["sh -c 'just e2e-up && just e2e'", 'deny'],
         ['timeout 60 bash -c "just e2e"', 'deny'],
         ['timeout 60 just e2e', 'deny'],
+        ['echo hi # <<EOF\njust e2e', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-e2e.sh', command)).toBe(expected);
     });
