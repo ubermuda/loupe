@@ -46,7 +46,7 @@ test with `just js-test tests/js/<name>.test.js`, one e2e spec with
 `just phpunit` runs PHPUnit through ParaTest on 4 processes. Set
 `PHPUNIT_PROCESSES` on the host to change the count, for example
 `PHPUNIT_PROCESSES=8 just phpunit tests/Module/Board`. Each process uses its own
-test database, `app_test<TEST_TOKEN>_p<n>`.
+test database, `app_test<TEST_TOKEN>__p<n>`.
 
 `just js-test` runs Vitest over `tests/js/`. It needs Node alone, with no
 container, no database and no browser. It is the fastest way to cover front-end

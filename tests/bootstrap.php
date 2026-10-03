@@ -8,6 +8,7 @@ require dirname(__DIR__).'/vendor/autoload.php';
 
 // ParaTest numbers its workers through TEST_TOKEN, which a worktree's
 // .env.test.local also sets. Keep both, so each worker gets its own database.
+// A worktree token never holds "__", so "__p<n>" cannot name another worktree.
 $paratestWorker = getenv('PARATEST') ? getenv('TEST_TOKEN') : false;
 if (false !== $paratestWorker) {
     putenv('TEST_TOKEN');
@@ -17,7 +18,7 @@ if (false !== $paratestWorker) {
 new Dotenv()->bootEnv(dirname(__DIR__).'/.env');
 
 if (false !== $paratestWorker) {
-    $token = ($_SERVER['TEST_TOKEN'] ?? '').'_p'.$paratestWorker;
+    $token = ($_SERVER['TEST_TOKEN'] ?? '').'__p'.$paratestWorker;
     putenv('TEST_TOKEN='.$token);
     $_ENV['TEST_TOKEN'] = $_SERVER['TEST_TOKEN'] = $token;
 }

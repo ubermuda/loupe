@@ -90,7 +90,7 @@ jobs:
           docker: 'true'
 
       # The flag rides the invocation, not the `phpunit` recipe, so a
-      # workstation run still writes nothing. PHPUnit creates the directory.
+      # workstation run still writes nothing. ParaTest creates the directory.
       - run: just phpunit --log-junit var/phpunit-timing/junit.xml
         timeout-minutes: 10
 

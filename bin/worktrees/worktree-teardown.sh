@@ -75,7 +75,7 @@ if docker compose ps --status running --services 2>/dev/null | grep -qx database
     docker compose exec -T database dropdb -U "${POSTGRES_USER:-app}" --force --if-exists "$test_db" || true
     # One test database per ParaTest worker, named by tests/bootstrap.php.
     worker_dbs=$(docker compose exec -T database psql -U "${POSTGRES_USER:-app}" -d postgres -Atc \
-        "select datname from pg_database where datname ~ '^${test_db}_p[0-9]+\$'" || true)
+        "select datname from pg_database where datname ~ '^${test_db}__p[0-9]+\$'" || true)
     for db in $worker_dbs; do
         docker compose exec -T database dropdb -U "${POSTGRES_USER:-app}" --force --if-exists "$db" || true
     done
