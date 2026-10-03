@@ -35,7 +35,7 @@ export function applyStructure(stream) {
                 .getElementById(`board-card-${lane.dataset.lane}`)
                 ?.remove(),
         );
-    syncRows(board.querySelector(':scope > .lp-board-list'), tags);
+    syncRows(board.querySelector('#board-list > .lp-board-list'), tags);
     recountCells();
 
     board.dataset.boardStructureDigest = stream.dataset.structureDigest;

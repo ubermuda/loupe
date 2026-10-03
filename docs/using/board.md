@@ -66,6 +66,8 @@ API route writes a column.
 Another reader of the board sees no column controls.
 
 Open **Board settings** to manage columns beside the other project settings.
+Below the columns, **Finished work on the board** sets how many days of
+finished cards each terminal column shows.
 The **Board columns** section lists the columns in order. Each row has
 **Move up** and **Move down** arrows, a gear button, and a delete button. The
 gear opens a dialog with the column name, **A finishing point for completed
@@ -167,9 +169,11 @@ card that moves inside a terminal column, or from one terminal column to
 another, keeps that first stamp. A card that leaves for a column that is not
 terminal loses the stamp, and takes a new one if it comes back.
 
-The board screen shows the last 7 days of each terminal column, and a history
-page carries the rest. `card_list` applies no such window. Every finished card
-is on the board it pages through, however old it is.
+The board screen shows the last 3 days of each terminal column, and a history
+page carries the rest. The window is a board setting. The project owner sets it
+from 1 to 30 days under **Finished work on the board** in board settings.
+`card_list` applies no such window. Every finished card is on the board it pages
+through, however old it is.
 
 ## The board screen
 
@@ -204,8 +208,8 @@ Backlog holds, and it opens the Backlog page. It also takes a dropped card.
 Each column head shows the column colour, its label and its card count. Each
 column scrolls its own cards, and the board scrolls sideways as one block.
 
-Drag a card to move it. The whole card is the handle, and the grip on its left
-says so. Where you drop the card decides what the move does.
+Drag a card to move it. The whole card is the handle. Where you drop the card
+decides what the move does.
 
 - Drop it inside its own column to change its rank in that column.
 - Drop it in another column to change its column. The card takes the end of

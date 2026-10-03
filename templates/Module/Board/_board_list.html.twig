@@ -1,0 +1,19 @@
+{# The list view of the board, one row per card, loaded into the page's board-list frame. Props: board (BoardView). #}
+{% set runWarnings = board.runWarnings %}
+<turbo-frame id="board-list">
+    <div class="lp-board-list">
+        <div class="lp-board-list__header" aria-hidden="true">
+            <span>{{ 'board.list.work'|trans }}</span>
+            <span>{{ 'board.list.type'|trans }}</span>
+            <span>{{ 'board.list.status'|trans }}</span>
+            <span>{{ 'board.list.parent'|trans }}</span>
+            <span>{{ 'board.list.agent'|trans }}</span>
+            <span>{{ 'board.list.feedback'|trans }}</span>
+        </div>
+        {% for view in board.columns %}
+            {% for card in view.cards %}
+                {% include '@Board/_card_row.html.twig' with {card: card, column: view.column, feedbackCount: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null), badges: board.badges[card.id ~ '']|default([])} only %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+</turbo-frame>
