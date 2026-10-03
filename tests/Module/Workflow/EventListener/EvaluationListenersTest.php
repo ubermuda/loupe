@@ -21,6 +21,7 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardMove;
+use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\ValueObject\WorkRequestState;
@@ -33,6 +34,7 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Workflow\Engine\EngineSwitch;
+use App\Module\Workflow\EventListener\BaselineCardsOnCardHoldsReleased;
 use App\Module\Workflow\EventListener\EvaluateCardOnWorkRequestChanged;
 use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnDeleted;
 use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnTerminalChanged;
@@ -44,6 +46,7 @@ use App\Module\Workflow\EventListener\EvaluateCardsOnPullRequestStateChanged;
 use App\Module\Workflow\EventListener\EvaluateCardsOnReviewSubmitted;
 use App\Module\Workflow\EventListener\EvaluateCardsOnWorkerRunChanged;
 use App\Module\Workflow\Messenger\EvaluateCard;
+use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Support\DispatchedEvents;
@@ -213,6 +216,42 @@ final class EvaluationListenersTest extends KernelTestCase
         self::assertCount(1, $changed->events());
         self::assertSame([$cardId->toRfc4122(), CardChanged::UPDATED], [$changed->events()[0]->cardId->toRfc4122(), $changed->events()[0]->change]);
         self::assertSame([], $this->sent());
+    }
+
+    public function test_a_release_marks_the_existing_cards_for_a_baseline_and_asks_for_them(): void
+    {
+        [$one, $two] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
+        $event = new CardHoldsReleased($this->projectId(), [$one->id ?? throw new \LogicException('A flushed card has an id.'), $two->id ?? throw new \LogicException('A flushed card has an id.'), Uuid::v7()]);
+
+        $this->baselineListener(false)($event);
+
+        self::assertSame([], $this->sent());
+        self::assertSame([], $this->pendingBaselines());
+
+        $this->baselineListener(true)($event);
+        $this->baselineListener(true)($event);
+
+        self::assertEqualsCanonicalizing($this->ids($one, $two), $this->pendingBaselines());
+        $ids = $this->ids($one, $two);
+        self::assertSame([...$ids, ...$ids], array_values(array_filter($this->sent(), static fn (string $id): bool => \in_array($id, $ids, true))));
+    }
+
+    private function baselineListener(bool $on): BaselineCardsOnCardHoldsReleased
+    {
+        return new BaselineCardsOnCardHoldsReleased(
+            new EngineSwitch($on),
+            $this->service(WorkflowPendingBaselineRepository::class),
+            new EvaluationTrigger($this->service(MessageBusInterface::class), new EngineSwitch($on)),
+        );
+    }
+
+    /** @return list<string> */
+    private function pendingBaselines(): array
+    {
+        return array_map(strval(...), $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT card_id FROM workflow_pending_baselines WHERE project_id = :project',
+            ['project' => $this->projectId()->toRfc4122()],
+        ));
     }
 
     private function trigger(): EvaluationTrigger

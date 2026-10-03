@@ -216,7 +216,7 @@ final class WorkerRunWriteToolsTest extends KernelTestCase
         self::assertInstanceOf(CardHolds::class, $holds);
         $holds->hold($run->project, $run->cardId, $run->project->owner);
 
-        self::assertSame(['card-held', 'Agents are paused on this card. Let agents run first.'], $this->resumeRefusal($run));
+        self::assertSame(['card-held', 'This card is unmanaged. Select Manage again first.'], $this->resumeRefusal($run));
     }
 
     public function test_a_malformed_run_id_refuses_the_whole_batch(): void

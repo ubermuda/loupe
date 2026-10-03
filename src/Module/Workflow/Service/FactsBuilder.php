@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -63,7 +64,7 @@ final readonly class FactsBuilder
         return new Facts(
             now: $now,
             card: new CardFacts(
-                slot: $this->slot($card),
+                slot: $this->slotOf($card->column),
                 type: $card->type->value,
                 hasOpenBlocker: [] !== $this->cards->findOpenBlockersOf($card),
                 isChild: null !== $card->parent,
@@ -86,12 +87,13 @@ final readonly class FactsBuilder
         );
     }
 
-    private function slot(Card $card): ?string
+    /** The slot key of a column, or null for a column no slot links. */
+    public function slotOf(BoardColumn $column): ?string
     {
         return match (true) {
-            $card->column->backlog => self::BACKLOG_SLOT,
-            $card->column->terminal => self::TERMINAL_SLOT,
-            default => $this->workflowSlotLinks->findSlotKeyForColumn($card->project, $card->column),
+            $column->backlog => self::BACKLOG_SLOT,
+            $column->terminal => self::TERMINAL_SLOT,
+            default => $this->workflowSlotLinks->findSlotKeyForColumn($column->project, $column),
         };
     }
 

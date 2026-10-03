@@ -193,6 +193,11 @@ in the **List** view show the same badges. The badges change when Loupe reads a
 new state, with no reload. They come only from a state that Loupe read, so a
 pull request that shows **Not reported** adds no badge.
 
+A card also shows a marker for its workflow state. **Paused** means that the
+workflow paused the card. **Unmanaged** means that a person or an agent made the
+card unmanaged. The markers also change with no reload. See
+[Managed and unmanaged cards](#managed-and-unmanaged-cards).
+
 Each card type and each column has a colour, and every page that names one uses
 the same colour. The owner picks a column's colour from twelve in its
 **Colour** setting. The colour stays with the column when the columns move.
@@ -416,7 +421,7 @@ waits for the bridge, from this list. A stop ends one run and holds nothing,
 so the next event can start a new worker on the card. Resume a finished run
 on the **Runs** tab of the Activity page. See
 [Stop, resume and cancel](worker-runs.md#stop-resume-and-cancel). To keep
-agents off the card, see [Pause the agents on a card](#pause-the-agents-on-a-card).
+agents off the card, see [Managed and unmanaged cards](#managed-and-unmanaged-cards).
 
 The **History** tab lists what happened to the card, newest first, on a
 timeline. A row says who created the card and in which column, and who moved
@@ -471,27 +476,63 @@ offers the matching cards of the project. The **Add a linked card** button adds
 a row, and the cross at the end of a row removes it. Saving replaces the card's
 whole set of links.
 
-#### Pause the agents on a card
+#### Managed and unmanaged cards
 
-To keep agents off a card, select **Pause agents** in the runs section of the
-card page. The section then shows **Agents paused: no worker starts on this
-card until you let agents run or move it.** No bridge starts a worker on the
-card. A run that is in progress goes on, so stop it as well if it must end
-now. Loupe refuses a resume of a run of the card while the pause holds. A run
-that waits in a queue stays there, and it starts when the pause ends.
+A project can run a workflow template. A card of such a project is managed:
+it follows the template. The workflow moves the card and requests work for it
+when a condition of the template becomes true. A person may make only the moves
+that the template lists. When you drop a managed card in a column that the
+template does not list, the board offers to make the card unmanaged and then
+move it. An agent that tries such a move gets an error that names `card_hold`.
 
-An agent pauses the agents on a card with the `card_hold` MCP tool, and lets
-them run with `card_release`.
+The workflow engine is not switched on yet. So today the board allows every
+move, and the workflow moves no card and requests no work. The Workflow panel
+shows only a pause.
 
-These actions end the pause:
+An unmanaged card is outside the workflow. The workflow makes no move and
+starts no work on it, and no bridge starts a worker on it. A person may move it
+to any column. A run that is in progress goes on, so stop it as well if it must
+end now. Loupe refuses a resume of a run of the card while the card is
+unmanaged. A run that waits in a queue stays there, and it starts when the card
+is managed again.
 
-- A person selects **Let agents run** in the runs section, or an agent calls
+To make a card unmanaged, select **Make unmanaged** in the runs section of the
+card page. The section then shows **Unmanaged: the workflow makes no move and
+starts no work on this card.** Select **Manage again** to end it. An agent uses
+the `card_hold` and `card_release` MCP tools.
+
+These actions make the card managed again:
+
+- A person selects **Manage again** in the runs section, or an agent calls
   `card_release`.
-- A person moves the card to another column. A move by an agent or by the
-  automation keeps the pause, and so does a move inside the same column.
+- While the workflow engine is off, a person moves the card to another column.
+  A move by an agent or by the automation keeps the card unmanaged, and so does
+  a move inside the same column. While the engine is on, every move keeps the
+  card unmanaged.
 - A person deletes the column of the card, or the card.
 
-A pause of a card is a different control from the pause of a bridge. **Pause
+When a card is managed again, the workflow takes the card as it is at that
+time. A condition that became true while the card was unmanaged does not fire.
+The workflow acts only on the changes that come after.
+
+#### The Workflow panel
+
+The card page and the drawer show a **Workflow** panel when the panel has
+something to show. The runs section shows whether the card is unmanaged.
+
+When the workflow paused the card, the panel shows the pause. It gives the kind
+of pause, the reason, the time and the condition that ends the pause. The
+workflow pauses a card when a rule of the template asks for it, when too many
+attempts are refused, when no bridge takes the work in time, or when a rule
+reaches its work limit.
+
+While the workflow engine is on, the panel also shows the slot of the card, the
+condition that the card waits for and the next action. It also shows the last
+refusal, with its reason, its time and the number of attempts. An unmanaged
+card shows none of these. A card with no pause shows no panel while the engine
+is off.
+
+An unmanaged card is a different control from the pause of a bridge. **Pause
 new work** on the Agents page stops one bridge from starting any queued run,
 on every card. See [Bridge health](worker-runs.md#bridge-health).
 

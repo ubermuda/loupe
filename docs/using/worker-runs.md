@@ -154,10 +154,10 @@ event, such as `{to}`, because a rerun knows only the card and the project.
 The bridge never runs a failed command again by itself.
 
 A stop ends one run and holds nothing. The next event of the card can start a
-new worker on it. To keep agents off the card, select **Pause agents** on the
-card page. Loupe refuses a resume of a run while the agents on its card are
-paused, with **Agents are paused on this card. Let agents run first.** See
-[Pause the agents on a card](board.md#pause-the-agents-on-a-card).
+new worker on it. To keep agents off the card, select **Make unmanaged** on
+the card page. Loupe refuses a resume of a run while its card is unmanaged,
+with **This card is unmanaged. Select Manage again first.** See
+[Managed and unmanaged cards](board.md#managed-and-unmanaged-cards).
 
 A cancel works only while the bridge has not received the request. A bridge
 that is online receives a request in about a second, and a later cancel does
@@ -173,8 +173,8 @@ An agent can read the runs and the bridges, and stop, resume and cancel, through
 the [MCP endpoint](mcp.md#what-the-tools-do). `worker_run_list` and
 `worker_run_get` read the runs, and `bridge_list` reads the bridges.
 `worker_run_stop`, `worker_run_resume` and `bridge_command_cancel` send and
-withdraw requests. `card_hold` pauses the agents on a card, as **Pause agents**
-does, and `card_release` lets them run again. The connection acts as the project
+withdraw requests. `card_hold` makes a card unmanaged, as **Make unmanaged**
+does, and `card_release` makes it managed again. The connection acts as the project
 owner, on its own project only.
 
 The tools apply the same checks as the controls on this page. A resume needs a

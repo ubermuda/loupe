@@ -44,6 +44,9 @@ class WorkflowRuleState
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $lastRefusal = null;
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $lastRefusalAt = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Card::class)]
@@ -69,5 +72,6 @@ class WorkflowRuleState
         $this->fires = 0;
         $this->dueAt = null;
         $this->lastRefusal = null;
+        $this->lastRefusalAt = null;
     }
 }

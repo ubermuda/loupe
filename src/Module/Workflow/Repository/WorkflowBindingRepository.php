@@ -23,7 +23,7 @@ class WorkflowBindingRepository extends ServiceEntityRepository
     }
 
     /**
-     * The cards of every bound project that sit in a column that is not terminal.
+     * The cards of every bound project that sit in a column that is not terminal and that nobody holds.
      *
      * @return list<string> RFC 4122 card ids
      */
@@ -34,6 +34,7 @@ class WorkflowBindingRepository extends ServiceEntityRepository
              JOIN board_columns col ON col.id = c.column_id
              JOIN workflow_bindings b ON b.project_id = c.project_id
              WHERE col.terminal = false
+             AND NOT EXISTS (SELECT 1 FROM bridge_card_holds hold WHERE hold.project_id = c.project_id AND hold.card_id = c.id)
              ORDER BY c.id',
         ));
     }
