@@ -14,6 +14,7 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
@@ -666,6 +667,30 @@ final class EngineTest extends KernelTestCase
         $live = $this->liveRequests($card);
         self::assertCount(1, $live);
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
+    }
+
+    /** The board updates live from CardChanged, so each change the engine makes to a card dispatches one. */
+    public function test_an_engine_move_and_its_work_request_reach_the_live_board(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-live');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'tech-design');
+        $this->approvedDocument($card, 'design');
+        $changed = [];
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(CardChanged::class, static function (CardChanged $event) use (&$changed): void {
+            $changed[] = (string) $event->cardId;
+        });
+
+        $this->evaluate($card);
+        $afterMove = \count($changed);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertGreaterThanOrEqual(1, $afterMove);
+        self::assertGreaterThan($afterMove, \count($changed));
+        self::assertSame([(string) $card->id], array_values(array_unique($changed)));
     }
 
     public function test_a_lifecycle_card_that_a_person_moves_to_the_backlog_stays_there_until_its_pull_request_reopens(): void
