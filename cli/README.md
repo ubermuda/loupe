@@ -402,17 +402,11 @@ projects:
   my-app:
     dir: ~/Code/my-app
 
-rules:
-  - name: plan
-    on: board.card_moved
-    project: my-app
-    to: next
+work:
+  implement:
     prompt: |
-      Card {cardNumber} in Loupe project {projectId} moved to {to}.
-      Read it with the card_get MCP tool, passing cardId {cardId}.
-      If its column is no longer {to}, stop and do nothing.
-      Otherwise write an implementation plan into the card body
-      with card_update, and stop.
+      Loupe asks for {kind} work on card {cardNumber} of project {projectId}.
+      Read it with the card_get MCP tool, passing cardId {cardId}, and do it.
 ```
 
 The bridge prints this example when it finds no file, or an empty one.

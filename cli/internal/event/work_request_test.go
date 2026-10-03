@@ -114,12 +114,9 @@ func TestParseWorkRequestFoldsTheResumeSession(t *testing.T) {
 	}
 }
 
-// A work request is never an event a rule acts on, even when a rule names its
-// type.
+// A work request has its own parser, so Parse drops it as an unknown type.
 func TestParseDropsAWorkRequestAsAnUnknownType(t *testing.T) {
-	for _, extra := range []map[string]bool{nil, {WorkRequestType: true}} {
-		if err := parseErr(t, workRequestPayload, extra); !errors.Is(err, ErrUnknownType) {
-			t.Fatalf("extra %v: err = %v, want an unknown type", extra, err)
-		}
+	if err := parseErr(t, workRequestPayload); !errors.Is(err, ErrUnknownType) {
+		t.Fatalf("err = %v, want an unknown type", err)
 	}
 }

@@ -69,26 +69,6 @@ func (e Experiment) clone() *Experiment {
 	return &e
 }
 
-// checkExperiments maps each experiment name to its first declaration, valid
-// or not, so a rule that joins an invalid one gets no second error.
-func checkExperiments(declared []Experiment) (map[string]Experiment, []error) {
-	out := map[string]Experiment{}
-	var errs []error
-	for _, e := range declared {
-		if _, ok := out[e.Name]; ok {
-			errs = append(errs, fmt.Errorf("experiment %q: another experiment has the same name", e.Name))
-
-			continue
-		}
-		out[e.Name] = e
-		if err := checkExperiment(e); err != nil {
-			errs = append(errs, fmt.Errorf("experiment %q: %w", e.Name, err))
-		}
-	}
-
-	return out, errs
-}
-
 func checkExperiment(e Experiment) error {
 	var errs []error
 	if !experimentNamePattern.MatchString(e.Name) {

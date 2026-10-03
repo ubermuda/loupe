@@ -16,20 +16,17 @@ import (
 // The states a bridge reports for a run. The server adds timed-out and lost on
 // its own.
 const (
-	RunQueued           = "queued"
-	RunReplaced         = "replaced"
-	RunResumed          = "resumed"
-	RunSkipped          = "skipped"
-	RunRunning          = "running"
-	RunWaitingForPerson = "waiting-for-person"
-	RunDropped          = "dropped"
-	RunSucceeded        = "succeeded"
-	RunNoResult         = "no-result"
-	RunFailed           = "failed"
-	RunNotStarted       = "not-started"
-	RunUnfinished       = "unfinished"
-	RunBlocked          = "blocked"
-	RunGaveUp           = "gave-up"
+	RunQueued     = "queued"
+	RunReplaced   = "replaced"
+	RunSkipped    = "skipped"
+	RunRunning    = "running"
+	RunDropped    = "dropped"
+	RunSucceeded  = "succeeded"
+	RunNoResult   = "no-result"
+	RunFailed     = "failed"
+	RunNotStarted = "not-started"
+	RunUnfinished = "unfinished"
+	RunBlocked    = "blocked"
 	// RunWaitingOnForge is a run that ended with its work waiting on the
 	// forge, such as checks on a pushed pull request.
 	RunWaitingOnForge = "waiting-on-forge"
@@ -53,15 +50,11 @@ const (
 	DropReload   = "reload"
 )
 
-// SkipCardMoved says a resume was skipped because the card left the column of
-// its series. The drop reasons above also serve as skip reasons.
-const SkipCardMoved = "card_moved"
-
 // IsOutcome reports whether state is how a worker ended. Only an outcome maps
 // onto the old report.
 func IsOutcome(state string) bool {
 	switch state {
-	case RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunGaveUp, RunWaitingOnForge:
+	case RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunWaitingOnForge:
 		return true
 	}
 
@@ -101,9 +94,7 @@ type RunStateReport struct {
 	FailureReason *string `json:"failureReason,omitzero"`
 	Output        string  `json:"output,omitzero"`
 
-	AskID      string `json:"askId,omitzero"`
 	ReplacedBy string `json:"replacedBy,omitzero"`
-	MaxChain   int    `json:"maxChain,omitzero"`
 	Reason     string `json:"reason,omitzero"`
 	// WorkerPool is the pool of a worker run: the pool it started in, or the
 	// pool its rule names while it waits. An interactive run has none.

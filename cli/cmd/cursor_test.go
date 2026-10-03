@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -51,31 +52,7 @@ func (f *replayer) called() []int64 {
 // row is a replayed card move of the card numbered id, with id as its
 // sequence, to the column to.
 func row(id int, to string) api.ReplayEvent {
-	return api.ReplayEvent{ID: strconv.Itoa(id), Type: "board.card_moved", Data: movedPayload(id, "backlog", to, "human")}
-}
-
-// cardReader answers each card read with column, or with err, and records the
-// card of each read.
-type cardReader struct {
-	mu     sync.Mutex
-	column string
-	err    error
-	reads  []string
-}
-
-func (c *cardReader) read(_ context.Context, _, cardID string) (api.CardRead, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.reads = append(c.reads, cardID)
-
-	return api.CardRead{Column: c.column}, c.err
-}
-
-func (c *cardReader) count() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	return len(c.reads)
+	return api.ReplayEvent{ID: strconv.Itoa(id), Type: "bridge.work_request", Data: movedPayload(id, "backlog", to, "human")}
 }
 
 // withCursor gives the harness a cursor file and the cursor and floor.
@@ -220,7 +197,8 @@ func TestACursorThatCannotBeSavedIsLoggedOnce(t *testing.T) {
 	h.router.onEvent("12", []byte(cardMoved(12)))
 	h.router.wg.Wait()
 
-	if got := startedCards(t, h); !slices.Equal(got, []int{11, 12}) {
+	// Each start waits for its claim, so the two can log in either order.
+	if got := startedCards(t, h); len(got) != 2 || !slices.Contains(got, 11) || !slices.Contains(got, 12) {
 		t.Fatalf("started = %v", got)
 	}
 	h.only(t, "cursor_save_failed")
@@ -515,94 +493,6 @@ func TestTheCaughtUpIDsStayBounded(t *testing.T) {
 	}
 }
 
-// A replayed card move whose card left the column since does not run.
-func TestAReplayedMoveOfACardThatMovedOnIsStale(t *testing.T) {
-	h := newHarness(t)
-	withCursor(t, h, 10, 10)
-	cards := &cardReader{column: "done"}
-	h.router.readCard = cards.read
-	h.router.replay = (&replayer{pages: []api.Replay{{Events: []api.ReplayEvent{row(11, "next")}}}}).replay
-
-	h.router.catchUp()
-	h.router.wg.Wait()
-
-	if got := startedCards(t, h); len(got) != 0 {
-		t.Fatalf("started = %v", got)
-	}
-	stale := h.only(t, "event_stale")
-	if num(t, stale, "card") != 11 || str(t, stale, "project") != testProject || str(t, stale, "rule") != "plan" ||
-		str(t, stale, "column") != "done" || str(t, stale, "to") != "next" {
-		t.Fatalf("event_stale = %v", stale)
-	}
-	if h.router.cursor != 11 {
-		t.Fatalf("cursor = %d", h.router.cursor)
-	}
-}
-
-// A replayed move runs when its card is still in the column, and when the
-// card read fails. A live move reads no card.
-func TestAReplayedMoveRunsUnlessTheCardMovedOn(t *testing.T) {
-	for name, tc := range map[string]struct {
-		cards *cardReader
-		reads int
-	}{
-		"current card": {&cardReader{column: "next"}, 1},
-		"read failure": {&cardReader{err: errors.New("HTTP 500")}, 1},
-	} {
-		t.Run(name, func(t *testing.T) {
-			h := newHarness(t)
-			withCursor(t, h, 10, 10)
-			h.router.readCard = tc.cards.read
-			h.router.replay = (&replayer{pages: []api.Replay{{Events: []api.ReplayEvent{row(11, "next")}}}}).replay
-
-			h.router.catchUp()
-			h.router.wg.Wait()
-
-			if got := startedCards(t, h); !slices.Equal(got, []int{11}) {
-				t.Fatalf("started = %v", got)
-			}
-			if tc.cards.count() != tc.reads {
-				t.Fatalf("reads = %d", tc.cards.count())
-			}
-		})
-	}
-
-	h := newHarness(t)
-	cards := &cardReader{column: "done"}
-	h.router.readCard = cards.read
-	h.router.onEvent("11", []byte(cardMoved(11)))
-	h.router.wg.Wait()
-	if got := startedCards(t, h); !slices.Equal(got, []int{11}) || cards.count() != 0 {
-		t.Fatalf("started = %v, reads = %d", got, cards.count())
-	}
-}
-
-// A replayed event that a freeze holds back keeps its replay mark, so the
-// resume still checks its card.
-func TestAHeldReplayedEventKeepsItsStaleCheck(t *testing.T) {
-	h := newHarness(t)
-	withCursor(t, h, 10, 10)
-	cards := &cardReader{column: "done"}
-	h.router.readCard = cards.read
-	h.router.replay = (&replayer{pages: []api.Replay{{Events: []api.ReplayEvent{row(11, "next")}}}}).replay
-
-	h.router.freeze()
-	h.router.catchUp()
-	h.router.mu.Lock()
-	held := slices.Clone(h.router.heldEvents)
-	h.router.mu.Unlock()
-	if len(held) != 1 || !held[0].replayed {
-		t.Fatalf("held = %+v", held)
-	}
-
-	h.router.resume()
-	h.router.wg.Wait()
-	if got := startedCards(t, h); len(got) != 0 {
-		t.Fatalf("started = %v", got)
-	}
-	h.only(t, "event_stale")
-}
-
 // Ctrl-C during a catch-up stops it before the next row, so the cursor does not
 // pass the rows that the next start must still run.
 func TestACancelledCatchUpRoutesNoMoreRows(t *testing.T) {
@@ -610,21 +500,32 @@ func TestACancelledCatchUpRoutesNoMoreRows(t *testing.T) {
 	path := withCursor(t, h, 10, 10)
 	ctx, cancel := context.WithCancel(context.Background())
 	h.router.ctx = ctx
-	cards := &cardReader{column: "next"}
-	h.router.readCard = func(ctx context.Context, handle, cardID string) (api.CardRead, error) {
-		cancel()
-
-		return cards.read(ctx, handle, cardID)
-	}
+	// The first queued run cancels the context, as a Ctrl-C would.
+	h.router.log = newBridgeLogger(cancelOn{buf: h.log, event: `"event":"worker_queued"`, cancel: cancel})
 	h.router.replay = (&replayer{pages: []api.Replay{{Events: []api.ReplayEvent{row(11, "next"), row(12, "next")}}}}).replay
 
 	h.router.catchUp()
 	h.router.wg.Wait()
 
-	if cards.count() != 1 {
-		t.Fatalf("reads = %d", cards.count())
+	if n := len(h.events(t, "worker_queued")); n != 1 {
+		t.Fatalf("queued = %d", n)
 	}
 	if st := readCursorFile(t, path); st.Cursor != 11 {
 		t.Fatalf("cursor = %+v", st)
 	}
+}
+
+// cancelOn writes the log to buf, and calls cancel on a line that holds event.
+type cancelOn struct {
+	buf    *syncBuffer
+	event  string
+	cancel context.CancelFunc
+}
+
+func (c cancelOn) Write(p []byte) (int, error) {
+	if strings.Contains(string(p), c.event) {
+		c.cancel()
+	}
+
+	return c.buf.Write(p)
 }

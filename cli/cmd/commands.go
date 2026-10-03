@@ -220,8 +220,7 @@ func (r *router) stopRun(c api.Command) (state, reason string) {
 	if i := slices.IndexFunc(r.queue, func(q pending) bool { return q.runID == c.RunKey }); i >= 0 {
 		p := r.queue[i]
 		r.queue = slices.Delete(r.queue, i, i+1)
-		// A checked resume holds its card key already.
-		r.closeStoppedLocked(p, api.RunStateReport{State: api.RunStopped}, p.checked)
+		r.closeStoppedLocked(p, api.RunStateReport{State: api.RunStopped}, false)
 		dropped = r.dispatchLocked()
 	} else if run, ok := r.live[c.RunKey]; ok {
 		r.stopLiveLocked(run)
@@ -372,11 +371,8 @@ func (r *router) dropHold(cardID string) bool {
 	return true
 }
 
-// noteCardHold keeps the hold the server states for the card of the event. A
-// hold event or a held key states it, and another event changes nothing. A
-// column delete ends the hold of each card it moved, as the server does. It
-// reports whether the event ended a hold, and starts nothing, so the event can
-// replace a stale queued run first.
+// noteCardHold keeps the hold that a hold event states for its card. It
+// reports whether the event ended a hold, and starts nothing.
 func (r *router) noteCardHold(e event.Event) bool {
 	switch e.Type {
 	case event.CardReleasedType:
@@ -385,26 +381,7 @@ func (r *router) noteCardHold(e event.Event) bool {
 		r.mu.Lock()
 		r.holdCardLocked(e.Subject.ID)
 		r.mu.Unlock()
-
-		return false
-	case event.ColumnDeletedType:
-		released := false
-		for _, id := range e.MovedCardIDs {
-			released = r.dropHold(strings.ToLower(id)) || released
-		}
-
-		return released
 	}
-	id, _ := cardOf(e)
-	if id == "" || e.Card.Held == nil {
-		return false
-	}
-	if !*e.Card.Held {
-		return r.dropHold(id)
-	}
-	r.mu.Lock()
-	r.holdCardLocked(id)
-	r.mu.Unlock()
 
 	return false
 }
@@ -432,7 +409,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	if r.readCard != nil {
 		timeout := r.checkTimeout
 		if timeout <= 0 {
-			timeout = askCheckTimeout
+			timeout = readTimeout
 		}
 		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
 		_, err := r.readCard(ctx, c.ProjectID, c.CardID)

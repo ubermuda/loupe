@@ -64,7 +64,7 @@ var workRefusals = map[string][]refusal{
 
 // checkWork validates the entry of one kind, and fills its timeouts and its
 // experiment. The caller checks the pool.
-func checkWork(kind string, w *WorkEntry, experiments map[string]Experiment) error {
+func checkWork(kind string, w *WorkEntry) error {
 	var errs []error
 	validKind := event.KindPattern.MatchString(kind)
 	if !validKind {
@@ -110,9 +110,6 @@ func checkWork(kind string, w *WorkEntry, experiments map[string]Experiment) err
 	if w.Variants != nil {
 		if w.Model != "" {
 			errs = append(errs, errors.New("model and variants are both set, and the variants name the model"))
-		}
-		if _, ok := experiments[kind]; ok {
-			errs = append(errs, errors.New("an experiment has the same name, and the two would share the variant of each card"))
 		}
 		// An invalid kind has its own error, and is no experiment name.
 		if validKind {
@@ -164,8 +161,6 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 		Dir:            s.dirs[slug],
 		PermissionMode: entry.PermissionMode,
 		Model:          entry.Model,
-		MaxChain:       DefaultMaxChain,
-		MaxResumes:     DefaultMaxResumes,
 		Schema:         entry.schema,
 	}
 	switch entry.Action {
@@ -219,6 +214,18 @@ func (s *Set) WorkGaps(w api.WorkRequest) []string {
 	}
 
 	return gaps
+}
+
+// WorkKinds lists the kinds of the work map, in name order.
+func (s *Set) WorkKinds() []string {
+	return slices.Sorted(maps.Keys(s.work))
+}
+
+// WorkEntry is the entry of a kind, with its defaults filled.
+func (s *Set) WorkEntry(kind string) (WorkEntry, bool) {
+	w, ok := s.work[kind]
+
+	return w, ok
 }
 
 // HasWork reports whether the set has a work map.

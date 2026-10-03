@@ -272,7 +272,7 @@ func logBridgeStart(log *slog.Logger, cmd *cobra.Command, set *rules.Set, path, 
 		}
 		log.Warn("max_workers_flag_ignored", "flag_value", flag, "max_workers", set.MaxWorkers(), "message", message)
 	}
-	log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()),
+	log.Info("bridge_started", "rules", path, "projects", set.Projects(), "work_kinds", set.WorkKinds(),
 		"max_workers", set.MaxWorkers(), "worker_pools", poolSizes(set), "log_file", logPath, "bridge_id", bridgeID)
 }
 
@@ -404,9 +404,6 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		return err
 	}
 	r.projects, r.topic = set.Projects(), events.Topic
-	if r.checkAsk == nil {
-		r.checkAsk = apiClient(cfg).CheckAsk
-	}
 	if r.readCard == nil {
 		r.readCard = apiClient(cfg).ReadCard
 	}
@@ -432,10 +429,6 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	var updates *updater
 	var watched <-chan struct{}
 	if r.bridgeID != "" {
-		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
-		for _, slug := range r.projects {
-			r.reportHealth(set, slug)
-		}
 		hb := newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set), heartbeatInterval(events), r.log)
 		if dir, err := config.Dir(); err != nil {
 			r.log.Warn("update_skipped", "reason", err.Error())
@@ -502,9 +495,6 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	// The reports stay on the server, so a pending one is dropped rather than
 	// sent. Its goroutines return once the context ends.
 	stop()
-	if r.health != nil {
-		r.health.wait()
-	}
 	if r.heartbeat != nil {
 		r.heartbeat.wait()
 	}

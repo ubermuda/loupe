@@ -2,7 +2,6 @@ package event
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -128,12 +127,10 @@ func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 	}
 }
 
-// A command is never an event a rule acts on, even when a rule names its type.
+// A command has its own parser, so Parse drops it as an unknown type.
 func TestParseDropsACommandAsAnUnknownType(t *testing.T) {
-	for _, extra := range []map[string]bool{nil, {CommandType: true}} {
-		if err := parseErr(t, commandPayload, extra); !errors.Is(err, ErrUnknownType) {
-			t.Fatalf("extra %v: err = %v, want an unknown type", extra, err)
-		}
+	if err := parseErr(t, commandPayload); !errors.Is(err, ErrUnknownType) {
+		t.Fatalf("err = %v, want an unknown type", err)
 	}
 }
 
@@ -154,29 +151,6 @@ func TestForAnotherBridgeReadsACommand(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			if got := ForAnotherBridge([]byte(tc.payload), own); got != tc.want {
 				t.Fatalf("ForAnotherBridge = %v, want %v", got, tc.want)
-			}
-		})
-	}
-}
-
-// An older server sends no held key, and that reads as nil, apart from false.
-func TestParseCardMovedReadsTheHold(t *testing.T) {
-	for name, tc := range map[string]struct {
-		card string
-		want string
-	}{
-		"true":   {`{"interactiveRun":false,"held":true}`, "true"},
-		"false":  {`{"interactiveRun":false,"held":false}`, "false"},
-		"absent": {`{"interactiveRun":false}`, "nil"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			e := parseOK(t, moved(map[string]string{"card": tc.card}), nil)
-			got := "nil"
-			if e.Card.Held != nil {
-				got = fmt.Sprint(*e.Card.Held)
-			}
-			if got != tc.want {
-				t.Fatalf("held = %s, want %s", got, tc.want)
 			}
 		})
 	}

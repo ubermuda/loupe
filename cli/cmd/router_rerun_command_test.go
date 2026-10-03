@@ -27,14 +27,13 @@ func (h *harness) rerun(c api.Command) (string, string) {
 }
 
 // Each check that fails refuses the rerun with a reason a person can read,
-// and runs nothing. The rules of this harness run no work kind, so no entry
-// matches the run of a rerun.
+// and runs nothing.
 func TestARerunIsRefusedWhenACheckFails(t *testing.T) {
 	for name, tc := range map[string]struct {
 		change func(t *testing.T, h *harness, f *fakeCommand, c *api.Command)
 		reason string
 	}{
-		"a work run":      {func(_ *testing.T, _ *harness, _ *fakeCommand, _ *api.Command) {}, noCommandRule},
+		"an unknown kind": {func(_ *testing.T, _ *harness, _ *fakeCommand, c *api.Command) { c.WorkKind = "unknown" }, noCommandRule},
 		"a run of a rule": {func(_ *testing.T, _ *harness, _ *fakeCommand, c *api.Command) { c.WorkKind = "" }, noCommandRule},
 		"a handover":      {func(_ *testing.T, h *harness, _ *fakeCommand, _ *api.Command) { h.router.freeze() }, handingOver},
 		"a shut bridge":   {func(_ *testing.T, h *harness, _ *fakeCommand, _ *api.Command) { h.router.shutdown() }, bridgeShutting},

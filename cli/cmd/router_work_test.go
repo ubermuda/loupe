@@ -78,6 +78,9 @@ func (f *fakeWork) ClaimWorkRequest(_ context.Context, _, id string) (api.Claim,
 	f.mu.Lock()
 	f.claims = append(f.claims, id)
 	err, w, gate := f.errs[id], f.requests[id], f.gate
+	if _, known := f.requests[id]; !known {
+		w, _ = offeredRequest(id)
+	}
 	if f.mangle {
 		w.Kind = "other"
 	}
@@ -115,10 +118,10 @@ func (f *fakeWork) settled() []string {
 	return slices.Clone(f.settles)
 }
 
-// withWork gives the router a fake work server and a queue that sends at once.
+// withWork gives the router a queue that sends at once, and returns its fake
+// work server.
 func (h *harness) withWork() *fakeWork {
-	f := &fakeWork{requests: map[string]api.WorkRequest{}, errs: map[string]error{}}
-	h.router.workAPI = f
+	f := h.work
 	if h.router.reports == nil {
 		h.router.reports = syncQueue{}
 	}

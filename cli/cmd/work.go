@@ -92,7 +92,8 @@ func workEvent(w api.WorkRequest) event.Event {
 }
 
 // matchPending matches a queued run again on set: a work request against the
-// work map, and an event against its rule by name. The match keeps the action.
+// work map, and the run of a person's command against the entry of its kind.
+// The match keeps the action.
 func matchPending(set *rules.Set, p pending) (rules.Match, bool) {
 	var m rules.Match
 	switch {
@@ -101,7 +102,7 @@ func matchPending(set *rules.Set, p pending) (rules.Match, bool) {
 	case p.followsWork():
 		m = set.MatchKind(p.origin)
 	default:
-		return matchAction(set, p.event, p.rule, p.action)
+		return rules.Match{Skip: rules.NoRule}, false
 	}
 
 	return m, m.Skip == rules.Run && m.Action == p.action
@@ -304,7 +305,7 @@ func (r *router) requestClaim(p pending) (api.Claim, error) {
 	id := p.work.WorkRequestID
 	timeout := r.checkTimeout
 	if timeout <= 0 {
-		timeout = askCheckTimeout
+		timeout = readTimeout
 	}
 	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
 	defer cancel()

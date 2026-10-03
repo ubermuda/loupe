@@ -205,8 +205,8 @@ func TestAnOldServerSkipsEveryStateButAnOutcome(t *testing.T) {
 	ctx := context.Background()
 
 	for _, state := range []string{
-		api.RunQueued, api.RunReplaced, api.RunResumed, api.RunSkipped,
-		api.RunRunning, api.RunWaitingForPerson, api.RunDropped,
+		api.RunQueued, api.RunReplaced, api.RunSkipped,
+		api.RunRunning, api.RunDropped,
 	} {
 		report := failedReport()
 		report.State = state

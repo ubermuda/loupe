@@ -165,18 +165,14 @@ func (boardColumns) Sites(context.Context) ([]api.Site, error) {
 	return []api.Site{{ID: testProject, Slug: "loupe"}, {ID: otherProject, Slug: "other"}}, nil
 }
 
-// defaultRules starts a worker for a card that enters next, as the bridge did
-// before rules existed.
+// defaultRules runs a worker for each plan work request.
 const defaultRules = `
 projects:
   loupe:
     dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
-    prompt: Card {cardNumber} ({cardId}) entered {to}.
+work:
+  plan:
+    prompt: Card {cardNumber} ({cardId}) entered next.
 `
 
 // loadRules parses body with {dir} replaced by a real directory, and checks it.
@@ -199,6 +195,9 @@ type harness struct {
 	worker *fakeWorker
 	log    *syncBuffer
 	dir    string
+	// work is the fake server that claims and settles the work requests the
+	// test offers.
+	work *fakeWork
 }
 
 func newHarness(t *testing.T) *harness {
@@ -212,11 +211,12 @@ func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness
 	set, dir := loadRules(t, body, defaults)
 	w := &fakeWorker{result: workerResult{hasResult: true}}
 	h := &harness{worker: w, log: &syncBuffer{}, dir: dir}
+	h.work = &fakeWork{requests: map[string]api.WorkRequest{}, errs: map[string]error{}}
 	h.router = withRules(&router{
 		log:      newBridgeLogger(h.log),
 		worker:   w.ops(),
 		bridgeID: testBridgeID,
-		after:    now,
+		workAPI:  h.work,
 		startDir: func(string) (string, error) { return "", nil },
 	}, set)
 
@@ -235,18 +235,6 @@ func (h *harness) used() int {
 
 	return h.router.usedLocked()
 }
-
-// now fires at once, so the wait before a resume costs a test nothing.
-func now(time.Duration) <-chan time.Time {
-	c := make(chan time.Time, 1)
-	c <- time.Time{}
-
-	return c
-}
-
-// noResumeRules is defaultRules with no resume, so a run that does not finish
-// runs once.
-var noResumeRules = strings.Replace(defaultRules, "    to: next\n", "    to: next\n    maxResumes: 0\n", 1)
 
 // withRules stores the rule set in a router literal, which cannot set an
 // atomic pointer.
@@ -360,12 +348,34 @@ func cardUUID(number int) string {
 	return fmt.Sprintf("0192f3a1-9999-7d3e-8f10-%012d", number)
 }
 
-func movedPayload(number int, from, to, actor string) string {
-	return fmt.Sprintf(`{"type":"board.card_moved","subject":{"type":"card","id":%q},"projectId":%q,"cardNumber":%d,"fromStatus":%q,"toStatus":%q,"actor":%q}`, cardUUID(number), testProject, number, from, to, actor)
+// offerPayload is a new open work request of the kind for the card, as the
+// server offers it. Each call names a new request.
+func offerPayload(number int, kind string) string {
+	return offerPayloadIn(testProject, number, kind)
 }
 
+// offerPayloadIn is offerPayload for a card of another project.
+func offerPayloadIn(project string, number int, kind string) string {
+	n := int(offerSeq.Add(1))
+	w := api.WorkRequest{
+		Type: event.WorkRequestType, ProjectID: project, Subject: api.WorkRequestSubject{Type: "work-request", ID: offerID(n)},
+		WorkRequestID: offerID(n), Kind: kind, State: api.WorkRequestOpen, CardID: cardUUID(number), CardNumber: number,
+		RuleID: kind + "-rule", CreatedAt: time.Date(2026, 10, 2, 8, 0, 0, 0, time.UTC),
+	}
+	offered.Store(w.WorkRequestID, w)
+
+	return workPayload(w)
+}
+
+// offerID is the id of the nth work request a card helper builds. Its range
+// stays clear of workID.
+func offerID(n int) string {
+	return fmt.Sprintf("0199c000-0000-7000-8000-%012d", n)
+}
+
+// cardMoved offers a plan work request for the card.
 func cardMoved(number int) string {
-	return movedPayload(number, "backlog", "next", "human")
+	return offerPayload(number, "plan")
 }
 
 func TestAMatchingRuleRunsAWorker(t *testing.T) {
@@ -390,11 +400,11 @@ func TestAMatchingRuleRunsAWorker(t *testing.T) {
 	}
 
 	started := h.only(t, "worker_started")
-	if num(t, started, "card") != 87 || str(t, started, "project") != testProject || str(t, started, "rule") != "plan" {
+	if num(t, started, "card") != 87 || str(t, started, "project") != testProject || str(t, started, "rule") != "work:plan" {
 		t.Fatalf("worker_started = %v", started)
 	}
 	finished := h.only(t, "worker_finished")
-	if num(t, finished, "exit") != 0 || str(t, finished, "rule") != "plan" {
+	if num(t, finished, "exit") != 0 || str(t, finished, "rule") != "work:plan" {
 		t.Fatalf("worker_finished = %v", finished)
 	}
 	if _, ok := finished["duration_ms"].(float64); !ok {
@@ -406,13 +416,10 @@ func TestAMatchingRuleRunsAWorker(t *testing.T) {
 // worker runs with the ones of the rule that matched.
 func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	h := newHarnessWith(t, defaultRules+`
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+  review:
     permissionMode: plan
     model: opus
-    prompt: Review {cardId} in {project}, from {from}.
+    prompt: Review {cardId} in {project}, for {kind}.
 `, rules.Defaults{PermissionMode: "acceptEdits"})
 
 	h.router.onData([]byte(movedPayload(87, "in-progress", "review", "agent")))
@@ -428,61 +435,14 @@ func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	schema := `{"properties":{"reason":{"type":"string"},"status":{"enum":["finished","blocked","unfinished","waiting"],"type":"string"},"summary":{"type":"string"}},"required":["status","summary"],"type":"object"}`
 	want := workerSpec{
 		dir: h.dir, permissionMode: "plan", model: "opus", schema: schema, sessionID: testSession,
-		prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer,
-		runID:  calls[0].runID, rule: "review", key: testCard,
+		prompt: "Review " + testCard + " in loupe, for review.\n\n" + directive.Footer,
+		runID:  calls[0].runID, rule: "work:review", key: testCard,
 	}
 	if calls[0] != want {
 		t.Fatalf("worker = %+v, want %+v", calls[0], want)
 	}
-	if got := str(t, h.only(t, "worker_started"), "rule"); got != "review" {
+	if got := str(t, h.only(t, "worker_started"), "rule"); got != "work:review" {
 		t.Fatalf("rule = %q", got)
-	}
-}
-
-// A rule on a type this build knows no fields of runs on project alone, and its
-// log line names the subject because the event carries no card number.
-func TestARuleOnAGenericTypeRunsAWorker(t *testing.T) {
-	h := newHarnessWith(t, defaultRules+`
-  - name: created
-    on: board.card_created
-    project: loupe
-    prompt: Something was created in {project}.
-`, rules.Defaults{})
-
-	h.router.onData([]byte(`{"type":"board.card_created","subject":{"type":"card","id":"` + testCard + `"},"projectId":"` + testProject + `","actor":"human"}`))
-	h.router.wg.Wait()
-
-	if calls := h.worker.recorded(); len(calls) != 1 || !strings.HasPrefix(calls[0].prompt, "Something was created in loupe.") {
-		t.Fatalf("workers = %+v", calls)
-	}
-	started := h.only(t, "worker_started")
-	if str(t, started, "subject") != testCard || str(t, started, "rule") != "created" {
-		t.Fatalf("worker_started = %v", started)
-	}
-}
-
-// The widget cannot direct an agent unless the rule says so. The skip is
-// logged, so a trigger that produced nothing is still visible.
-func TestAReviewersEventIsSkippedUnlessTheRuleAllowsIt(t *testing.T) {
-	h := newHarness(t)
-
-	h.router.onData([]byte(movedPayload(87, "backlog", "next", "reviewer")))
-	h.router.wg.Wait()
-
-	if calls := h.worker.recorded(); len(calls) != 0 {
-		t.Fatalf("a reviewer's event started %+v", calls)
-	}
-	skipped := h.only(t, "event_untrusted")
-	if num(t, skipped, "card") != 87 || str(t, skipped, "rule") != "plan" {
-		t.Fatalf("event_untrusted = %v", skipped)
-	}
-
-	allowed := newHarnessWith(t, strings.Replace(defaultRules, "    to: next\n", "    to: next\n    allowUntrusted: true\n", 1), rules.Defaults{})
-	allowed.router.onData([]byte(movedPayload(87, "backlog", "next", "reviewer")))
-	allowed.router.wg.Wait()
-
-	if calls := allowed.worker.recorded(); len(calls) != 1 {
-		t.Fatalf("allowUntrusted still skipped the event: %+v", calls)
 	}
 }
 
@@ -597,73 +557,8 @@ func TestAnEventForABusyCardRunsAfterItsWorker(t *testing.T) {
 	}
 }
 
-// A person who drags a card back and forth sends several events in seconds.
-// While the card's worker runs, they become one follow-up run for the rule, and
-// each event that gets no run of its own says so.
-func TestEventsForABusyCardCoalescePerRule(t *testing.T) {
-	h := newHarnessWith(t, strings.Replace(defaultRules, "{to}.", "{to} from {from}.", 1), rules.Defaults{})
-	h.worker.started = make(chan workerSpec, 4)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	for _, from := range []string{"backlog", "review", "in-progress"} {
-		h.router.onData([]byte(movedPayload(87, from, "next", "human")))
-	}
-
-	coalesced := h.events(t, "worker_coalesced")
-	if len(coalesced) != 2 {
-		t.Fatalf("worker_coalesced = %v, want two lines", coalesced)
-	}
-	for _, line := range coalesced {
-		if num(t, line, "card") != 87 || str(t, line, "rule") != "plan" {
-			t.Fatalf("worker_coalesced = %v", line)
-		}
-	}
-
-	close(h.worker.block)
-	h.router.wg.Wait()
-
-	calls := h.worker.recorded()
-	if len(calls) != 2 {
-		t.Fatalf("ran %d workers, want the first and exactly one follow-up", len(calls))
-	}
-	if !strings.HasPrefix(calls[1].prompt, "Card 87 ("+testCard+") entered next from in-progress.") {
-		t.Fatalf("the follow-up did not run the newest event: %q", calls[1].prompt)
-	}
-}
-
-// A card queued behind the bound waits once per rule too, so it cannot run
-// twice when a slot frees.
-func TestACardAlreadyQueuedCoalesces(t *testing.T) {
-	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
-	h.worker.started = make(chan workerSpec, 3)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	h.router.onData([]byte(cardMoved(88)))
-	h.router.onData([]byte(cardMoved(88)))
-
-	if num(t, h.only(t, "worker_coalesced"), "card") != 88 {
-		t.Fatal("card 88 did not coalesce")
-	}
-	if got := h.events(t, "worker_queued"); len(got) != 2 {
-		t.Fatalf("card 88 was queued twice: %v", got)
-	}
-
-	close(h.worker.block)
-	h.router.wg.Wait()
-	if got := startedCards(t, h); len(got) != 2 {
-		t.Fatalf("started %v, want one run each for 87 and 88", got)
-	}
-}
-
 const reviewRule = `
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+  review:
     prompt: Review {cardId}.
 `
 
@@ -697,30 +592,10 @@ func TestTwoRulesOnABusyCardRunInOrder(t *testing.T) {
 			order = append(order, str(t, line, "rule"))
 		}
 	}
-	if strings.Join(order, " ") != "plan review plan" {
+	if strings.Join(order, " ") != "work:plan work:review work:plan" {
 		t.Fatalf("card 87 ran %v, want plan review plan", order)
 	}
 }
-
-// chainRules caps each rule at two agent-triggered runs in a row.
-const chainRules = `
-projects:
-  loupe:
-    dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
-    maxChain: 2
-    prompt: Plan {cardId}.
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
-    maxChain: 2
-    prompt: Review {cardId}.
-`
 
 // send delivers one payload and waits for any worker it started.
 func (h *harness) send(payload string) {
@@ -730,128 +605,6 @@ func (h *harness) send(payload string) {
 
 func (h *harness) runs() int {
 	return len(h.worker.recorded())
-}
-
-// A rule stops starting runs for a card once agents' events have started
-// maxChain of them in a row. A person's move resets the count; a reviewer's
-// event does not.
-func TestTheChainCapStopsAnAgentLoopUntilAPersonActs(t *testing.T) {
-	h := newHarnessWith(t, chainRules, rules.Defaults{})
-
-	h.send(movedPayload(87, "backlog", "next", "human"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 3 {
-		t.Fatalf("ran %d, want a person's run and two agent runs", h.runs())
-	}
-
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 3 {
-		t.Fatalf("the third agent run in a row still started: %d runs", h.runs())
-	}
-	capped := h.only(t, "chain_capped")
-	if num(t, capped, "card") != 87 || str(t, capped, "rule") != "plan" || num(t, capped, "max_chain") != 2 {
-		t.Fatalf("chain_capped = %v", capped)
-	}
-	if got := str(t, capped, "message"); got != "card 87 hit the chain cap of rule plan, waiting for a person" {
-		t.Fatalf("message = %q", got)
-	}
-
-	h.send(movedPayload(88, "backlog", "next", "agent"))
-	if h.runs() != 4 {
-		t.Fatalf("card 87's cap held card 88 back: %d runs", h.runs())
-	}
-
-	h.send(movedPayload(87, "next", "backlog", "reviewer"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 4 {
-		t.Fatalf("a reviewer's event reset the cap: %d runs", h.runs())
-	}
-
-	h.send(movedPayload(87, "next", "done", "human"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 5 {
-		t.Fatalf("a person's move did not reset the cap: %d runs", h.runs())
-	}
-}
-
-// The app moves a card when a person approves a document. Nobody judged that
-// move as a move, so it starts a run, spends no chain budget and resets none.
-func TestASystemMoveNeitherSpendsNorResetsTheChain(t *testing.T) {
-	h := newHarnessWith(t, chainRules, rules.Defaults{})
-
-	h.send(movedPayload(87, "backlog", "next", "system"))
-	h.send(movedPayload(87, "backlog", "next", "system"))
-	h.send(movedPayload(87, "backlog", "next", "system"))
-	if h.runs() != 3 {
-		t.Fatalf("a system move hit the cap: %d runs", h.runs())
-	}
-
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 5 {
-		t.Fatalf("the agent runs after a system move did not start: %d runs", h.runs())
-	}
-
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 5 {
-		t.Fatalf("the agent chain was not capped: %d runs", h.runs())
-	}
-
-	h.send(movedPayload(87, "backlog", "next", "system"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 6 {
-		t.Fatalf("a system move reset the cap, so only a person's move must: %d runs", h.runs())
-	}
-}
-
-// Each rule counts its own runs, and a person's move resets every rule's count
-// on that card.
-func TestEachRuleCountsItsOwnChain(t *testing.T) {
-	h := newHarnessWith(t, chainRules, rules.Defaults{})
-
-	for range 2 {
-		h.send(movedPayload(87, "review", "next", "agent"))
-		h.send(movedPayload(87, "next", "review", "agent"))
-	}
-	if h.runs() != 4 {
-		t.Fatalf("ran %d, want two runs for each rule", h.runs())
-	}
-
-	h.send(movedPayload(87, "review", "next", "agent"))
-	h.send(movedPayload(87, "next", "review", "agent"))
-	if h.runs() != 4 || len(h.events(t, "chain_capped")) != 2 {
-		t.Fatalf("runs = %d, chain_capped = %v", h.runs(), h.events(t, "chain_capped"))
-	}
-
-	h.send(movedPayload(87, "review", "backlog", "human"))
-	h.send(movedPayload(87, "review", "next", "agent"))
-	h.send(movedPayload(87, "next", "review", "agent"))
-	if h.runs() != 6 {
-		t.Fatalf("a person's move did not reset both rules: %d runs", h.runs())
-	}
-}
-
-// A count follows runs, not events. An event that replaces a waiting one adds
-// nothing, so a burst of agent events for a busy card uses one step of the cap.
-func TestACoalescedEventDoesNotCountTowardTheCap(t *testing.T) {
-	h := newHarnessWith(t, chainRules, rules.Defaults{})
-	h.worker.started = make(chan workerSpec, 4)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(movedPayload(87, "backlog", "next", "human")))
-	<-h.worker.started
-	for range 3 {
-		h.router.onData([]byte(movedPayload(87, "backlog", "next", "agent")))
-	}
-	close(h.worker.block)
-	h.router.wg.Wait()
-
-	h.worker.started, h.worker.block = nil, nil
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 3 || len(h.events(t, "chain_capped")) != 0 {
-		t.Fatalf("runs = %d, chain_capped = %v; want the second agent run to start", h.runs(), h.events(t, "chain_capped"))
-	}
 }
 
 // TestTwoCardsRunConcurrently pins that a running worker never blocks the read
@@ -982,8 +735,8 @@ func TestShutdownDropsTheQueueAndSaysSo(t *testing.T) {
 	if num(t, line, "count") != 2 {
 		t.Fatalf("queue_dropped = %v", line)
 	}
-	if got := strings.Join(dropped(t, line), " "); got != "88/plan 89/plan" {
-		t.Fatalf("dropped = %s, want 88/plan 89/plan", got)
+	if got := strings.Join(dropped(t, line), " "); got != "88/work:plan 89/work:plan" {
+		t.Fatalf("dropped = %s, want 88/work:plan 89/work:plan", got)
 	}
 
 	close(h.worker.block)
@@ -1012,7 +765,7 @@ func TestShutdownNamesEachWaitingRuleOfACard(t *testing.T) {
 	h.router.shutdown()
 
 	line := h.only(t, "queue_dropped")
-	if got := strings.Join(dropped(t, line), " "); num(t, line, "count") != 2 || got != "87/review 87/plan" {
+	if got := strings.Join(dropped(t, line), " "); num(t, line, "count") != 2 || got != "87/work:review 87/work:plan" {
 		t.Fatalf("queue_dropped = %v", line)
 	}
 
@@ -1033,7 +786,7 @@ func TestAnEventAfterShutdownIsDropped(t *testing.T) {
 	h.router.wg.Wait()
 
 	line := h.only(t, "queue_dropped")
-	if got := strings.Join(dropped(t, line), " "); num(t, line, "count") != 1 || got != "87/plan" {
+	if got := strings.Join(dropped(t, line), " "); num(t, line, "count") != 1 || got != "87/work:plan" {
 		t.Fatalf("queue_dropped = %v", line)
 	}
 	if got := h.worker.recorded(); len(got) != 0 {
@@ -1066,7 +819,7 @@ func TestACancelledContextStopsTheQueue(t *testing.T) {
 		t.Fatalf("a cancelled bridge still ran %d workers", len(got))
 	}
 	line := h.only(t, "queue_dropped")
-	if got := strings.Join(dropped(t, line), " "); num(t, line, "count") != 1 || got != "88/plan" {
+	if got := strings.Join(dropped(t, line), " "); num(t, line, "count") != 1 || got != "88/work:plan" {
 		t.Fatalf("queue_dropped = %v", line)
 	}
 }
@@ -1085,7 +838,7 @@ func TestShutdownWithAnEmptyQueueLogsNothing(t *testing.T) {
 }
 
 func TestANonZeroExitIsReported(t *testing.T) {
-	h := newHarnessWith(t, noResumeRules, rules.Defaults{})
+	h := newHarnessWith(t, defaultRules, rules.Defaults{})
 	h.worker.result = workerResult{exitCode: 2, output: "claude: permission denied", hasResult: true}
 
 	h.router.onData([]byte(cardMoved(87)))
@@ -1107,7 +860,7 @@ func TestANonZeroExitIsReported(t *testing.T) {
 // line is a failure, whatever its exit code.
 func TestARunWithNoResultLineIsAnError(t *testing.T) {
 	for _, exit := range []int{0, 1} {
-		h := newHarnessWith(t, noResumeRules, rules.Defaults{})
+		h := newHarnessWith(t, defaultRules, rules.Defaults{})
 		h.worker.result = workerResult{exitCode: exit, output: "waiting on a task"}
 
 		h.router.onData([]byte(cardMoved(87)))
@@ -1117,7 +870,7 @@ func TestARunWithNoResultLineIsAnError(t *testing.T) {
 		if str(t, line, "level") != "ERROR" || num(t, line, "exit") != exit || num(t, line, "card") != 87 {
 			t.Fatalf("worker_no_result = %v", line)
 		}
-		if str(t, line, "rule") != "plan" || str(t, line, "output") != "waiting on a task" || line["duration_ms"] == nil {
+		if str(t, line, "rule") != "work:plan" || str(t, line, "output") != "waiting on a task" || line["duration_ms"] == nil {
 			t.Fatalf("worker_no_result = %v", line)
 		}
 		if got := h.events(t, "worker_finished"); len(got) != 0 {
@@ -1183,29 +936,11 @@ func TestAWorkerThatNeverRanIsReported(t *testing.T) {
 	h.router.wg.Wait()
 
 	failed := h.only(t, "worker_failed")
-	if str(t, failed, "error") != "boom" || str(t, failed, "rule") != "plan" {
+	if str(t, failed, "error") != "boom" || str(t, failed, "rule") != "work:plan" {
 		t.Fatalf("worker_failed = %v", failed)
 	}
 	if got := append(h.events(t, "worker_finished"), h.events(t, "worker_no_result")...); len(got) != 0 {
 		t.Fatalf("a worker that never ran also reported finishing: %v", got)
-	}
-}
-
-// A move into a column no rule names starts nothing. That also closes the
-// feedback loop: the worker's own move to in-progress matches no rule.
-func TestCardMovedElsewhereIsIgnored(t *testing.T) {
-	for _, to := range []string{"backlog", "in-progress", "done"} {
-		h := newHarness(t)
-
-		h.router.onData([]byte(movedPayload(87, "next", to, "agent")))
-		h.router.wg.Wait()
-
-		if calls := h.worker.recorded(); len(calls) != 0 {
-			t.Fatalf("to=%q acted on: %+v", to, calls)
-		}
-		if h.log.String() != "" {
-			t.Fatalf("to=%q logged %q", to, h.log.String())
-		}
 	}
 }
 
@@ -1254,11 +989,12 @@ func TestMalformedEventIsReported(t *testing.T) {
 	}
 }
 
+// A hold event the bridge cannot read is logged and acts on nothing.
 func TestIncompleteCardEventIsReportedAndDropped(t *testing.T) {
 	for _, payload := range []string{
-		`{"type":"board.card_moved","subject":{"type":"card","id":"` + testCard + `"},"cardNumber":87,"fromStatus":"backlog","toStatus":"next","actor":"human"}`,
-		movedPayload(87, "backlog", "", "human"),
-		movedPayload(87, "backlog", "next", ""),
+		`{"type":"board.card_held","subject":{"type":"card","id":"` + testCard + `"},"cardNumber":87,"actor":"human"}`,
+		`{"type":"board.card_held","subject":{"type":"card","id":"card-87"},"projectId":"` + testProject + `","actor":"human"}`,
+		`{"type":"board.card_released","subject":{"type":"card","id":"` + testCard + `"},"projectId":"` + testProject + `"}`,
 	} {
 		h := newHarness(t)
 
@@ -1322,8 +1058,8 @@ func (p *lockProbe) Write(b []byte) (int, error) {
 // A line enqueue writes after mu is released can follow the worker_started line
 // that a finishing worker writes for the same event. Holding mu rules that out.
 func TestEnqueueLinesAreWrittenUnderTheLock(t *testing.T) {
-	h := newHarnessWith(t, chainRules, rules.Defaults{})
-	events := []string{"worker_queued", "worker_coalesced", "chain_capped"}
+	h := newHarnessWith(t, defaultRules, rules.Defaults{})
+	events := []string{"worker_queued"}
 	probe := &lockProbe{router: h.router, events: events, seen: map[string]int{}}
 	h.router.log = newBridgeLogger(probe)
 	h.worker.started = make(chan workerSpec, 2)
@@ -1354,202 +1090,5 @@ func TestEnqueueLinesAreWrittenUnderTheLock(t *testing.T) {
 func TestTheKeyIsTheSubjectID(t *testing.T) {
 	if got := keyFor(event.Event{Subject: event.Subject{ID: testCard}}); got != testCard {
 		t.Fatalf("keyFor = %q, want %q", got, testCard)
-	}
-}
-
-// A dropped event with no card number names its subject.
-func TestShutdownNamesTheSubjectOfAGenericEvent(t *testing.T) {
-	h := newHarnessWith(t, defaultRules+`
-  - name: created
-    on: board.card_created
-    project: loupe
-    prompt: Created in {project}.
-`, rules.Defaults{})
-
-	h.router.shutdown()
-	h.router.onData([]byte(`{"type":"board.card_created","subject":{"type":"card","id":"` + testCard + `"},"projectId":"` + testProject + `","actor":"human"}`))
-
-	raw, _ := h.only(t, "queue_dropped")["dropped"].([]any)
-	if len(raw) != 1 {
-		t.Fatalf("dropped = %v", raw)
-	}
-	entry, _ := raw[0].(map[string]any)
-	if entry["subject"] != testCard || entry["rule"] != "created" || entry["card"] != nil {
-		t.Fatalf("dropped entry = %v", entry)
-	}
-}
-
-// Two projects number their cards from 1 independently, so card 87 of one
-// project must not share a key with card 87 of another.
-func TestTheKeySeparatesCardsWithOneNumber(t *testing.T) {
-	a := event.Event{Type: event.CardMovedType, Subject: event.Subject{ID: cardUUID(1)}, ProjectID: testProject, CardNumber: 87}
-	b := event.Event{Type: event.CardMovedType, Subject: event.Subject{ID: cardUUID(2)}, ProjectID: "0192f3a1-4b2c-7d3e-8f10-ffffffffffff", CardNumber: 87}
-
-	if keyFor(a) == keyFor(b) {
-		t.Fatalf("card 87 in two projects collided on %q", keyFor(a))
-	}
-}
-
-// Every event type keys one card the same way, so a person's event of any type
-// resets the chain a card move built, and one card never runs two workers.
-func TestTheKeyIsTheSameForEveryEventType(t *testing.T) {
-	moved := event.Event{Type: event.CardMovedType, Subject: event.Subject{ID: testCard}, ProjectID: testProject, CardNumber: 87}
-	created := event.Event{Type: "board.card_created", Subject: event.Subject{ID: testCard}, ProjectID: testProject}
-
-	if keyFor(moved) != keyFor(created) {
-		t.Fatalf("one card has two keys: %q and %q", keyFor(moved), keyFor(created))
-	}
-}
-
-// A person's event of a type the parser knows no fields of still resets a
-// capped chain on its card.
-func TestAPersonsGenericEventResetsTheChain(t *testing.T) {
-	h := newHarnessWith(t, chainRules+`
-  - name: created
-    on: board.card_created
-    project: loupe
-    prompt: Created in {project}.
-`, rules.Defaults{})
-
-	for range 3 {
-		h.send(movedPayload(87, "backlog", "next", "agent"))
-	}
-	if h.runs() != 2 || len(h.events(t, "chain_capped")) != 1 {
-		t.Fatalf("runs = %d, want the cap to hold after two", h.runs())
-	}
-
-	h.send(`{"type":"board.card_created","subject":{"type":"card","id":"` + testCard + `"},"projectId":"` + testProject + `","actor":"human"}`)
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 4 {
-		t.Fatalf("a person's generic event did not reset the chain: %d runs", h.runs())
-	}
-}
-
-// verdictRules adds a rule on the review verdict to chainRules.
-const verdictRules = chainRules + `
-  - name: verdict
-    on: document.review_submitted
-    project: loupe
-    prompt: A review landed in {project}.
-`
-
-// testDocument is the subject of every review verdict event.
-const testDocument = "01a0a1b2-5555-7c3d-8e4f-5a6b7c8d9e0f"
-
-// verdictPayload is a review verdict on the stage card with the given number.
-// Card 0 sends the three card fields as null, as the server does.
-func verdictPayload(number int, verdict string) string {
-	card, cardNumber, column := "null", "null", "null"
-	if number > 0 {
-		card, cardNumber, column = fmt.Sprintf("%q", cardUUID(number)), fmt.Sprint(number), `"tech-design"`
-	}
-
-	return fmt.Sprintf(`{"type":"document.review_submitted","subject":{"type":"document","id":%q},"projectId":%q,"verdict":%q,"cardIds":[],"actor":"human","cardId":%s,"cardNumber":%s,"column":%s}`,
-		testDocument, testProject, verdict, card, cardNumber, column)
-}
-
-// A verdict keys on its stage card, so it waits behind a worker of that card.
-func TestAVerdictWaitsBehindAWorkerOfItsCard(t *testing.T) {
-	h := newHarnessWith(t, verdictRules, rules.Defaults{})
-	h.worker.started = make(chan workerSpec, 2)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	h.router.onData([]byte(verdictPayload(87, "approved")))
-
-	h.router.mu.Lock()
-	active, waiting := h.router.usedLocked(), len(h.router.queue)
-	h.router.mu.Unlock()
-	if active != 1 || waiting != 1 {
-		t.Fatalf("active = %d, waiting = %d; want the verdict to wait", active, waiting)
-	}
-	queued := h.events(t, "worker_queued")
-	if len(queued) != 2 || num(t, queued[1], "card") != 87 || str(t, queued[1], "document") != testDocument || str(t, queued[1], "verdict") != "approved" {
-		t.Fatalf("worker_queued = %v", queued)
-	}
-
-	close(h.worker.block)
-	h.router.wg.Wait()
-	if got := startedCards(t, h); len(got) != 2 || got[1] != 87 {
-		t.Fatalf("started %v, want the verdict to run on card 87 after the move", got)
-	}
-	if h.worker.peak() != 1 {
-		t.Fatalf("peak concurrency for one card = %d, want 1", h.worker.peak())
-	}
-}
-
-func TestTheVerdictKey(t *testing.T) {
-	h := newHarnessWith(t, verdictRules, rules.Defaults{})
-	for name, tc := range map[string]struct {
-		number int
-		key    string
-	}{
-		"the stage card": {87, cardUUID(87)},
-		"no card":        {0, testDocument},
-	} {
-		t.Run(name, func(t *testing.T) {
-			e, err := event.Parse([]byte(verdictPayload(tc.number, "approved")), h.router.rules().ExtraTypes())
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, key := h.router.resolve(e); key != tc.key {
-				t.Fatalf("key = %q, want %q", key, tc.key)
-			}
-		})
-	}
-}
-
-// Two verdicts on a busy card become one follow-up run of the rule.
-func TestASecondVerdictCoalescesWithAWaitingOne(t *testing.T) {
-	h := newHarnessWith(t, verdictRules, rules.Defaults{})
-	h.worker.started = make(chan workerSpec, 3)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	h.router.onData([]byte(verdictPayload(87, "changes-requested")))
-	h.router.onData([]byte(verdictPayload(87, "approved")))
-
-	coalesced := h.only(t, "worker_coalesced")
-	if num(t, coalesced, "card") != 87 || str(t, coalesced, "rule") != "verdict" || str(t, coalesced, "verdict") != "approved" {
-		t.Fatalf("worker_coalesced = %v", coalesced)
-	}
-
-	close(h.worker.block)
-	h.router.wg.Wait()
-	if h.runs() != 2 {
-		t.Fatalf("ran %d workers, want the move and one verdict run", h.runs())
-	}
-}
-
-// A verdict is a person's act on the stage card, so it resets that card's chain.
-func TestAPersonsVerdictResetsTheCardsChain(t *testing.T) {
-	h := newHarnessWith(t, verdictRules, rules.Defaults{})
-
-	for range 3 {
-		h.send(movedPayload(87, "backlog", "next", "agent"))
-	}
-	if h.runs() != 2 || len(h.events(t, "chain_capped")) != 1 {
-		t.Fatalf("runs = %d, want the cap to hold after two", h.runs())
-	}
-
-	h.send(verdictPayload(87, "approved"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	if h.runs() != 4 {
-		t.Fatalf("runs = %d, want the verdict run and a card run after the reset", h.runs())
-	}
-}
-
-// The run of a verdict reports against its stage card, not its document.
-func TestAVerdictRunReportsItsCard(t *testing.T) {
-	h := newHarnessWith(t, verdictRules, rules.Defaults{})
-	sent := h.reports(t)
-
-	h.send(verdictPayload(87, "approved"))
-
-	got := <-sent
-	if got.run.CardID != cardUUID(87) || got.run.CardNumber != 87 || got.run.RuleName != "verdict" {
-		t.Fatalf("run = %+v", got.run)
 	}
 }

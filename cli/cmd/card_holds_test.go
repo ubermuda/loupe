@@ -196,14 +196,23 @@ func TestAfterTheHeldListAStopHoldsNothing(t *testing.T) {
 	h.router.readHolds = (&holdLists{}).read
 	h.router.handler().OnConnect()
 	h.router.wg.Wait()
-	h.reply(pausedReply(true))
-	h.send(cardMoved(87))
+	s := h.stopper()
+	s.gone = true
+	h.worker.started, h.worker.block = make(chan workerSpec, 1), make(chan struct{})
+	s.on = func(sig stopSignal) {
+		if sig == stopInt {
+			close(h.worker.block)
+		}
+	}
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
 
 	h.stop(t, firstRun(t, rec))
-	h.reply(pausedReply(false))
+	h.router.wg.Wait()
+	h.worker.started, h.worker.block = nil, nil
 	h.send(cardMoved(87))
 
-	if h.cardHoldOf(87) || h.runs() != 1 {
+	if h.cardHoldOf(87) || h.runs() != 2 {
 		t.Fatalf("held = %v, runs = %d", h.cardHoldOf(87), h.runs())
 	}
 }

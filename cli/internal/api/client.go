@@ -449,114 +449,11 @@ func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, er
 	return out, nil
 }
 
-// The states and reasons of a rule health report.
+// The reasons the work of a mapped project stops.
 const (
-	RuleLive = "live"
-	RuleDead = "dead"
-
-	ReasonColumnRenamed  = "column_renamed"
-	ReasonColumnDeleted  = "column_deleted"
 	ReasonProjectRenamed = "project_renamed"
 	ReasonProjectGone    = "project_gone"
 )
-
-// RuleHealth is one rule of a health report. It has no prompt field, so no
-// prompt text can reach the server.
-type RuleHealth struct {
-	Name    string   `json:"name"`
-	On      string   `json:"on"`
-	Columns []string `json:"columns"`
-	State   string   `json:"state"`
-	Reason  *string  `json:"reason"`
-}
-
-// ErrReportRejected marks a report the server refused for a reason a retry of
-// the same body cannot fix, such as a 422 or an unknown project.
-var ErrReportRejected = errors.New("the server rejected the rule report")
-
-// Violation is one field a 422 names, such as rules[0].name.
-type Violation struct {
-	PropertyPath string `json:"propertyPath"`
-	Title        string `json:"title"`
-}
-
-// RejectedReport is a report the server refused for good. It matches
-// ErrReportRejected, and the 404 cause, such as ErrProjectNotFound.
-type RejectedReport struct {
-	Status     int
-	Violations []Violation
-	cause      error
-}
-
-func (e *RejectedReport) Error() string {
-	msg := fmt.Sprintf("the server rejected the rule report (HTTP %d)", e.Status)
-	if e.cause != nil {
-		msg += ": " + e.cause.Error()
-	}
-	for _, v := range e.Violations {
-		msg += fmt.Sprintf("; %s: %s", v.PropertyPath, v.Title)
-	}
-
-	return msg
-}
-
-func (e *RejectedReport) Unwrap() []error {
-	if e.cause == nil {
-		return []error{ErrReportRejected}
-	}
-
-	return []error{ErrReportRejected, e.cause}
-}
-
-// ReportRules replaces this bridge's rule health report for one project.
-func (c *Client) ReportRules(ctx context.Context, handle, bridgeID string, rules []RuleHealth) error {
-	if rules == nil {
-		rules = []RuleHealth{}
-	}
-	body, err := json.Marshal(struct {
-		Rules []RuleHealth `json:"rules"`
-	}{rules})
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
-		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/bridges/"+url.PathEscape(bridgeID)+"/rules", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.do(req)
-	if err != nil {
-		return fmt.Errorf("report rules of %s: %w", handle, err)
-	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case http.StatusNoContent, http.StatusOK:
-		return nil
-	case http.StatusNotFound:
-		err := notFound(resp.Body)
-		if errors.Is(err, ErrBoardDisabled) {
-			return err
-		}
-
-		return &RejectedReport{Status: resp.StatusCode, cause: err}
-	case http.StatusUnprocessableEntity:
-		var problem struct {
-			Violations []Violation `json:"violations"`
-		}
-		_ = json.NewDecoder(io.LimitReader(resp.Body, maxBody)).Decode(&problem)
-
-		return &RejectedReport{Status: resp.StatusCode, Violations: problem.Violations}
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return &RejectedReport{Status: resp.StatusCode}
-	default:
-		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("rule report for %s failed (HTTP %d): %s", handle, resp.StatusCode, strings.TrimSpace(string(detail)))
-	}
-}
 
 // Sites lists the authenticated user's sites. Login calls it to check a token.
 func (c *Client) Sites(ctx context.Context) ([]Site, error) {
@@ -830,55 +727,6 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 
 		return HeartbeatReply{}, fmt.Errorf("heartbeat failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 	}
-}
-
-// AskState is the answer of GET /api/projects/{handle}/inbox/asks/{askId}.
-type AskState struct {
-	AskID   string `json:"askId"`
-	Closed  bool   `json:"closed"`
-	AllRead bool   `json:"allRead"`
-}
-
-// CheckAsk reads whether an ask closed and whether its session read every item.
-// Any answer other than a 200 that states both booleans for this ask is an
-// error, and the error carries the server's body. The caller resumes on every
-// error alike, so no error kind is told apart.
-func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, error) {
-	var out AskState
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/inbox/asks/"+url.PathEscape(askID), nil)
-	if err != nil {
-		return out, err
-	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.do(req)
-	if err != nil {
-		return out, fmt.Errorf("check ask %s: %w", askID, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return out, fmt.Errorf("ask check failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	var raw struct {
-		AskID   string `json:"askId"`
-		Closed  *bool  `json:"closed"`
-		AllRead *bool  `json:"allRead"`
-	}
-	if err := decodeBody(resp.Body, &raw); err != nil {
-		return out, fmt.Errorf("decode the check of ask %s: %w", askID, err)
-	}
-	if raw.Closed == nil || raw.AllRead == nil {
-		return out, fmt.Errorf("the check of ask %s does not state closed and allRead", askID)
-	}
-	if !strings.EqualFold(raw.AskID, askID) {
-		return out, fmt.Errorf("the check of ask %s answers for another ask, %q", askID, raw.AskID)
-	}
-
-	return AskState{AskID: raw.AskID, Closed: *raw.Closed, AllRead: *raw.AllRead}, nil
 }
 
 // CardRead is the answer of the card endpoint: the column a card is in now,

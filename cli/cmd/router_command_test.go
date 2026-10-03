@@ -24,9 +24,7 @@ import (
 
 // commandRules names the command type in a rule, which the rule file allows.
 const commandRules = defaultRules + `
-  - name: command
-    on: bridge.command
-    project: loupe
+  command:
     prompt: Act on the command.
 `
 
@@ -107,8 +105,8 @@ func dropReasons(t *testing.T, h *harness) []string {
 // refusedNoRun is the answer to a stop of a run the bridge does not hold.
 const refusedNoRun = "refused " + noOpenRun
 
-// A command is never an event a rule acts on, even when a rule names its type.
-// Another bridge's command is dropped in silence.
+// A command starts no run, even when a kind of work has its name. Another
+// bridge's command is dropped in silence.
 func TestACommandMatchesNoRule(t *testing.T) {
 	for name, bridgeID := range map[string]string{"this bridge": testBridgeID, "another bridge": foreignBridge} {
 		t.Run(name, func(t *testing.T) {

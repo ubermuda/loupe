@@ -206,13 +206,11 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 		}
 	}
 	r.reloading, r.reloadKills, r.reloadGone = false, nil, nil
-	dead := make([][]rules.Dead, len(kills))
-	for i, e := range kills {
-		dead[i] = set.Kill(e)
+	for _, e := range kills {
+		set.KillWork(e)
 	}
-	goneDead := make([][]rules.Dead, len(gone))
-	for i, id := range gone {
-		goneDead[i] = killGone(set, id)
+	for _, id := range gone {
+		killGone(set, id)
 	}
 	r.set.Store(set)
 	r.hookRunner.setHooks(b.hooks)
@@ -224,15 +222,8 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	r.pruneLocked(set, gone)
 	r.projects = set.Projects()
 	shutDropped := r.dispatchLocked()
-	r.reportAllLocked(set, old)
 	r.mu.Unlock()
 
-	for i, e := range kills {
-		r.logDead(e, dead[i])
-	}
-	for i, id := range gone {
-		r.logGone(id, goneDead[i])
-	}
 	r.logDropped(dropped, "reason", "reload")
 	r.logDropped(shutDropped)
 	if r.heartbeat != nil {
@@ -264,9 +255,6 @@ func (r *router) rewriteLocked(set *rules.Set) []pending {
 		if !ok {
 			p.dropReason = api.DropReload
 			dropped = append(dropped, p)
-			if p.checked {
-				delete(r.running, p.key)
-			}
 
 			continue
 		}
@@ -280,25 +268,10 @@ func (r *router) rewriteLocked(set *rules.Set) []pending {
 	return dropped
 }
 
-// pruneLocked forgets the chain counts of the rules the new set lacks, and the
-// unmapped marks of the projects it maps. The reload saw each project of the
+// pruneLocked forgets the unmapped marks of the projects the new set maps. The reload saw each project of the
 // new set in GET /api/events, so a gone mark holds only for the ids a newer
 // answer found gone. The caller holds mu.
 func (r *router) pruneLocked(set *rules.Set, gone []string) {
-	names := map[string]bool{}
-	for _, rule := range set.Rules() {
-		names[rule.Name] = true
-	}
-	for key, counts := range r.chains {
-		for name := range counts {
-			if !names[name] {
-				delete(counts, name)
-			}
-		}
-		if len(counts) == 0 {
-			delete(r.chains, key)
-		}
-	}
 	for _, slug := range set.Projects() {
 		delete(r.unmapped, set.ProjectID(slug))
 	}
@@ -313,51 +286,24 @@ func (r *router) pruneLocked(set *rules.Set, gone []string) {
 	}
 }
 
-// reportAllLocked reports the health of every project of the new set, and an
-// empty report for each project only the old set mapped. It runs under mu, so
-// the report of a later kill always goes out after these. The empty reports go
-// first, because a renamed project keeps its id.
-func (r *router) reportAllLocked(set, old *rules.Set) {
-	if r.health == nil {
-		return
-	}
-	ids := map[string]bool{}
-	for _, slug := range set.Projects() {
-		ids[set.ProjectID(slug)] = true
-	}
-	for _, slug := range old.Projects() {
-		if id := old.ProjectID(slug); !ids[id] {
-			r.health.submit(slug, id, []api.RuleHealth{})
-		}
-	}
-	for _, slug := range set.Projects() {
-		r.reportHealth(set, slug)
-	}
-}
-
-// diffRules names the rules the new set adds, removes and changes, by name. A
-// rule changes when any field differs after the defaults are filled. It also
-// names each project of both sets whose dir changed.
+// diffRules names the work kinds the new set adds, removes and changes. A
+// kind changes when any field of its entry differs after the defaults are
+// filled. It also names each project of both sets whose dir changed.
 func diffRules(old, set *rules.Set) reloadResult {
 	res := reloadResult{OK: true, Projects: set.Projects()}
-	before := map[string]rules.Rule{}
-	for _, rule := range old.Rules() {
-		before[rule.Name] = rule
-	}
-	after := map[string]bool{}
-	for _, rule := range set.Rules() {
-		after[rule.Name] = true
-		prev, ok := before[rule.Name]
+	for _, kind := range set.WorkKinds() {
+		prev, ok := old.WorkEntry(kind)
+		entry, _ := set.WorkEntry(kind)
 		switch {
 		case !ok:
-			res.Added = append(res.Added, rule.Name)
-		case !reflect.DeepEqual(prev, rule):
-			res.Changed = append(res.Changed, rule.Name)
+			res.Added = append(res.Added, kind)
+		case !reflect.DeepEqual(prev, entry):
+			res.Changed = append(res.Changed, kind)
 		}
 	}
-	for _, rule := range old.Rules() {
-		if !after[rule.Name] {
-			res.Removed = append(res.Removed, rule.Name)
+	for _, kind := range old.WorkKinds() {
+		if _, ok := set.WorkEntry(kind); !ok {
+			res.Removed = append(res.Removed, kind)
 		}
 	}
 	for _, slug := range set.Projects() {

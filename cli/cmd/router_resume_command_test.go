@@ -44,8 +44,7 @@ func (h *harness) resume(c api.Command) (string, string) {
 }
 
 // Each check that fails refuses the resume with a reason a person can read,
-// and starts nothing. The rules of this harness run no work kind, so no entry
-// matches the run of a resume.
+// and starts nothing.
 func TestAPersonsResumeIsRefusedWhenACheckFails(t *testing.T) {
 	for name, tc := range map[string]struct {
 		change func(t *testing.T, h *harness, c *api.Command)
@@ -58,7 +57,7 @@ func TestAPersonsResumeIsRefusedWhenACheckFails(t *testing.T) {
 		"no transcript":   {change: func(_ *testing.T, h *harness, _ *api.Command) { h.transcripts(false) }, reason: noTranscript},
 		"a handover":      {change: func(_ *testing.T, h *harness, _ *api.Command) { h.router.freeze() }, reason: handingOver},
 		"a shut bridge":   {change: func(_ *testing.T, h *harness, _ *api.Command) { h.router.shutdown() }, reason: bridgeShutting},
-		"a work run":      {change: func(_ *testing.T, _ *harness, _ *api.Command) {}, reason: noWorkerRule},
+		"an unknown kind": {change: func(_ *testing.T, _ *harness, c *api.Command) { c.WorkKind = "unknown" }, reason: noWorkerRule},
 		"a run of a rule": {change: func(_ *testing.T, _ *harness, c *api.Command) { c.WorkKind = "" }, reason: noWorkerRule},
 	} {
 		t.Run(name, func(t *testing.T) {

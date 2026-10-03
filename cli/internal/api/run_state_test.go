@@ -98,14 +98,8 @@ func TestReportRunStateSendsTheFieldsOfEachState(t *testing.T) {
 	running.SessionID = "5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f"
 	running.StartedAt = started
 
-	resumed := stateReport(RunResumed)
-	resumed.AskID = "0199a0e2-e4f5-7077-8c44-516273849506"
-
 	replaced := stateReport(RunReplaced)
 	replaced.ReplacedBy = "0199a0e2-f506-7188-9d55-627384950617"
-
-	capped := stateReport(RunWaitingForPerson)
-	capped.MaxChain = 3
 
 	dropped := stateReport(RunDropped)
 	dropped.Reason = "shutdown"
@@ -115,9 +109,7 @@ func TestReportRunStateSendsTheFieldsOfEachState(t *testing.T) {
 		want   string
 	}{
 		{running, withBase("sessionId", "startedAt")},
-		{resumed, withBase("askId")},
 		{replaced, withBase("replacedBy")},
-		{capped, withBase("maxChain")},
 		{dropped, withBase("reason")},
 		{stateReport(RunSkipped), withBase()},
 	} {
@@ -372,12 +364,12 @@ func TestReportRunStateSendsTheWorkRequest(t *testing.T) {
 }
 
 func TestIsOutcomeNamesTheEndsOfARun(t *testing.T) {
-	for _, state := range []string{RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunGaveUp, RunWaitingOnForge} {
+	for _, state := range []string{RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunWaitingOnForge} {
 		if !IsOutcome(state) {
 			t.Fatalf("IsOutcome(%q) = false", state)
 		}
 	}
-	for _, state := range []string{RunQueued, RunReplaced, RunResumed, RunSkipped, RunPreparing, RunRunning, RunWaitingForPerson, RunDropped} {
+	for _, state := range []string{RunQueued, RunReplaced, RunSkipped, RunPreparing, RunRunning, RunDropped} {
 		if IsOutcome(state) {
 			t.Fatalf("IsOutcome(%q) = true", state)
 		}
