@@ -50,9 +50,6 @@ final class BaselineCardsOnBoardAutomationTurnedOnTest extends KernelTestCase
         $this->service(SaveBoardAutomationSettingsHandler::class)(new SaveBoardAutomationSettingsCommand(
             $project,
             $enabled,
-            $settings->mergeStrategy,
-            $settings->fixStrategy,
-            $settings->loopLimit,
             $settings->commentOnFixQueued,
             $settings->commentOnStaleApproval,
             $settings->syncBehind,

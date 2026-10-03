@@ -75,24 +75,20 @@ test('the owner changes the automation settings and reads them back', async ({
     await expect(page).toHaveURL(`/projects/${projectId}/settings/automation`);
 
     const settings = page.locator('[data-board-automation-settings]');
-    const enabled = settings.getByLabel('Send fix and merge requests');
-    const mergeStrategy = settings.getByLabel('Merge strategy');
-    const fixStrategy = settings.getByLabel('Fix strategy');
-    const loopLimit = settings.getByLabel('Loop limit');
+    const enabled = settings.getByLabel('Run the workflow of the board');
+    const epicDraftSwitch = settings.getByLabel(
+        'Switch an epic pull request between draft and ready when the workflow asks',
+    );
     const commentOnFixQueued = settings.getByLabel(
         'Comment on the pull request when a fix run is queued',
     );
 
     await expect(enabled).toBeChecked();
-    await expect(mergeStrategy).toHaveValue('worker');
-    await expect(fixStrategy).toHaveValue('fresh');
-    await expect(loopLimit).toHaveValue('3');
+    await expect(epicDraftSwitch).not.toBeChecked();
     await expect(commentOnFixQueued).not.toBeChecked();
 
     await enabled.uncheck();
-    await mergeStrategy.selectOption('off');
-    await fixStrategy.selectOption('resume');
-    await loopLimit.fill('5');
+    await epicDraftSwitch.check();
     await commentOnFixQueued.check();
     await settings.getByRole('button', { name: 'Save automation' }).click();
 
@@ -102,8 +98,6 @@ test('the owner changes the automation settings and reads them back', async ({
 
     await page.reload();
     await expect(enabled).not.toBeChecked();
-    await expect(mergeStrategy).toHaveValue('off');
-    await expect(fixStrategy).toHaveValue('resume');
-    await expect(loopLimit).toHaveValue('5');
+    await expect(epicDraftSwitch).toBeChecked();
     await expect(commentOnFixQueued).toBeChecked();
 });

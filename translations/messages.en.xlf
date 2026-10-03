@@ -6744,51 +6744,11 @@
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.enabled.label">
                 <source>board.form.save_board_automation_settings_form.enabled.label</source>
-                <target>Send fix and merge requests</target>
+                <target>Run the workflow of the board</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.enabled.help">
                 <source>board.form.save_board_automation_settings_form.enabled.help</source>
-                <target>When this is on, Loupe sends fix and merge requests for the pull requests of your cards. Loupe sends the pull request facts in all cases.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.label">
-                <source>board.form.save_board_automation_settings_form.merge_strategy.label</source>
-                <target>Merge strategy</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.help">
-                <source>board.form.save_board_automation_settings_form.merge_strategy.help</source>
-                <target>Worker sends a ready-to-merge event when a pull request can merge. A bridge rule can act on that event. Off sends no such event.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.choice.worker">
-                <source>board.form.save_board_automation_settings_form.merge_strategy.choice.worker</source>
-                <target>Worker</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.choice.off">
-                <source>board.form.save_board_automation_settings_form.merge_strategy.choice.off</source>
-                <target>Off</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.label">
-                <source>board.form.save_board_automation_settings_form.fix_strategy.label</source>
-                <target>Fix strategy</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.help">
-                <source>board.form.save_board_automation_settings_form.fix_strategy.help</source>
-                <target>Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card. When it cannot, the bridge starts a new worker.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.choice.fresh">
-                <source>board.form.save_board_automation_settings_form.fix_strategy.choice.fresh</source>
-                <target>Fresh</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.choice.resume">
-                <source>board.form.save_board_automation_settings_form.fix_strategy.choice.resume</source>
-                <target>Resume</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.loop_limit.label">
-                <source>board.form.save_board_automation_settings_form.loop_limit.label</source>
-                <target>Loop limit</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.loop_limit.help">
-                <source>board.form.save_board_automation_settings_form.loop_limit.help</source>
-                <target>The number of automatic fix rounds a card gets in a row. At this limit, Loupe stops and marks the card blocked.</target>
+                <target>When this is on, the workflow of the board moves the cards and asks for their work. Loupe records the pull request facts in all cases.</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.label">
                 <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.label</source>
@@ -6833,6 +6793,22 @@
             <trans-unit id="board.form.save_board_automation_settings_form.change_base.help">
                 <source>board.form.save_board_automation_settings_form.change_base.help</source>
                 <target>Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.label">
+                <source>board.form.save_board_automation_settings_form.epic_draft_switch.label</source>
+                <target>Switch an epic pull request between draft and ready when the workflow asks</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.help">
+                <source>board.form.save_board_automation_settings_form.epic_draft_switch.help</source>
+                <target>Loupe marks the pull request of an epic as a draft while the epic is in implementation, and as ready when it moves to review. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.label">
+                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.label</source>
+                <target>Close the pull requests of an epic when the workflow asks</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.help">
+                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.help</source>
+                <target>Loupe closes the pull requests of an epic that a person moves back to the Backlog. The GitHub App needs "Pull requests: read and write".</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>

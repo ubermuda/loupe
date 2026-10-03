@@ -7,8 +7,6 @@ namespace App\Tests\Module\Board\Command;
 use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
 use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
-use App\Module\Board\Entity\BoardFixStrategy;
-use App\Module\Board\Entity\BoardMergeStrategy;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Project\Entity\Project;
@@ -134,9 +132,6 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         $handler(new SaveBoardAutomationSettingsCommand(
             project: $this->project,
             enabled: $enabled,
-            mergeStrategy: BoardMergeStrategy::Worker,
-            fixStrategy: BoardFixStrategy::Fresh,
-            loopLimit: 3,
             commentOnFixQueued: false,
             commentOnStaleApproval: $commentOnStaleApproval,
             syncBehind: $syncBehind,

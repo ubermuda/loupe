@@ -913,9 +913,6 @@ final class EngineTest extends KernelTestCase
         $this->service(SaveBoardAutomationSettingsHandler::class)(new SaveBoardAutomationSettingsCommand(
             $card->project,
             $enabled,
-            $settings->mergeStrategy,
-            $settings->fixStrategy,
-            $settings->loopLimit,
             $settings->commentOnFixQueued,
             $settings->commentOnStaleApproval,
             $settings->syncBehind,

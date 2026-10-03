@@ -30,20 +30,6 @@
                     {{ form_help(form.enabled, {help_attr: {class: 'lp-form-hint'}}) }}
                     <div class="lp-field-errors" data-field-errors="enabled">{{ form_errors(form.enabled) }}</div>
                 </div>
-                {% for field in [form.mergeStrategy, form.fixStrategy] %}
-                <div class="lp-form-field">
-                    {{ form_label(field, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(field, {attr: {class: 'lp-input lp-select'}}) }}
-                    {{ form_help(field, {help_attr: {class: 'lp-form-hint'}}) }}
-                    <div class="lp-field-errors" data-field-errors="{{ field.vars.name }}">{{ form_errors(field) }}</div>
-                </div>
-                {% endfor %}
-                <div class="lp-form-field">
-                    {{ form_label(form.loopLimit, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(form.loopLimit, {attr: {class: 'lp-input'}}) }}
-                    {{ form_help(form.loopLimit, {help_attr: {class: 'lp-form-hint'}}) }}
-                    <div class="lp-field-errors" data-field-errors="loopLimit">{{ form_errors(form.loopLimit) }}</div>
-                </div>
                 <div class="lp-form-field">
                     <label class="lp-choice">
                         {{ form_widget(form.commentOnFixQueued) }}
@@ -67,23 +53,7 @@
                         </div>
                     {% endif %}
                 </div>
-                <div class="lp-form-field">
-                    <label class="lp-choice">
-                        {{ form_widget(form.commentOnStaleApproval) }}
-                        {{ form.commentOnStaleApproval.vars.label|trans }}
-                    </label>
-                    {{ form_help(form.commentOnStaleApproval, {help_attr: {class: 'lp-form-hint'}}) }}
-                    <div class="lp-field-errors" data-field-errors="commentOnStaleApproval">{{ form_errors(form.commentOnStaleApproval) }}</div>
-                </div>
-                <div class="lp-form-field">
-                    <label class="lp-choice">
-                        {{ form_widget(form.syncBehind) }}
-                        {{ form.syncBehind.vars.label|trans }}
-                    </label>
-                    {{ form_help(form.syncBehind, {help_attr: {class: 'lp-form-hint'}}) }}
-                    <div class="lp-field-errors" data-field-errors="syncBehind">{{ form_errors(form.syncBehind) }}</div>
-                </div>
-                {% for field in [form.mergePullRequests, form.changeBase] %}
+                {% for field in [form.commentOnStaleApproval, form.syncBehind, form.mergePullRequests, form.changeBase, form.epicDraftSwitch, form.closeEpicPullRequests] %}
                 <div class="lp-form-field">
                     <label class="lp-choice">
                         {{ form_widget(field) }}
