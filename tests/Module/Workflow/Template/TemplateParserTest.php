@@ -127,6 +127,24 @@ final class TemplateParserTest extends TestCase
         self::assertInstanceOf(Not::class, $wait->then->until);
     }
 
+    public function test_a_state_write_needs_no_fallback(): void
+    {
+        foreach (['draft', 'ready', 'close'] as $write) {
+            $template = self::valid();
+            $template['rules'][2]['then'] = ['forge-write' => ['write' => $write]];
+
+            self::assertSame(['write' => $write], $this->parser->parse($template)->rulesFor('review')[0]->then->params);
+        }
+    }
+
+    public function test_a_request_can_expire_with_no_pause(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['then'] = ['request' => ['kind' => 'teardown', 'onTimeout' => 'expire']];
+
+        self::assertSame(['kind' => 'teardown', 'onTimeout' => 'expire'], $this->parser->parse($template)->rulesFor('build')[0]->then->params);
+    }
+
     public function test_a_valid_template_round_trips_through_json(): void
     {
         $decoded = json_decode(json_encode(self::valid(), \JSON_THROW_ON_ERROR), true, flags: \JSON_THROW_ON_ERROR);
@@ -305,6 +323,16 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close'];
+        yield 'merge with no fallback' => [static function (array $t): array {
+            unset($t['rules'][2]['then']['forge-write']['fallback']);
+
+            return $t;
+        }, 'rules[2] (merge) then.forge-write: missing parameter "fallback"'];
+        yield 'unknown work timeout behaviour' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['onTimeout'] = 'drop';
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "onTimeout" must be one of pause, expire'];
         yield 'until outside a pause' => [static function (array $t): array {
             $t['rules'][4]['then']['release']['until'] = ['pr.open' => []];
 

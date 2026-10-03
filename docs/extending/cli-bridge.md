@@ -779,7 +779,10 @@ The key is the kind of work. A worker entry takes `prompt`, `model`,
 `run` and `timeout`. The rule check
 refuses a field that the action does not use. The `teardown` entry above
 replaces a command rule on a terminal column, such as the one in
-[Command action](#command-action).
+[Command action](#command-action). Both shipped workflow templates request
+`teardown` each time a card reaches a terminal column. A `teardown` request
+that no bridge takes expires after the work timeout, and the card does not
+pause.
 
 The file needs `rules:`, `work:`, or both. `rules:` stays until the cutover to
 the workflow engine, and a later CLI release removes it.

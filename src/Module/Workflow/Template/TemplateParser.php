@@ -21,6 +21,8 @@ final readonly class TemplateParser
     private const array COLUMN_FLAGS = ['@backlog', '@terminal'];
     private const string ANY_COLUMN = '*';
     private const array RULE_KEYS = ['id', 'slot', 'when', 'then'];
+    private const array STATE_WRITES = ['draft', 'ready', 'close'];
+    private const array ON_TIMEOUT = ['pause', 'expire'];
 
     public function __construct(
         private Conditions $conditions,
@@ -343,7 +345,7 @@ final readonly class TemplateParser
             if (!\array_key_exists($param, $value)) {
                 if (ActionType::Pause === $type && 'until' === $param) {
                     $errors[] = $where.': a pause must carry an "until" expression';
-                } elseif ($required) {
+                } elseif ($required && !('fallback' === $param && \in_array($value['write'] ?? null, self::STATE_WRITES, true))) {
                     $errors[] = \sprintf('%s: missing parameter "%s"', $where, $param);
                 }
                 continue;
@@ -359,6 +361,7 @@ final readonly class TemplateParser
                     'parameter "write" must be one of %s',
                     implode(', ', array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),
                 ),
+                'onTimeout' => \in_array($given, self::ON_TIMEOUT, true) ? null : \sprintf('parameter "onTimeout" must be one of %s', implode(', ', self::ON_TIMEOUT)),
                 default => \is_string($given) && '' !== $given ? null : \sprintf('parameter "%s" must be a non-empty string', $param),
             };
             if (null !== $error) {
@@ -378,12 +381,12 @@ final readonly class TemplateParser
         return \count($errors) === $errorCount ? new ActionCall($type, $params, $until) : null;
     }
 
-    /** @return array<string, bool> each parameter name, mapped to whether it is required */
+    /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write needs no fallback. */
     private static function actionParameters(ActionType $type): array
     {
         return match ($type) {
             ActionType::Move => ['to' => true],
-            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false],
+            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false],
             ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
             ActionType::Pause => ['reason' => true, 'until' => true],
             ActionType::Release => ['reason' => true],

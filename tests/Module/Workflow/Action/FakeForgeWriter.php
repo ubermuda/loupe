@@ -18,6 +18,9 @@ final class FakeForgeWriter implements PullRequestMerger, PullRequestBaseChanger
 
     public ?\Throwable $failure = null;
 
+    /** @var list<int> the numbers that fail, and every number when empty */
+    public array $failingNumbers = [];
+
     #[\Override]
     public function supports(string $forge): bool
     {
@@ -58,7 +61,7 @@ final class FakeForgeWriter implements PullRequestMerger, PullRequestBaseChanger
     private function record(array $call): void
     {
         $this->calls[] = $call;
-        if (null !== $this->failure) {
+        if (null !== $this->failure && ([] === $this->failingNumbers || \in_array($call[1], $this->failingNumbers, true))) {
             throw $this->failure;
         }
     }

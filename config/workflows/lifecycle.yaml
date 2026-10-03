@@ -111,7 +111,10 @@ rules:
 
     - id: back-to-draft
       slot: in-review
-      when: { pr.draft: {} }
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - pr.draft: {}
       then: { move: { to: implementation } }
 
     - id: rebase-stacked
@@ -172,7 +175,6 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - pr.open: {}
-              - not: { pr.draft: {} }
       then: { move: { to: in-review } }
 
     - id: epic-to-done
@@ -201,6 +203,26 @@ rules:
               - not: { card.children_finished: {} }
       then: { move: { to: implementation } }
 
+    - id: epic-draft
+      slot: implementation
+      when: { card.type: { type: epic } }
+      then: { forge-write: { write: draft } }
+
+    - id: epic-ready
+      slot: in-review
+      when: { card.type: { type: epic } }
+      then: { forge-write: { write: ready } }
+
+    - id: epic-close
+      slot: '@backlog'
+      when: { card.type: { type: epic } }
+      then: { forge-write: { write: close } }
+
+    - id: teardown
+      slot: '@terminal'
+      when: { all: [] }
+      then: { request: { kind: teardown, onTimeout: expire } }
+
     - id: child-unblocked
       slot: '@backlog'
       when:
@@ -212,7 +234,10 @@ rules:
 
     - id: pull-request-reopened
       slot: '@backlog'
-      when: { pr.open: {} }
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - pr.open: {}
       then: { move: { to: implementation } }
 
     - id: merged

@@ -154,6 +154,7 @@ final readonly class Engine
 
     /**
      * Cancels the live requests of rules that no longer apply, and expires the open ones no bridge took in time.
+     * An expiry pauses the card, unless the rule expires its work with no pause.
      * A baseline pauses nothing, so it leaves an overdue request to the next pass.
      */
     private function settleWorkRequests(Evaluation $run, Uuid $cardId, bool $expire = true): void
@@ -171,7 +172,9 @@ final readonly class Engine
             if ($expire && WorkRequestState::Open === $request->state && $deadline <= $run->now
                 && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($requestId, WorkRequestState::Expired))) {
                 $withdrawn = true;
-                $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
+                if ('expire' !== ActionParams::optionalString($rule, 'onTimeout')) {
+                    $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
+                }
             }
         }
 

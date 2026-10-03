@@ -246,6 +246,24 @@ func TestMatchWorkRunsACommand(t *testing.T) {
 	}
 }
 
+// A teardown is a command entry like any other: the app requests it when a card
+// reaches a terminal column.
+func TestMatchWorkRunsATeardownCommand(t *testing.T) {
+	s := checked(t, workFile+`
+  teardown:
+    action: command
+    run: [just, worktree-down, 'card-{cardNumber}']
+`)
+
+	m := s.MatchWork(workRequest("teardown"))
+	if m.Skip != Run || m.Rule != "work:teardown" || m.Action != ActionCommand || m.Prompt != "" || m.Command == nil {
+		t.Fatalf("match = %+v", m)
+	}
+	if !slices.Equal(m.Command.Argv, []string{"just", "worktree-down", "card-87"}) || m.Command.Timeout != DefaultCommandTimeout {
+		t.Fatalf("command = %+v", m.Command)
+	}
+}
+
 func TestMatchWorkCarriesTheVariantsAsAnExperiment(t *testing.T) {
 	text, _ := file(t, workFile)
 	s, err := Parse([]byte(text), Defaults{Model: "haiku"})

@@ -20,3 +20,8 @@ rules:
               - not: { card.in_slot: { slot: '@backlog' } }
               - pr.all_closed_unmerged: { minutes: 10 }
       then: { move: { to: '@backlog' } }
+
+    - id: teardown
+      slot: '@terminal'
+      when: { all: [] }
+      then: { request: { kind: teardown, onTimeout: expire } }

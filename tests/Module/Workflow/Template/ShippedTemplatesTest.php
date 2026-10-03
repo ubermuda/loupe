@@ -134,16 +134,65 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals($merge, $this->actions($unapproved));
     }
 
-    public function test_an_epic_with_a_draft_pull_request_stays_in_implementation(): void
+    public function test_an_epic_with_finished_children_moves_to_review_with_a_draft_pull_request(): void
     {
         $toReview = new ActionCall(ActionType::Move, ['to' => 'in-review']);
         $epic = FactsMother::card(slot: 'implementation', type: 'epic', childCount: 2);
 
-        $ready = FactsMother::facts(card: $epic, pullRequest: FactsMother::pullRequest());
-        self::assertContainsEquals($toReview, $this->actions($ready));
+        self::assertContainsEquals($toReview, $this->actions(FactsMother::facts(card: $epic, pullRequest: FactsMother::pullRequest())));
+        self::assertContainsEquals($toReview, $this->actions(FactsMother::facts(card: $epic, pullRequest: FactsMother::pullRequest(draft: true))));
+    }
 
-        $draft = FactsMother::facts(card: $epic, pullRequest: FactsMother::pullRequest(draft: true));
-        self::assertNotContainsEquals($toReview, $this->actions($draft));
+    public function test_an_epic_in_review_with_a_draft_pull_request_stays_in_review(): void
+    {
+        $facts = FactsMother::facts(
+            card: FactsMother::card(slot: 'in-review', type: 'epic', childCount: 2),
+            pullRequest: FactsMother::pullRequest(draft: true),
+        );
+
+        self::assertNotContainsEquals(new ActionCall(ActionType::Move, ['to' => 'implementation']), $this->actions($facts));
+    }
+
+    #[DataProvider('epicStateWrites')]
+    public function test_an_epic_that_arrives_in_a_slot_writes_the_state_of_its_pull_requests(string $slot, string $write): void
+    {
+        $writeAction = new ActionCall(ActionType::ForgeWrite, ['write' => $write]);
+        $epic = FactsMother::facts(card: FactsMother::card(slot: $slot, type: 'epic', childCount: 2, openChildCount: 1), pullRequest: FactsMother::pullRequest());
+        $feature = FactsMother::facts(card: FactsMother::card(slot: $slot), pullRequest: FactsMother::pullRequest());
+
+        self::assertContainsEquals($writeAction, $this->actions($epic));
+        self::assertContainsEquals($writeAction, $this->actions(FactsMother::facts(card: FactsMother::card(slot: $slot, type: 'epic'))));
+        self::assertNotContainsEquals($writeAction, $this->actions($feature));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function epicStateWrites(): iterable
+    {
+        yield 'implementation' => ['implementation', 'draft'];
+        yield 'review' => ['in-review', 'ready'];
+        yield 'backlog' => ['@backlog', 'close'];
+    }
+
+    public function test_an_epic_in_the_backlog_with_an_open_pull_request_stays_there(): void
+    {
+        $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
+
+        $epic = FactsMother::facts(card: FactsMother::card(slot: '@backlog', type: 'epic'), pullRequest: FactsMother::pullRequest());
+        self::assertNotContainsEquals($toImplementation, $this->actions($epic));
+
+        $feature = FactsMother::facts(card: FactsMother::card(slot: '@backlog'), pullRequest: FactsMother::pullRequest());
+        self::assertContainsEquals($toImplementation, $this->actions($feature));
+    }
+
+    #[DataProvider('shippedKeys')]
+    public function test_a_terminal_card_requests_its_teardown(string $key): void
+    {
+        $rules = array_values(array_filter($this->template($key)->rules, static fn ($rule): bool => 'teardown' === $rule->id));
+
+        self::assertCount(1, $rules);
+        self::assertSame('@terminal', $rules[0]->slot);
+        self::assertTrue($rules[0]->when->evaluate(FactsMother::facts(card: FactsMother::card(slot: '@terminal'))));
+        self::assertEquals(new ActionCall(ActionType::Request, ['kind' => 'teardown', 'onTimeout' => 'expire']), $rules[0]->then);
     }
 
     public function test_the_ready_pull_request_of_an_epic_asks_for_the_merge_write(): void

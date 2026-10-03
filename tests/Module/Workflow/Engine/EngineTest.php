@@ -35,6 +35,7 @@ use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Action\WorkRequestOpener;
+use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Entity\WorkflowBinding;
@@ -55,6 +56,7 @@ use App\Module\Workflow\Template\TemplateParser;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Support\RecordingLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -378,6 +380,22 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->liveRequests($card));
     }
 
+    public function test_an_open_request_that_expires_with_no_pause_leaves_the_card_running(): void
+    {
+        $rule = self::requestRule('work', self::ALWAYS);
+        $rule['then']['request']['onTimeout'] = 'expire';
+        $card = $this->boundCard([$rule]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+
+        $this->evaluate($card, '2026-10-02 14:00:00');
+
+        self::assertSame(WorkRequestState::Expired, $request->state);
+        self::assertNull($this->activePause($card));
+        self::assertSame([], $this->paused);
+        self::assertSame([], $this->liveRequests($card));
+    }
+
     public function test_a_reopened_request_counts_its_timeout_from_the_reopen(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
@@ -601,6 +619,46 @@ final class EngineTest extends KernelTestCase
         $live = $this->liveRequests($card);
         self::assertCount(1, $live);
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
+    }
+
+    #[DataProvider('shippedTemplates')]
+    public function test_a_card_that_reaches_a_terminal_column_requests_one_teardown_per_arrival(string $template): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-teardown');
+        if ('lifecycle' === $template) {
+            $this->bindLifecycle($project);
+        } else {
+            $this->bindHandler()(new BindWorkflowTemplateCommand($project, 'simple', []));
+        }
+        $card = $this->card($project, 'done');
+
+        $this->evaluate($card);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame(['teardown', 'teardown', null], [$live[0]->kind, $live[0]->ruleId, $live[0]->capability]);
+
+        $this->evaluate($card, '2026-10-02 14:05:00');
+        self::assertSame(WorkRequestState::Expired, $live[0]->state);
+        self::assertNull($this->activePause($card));
+
+        $this->moveTo($card, 'next');
+        $this->evaluate($card, '2026-10-02 14:06:00');
+        $this->moveTo($card, 'done');
+        $this->evaluate($card, '2026-10-02 14:07:00');
+
+        $again = $this->liveRequests($card);
+        self::assertCount(1, $again);
+        self::assertNotSame($live[0], $again[0]);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function shippedTemplates(): iterable
+    {
+        yield 'lifecycle' => ['lifecycle'];
+        yield 'simple' => ['simple'];
     }
 
     /**
