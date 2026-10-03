@@ -137,6 +137,11 @@ describe('no-full-ci.sh', () => {
         ['ju""st phpunit', 'deny'],
         ['echo hi\\\n# <<EOF\njust ci\nEOF', 'allow'],
         ['echo hi \\\n# x\njust ci', 'deny'],
+        ['echo $(echo x)#tag; just ci', 'deny'],
+        ['echo $((1+2))#x; just ci', 'deny'],
+        ['echo "$(echo x)"#y; just ci', 'deny'],
+        ['( echo a )# <<EOF\njust ci', 'deny'],
+        ['case a in a)# <<EOF\njust ci;; esac', 'deny'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-ci.sh', command)).toBe(expected);
     });

@@ -8,7 +8,11 @@ BEGIN { sp = 1; ctx[1] = "U"; paren[1] = 0; arith = 0; tick = 0; cont = 0; nq = 
 function push(t) { ctx[++sp] = t; paren[sp] = 0; qline[sp] = NR; qpos[sp] = i }
 
 # A joined line continues the word when no blank came before its backslash.
-function word_start(p) { return p == 1 ? !cont : index(" \t;&|()", substr(line, p - 1, 1)) > 0 }
+# The `)` that ends `$(` or `$((` is part of a word, but a subshell's is not.
+function word_start(p) {
+    if (p == 1) return !cont
+    return p - 1 != wclose && index(" \t;&|()", substr(line, p - 1, 1)) > 0
+}
 
 # Prints \034 for empty quotes that make a whole word, so read keeps that word.
 function pop(    j, c) {
@@ -77,7 +81,7 @@ body {
 }
 
 {
-    line = $0; n = length(line); joined = 0; i = 1
+    line = $0; n = length(line); joined = 0; i = 1; wclose = 0
     while (i <= n) {
         c = substr(line, i, 1); t = ctx[sp]
         if (t == "S") {
@@ -106,18 +110,18 @@ body {
         } else if (c == ";" || c == "&" || c == "|") {
             printf "\n"
         } else if (c == "$" && substr(line, i, 3) == "$((") {
-            printf "$(("; arith++; i += 2
+            printf "$(("; akind[++arith] = "$"; i += 2
         } else if (c == "$" && substr(line, i, 2) == "$(") {
             printf "$("; i++; push("U")
         } else if (c == "(" && substr(line, i, 2) == "((") {
-            printf "(("; arith++; i++
+            printf "(("; akind[++arith] = "("; i++
         } else if (c == ")" && arith && substr(line, i, 2) == "))") {
-            printf "))"; arith--; i++
+            printf "))"; i++; if (akind[arith--] == "$") wclose = i
         } else if (c == "(") {
             printf "("; paren[sp]++
         } else if (c == ")") {
             printf ")"
-            if (paren[sp]) paren[sp]--; else if (sp > 1) sp--
+            if (paren[sp]) paren[sp]--; else if (sp > 1) { sp--; wclose = i }
         } else if (c == "<" && substr(line, i, 3) == "<<<") {
             printf "<<<"; i += 2
         } else if (c == "<" && !arith && substr(line, i, 2) == "<<") {
