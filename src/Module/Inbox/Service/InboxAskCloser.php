@@ -6,6 +6,7 @@ namespace App\Module\Inbox\Service;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Bridge\Messenger\ResumeAskingSession;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
@@ -14,10 +15,12 @@ use App\Module\Inbox\InboxEventType;
 use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Outbox\OutboxWriter;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Closes each open ask that a closed item leaves with no open blocking item,
- * and writes one inbox.ask_closed row for an ask a bridge can resume.
+ * writes one inbox.ask_closed row for an ask a bridge can resume, and queues
+ * the resume of its session.
  *
  * InboxItemCloser calls it, so the caller holds the project lock and the
  * transaction. It does not flush and throws no domain error, because it runs
@@ -31,6 +34,7 @@ final readonly class InboxAskCloser
         private WorkerRunRepository $workerRuns,
         private CardRepository $cards,
         private OutboxWriter $outbox,
+        private MessageBusInterface $bus,
     ) {
     }
 
@@ -52,6 +56,7 @@ final readonly class InboxAskCloser
             if (null !== $ask->bridgeId) {
                 $ask->card = $this->cardOfSession($ask);
                 $this->writeEvent($ask, $actor);
+                $this->resumeSession($ask);
             }
         }
     }
@@ -73,6 +78,16 @@ final readonly class InboxAskCloser
         $run = $this->workerRuns->findFirstOfSession($ask->project, $ask->sessionId);
 
         return null === $run ? null : $this->cards->findOneByIdAndProjectId((string) $run->cardId, (string) $ask->project->id);
+    }
+
+    /** The Doctrine transport commits the message with the close, and the queue sends the resume after it. */
+    private function resumeSession(InboxAsk $ask): void
+    {
+        if (null === $ask->sessionId || null === $ask->bridgeId) {
+            return;
+        }
+
+        $this->bus->dispatch(new ResumeAskingSession((string) $ask->project->id, (string) $ask->bridgeId, (string) $ask->sessionId));
     }
 
     /** @param InboxEventType::ACTOR_* $actor */

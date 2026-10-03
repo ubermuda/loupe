@@ -72,6 +72,44 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** The newest worker run of the card that did work of the kind. */
+    public function findLatestWorkerOfCardKind(Project $project, Uuid $cardId, string $workKind): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.workKind = :workKind')
+            ->andWhere('r.kind = :worker')
+            ->setParameter('project', $project)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('workKind', $workKind)
+            ->setParameter('worker', WorkerRunKind::Worker->value)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The newest worker run of a claude session that the bridge ran, which a resume of the session continues. */
+    public function findLatestOfSessionOnBridge(Project $project, Uuid $bridgeId, Uuid $sessionId): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.bridgeId = :bridgeId')
+            ->andWhere('r.kind = :worker')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('worker', WorkerRunKind::Worker->value)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * The worker processes of a claude session in the project, in the order
      * they started, locked until the transaction ends. A run that never started

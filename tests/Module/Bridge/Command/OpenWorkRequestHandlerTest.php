@@ -9,8 +9,10 @@ use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\WorkRequestChanged;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
 use App\Outbox\OutboxWriter;
@@ -66,6 +68,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             'cardNumber' => 7,
             'ruleId' => 'implement-on-entry',
             'createdAt' => self::NOW,
+            'resumeSessionId' => null,
         ]], $this->outboxPayloads());
 
         $record = $audit->record('bridge.work_request_opened');
@@ -76,6 +79,43 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
 
         self::assertEquals([new WorkRequestChanged($project->id ?? throw new \LogicException(), $cardId, $request->id ?? throw new \LogicException(), WorkRequestState::Open)], $changes->events());
         self::assertSame([$depth], $changes->transactionDepths());
+    }
+
+    public function test_a_request_after_an_unfinished_run_of_the_kind_resumes_its_session(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-resume');
+        $cardId = Uuid::v7();
+        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 10:00:00'), workKind: 'implement', cardId: $cardId, state: WorkerRunState::Failed);
+        $unfinished = $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 11:00:00'), workKind: 'implement', cardId: $cardId, state: WorkerRunState::Unfinished);
+        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 11:30:00'), workKind: 'plan', cardId: $cardId, state: WorkerRunState::Succeeded);
+
+        $request = $this->open($project, $cardId);
+
+        self::assertSame((string) $unfinished->sessionId, (string) $request->resumeSessionId);
+        self::assertSame((string) $unfinished->sessionId, $this->outboxPayloads()[0]['resumeSessionId']);
+    }
+
+    /** @return iterable<string, array{WorkerRunState}> */
+    public static function notUnfinished(): iterable
+    {
+        yield 'a success' => [WorkerRunState::Succeeded];
+        yield 'a failure' => [WorkerRunState::Failed];
+        yield 'a block' => [WorkerRunState::Blocked];
+    }
+
+    #[DataProvider('notUnfinished')]
+    public function test_a_request_after_a_run_that_did_not_end_unfinished_starts_fresh(WorkerRunState $state): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-fresh-'.$state->value);
+        $cardId = Uuid::v7();
+        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 10:00:00'), workKind: 'implement', cardId: $cardId, state: WorkerRunState::Unfinished);
+        $this->seedRun($this->em(), $project, receivedAt: new \DateTimeImmutable('2026-10-01 11:00:00'), workKind: 'implement', cardId: $cardId, state: $state);
+
+        $request = $this->open($project, $cardId);
+
+        self::assertNull($request->resumeSessionId);
     }
 
     public function test_a_second_live_request_for_the_card_and_kind_is_refused(): void
@@ -134,7 +174,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $this->open($project, $cardId);
         $blind = $this->createStub(WorkRequestRepository::class);
         $blind->method('hasLive')->willReturn(false);
-        $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(WorkRequestAnnouncer::class));
+        $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(WorkRequestAnnouncer::class), $this->service(WorkerRunRepository::class));
 
         try {
             $handler(new OpenWorkRequestCommand($project, $cardId, 7, 'implement', null, 'implement-on-entry'));
@@ -203,6 +243,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             new MockClock(self::NOW),
             $this->service(Auditor::class),
             $this->service(WorkRequestAnnouncer::class),
+            $this->service(WorkerRunRepository::class),
         );
     }
 

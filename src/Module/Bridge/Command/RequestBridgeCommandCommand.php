@@ -13,7 +13,8 @@ final readonly class RequestBridgeCommandCommand
     public function __construct(
         public WorkerRun $run,
         public BridgeCommandKind $kind,
-        public User $requestedBy,
+        /** Null when Loupe asks, such as on the close of an ask. */
+        public ?User $requestedBy,
         public ?string $reason = null,
     ) {
     }

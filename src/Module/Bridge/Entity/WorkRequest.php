@@ -76,6 +76,10 @@ class WorkRequest
     #[ORM\Column(name: 'settled_at', nullable: true)]
     public ?\DateTimeImmutable $settledAt = null;
 
+    /** The session of an unfinished run of the card and kind, which the bridge resumes. Null for a fresh start. */
+    #[ORM\Column(name: 'resume_session_id', type: UuidType::NAME, nullable: true)]
+    public ?Uuid $resumeSessionId = null;
+
     #[ORM\Column(name: 'reason', length: self::MAX_REASON_LENGTH, nullable: true)]
     public ?string $reason = null;
 
