@@ -25,6 +25,8 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
@@ -324,6 +326,48 @@ final class EngineTest extends KernelTestCase
 
         self::assertCount(1, $this->liveRequests($card));
         self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+        self::assertNull($this->activePause($card));
+    }
+
+    public function test_a_fix_push_with_no_new_review_opens_no_second_fix_round(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['pr.changes_requested' => []], limit: 3)]);
+        $pullRequest = $this->pullRequest($card, headSha: 'a');
+        $this->requestChangesOnHead($pullRequest);
+        $this->evaluate($card);
+        $first = $this->liveRequests($card);
+        self::assertCount(1, $first);
+        $this->finish($first[0]);
+
+        $pullRequest->headSha = 'b';
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame(WorkRequestState::Done, $first[0]->state);
+        self::assertSame([], $this->liveRequests($card));
+        $state = $this->ruleState($card, 'fix');
+        self::assertFalse($state->truth, 'The old review no longer covers the head, so the edge resets.');
+        self::assertSame(1, $state->fires);
+    }
+
+    public function test_a_second_changes_requested_review_on_a_new_head_opens_a_second_fix_round(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['pr.changes_requested' => []], limit: 3)]);
+        $pullRequest = $this->pullRequest($card, headSha: 'a');
+        $this->requestChangesOnHead($pullRequest);
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $pullRequest->headSha = 'b';
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        $this->requestChangesOnHead($pullRequest);
+        $this->evaluate($card, '2026-10-02 13:00:00');
+
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame('fix', $live[0]->ruleId);
+        self::assertSame(2, $this->ruleState($card, 'fix')->fires);
         self::assertNull($this->activePause($card));
     }
 
@@ -776,6 +820,20 @@ final class EngineTest extends KernelTestCase
     private function dropHold(Card $card): void
     {
         $this->service(CardHoldRepository::class)->deleteOfCards($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);
+    }
+
+    private function requestChangesOnHead(ForgePullRequest $pullRequest): void
+    {
+        $pullRequest->review = PullRequestReview::ChangesRequested;
+        $pullRequest->changesRequestedSha = $pullRequest->headSha;
+        $this->em()->flush();
+    }
+
+    private function finish(WorkRequest $request): void
+    {
+        $request->state = WorkRequestState::Claimed;
+        $request->settle(WorkRequestState::Done, null, new \DateTimeImmutable('2026-10-02 12:20:00'));
+        $this->em()->flush();
     }
 
     private function setType(Card $card, CardType $type): void
