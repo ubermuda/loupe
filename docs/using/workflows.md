@@ -20,7 +20,7 @@ Loupe ships two templates.
 | Template | For |
 |---|---|
 | **Lifecycle** | The process of this repository: product design, tech design, implementation, review and merge, with epics and blockers |
-| **Simple** | Any board. A merge moves the card to the terminal column, and an abandoned pull request returns the card to the Backlog |
+| **Simple** | Any board. A merge moves the card to the terminal column |
 
 A new project picks its template during setup. The template creates its columns
 with its slots linked. A project that existed before the workflow engine got a
@@ -93,11 +93,9 @@ Some rules act from any slot:
 
 1. A card whose pull requests all finished, with one merged, moves to the
    terminal column once no child is open.
-2. A card whose pull requests all closed with none merged returns to the Backlog
-   after 10 minutes. A reopen in that time keeps the card.
-3. A card in the Backlog whose pull request reopens moves to Implementation.
-4. A child in the Backlog whose last blocker finished moves to Implementation.
-5. A card that reaches a terminal column asks for a teardown, which removes its
+2. A card in the Backlog whose pull request reopens moves to Implementation.
+3. A child in the Backlog whose last blocker finished moves to Implementation.
+4. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
 
 An epic follows its children. An epic whose children all finished moves to In
@@ -108,10 +106,12 @@ and closes when the epic returns to the Backlog.
 
 ## The Simple template
 
-Simple has no slots, and a person can make any move. It has three rules: a card
-whose pull requests all finished with one merged moves to the terminal column, a
-card whose pull requests all closed with none merged returns to the Backlog after
-10 minutes, and a card that reaches a terminal column asks for a teardown.
+Simple has no slots, and a person can make any move. It has two rules: a card
+whose pull requests all finished with one merged moves to the terminal column,
+and a card that reaches a terminal column asks for a teardown.
+
+In both templates, a card whose pull requests all closed with none merged stays
+in its column. A person or an agent moves it.
 
 ## Kinds of work
 

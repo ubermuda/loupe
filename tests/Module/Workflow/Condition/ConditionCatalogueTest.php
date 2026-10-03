@@ -24,7 +24,6 @@ final class ConditionCatalogueTest extends KernelTestCase
             'card.in_slot',
             'card.is_child',
             'card.type',
-            'pr.all_closed_unmerged',
             'pr.all_finished_one_merged',
             'pr.approval_covers_head',
             'pr.base_is_epic_branch',

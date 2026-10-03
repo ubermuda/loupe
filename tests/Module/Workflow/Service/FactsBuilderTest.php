@@ -166,6 +166,8 @@ final class FactsBuilderTest extends KernelTestCase
         $pullRequest->checks = PullRequestChecks::Failed;
         $pullRequest->mergeability = PullRequestMergeability::Conflicting;
         $pullRequest->review = PullRequestReview::ChangesRequested;
+        $pullRequest->headSha = 'abc';
+        $pullRequest->changesRequestedSha = 'abc';
         $this->em()->flush();
 
         self::assertEquals(new PullRequestFacts(
@@ -208,6 +210,37 @@ final class FactsBuilderTest extends KernelTestCase
         $pullRequest->coveredSha = null;
         $this->em()->flush();
         self::assertSame(0, $this->facts($card)->pullRequest?->approvalsCoveringHead);
+    }
+
+    public function test_changes_are_requested_only_when_a_changes_requested_review_covers_the_head(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-pr-changes-requested');
+        $card = $this->card($project, 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $pullRequest->review = PullRequestReview::ChangesRequested;
+        $pullRequest->headSha = 'abc';
+        $pullRequest->changesRequestedSha = 'abc';
+        $this->em()->flush();
+        self::assertTrue($this->changesRequested($card));
+
+        $pullRequest->headSha = 'def';
+        $this->em()->flush();
+        self::assertFalse($this->changesRequested($card), 'A fix push leaves the review on an older commit.');
+
+        $pullRequest->changesRequestedSha = null;
+        $this->em()->flush();
+        self::assertFalse($this->changesRequested($card), 'A review on an unknown commit does not cover the head.');
+
+        $pullRequest->headSha = null;
+        $this->em()->flush();
+        self::assertFalse($this->changesRequested($card));
+
+        $pullRequest->review = PullRequestReview::Approved;
+        $pullRequest->headSha = 'abc';
+        $pullRequest->changesRequestedSha = 'abc';
+        $this->em()->flush();
+        self::assertFalse($this->changesRequested($card), 'An approval after the change request ends it.');
     }
 
     public function test_a_finished_pull_request_closes_at_its_merge_or_its_last_read(): void
@@ -344,6 +377,11 @@ final class FactsBuilderTest extends KernelTestCase
         $self->defaultBranch = 'loop';
         $this->em()->flush();
         self::assertTrue($this->facts($card)->pullRequest?->baseIsMergeTarget);
+    }
+
+    private function changesRequested(Card $card): bool
+    {
+        return ($this->facts($card)->pullRequest ?? throw new \LogicException('The card has a pull request.'))->changesRequested;
     }
 
     private function facts(Card $card): Facts

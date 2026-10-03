@@ -17,7 +17,6 @@ use App\Module\Workflow\Condition\PullRequestDraft;
 use App\Module\Workflow\Condition\PullRequestLinked;
 use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Condition\PullRequestParentMerged;
-use App\Module\Workflow\Condition\PullRequestsAllClosedUnmerged;
 use App\Module\Workflow\Condition\PullRequestsAllFinishedOneMerged;
 use App\Module\Workflow\Condition\PullRequestStacked;
 use App\Module\Workflow\Fact\ChecksState;
@@ -96,13 +95,6 @@ final class PullRequestConditionsTest extends TestCase
         yield 'linked, merged' => [new PullRequestLinked(), [], self::all([$merged]), true];
         yield 'linked, closed' => [new PullRequestLinked(), [], self::all([$closedAnHourAgo]), true];
         yield 'linked, none' => [new PullRequestLinked(), [], self::all([]), false];
-
-        yield 'all closed unmerged, 10 minutes ago' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([$closedAnHourAgo, self::closedMinutesAgo(10)]), true];
-        yield 'all closed unmerged, 9 minutes ago' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([$closedAnHourAgo, self::closedMinutesAgo(9)]), false];
-        yield 'all closed unmerged, one merged' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([$closedAnHourAgo, $merged]), false];
-        yield 'all closed unmerged, one open' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([$closedAnHourAgo, $open]), false];
-        yield 'all closed unmerged, close time unknown' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([FactsMother::pullRequest(state: PullRequestState::Closed)]), false];
-        yield 'all closed unmerged, none linked' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([]), false];
     }
 
     /** @param array<string, mixed> $params */
@@ -180,7 +172,6 @@ final class PullRequestConditionsTest extends TestCase
         yield 'pr.parent_merged' => [new PullRequestParentMerged(), [], [], $one];
         yield 'pr.linked' => [new PullRequestLinked(), [], [], [FactKey::PullRequests]];
         yield 'pr.all_finished_one_merged' => [new PullRequestsAllFinishedOneMerged(), [], [], [FactKey::PullRequests]];
-        yield 'pr.all_closed_unmerged' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], ['%minutes%' => '10'], [FactKey::PullRequests]];
     }
 
     private static function current(
@@ -217,13 +208,5 @@ final class PullRequestConditionsTest extends TestCase
     private static function all(array $pullRequests): Facts
     {
         return FactsMother::facts(pullRequest: $pullRequests[0] ?? null, pullRequests: $pullRequests, now: new \DateTimeImmutable(self::NOW));
-    }
-
-    private static function closedMinutesAgo(int $minutes): PullRequestFacts
-    {
-        return FactsMother::pullRequest(
-            state: PullRequestState::Closed,
-            closedAt: new \DateTimeImmutable(self::NOW)->modify(\sprintf('-%d minutes', $minutes)),
-        );
     }
 }

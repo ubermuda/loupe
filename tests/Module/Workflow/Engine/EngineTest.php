@@ -30,6 +30,8 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Review\Entity\Document;
@@ -334,6 +336,48 @@ final class EngineTest extends KernelTestCase
 
         self::assertCount(1, $this->liveRequests($card));
         self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+        self::assertNull($this->activePause($card));
+    }
+
+    public function test_a_fix_push_with_no_new_review_opens_no_second_fix_round(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['pr.changes_requested' => []], limit: 3)]);
+        $pullRequest = $this->pullRequest($card, headSha: 'a');
+        $this->requestChangesOnHead($pullRequest);
+        $this->evaluate($card);
+        $first = $this->liveRequests($card);
+        self::assertCount(1, $first);
+        $this->finish($first[0]);
+
+        $pullRequest->headSha = 'b';
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame(WorkRequestState::Done, $first[0]->state);
+        self::assertSame([], $this->liveRequests($card));
+        $state = $this->ruleState($card, 'fix');
+        self::assertFalse($state->truth, 'The old review no longer covers the head, so the edge resets.');
+        self::assertSame(1, $state->fires);
+    }
+
+    public function test_a_second_changes_requested_review_on_a_new_head_opens_a_second_fix_round(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['pr.changes_requested' => []], limit: 3)]);
+        $pullRequest = $this->pullRequest($card, headSha: 'a');
+        $this->requestChangesOnHead($pullRequest);
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $pullRequest->headSha = 'b';
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        $this->requestChangesOnHead($pullRequest);
+        $this->evaluate($card, '2026-10-02 13:00:00');
+
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame('fix', $live[0]->ruleId);
+        self::assertSame(2, $this->ruleState($card, 'fix')->fires);
         self::assertNull($this->activePause($card));
     }
 
@@ -757,6 +801,21 @@ final class EngineTest extends KernelTestCase
         yield 'simple' => ['simple'];
     }
 
+    public function test_a_lifecycle_card_in_an_open_column_whose_pull_requests_all_closed_unmerged_stays_in_its_column(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-lifecycle-closed');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'in-progress');
+        $closed = $this->pullRequest($card, PullRequestState::Closed);
+        $closed->refreshedAt = new \DateTimeImmutable('2026-10-02 11:00:00');
+        $this->em()->flush();
+
+        $this->evaluate($card);
+
+        self::assertSame('in-progress', $card->column->slug);
+    }
+
     /**
      * Binds a template whose slot "one" is the column "next", "two" is "in-progress" and "three" has no column.
      *
@@ -950,6 +1009,20 @@ final class EngineTest extends KernelTestCase
     {
         $this->service(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
         $this->service(DoctrineFeatureFlagReader::class)->reset();
+    }
+
+    private function requestChangesOnHead(ForgePullRequest $pullRequest): void
+    {
+        $pullRequest->review = PullRequestReview::ChangesRequested;
+        $pullRequest->changesRequestedSha = $pullRequest->headSha;
+        $this->em()->flush();
+    }
+
+    private function finish(WorkRequest $request): void
+    {
+        $request->state = WorkRequestState::Claimed;
+        $request->settle(WorkRequestState::Done, null, new \DateTimeImmutable('2026-10-02 12:20:00'));
+        $this->em()->flush();
     }
 
     private function setType(Card $card, CardType $type): void

@@ -592,11 +592,10 @@ request then moves the epic to the first terminal column, as for any card. A
 board with no `in-review` column, or a terminal one, closes the epic at once.
 
 When each linked pull request is closed and none merged, the epic does not
-close when its last child finishes. It goes back to the Backlog about ten
-minutes later, as for any card.
+close when its last child finishes. It stays where it is, as for any card.
 
 For a repository connected through the GitHub App, Loupe also changes the
-pull request, while the automation is on:
+pull request, when the epic writes are on in [Automation](#automation):
 
 - When the epic enters `in-review`, Loupe marks its linked pull requests ready
   for review.
@@ -604,9 +603,8 @@ pull request, while the automation is on:
 - When a person or an agent moves the epic to the Backlog, Loupe closes its
   open linked pull requests.
 
-The reverse also applies. When you close the epic pull request on GitHub and
-none merged, the card goes back to the Backlog after about ten minutes, as for
-any card.
+When you close the epic pull request on GitHub and none merged, the epic stays
+where it is, as for any card.
 
 ### The epic branch
 

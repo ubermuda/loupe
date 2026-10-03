@@ -125,7 +125,9 @@ final readonly class FactsBuilder
             approvalsCoveringHead: PullRequestReview::Approved === $pullRequest->review
                 && null !== $pullRequest->coveredSha
                 && $pullRequest->coveredSha === $pullRequest->headSha ? 1 : 0,
-            changesRequested: PullRequestReview::ChangesRequested === $pullRequest->review,
+            changesRequested: PullRequestReview::ChangesRequested === $pullRequest->review
+                && null !== $pullRequest->changesRequestedSha
+                && $pullRequest->changesRequestedSha === $pullRequest->headSha,
             baseIsMergeTarget: $baseIsEpicBranch || (null !== $base && $base === $pullRequest->defaultBranch),
             baseIsEpicBranch: $baseIsEpicBranch,
             stacked: [] !== $parents,

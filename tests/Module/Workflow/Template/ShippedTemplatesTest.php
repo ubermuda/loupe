@@ -59,7 +59,7 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertCount(1, $simple->manualMoves);
         self::assertSame('*', $simple->manualMoves[0]->from);
         self::assertSame('*', $simple->manualMoves[0]->to);
-        self::assertSame(['merged', 'closed-unmerged'], array_map(static fn ($rule) => $rule->id, $simple->rulesFor(null)));
+        self::assertSame(['merged'], array_map(static fn ($rule) => $rule->id, $simple->rulesFor(null)));
     }
 
     public function test_every_slot_label_has_an_english_string(): void
@@ -237,7 +237,7 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals(new ActionCall(ActionType::ForgeWrite, ['write' => 'merge', 'fallback' => 'merge']), $this->actions($facts));
     }
 
-    public function test_a_child_whose_pull_requests_closed_unmerged_stays_in_backlog(): void
+    public function test_a_child_whose_pull_requests_closed_unmerged_stays_in_its_column(): void
     {
         $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
         $toBacklog = new ActionCall(ActionType::Move, ['to' => '@backlog']);
@@ -247,7 +247,7 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertContainsEquals($toImplementation, $this->actions($unblocked));
 
         $inImplementation = FactsMother::facts(card: FactsMother::card(slot: 'implementation', isChild: true), pullRequests: $closed);
-        self::assertContainsEquals($toBacklog, $this->actions($inImplementation));
+        self::assertNotContainsEquals($toBacklog, $this->actions($inImplementation));
 
         $inBacklog = FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true), pullRequests: $closed);
         self::assertNotContainsEquals($toImplementation, $this->actions($inBacklog));
@@ -273,8 +273,8 @@ final class ShippedTemplatesTest extends KernelTestCase
         $closed = FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:45:00'));
         yield 'a closed pull request does not ask for an implementation' => [
             FactsMother::facts(card: FactsMother::card(slot: 'implementation'), pullRequest: $closed, pullRequests: [$closed]),
-            ['implement', 'closed-unmerged'],
-            'closed-unmerged',
+            ['implement'],
+            null,
         ];
 
         yield 'a product design with changes requested asks only for a revision' => [
@@ -325,10 +325,10 @@ final class ShippedTemplatesTest extends KernelTestCase
         ];
 
         $finishedEpic = FactsMother::card(slot: 'implementation', type: 'epic', childCount: 2);
-        yield 'an epic with closed unmerged pull requests returns to the backlog, not to done' => [
+        yield 'an epic with closed unmerged pull requests stays, and does not go to done' => [
             FactsMother::facts(card: $finishedEpic, pullRequest: $closed, pullRequests: [$closed]),
-            ['epic-to-done', 'closed-unmerged'],
-            'closed-unmerged',
+            ['epic-to-done', 'merged'],
+            null,
         ];
 
         yield 'an epic with no pull request moves to done' => [
