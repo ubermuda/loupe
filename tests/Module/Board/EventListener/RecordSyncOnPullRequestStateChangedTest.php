@@ -122,13 +122,12 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
     }
 
     /** The row as apply() leaves it, and the event Forge dispatches inside the transaction of the read. */
-    private function read(string $from, string $to, ?string $syncedSha, bool $readyToMerge = false): void
+    private function read(string $from, string $to, ?string $syncedSha): void
     {
         $this->pullRequest->headSha = $to;
         $this->pullRequest->syncedSha = $syncedSha;
-        $this->pullRequest->readyToMerge = $readyToMerge;
         $this->em->flush();
-        $event = new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(headSha: $from), new PullRequestSnapshot(headSha: $to, readyToMerge: $readyToMerge));
+        $event = new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(headSha: $from), new PullRequestSnapshot(headSha: $to));
 
         $events = self::getContainer()->get(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $events);
