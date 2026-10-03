@@ -143,7 +143,6 @@ final readonly class Engine
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
                 $state->truth = $rule->when->evaluate($run->facts);
-                $state->wakeAt = $rule->when->changesAt($run->facts);
                 $state->fingerprint = $this->fingerprint->of($run->facts, $rule->when->reads());
                 $state->attempts = 0;
                 $state->dueAt = null;
@@ -269,7 +268,6 @@ final readonly class Engine
     {
         $truth = $rule->when->evaluate($run->facts);
         $fingerprint = $this->fingerprint->of($run->facts, $rule->when->reads());
-        $state->wakeAt = $rule->when->changesAt($run->facts);
         if (!$truth) {
             $state->truth = false;
             $state->attempts = 0;
@@ -362,7 +360,7 @@ final readonly class Engine
     /** @return list<mixed> */
     private static function snapshot(WorkflowRuleState $state): array
     {
-        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->wakeAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u')];
+        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u')];
     }
 
     private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void

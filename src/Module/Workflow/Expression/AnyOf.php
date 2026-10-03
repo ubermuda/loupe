@@ -48,10 +48,4 @@ final readonly class AnyOf extends Expression
     {
         return self::readsOf($this->children);
     }
-
-    #[\Override]
-    public function changesAt(Facts $facts): ?\DateTimeImmutable
-    {
-        return self::earliestChangeOf($this->children, $facts);
-    }
 }

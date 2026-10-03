@@ -11,7 +11,7 @@ parameters:
     app.workflow.merge_method: squash
     # Off keeps the workflow engine inert: no evaluation is queued, and a queued one does nothing.
     workflow.engine_enabled: false
-    # Every minute, so a refused rule retries soon after its backoff ends, and a timed condition acts soon after it comes due.
+    # Every minute, so a refused rule retries soon after its backoff ends.
     app.workflow.evaluate_due_schedule: '* * * * *'
     # The backstop for a card change that no event reported.
     app.workflow.sweep_schedule: '*/10 * * * *'

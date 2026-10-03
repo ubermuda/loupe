@@ -14,7 +14,6 @@ use Symfony\Component\Uid\Uuid;
 /** What the engine remembers about one rule of the template for one card. */
 #[ORM\Entity(repositoryClass: WorkflowRuleStateRepository::class)]
 #[ORM\Index(name: 'idx_workflow_rule_states_due_at', columns: ['due_at'])]
-#[ORM\Index(name: 'idx_workflow_rule_states_wake_at', columns: ['wake_at'])]
 #[ORM\Table(name: 'workflow_rule_states')]
 #[ORM\UniqueConstraint(name: 'uniq_workflow_rule_states_card_rule', columns: ['card_id', 'rule_id'])]
 class WorkflowRuleState
@@ -41,10 +40,6 @@ class WorkflowRuleState
     /** The time a retry of the rule is due. */
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $dueAt = null;
-
-    /** The time the condition of the rule changes with no new fact, so the card needs an evaluation then. */
-    #[ORM\Column(nullable: true)]
-    public ?\DateTimeImmutable $wakeAt = null;
 
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $lastRefusal = null;
@@ -76,7 +71,6 @@ class WorkflowRuleState
         $this->attempts = 0;
         $this->fires = 0;
         $this->dueAt = null;
-        $this->wakeAt = null;
         $this->lastRefusal = null;
         $this->lastRefusalAt = null;
     }
