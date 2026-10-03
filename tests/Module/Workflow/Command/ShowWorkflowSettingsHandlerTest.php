@@ -101,7 +101,6 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         self::assertSame([], $template->slots);
         self::assertEquals([
             new WorkflowRuleView('merged', 'workflow.settings.where.any', 'workflow.settings.action.move', 'workflow.settings.where.any_terminal', null),
-            new WorkflowRuleView('closed-unmerged', 'workflow.settings.where.any', 'workflow.settings.action.move', 'workflow.settings.where.backlog', null),
         ], $template->rules);
         self::assertEquals([new WorkflowManualMoveView('workflow.settings.where.any', 'workflow.settings.where.any')], $template->manualMoves);
     }

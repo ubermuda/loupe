@@ -109,7 +109,6 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[data-rule-id="merged"]', 'Move the card to a terminal column');
-        self::assertSelectorTextContains('[data-rule-id="closed-unmerged"]', 'Move the card to the Backlog');
     }
 
     public function test_the_page_is_not_found_when_the_board_is_off(): void

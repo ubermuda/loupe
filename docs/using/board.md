@@ -515,11 +515,6 @@ When a card is managed again, the workflow takes the card as it is at that
 time. A condition that became true while the card was unmanaged does not fire.
 The workflow acts only on the changes that come after.
 
-A timed condition waits for time to pass, such as ten minutes after the last
-pull request of the card closed with no merge. It applies only to a card in a
-column that is not terminal. Loupe checks those cards every ten minutes, so a
-timed condition can act up to ten minutes after its time.
-
 #### The Workflow panel
 
 The card page and the drawer show a **Workflow** panel when the panel has
@@ -654,8 +649,7 @@ request then moves the epic to the first terminal column, as for any card. A
 board with no `in-review` column, or a terminal one, closes the epic at once.
 
 When each linked pull request is closed and none merged, the epic does not
-close when its last child finishes. It goes back to the Backlog about ten
-minutes later, as for any card.
+close when its last child finishes. It stays where it is, as for any card.
 
 For a repository connected through the GitHub App, Loupe also changes the
 pull request, while the automation is on:
@@ -666,9 +660,8 @@ pull request, while the automation is on:
 - When a person or an agent moves the epic to the Backlog, Loupe closes its
   open linked pull requests.
 
-The reverse also applies. When you close the epic pull request on GitHub and
-none merged, the card goes back to the Backlog after about ten minutes, as for
-any card.
+When you close the epic pull request on GitHub and none merged, the epic stays
+where it is, as for any card.
 
 ### The epic branch
 
@@ -829,13 +822,7 @@ while the automation is on:
   counts as open and holds the card back. An epic with an open child stays
   where it is.
 - When each pull request of the card is closed and none merged, the card
-  moves to the Backlog about ten minutes after the last close. Loupe checks the
-  links again at that time. An open, merged or unread pull request cancels the
-  move, so a reopen or a new open link keeps the card. A closed pull request
-  linked in that time does not cancel it. A card that a person moves
-  to a terminal column in that time stays there. An epic with an open child
-  stays where it is. The move is a system move, so it starts a bridge rule that
-  watches the Backlog.
+  stays where it is. Move it yourself, for example to the Backlog.
 
 The system makes these moves, and a card in a terminal column never moves. For
 any other pull request, move the card yourself, or have your agent move it with
