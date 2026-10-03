@@ -5770,10 +5770,6 @@
                 <source>board.column.rename.cancel</source>
                 <target>Cancel</target>
             </trans-unit>
-            <trans-unit id="board.column.rename.bridge_rule_warning">
-                <source>board.column.rename.bridge_rule_warning</source>
-                <target>A bridge rule watches this column. Renaming it changes its slug, and the rule stops matching.</target>
-            </trans-unit>
             <trans-unit id="board.column.move.up">
                 <source>board.column.move.up</source>
                 <target>Move up</target>
@@ -5817,42 +5813,6 @@
             <trans-unit id="board.column.delete.submit_empty">
                 <source>board.column.delete.submit_empty</source>
                 <target>Delete the column</target>
-            </trans-unit>
-            <trans-unit id="board.column.delete.bridge_rule_warning">
-                <source>board.column.delete.bridge_rule_warning</source>
-                <target>A bridge rule watches this column. Deleting it removes its slug, and the rule stops matching.</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.title">
-                <source>board.bridge_rules.title</source>
-                <target>{0}No bridge rule is dead.|{1}A bridge reports a dead rule|]1,Inf]A bridge reports %count% dead rules</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.hint">
-                <source>board.bridge_rules.hint</source>
-                <target>A dead rule starts no agent. Fix the rule in rules.yaml, then restart the bridge.</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.racing_title">
-                <source>board.bridge_rules.racing_title</source>
-                <target>{0}No bridge rule races the app sync.|{1}1 bridge rule races the app sync|]1,Inf]%count% bridge rules race the app sync</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.racing_hint">
-                <source>board.bridge_rules.racing_hint</source>
-                <target>The app syncs a pull request that is behind. Remove each rule on pull_request.behind from rules.yaml.</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.columns">
-                <source>board.bridge_rules.columns</source>
-                <target>Columns:</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.reason">
-                <source>board.bridge_rules.reason</source>
-                <target>Reason:</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.bridge">
-                <source>board.bridge_rules.bridge</source>
-                <target>Bridge:</target>
-            </trans-unit>
-            <trans-unit id="board.bridge_rules.reported">
-                <source>board.bridge_rules.reported</source>
-                <target>Reported %date%</target>
             </trans-unit>
             <trans-unit id="board.column.flash.deleted">
                 <source>board.column.flash.deleted</source>
@@ -6940,7 +6900,6 @@
             <trans-unit id="board.live.catch_up_failed"><source>board.live.catch_up_failed</source><target>Live updates stopped. Reload the page to catch up.</target></trans-unit>
             <trans-unit id="board.live.stale"><source>board.live.stale</source><target>This card may be out of date</target></trans-unit>
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
-            <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>
             <trans-unit id="nav.link.workflow"><source>nav.link.workflow</source><target>Workflow</target></trans-unit>
             <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>
             <trans-unit id="bridge.agents.page.title"><source>bridge.agents.page.title</source><target>Agents</target></trans-unit>
@@ -6998,39 +6957,21 @@
             <trans-unit id="bridge.command.error.nothing_pending"><source>bridge.command.error.nothing_pending</source><target>This run has no command that waits.</target></trans-unit>
             <trans-unit id="bridge.pause.error.bridge_outdated"><source>bridge.pause.error.bridge_outdated</source><target>Update the bridge to pause it.</target></trans-unit>
             <trans-unit id="bridge.pause.error.unknown_bridge"><source>bridge.pause.error.unknown_bridge</source><target>This bridge is not connected to your account.</target></trans-unit>
-            <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
-            <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>
-            <trans-unit id="board.rules.heading"><source>board.rules.heading</source><target>The handoffs</target></trans-unit>
-            <trans-unit id="board.rules.description"><source>board.rules.description</source><target>A small set of rules keeps work moving between people and agents.</target></trans-unit>
-            <trans-unit id="board.rules.live_count"><source>board.rules.live_count</source><target>{0} No live rules|{1} 1 live rule|]1,Inf[ %count% live rules</target></trans-unit>
-            <trans-unit id="board.rules.status.live"><source>board.rules.status.live</source><target>Live</target></trans-unit>
-            <trans-unit id="board.rules.status.dead"><source>board.rules.status.dead</source><target>Invalid</target></trans-unit>
-            <trans-unit id="board.rules.races_sync"><source>board.rules.races_sync</source><target>Races the app sync. Remove it from rules.yaml.</target></trans-unit>
-            <trans-unit id="board.rules.event_description"><source>board.rules.event_description</source><target>Listens for %event%.</target></trans-unit>
-            <trans-unit id="board.rules.flow_label"><source>board.rules.flow_label</source><target>Rule handoff</target></trans-unit>
-            <trans-unit id="board.rules.reported_at"><source>board.rules.reported_at</source><target>Reported %time%</target></trans-unit>
-            <trans-unit id="board.form.search_rules_form.search.label"><source>board.form.search_rules_form.search.label</source><target>Find a rule</target></trans-unit>
-            <trans-unit id="board.form.search_rules_form.search.placeholder"><source>board.form.search_rules_form.search.placeholder</source><target>Find a rule…</target></trans-unit>
-            <trans-unit id="board.rules.search.clear"><source>board.rules.search.clear</source><target>Clear</target></trans-unit>
-            <trans-unit id="board.rules.search.empty"><source>board.rules.search.empty</source><target>No matching rules</target></trans-unit>
-            <trans-unit id="board.rules.search.try_again"><source>board.rules.search.try_again</source><target>Try another rule name or clear the search.</target></trans-unit>
-            <trans-unit id="board.rules.empty.title"><source>board.rules.empty.title</source><target>No rules reported</target></trans-unit>
-            <trans-unit id="board.rules.empty.description"><source>board.rules.empty.description</source><target>A connected bridge reports the rules it has loaded for this project.</target></trans-unit>
-            <trans-unit id="board.rules.hooks.heading"><source>board.rules.hooks.heading</source><target>Hooks</target></trans-unit>
-            <trans-unit id="board.rules.hooks.description"><source>board.rules.hooks.description</source><target>Each bridge that follows this project reports the hooks it runs and how their last run went.</target></trans-unit>
-            <trans-unit id="board.rules.hooks.last_seen"><source>board.rules.hooks.last_seen</source><target>Last heartbeat %time%</target></trans-unit>
-            <trans-unit id="board.rules.hooks.last_run"><source>board.rules.hooks.last_run</source><target>Last run %time%</target></trans-unit>
-            <trans-unit id="board.rules.hooks.pinned"><source>board.rules.hooks.pinned</source><target>Pinned at %ref%.</target></trans-unit>
-            <trans-unit id="board.rules.hooks.flow_label"><source>board.rules.hooks.flow_label</source><target>Hook trigger</target></trans-unit>
-            <trans-unit id="board.rules.hooks.none"><source>board.rules.hooks.none</source><target>No hook is installed.</target></trans-unit>
-            <trans-unit id="board.rules.hooks.event.start"><source>board.rules.hooks.event.start</source><target>On start</target></trans-unit>
-            <trans-unit id="board.rules.hooks.event.stop"><source>board.rules.hooks.event.stop</source><target>On stop</target></trans-unit>
-            <trans-unit id="board.rules.hooks.event.busy"><source>board.rules.hooks.event.busy</source><target>On busy</target></trans-unit>
-            <trans-unit id="board.rules.hooks.event.idle"><source>board.rules.hooks.event.idle</source><target>On idle</target></trans-unit>
-            <trans-unit id="board.rules.hooks.outcome.ok"><source>board.rules.hooks.outcome.ok</source><target>OK</target></trans-unit>
-            <trans-unit id="board.rules.hooks.outcome.failed"><source>board.rules.hooks.outcome.failed</source><target>Failed</target></trans-unit>
-            <trans-unit id="board.rules.hooks.outcome.timeout"><source>board.rules.hooks.outcome.timeout</source><target>Timed out</target></trans-unit>
-            <trans-unit id="board.rules.hooks.outcome.never"><source>board.rules.hooks.outcome.never</source><target>Not run yet</target></trans-unit>
+            <trans-unit id="bridge.hooks.heading"><source>bridge.hooks.heading</source><target>Hooks</target></trans-unit>
+            <trans-unit id="bridge.hooks.description"><source>bridge.hooks.description</source><target>Each bridge that follows this project reports the hooks it runs and how their last run went.</target></trans-unit>
+            <trans-unit id="bridge.hooks.last_seen"><source>bridge.hooks.last_seen</source><target>Last heartbeat %time%</target></trans-unit>
+            <trans-unit id="bridge.hooks.last_run"><source>bridge.hooks.last_run</source><target>Last run %time%</target></trans-unit>
+            <trans-unit id="bridge.hooks.pinned"><source>bridge.hooks.pinned</source><target>Pinned at %ref%.</target></trans-unit>
+            <trans-unit id="bridge.hooks.flow_label"><source>bridge.hooks.flow_label</source><target>Hook trigger</target></trans-unit>
+            <trans-unit id="bridge.hooks.none"><source>bridge.hooks.none</source><target>No hook is installed.</target></trans-unit>
+            <trans-unit id="bridge.hooks.event.start"><source>bridge.hooks.event.start</source><target>On start</target></trans-unit>
+            <trans-unit id="bridge.hooks.event.stop"><source>bridge.hooks.event.stop</source><target>On stop</target></trans-unit>
+            <trans-unit id="bridge.hooks.event.busy"><source>bridge.hooks.event.busy</source><target>On busy</target></trans-unit>
+            <trans-unit id="bridge.hooks.event.idle"><source>bridge.hooks.event.idle</source><target>On idle</target></trans-unit>
+            <trans-unit id="bridge.hooks.outcome.ok"><source>bridge.hooks.outcome.ok</source><target>OK</target></trans-unit>
+            <trans-unit id="bridge.hooks.outcome.failed"><source>bridge.hooks.outcome.failed</source><target>Failed</target></trans-unit>
+            <trans-unit id="bridge.hooks.outcome.timeout"><source>bridge.hooks.outcome.timeout</source><target>Timed out</target></trans-unit>
+            <trans-unit id="bridge.hooks.outcome.never"><source>bridge.hooks.outcome.never</source><target>Not run yet</target></trans-unit>
             <trans-unit id="activity.page.title"><source>activity.page.title</source><target>Activity</target></trans-unit>
             <trans-unit id="activity.description"><source>activity.description</source><target>Every worker run and project event, with the context to understand it.</target></trans-unit>
             <trans-unit id="activity.tabs.label"><source>activity.tabs.label</source><target>Activity views</target></trans-unit>
@@ -7103,7 +7044,6 @@
             <trans-unit id="inbox.answer.unsent"><source>inbox.answer.unsent</source><target>Your unsent answer</target></trans-unit>
             <trans-unit id="inbox.answer.unsent_closed"><source>inbox.answer.unsent_closed</source><target>This request no longer accepts responses. This draft was not sent.</target></trans-unit>
             <trans-unit id="inbox.answer.discard_draft"><source>inbox.answer.discard_draft</source><target>Discard draft</target></trans-unit>
-            <trans-unit id="board.rules.explanation"><source>board.rules.explanation</source><target>Rules come from bridge configuration. This page reports their health and does not change them.</target></trans-unit>
             <trans-unit id="inbox.account.project.open"><source>inbox.account.project.open</source><target>Open inbox</target></trans-unit>
             <trans-unit id="about.hero.licence"><source>about.hero.licence</source><target>Free software, AGPL-3.0</target></trans-unit>
             <trans-unit id="board.card.tab.details"><source>board.card.tab.details</source><target>Details</target></trans-unit>

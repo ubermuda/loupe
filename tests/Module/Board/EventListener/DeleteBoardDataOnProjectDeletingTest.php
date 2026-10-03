@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardAutomationSettings;
-use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardLink;
@@ -106,40 +105,6 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
 
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $projectId]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM projects WHERE id = :id', ['id' => $projectId]));
-    }
-
-    /**
-     * The listener runs alone here. Through ProjectDeleter the foreign key's
-     * cascade would remove the reports too, and hide a listener that did not.
-     */
-    public function test_the_listener_deletes_the_bridge_rule_reports_of_its_project_only(): void
-    {
-        self::bootKernel();
-
-        $em = self::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $listener = self::getContainer()->get(DeleteBoardDataOnProjectDeleting::class);
-        self::assertInstanceOf(DeleteBoardDataOnProjectDeleting::class, $listener);
-
-        $owner = new User(fullName: 'Riley', email: 'board-delete-reports-'.uniqid().'@example.com', password: 'hashed');
-        $em->persist($owner);
-        $doomed = $this->seedBoard($em, $owner, 'doomed');
-        $spared = $this->seedBoard($em, $owner, 'spared');
-        $rules = [['name' => 'plan', 'on' => 'board.card_moved', 'columns' => ['next'], 'state' => 'live', 'reason' => null]];
-        $em->persist(new BridgeRuleReport($doomed, Uuid::v4(), $rules));
-        $em->persist(new BridgeRuleReport($doomed, Uuid::v4(), $rules));
-        $em->persist(new BridgeRuleReport($spared, Uuid::v4(), $rules));
-        $em->flush();
-
-        $conn = $em->getConnection();
-        $count = static fn (Project $project): int => (int) $conn->fetchOne('SELECT COUNT(*) FROM board_bridge_rule_reports WHERE project_id = :id', ['id' => (string) $project->id]);
-        self::assertSame(2, $count($doomed));
-
-        $listener(new ProjectDeleting($doomed));
-
-        self::assertSame(0, $count($doomed));
-        self::assertSame(1, $count($spared));
-        self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM projects WHERE id = :id', ['id' => (string) $doomed->id]));
     }
 
     public function test_the_listener_deletes_the_pull_request_comments_of_its_project_only(): void

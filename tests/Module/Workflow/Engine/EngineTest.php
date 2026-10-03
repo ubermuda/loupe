@@ -853,7 +853,7 @@ final class EngineTest extends KernelTestCase
             $releaseCardPause,
             new Actions([
                 new MoveCard($this->service(BoardColumnRepository::class), $this->service(WorkflowSlotLinkRepository::class), $this->service(UpdateCardHandler::class)),
-                new RequestWork($opener),
+                new RequestWork($opener, $this->service(CardPullRequests::class), $this->service(\App\Module\Board\Repository\CardEventRepository::class)),
                 new PauseCard(),
                 new ReleasePause($cardPauses, $releaseCardPause),
             ]),

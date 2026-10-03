@@ -43,11 +43,6 @@ framework:
             limit: 60
             interval: '1 minute'
 
-        # Bounds the bridge's rule health reports. A bridge reports at start
-        # and whenever a rule changes state.
-        agent_bridge_rule_reports:
-            <<: *agent_per_token
-
         # Bounds the bridge's run reports: the finished run, each run state and
         # the run inventory. A run sends about four states, and a burst of card
         # moves sends them at once, so the limit drains a full bridge queue of 256.

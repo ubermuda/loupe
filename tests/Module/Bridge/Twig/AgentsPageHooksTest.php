@@ -9,11 +9,11 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
 
-final class RulesPageHooksTest extends WebTestCase
+final class AgentsPageHooksTest extends WebTestCase
 {
     use BridgeScenario;
 
-    public function test_the_rules_page_lists_the_hooks_of_each_bridge_that_follows_the_project(): void
+    public function test_the_agents_page_lists_the_hooks_of_each_bridge_that_follows_the_project(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -32,7 +32,7 @@ final class RulesPageHooksTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/rules');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-bridge-hooks]'));
@@ -59,7 +59,7 @@ final class RulesPageHooksTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/rules');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-bridge-hooks]'));
@@ -77,7 +77,7 @@ final class RulesPageHooksTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/rules');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('[data-bridge-hooks]'));
