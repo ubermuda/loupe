@@ -35,7 +35,7 @@ Exit 0 means the epic branch exists, so `<base>` is the epic branch. Any other e
 
 ## Check the worker folder
 
-The worker folder is the folder the worker starts in. The bridge rules make it and remove it, and a stage never does. A worker with no rule for its folder starts in the project directory. `<base>` comes from "Find the base branch".
+The worker folder is the folder the worker starts in. The bridge configuration makes it and removes it, and a stage never does. A worker with no `before` command starts in the project directory. `<base>` comes from "Find the base branch".
 
 When the profile `Environment` section names a folder check, run it first. When the check fails, stop with `STAGE RESULT: blocked: no worker folder`. Then run this in the worker folder:
 

@@ -10,7 +10,7 @@ while a worker runs, or send a message when the bridge stops.
 
 A hook only observes the bridge. It cannot block, delay or change a worker, and
 its exit code changes nothing in the bridge. A hook that fails writes a log
-line and a row on the Rules page. The bridge keeps running.
+line and a row on the Agents page. The bridge keeps running.
 
 ## The events
 
@@ -21,9 +21,8 @@ line and a row on the Rules page. The bridge keeps running.
 | `busy` | when the bridge goes from idle to busy |
 | `idle` | when the bridge goes from busy to idle |
 
-The bridge is busy while a worker runs, while an ask check before a resume
-runs, or while an event waits in its queue. A card that waits for a person at
-its `maxChain` cap does not make the bridge busy. The bridge starts idle.
+The bridge is busy while a worker runs, or while a request waits in its queue.
+The bridge starts idle.
 
 `stop` also runs when the bridge exits early after `start`, for example when
 `GET /api/events` fails. A bridge that stops before `start`, such as on a bad
@@ -121,8 +120,8 @@ together. It logs one line for each run:
 | `hook_failed` | the hook exited non-zero, with `exit_code` and `output`, or it could not start, with `error`. Level `WARN` |
 | `hook_timeout` | the bridge killed the hook at its time limit, with `timeout_seconds` and `output`. Level `WARN` |
 
-The heartbeat carries the last run of each hook to Loupe. The Rules page shows
-it, as [Bridge rule health](../using/board.md#bridge-rule-health) describes. The
+The heartbeat carries the last run of each hook to Loupe. The Agents page shows
+it, as [Bridge health](../using/worker-runs.md#bridge-health) describes. The
 row of a `stop` run never reaches Loupe, because the bridge has already closed
 its send queue. The log line is the only record of that run. After an early
 exit, the `start` row does not reach Loupe either.

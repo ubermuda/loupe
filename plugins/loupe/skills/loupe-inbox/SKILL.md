@@ -34,9 +34,9 @@ Link items with `cardIds` and `documentIds`. Pass the ids that `card_list` and `
 
 ## After a blocking ask
 
-When the bridge started you, end your turn after a blocking ask. Do not poll `inbox_get` in a loop. When the ask closes, a bridge with a `resume` rule resumes your session. Its prompt can name the ask id, your session id and the card number, or `unknown` for no card. A second `inbox_ask` from a resumed session opens a new ask.
+When the bridge started you, end your turn after a blocking ask. Do not poll `inbox_get` in a loop. When the ask closes, Loupe asks the bridge to resume your session, and the resume prompt tells you that the owner answered. A second `inbox_ask` from a resumed session opens a new ask.
 
-Pass your own session id as `readerSessionId` whenever you read your answers, on a resume or while your first run continues. Only `readerSessionId` records a read. The `sessionId` filter of `inbox_list` records nothing. When you read every item of a closed ask before the bridge releases the resume, the bridge skips it.
+Pass your own session id as `readerSessionId` whenever you read your answers, on a resume or while your first run continues. Only `readerSessionId` records a read. The `sessionId` filter of `inbox_list` records nothing.
 
 1. Call `inbox_list` with the `askId` and `readerSessionId`. Each row then holds `state`, `options`, `selectedOptions` (indexes into `options`), `answerText` and `closeNote`.
 2. Call `inbox_get` with `itemId` and `readerSessionId` when you need an item's body or links.

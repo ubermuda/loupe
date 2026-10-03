@@ -78,6 +78,7 @@ export default defineConfig({
             { slug: 'using/connected-apps' },
             { slug: 'using/site-review' },
             { slug: 'using/board' },
+            { slug: 'using/workflows' },
             { slug: 'using/inbox' },
             {
               label: 'Activity',

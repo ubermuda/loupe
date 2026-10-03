@@ -223,7 +223,7 @@ holds, by `commandId`. Each command carries these fields:
 | `bridgeId` | the bridge that must act. Another bridge drops the event |
 | `runKey`, `sessionId` | the run and its session, or `null` when the run has none |
 | `cardId`, `cardNumber` | the card of the run |
-| `workRequestId`, `workKind`, `ruleId` | the work request of the run, or `null` for a run of a `rules:` entry |
+| `workRequestId`, `workKind`, `ruleId` | the work request of the run, or `null` for a run from before the work map |
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
 | `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
 

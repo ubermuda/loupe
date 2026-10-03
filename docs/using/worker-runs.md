@@ -24,7 +24,7 @@ page describes it. **Events** lists the [project events](activity.md).
 |---|---|
 | Work | the number of the card the worker was started for, then its title. A card that is gone, or a board that is off, shows the number alone. An interactive run adds the tag **Interactive session**, and a command run adds the tag **Command** |
 | Outcome | the state of the run, from the list below. A run with a failure reason shows a help icon, and the reason shows when you hover over or focus the outcome |
-| Work kind | the kind of the work request the run ran, such as `implement` or `fix`, or the name of an interactive session. A run of a bridge `rules:` entry shows **None**. A long name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool** |
+| Work kind | the kind of the work request the run ran, such as `implement` or `fix`, or the name of an interactive session. A run from before the work map shows **None**. A long name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool** |
 | Duration | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
 | Started | how long ago the worker started, on the bridge clock. Hover over it to see the exact time. A run that has not started shows when its first report arrived |
 
@@ -36,18 +36,18 @@ A bridge runs its workers in named worker pools, and each report of a run names
 its pool. The row and the drawer show the pool that the last report named. A
 run from an older bridge, and an interactive run, name no pool and show none.
 
-A bridge rule can split its runs between the variants of an experiment, and
-each card keeps the variant of its first run. The drawer of such a run shows an
-**Experiment** line after the rule, such as `impl-model / sonnet
+A work entry of a bridge can split its runs between the variants of an
+experiment, and each card keeps the variant of its first run. The drawer of such
+a run shows an **Experiment** line after the work kind, such as `impl-model / sonnet
 (claude-sonnet-5-5)`. The line gives the experiment, the variant and the model
-the variant asked for. When the rule no longer offers the variant of the card,
+the variant asked for. When the entry no longer offers the variant of the card,
 the card moves to a new variant. The line then adds a note, such as `, switched
 from opus`. A run with no experiment shows no line.
 
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary, or a terminal launcher that failed.
 
-A bridge rule can run a command with no agent, such as a script that removes
+A work entry of a bridge can run a command with no agent, such as a script that removes
 the worktree of a finished card. See
 [Command action](../extending/cli-bridge.md#command-action). Its run shows the
 tag **Command** on this page, in the drawer, in the runs of a card and on the
@@ -70,8 +70,8 @@ runs to a page.
 | **Running** | the worker runs |
 | **Stopping** | a person asked the bridge to stop the run, and the worker is still ending |
 | **Stopped** | a person stopped the run, and the bridge does not resume it |
-| **Waiting for a person** | the rule's chain cap stopped the run, and a move by a person starts a new one |
-| **Dropped** | the bridge stopped, a rule died, or a reload removed the rule, before the run started |
+| **Waiting for a person** | a bridge from before the workflow engine capped the run. The bridge no longer sends this state |
+| **Dropped** | the bridge stopped, the work of its project died, or a reload removed the work entry, before the run started |
 | **Succeeded** | the worker exited with code 0, with a structured result. A command run succeeds on exit code 0 alone |
 | **No result** | the worker exited with code 0, with no structured result |
 | **Unfinished** | the worker said that its work still runs or remains |
@@ -97,15 +97,12 @@ check, and its outcome comes from the exit code alone.
 
 ## Resumed runs
 
-The bridge resumes a run that did not finish, on the same session. A run did
-not finish when it failed, gave no result, or said **Unfinished**. Each resume
-is a new row, and its drawer links to the run it continues. When the last
-resume allowed still does not finish, that run shows **Gave up**.
-The bridge does not resume a **Blocked** run.
-
-The bridge also skips a resume when the card left the column that started the
-series. The ended run then keeps its own outcome, and its drawer says why the
-resume did not run.
+Loupe decides each resume, and the bridge resumes nothing on its own. A run that
+says **Unfinished** refuses its work request, and the workflow retries the
+request on the same session. When an [inbox](inbox.md) ask of a session closes,
+Loupe asks the bridge to resume that session. A person can also resume a run, as
+the next section says. Each resume is a new row, and its drawer links to the
+run it continues. A run from before the workflow engine can show **Gave up**.
 
 ## Stop, resume and cancel
 
@@ -274,9 +271,9 @@ an interactive run on the card, with the state **Running** and the skill name
 as its rule. No bridge holds this run, so it has no exit code and no output.
 The heartbeat timeout never touches it.
 
-A bridge rule with `action: interactive` can open the session in a terminal
-when a card enters a column. The bridge then records the run first, in the
-state **Running**, with the rule name and the bridge. When the session calls
+A work entry with `action: interactive` can open the session in a terminal
+when the workflow asks for that work. The bridge then records the run first, in
+the state **Running**, with the work kind and the bridge. When the session calls
 `card_run_open`, it takes over that run, so the page shows one row. A launch
 that fails shows **Never started**, with the bridge. Its reason holds the exit
 code and the output of the launcher. See
@@ -316,7 +313,7 @@ Heartbeat health does not show whether an individual worker is running or availa
 Each bridge card shows the name of the bridge as its heading. The bridge sets
 the name in its rule file, and the host name of its machine is the default. A
 bridge with no name shows the last 12 characters of its id. The run list, the
-run drawer, the rules page and the board show the same label.
+run drawer and the board show the same label.
 
 Two bridges of one account cannot hold the same name. The bridge that asks
 second gets no name and shows the end of its id. Its card shows a warning that
@@ -332,6 +329,18 @@ correct at that time only. A later heartbeat with no pool report keeps the
 counts and their time. The counts cover every project that the bridge follows, not only the
 current project. A bridge that sends no pool report, such as an older bridge,
 shows no pools.
+
+The page also has a **Hooks** section. It shows one block for each of your
+bridges whose heartbeat names the project, the latest heartbeat first. Each
+block shows the last 12 characters of the bridge id, with the full id in the
+tooltip, and the time of the last heartbeat. Under it, each
+[hook package](../extending/bridge-hooks.md) of the bridge has one row for each
+event it defines. A row shows the package, its ref, the event, the bridge and
+the time of the last run. Its chip reads OK, Failed, Timed out or Not run yet. A
+failed or timed out row shows the end of the hook's output, or the error when
+the hook could not start. A bridge with no hook shows "No hook is installed."
+Each heartbeat replaces the rows of its bridge, so a bridge that stops keeps its
+last list.
 
 The project owner can pause a bridge. Open the menu of the bridge card and
 select **Pause new work**. A paused bridge starts no queued run, and its

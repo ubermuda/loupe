@@ -23,11 +23,11 @@ the `site-review` or the `mcp` scope.
 
 | State | Who sets it | Meaning |
 |---|---|---|
-| `queued` | the bridge | the bridge accepted the event, and the run waits for a worker slot or for its card. A command run waits for its card only |
+| `queued` | the bridge | the bridge claimed the work request, and the run waits for a worker slot or for its card. A command run waits for its card only |
 | `replaced` | the bridge | a newer event for the same card and rule took the place of this run in the queue |
 | `resumed` | the bridge | the ask the session waited on closed, and the bridge resumes the session |
 | `skipped` | the bridge | the session already read every answer of its ask, so the bridge does not resume it |
-| `preparing` | the bridge | the bridge runs the `before` command of the rule, and the worker process has not started |
+| `preparing` | the bridge | the bridge runs the `before` command of the work entry, and the worker process has not started |
 | `running` | the bridge | the worker process started, or the command of a command run started |
 | `stopping` | the bridge | a person asked the bridge to stop the run, and the worker process is still ending |
 | `stopped` | the bridge | a person stopped the run. The bridge never resumes it |
@@ -44,6 +44,11 @@ the `site-review` or the `mcp` scope.
 | `timed-out` | the server | the bridge stopped sending its heartbeat while the run was open |
 | `lost` | the server | the bridge reconnected, and it no longer holds the run |
 | `closed` | the server | an interactive run ended. See [Interactive sessions](../using/worker-runs.md#interactive-sessions) |
+
+The bridge of this release sends none of `replaced`, `resumed`, `skipped`,
+`waiting-for-person` and `gave-up`, because Loupe decides each resume and the
+bridge no longer coalesces or caps runs. The server still accepts them, so a
+run from before the workflow engine keeps its history.
 
 `queued`, `resumed`, `preparing`, `running` and `stopping` are open states. Every other state
 closes the run. `succeeded`, `no-result`, `unfinished`, `blocked`,
@@ -98,8 +103,8 @@ order.
 | `at` | required. When the run reached the state, on the bridge clock, as an ISO 8601 timestamp |
 | `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
-| `workRequestId` | the uuid of the work request the run runs. A run of a `rules:` entry sends none |
-| `workKind` | the kind of the work request, such as `implement` or `fix`. It matches `^[a-z][a-z0-9-]{0,39}$`. A run of a `rules:` entry sends none |
+| `workRequestId` | the uuid of the work request the run runs. A run of a person's resume or rerun names the request of the run it continues |
+| `workKind` | the kind of the work request, such as `implement` or `fix`. It matches `^[a-z][a-z0-9-]{0,39}$` |
 | `ruleId` | the id of the workflow rule that opened the work request. It matches `^[a-z0-9][a-z0-9._-]{0,99}$` |
 | `kind` | `worker` or `command`. A missing or `null` value means `worker`. See [Command runs](#command-runs) |
 | `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running`, except on a command run |
@@ -159,7 +164,7 @@ and it does not store them.
 
 ### Command runs
 
-A bridge rule with `action: command` runs a command with no agent, as
+A work entry with `action: command` runs a command with no agent, as
 [Command action](../extending/cli-bridge.md#command-action) says. Each report
 of such a run carries `"kind": "command"`. The server stores the kind from the
 report that creates the run, and ignores it on a later report. A value other

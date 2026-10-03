@@ -42,13 +42,12 @@ which preselects Backlog, a card raised from the review widget, and
 
 Nobody can rename, reorder or delete Backlog, and it is never terminal. Board
 settings does not list it, and no other column can take the slug `backlog`.
-The tools still list Backlog, so an agent or a bridge rule can name `backlog`.
+The tools still list Backlog, so an agent or a workflow template can name `backlog`.
 
 A board from an earlier release had a default column instead, which the owner
 could rename. The upgrade turns that column into Backlog, with the label
 Backlog and the slug `backlog`, so a custom name is lost. When its old slug was
-not `backlog`, a bridge rule or a prompt that named the old slug stops
-matching. When another column held the
+not `backlog`, a prompt that named the old slug stops matching. When another column held the
 slug `backlog`, the upgrade moves its cards to the end of Backlog, in rank
 order, and deletes that column.
 
@@ -110,14 +109,11 @@ The column dialog shows the new slug as you type, and it shows a refusal before
 you save. A seeded column shows its label in the reader's language. A rename
 stores the label as typed, so a renamed column is no longer translated.
 
-A rename that changes the slug breaks every outside reference to the old slug.
-Loupe cannot see these references, so it cannot warn you about them:
+A rename keeps the workflow working, because the template links each slot to a
+column by its id. A rename that changes the slug still breaks every outside
+reference to the old slug. Loupe cannot see these references, so it cannot warn
+you about them:
 
-- A bridge rule whose `to` or `from` names the old slug. The bridge checks
-  slugs at start and at each reload. The running bridge stops matching the
-  rule, and a restart or a reload refuses the unknown slug. Put the new slug in
-  `rules.yaml`, then run `loupe bridge reload`. See
-  [Command-line bridge](../extending/cli-bridge.md).
 - An agent prompt, a skill or a saved instruction that names the old slug.
 - A `status` argument that a script passes to an MCP tool.
 
@@ -136,7 +132,10 @@ its completion time, and joins the end of that column.
 
 Each moved card gets its own `board.card_moved` audit record. The outbox gets
 one `board.column_deleted` event, which names the moved cards. A bulk move
-writes no `board.card_moved` event, so no bridge rule on card moves fires.
+writes no `board.card_moved` event. The workflow checks each moved card again,
+as for any other move. A deleted column that a slot of the template links
+leaves that slot empty, and a card that needs the slot pauses with "workflow
+slot missing".
 
 ## How cards are ordered
 
@@ -307,57 +306,6 @@ your own moves, edits and new cards still show at once. A change by someone
 else shows on the next load of the board. The card drawer also shows changes by
 others while you edit, see [The card page](#the-card-page).
 
-### Bridge rule health
-
-Open Rules to read the project's reported handoffs. Each rule shows its event and its columns by their display names.
-Search by rule name. The list updates as you type, or when you press Enter.
-Matching ignores case. Clear restores the full list; the live-rule count always covers the project's complete report.
-Searches with no matches show a different message from a project with no reported rules.
-On narrow screens or with enlarged text, the search row scrolls to reveal each control as you press Tab or Shift+Tab.
-This page remains read-only. Change rules in the bridge configuration.
-
-A [command-line bridge](../extending/cli-bridge.md) can report the health of its
-rules for each project it follows. A rule is dead when it can no longer match,
-for example after its column was renamed or deleted. A dead rule starts no
-agent.
-
-When any bridge reports a dead rule, the board shows a banner above the columns.
-The banner names each dead rule, the column slugs it watches, the reason the
-bridge gave, the bridge that sent it, and when the report arrived. Only the
-owner of the project sees it. The banner goes away when every bridge sends a
-report with no dead rule. A bridge that stops for good leaves its last report,
-and so its banner, in place. To clear such a report, send an empty report for
-that bridge id, as the [bridge page](../extending/cli-bridge.md) describes. The
-banner shows the first eight characters of the bridge id, and the full id is in
-their tooltip.
-
-A live rule on `pull_request.behind` races the app when the project has the
-automation and **Sync an approved pull request that is behind** on. Loupe and
-the worker of that rule then both update the same branch. The Rules page marks
-such a rule with "Races the app sync. Remove it from rules.yaml." The board
-banner lists it below the dead rules, and the inbox gets a
-[notice](inbox.md#notices). Remove the rule from the `rules.yaml` of its
-bridge. The mark goes away when that bridge sends its next report.
-
-The column dialog and the delete dialog in board settings warn before they save when a live rule
-watches that column's slug. A rename changes the slug, and a delete removes it,
-so the rule stops matching in both cases.
-
-The Rules page also has a Hooks section. It shows one block for each of your
-bridges whose heartbeat names the project, the latest heartbeat first. Each
-block shows the last 12 characters of the bridge id, with the full id in the
-tooltip, and the time of the last heartbeat. Under it, each
-[hook package](../extending/bridge-hooks.md) of the bridge has one row for each
-event it defines. A row looks like a rule row. It shows the package, its ref,
-the event, the bridge and the time of the last run.
-
-The chip of a row reads OK, Failed, Timed out or Not run yet. A failed or timed
-out row shows the end of the hook's output, or the error when the hook could not
-start. A bridge with no hook shows "No hook is installed." Each heartbeat
-replaces the rows of its bridge, so a bridge that stops keeps its last list. A
-`stop` run never reaches the page, because the bridge closes its send queue
-before its `stop` hooks run.
-
 ### The card page
 
 A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
@@ -400,9 +348,8 @@ resets the fix count when a person moves the card to another column, when the
 checks pass, or when a reviewer approves or requests changes. A card in a
 terminal column shows no block.
 
-When an approval did not move the card because a blocker is open, the page says
-**Approved, and waits for its blockers:** and links to each open blocker. See
-[An approval waits for open blockers](#an-approval-waits-for-open-blockers).
+When an approval did not move the card because a blocker is open, the Workflow
+panel says what the card waits for.
 
 The card page and the drawer update live, with no reload. They update when the
 card moves, when one of its pull requests changes, when the automation acts,
@@ -485,9 +432,11 @@ that the template lists. When you drop a managed card in a column that the
 template does not list, the board offers to make the card unmanaged and then
 move it. An agent that tries such a move gets an error that names `card_hold`.
 
-The workflow engine is not switched on yet. So today the board allows every
-move, and the workflow moves no card and requests no work. The Workflow panel
-shows only a pause.
+Each existing project got a template when the engine was switched on. A board
+with a column for each slot of Lifecycle got Lifecycle, and every other board got
+Simple. [Workflows](workflows.md) describes both templates. The workflow
+treated every condition that was true at that time as handled, so nothing moved
+at once.
 
 An unmanaged card is outside the workflow. The workflow makes no move and
 starts no work on it, and no bridge starts a worker on it. A person may move it
@@ -505,10 +454,6 @@ These actions make the card managed again:
 
 - A person selects **Manage again** in the runs section, or an agent calls
   `card_release`.
-- While the workflow engine is off, a person moves the card to another column.
-  A move by an agent or by the automation keeps the card unmanaged, and so does
-  a move inside the same column. While the engine is on, every move keeps the
-  card unmanaged.
 - A person deletes the column of the card, or the card.
 
 When a card is managed again, the workflow takes the card as it is at that
@@ -526,11 +471,9 @@ workflow pauses a card when a rule of the template asks for it, when too many
 attempts are refused, when no bridge takes the work in time, or when a rule
 reaches its work limit.
 
-While the workflow engine is on, the panel also shows the slot of the card, the
-condition that the card waits for and the next action. It also shows the last
-refusal, with its reason, its time and the number of attempts. An unmanaged
-card shows none of these. A card with no pause shows no panel while the engine
-is off.
+The panel also shows the slot of the card, the condition that the card waits
+for and the next action. It also shows the last refusal, with its reason, its
+time and the number of attempts. An unmanaged card shows none of these.
 
 An unmanaged card is a different control from the pause of a bridge. **Pause
 new work** on the Agents page stops one bridge from starting any queued run,
@@ -810,55 +753,38 @@ through a webhook, or in no connected repository, shows **Not reported**.
 [Forge webhooks](../extending/forge-webhooks.md#one-vocabulary-for-every-forge)
 lists each event.
 
-For a repository connected through the GitHub App, Loupe also moves the card,
-while the automation is on:
-
-- When the required checks pass on an open pull request that is not a draft, a
-  card in the `implementation` column moves to `in-review`. A draft whose
-  checks passed moves the card when it is marked ready. A board with no
-  `in-review` column, or a terminal one, skips this move. A card with an open
-  child stays where it is.
-- When the pull request merges or closes, and each pull request of the card is
-  merged or closed with at least one merged, the card moves to the first
-  terminal column. A link that Loupe never read, such as one on another forge,
-  counts as open and holds the card back. An epic with an open child stays
-  where it is.
-- When each pull request of the card is closed and none merged, the card
-  moves to the Backlog about ten minutes after the last close. Loupe checks the
-  links again at that time. An open, merged or unread pull request cancels the
-  move, so a reopen or a new open link keeps the card. A closed pull request
-  linked in that time does not cancel it. A card that a person moves
-  to a terminal column in that time stays there. An epic with an open child
-  stays where it is. The move is a system move, so it starts a bridge rule that
-  watches the Backlog.
-
-The system makes these moves, and a card in a terminal column never moves. For
-any other pull request, move the card yourself, or have your agent move it with
-`card_update`.
+The workflow of the board reads these states. It moves the card, asks a bridge
+for a fix, or merges, when a rule of its template says so. A card in a terminal
+column moves only when a rule of the template moves it.
+[Workflows](workflows.md) lists the rules of the Lifecycle and Simple
+templates. For a pull request that Loupe cannot read, move the card yourself,
+or have your agent move it with `card_update`.
 
 ### Automation
 
-Loupe can also ask your agent to act on a pull request: to fix it, or to merge
-it. It also moves the card on green checks and on a merge, as
-[What GitHub tells a card](#what-github-tells-a-card) describes. The owner sets
-this on the **Automation** tab of the project settings, beside **Board columns**. Only a repository connected through the GitHub App
-gets these requests. A card in a terminal column never gets one.
+The owner sets how the workflow acts on pull requests on the **Automation** tab
+of the project settings, beside **Board columns**. Only a repository connected
+through the GitHub App gets a write from Loupe. Each write is off until the owner
+turns it on. With a write off, the workflow asks a bridge for the work instead,
+as its template says.
 
 | Setting | Default | Does |
 |---|---|---|
-| **Send fix and merge requests** | on | When off, Loupe sends no fix or merge request and moves no card. It still sends the pull request facts |
-| **Merge strategy** | Worker | Worker sends a ready-to-merge event when a pull request can merge. When the pull request has an approval, the event waits for an approval that covers the newest commit. Off sends none |
-| **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
-| **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
+| **Run the workflow of the board** | on | When off, the workflow moves no card and asks for no work on this board. Loupe still records the pull request facts |
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
 | **Comment on a pull request when new commits follow its approval** | off | When on, Loupe posts one comment for each new head that the approval does not cover |
-| **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base, one at a time |
+| **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base. The GitHub App needs "Contents: read and write" |
 | **Merge a pull request when the workflow asks** | off | When on, Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write" |
 | **Change the base of a pull request when the workflow asks** | off | When on, Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write" |
+| **Switch an epic pull request between draft and ready when the workflow asks** | off | When on, Loupe marks the pull request of an epic as a draft in implementation, and as ready in review. The GitHub App needs "Pull requests: read and write" |
+| **Close the pull requests of an epic when the workflow asks** | off | When on, Loupe closes the pull requests of an epic that moves back to the Backlog. The GitHub App needs "Pull requests: read and write" |
+
+The two epic writes were on for each board whose automation was on before the
+workflow engine, so the epic flow kept working.
 
 The comment gives the reason for the fix and the failed checks. It also gives
-the fix round against the loop limit, and a link to the card. The card page
-lists the runs. A comment that fails never holds the run.
+a link to the card. The card page lists the runs. A comment that fails never
+holds the run.
 
 Loupe retries a comment 3 times when it fails for a passing reason, such as a
 GitHub server error. When GitHub limits the rate, Loupe waits as long as
@@ -877,7 +803,7 @@ which commit the approval covers. When the approval comment setting is on, Loupe
 one comment on the pull request, such as "Not merged: commit `abc1234` came
 after your approval. Approve the new head to merge." Each head gets one
 comment at most. A push of another commit gets a new comment. The setting needs
-**Send fix and merge requests** on, and the GitHub App must have Pull requests:
+**Run the workflow of the board** on, and the GitHub App must have Pull requests:
 read and write. A comment that fails retries like a fix run comment. The tab
 does not show its failure.
 
@@ -902,12 +828,10 @@ the line. Loupe only updates the branch, and it never merges. The GitHub App
 must have Contents: read and write. See
 [Forge webhooks](../extending/forge-webhooks.md).
 
-Loupe asks for a fix when the required checks fail, when the pull request
-conflicts with its base, and when a reviewer requests changes. At the loop
-limit, Loupe stops asking for the card. Passed checks, an approval, a change
-request, or a move of the card by a person start the count again. A comment
-review does not. A bridge rule decides what the agent does with each request. See
-[Forge webhooks](../extending/forge-webhooks.md#the-loop-limit).
+The Lifecycle template asks for a fix when the required checks fail, when the
+pull request conflicts with its base, and when a reviewer requests changes. A
+card gets 3 fix rounds at most, and then the workflow pauses it. See
+[Workflows](workflows.md).
 
 ## The MCP tools
 
@@ -1064,33 +988,13 @@ not learn that cards exist.
 
 ### An approval moves a card
 
-An approval of a stage document moves each linked card that sits in the column
-the stage starts from. A product design is a document with the tag `product`,
-and its approval moves a card from Product design to Tech design. A tech design
-is a document with the tags `design` and `decisions`, and its approval moves a
-card from Tech design to Implementation. A document with the tags of both stages
-moves no card.
-
-### An approval waits for open blockers
-
-An approval does not move a card while a card that blocks it is open. A blocker
-is open while it sits in a column that is not terminal. Only a `blocks` link
-counts, and a `relates-to` link holds nothing. The approval stays on the
-document, and the card stays in its column.
-
-The card moves on when it has no open blocker left:
-
-- The last open blocker moves into a terminal column.
-- A person or an agent removes the last blocking link, from either card, or
-  changes it to another kind or direction.
-- A person deletes the last open blocker.
-
-The card then moves to the column the stage leads to, as the app. It moves only
-while it still sits in the stage column and its document is still approved. A
-card that a person moved away since stays where it is.
-
-The card page and `card_get` do not show the hold. A move by a person or an
-agent is never held, so a card with an open blocker still moves by hand.
+The workflow of the board decides what an approval does. In the Lifecycle
+template, an approved product document, with the tag `product`, moves the card
+from Product design to Tech design. An approved tech design, with the tag
+`design`, moves the card from Tech design to Implementation, once the card has no
+open blocker. A blocker is open while it sits in a column that is not terminal,
+and only a `blocks` link counts. The Workflow panel shows what the card waits
+for. See [Workflows](workflows.md).
 
 ## Cards linked to a card
 
@@ -1133,8 +1037,7 @@ every link of its board.
 
 An open `blocked-by` card keeps an approved card in its stage column. The card
 moves on when its last blocker reaches a terminal column, or when its last
-blocking link goes away. See
-[An approval waits for open blockers](#an-approval-waits-for-open-blockers).
+blocking link goes away. See [An approval moves a card](#an-approval-moves-a-card).
 
 ## Review feedback on a card
 
@@ -1209,4 +1112,4 @@ request.
 ## Deleting a project
 
 Deleting a project deletes its board with it, cards, pull request links, card
-links and bridge rule reports included.
+links and workflow data included.
