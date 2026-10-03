@@ -198,15 +198,38 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	return c.http.Do(retry)
 }
 
+// BridgeHeader names the bridge on the events routes. The server serves them
+// only to a bridge of the caller whose last heartbeat says it runs work
+// requests.
+const BridgeHeader = "X-Loupe-Bridge"
+
+// ErrUpgradeRequired marks the 426 of an events route: the server serves no
+// bridge that runs no work requests. A retry cannot change that.
+var ErrUpgradeRequired = errors.New("the server refuses this bridge")
+
+// upgradeRequired reads the message of a 426 answer.
+func upgradeRequired(body io.Reader) error {
+	var refusal struct {
+		Error string `json:"error"`
+	}
+	_ = decodeBody(body, &refusal)
+	if refusal.Error == "" {
+		refusal.Error = "upgrade the loupe CLI"
+	}
+
+	return fmt.Errorf("%w (HTTP 426): %s", ErrUpgradeRequired, refusal.Error)
+}
+
 // Events fetches the hub, the caller's topic, a subscriber JWT for it, and the
-// projects the caller owns.
-func (c *Client) Events(ctx context.Context) (Events, error) {
+// projects the caller owns, for the bridge bridgeID.
+func (c *Client) Events(ctx context.Context, bridgeID string) (Events, error) {
 	var out Events
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/events", nil)
 	if err != nil {
 		return out, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set(BridgeHeader, bridgeID)
 
 	resp, err := c.do(req)
 	if err != nil {
@@ -220,6 +243,8 @@ func (c *Client) Events(ctx context.Context) (Events, error) {
 		return out, fmt.Errorf("credentials rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
 	case http.StatusNotFound:
 		return out, errors.New("the server has no GET /api/events endpoint: push is switched off on this Loupe instance, or the server is older than this bridge")
+	case http.StatusUpgradeRequired:
+		return out, upgradeRequired(resp.Body)
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return out, fmt.Errorf("events request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -254,14 +279,16 @@ type Replay struct {
 // cursor and up to 200 repeated ones, so it can pass maxBody.
 const maxReplayBody = 16 << 20
 
-// Replay reads the page of outbox events that follows the sequence after.
-func (c *Client) Replay(ctx context.Context, after int64) (Replay, error) {
+// Replay reads the page of outbox events that follows the sequence after, for
+// the bridge bridgeID.
+func (c *Client) Replay(ctx context.Context, bridgeID string, after int64) (Replay, error) {
 	var out Replay
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/events/replay?after="+strconv.FormatInt(after, 10), nil)
 	if err != nil {
 		return out, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set(BridgeHeader, bridgeID)
 
 	resp, err := c.do(req)
 	if err != nil {
@@ -277,6 +304,8 @@ func (c *Client) Replay(ctx context.Context, after int64) (Replay, error) {
 		return out, errors.New("the server has no GET /api/events/replay endpoint: push is switched off on this Loupe instance, or the server is older than this bridge")
 	case http.StatusTooManyRequests:
 		return out, errors.New("the replay request hit its rate limit (HTTP 429)")
+	case http.StatusUpgradeRequired:
+		return out, upgradeRequired(resp.Body)
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return out, fmt.Errorf("replay request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))

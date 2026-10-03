@@ -188,6 +188,11 @@ type fakeLoupe struct {
 	replayRows   []int
 	replayAfters []string
 	lastEventIDs []string
+	// calls lists the heartbeat and events requests in order, each events
+	// request with its bridge header. refuseEventsFrom answers 426 from that
+	// GET /api/events call on, and zero refuses none.
+	calls            []string
+	refuseEventsFrom int
 }
 
 const (
@@ -207,7 +212,15 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.eventsCalls++
 		n := f.eventsCalls
+		f.calls = append(f.calls, "events "+r.Header.Get(api.BridgeHeader))
+		refused := f.refuseEventsFrom > 0 && n >= f.refuseEventsFrom
 		f.mu.Unlock()
+		if refused {
+			w.WriteHeader(http.StatusUpgradeRequired)
+			fmt.Fprint(w, `{"error":"This bridge runs no work requests. Upgrade the loupe CLI."}`)
+
+			return
+		}
 		projects := fmt.Sprintf(`{"id":%q,"slug":"loupe","name":"Loupe"}`, testProject)
 		if n == 1 {
 			projects += fmt.Sprintf(`,{"id":%q,"slug":"other","name":"Other"}`, otherProject)
@@ -266,6 +279,7 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			raw, _ := io.ReadAll(r.Body)
 			f.mu.Lock()
 			f.heartbeats = append(f.heartbeats, string(raw))
+			f.calls = append(f.calls, "heartbeat")
 			status := cmp.Or(f.heartbeatStatus, http.StatusNoContent)
 			if f.heartbeatFailures > 0 {
 				f.heartbeatFailures--
@@ -523,6 +537,88 @@ func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
 	}
 	if !strings.Contains(log.String(), `"event":"heartbeat_sent"`) || !strings.Contains(log.String(), `"interval_seconds":3600`) {
 		t.Fatalf("log = %s", log.String())
+	}
+}
+
+// The server reads the capabilities of the bridge from its last heartbeat, so
+// the bridge sends one before its first GET /api/events, and names itself on
+// each one.
+func TestTheBridgeSendsAHeartbeatBeforeItReadsTheEvents(t *testing.T) {
+	fake := &fakeLoupe{flags: `{"bridge.heartbeat_interval_seconds":3600}`}
+	server := httptest.NewServer(http.HandlerFunc(fake.serve))
+	t.Cleanup(server.Close)
+	cfg := testLogin(server.URL)
+	set, _ := loadRules(t, defaultRules, rules.Defaults{})
+	log := &syncBuffer{}
+	r := withRules(&router{log: newBridgeLogger(log), worker: (&fakeWorker{result: finishedRun}).ops(), bridgeID: testBridgeID}, set)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	done := make(chan error, 1)
+	go func() { done <- subscribe(cmd, cfg, r) }()
+	eventually(t, "a JWT refresh", func() bool {
+		fake.mu.Lock()
+		defer fake.mu.Unlock()
+
+		return fake.eventsCalls >= 2
+	})
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.calls) < 2 || fake.calls[0] != "heartbeat" || fake.calls[1] != "events "+testBridgeID {
+		t.Fatalf("calls = %q, want a heartbeat, then the events of %s", fake.calls, testBridgeID)
+	}
+	var first api.Heartbeat
+	if err := json.Unmarshal([]byte(fake.heartbeats[0]), &first); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(first.Capabilities, "commands") {
+		t.Fatalf("capabilities = %q, want the full list", first.Capabilities)
+	}
+	for _, call := range fake.calls {
+		if strings.HasPrefix(call, "events ") && call != "events "+testBridgeID {
+			t.Fatalf("calls = %q, want each events call to name the bridge", fake.calls)
+		}
+	}
+}
+
+// A server that refuses this bridge on a JWT refresh stops it, with one clear
+// line, rather than a retry loop.
+func TestAnUpgradeRefusalStopsTheBridge(t *testing.T) {
+	for name, from := range map[string]int{"at start": 1, "on a refresh": 2} {
+		t.Run(name, func(t *testing.T) {
+			fake := &fakeLoupe{flags: `{"bridge.heartbeat_interval_seconds":3600}`, refuseEventsFrom: from}
+			server := httptest.NewServer(http.HandlerFunc(fake.serve))
+			t.Cleanup(server.Close)
+			cfg := testLogin(server.URL)
+			set, _ := loadRules(t, defaultRules, rules.Defaults{})
+			log := &syncBuffer{}
+			r := withRules(&router{log: newBridgeLogger(log), worker: (&fakeWorker{result: finishedRun}).ops(), bridgeID: testBridgeID}, set)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			cmd := &cobra.Command{}
+			cmd.SetContext(ctx)
+
+			err := subscribe(cmd, cfg, r)
+			if !errors.Is(err, api.ErrUpgradeRequired) || ctx.Err() != nil {
+				t.Fatalf("err = %v, ctx = %v", err, ctx.Err())
+			}
+			if !strings.Contains(err.Error(), "Upgrade the loupe CLI") || !strings.Contains(log.String(), `"event":"bridge_upgrade_required"`) {
+				t.Fatalf("err = %v, log = %s", err, log.String())
+			}
+			fake.mu.Lock()
+			defer fake.mu.Unlock()
+			if fake.eventsCalls != from {
+				t.Fatalf("events calls = %d, want %d", fake.eventsCalls, from)
+			}
+		})
 	}
 }
 

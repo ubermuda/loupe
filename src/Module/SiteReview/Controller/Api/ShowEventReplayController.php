@@ -6,6 +6,8 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Service\BridgeUpgradeRequired;
+use App\Module\Bridge\Service\EventStreamGate;
 use App\Module\SiteReview\Command\ShowEventReplayCommand;
 use App\Module\SiteReview\Command\ShowEventReplayHandler;
 use App\Outbox\AgentPush;
@@ -13,6 +15,8 @@ use App\Outbox\Entity\OutboxEvent;
 use App\Security\CredentialRateLimitKey;
 use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\HttpKernel\Attribute\RateLimit;
 use Symfony\Component\Routing\Attribute\Route;
@@ -43,6 +47,7 @@ final class ShowEventReplayController extends AppController
     }
 
     public function __invoke(
+        Request $request,
         #[MapQueryParameter(options: ['min_range' => 0], validationFailedStatusCode: 400)]
         int $after,
     ): JsonResponse {
@@ -51,7 +56,11 @@ final class ShowEventReplayController extends AppController
             throw new \LogicException('Event replay endpoint reached without an authenticated User.');
         }
 
-        $view = ($this->showEventReplay)(new ShowEventReplayCommand($user, $after));
+        try {
+            $view = ($this->showEventReplay)(new ShowEventReplayCommand($user, $request->headers->get(EventStreamGate::HEADER), $after));
+        } catch (BridgeUpgradeRequired $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_UPGRADE_REQUIRED);
+        }
 
         return new JsonResponse([
             'events' => array_map(

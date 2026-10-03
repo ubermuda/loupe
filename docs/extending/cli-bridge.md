@@ -842,6 +842,15 @@ project the token's user owns:
 }
 ```
 
+The request names the bridge in an `X-Loupe-Bridge` header. The server answers
+`426` with an `error` message when the header is missing or is not a UUID, when
+the user has no bridge with that id, or when the last heartbeat of the bridge
+does not list the `work-requests` capability. The bridge sends a heartbeat
+before its first call, and it stops on a `426`. The replay route below applies
+the same check. Only the types `bridge.work_request`, `bridge.command`,
+`board.card_held`, `board.card_released` and `project.renamed` reach the hub
+and the replay. Every other event stays in the activity feed alone.
+
 `head` is the highest outbox sequence of the projects that the user owns, as a
 JSON integer. It is `0` when those projects hold no event. A bridge with no
 saved cursor can start from it, and replay nothing older.

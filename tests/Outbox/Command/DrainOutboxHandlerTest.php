@@ -9,7 +9,9 @@ use App\Mercure\LiveUpdates;
 use App\Mercure\ProjectTopicBuilder;
 use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\BridgeEventType;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\ProjectEventType;
 use App\Outbox\ActivityChangedPublisher;
 use App\Outbox\AgentPush;
 use App\Outbox\Command\DrainOutboxCommand;
@@ -90,6 +92,35 @@ final class DrainOutboxHandlerTest extends KernelTestCase
             array_map(static fn (Update $update): array => $update->getTopics(), $this->signals),
         );
         self::assertSame('{"type":"activity.changed","origin":null}', $this->signals[0]->getData());
+    }
+
+    public function test_only_the_types_a_bridge_runs_reach_the_hub_and_every_row_settles(): void
+    {
+        $project = $this->project('drain-types@example.com');
+        $pushed = [BridgeEventType::WORK_REQUEST, BridgeEventType::COMMAND, ProjectEventType::RENAMED, BridgeEventType::CARD_HELD, BridgeEventType::CARD_RELEASED];
+        $events = [];
+        foreach ([...$pushed, 'board.card_moved', 'pull_request.merged'] as $type) {
+            $events[] = $this->event($project, $type);
+        }
+        $this->em->flush();
+        $sent = [];
+        $this->hub->expects($this->exactly(5))->method('publish')
+            ->willReturnCallback(static function (Update $update) use (&$sent): string {
+                $sent[] = $update->getId();
+
+                return 'id';
+            });
+
+        $result = ($this->handler)(new DrainOutboxCommand());
+        $this->live->publish();
+
+        self::assertSame(array_map(static fn (OutboxEvent $event): string => (string) $event->sequence, \array_slice($events, 0, 5)), $sent);
+        self::assertSame(7, $result->published);
+        $this->em->clear();
+        foreach ($events as $event) {
+            self::assertNotNull($this->outboxEvents->find($event->id)?->publishedAt);
+        }
+        self::assertSame([[$this->activityTopic($project)]], array_map(static fn (Update $update): array => $update->getTopics(), $this->signals));
     }
 
     public function test_a_failed_publish_still_signals_its_project(): void
@@ -268,9 +299,9 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         return $this->projectTopics->forActivity($project->id ?? throw new \LogicException('The project has no id.'));
     }
 
-    private function event(Project $project): OutboxEvent
+    private function event(Project $project, string $type = BridgeEventType::COMMAND): OutboxEvent
     {
-        $event = new OutboxEvent($project, 'test.event', 'https://app/topic', '{}');
+        $event = new OutboxEvent($project, $type, 'https://app/topic', '{}');
         $this->em->persist($event);
 
         return $event;

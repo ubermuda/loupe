@@ -48,7 +48,7 @@ func newReloadSource(path string, defaults rules.Defaults, cfg config.Config, lo
 		resolveHooks:  resolveHooks,
 		resolveClaude: resolveClaude,
 		check:         func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, apiClient(cfg)) },
-		events:        func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx) },
+		events:        func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx, cfg.BridgeID) },
 	}
 	if lock != nil {
 		src.lock = lock.follow

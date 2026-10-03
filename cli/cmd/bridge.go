@@ -199,6 +199,7 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	if err != nil {
 		return fmt.Errorf("bridge id: %w", err)
 	}
+	cfg.BridgeID = bridgeID
 
 	if bl == nil {
 		if bl, err = openBridgeLog(cmd, o.logFile); err != nil {
@@ -393,8 +394,13 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	defer queue.Close()
 
 	set := r.rules()
-	events, err := startEvents(ctx, cfg, set)
+	if r.bridgeID != "" {
+		announce(ctx, apiClient(cfg), r.bridgeID, set, r.log)
+	}
+	events, err := startEvents(ctx, cfg, r.bridgeID, set)
 	if err != nil {
+		logUpgradeRequired(r.log, err)
+
 		return err
 	}
 	r.projects, r.topic = set.Projects(), events.Topic
@@ -414,7 +420,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		r.workAPI = apiClient(cfg)
 	}
 	if r.replay == nil {
-		r.replay = apiClient(cfg).Replay
+		r.replay = func(ctx context.Context, after int64) (api.Replay, error) {
+			return apiClient(cfg).Replay(ctx, r.bridgeID, after)
+		}
 	}
 	if r.readHolds == nil {
 		r.readHolds = apiClient(cfg).CardHolds
@@ -484,8 +492,11 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		r.log.Info("control_listening", "socket", r.control.Addr().String())
 	}
 
-	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, []string{events.Topic}, jwtRefresher(cfg, events.JWT, r.onRefresh), r.handler())
+	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, []string{events.Topic}, jwtRefresher(cfg, r.bridgeID, events.JWT, r.onRefresh), r.handler())
 	failed := err != nil && ctx.Err() == nil
+	if failed {
+		logUpgradeRequired(r.log, err)
+	}
 	r.shutdown()
 	r.wg.Wait()
 	// The reports stay on the server, so a pending one is dropped rather than
@@ -522,10 +533,30 @@ func logStaged(log *slog.Logger, from string) stagedHook {
 	}
 }
 
+// announce sends one heartbeat before the first GET /api/events, because the
+// server serves the events only to a bridge whose heartbeat names the
+// work-requests capability. A failure leaves GET /api/events to answer.
+func announce(ctx context.Context, client heartbeatSender, bridgeID string, set *rules.Set, log *slog.Logger) {
+	body := heartbeatBody(set)
+	body.Capabilities = slices.Concat(bridgeCapabilities, body.Capabilities)
+	if _, err := client.Heartbeat(ctx, bridgeID, body); err != nil {
+		log.Warn("start_heartbeat_failed", "error", err.Error())
+	}
+}
+
+// logUpgradeRequired names the refusal of a server that serves no bridge
+// without work requests, because the bridge then stops rather than retry.
+func logUpgradeRequired(log *slog.Logger, err error) {
+	if errors.Is(err, api.ErrUpgradeRequired) {
+		log.Error("bridge_upgrade_required", "error", err.Error(),
+			"message", "The server serves events only to a bridge that runs work requests. Upgrade the loupe CLI and map the work kinds under work: in rules.yaml. The bridge stops.")
+	}
+}
+
 // startEvents reads GET /api/events, and fails when it does not list a mapped
 // project.
-func startEvents(ctx context.Context, cfg config.Config, set *rules.Set) (api.Events, error) {
-	events, err := apiClient(cfg).Events(ctx)
+func startEvents(ctx context.Context, cfg config.Config, bridgeID string, set *rules.Set) (api.Events, error) {
+	events, err := apiClient(cfg).Events(ctx, bridgeID)
 	if err != nil {
 		return events, err
 	}
@@ -570,8 +601,8 @@ func missingProjects(set *rules.Set, events api.Events) []string {
 // subscriber JWT per attempt and gives each fresh answer to onRefresh.
 // Subscriber JWTs are short-lived, so a bridge left running would otherwise
 // reconnect with an expired token forever once the first one lapsed. Subscribe
-// calls it from one goroutine.
-func jwtRefresher(cfg config.Config, first string, onRefresh func(api.Events)) transport.TokenFunc {
+// calls it from one goroutine. A refusal to upgrade ends the subscription.
+func jwtRefresher(cfg config.Config, bridgeID, first string, onRefresh func(api.Events)) transport.TokenFunc {
 	return func(ctx context.Context) (string, error) {
 		if first != "" {
 			jwt := first
@@ -579,7 +610,10 @@ func jwtRefresher(cfg config.Config, first string, onRefresh func(api.Events)) t
 
 			return jwt, nil
 		}
-		events, err := apiClient(cfg).Events(ctx)
+		events, err := apiClient(cfg).Events(ctx, bridgeID)
+		if errors.Is(err, api.ErrUpgradeRequired) {
+			return "", transport.Fatal(err)
+		}
 		if err != nil {
 			return "", err
 		}

@@ -10,6 +10,7 @@ final readonly class ShowEventsCommand
 {
     public function __construct(
         public User $user,
+        public ?string $bridgeId,
     ) {
     }
 }

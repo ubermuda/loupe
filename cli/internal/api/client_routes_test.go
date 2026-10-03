@@ -55,7 +55,7 @@ func TestEventsCallsTheEventsRoute(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	got, err := New(server.URL, "secret", server.Client()).Events(context.Background())
+	got, err := New(server.URL, "secret", server.Client()).Events(context.Background(), testBridge)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestEventsReadsTheFlags(t *testing.T) {
 			fmt.Fprint(w, `{"hubUrl":"h","jwt":"j","topic":"t","projects":[]`+body+`}`)
 		}))
 
-		got, err := New(server.URL, "t", server.Client()).Events(context.Background())
+		got, err := New(server.URL, "t", server.Client()).Events(context.Background(), testBridge)
 		server.Close()
 		if err != nil {
 			t.Fatalf("%s: %v", body, err)
@@ -101,7 +101,7 @@ func TestEventsRefusesAnAnswerWithNoTopic(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	_, err := New(server.URL, "t", server.Client()).Events(context.Background())
+	_, err := New(server.URL, "t", server.Client()).Events(context.Background(), testBridge)
 	if err == nil || !strings.Contains(err.Error(), "returned no topic") {
 		t.Fatalf("err = %v", err)
 	}
@@ -115,7 +115,7 @@ func TestEventsNamesAMissingRoute(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	_, err := New(server.URL, "t", server.Client()).Events(context.Background())
+	_, err := New(server.URL, "t", server.Client()).Events(context.Background(), testBridge)
 	if err == nil || !strings.Contains(err.Error(), "no GET /api/events endpoint") {
 		t.Fatalf("err = %v", err)
 	}

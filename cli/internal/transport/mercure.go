@@ -43,11 +43,20 @@ const (
 // the hub reject every retry once it lapsed.
 type TokenFunc func(context.Context) (string, error)
 
+// fatal marks a token error that no retry can fix.
+type fatal struct{ err error }
+
+func (f fatal) Error() string { return f.err.Error() }
+func (f fatal) Unwrap() error { return f.err }
+
+// Fatal wraps a token error so that Subscribe returns it rather than retry.
+func Fatal(err error) error { return fatal{err} }
+
 // Subscribe connects to hubURL for every topic on one connection, obtaining a
 // fresh subscriber JWT from token for each attempt, and runs until ctx is
-// cancelled. It only returns a non-nil error for unrecoverable setup problems;
-// transient stream failures (and token refresh failures) are reported via
-// Handler.OnError and retried.
+// cancelled. It only returns a non-nil error for unrecoverable setup problems
+// and for a token error that Fatal wraps; transient stream failures (and other
+// token refresh failures) are reported via Handler.OnError and retried.
 func Subscribe(ctx context.Context, hc *http.Client, hubURL string, topics []string, token TokenFunc, h Handler) error {
 	if len(topics) == 0 {
 		return errors.New("subscribe needs at least one topic")
@@ -79,6 +88,9 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL string, topics []str
 		if err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
+			}
+			if errors.As(err, new(fatal)) {
+				return fmt.Errorf("refresh the subscriber JWT: %w", err)
 			}
 			if h.OnError != nil {
 				h.OnError(fmt.Errorf("refresh the subscriber JWT: %w", err))
