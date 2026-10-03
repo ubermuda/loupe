@@ -40,6 +40,11 @@ judge_command() {
     local -a words=("$@")
     local i=0
     skip_prefix
+    case "${words[i]:-} ${words[i+1]:-}" in
+        "just exec") i=$((i + 2)) ;;
+        "bin/worktrees/compose-exec.sh "*|"./bin/worktrees/compose-exec.sh "*) i=$((i + 1)) ;;
+    esac
+    skip_prefix
     if wrapped_command "${words[@]:i}"; then
         judge_text "$wrapped"
         return

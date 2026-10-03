@@ -192,6 +192,9 @@ describe('no-full-e2e.sh', () => {
         ["ju''st e2e", 'deny'],
         ['bash <<EOF\njust e2e\nEOF', 'deny'],
         ['bash -c "echo $(echo hi) && just e2e"', 'deny'],
+        ["just exec bash -c 'just e2e'", 'deny'],
+        ["bin/worktrees/compose-exec.sh bash -c 'just e2e'", 'deny'],
+        ["just exec bash -c 'just e2e tests/board/x.spec.ts'", 'allow'],
     ])('%j is %s', (command, expected) => {
         expect(decide('no-full-e2e.sh', command)).toBe(expected);
     });
