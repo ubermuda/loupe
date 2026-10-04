@@ -20,6 +20,7 @@ use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\CardMove;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Event\WorkerRunChanged;
@@ -217,7 +218,7 @@ final class EvaluationListenersTest extends KernelTestCase
 
     private function trigger(): EvaluationTrigger
     {
-        return new EvaluationTrigger($this->service(MessageBusInterface::class));
+        return new EvaluationTrigger($this->service(MessageBusInterface::class), $this->service(BoardAvailability::class));
     }
 
     private function transport(): InMemoryTransport
