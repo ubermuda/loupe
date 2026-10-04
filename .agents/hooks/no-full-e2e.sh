@@ -7,6 +7,7 @@ set -uo pipefail
 
 command="$(jq -r '.tool_input.command // empty')"
 [ -n "$command" ] || exit 0
+. "$(dirname "$0")/lib/segments.sh"
 
 deny() {
     jq -nc --arg reason "$1" '{
@@ -32,23 +33,33 @@ names_a_spec() {
 }
 
 # Each segment of a compound command is judged on its own, so
-# `just e2e-up && just e2e` is refused for its second half. Matching is on the
-# first word rather than the whole string, so a grep that merely quotes
-# `just e2e` is left alone.
-while IFS= read -r segment; do
-    read -ra words <<< "$segment"
-    i=0
-    while [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do i=$((i + 1)); done
-    rest=("${words[@]:i+1}")
+# `just e2e-up && just e2e` is refused for its second half. The filter drops
+# here-document bodies and quotes before the split, so a quoted `just e2e` is
+# data. The quoted text of a shell wrapper is a command.
+judge_command() {
+    local -a words=("$@")
+    local i=0
+    skip_prefix
+    case "${words[i]:-} ${words[i+1]:-}" in
+        "just exec") i=$((i + 2)) ;;
+        "bin/worktrees/compose-exec.sh "*|"./bin/worktrees/compose-exec.sh "*) i=$((i + 1)) ;;
+    esac
+    skip_prefix
+    if wrapped_command "${words[@]:i}"; then
+        judge_text "$wrapped"
+        return
+    fi
 
     case "${words[i]:-} ${words[i+1]:-}" in
         "just e2e-coverage") deny "$coverage" ;;
         "just e2e-up"|"just e2e-down") ;;
-        "just e2e") names_a_spec "${rest[@]}" || deny "$full_run" ;;
+        "just e2e") names_a_spec "${words[@]:i+2}" || deny "$full_run" ;;
         "npx playwright"|"pnpm playwright"|"yarn playwright")
-            [ "${words[i+2]:-}" = test ] && { names_a_spec "${rest[@]:1}" || deny "$full_run"; } ;;
-        "playwright test") names_a_spec "${rest[@]}" || deny "$full_run" ;;
+            [ "${words[i+2]:-}" = test ] && { names_a_spec "${words[@]:i+3}" || deny "$full_run"; } ;;
+        "playwright test") names_a_spec "${words[@]:i+2}" || deny "$full_run" ;;
     esac
-done < <(printf '%s\n' "$command" | tr ';&|' '\n')
+}
+
+judge_text "$command"
 
 exit 0
