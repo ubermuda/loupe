@@ -23,7 +23,7 @@ The rule in detail:
 
 - Do not keep a column, a field, a method, a parameter or a code path only so that existing code does not have to change. Rewrite that code.
 - Do not store one fact in two places. When a new field covers an old one, the old one goes.
-- Change both sides of a contract between two parts of Loupe together. The app, the bridge, the plugin and the skills ship from this repository, so an outdated copy updates. Do not keep a compatibility field for it.
+- Change both sides of a contract between two parts of Loupe together. The app, the bridge, the plugin and the skills ship from this repository, so an outdated copy updates. By default, do not keep a compatibility field for it. This is a default, not a hard rule. A person can keep compatibility for one change, for example to protect the runs in flight during a deploy. The design then records that choice, who made it, and the entry that removes the field.
 - A label that a person reads, such as a card number, is not a duplicate of an id. It can stay when the new shape still shows it.
 - A rolling deploy can need a short transition, because an old image and a new image run at the same time. A transition is allowed only when the old image really reads or writes the old field during the deploy. The step that removes the field runs after no old image is left. It is a named entry of the same plan or breakdown, never a later card.
 - A design or a plan that keeps an old path must say why, and name the entry that removes it.
