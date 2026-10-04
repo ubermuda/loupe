@@ -7,8 +7,8 @@ Rule 15 of `../SKILL.md`. Read this before you write a product design or a tech 
 Make "At a glance" the first `##` section. A reviewer reads it to learn the change and what they must decide.
 
 1. State the change in two or three sentences.
-2. Add a diagram when the design has moving parts.
-3. List the open decisions as a numbered list. Link each one to its section.
+2. Add a diagram when it helps a design with moving parts.
+3. When the design has open decisions, list them as a numbered list. Link each one to its section.
 
 Loupe gives each heading an id. The id is `heading-`, then the heading text in lowercase, with each run of other characters changed to one hyphen. `## D1: Who may delete a tag` gets the id `heading-d1-who-may-delete-a-tag`.
 
