@@ -991,6 +991,34 @@ final class EngineTest extends KernelTestCase
         self::assertSame(['work'], $this->firedRules());
     }
 
+    public function test_a_pause_rule_with_an_unreadable_until_keeps_its_falling_edge(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => self::NOT_EPIC,
+            'then' => ['pause' => ['reason' => 'on-hold', 'until' => self::PROVIDED_READY]],
+        ]]);
+        $this->provider()->facts = new ProvidedFacts(ready: false);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        self::assertSame('until-met', $pause->releaseReason);
+
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->setType($card, CardType::Epic);
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        self::assertFalse($this->ruleState($card, 'hold')->truth);
+
+        $this->provider()->failure = null;
+        $this->provider()->facts = new ProvidedFacts(ready: false);
+        $this->setType($card, CardType::Feature);
+        $this->evaluate($card, '2026-10-02 12:15:00');
+        self::assertNotNull($this->activePause($card));
+    }
+
     public function test_a_source_that_is_off_makes_its_rule_wait_with_no_error(): void
     {
         $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
