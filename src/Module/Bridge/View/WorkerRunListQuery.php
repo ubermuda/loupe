@@ -37,7 +37,7 @@ final readonly class WorkerRunListQuery
          */
         public array $states = [],
         public ?int $cardNumber = null,
-        public ?string $rule = null,
+        public ?string $workKind = null,
         /** Both bounds are inclusive, and read the end of a run, or the time of its first report when it has no end. */
         public ?\DateTimeImmutable $endedAfter = null,
         public ?\DateTimeImmutable $endedBefore = null,
@@ -77,7 +77,7 @@ final readonly class WorkerRunListQuery
     public function isNarrowed(): bool
     {
         return null !== $this->search || null !== $this->state || $this->open || null !== $this->bridgeId
-            || [] !== $this->states || null !== $this->cardNumber || null !== $this->rule
+            || [] !== $this->states || null !== $this->cardNumber || null !== $this->workKind
             || null !== $this->endedAfter || null !== $this->endedBefore;
     }
 

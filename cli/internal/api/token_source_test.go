@@ -92,7 +92,7 @@ func TestAClientReportsAFailedRefresh(t *testing.T) {
 	expired := errors.New("login expired: run `loupe login` again")
 	source := &rotatingSource{current: "stale", err: expired}
 
-	_, err := NewWithSource(server.URL, source, server.Client()).Events(context.Background())
+	_, err := NewWithSource(server.URL, source, server.Client()).Events(context.Background(), testBridge)
 	if !errors.Is(err, expired) {
 		t.Fatalf("Events error = %v, want the refresh error", err)
 	}

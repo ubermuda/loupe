@@ -18,7 +18,10 @@ async function seedProject(page: Page, name: string): Promise<string> {
         .click();
     await page.getByLabel('Project name').fill(name);
     await page.getByRole('button', { name: 'Add project' }).click();
-    await expect(page.locator('.lp-sidebar__switcher-name')).toHaveText(name);
+    await expect(page.locator('.lp-sidebar__switcher-name')).toHaveText(
+        name,
+        NAVIGATION,
+    );
     await page.goto('/projects');
     const editLink = page.getByRole('link', {
         name: `Edit ${name}`,

@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -50,6 +51,27 @@ func TestSubscribeRefusesNoTopic(t *testing.T) {
 		func(context.Context) (string, error) { return "jwt", nil }, Handler{})
 	if err == nil || !strings.Contains(err.Error(), "at least one topic") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// A token error that Fatal wraps ends the subscription at once, and any other
+// one is retried.
+func TestSubscribeReturnsAFatalTokenError(t *testing.T) {
+	refused := errors.New("upgrade the loupe CLI")
+	calls := 0
+	done := make(chan error, 1)
+	go func() {
+		done <- Subscribe(context.Background(), http.DefaultClient, "https://hub.test", []string{"t"},
+			func(context.Context) (string, error) { calls++; return "", Fatal(refused) }, Handler{})
+	}()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, refused) || calls != 1 {
+			t.Fatalf("err = %v, calls = %d", err, calls)
+		}
+	case <-time.After(4 * time.Second):
+		t.Fatal("Subscribe retried a fatal token error")
 	}
 }
 

@@ -76,7 +76,7 @@ func (r *router) adoptCommandLocked(p pending, run handoverRun) {
 // does.
 func commandResult(res procResult) workerResult {
 	failure := res.failureOf(commandProc)
-	out := workerResult{output: res.output, killed: res.killed && !res.timedOut, dir: res.runDir, command: true}
+	out := workerResult{output: res.output, killed: res.killed && !res.timedOut, timedOut: res.timedOut, dir: res.runDir, command: true}
 	if failure == "" {
 		return out
 	}

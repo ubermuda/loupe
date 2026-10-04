@@ -10,7 +10,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use Doctrine\DBAL\Connection;
 
 /**
- * Builds a run's search vector from its card number, its rule name and its
+ * Builds a run's search vector from its card number, its work kind and its
  * output.
  *
  * The configuration is fixed at `simple`, which neither stems nor drops stop
@@ -34,7 +34,7 @@ final readonly class WorkerRunSearchIndexer
                 <<<'SQL'
                     UPDATE bridge_worker_runs
                     SET search_vector = setweight(to_tsvector('%1$s', card_number::text), '%2$s')
-                        || setweight(to_tsvector('%1$s', rule_name), '%2$s')
+                        || setweight(to_tsvector('%1$s', COALESCE(work_kind, '')), '%2$s')
                         || setweight(to_tsvector('%1$s', output), '%3$s')
                     WHERE id = :id
                     SQL,

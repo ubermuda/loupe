@@ -46,7 +46,7 @@ func writeRules(t *testing.T, slugs ...string) string {
 	for _, slug := range slugs {
 		b.WriteString("  " + slug + ":\n    dir: " + t.TempDir() + "\n")
 	}
-	b.WriteString("rules:\n  - on: board.card_moved\n    project: " + slugs[0] + "\n    to: next\n    prompt: go\n")
+	b.WriteString("work:\n  plan:\n    prompt: go\n")
 
 	path := filepath.Join(t.TempDir(), "rules.yaml")
 	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
@@ -87,7 +87,7 @@ func TestBridgeRunRefusesAnInvalidDefault(t *testing.T) {
 // A mode this build does not know starts the bridge with a warning, so a newer
 // claude keeps working and a typo still shows.
 func TestAnUnknownPermissionModeIsLoggedAtStart(t *testing.T) {
-	set, err := rules.Parse([]byte("projects:\n  loupe:\n    dir: "+t.TempDir()+"\nrules:\n  - {on: board.card_moved, project: loupe, to: next, prompt: go}\n"), rules.Defaults{PermissionMode: "acceptedits"})
+	set, err := rules.Parse([]byte("projects:\n  loupe:\n    dir: "+t.TempDir()+"\nwork:\n  plan: {prompt: go}\n"), rules.Defaults{PermissionMode: "acceptedits"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestBridgeRunReadsRulesFromTheConfigDir(t *testing.T) {
 
 func TestBridgeRunRefusesAnInvalidRuleFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "rules.yaml")
-	if err := os.WriteFile(path, []byte("projects: {}\nrules: []\nsite: loupe\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("projects: {}\nwork: {}\nsite: loupe\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -164,7 +164,6 @@ type fakeLoupe struct {
 	hubAuth     []string
 	hubTopics   [][]string
 	sse         string
-	reports     []string
 	heartbeats  []string
 	// flags is the raw flags object GET /api/events sends. Empty sends none.
 	flags string
@@ -188,6 +187,11 @@ type fakeLoupe struct {
 	replayRows   []int
 	replayAfters []string
 	lastEventIDs []string
+	// calls lists the heartbeat and events requests in order, each events
+	// request with its bridge header. refuseEventsFrom answers 426 from that
+	// GET /api/events call on, and zero refuses none.
+	calls            []string
+	refuseEventsFrom int
 }
 
 const (
@@ -207,7 +211,15 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.eventsCalls++
 		n := f.eventsCalls
+		f.calls = append(f.calls, "events "+r.Header.Get(api.BridgeHeader))
+		refused := f.refuseEventsFrom > 0 && n >= f.refuseEventsFrom
 		f.mu.Unlock()
+		if refused {
+			w.WriteHeader(http.StatusUpgradeRequired)
+			fmt.Fprint(w, `{"error":"This bridge runs no work requests. Upgrade the loupe CLI."}`)
+
+			return
+		}
 		projects := fmt.Sprintf(`{"id":%q,"slug":"loupe","name":"Loupe"}`, testProject)
 		if n == 1 {
 			projects += fmt.Sprintf(`,{"id":%q,"slug":"other","name":"Other"}`, otherProject)
@@ -253,12 +265,23 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			<-r.Context().Done()
 		}
 	default:
-		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/bridges/"+testBridgeID+"/rules") {
-			raw, _ := io.ReadAll(r.Body)
-			f.mu.Lock()
-			f.reports = append(f.reports, r.URL.Path+" "+string(raw))
-			f.mu.Unlock()
-			w.WriteHeader(http.StatusNoContent)
+		if prefix := "/api/bridges/" + testBridgeID + "/work-requests/"; strings.HasPrefix(r.URL.Path, prefix) {
+			id, action, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, prefix), "/")
+			req, ok := offeredRequest(id)
+			switch {
+			case !ok:
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprint(w, `{"error":"work_request_not_found"}`)
+			case action == "claim":
+				req.State = api.WorkRequestClaimed
+				_ = json.NewEncoder(w).Encode(map[string]any{"workRequestId": id, "claimToken": "token-" + id, "leaseUntil": time.Now().Add(2 * time.Minute), "workRequest": req})
+			default:
+				var body struct {
+					State string `json:"state"`
+				}
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				_ = json.NewEncoder(w).Encode(map[string]string{"state": body.State})
+			}
 
 			return
 		}
@@ -266,6 +289,7 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			raw, _ := io.ReadAll(r.Body)
 			f.mu.Lock()
 			f.heartbeats = append(f.heartbeats, string(raw))
+			f.calls = append(f.calls, "heartbeat")
 			status := cmp.Or(f.heartbeatStatus, http.StatusNoContent)
 			if f.heartbeatFailures > 0 {
 				f.heartbeatFailures--
@@ -300,13 +324,6 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (f *fakeLoupe) sentReports() []string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return append([]string(nil), f.reports...)
-}
-
 func (f *fakeLoupe) connections() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -322,10 +339,10 @@ func (f *fakeLoupe) connections() int {
 func TestOneTopicServesEveryProject(t *testing.T) {
 	sse := ""
 	for _, payload := range []string{
-		movedPayload(87, "backlog", "next", "human"),
-		strings.Replace(movedPayload(88, "backlog", "next", "human"), testProject, otherProject, 1),
-		strings.Replace(movedPayload(89, "backlog", "next", "human"), testProject, newProject, 1),
-		strings.Replace(movedPayload(90, "backlog", "next", "human"), testProject, newProject, 1),
+		offerPayloadIn(testProject, 87, "plan"),
+		offerPayloadIn(otherProject, 88, "plan"),
+		offerPayloadIn(newProject, 89, "plan"),
+		offerPayloadIn(newProject, 90, "plan"),
 	} {
 		sse += "data: " + payload + "\n\n"
 	}
@@ -335,9 +352,8 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 	cfg := testLogin(server.URL)
 
 	loupeDir, otherDir := t.TempDir(), t.TempDir()
-	body := "projects:\n  loupe:\n    dir: " + loupeDir + "\n  other:\n    dir: " + otherDir + "\nrules:\n" +
-		"  - on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n" +
-		"  - name: other-plan\n    on: board.card_moved\n    project: other\n    to: next\n    prompt: go\n"
+	body := "projects:\n  loupe:\n    dir: " + loupeDir + "\n  other:\n    dir: " + otherDir + "\nwork:\n" +
+		"  plan:\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
 	if err != nil {
 		t.Fatal(err)
@@ -357,10 +373,8 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- subscribe(cmd, cfg, h.router) }()
 
-	gonePath := "/api/projects/" + otherProject + "/bridges/" + testBridgeID + "/rules "
-	goneReport := gonePath + `{"rules":[{"name":"other-plan","on":"board.card_moved","columns":["next"],"state":"dead","reason":"project_gone"}]}`
 	deadline := time.After(8 * time.Second)
-	for fake.connections() < 3 || len(worker.recorded()) < 2 || !slices.Contains(fake.sentReports(), goneReport) {
+	for fake.connections() < 3 || len(worker.recorded()) < 2 || !strings.Contains(h.log.String(), `"event":"project_gone"`) {
 		select {
 		case <-deadline:
 			t.Fatalf("connections = %d, workers = %+v, log = %s", fake.connections(), worker.recorded(), h.log.String())
@@ -386,11 +400,11 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 		t.Fatalf("project_unmapped = %q", got)
 	}
 	gone := h.only(t, "project_gone")
-	if str(t, gone, "project") != "other" || fmt.Sprint(gone["rules"]) != "[other-plan]" || !strings.Contains(str(t, gone, "message"), "rules other-plan stop working") {
+	if str(t, gone, "project") != "other" || !strings.Contains(str(t, gone, "message"), "runs no more work for it") {
 		t.Fatalf("project_gone = %v", gone)
 	}
-	if dead := h.only(t, "rule_dead"); str(t, dead, "rule") != "other-plan" || str(t, dead, "project_slug") != "other" || str(t, dead, "reason") != "project_gone" {
-		t.Fatalf("rule_dead = %v", dead)
+	if dead := h.only(t, "work_dead"); str(t, dead, "project_slug") != "other" || str(t, dead, "reason") != "project_gone" {
+		t.Fatalf("work_dead = %v", dead)
 	}
 
 	fake.mu.Lock()
@@ -405,73 +419,6 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 	}
 }
 
-// The bridge reports every mapped project once at start, by project id, and
-// again for the project whose column a live rename takes away.
-func TestTheBridgeReportsRuleHealthAtStartAndOnAChange(t *testing.T) {
-	rename := fmt.Sprintf(`{"type":"board.column_renamed","projectId":%q,"subject":{"type":"board_column","id":"0192f3a1-5555-7d3e-8f10-a2b3c4d5e6f7"},"actor":"human","fromSlug":"next","toSlug":"ready"}`, testProject)
-	fake := &fakeLoupe{sse: "data: " + rename + "\n\n"}
-	server := httptest.NewServer(http.HandlerFunc(fake.serve))
-	t.Cleanup(server.Close)
-	cfg := testLogin(server.URL)
-
-	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nrules:\n" +
-		"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: SECRET go\n" +
-		"  - name: other-plan\n    on: board.card_moved\n    project: other\n    to: next\n    prompt: go\n"
-	set, err := rules.Parse([]byte(body), rules.Defaults{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := set.Check(context.Background(), apiClient(cfg)); err != nil {
-		t.Fatal(err)
-	}
-	log := &syncBuffer{}
-	worker := &fakeWorker{result: finishedRun}
-	r := withRules(&router{log: newBridgeLogger(log), worker: worker.ops(), bridgeID: testBridgeID}, set)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmd := &cobra.Command{}
-	cmd.SetContext(ctx)
-	done := make(chan error, 1)
-	go func() { done <- subscribe(cmd, cfg, r) }()
-
-	loupePath := "/api/projects/" + testProject + "/bridges/" + testBridgeID + "/rules "
-	otherPath := "/api/projects/" + otherProject + "/bridges/" + testBridgeID + "/rules "
-	live := `{"rules":[{"name":"plan","on":"board.card_moved","columns":["next"],"state":"live","reason":null}]}`
-	dead := `{"rules":[{"name":"plan","on":"board.card_moved","columns":["next"],"state":"dead","reason":"column_renamed"}]}`
-	otherLive := `{"rules":[{"name":"other-plan","on":"board.card_moved","columns":["next"],"state":"live","reason":null}]}`
-
-	eventually(t, "the dead report and the other project's report", func() bool {
-		sent := fake.sentReports()
-		return slices.Contains(sent, loupePath+dead) && slices.Contains(sent, otherPath+otherLive)
-	})
-	cancel()
-	if err := <-done; err != nil {
-		t.Fatal(err)
-	}
-
-	var loupeReports []string
-	sawOther := false
-	for _, report := range fake.sentReports() {
-		switch {
-		case strings.HasPrefix(report, loupePath):
-			loupeReports = append(loupeReports, strings.TrimPrefix(report, loupePath))
-		case report == otherPath+otherLive:
-			sawOther = true
-		default:
-			t.Fatalf("unexpected report %s", report)
-		}
-	}
-	// The start report can still wait when the rename arrives, and then the
-	// dead report replaces it. The last report must be the dead one.
-	if !sawOther || len(loupeReports) == 0 || loupeReports[len(loupeReports)-1] != dead || (len(loupeReports) == 2 && loupeReports[0] != live) {
-		t.Fatalf("reports = %v", fake.sentReports())
-	}
-	if strings.Contains(strings.Join(fake.sentReports(), ""), "SECRET") {
-		t.Fatal("a report carries prompt text")
-	}
-}
-
 // The bridge sends a heartbeat as soon as it has read GET /api/events, with the
 // ids of the projects it maps and its build, and stops cleanly with the stream.
 func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
@@ -481,8 +428,8 @@ func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
 	t.Cleanup(server.Close)
 	cfg := testLogin(server.URL)
 
-	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nrules:\n" +
-		"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n"
+	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nwork:\n" +
+		"  plan:\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
 	if err != nil {
 		t.Fatal(err)
@@ -523,6 +470,88 @@ func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
 	}
 	if !strings.Contains(log.String(), `"event":"heartbeat_sent"`) || !strings.Contains(log.String(), `"interval_seconds":3600`) {
 		t.Fatalf("log = %s", log.String())
+	}
+}
+
+// The server reads the capabilities of the bridge from its last heartbeat, so
+// the bridge sends one before its first GET /api/events, and names itself on
+// each one.
+func TestTheBridgeSendsAHeartbeatBeforeItReadsTheEvents(t *testing.T) {
+	fake := &fakeLoupe{flags: `{"bridge.heartbeat_interval_seconds":3600}`}
+	server := httptest.NewServer(http.HandlerFunc(fake.serve))
+	t.Cleanup(server.Close)
+	cfg := testLogin(server.URL)
+	set, _ := loadRules(t, defaultRules, rules.Defaults{})
+	log := &syncBuffer{}
+	r := withRules(&router{log: newBridgeLogger(log), worker: (&fakeWorker{result: finishedRun}).ops(), bridgeID: testBridgeID}, set)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	done := make(chan error, 1)
+	go func() { done <- subscribe(cmd, cfg, r) }()
+	eventually(t, "a JWT refresh", func() bool {
+		fake.mu.Lock()
+		defer fake.mu.Unlock()
+
+		return fake.eventsCalls >= 2
+	})
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.calls) < 2 || fake.calls[0] != "heartbeat" || fake.calls[1] != "events "+testBridgeID {
+		t.Fatalf("calls = %q, want a heartbeat, then the events of %s", fake.calls, testBridgeID)
+	}
+	var first api.Heartbeat
+	if err := json.Unmarshal([]byte(fake.heartbeats[0]), &first); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(first.Capabilities, "commands") {
+		t.Fatalf("capabilities = %q, want the full list", first.Capabilities)
+	}
+	for _, call := range fake.calls {
+		if strings.HasPrefix(call, "events ") && call != "events "+testBridgeID {
+			t.Fatalf("calls = %q, want each events call to name the bridge", fake.calls)
+		}
+	}
+}
+
+// A server that refuses this bridge on a JWT refresh stops it, with one clear
+// line, rather than a retry loop.
+func TestAnUpgradeRefusalStopsTheBridge(t *testing.T) {
+	for name, from := range map[string]int{"at start": 1, "on a refresh": 2} {
+		t.Run(name, func(t *testing.T) {
+			fake := &fakeLoupe{flags: `{"bridge.heartbeat_interval_seconds":3600}`, refuseEventsFrom: from}
+			server := httptest.NewServer(http.HandlerFunc(fake.serve))
+			t.Cleanup(server.Close)
+			cfg := testLogin(server.URL)
+			set, _ := loadRules(t, defaultRules, rules.Defaults{})
+			log := &syncBuffer{}
+			r := withRules(&router{log: newBridgeLogger(log), worker: (&fakeWorker{result: finishedRun}).ops(), bridgeID: testBridgeID}, set)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			cmd := &cobra.Command{}
+			cmd.SetContext(ctx)
+
+			err := subscribe(cmd, cfg, r)
+			if !errors.Is(err, api.ErrUpgradeRequired) || ctx.Err() != nil {
+				t.Fatalf("err = %v, ctx = %v", err, ctx.Err())
+			}
+			if !strings.Contains(err.Error(), "Upgrade the loupe CLI") || !strings.Contains(log.String(), `"event":"bridge_upgrade_required"`) {
+				t.Fatalf("err = %v, log = %s", err, log.String())
+			}
+			fake.mu.Lock()
+			defer fake.mu.Unlock()
+			if fake.eventsCalls != from {
+				t.Fatalf("events calls = %d, want %d", fake.eventsCalls, from)
+			}
+		})
 	}
 }
 
@@ -738,11 +767,11 @@ func TestTheBridgeLoggerWritesJSONToEveryWriter(t *testing.T) {
 // A bridge with no cursor file starts from the head of GET /api/events. On
 // connect it reads the outbox after the head, and the hub starts after it too.
 // An event that both send runs once, and the cursor file keeps the last id.
+// The bridge reads no card, because a work request is never stale.
 func TestTheBridgeCatchesUpFromTheHead(t *testing.T) {
 	fake := &fakeLoupe{
 		head:       "10",
 		replayRows: []int{11},
-		cardColumn: "next",
 		sse:        "id: 11\ndata: " + cardMoved(11) + "\n\nid: 12\ndata: " + cardMoved(12) + "\n\n",
 	}
 	server := httptest.NewServer(http.HandlerFunc(fake.serve))
@@ -751,7 +780,7 @@ func TestTheBridgeCatchesUpFromTheHead(t *testing.T) {
 	set, _ := loadRules(t, defaultRules, rules.Defaults{})
 	log := &syncBuffer{}
 	worker := &fakeWorker{result: finishedRun}
-	r := withRules(&router{log: newBridgeLogger(log), worker: worker.ops()}, set)
+	r := withRules(&router{log: newBridgeLogger(log), worker: worker.ops(), bridgeID: testBridgeID}, set)
 	r.cursorFile = filepath.Join(t.TempDir(), "cursor.json")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -778,15 +807,15 @@ func TestTheBridgeCatchesUpFromTheHead(t *testing.T) {
 	if fake.lastEventIDs[0] != "10" || fake.replayAfters[0] != "10" {
 		t.Fatalf("Last-Event-ID = %q, replay afters = %q", fake.lastEventIDs, fake.replayAfters)
 	}
-	if len(worker.recorded()) != 2 || len(fake.cardReads) != 1 {
-		t.Fatalf("workers = %+v, card reads = %v, log = %s", worker.recorded(), fake.cardReads, log.String())
+	if len(worker.recorded()) != 2 {
+		t.Fatalf("workers = %+v, log = %s", worker.recorded(), log.String())
 	}
 }
 
 func TestTheHeartbeatBodyCarriesTheRuleFileName(t *testing.T) {
 	for value, want := range map[string]string{`"studio"`: "studio", `""`: ""} {
-		body := "name: " + value + "\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nrules:\n" +
-			"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n"
+		body := "name: " + value + "\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" +
+			"  plan:\n    prompt: go\n"
 		set, err := rules.Parse([]byte(body), rules.Defaults{})
 		if err != nil {
 			t.Fatal(err)

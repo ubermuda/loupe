@@ -353,6 +353,28 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->defaultBranch);
     }
 
+    /** @return iterable<string, array{mixed, ?string}> */
+    public static function headBranches(): iterable
+    {
+        yield 'a head branch' => ['feature/x', 'feature/x'];
+        yield 'no head branch' => [null, null];
+        yield 'an empty name' => ['', null];
+        yield 'a name that is not a string' => [42, null];
+    }
+
+    #[DataProvider('headBranches')]
+    public function test_the_head_branch(mixed $headRefName, ?string $expected): void
+    {
+        $node = self::pullRequest604();
+        if (null === $headRefName) {
+            unset($node['headRefName']);
+        } else {
+            $node['headRefName'] = $headRefName;
+        }
+
+        self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->headBranch);
+    }
+
     /** @return iterable<string, array{mixed, list<string>}> */
     public static function headParents(): iterable
     {

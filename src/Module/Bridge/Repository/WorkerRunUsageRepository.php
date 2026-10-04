@@ -78,7 +78,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
 
     /**
      * The sums of the usage rows of each card, one row per card and part. The
-     * part is the rule or the model under a split, and an empty string without
+     * part is the work kind or the model under a split, and an empty string without
      * one. The cost is in millionths of a dollar, so the sums stay exact.
      *
      * @param list<Uuid> $cardIds
@@ -93,7 +93,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
 
         $part = match ($split) {
             CostSplit::None => "''",
-            CostSplit::Rule => 'rule_name',
+            CostSplit::Rule => "COALESCE(work_kind, '')",
             CostSplit::Model => 'model',
         };
         $conditions = ['project_id = :project', 'card_id IN (:cards)'];
@@ -103,7 +103,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
             'estimated' => WorkerRunUsageSource::Estimated->value,
         ];
         if (null !== $rule) {
-            $conditions[] = 'rule_name = :rule';
+            $conditions[] = 'work_kind = :rule';
             $parameters['rule'] = $rule;
         }
         if (null !== $model) {
@@ -189,7 +189,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
     }
 
     /**
-     * The rule names and the models of every usage row of the project, sorted.
+     * The work kinds and the models of every usage row of the project, sorted.
      *
      * @return array{rules: list<string>, models: list<string>}
      */
@@ -199,7 +199,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
         $parameters = ['project' => (string) ($project->id ?? throw new \LogicException('Project has no id.'))];
 
         /** @var list<string> $rules */
-        $rules = $connection->fetchFirstColumn('SELECT DISTINCT rule_name FROM bridge_worker_run_usage WHERE project_id = :project ORDER BY rule_name', $parameters);
+        $rules = $connection->fetchFirstColumn('SELECT DISTINCT work_kind FROM bridge_worker_run_usage WHERE project_id = :project AND work_kind IS NOT NULL ORDER BY work_kind', $parameters);
         /** @var list<string> $models */
         $models = $connection->fetchFirstColumn('SELECT DISTINCT model FROM bridge_worker_run_usage WHERE project_id = :project ORDER BY model', $parameters);
 

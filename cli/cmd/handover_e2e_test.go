@@ -171,8 +171,22 @@ func (f *e2eLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"cliRange":"^1.0"}`)
 	case r.Method == http.MethodPut && path == "/api/bridges/"+testBridgeID+"/runs":
 		w.WriteHeader(http.StatusNoContent)
-	case r.Method == http.MethodPut && strings.HasSuffix(path, "/bridges/"+testBridgeID+"/rules"):
-		w.WriteHeader(http.StatusNoContent)
+	case strings.HasPrefix(path, "/api/bridges/"+testBridgeID+"/work-requests/"):
+		id, action, _ := strings.Cut(strings.TrimPrefix(path, "/api/bridges/"+testBridgeID+"/work-requests/"), "/")
+		req, ok := offeredRequest(id)
+		switch {
+		case !ok:
+			w.WriteHeader(http.StatusNotFound)
+		case action == "claim":
+			req.State = api.WorkRequestClaimed
+			_ = json.NewEncoder(w).Encode(map[string]any{"workRequestId": id, "claimToken": "token-" + id, "leaseUntil": time.Now().Add(2 * time.Minute), "workRequest": req})
+		default:
+			var body struct {
+				State string `json:"state"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewEncoder(w).Encode(map[string]string{"state": body.State})
+		}
 	case r.Method == http.MethodPut && strings.Contains(path, "/worker-runs/"):
 		var report api.RunStateReport
 		_ = json.NewDecoder(r.Body).Decode(&report)
@@ -234,7 +248,7 @@ func (f *e2eLoupe) stream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// push publishes a card move and returns its id.
+// push offers a plan work request for the card and returns its event id.
 func (f *e2eLoupe) push(card int) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -315,8 +329,8 @@ func startE2EBridge(t *testing.T, fake *e2eLoupe, old string, env ...string) *e2
 	raw, _ := json.Marshal(cfg)
 	rulesPath := filepath.Join(home, "rules.yaml")
 	// No resume, so a failed run reports at once rather than after the delay.
-	rulesBody := "autoUpdate: true\nprojects:\n  loupe:\n    dir: " + filepath.Join(home, "work") + "\nrules:\n" +
-		"  - on: board.card_moved\n    project: loupe\n    to: next\n    maxResumes: 0\n    prompt: \"{cardNumber}\"\n"
+	rulesBody := "autoUpdate: true\nprojects:\n  loupe:\n    dir: " + filepath.Join(home, "work") + "\nwork:\n" +
+		"  plan:\n    prompt: \"{cardNumber}\"\n"
 	b.installed = filepath.Join(home, "bin", "loupe")
 	oldBytes, err := os.ReadFile(old)
 	if err != nil {
@@ -481,12 +495,12 @@ func (b *e2eBridge) release(codes map[int]int) {
 	for card, code := range codes {
 		want := api.RunSucceeded
 		if code != 0 {
-			want = api.RunGaveUp
+			want = api.RunFailed
 		}
 		var rep api.RunStateReport
 		b.wait(fmt.Sprintf("the final report of card %d", card), func() bool {
 			var ok bool
-			rep, ok = b.fake.report(card, api.RunSucceeded, api.RunFailed, api.RunGaveUp, api.RunNoResult, api.RunNotStarted)
+			rep, ok = b.fake.report(card, api.RunSucceeded, api.RunFailed, api.RunNoResult, api.RunNotStarted)
 
 			return ok
 		})

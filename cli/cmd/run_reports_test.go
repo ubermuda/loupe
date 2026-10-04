@@ -109,7 +109,7 @@ func failedReport() api.RunStateReport {
 		At:         started.Add(21 * time.Second),
 		CardID:     cardUUID(87),
 		CardNumber: 87,
-		RuleName:   "plan",
+		Rule:       "plan",
 		SessionID:  "5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f",
 		StartedAt:  started,
 		EndedAt:    started.Add(21 * time.Second),
@@ -205,8 +205,8 @@ func TestAnOldServerSkipsEveryStateButAnOutcome(t *testing.T) {
 	ctx := context.Background()
 
 	for _, state := range []string{
-		api.RunQueued, api.RunReplaced, api.RunResumed, api.RunSkipped,
-		api.RunRunning, api.RunWaitingForPerson, api.RunDropped,
+		api.RunQueued, api.RunReplaced, api.RunSkipped,
+		api.RunRunning, api.RunDropped,
 	} {
 		report := failedReport()
 		report.State = state

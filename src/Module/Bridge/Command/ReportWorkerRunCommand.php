@@ -17,7 +17,6 @@ final readonly class ReportWorkerRunCommand
         public Uuid $sessionId,
         public Uuid $cardId,
         public int $cardNumber,
-        public string $ruleName,
         public \DateTimeImmutable $startedAt,
         public \DateTimeImmutable $endedAt,
         public ?int $exitCode,

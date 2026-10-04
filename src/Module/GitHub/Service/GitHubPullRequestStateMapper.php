@@ -69,7 +69,20 @@ final readonly class GitHubPullRequestStateMapper
             defaultBranch: $this->defaultBranch($pullRequest),
             headParents: $this->headParents($pullRequest),
             approvalId: $approvalId,
+            headBranch: $this->headBranch($pullRequest),
         );
+    }
+
+    /**
+     * A missing head branch is null, because no read decision rests on it.
+     *
+     * @param array<mixed> $pullRequest
+     */
+    private function headBranch(array $pullRequest): ?string
+    {
+        $name = $pullRequest['headRefName'] ?? null;
+
+        return \is_string($name) && '' !== $name ? $name : null;
     }
 
     /**

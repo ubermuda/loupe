@@ -43,10 +43,23 @@ type Queue interface {
 //
 // Send delivers the report, and says whether the server wrote something new. It
 // returns api.ErrReportRefused for a report that no retry can turn into one.
+//
+// Lost runs once when the queue gives the report up or drops it, never under
+// a lock of the queue. A nil one does nothing.
 type Report struct {
 	Card int
 	Rule string
 	Send func(ctx context.Context) (bool, error)
+	Lost func()
+}
+
+// lose tells each report that the queue lost it.
+func lose(reports []Report) {
+	for _, r := range reports {
+		if r.Lost != nil {
+			r.Lost()
+		}
+	}
 }
 
 // latest is the one item a latest-wins lane holds.
@@ -142,22 +155,29 @@ func New(ctx context.Context, log *slog.Logger) *Sender {
 // Enqueue hands one report to the sender. A full queue, or a queue that is
 // already closed, loses the report and says so.
 func (q *Sender) Enqueue(report Report) {
+	if !q.take(report) {
+		q.logLost([]Report{report})
+		lose([]Report{report})
+	}
+}
+
+// take puts the report in line, and reports whether it did.
+func (q *Sender) take(report Report) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	if q.closed {
-		q.logLost([]Report{report})
-
-		return
+		return false
 	}
-
 	// The count rises first, so run never takes it below zero.
 	q.pending.Add(1)
 	select {
 	case q.in <- report:
+		return true
 	default:
 		q.pending.Add(-1)
-		q.logLost([]Report{report})
+
+		return false
 	}
 }
 
@@ -258,13 +278,22 @@ func (q *Sender) run() {
 
 	var lost []Report
 	for next := range q.in {
-		if q.ctx.Err() != nil || q.deliver(next) == aborted {
+		if q.ctx.Err() != nil {
 			lost = append(lost, next)
+		} else {
+			switch q.deliver(next) {
+			case aborted:
+				lost = append(lost, next)
+			case gaveUp:
+				lose([]Report{next})
+			}
 		}
 		q.pending.Add(-1)
 	}
 
-	q.logLost(q.flush(lost))
+	dropped := q.flush(lost)
+	q.logLost(dropped)
+	lose(dropped)
 }
 
 // flush gives each report a stopping bridge still holds one attempt, inside the

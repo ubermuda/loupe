@@ -40,9 +40,10 @@ func (r *router) onCommandEvent(data []byte) {
 	r.takeCommand(c, commandFromEvent)
 }
 
-// onHeartbeatReply applies the pause and takes the commands of one heartbeat
-// reply. It runs on the goroutine of the heartbeat lane, and a handler runs
-// on a goroutine of its own, so it never waits on one.
+// onHeartbeatReply applies the pause and takes the commands and the work
+// offers of one heartbeat reply. The heartbeater hands the lost claims to
+// loseClaims first. It runs on the goroutine of the heartbeat lane, and a
+// handler or a claim runs on a goroutine of its own, so it never waits on one.
 func (r *router) onHeartbeatReply(reply api.HeartbeatReply) {
 	if reply.Paused != nil {
 		r.setPersonPause(*reply.Paused)
@@ -55,6 +56,14 @@ func (r *router) onHeartbeatReply(reply api.HeartbeatReply) {
 			continue
 		}
 		r.takeCommand(c, commandFromHeartbeat)
+	}
+	for _, w := range reply.WorkRequests {
+		if err := event.CheckWorkRequest(&w); err != nil {
+			r.log.Warn("work_request_dropped", "reason", "malformed", "source", workFromHeartbeat, "work_request", w.WorkRequestID, "error", err.Error())
+
+			continue
+		}
+		r.takeWork(w, workFromHeartbeat)
 	}
 }
 
@@ -117,7 +126,17 @@ func (r *router) takeCommand(c api.Command, source string) {
 
 // commandAttrs names a command in a log line.
 func commandAttrs(c api.Command, source string) []any {
-	return []any{"command", c.CommandID, "kind", c.Kind, "card", c.CardNumber, "project", c.ProjectID, "rule", c.RuleName, "run_key", c.RunKey, "source", source}
+	return []any{"command", c.CommandID, "kind", c.Kind, "card", c.CardNumber, "project", c.ProjectID, "rule", commandRule(c), "run_key", c.RunKey, "source", source}
+}
+
+// commandRule is the rule name of the run a command names. A run of a rules:
+// entry names no work kind, so it has none, and no rule matches it.
+func commandRule(c api.Command) string {
+	if c.WorkKind == "" {
+		return ""
+	}
+
+	return rules.WorkRulePrefix + c.WorkKind
 }
 
 // handleCommand runs the handler of the command's kind, and returns the
@@ -201,8 +220,7 @@ func (r *router) stopRun(c api.Command) (state, reason string) {
 	if i := slices.IndexFunc(r.queue, func(q pending) bool { return q.runID == c.RunKey }); i >= 0 {
 		p := r.queue[i]
 		r.queue = slices.Delete(r.queue, i, i+1)
-		// A checked resume holds its card key already.
-		r.closeStoppedLocked(p, api.RunStateReport{State: api.RunStopped}, p.checked)
+		r.closeStoppedLocked(p, api.RunStateReport{State: api.RunStopped}, false)
 		dropped = r.dispatchLocked()
 	} else if run, ok := r.live[c.RunKey]; ok {
 		r.stopLiveLocked(run)
@@ -353,11 +371,8 @@ func (r *router) dropHold(cardID string) bool {
 	return true
 }
 
-// noteCardHold keeps the hold the server states for the card of the event. A
-// hold event or a held key states it, and another event changes nothing. A
-// column delete ends the hold of each card it moved, as the server does. It
-// reports whether the event ended a hold, and starts nothing, so the event can
-// replace a stale queued run first.
+// noteCardHold keeps the hold that a hold event states for its card. It
+// reports whether the event ended a hold, and starts nothing.
 func (r *router) noteCardHold(e event.Event) bool {
 	switch e.Type {
 	case event.CardReleasedType:
@@ -366,26 +381,7 @@ func (r *router) noteCardHold(e event.Event) bool {
 		r.mu.Lock()
 		r.holdCardLocked(e.Subject.ID)
 		r.mu.Unlock()
-
-		return false
-	case event.ColumnDeletedType:
-		released := false
-		for _, id := range e.MovedCardIDs {
-			released = r.dropHold(strings.ToLower(id)) || released
-		}
-
-		return released
 	}
-	id, _ := cardOf(e)
-	if id == "" || e.Card.Held == nil {
-		return false
-	}
-	if !*e.Card.Held {
-		return r.dropHold(id)
-	}
-	r.mu.Lock()
-	r.holdCardLocked(id)
-	r.mu.Unlock()
 
 	return false
 }
@@ -393,8 +389,7 @@ func (r *router) noteCardHold(e event.Event) bool {
 // The answers of a resume the bridge cannot act on.
 const (
 	noSession       = "The run has no session to resume."
-	noWorkerRule    = "The rule of the run no longer runs workers on this bridge."
-	cardMovedAway   = "The card left the column of the run."
+	noWorkerRule    = "The work map of this bridge no longer runs workers of the kind of the run."
 	noTranscript    = "The session of the run is not on the machine of this bridge."
 	bridgeShutting  = "The bridge is shutting down."
 	runOpen         = "The run is still open."
@@ -402,10 +397,11 @@ const (
 )
 
 // resumeRun queues a resume of the session of a run that ended, as its next
-// run. The resume waits for the card and a worker slot, and a pause keeps it
-// queued. A held card passes, and the resume waits until the hold ends. With
-// an older server the resume ends the hold. The automatic resumes of the new
-// run count from zero again.
+// run. The work entry of the run's kind says how the run starts. The resume
+// waits for the card and a worker slot, and a pause keeps it queued. A held
+// card passes, and the resume waits until the hold ends. With an older server
+// the resume ends the hold. The new run never resumes on its own, because the
+// server decides each resume.
 func (r *router) resumeRun(c api.Command) (state, reason string) {
 	if c.SessionID == "" {
 		return api.CommandRefused, noSession
@@ -413,24 +409,16 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	if r.readCard != nil {
 		timeout := r.checkTimeout
 		if timeout <= 0 {
-			timeout = askCheckTimeout
+			timeout = readTimeout
 		}
 		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-		card, err := r.readCard(ctx, c.ProjectID, c.CardID)
+		_, err := r.readCard(ctx, c.ProjectID, c.CardID)
 		cancel()
 		if err != nil {
 			return api.CommandRefused, "The bridge could not read the card: " + err.Error()
 		}
-		// A run of a pull request event records no column, so it has none to leave.
-		if c.CardColumn != "" && card.Column != c.CardColumn {
-			return api.CommandRefused, cardMovedAway
-		}
 	}
-	find := r.findTranscript
-	if find == nil {
-		find = findTranscript
-	}
-	if err := find(c.SessionID); err != nil {
+	if !r.hasTranscript(c.SessionID) {
 		return api.CommandRefused, noTranscript
 	}
 
@@ -442,7 +430,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	defer r.quiesce.RUnlock()
 	r.mu.Lock()
 	current := r.rules()
-	m, ok := matchWorker(current, e, c.RuleName)
+	m, ok := matchCommandWork(current, c, "")
 	_, held := r.held[c.RunKey]
 	_, live := r.live[c.RunKey]
 	continued := slices.ContainsFunc(r.queue, func(p pending) bool { return p.continues == c.RunKey })
@@ -467,25 +455,24 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 		return api.CommandRefused, reason
 	}
 
+	prompt := directive.RenderResumeByPerson()
+	if c.Cause == api.CauseAskClosed {
+		prompt = directive.RenderResumeAskClosed()
+	}
 	p := pending{
-		key: keyFor(e), event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, column: c.CardColumn,
-		spec: workerSpec{resume: true, sessionID: c.SessionID, prompt: directive.RenderResumeByPerson()},
+		key: keyFor(e), event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, origin: commandWork(c),
+		spec: workerSpec{resume: true, sessionID: c.SessionID, prompt: prompt},
 	}
 	p.apply(m)
-	if c.ResumeIndex != nil {
-		p.resumeIndex = *c.ResumeIndex
-	}
-	p.resumeIndex++
-	p.maxResumes = p.resumeIndex + m.MaxResumes
 	if r.sessions == nil {
 		r.sessions = map[string]sessionCard{}
 	}
-	r.sessions[c.SessionID] = sessionCard{key: p.key, id: c.CardID, number: c.CardNumber, column: c.CardColumn}
+	r.sessions[c.SessionID] = sessionCard{key: p.key, id: c.CardID, number: c.CardNumber}
 	r.seq++
 	p.seq = r.seq
 	r.queue = append(r.queue, p)
 	r.log.Info("worker_resume_asked", append(about(e, p.rule),
-		"worker_pool", p.pool, "session_id", c.SessionID, "resume", p.resumeIndex, "max_resumes", p.maxResumes, "continues", c.RunKey,
+		"worker_pool", p.pool, "session_id", c.SessionID, "continues", c.RunKey,
 	)...)
 	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 	dropped := r.dispatchLocked()
@@ -498,9 +485,9 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 
 // The answers of a rerun the bridge cannot act on.
 const (
-	noCommandRule = "The rule of the run no longer runs a command on this bridge."
+	noCommandRule = "The work map of this bridge no longer runs a command of the kind of the run."
 	cardBusy      = "The card has a run that is still open on this bridge."
-	needsEvent    = "The command of the rule needs values that only its first event held:"
+	needsEvent    = "The command of the work entry needs values that the run does not hold:"
 )
 
 // rerunCommand queues the command of a failed command run again, as a new run
@@ -518,7 +505,7 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	defer r.quiesce.RUnlock()
 	r.mu.Lock()
 	current := r.rules()
-	m, ok := matchAction(current, e, c.RuleName, rules.ActionCommand)
+	m, ok := matchCommandWork(current, c, rules.ActionCommand)
 	queued := slices.ContainsFunc(r.queue, func(p pending) bool { return p.key == key })
 	switch {
 	case r.frozen:
@@ -530,8 +517,8 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	case r.running[key] || queued:
 		reason = cardBusy
 	}
-	// A value of the first event would render empty, so the command would differ.
-	if gaps := current.RerunGaps(c.RuleName); reason == "" && len(gaps) > 0 {
+	// A value the run lacks would render empty, so the command would differ.
+	if gaps := current.WorkGaps(commandWork(c)); reason == "" && len(gaps) > 0 {
 		reason = needsEvent + " {" + strings.Join(gaps, "} {") + "}"
 	}
 	if reason != "" {
@@ -540,14 +527,8 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 		return api.CommandRefused, reason
 	}
 
-	p := pending{key: key, event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, column: c.CardColumn}
+	p := pending{key: key, event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, origin: commandWork(c)}
 	p.apply(m)
-	if c.ResumeIndex != nil {
-		p.resumeIndex = *c.ResumeIndex
-	}
-	// A command run never resumes on its own, so its cap is its own place.
-	p.resumeIndex++
-	p.maxResumes = p.resumeIndex
 	r.seq++
 	p.seq = r.seq
 	r.queue = append(r.queue, p)
@@ -559,6 +540,38 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	r.releaseHold(c.CardID)
 
 	return api.CommandDone, ""
+}
+
+// matchCommandWork matches the run a command names against the work map by
+// its kind, and only while the entry keeps the action of the run. A run of a
+// rules: entry names no kind, so nothing matches it.
+func matchCommandWork(set *rules.Set, c api.Command, action string) (rules.Match, bool) {
+	if c.WorkKind == "" {
+		return rules.Match{}, false
+	}
+	m := set.MatchKind(commandWork(c))
+
+	return m, m.Skip == rules.Run && m.Action == action
+}
+
+// commandWork is the work of the run a command names, as far as the command
+// carries it.
+func commandWork(c api.Command) api.WorkRequest {
+	return api.WorkRequest{
+		Type: event.WorkRequestType, ProjectID: c.ProjectID, Subject: api.WorkRequestSubject{Type: "work-request", ID: c.WorkRequestID},
+		WorkRequestID: c.WorkRequestID, Kind: c.WorkKind, CardID: c.CardID, CardNumber: c.CardNumber, RuleID: c.RuleID,
+	}
+}
+
+// hasTranscript reports whether this machine holds the transcript of the
+// session, which a resume needs.
+func (r *router) hasTranscript(sessionID string) bool {
+	find := r.findTranscript
+	if find == nil {
+		find = findTranscript
+	}
+
+	return find(sessionID) == nil
 }
 
 // findTranscript fails when the Claude Code config directory holds no
@@ -581,7 +594,7 @@ func (r *router) sendAck(c api.Command, state, reason string) {
 	}
 	r.reports.Enqueue(outbound.Report{
 		Card: c.CardNumber,
-		Rule: c.RuleName,
+		Rule: commandRule(c),
 		Send: func(ctx context.Context) (bool, error) {
 			stored, err := r.ackCommand(ctx, r.bridgeID, c.CommandID, state, reason)
 			switch {

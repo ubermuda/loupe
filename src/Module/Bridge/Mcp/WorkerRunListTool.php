@@ -17,7 +17,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type WorkerRunRow from WorkerRunPayload
  */
-#[McpTool(name: self::NAME, description: 'List the worker runs of this project, newest first. A worker run is one run of a CLI bridge worker on one card. Filter by states, a list of run states such as failed, gave-up, blocked, timed-out or lost. An unknown state is refused, and the error lists the valid states. You can also filter by cardNumber, by rule, the name of the bridge rule that ran the worker, and by bridgeId. search matches words in the card number, the rule name and the output, or a whole run id. endedAfter and endedBefore take an ISO 8601 date, or a date and a time, and both bounds are inclusive. A date with no time reads as midnight UTC, so pass the next day as endedBefore to include a whole day. A time with no offset reads as UTC. The bounds read the end of a run. A run with no recorded end, such as an open, timed-out or lost run, counts at the time its first report arrived. Each row has runId, runKey (the id the bridge gave the run), kind (worker, interactive or command; a command run runs a command with no agent, so it has no session), cardId, cardNumber, rule, state, sessionId (the claude session of the worker), resumeIndex and resumeCap (the place of the run in its series of resumes, and the limit the rule sets), startedAt, endedAt, exitCode, bridgeId, pendingCommand and reason. pendingCommand is the command that waits for the bridge, with its commandId, its kind (resume-run, stop-run or rerun-command) and its state, or null. reason is the failure reason, or else the last line of the output, cut to 300 characters, or null. The response is paginated: pass page to walk further, and keep going while hasMore is true. perPage defaults to 20, with a maximum of 100. worker_run_get reads one run and its series in full.')]
+#[McpTool(name: self::NAME, description: 'List the worker runs of this project, newest first. A worker run is one run of a CLI bridge worker on one card. Filter by states, a list of run states such as failed, gave-up, blocked, timed-out or lost. An unknown state is refused, and the error lists the valid states. You can also filter by cardNumber, by workKind, the kind of the work request the run ran, such as implement or fix, and by bridgeId. search matches words in the card number, the work kind and the output, or a whole run id. endedAfter and endedBefore take an ISO 8601 date, or a date and a time, and both bounds are inclusive. A date with no time reads as midnight UTC, so pass the next day as endedBefore to include a whole day. A time with no offset reads as UTC. The bounds read the end of a run. A run with no recorded end, such as an open, timed-out or lost run, counts at the time its first report arrived. Each row has runId, runKey (the id the bridge gave the run), kind (worker, interactive or command; a command run runs a command with no agent, so it has no session), cardId, cardNumber, workRequestId (the work request the run ran), workKind (the kind of that request, or the name of an interactive session), ruleId (the id of the workflow rule that opened the request), state, sessionId (the claude session of the worker), startedAt, endedAt, exitCode, bridgeId, pendingCommand and reason. pendingCommand is the command that waits for the bridge, with its commandId, its kind (resume-run, stop-run or rerun-command) and its state, or null. reason is the failure reason, or else the last line of the output, cut to 300 characters, or null. The response is paginated: pass page to walk further, and keep going while hasMore is true. perPage defaults to 20, with a maximum of 100. worker_run_get reads one run and its series in full.')]
 final readonly class WorkerRunListTool
 {
     public const string NAME = 'worker_run_list';
@@ -32,22 +32,22 @@ final readonly class WorkerRunListTool
     /**
      * @param string[]|null $states      only runs in one of these states, such as failed, gave-up or timed-out
      * @param int|null      $cardNumber  only the runs of the card with this number
-     * @param string|null   $rule        only the runs of the bridge rule with this name
+     * @param string|null   $workKind    only the runs of the work requests of this kind, such as implement or fix
      * @param string|null   $bridgeId    only the runs of this bridge; bridge_list gives the ids
      * @param string|null   $endedAfter  only runs that ended at or after this ISO 8601 date or time
      * @param string|null   $endedBefore only runs that ended at or before this ISO 8601 date or time
-     * @param string|null   $search      words to find in the card number, the rule name and the output, or a whole run id
+     * @param string|null   $search      words to find in the card number, the work kind and the output, or a whole run id
      * @param int           $page        the 1-based page to read
      * @param int           $perPage     how many runs to return per page
      *
      * @return array{runs: list<WorkerRunRow>, page: int, perPage: int, total: int, hasMore: bool}
      */
-    public function __invoke(?array $states = null, #[Schema(minimum: 1)] ?int $cardNumber = null, ?string $rule = null, ?string $bridgeId = null, ?string $endedAfter = null, ?string $endedBefore = null, ?string $search = null, int $page = 1, int $perPage = ListWorkerRunsHandler::PER_PAGE): array
+    public function __invoke(?array $states = null, #[Schema(minimum: 1)] ?int $cardNumber = null, ?string $workKind = null, ?string $bridgeId = null, ?string $endedAfter = null, ?string $endedBefore = null, ?string $search = null, int $page = 1, int $perPage = ListWorkerRunsHandler::PER_PAGE): array
     {
         try {
             $project = $this->subjects->requireProject();
             $search = null === $search ? '' : trim($search);
-            $rule = null === $rule ? '' : trim($rule);
+            $workKind = null === $workKind ? '' : trim($workKind);
 
             $view = ($this->listRuns)(new ListWorkerRunsCommand(
                 $project,
@@ -57,7 +57,7 @@ final readonly class WorkerRunListTool
                     bridgeId: $this->subjects->optionalBridgeId($bridgeId),
                     states: $this->subjects->optionalStates($states),
                     cardNumber: $cardNumber,
-                    rule: '' === $rule ? null : $rule,
+                    workKind: '' === $workKind ? null : $workKind,
                     endedAfter: $this->subjects->optionalTime($endedAfter, 'endedAfter'),
                     endedBefore: $this->subjects->optionalTime($endedBefore, 'endedBefore'),
                 ),

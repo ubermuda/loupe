@@ -11,7 +11,6 @@ use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
-use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
@@ -45,28 +44,6 @@ class InboxItemRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return null === $highest ? 1 : ((int) $highest) + 1;
-    }
-
-    /** The caller holds a lock on the project, so a second notice cannot open beside it. */
-    public function findOpenNotice(Project $project): ?InboxItem
-    {
-        return $this->findOneBy(['project' => $project, 'kind' => InboxItemKind::Notice, 'state' => InboxItemState::Open], ['number' => 'ASC']);
-    }
-
-    /** @return list<string> */
-    public function findProjectIdsWithOpenNotice(): array
-    {
-        /** @var list<Uuid|string> $ids */
-        $ids = $this->createQueryBuilder('i')
-            ->select('DISTINCT IDENTITY(i.project)')
-            ->andWhere('i.kind = :notice')
-            ->andWhere('i.state = :open')
-            ->setParameter('notice', InboxItemKind::Notice)
-            ->setParameter('open', InboxItemState::Open)
-            ->getQuery()
-            ->getSingleColumnResult();
-
-        return array_map(static fn (Uuid|string $id): string => (string) $id, $ids);
     }
 
     /**

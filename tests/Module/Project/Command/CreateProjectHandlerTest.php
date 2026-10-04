@@ -11,6 +11,7 @@ use App\Module\Project\Command\CreateProjectCommand;
 use App\Module\Project\Command\CreateProjectHandler;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Project\Service\WorkflowTemplateChoices;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +27,7 @@ final class CreateProjectHandlerTest extends KernelTestCase
     private EntityManagerInterface $em;
     private CreateProjectHandler $handler;
     private RecordingAuditor $audit;
+    private WorkflowTemplateChoices $workflowTemplates;
 
     protected function setUp(): void
     {
@@ -40,7 +42,10 @@ final class CreateProjectHandlerTest extends KernelTestCase
         $this->audit = new RecordingAuditor($actors);
         $events = self::getContainer()->get(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $events);
-        $this->handler = new CreateProjectHandler($projects, $this->em, $this->audit->auditor, $events);
+        $workflowTemplates = self::getContainer()->get(WorkflowTemplateChoices::class);
+        self::assertInstanceOf(WorkflowTemplateChoices::class, $workflowTemplates);
+        $this->workflowTemplates = $workflowTemplates;
+        $this->handler = new CreateProjectHandler($projects, $this->em, $this->audit->auditor, $events, $this->workflowTemplates);
     }
 
     public function test_creates_project_with_domain(): void
@@ -164,7 +169,7 @@ final class CreateProjectHandlerTest extends KernelTestCase
             'name' => 'My App',
             'slug' => 'my-app',
             'created_at' => '2026-09-12 00:00:00',
-        ]), $this->audit->auditor, $events);
+        ]), $this->audit->auditor, $events, $this->workflowTemplates);
 
         try {
             $racing(new CreateProjectCommand($owner, 'my-app', null, SearchLanguage::English));
@@ -233,6 +238,23 @@ final class CreateProjectHandlerTest extends KernelTestCase
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
         DirectLogging::assertRemovedFrom(CreateProjectHandler::class);
+    }
+
+    public function test_an_unknown_workflow_template_is_refused_before_the_project_is_persisted(): void
+    {
+        $owner = $this->user('create-project-unknown-template@example.com');
+
+        try {
+            ($this->handler)(new CreateProjectCommand($owner, 'unknown-template', null, SearchLanguage::English, workflowTemplate: 'kanban'));
+            self::fail('Expected DomainErrors for an unknown workflow template.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['workflowTemplate' => 'workflow.bind.error.unknown_template'], $e->errors);
+        }
+
+        self::assertSame([], array_filter(
+            $this->em->getUnitOfWork()->getScheduledEntityInsertions(),
+            static fn (object $entity): bool => $entity instanceof Project,
+        ));
     }
 
     /** @param non-empty-string $email */

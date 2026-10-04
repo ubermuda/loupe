@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
-use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -15,10 +13,9 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
+use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
-use App\Module\Board\Service\RacingBridgeRules;
-use App\Module\Bridge\Service\BridgeLabels;
 use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
@@ -28,16 +25,14 @@ final readonly class ShowBoardHandler
         private BoardColumnRepository $boardColumns,
         private BoardColumnCards $columnCards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
-        private BridgeRuleReportRepository $bridgeRuleReports,
         private CardDocumentRepository $cardDocuments,
         private BoardLanes $boardLanes,
         private BoardStructureDigest $structureDigest,
         private CardRunWarnings $runWarnings,
         private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
-        private RacingBridgeRules $racingRules,
+        private CardMarkers $markers,
         private BoardAutomation $automation,
-        private BridgeLabels $bridgeLabels,
     ) {
     }
 
@@ -61,22 +56,6 @@ final readonly class ShowBoardHandler
                 \count($shown),
                 $column->terminal ? $this->cards->countInColumn($column) : null,
             );
-        }
-
-        $deadRules = [];
-        $watchedSlugs = [];
-        $reports = $this->bridgeRuleReports->findForProject($project);
-        $racingRules = $this->racingRules->forProject($project, $reports);
-        foreach ($reports as $report) {
-            foreach ($report->rules as $rule) {
-                if (BridgeRuleReport::STATE_DEAD === $rule['state']) {
-                    $deadRules[] = new DeadBridgeRuleView($rule['name'], $rule['columns'], $rule['reason'] ?? '', $report->receivedAt, (string) $report->bridgeId);
-
-                    continue;
-                }
-
-                array_push($watchedSlugs, ...$rule['columns']);
-            }
         }
 
         $backlog ??= throw new \LogicException('Every board has a Backlog.');
@@ -111,9 +90,10 @@ final readonly class ShowBoardHandler
         $runWarnings = $this->runWarnings->forProject($project);
         $shownCards = array_merge(...array_map(static fn (BoardColumnView $view): array => $view->cards, $columns));
         $states = $this->pullRequestStates->forCards($shownCards);
+        $markers = $this->markers->forCards($project, $shownCards);
         $badges = [];
         foreach ($shownCards as $card) {
-            $cardBadges = $states->badgesOf($card);
+            $cardBadges = [...$states->badgesOf($card), ...($markers[(string) $card->id] ?? [])];
             if ([] !== $cardBadges) {
                 $badges[(string) $card->id] = $cardBadges;
             }
@@ -127,22 +107,14 @@ final readonly class ShowBoardHandler
             $this->cards->countInColumn($backlog),
             $pendingComments,
             $documentCounts,
-            $deadRules,
-            array_values(array_unique($watchedSlugs)),
             $lanes,
             $otherCards,
             $progress,
             $shownCounts,
-            $this->structureDigest->forBoard($columns, $lanes, $terminalWindowDays, $deadRules, $racingRules),
+            $this->structureDigest->forBoard($columns, $lanes, $terminalWindowDays),
             $runWarnings,
             $this->laneDecks->forEpics($backlog, array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->id, $lanes)),
             $badges,
-            $racingRules,
-            // Empty ids skip the query, so a board with no problem rule pays nothing.
-            $this->bridgeLabels->forOwner($project->owner, array_values(array_unique(array_map(
-                static fn (DeadBridgeRuleView|RacingBridgeRuleView $rule): string => $rule->bridgeId,
-                [...$deadRules, ...$racingRules],
-            )))),
         );
     }
 }

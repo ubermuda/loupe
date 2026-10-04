@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\BridgeEventType;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\ProjectEventType;
 use App\Outbox\AgentPush;
 use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
+use App\Tests\Support\EventBridge;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -20,6 +24,9 @@ use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
 final class ShowEventReplayControllerTest extends WebTestCase
 {
+    /** @var array<string, Bridge> */
+    private array $bridges = [];
+
     public function test_returns_the_callers_events_after_the_cursor_in_sequence_order(): void
     {
         $client = static::createClient();
@@ -42,9 +49,9 @@ final class ShowEventReplayControllerTest extends WebTestCase
 
         self::assertSame([
             'events' => [
-                ['id' => $one->sequence, 'type' => 'test.event', 'data' => '{"n":1,"text":"café \/ \"quoted\""}'],
-                ['id' => $two->sequence, 'type' => 'test.event', 'data' => '{"n":2}'],
-                ['id' => $three->sequence, 'type' => 'test.event', 'data' => '{"n":3}'],
+                ['id' => $one->sequence, 'type' => BridgeEventType::COMMAND, 'data' => '{"n":1,"text":"café \/ \"quoted\""}'],
+                ['id' => $two->sequence, 'type' => BridgeEventType::COMMAND, 'data' => '{"n":2}'],
+                ['id' => $three->sequence, 'type' => BridgeEventType::COMMAND, 'data' => '{"n":3}'],
             ],
             'hasMore' => false,
         ], $data);
@@ -112,7 +119,7 @@ final class ShowEventReplayControllerTest extends WebTestCase
         [$raw, , $project] = $this->issue($client, 'replay-paging@example.com');
         $rows = [];
         for ($index = 0; $index < 202; ++$index) {
-            $rows[] = $event = new OutboxEvent($project, 'test.event', 'topic', '{"i":'.$index.'}');
+            $rows[] = $event = new OutboxEvent($project, BridgeEventType::COMMAND, 'topic', '{"i":'.$index.'}');
             $em->persist($event);
         }
         $em->flush();
@@ -150,6 +157,48 @@ final class ShowEventReplayControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/api/events/replay'.$query, server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(400);
+    }
+
+    public function test_only_the_types_a_bridge_runs_are_replayed(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw, , $project] = $this->issue($client, 'replay-types@example.com');
+        $old = new \DateTimeImmutable('-1 hour');
+        $kept = [];
+        foreach ([BridgeEventType::WORK_REQUEST, 'board.card_moved', BridgeEventType::COMMAND, ProjectEventType::RENAMED, 'pull_request.merged', BridgeEventType::CARD_HELD, BridgeEventType::CARD_RELEASED] as $type) {
+            $event = $this->row($project, '{}', $old, $type);
+            if (!\in_array($type, ['board.card_moved', 'pull_request.merged'], true)) {
+                $kept[] = $event->sequence;
+            }
+        }
+        $anchor = $this->row($project, '{}', $old->modify('+10 minutes'), 'board.card_moved');
+        $this->row($project, '{}', $old->modify('+10 minutes'), 'board.card_moved');
+
+        self::assertSame($kept, array_column($this->eventsOf($this->replay($client, $raw, 0)), 'id'));
+        self::assertSame([], $this->eventsOf($this->replay($client, $raw, (int) $anchor->sequence)));
+    }
+
+    public function test_a_bridge_that_runs_no_work_requests_is_told_to_upgrade(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        [$raw, $user, $project] = $this->issue($client, 'replay-refused@example.com');
+        $this->row($project, '{}');
+
+        foreach ([
+            ['HTTP_AUTHORIZATION' => 'Bearer '.$raw],
+            EventBridge::server($raw, EventBridge::register($em, $user, [Bridge::CAPABILITY_COMMANDS])),
+        ] as $server) {
+            $client->request(Request::METHOD_GET, '/api/events/replay?after=0', server: $server);
+
+            self::assertResponseStatusCodeSame(426);
+            $body = json_decode((string) $client->getResponse()->getContent(), true);
+            self::assertIsArray($body);
+            self::assertStringContainsString('loupe CLI', (string) ($body['error'] ?? ''));
+            self::assertArrayNotHasKey('events', $body);
+        }
     }
 
     public function test_push_disabled_hides_the_endpoint(): void
@@ -206,16 +255,16 @@ final class ShowEventReplayControllerTest extends WebTestCase
 
         $this->replay($client, $first, 0);
 
-        $client->request(Request::METHOD_GET, '/api/events/replay?after=0', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$first]);
+        $client->request(Request::METHOD_GET, '/api/events/replay?after=0', server: EventBridge::server($first, $this->bridges[$first]));
         self::assertResponseStatusCodeSame(429);
 
         $this->replay($client, $second, 0);
     }
 
-    private function row(Project $project, string $payload, ?\DateTimeImmutable $createdAt = null): OutboxEvent
+    private function row(Project $project, string $payload, ?\DateTimeImmutable $createdAt = null, string $type = BridgeEventType::COMMAND): OutboxEvent
     {
         $em = $this->em();
-        $event = new OutboxEvent($project, 'test.event', 'topic', $payload, $createdAt ?? new \DateTimeImmutable());
+        $event = new OutboxEvent($project, $type, 'topic', $payload, $createdAt ?? new \DateTimeImmutable());
         $em->persist($event);
         $em->flush();
         self::assertNotNull($event->sequence);
@@ -226,7 +275,7 @@ final class ShowEventReplayControllerTest extends WebTestCase
     /** @return array<string, mixed> */
     private function replay(KernelBrowser $client, string $raw, int $after): array
     {
-        $client->request(Request::METHOD_GET, '/api/events/replay?after='.$after, server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $client->request(Request::METHOD_GET, '/api/events/replay?after='.$after, server: EventBridge::server($raw, $this->bridges[$raw]));
 
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
@@ -280,6 +329,7 @@ final class ShowEventReplayControllerTest extends WebTestCase
         $em->flush();
 
         $raw = AgentCredential::agentToken(static::getContainer(), $user);
+        $this->bridges[$raw] = EventBridge::register($em, $user);
 
         return [
             $raw,

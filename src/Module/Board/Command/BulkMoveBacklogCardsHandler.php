@@ -86,11 +86,9 @@ final readonly class BulkMoveBacklogCardsHandler
             usort($cards, static fn (Card $left, Card $right): int => [$left->position, $left->createdAt] <=> [$right->position, $right->createdAt]);
             $moveOrder = $command->column->terminal ? $this->childrenFirst($cards) : $cards;
             foreach ($moveOrder as $card) {
-                // The last open child of an epic closes the epic as it moves.
                 if ($card->column === $command->column) {
                     continue;
                 }
-                // An earlier move of this batch can close an epic or release a child.
                 ($this->updateCard)(new UpdateCardCommand(
                     card: $card,
                     actor: $command->actor,

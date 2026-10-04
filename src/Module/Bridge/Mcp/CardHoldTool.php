@@ -12,11 +12,11 @@ use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 
 /**
- * Pauses the agents on one card.
+ * Makes one card unmanaged.
  *
  * @phpstan-import-type CardRefusal from BridgeCommandRefusals
  */
-#[McpTool(name: self::NAME, description: 'Pause the agents on a card. While the card is paused, no bridge starts a worker on it. A pause stops no live run, so call worker_run_stop to stop one. A queued run waits, and starts when the pause ends. The pause ends on card_release, when a person moves the card to another column, or when the card is deleted. Pass one of cardId or number to name the card, never both. The result has cardId and outcome. Outcome held means that the card is now paused. A result with outcome refused also carries code and message. The codes are: not-found (this project has no such card, and cardId is null when number names no card), already-paused and card-gone (the card was deleted during the call).')]
+#[McpTool(name: self::NAME, description: 'Make a card unmanaged. While the card is unmanaged, the workflow makes no move and starts no work on it, no bridge starts a worker on it, and a person may move it to any column. This stops no live run, so call worker_run_stop to stop one. A queued run waits, and starts when the card is managed again. The card is managed again on card_release, or when the card is deleted. While the workflow engine is off, a move by a person to another column also makes the card managed again. Pass one of cardId or number to name the card, never both. The result has cardId and outcome. Outcome held means that the card is now unmanaged. A result with outcome refused also carries code and message. The codes are: not-found (this project has no such card, and cardId is null when number names no card), already-paused and card-gone (the card was deleted during the call).')]
 final readonly class CardHoldTool
 {
     public const string NAME = 'card_hold';

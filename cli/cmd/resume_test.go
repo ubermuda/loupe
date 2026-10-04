@@ -424,7 +424,7 @@ func TestARolledBackBridgeReportsTheVersionItLeft(t *testing.T) {
 func TestAPlainStartRecoversALeftoverHandover(t *testing.T) {
 	_, rulesPath := resumeHome(t)
 	calls := captureExecFn(t)
-	e := event.Event{Type: event.CardMovedType, Subject: event.Subject{Type: "card", ID: cardUUID(9)}, ProjectID: testProject, CardNumber: 9, FromStatus: "backlog", ToStatus: "next", Actor: event.ActorHuman}
+	e := event.Event{Type: event.WorkRequestType, Subject: event.Subject{Type: "work-request", ID: offerID(9)}, ProjectID: testProject, CardID: cardUUID(9), CardNumber: 9}
 	file, _ := handoverPath(rulesPath)
 	st := handoverState{
 		Format:     handoverFormat,

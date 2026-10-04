@@ -8,10 +8,8 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\EventListener\ResolveFeedbackOnCardMoved;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardFeedbackResolver;
 use App\Module\Board\Service\CardMove;
@@ -24,10 +22,7 @@ use Doctrine\DBAL\Exception\InvalidArgumentException as DbalInvalidArgument;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LogLevel;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Contracts\Service\ResetInterface;
 use Ubermuda\AuditBundle\AuditEvent;
-use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /** Driven through a real move, so the listener runs where UpdateCardHandler dispatches CardMoved. */
 final class ResolveFeedbackOnCardMovedTest extends KernelTestCase
@@ -202,41 +197,6 @@ final class ResolveFeedbackOnCardMovedTest extends KernelTestCase
         new ResolveFeedbackOnCardMoved(new CardFeedbackResolver($links, $resolve), $closed, $logger)(
             new CardMoved($card, new CardMove($this->column($project, 'in-progress')), CardReporter::Human),
         );
-    }
-
-    public function test_an_epic_its_last_child_closes_resolves_its_own_feedback_as_the_system(): void
-    {
-        $this->enableBoard();
-        $project = $this->feedbackProject('feedback-epic');
-        $epic = $this->cardIn($project, 'in-progress', 1);
-        $epic->type = CardType::Epic;
-        $child = $this->cardIn($project, 'in-progress', 2);
-        $child->parent = $epic;
-        $comment = $this->feedback($epic, SiteReviewCommentStatus::Pending);
-        $this->em->flush();
-
-        $this->move($child, $project, 'done');
-
-        self::assertSame(SiteReviewCommentStatus::Resolved, $this->statusOf($comment));
-        $closed = $this->em->find(Card::class, $epic->id);
-        self::assertInstanceOf(Card::class, $closed);
-        self::assertSame('done', $closed->column->slug);
-        $record = $this->audit->record('site_review.comment_resolved');
-        self::assertSame((string) $comment->id, $record->context['commentId']);
-        self::assertSame('card_moved', $record->context['trigger']);
-        self::assertSame('system', $record->context['actor']);
-    }
-
-    private function enableBoard(): void
-    {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
-        $this->em->flush();
-
-        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
-        self::assertInstanceOf(ResetInterface::class, $reader);
-        $reader->reset();
     }
 
     private function move(Card $card, Project $project, string $slug, CardReporter $actor = CardReporter::Human): void

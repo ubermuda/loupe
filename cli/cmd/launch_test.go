@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -156,7 +157,7 @@ func TestTheLauncherOutcome(t *testing.T) {
 		"no binary":   {[]string{"/nonexistent/launcher"}, "fork/exec /nonexistent/launcher: no such file or directory"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := runLauncher(tc.argv, 10*time.Second); got != tc.want {
+			if got := runLauncher(context.Background(), tc.argv, 10*time.Second, nil); got != tc.want {
 				t.Fatalf("runLauncher = %q, want %q", got, tc.want)
 			}
 		})
@@ -167,7 +168,7 @@ func TestTheLauncherOutcome(t *testing.T) {
 // kills it.
 func TestALauncherPastItsTimeoutLaunchedAndRunsOn(t *testing.T) {
 	proof := filepath.Join(t.TempDir(), "alive")
-	if got := runLauncher([]string{"sh", "-c", `sleep 0.3; echo ok > "$1"`, "sh", proof}, 50*time.Millisecond); got != "" {
+	if got := runLauncher(context.Background(), []string{"sh", "-c", `sleep 0.3; echo ok > "$1"`, "sh", proof}, 50*time.Millisecond, nil); got != "" {
 		t.Fatalf("runLauncher = %q", got)
 	}
 	waitForFile(t, proof)
@@ -179,10 +180,10 @@ func TestALauncherWhoseChildKeepsItsOutputReportsItsExit(t *testing.T) {
 	t.Cleanup(func() { launchWaitDelay = old })
 	launchWaitDelay = 50 * time.Millisecond
 
-	if got := runLauncher([]string{"sh", "-c", "sleep 2 & exit 3"}, time.Second); got != "exit code 3" {
+	if got := runLauncher(context.Background(), []string{"sh", "-c", "sleep 2 & exit 3"}, time.Second, nil); got != "exit code 3" {
 		t.Fatalf("runLauncher = %q", got)
 	}
-	if got := runLauncher([]string{"sh", "-c", "sleep 2 & exit 0"}, time.Second); got != "" {
+	if got := runLauncher(context.Background(), []string{"sh", "-c", "sleep 2 & exit 0"}, time.Second, nil); got != "" {
 		t.Fatalf("runLauncher = %q", got)
 	}
 }

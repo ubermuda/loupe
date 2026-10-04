@@ -13,8 +13,7 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 /**
  * The forge accepts an update before its merge commit exists, so only the read
  * that finds the synced head confirms the sync. apply() sets syncedSha in that read.
- * It runs after the project lock and before PublishPullRequestEventsOnStateChanged,
- * so a ReadyToMerge from the same read stays the last action.
+ * It runs after the project lock.
  */
 #[AsEventListener(priority: 5)]
 final readonly class RecordSyncOnPullRequestStateChanged

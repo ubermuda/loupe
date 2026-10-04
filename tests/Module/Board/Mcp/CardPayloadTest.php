@@ -96,8 +96,6 @@ final class CardPayloadTest extends TestCase
         $card->pullRequests->add($tracked);
         $card->pullRequests->add($untracked);
         $automation = new CardAutomation($card);
-        $automation->fixRounds = 2;
-        $automation->blockedReason = 'fix-rounds-exhausted';
         $automation->lastAction = CardAutomationAction::FixRequested;
         $automation->lastActionAt = new \DateTimeImmutable('2026-09-27T10:00:00+00:00');
         $states = $this->createMock(CardPullRequestStates::class);
@@ -130,8 +128,6 @@ final class CardPayloadTest extends TestCase
         ], $rows[0]['pullRequests'][0]['state']);
         self::assertNull($rows[0]['pullRequests'][1]['state']);
         self::assertSame([
-            'fixRounds' => 2,
-            'blockedReason' => 'fix-rounds-exhausted',
             'lastAction' => 'fix-requested',
             'lastActionAt' => '2026-09-27T10:00:00+00:00',
         ], $rows[0]['automation']);

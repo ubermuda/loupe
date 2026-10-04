@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
@@ -19,6 +20,8 @@ final readonly class MoveCardCommand
      *                              it wins over $position
      * @param ?string $afterCardId  a card of the target column the card lands below,
      *                              read only when $beforeCardId is absent
+     * @param ?User   $unmanageBy   the person who holds the card with the move, once
+     *                              the caller checked that they may manage the project
      */
     public function __construct(
         public Card $card,
@@ -28,6 +31,7 @@ final readonly class MoveCardCommand
         public ?string $parent = null,
         public ?string $beforeCardId = null,
         public ?string $afterCardId = null,
+        public ?User $unmanageBy = null,
     ) {
     }
 }

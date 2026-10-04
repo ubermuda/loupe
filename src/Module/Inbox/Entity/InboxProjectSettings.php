@@ -39,6 +39,9 @@ class InboxProjectSettings
     #[ORM\Column(options: ['default' => true])]
     public bool $pullRequestFixStopped = true;
 
+    #[ORM\Column(options: ['default' => true])]
+    public bool $cardPaused = true;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\OneToOne(targetEntity: Project::class)]
@@ -55,6 +58,7 @@ class InboxProjectSettings
             InboxCardWaitTrigger::RunWaitingForPerson => $this->runWaitingForPerson,
             InboxCardWaitTrigger::PullRequestReady => $this->pullRequestReady,
             InboxCardWaitTrigger::PullRequestFixStopped => $this->pullRequestFixStopped,
+            InboxCardWaitTrigger::CardPaused => $this->cardPaused,
         };
     }
 }

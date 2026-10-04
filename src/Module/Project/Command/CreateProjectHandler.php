@@ -8,6 +8,8 @@ use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Event\ProjectCreating;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Project\Service\WorkflowTemplateChoice;
+use App\Module\Project\Service\WorkflowTemplateChoices;
 use App\Utils\Slug;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,6 +25,7 @@ final readonly class CreateProjectHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
+        private WorkflowTemplateChoices $workflowTemplates,
     ) {
     }
 
@@ -40,6 +43,14 @@ final readonly class CreateProjectHandler
             throw new DomainErrors(['name' => 'project.error.slug_taken']);
         }
 
+        if (null !== $command->workflowTemplate && !\in_array(
+            $command->workflowTemplate,
+            array_map(static fn (WorkflowTemplateChoice $choice): string => $choice->key, $this->workflowTemplates->choices()),
+            true,
+        )) {
+            throw new DomainErrors(['workflowTemplate' => 'workflow.bind.error.unknown_template']);
+        }
+
         $project = new Project($command->owner, $command->name, $command->domain);
         $description = trim($command->description ?? '');
         $project->description = '' === $description ? null : $description;
@@ -47,7 +58,7 @@ final readonly class CreateProjectHandler
 
         try {
             $this->em->persist($project);
-            $this->events->dispatch(new ProjectCreating($project));
+            $this->events->dispatch(new ProjectCreating($project, $command->workflowTemplate));
             $this->em->flush();
         } catch (UniqueConstraintViolationException $e) {
             // A concurrent create won the race with the checks above, and a unique index caught it.

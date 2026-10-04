@@ -1,6 +1,6 @@
 # Pull request feedback
 
-This file describes the feedback model in forge terms: pull request, review thread, review body, top-level comment, check, head branch and base repository. The commands for a forge live in its adapter. Pick the adapter as "Pick the forge adapter" in `../../loupe-stage-implementation/references/commands.md` says. The round works in the folder the worker starts in, the worker folder. The bridge rules make that folder, and the round never creates or removes it.
+This file describes the feedback model in forge terms: pull request, review thread, review body, top-level comment, check, head branch and base repository. The commands for a forge live in its adapter. Pick the adapter as "Pick the forge adapter" in `../../loupe-stage-implementation/references/commands.md` says. The round works in the folder the worker starts in, the worker folder. The bridge configuration makes that folder, and the round never creates or removes it.
 
 ## Find the open pull request
 

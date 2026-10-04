@@ -1266,6 +1266,20 @@
     .lp-card-field dd {
         @apply m-0 text-sm font-semibold text-ink whitespace-nowrap;
     }
+    /* A field whose value is a sentence, so it wraps. */
+    .lp-card-field--prose dd {
+        @apply whitespace-normal font-normal;
+    }
+    /* An active pause of the workflow on the card, with the condition that ends it. */
+    .lp-workflow-panel__pause {
+        @apply flex flex-col gap-1 rounded-lg bg-status-pending-bg px-3 py-2 text-sm text-status-pending-deep;
+    }
+    .lp-workflow-panel__pause-title {
+        @apply m-0 flex flex-wrap items-center gap-2 font-semibold;
+    }
+    .lp-workflow-panel__line {
+        @apply m-0;
+    }
     /* One agent run on the card. The pill column has a fixed width, so the pills and the action icons line up. */
     .lp-card-run-row {
         @apply relative grid items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-sm text-ink transition-colors hover:bg-surface-2;
@@ -5716,35 +5730,6 @@
     .lp-board__slug-refusal {
         @apply text-sm font-semibold text-danger m-0;
     }
-    /* A column dialog's note that a live bridge rule watches the column's slug. */
-    .lp-board__rule-warning {
-        @apply rounded-lg bg-status-pending-bg px-3 py-2 m-0 text-sm font-semibold text-status-pending-deep leading-normal;
-    }
-    /* The owner's banner for bridge rules that a bridge reported dead. */
-    .lp-board-rules {
-        @apply flex items-start gap-3 rounded-xl bg-status-pending-bg py-3.5 px-4 mb-4;
-    }
-    .lp-board-rules__icon {
-        @apply shrink-0 text-status-pending mt-0.5;
-    }
-    .lp-board-rules__body {
-        @apply flex flex-col gap-2 min-w-0;
-    }
-    .lp-board-rules__title {
-        @apply text-sm font-bold text-status-pending-deep m-0;
-    }
-    .lp-board-rules__list {
-        @apply flex flex-col gap-1 m-0 p-0 list-none;
-    }
-    .lp-board-rules__rule {
-        @apply flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-status-pending-deep;
-    }
-    .lp-board-rules__code {
-        @apply font-mono text-xs font-semibold;
-    }
-    .lp-board-rules__hint {
-        @apply text-xs text-status-pending-deep m-0;
-    }
     /* A group is a drop target, so it keeps a minimum height even when empty:
        an empty column with no area under it cannot be dropped into. */
     /* pr-1.5 keeps the bar off the card edges, which are rounded boxes. The
@@ -6257,7 +6242,7 @@
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
     }
-    /* The pull request and automation problems of a card, on its tile and its list row. */
+    /* The pull request and automation problems and the workflow markers of a card, on its tile and its list row. */
     .lp-board-card__badges {
         @apply flex flex-wrap items-center gap-1;
     }
@@ -6358,9 +6343,6 @@
     /* What the board automation last did on the card. */
     .lp-card-automation {
         @apply flex items-center gap-1.5 text-xs text-fg-mute m-0 mt-3;
-    }
-    .lp-card-automation--blocked {
-        @apply mt-2 rounded-md border border-status-danger-border bg-status-danger-bg text-status-danger-deep py-1.5 px-2.5;
     }
     /* Site-review feedback left on a page that named this card. Read only
        here: the status is owned by the site-review screen and by the MCP tool

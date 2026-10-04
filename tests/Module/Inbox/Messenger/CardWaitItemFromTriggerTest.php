@@ -110,7 +110,7 @@ final class CardWaitItemFromTriggerTest extends KernelTestCase
             at: new \DateTimeImmutable(),
             cardId: $cardId,
             cardNumber: 7,
-            ruleName: 'implement',
+            workKind: 'implement',
             sessionId: $outcome ? Uuid::v4() : null,
             startedAt: $outcome ? new \DateTimeImmutable('-1 minute') : null,
             endedAt: $outcome ? new \DateTimeImmutable() : null,
@@ -118,7 +118,6 @@ final class CardWaitItemFromTriggerTest extends KernelTestCase
             hasResult: $outcome ? true : null,
             output: $output,
             resultStatus: WorkerRunState::Blocked === $state ? 'blocked' : null,
-            cardColumn: 'backlog',
         ));
         self::assertTrue($result->newState);
     }

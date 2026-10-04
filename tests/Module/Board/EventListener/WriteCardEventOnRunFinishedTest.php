@@ -50,8 +50,6 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         $run = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
         $run->startedAt = new \DateTimeImmutable('2026-09-30 10:00:00+00:00');
         $run->endedAt = new \DateTimeImmutable('2026-09-30 10:02:05+00:00');
-        $run->resumeIndex = 1;
-        $run->resumeCap = 3;
         $this->em->flush();
 
         $this->listener()($this->event($run));
@@ -65,15 +63,13 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-09-30 10:02:05+00:00'), $row->occurredAt);
         $expected = [
             'runId' => (string) $run->id,
-            'ruleName' => 'plan',
+            'workKind' => 'plan',
             'state' => 'succeeded',
             'interactive' => false,
             'command' => false,
             'startedAt' => '2026-09-30T10:00:00+00:00',
             'endedAt' => '2026-09-30T10:02:05+00:00',
             'durationSeconds' => 125,
-            'resumeIndex' => 1,
-            'resumeCap' => 3,
             'closedAt' => '2026-09-30T10:02:05+00:00',
             'stateSequence' => null,
         ];
@@ -91,7 +87,7 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
             bridgeId: Uuid::v7(),
             cardId: $this->card->id ?? throw new \LogicException('A persisted card has an id.'),
             cardNumber: 1,
-            ruleName: 'sync',
+            workKind: 'sync',
             state: WorkerRunState::Failed,
             endedAt: new \DateTimeImmutable('2026-09-30 10:00:00+00:00'),
             exitCode: 1,
@@ -375,7 +371,7 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
             bridgeId: Uuid::v7(),
             cardId: $cardId ?? throw new \LogicException('A persisted card has an id.'),
             cardNumber: 1,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: $state,
         );
         $this->em->persist($run);

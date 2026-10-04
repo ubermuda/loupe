@@ -16,6 +16,7 @@ final readonly class CreateProjectCommand
         public ?string $domain,
         public SearchLanguage $searchLanguage,
         public ?string $description = null,
+        public ?string $workflowTemplate = null,
     ) {
     }
 }

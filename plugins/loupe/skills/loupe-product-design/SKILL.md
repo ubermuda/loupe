@@ -11,7 +11,7 @@ This skill is not a stage skill. It loads no `stage-contract.md` and no harness 
 
 Move the card only in P0. Never move it when you stop, and never move it after P0. This rule overrides the move table of `loupe-board`.
 
-P0 opens an interactive run on the card with `card_run_open`. While it is open, a bridge rule can skip the card. Close the run with `card_run_close` in P10. When you stop at any other point after P0, call `card_run_close` before you stop.
+P0 opens an interactive run on the card with `card_run_open`. Close the run with `card_run_close` in P10. When you stop at any other point after P0, call `card_run_close` before you stop.
 
 `references/session-flow.md` holds the levels L1 to L4 and the phases P0 to P10. `references/question-rules.md` holds the question rules Q1 to Q7 and the coverage checklist of P6. `references/claude-design.md` holds the Claude Design rules C1 to C7.
 

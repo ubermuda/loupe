@@ -27,16 +27,18 @@ final readonly class SaveBoardAutomationSettingsHandler
     public function __invoke(SaveBoardAutomationSettingsCommand $command): void
     {
         $settings = $this->automation->settingsForUpdate($command->project);
+        $wasEnabled = $settings->enabled;
         $wasSyncing = $settings->enabled && $settings->syncBehind;
         $settings->enabled = $command->enabled;
-        $settings->mergeStrategy = $command->mergeStrategy;
-        $settings->fixStrategy = $command->fixStrategy;
-        $settings->loopLimit = $command->loopLimit;
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
         $settings->syncBehind = $command->syncBehind;
+        $settings->mergePullRequests = $command->mergePullRequests;
+        $settings->changeBase = $command->changeBase;
+        $settings->epicDraftSwitch = $command->epicDraftSwitch;
+        $settings->closeEpicPullRequests = $command->closeEpicPullRequests;
         $this->em->flush();
-        $this->events->dispatch(new BoardAutomationSettingsSaved($command->project));
+        $this->events->dispatch(new BoardAutomationSettingsSaved($command->project, !$wasEnabled && $command->enabled));
 
         // A pull request that fell behind while the sync was off waits for no other trigger.
         if (!$wasSyncing && $command->enabled && $command->syncBehind) {
@@ -46,12 +48,13 @@ final readonly class SaveBoardAutomationSettingsHandler
         $this->auditor->record('board.automation_settings_saved', AuditOutcome::Success, [
             'projectId' => (string) $command->project->id,
             'enabled' => $command->enabled,
-            'mergeStrategy' => $command->mergeStrategy->value,
-            'fixStrategy' => $command->fixStrategy->value,
-            'loopLimit' => $command->loopLimit,
             'commentOnFixQueued' => $command->commentOnFixQueued,
             'commentOnStaleApproval' => $command->commentOnStaleApproval,
             'syncBehind' => $command->syncBehind,
+            'mergePullRequests' => $command->mergePullRequests,
+            'changeBase' => $command->changeBase,
+            'epicDraftSwitch' => $command->epicDraftSwitch,
+            'closeEpicPullRequests' => $command->closeEpicPullRequests,
         ]);
     }
 }

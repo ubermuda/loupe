@@ -198,15 +198,38 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	return c.http.Do(retry)
 }
 
+// BridgeHeader names the bridge on the events routes. The server serves them
+// only to a bridge of the caller whose last heartbeat says it runs work
+// requests.
+const BridgeHeader = "X-Loupe-Bridge"
+
+// ErrUpgradeRequired marks the 426 of an events route: the server serves no
+// bridge that runs no work requests. A retry cannot change that.
+var ErrUpgradeRequired = errors.New("the server refuses this bridge")
+
+// upgradeRequired reads the message of a 426 answer.
+func upgradeRequired(body io.Reader) error {
+	var refusal struct {
+		Error string `json:"error"`
+	}
+	_ = decodeBody(body, &refusal)
+	if refusal.Error == "" {
+		refusal.Error = "upgrade the loupe CLI"
+	}
+
+	return fmt.Errorf("%w (HTTP 426): %s", ErrUpgradeRequired, refusal.Error)
+}
+
 // Events fetches the hub, the caller's topic, a subscriber JWT for it, and the
-// projects the caller owns.
-func (c *Client) Events(ctx context.Context) (Events, error) {
+// projects the caller owns, for the bridge bridgeID.
+func (c *Client) Events(ctx context.Context, bridgeID string) (Events, error) {
 	var out Events
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/events", nil)
 	if err != nil {
 		return out, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set(BridgeHeader, bridgeID)
 
 	resp, err := c.do(req)
 	if err != nil {
@@ -220,6 +243,8 @@ func (c *Client) Events(ctx context.Context) (Events, error) {
 		return out, fmt.Errorf("credentials rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
 	case http.StatusNotFound:
 		return out, errors.New("the server has no GET /api/events endpoint: push is switched off on this Loupe instance, or the server is older than this bridge")
+	case http.StatusUpgradeRequired:
+		return out, upgradeRequired(resp.Body)
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return out, fmt.Errorf("events request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -254,14 +279,16 @@ type Replay struct {
 // cursor and up to 200 repeated ones, so it can pass maxBody.
 const maxReplayBody = 16 << 20
 
-// Replay reads the page of outbox events that follows the sequence after.
-func (c *Client) Replay(ctx context.Context, after int64) (Replay, error) {
+// Replay reads the page of outbox events that follows the sequence after, for
+// the bridge bridgeID.
+func (c *Client) Replay(ctx context.Context, bridgeID string, after int64) (Replay, error) {
 	var out Replay
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/events/replay?after="+strconv.FormatInt(after, 10), nil)
 	if err != nil {
 		return out, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set(BridgeHeader, bridgeID)
 
 	resp, err := c.do(req)
 	if err != nil {
@@ -277,6 +304,8 @@ func (c *Client) Replay(ctx context.Context, after int64) (Replay, error) {
 		return out, errors.New("the server has no GET /api/events/replay endpoint: push is switched off on this Loupe instance, or the server is older than this bridge")
 	case http.StatusTooManyRequests:
 		return out, errors.New("the replay request hit its rate limit (HTTP 429)")
+	case http.StatusUpgradeRequired:
+		return out, upgradeRequired(resp.Body)
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return out, fmt.Errorf("replay request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -420,114 +449,11 @@ func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, er
 	return out, nil
 }
 
-// The states and reasons of a rule health report.
+// The reasons the work of a mapped project stops.
 const (
-	RuleLive = "live"
-	RuleDead = "dead"
-
-	ReasonColumnRenamed  = "column_renamed"
-	ReasonColumnDeleted  = "column_deleted"
 	ReasonProjectRenamed = "project_renamed"
 	ReasonProjectGone    = "project_gone"
 )
-
-// RuleHealth is one rule of a health report. It has no prompt field, so no
-// prompt text can reach the server.
-type RuleHealth struct {
-	Name    string   `json:"name"`
-	On      string   `json:"on"`
-	Columns []string `json:"columns"`
-	State   string   `json:"state"`
-	Reason  *string  `json:"reason"`
-}
-
-// ErrReportRejected marks a report the server refused for a reason a retry of
-// the same body cannot fix, such as a 422 or an unknown project.
-var ErrReportRejected = errors.New("the server rejected the rule report")
-
-// Violation is one field a 422 names, such as rules[0].name.
-type Violation struct {
-	PropertyPath string `json:"propertyPath"`
-	Title        string `json:"title"`
-}
-
-// RejectedReport is a report the server refused for good. It matches
-// ErrReportRejected, and the 404 cause, such as ErrProjectNotFound.
-type RejectedReport struct {
-	Status     int
-	Violations []Violation
-	cause      error
-}
-
-func (e *RejectedReport) Error() string {
-	msg := fmt.Sprintf("the server rejected the rule report (HTTP %d)", e.Status)
-	if e.cause != nil {
-		msg += ": " + e.cause.Error()
-	}
-	for _, v := range e.Violations {
-		msg += fmt.Sprintf("; %s: %s", v.PropertyPath, v.Title)
-	}
-
-	return msg
-}
-
-func (e *RejectedReport) Unwrap() []error {
-	if e.cause == nil {
-		return []error{ErrReportRejected}
-	}
-
-	return []error{ErrReportRejected, e.cause}
-}
-
-// ReportRules replaces this bridge's rule health report for one project.
-func (c *Client) ReportRules(ctx context.Context, handle, bridgeID string, rules []RuleHealth) error {
-	if rules == nil {
-		rules = []RuleHealth{}
-	}
-	body, err := json.Marshal(struct {
-		Rules []RuleHealth `json:"rules"`
-	}{rules})
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
-		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/bridges/"+url.PathEscape(bridgeID)+"/rules", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.do(req)
-	if err != nil {
-		return fmt.Errorf("report rules of %s: %w", handle, err)
-	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case http.StatusNoContent, http.StatusOK:
-		return nil
-	case http.StatusNotFound:
-		err := notFound(resp.Body)
-		if errors.Is(err, ErrBoardDisabled) {
-			return err
-		}
-
-		return &RejectedReport{Status: resp.StatusCode, cause: err}
-	case http.StatusUnprocessableEntity:
-		var problem struct {
-			Violations []Violation `json:"violations"`
-		}
-		_ = json.NewDecoder(io.LimitReader(resp.Body, maxBody)).Decode(&problem)
-
-		return &RejectedReport{Status: resp.StatusCode, Violations: problem.Violations}
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return &RejectedReport{Status: resp.StatusCode}
-	default:
-		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("rule report for %s failed (HTTP %d): %s", handle, resp.StatusCode, strings.TrimSpace(string(detail)))
-	}
-}
 
 // Sites lists the authenticated user's sites. Login calls it to check a token.
 func (c *Client) Sites(ctx context.Context) ([]Site, error) {
@@ -666,6 +592,9 @@ type Heartbeat struct {
 	// server holds.
 	Paused       *bool    `json:"paused,omitempty"`
 	Capabilities []string `json:"capabilities,omitzero"`
+	// WorkClaims are the claims whose leases the heartbeat renews. Nil sends
+	// no key. The client sends at most MaxWorkClaims of them.
+	WorkClaims []WorkClaim `json:"workClaims,omitzero"`
 	// Name sends no key when nil, which keeps the stored name, and "" clears it.
 	Name *string `json:"name,omitempty"`
 }
@@ -678,6 +607,11 @@ type HeartbeatReply struct {
 	// Commands are decoded and not checked. Run each through
 	// event.CheckCommand before use.
 	Commands []Command
+	// WorkRequests are the open offers, decoded and not checked. Run each
+	// through event.CheckWorkRequest before use. LostClaims are the ids of
+	// the claims this bridge no longer holds, in lower case.
+	WorkRequests []WorkRequest
+	LostClaims   []string
 }
 
 // WorkerPoolReport is the size of one worker pool, the slots its runs take,
@@ -744,6 +678,9 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 		}
 		hb.Hooks = rows
 	}
+	if len(hb.WorkClaims) > MaxWorkClaims {
+		hb.WorkClaims = hb.WorkClaims[:MaxWorkClaims]
+	}
 	body, err := json.Marshal(hb)
 	if err != nil {
 		return HeartbeatReply{}, err
@@ -766,13 +703,21 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 	case resp.StatusCode == http.StatusOK:
 		// The heartbeat landed, so a reply it cannot read is not a failure.
 		var reply struct {
-			CLIRange string            `json:"cliRange"`
-			Paused   *bool             `json:"paused"`
-			Commands []json.RawMessage `json:"commands"`
+			CLIRange     string            `json:"cliRange"`
+			Paused       *bool             `json:"paused"`
+			Commands     []json.RawMessage `json:"commands"`
+			WorkRequests []json.RawMessage `json:"workRequests"`
+			LostClaims   []json.RawMessage `json:"lostClaims"`
 		}
 		_ = decodeBody(resp.Body, &reply)
 
-		return HeartbeatReply{CLIRange: strings.TrimSpace(reply.CLIRange), Paused: reply.Paused, Commands: decodeCommands(reply.Commands)}, nil
+		return HeartbeatReply{
+			CLIRange:     strings.TrimSpace(reply.CLIRange),
+			Paused:       reply.Paused,
+			Commands:     decodeCommands(reply.Commands),
+			WorkRequests: decodeWorkRequests(reply.WorkRequests),
+			LostClaims:   decodeLostClaims(reply.LostClaims),
+		}, nil
 	case resp.StatusCode == http.StatusNoContent:
 		return HeartbeatReply{}, nil
 	case resp.StatusCode == http.StatusNotFound:
@@ -782,55 +727,6 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 
 		return HeartbeatReply{}, fmt.Errorf("heartbeat failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 	}
-}
-
-// AskState is the answer of GET /api/projects/{handle}/inbox/asks/{askId}.
-type AskState struct {
-	AskID   string `json:"askId"`
-	Closed  bool   `json:"closed"`
-	AllRead bool   `json:"allRead"`
-}
-
-// CheckAsk reads whether an ask closed and whether its session read every item.
-// Any answer other than a 200 that states both booleans for this ask is an
-// error, and the error carries the server's body. The caller resumes on every
-// error alike, so no error kind is told apart.
-func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, error) {
-	var out AskState
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/inbox/asks/"+url.PathEscape(askID), nil)
-	if err != nil {
-		return out, err
-	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.do(req)
-	if err != nil {
-		return out, fmt.Errorf("check ask %s: %w", askID, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return out, fmt.Errorf("ask check failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	var raw struct {
-		AskID   string `json:"askId"`
-		Closed  *bool  `json:"closed"`
-		AllRead *bool  `json:"allRead"`
-	}
-	if err := decodeBody(resp.Body, &raw); err != nil {
-		return out, fmt.Errorf("decode the check of ask %s: %w", askID, err)
-	}
-	if raw.Closed == nil || raw.AllRead == nil {
-		return out, fmt.Errorf("the check of ask %s does not state closed and allRead", askID)
-	}
-	if !strings.EqualFold(raw.AskID, askID) {
-		return out, fmt.Errorf("the check of ask %s answers for another ask, %q", askID, raw.AskID)
-	}
-
-	return AskState{AskID: raw.AskID, Closed: *raw.Closed, AllRead: *raw.AllRead}, nil
 }
 
 // CardRead is the answer of the card endpoint: the column a card is in now,

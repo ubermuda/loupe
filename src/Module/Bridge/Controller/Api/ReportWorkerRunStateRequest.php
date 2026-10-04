@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -13,8 +15,8 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
  * One state of one worker run, as the bridge reports it. Every report carries
- * the card and the rule, so the first report the server reads can create the
- * run.
+ * the card and the work request, so the first report the server reads can
+ * create the run. A run of an old bridge rule carries no work request.
  */
 final class ReportWorkerRunStateRequest
 {
@@ -47,9 +49,16 @@ final class ReportWorkerRunStateRequest
         #[Assert\Range(min: 1, max: ReportWorkerRunRequest::MAX_CARD_NUMBER)]
         public ?int $cardNumber = null,
 
-        #[Assert\Length(max: WorkerRun::MAX_RULE_NAME_LENGTH, normalizer: 'trim')]
-        #[Assert\NotBlank(normalizer: 'trim')]
-        public ?string $ruleName = null,
+        #[Assert\Uuid]
+        public ?string $workRequestId = null,
+
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkRequest::KIND_PATTERN)]
+        public ?string $workKind = null,
+
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkRequest::RULE_ID_PATTERN)]
+        public ?string $ruleId = null,
 
         #[Assert\Uuid]
         public ?string $sessionId = null,
@@ -81,21 +90,17 @@ final class ReportWorkerRunStateRequest
 
         #[Assert\Choice(choices: self::RESULT_STATUSES)]
         public ?string $resultStatus = null,
+
+        // A pattern rather than a choice, so a code from a newer bridge is stored as other.
+        #[Assert\Length(max: WorkerRun::MAX_RESULT_REASON_LENGTH)]
+        #[Assert\Regex(pattern: WorkerRun::RESULT_REASON_PATTERN)]
+        public ?string $resultReason = null,
         /** @var array<mixed>|null */
         public ?array $resultFields = null,
 
         /** The id the bridge gave the run that this run resumes. */
         #[Assert\Uuid]
         public ?string $continues = null,
-
-        #[Assert\Range(min: 0, max: WorkerRun::MAX_RESUME_COUNT)]
-        public ?int $resumeIndex = null,
-
-        #[Assert\Range(min: 0, max: WorkerRun::MAX_RESUME_COUNT)]
-        public ?int $resumeCap = null,
-
-        #[Assert\Length(max: WorkerRun::MAX_CARD_COLUMN_LENGTH)]
-        public ?string $cardColumn = null,
 
         #[Assert\Length(max: WorkerRun::MAX_RESUME_SKIPPED_LENGTH)]
         public ?string $resumeSkipped = null,
@@ -126,10 +131,6 @@ final class ReportWorkerRunStateRequest
         #[Assert\NotBlank(allowNull: true)]
         #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
         public ?string $switchedFrom = null,
-
-        /** Null from a bridge that predates triggers, and on any report but the first queued one. */
-        #[Assert\Valid]
-        public ?WorkerRunTriggerInput $trigger = null,
 
         /** Null from a bridge that predates command rules, which runs workers alone. */
         #[Assert\Choice(choices: self::BRIDGE_KINDS)]
@@ -238,6 +239,10 @@ final class ReportWorkerRunStateRequest
             $context->buildViolation('A result status needs the result flag.')->atPath('resultStatus')->addViolation();
         }
 
+        if (null !== $this->resultReason() && true !== $this->hasResult()) {
+            $context->buildViolation('A result reason needs the result flag.')->atPath('resultReason')->addViolation();
+        }
+
         $implied = WorkerRunState::fromOutcome($this->exitCode, $this->hasResult(), $this->resultStatus);
         $matches = WorkerRunState::GaveUp === $state
             ? \in_array($implied, [WorkerRunState::Failed, WorkerRunState::NoResult, WorkerRunState::Unfinished], true)
@@ -327,15 +332,19 @@ final class ReportWorkerRunStateRequest
         return $fields;
     }
 
+    public function resultReason(): ?WorkerRunReason
+    {
+        return WorkerRunReason::fromReported($this->resultReason);
+    }
+
     public function sessionId(): ?Uuid
     {
         return null === $this->sessionId || '' === $this->sessionId ? null : Uuid::fromString($this->sessionId);
     }
 
-    /** Trimmed, because the length constraint measured the trimmed value. */
-    public function ruleName(): string
+    public function workRequestId(): ?Uuid
     {
-        return trim($this->ruleName ?? '');
+        return null === $this->workRequestId || '' === $this->workRequestId ? null : Uuid::fromString($this->workRequestId);
     }
 
     public function failureReason(): ?string

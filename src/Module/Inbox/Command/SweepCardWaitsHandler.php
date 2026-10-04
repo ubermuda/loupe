@@ -6,7 +6,6 @@ namespace App\Module\Inbox\Command;
 
 use App\Module\Inbox\Messenger\ReconcileCardWaits;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
-use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -22,7 +21,6 @@ final readonly class SweepCardWaitsHandler
         private InboxAvailability $inbox,
         private ProjectRepository $projects,
         private InboxCardWatchRepository $inboxCardWatches,
-        private InboxItemRepository $inboxItems,
         private MessageBusInterface $bus,
     ) {
     }
@@ -32,7 +30,7 @@ final readonly class SweepCardWaitsHandler
     {
         $projectIds = $this->inbox->isEnabled()
             ? $this->projects->findAllIds()
-            : array_values(array_unique([...$this->inboxCardWatches->findProjectIdsWithOpenWatch(), ...$this->inboxItems->findProjectIdsWithOpenNotice()]));
+            : $this->inboxCardWatches->findProjectIdsWithOpenWatch();
 
         foreach ($projectIds as $projectId) {
             $this->bus->dispatch(new ReconcileCardWaits($projectId, null));

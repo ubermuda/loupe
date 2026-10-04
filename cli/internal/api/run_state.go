@@ -16,20 +16,17 @@ import (
 // The states a bridge reports for a run. The server adds timed-out and lost on
 // its own.
 const (
-	RunQueued           = "queued"
-	RunReplaced         = "replaced"
-	RunResumed          = "resumed"
-	RunSkipped          = "skipped"
-	RunRunning          = "running"
-	RunWaitingForPerson = "waiting-for-person"
-	RunDropped          = "dropped"
-	RunSucceeded        = "succeeded"
-	RunNoResult         = "no-result"
-	RunFailed           = "failed"
-	RunNotStarted       = "not-started"
-	RunUnfinished       = "unfinished"
-	RunBlocked          = "blocked"
-	RunGaveUp           = "gave-up"
+	RunQueued     = "queued"
+	RunReplaced   = "replaced"
+	RunSkipped    = "skipped"
+	RunRunning    = "running"
+	RunDropped    = "dropped"
+	RunSucceeded  = "succeeded"
+	RunNoResult   = "no-result"
+	RunFailed     = "failed"
+	RunNotStarted = "not-started"
+	RunUnfinished = "unfinished"
+	RunBlocked    = "blocked"
 	// RunWaitingOnForge is a run that ended with its work waiting on the
 	// forge, such as checks on a pushed pull request.
 	RunWaitingOnForge = "waiting-on-forge"
@@ -53,15 +50,11 @@ const (
 	DropReload   = "reload"
 )
 
-// SkipCardMoved says a resume was skipped because the card left the column of
-// its series. The drop reasons above also serve as skip reasons.
-const SkipCardMoved = "card_moved"
-
 // IsOutcome reports whether state is how a worker ended. Only an outcome maps
 // onto the old report.
 func IsOutcome(state string) bool {
 	switch state {
-	case RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunGaveUp, RunWaitingOnForge:
+	case RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunWaitingOnForge:
 		return true
 	}
 
@@ -70,15 +63,22 @@ func IsOutcome(state string) bool {
 
 // RunStateReport is one state of a run, as PUT
 // /api/projects/{handle}/worker-runs/{runId} takes it. Every report carries the
-// card and the rule, so the first one the server reads can create the run. A
-// field that the state does not use stays zero and is not sent.
+// card and the work request, so the first one the server reads can create the
+// run. A run of a rules: entry names no work request. A field that the state
+// does not use stays zero and is not sent.
 type RunStateReport struct {
 	BridgeID   string    `json:"bridgeId"`
 	State      string    `json:"state"`
 	At         time.Time `json:"at"`
 	CardID     string    `json:"cardId"`
 	CardNumber int       `json:"cardNumber"`
-	RuleName   string    `json:"ruleName"`
+	// WorkRequestID, WorkKind and RuleID come from the work request of the run.
+	WorkRequestID string `json:"workRequestId,omitempty"`
+	WorkKind      string `json:"workKind,omitempty"`
+	RuleID        string `json:"ruleId,omitempty"`
+	// Rule names the run in the bridge log and in the old report. The run
+	// state endpoint does not take it.
+	Rule string `json:"-"`
 	// Kind is RunKindCommand for the run of a command rule, and empty for a
 	// worker run.
 	Kind string `json:"kind,omitempty"`
@@ -94,25 +94,21 @@ type RunStateReport struct {
 	FailureReason *string `json:"failureReason,omitzero"`
 	Output        string  `json:"output,omitzero"`
 
-	AskID      string `json:"askId,omitzero"`
 	ReplacedBy string `json:"replacedBy,omitzero"`
-	MaxChain   int    `json:"maxChain,omitzero"`
 	Reason     string `json:"reason,omitzero"`
 	// WorkerPool is the pool of a worker run: the pool it started in, or the
 	// pool its rule names while it waits. An interactive run has none.
 	WorkerPool string `json:"workerPool,omitzero"`
 
-	// ResultStatus and ResultFields come from the worker's structured result.
-	// ResumeSkipped says why the bridge did not resume a run that did not finish.
+	// ResultStatus, ResultReason and ResultFields come from the worker's
+	// structured result. ResumeSkipped says why the bridge did not resume a run
+	// that did not finish.
 	ResultStatus  string         `json:"resultStatus,omitempty"`
+	ResultReason  string         `json:"resultReason,omitempty"`
 	ResultFields  map[string]any `json:"resultFields,omitempty"`
 	ResumeSkipped string         `json:"resumeSkipped,omitempty"`
-	// Continues is the id of the run a resume continues. CardColumn is the
-	// column that started the series.
-	Continues   string `json:"continues,omitempty"`
-	ResumeIndex int    `json:"resumeIndex,omitempty"`
-	ResumeCap   int    `json:"resumeCap,omitempty"`
-	CardColumn  string `json:"cardColumn,omitempty"`
+	// Continues is the id of the run a resume continues.
+	Continues string `json:"continues,omitempty"`
 	// Usage goes on an outcome alone. A nil usage is unknown.
 	Usage *Usage `json:"usage,omitempty"`
 	// The experiment fields go on running and on the outcome of a run whose
@@ -121,19 +117,6 @@ type RunStateReport struct {
 	Variant        string `json:"variant,omitempty"`
 	RequestedModel string `json:"requestedModel,omitempty"`
 	SwitchedFrom   string `json:"switchedFrom,omitempty"`
-	// Trigger goes on a queued report alone.
-	Trigger *RunTrigger `json:"trigger,omitempty"`
-}
-
-// RunTrigger names the event that queued a run. A pull request event also
-// names its pull request.
-type RunTrigger struct {
-	EventType         string `json:"eventType"`
-	Forge             string `json:"forge,omitzero"`
-	Repository        string `json:"repository,omitzero"`
-	PullRequestNumber int    `json:"pullRequestNumber,omitzero"`
-	HeadSHA           string `json:"headSha,omitzero"`
-	Reason            string `json:"reason,omitzero"`
 }
 
 // MarshalJSON sends every field of an outcome, as the old report does, so an
@@ -172,7 +155,6 @@ var ErrRunStatesUnsupported = errors.New("the server has no run state endpoint, 
 // projects. It answers whether the state is new for the run: the server answers
 // 201 for a new state and 200 for a state the run already holds.
 func (c *Client) ReportRunState(ctx context.Context, handle, runID string, report RunStateReport) (bool, error) {
-	report.RuleName = clip(strings.TrimSpace(report.RuleName), maxRuleName)
 	report.Output = clip(report.Output, maxRunOutput)
 	if report.FailureReason != nil {
 		reason := clip(*report.FailureReason, maxFailureReason)

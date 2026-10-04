@@ -84,12 +84,12 @@ final class WorkerRunUsageRecorderTest extends KernelTestCase
         self::assertSame([], $this->rowsOf($run));
     }
 
-    public function test_a_row_copies_the_card_and_the_rule_of_its_run(): void
+    public function test_a_row_copies_the_card_and_the_work_kind_of_its_run(): void
     {
         self::bootKernel();
         $em = $this->em();
         $project = $this->project($em, $this->user($em, 'usage-copy@example.com'), 'Usage Copy');
-        $run = $this->seedRun($em, $project, ruleName: 'review');
+        $run = $this->seedRun($em, $project, workKind: 'review');
 
         $this->recorder()->record($run, new WorkerRunUsageReport(WorkerRunUsageSource::Estimated, [
             new WorkerRunModelUsage('claude-haiku', 10, 20, 30, 40, null),
@@ -100,7 +100,7 @@ final class WorkerRunUsageRecorderTest extends KernelTestCase
         self::assertIsArray($row);
         self::assertSame((string) $project->id, $row['project_id']);
         self::assertSame((string) $run->cardId, $row['card_id']);
-        self::assertSame('review', $row['rule_name']);
+        self::assertSame('review', $row['work_kind']);
         self::assertSame('estimated', $row['source']);
         self::assertSame([10, 20, 30, 40], [$row['input_tokens'], $row['output_tokens'], $row['cache_read_tokens'], $row['cache_write_tokens']]);
         self::assertNull($row['cost_usd']);

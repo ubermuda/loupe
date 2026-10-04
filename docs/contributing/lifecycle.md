@@ -1,73 +1,65 @@
 ---
 title: "Development lifecycle"
-description: "The board columns a card passes, and the bridge rules that run a worker in a stage."
+description: "The board columns a card passes, and the work the bridge runs in each stage."
 ---
 
-A card on the Loupe project board moves through six columns. When a person
-moves a card into a column with a worker, `loupe bridge` starts an unattended
-`claude -p` worker in this repository. The worker runs the stage skill for that
-column, reports one result line, and stops. Product design has no worker,
-because the owner writes the product document in an interactive session. A
-bridge rule with `action: interactive` can open that session in a terminal when
-the card enters Product design. A person approves each document.
+A card on the Loupe project board moves through six columns. The board follows
+the Lifecycle [workflow template](../using/workflows.md). When a card enters a
+slot with work, the workflow opens a work request, and `loupe bridge` runs an
+unattended `claude -p` worker in this repository. The worker runs the stage
+skill for that kind of work, reports one result line, and stops. Product design
+opens an interactive session instead, because the owner writes the product
+document with the agent. A person approves each document.
 
 A card move either reports an agent's own state or carries a person's
 judgement. An agent makes the first kind and never the second. Every move that
-carries an approval stays with the person who approves. The app makes the moves
-that follow a pull request, because it reads the pull request itself.
+carries an approval stays with the workflow, which reads the approval itself.
+The workflow also makes the moves that follow a pull request.
 
 ## Columns
 
-| Label | Slug | Flag | Worker |
+| Label | Slug | Flag | Work |
 |---|---|---|---|
 | Backlog | `backlog` | backlog | none |
-| Product design | `product-design` | | none |
-| Tech design | `tech-design` | | `loupe-stage-tech-design` |
-| Implementation | `implementation` | | `loupe-stage-implementation` |
-| In review | `in-review` | | none |
-| Done | `done` | terminal | none |
+| Product design | `product-design` | | `product-design`, `product-design-revise` |
+| Tech design | `tech-design` | | `tech-design`, `tech-design-revise` |
+| Implementation | `implementation` | | `implement`, `breakdown`, `fix` |
+| In review | `in-review` | | `fix`, `merge`, `sync`, `rebase-stacked` |
+| Done | `done` | terminal | `teardown` |
 
 The implementation worker ends when it opens the pull request, and it reports
-`waiting`. It does not wait for CI. The app reads the pull request after each
-push. When the required checks pass, the app moves the card from Implementation
-to In review. When the pull request merges, the app moves the card to Done.
-Only a repository connected through the GitHub App gets these moves, as
-[the board page](../using/board.md#what-github-tells-a-card) says.
+`waiting`. It does not wait for CI. The workflow reads the pull request after
+each push. When the required checks pass, it moves the card from
+Implementation to In review. When the pull request merges, it moves the card
+to Done. A failed check, a conflict or a request for changes asks for a fix. An
+approved pull request with green checks asks for the merge, and an approved
+branch behind `main` asks for an update. With the merge and sync writes on,
+Loupe does both itself, and no worker runs.
+[Workflows](../using/workflows.md#the-lifecycle-template) lists every rule.
 
-Four pull request rules start a worker from the events of the app. A failed
-check, a conflict or a request for changes starts a fix round. An approved pull
-request with green checks starts the merge. An approved branch behind `main`
-starts an update. No rule starts a worker when a card enters In review.
-
-The owner runs `/loupe:product-design` by hand in Claude Code, from a card or
+The owner can run `/loupe:product-design` by hand in Claude Code, from a card or
 from a one-line idea. The session creates the card in Product design, or moves
 an existing card there from an earlier column, such as Backlog or Next. Then it
 writes the product document with the owner. The session takes its intake from
 the card, and offers Claude Design on a look-and-feel choice when the Claude
-Design MCP is connected. The approval of that document moves
-the card to Tech design. When a person requests
-changes on the document, the `fix-round` rule starts `loupe-stage-fix-round`,
-which answers the review round. Delete any `product-design` worker rule from
-your `rules.yaml`, then run `loupe bridge reload`.
+Design MCP is connected. The approval of that document moves the card to Tech
+design. When a person requests changes on the document, the workflow asks for
+`product-design-revise` work, which runs `loupe-stage-fix-round`.
 
-A bridge rule with `action: interactive` on `to: product-design` opens the
-session for you. When a person moves a card into Product design, the bridge
-opens a terminal window on its machine that runs
-`/loupe:product-design <number>`. The owner can still start the session by
-hand. Set `card: { interactiveRun: false }` on the rule, so that a session that
-moves its own card there opens no second window. Put the rule on one machine
-only. `cli/README.md` describes the rule and the `launch` block it needs.
+The `product-design` work entry opens the session for you. When a card enters
+Product design, the bridge opens a terminal window on its machine that runs
+`/loupe:product-design <number>`. The request needs the `interactive`
+capability, so only a bridge with that entry takes it. Put the entry on one
+machine only. `cli/README.md` describes the entry and the `launch` block it
+needs.
 
 A card does not have to pass Product design. Move it from Backlog straight to
 Tech design when the card body already says what to build. The tech design
 worker then uses the card body as its requirement source. When the card has a
 product document that is not approved yet, the worker stops and waits for it.
 
-A new board starts with `next` and `in-progress` columns. What to do with the
-cards in those two columns is the owner's call.
-
-A bridge rule names a column by its slug. When a rename changes a slug, every
-rule on the old slug stops working.
+The template links each slot to a column by its id, so a rename of a column
+keeps the workflow working.
 
 ## Epics and the breakdown
 
@@ -113,25 +105,22 @@ its worker runs the breakdown again, finds no missing child, and stops. That
 rerun also starts a child that a person put back in Backlog on purpose, when
 the child has no open blocker. A parked child stays in Backlog.
 
-The app makes three moves on its own, with the actor `system`:
+The workflow makes three moves on its own:
 
-1. When a card enters a terminal column, each child it blocks moves from
-   Backlog to Implementation, once all of that child's blockers are done. The
-   move starts an implementation worker for the child.
-2. When every child of an epic is done, the epic moves to the first terminal
-   column.
-3. When a child of a done epic leaves Done, or an open card joins it, the epic
-   moves back to Implementation.
-
-A deleted blocks link starts nothing. A child whose last blocker link is gone
-waits in Backlog until a person moves it.
+1. When the last open blocker of a child in Backlog finishes, the child moves to
+   Implementation, which asks for its implementation.
+2. When every child of an epic is done, the epic moves to In review when it has
+   a pull request, and to Done when it has none.
+3. When a done epic gets an open child again, the epic moves back to
+   Implementation.
 
 ## Rule file
 
 The rule file is `rules.yaml`. It lives beside `config.json`:
 `~/Library/Application Support/loupe/` on macOS, and `$XDG_CONFIG_HOME/loupe/`
 or `~/.config/loupe/` on Linux. After a change, run `loupe bridge reload` to
-apply the file to the running bridge.
+apply the file to the running bridge. A file with a `rules:` list no longer
+loads.
 
 ```yaml
 maxWorkers: 1
@@ -140,148 +129,129 @@ projects:
   loupe:
     dir: ~/Code/loupe
 
-rules:
-  - name: tech-design
-    on: board.card_moved
-    project: loupe
-    to: tech-design
+launch:
+  command: ["open", "-a", "Terminal", "{script}"]
+
+work:
+  product-design:
+    action: interactive
+    prompt: /loupe:product-design {cardNumber}
+
+  product-design-revise:
+    permissionMode: acceptEdits
+    prompt: |
+      Use the loupe-stage-fix-round skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column product-design.
+      Loupe instance https://loupe.ac.
+
+  tech-design:
     permissionMode: acceptEdits
     prompt: |
       Use the loupe-stage-tech-design skill.
-      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered {to}.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered tech-design.
       Loupe instance https://loupe.ac.
-      If the card is no longer in {to}, stop.
+      If the card is no longer in tech-design, stop.
 
-  - name: implementation
-    on: board.card_moved
-    project: loupe
-    to: implementation
+  tech-design-revise:
+    permissionMode: acceptEdits
+    prompt: |
+      Use the loupe-stage-fix-round skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column tech-design.
+      Loupe instance https://loupe.ac.
+
+  implement:
     permissionMode: bypassPermissions
     before:
       run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}"]
       timeout: 15m
     prompt: |
       Use the loupe-stage-implementation skill.
-      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered {to}.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered implementation.
       Loupe instance https://loupe.ac.
-      If the card is no longer in {to}, stop.
+      If the card is no longer in implementation, stop.
 
-  - name: fix-round
-    on: document.review_submitted
-    project: loupe
-    verdict: changes-requested
-    permissionMode: acceptEdits
+  breakdown:
+    permissionMode: bypassPermissions
     prompt: |
-      Use the loupe-stage-fix-round skill.
-      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column {column}.
-      A person requested changes on document {documentId}.
+      Use the loupe-stage-implementation skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered implementation.
       Loupe instance https://loupe.ac.
-      If the card is no longer in {column}, stop.
+      If the card is no longer in implementation, stop.
 
-  - name: fix-pr
-    on: pull_request.fix_requested
-    project: loupe
-    resume: true
+  fix:
     permissionMode: bypassPermissions
     before:
-      run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}", "{pullRequestNumber}"]
+      run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}"]
       timeout: 15m
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
-      Pull request {pullRequestUrl} needs a fix: {reason}.
+      A pull request of the card needs a fix.
       Loupe instance https://loupe.ac.
 
-  - name: merge-ready
-    on: pull_request.ready_to_merge
-    project: loupe
+  merge:
     permissionMode: bypassPermissions
     prompt: |
       Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
-      Pull request {pullRequestUrl} is ready to merge at {headSha}.
+      Loupe asks for merge work.
       Loupe instance https://loupe.ac.
 
-  - name: teardown
-    on: board.card_moved
-    project: loupe
-    to: done
+  sync:
+    permissionMode: bypassPermissions
+    prompt: |
+      Use the loupe-stage-merge skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Loupe asks for sync work.
+      Loupe instance https://loupe.ac.
+
+  teardown:
     action: command
     run: [bin/worktrees/bridge-teardown.sh, "{cardNumber}"]
 ```
 
-The `before` command of the `implementation` and `fix-pr` rules makes or
-refreshes `.worktrees/card-<number>`, provisions it with `just worktree-up`,
-and prints its path. The worker starts in that folder, and the stage skills
-work there. The `fix-pr` rule also passes the pull request number, so the
-script can make a lost folder again from the head branch. The `teardown` rule
-runs `just worktree-down` with no agent when the card reaches Done. For an
-epic, it also removes the epic preview `.worktrees/epic-<number>`.
+The `before` command of the `implement` and `fix` entries makes or refreshes
+`.worktrees/card-<number>`, provisions it with `just worktree-up`, and prints
+its path. The worker starts in that folder, and the stage skills work there.
+The `teardown` entry runs `just worktree-down` with no agent when the card
+reaches Done. For an epic, it also removes the epic preview
+`.worktrees/epic-<number>`.
 [Before command](../extending/cli-bridge.md#before-command) and
 [Command action](../extending/cli-bridge.md#command-action) describe both
 fields.
 
-Edit `rules.yaml` before the bridge loads a plugin of version 0.10.0 or later.
-A new skill that starts with no `before` rule runs in the main checkout. The
-folder check of `.loupe/lifecycle.md` then stops it with
-`STAGE RESULT: blocked: no worker folder`. The reverse order has
-its own cost. An older skill that starts in the card folder tries to make its
-own worktree from there.
+The breakdown writes no code, so its entry has no `before` command. Its worker
+runs in the main checkout, and changes only the board.
 
-A pull request opened before the switch has a session that started in the
-main checkout. The `fix-pr` rule resumes that session in the folder its
-transcript records, so the folder check stops each of its rounds with
-`STAGE RESULT: blocked: no worker folder`. Run those rounds by hand, as
-[Fix rounds by hand](#fix-rounds-by-hand) says. The command starts a new
-session in the card worktree. The cost ends when the last such pull request
-merges or closes.
+The example has no `rebase-stacked` entry, because no stage skill changes the
+base of a pull request. Turn on the board setting **Change the base of a pull
+request when the workflow asks**, so Loupe changes the base itself. With the
+setting off, a request for `rebase-stacked` work waits for a bridge with that
+entry, and then pauses the card.
 
-The `fix-round` rule starts a document fix round when a person requests changes
-on a product or tech design document. The event names the linked card in the
-column where the document's stage starts. A document with no such card starts
-no worker.
-
-The `fix-pr` rule resumes the session that built the branch, when the event
-names one, and starts a new session otherwise. The round fixes the conflict,
-each failing check and each open review item, pushes, and reports `waiting`.
-The `merge-ready` rule merges only after it reads the pull request again: the
-same head, an approval, and every required check green. The approval must also
-cover every commit after it, read by time. A sync merge from the base passes,
-with or without a conflict resolution. Any other later commit stops the run as
-`not ready`. Loupe sends `ready_to_merge` only when an approval, if there is
-one, covers the head. The head can move after the event, so the skill makes
-this check again. Every pull request rule acts only on a card that links the
-pull request.
-
-The example has no rule on `pull_request.behind`. The project turns on the
-board automation setting **Sync an approved pull request that is behind**, so
-Loupe updates such a branch itself, with no worker. A rule on
-`pull_request.behind` then races the app, and the Rules page, the board banner
-and an inbox notice flag it. The report of a rule holds no `when`, so Loupe
-cannot flag a rule on `pull_request.review_submitted` that only re-ran the sync.
-Remove such a rule by hand. A project with the setting off can still run a
-`pull_request.behind` rule with the `loupe-stage-merge` skill, which updates an
-approved branch.
+The `fix` round fixes the conflict, each failing check and each open review
+item, pushes, and reports `waiting`. When the workflow retries a fix that ended
+`unfinished`, the request names the session to resume, and the bridge resumes
+it. The `merge` and `sync` entries take the one open pull request of the card.
+The merge reads the pull request again before it merges: the same head, an
+approval, and every required check green. The approval must also cover every
+commit after it, read by time. A sync merge from the base passes, with or
+without a conflict resolution. Any other later commit stops the run as
+`not ready`.
 
 Each prompt carries `{projectId}` and the Loupe instance. The implementation
 skill uses both to build the card link in the pull request body. Without the
-instance line, the body names `Loupe card <number>` instead. `cli/README.md` describes every field and
-placeholder.
-
-Every review verdict in this lifecycle comes from a person. A person's event
-resets the chain count of the card. A `system` move neither counts toward the
-chain nor resets it. The breakdown moves each child once, as an agent, so that
-move counts one run in the chain of the child. The `maxChain` cap therefore
-limits nothing here.
+instance line, the body names `Loupe card <number>` instead. `cli/README.md`
+describes every field and placeholder.
 
 ## Permissions
 
-The `tech-design` rule and the `fix-round` rule use `acceptEdits`. On one machine, a
+The design entries use `acceptEdits`. On one machine, a
 probe showed that this mode reaches the Loupe write tools in `claude -p` with
 no allow rule. When a worker run reports a denied tool, add an
 `mcp__loupe__*` allow rule to `.claude/settings.local.json`.
 
-The implementation rule and the three pull request rules use
+The `implement`, `breakdown`, `fix`, `merge` and `sync` entries use
 `bypassPermissions`. The gate and the `gh` calls run arbitrary
 commands, and a worker in `acceptEdits` cannot approve them, because nobody
 answers a permission prompt. This choice has a cost. The worker can run any
@@ -333,7 +303,7 @@ at the same time interfere with each other.
 
 ## Fix rounds by hand
 
-The `fix-pr` rule starts a pull request fix round. For a repository that the app
+The `fix` entry runs a pull request fix round. For a repository that the app
 does not read, run one by hand after review feedback arrives, when no worker
 runs on the card. Set the three values, and run the commands from the main
 checkout. The `before` script makes or refreshes the card worktree and prints
@@ -358,10 +328,10 @@ sets `status` from its `STAGE RESULT:` form, as the table in
 says. The **Runs** tab of the Activity page, at `/projects/{id}/worker-runs`,
 shows the status and the summary.
 
-The bridge resumes an `unfinished` run, a run with no structured result, and a
-failed run, up to the rule's `maxResumes`, two by default. A run at that cap
-shows **Gave up**. A **Gave up** or **Blocked** run puts a warning on its card
-until a later run of the card ends another way, or the card moves.
+A run that ends `unfinished` refuses its work request, and the workflow retries
+it, on the same session. After the last retry the workflow pauses the card, and
+the owner's inbox gets an item. A **Blocked** run puts a warning on its card
+until a later run of the card ends another way.
 
 A worker that ends `not ready` or `blocked:` on a pull request posts a refusal
 comment there. The comment gives the reason and the next step of a person. A
@@ -375,7 +345,7 @@ comment in place when the block clears.
 1. Deploy a release with configurable columns. Check that the Loupe MCP lists
    `board_columns`.
 2. Read the project slug on the project settings page. When it is not `loupe`,
-   change the `projects` key and every `project` field in the rule file.
+   change the `projects` key in the rule file.
 3. A new board already has `backlog` and `done`. Create the four other
    columns with the slugs above: `product-design`, `tech-design`,
    `implementation` and `in-review`.
@@ -384,13 +354,12 @@ comment in place when the block clears.
    with `loupe bridge run`.
 6. Do one acceptance run with a small card. Start it with
    `/loupe:product-design`, then take it through an approval, Tech design, an
-   approval and Implementation. Request changes on
-   one design document, and check that the `fix-round` rule starts a worker.
-   Check that the implementation worker reports `waiting` once its pull request
-   is open, and that the app moves the card to In review on green checks.
-   Approve the pull request, and check that the `merge-ready` rule merges it
-   and that the app moves the card to Done. Record the `STAGE RESULT` of each
-   worker run on the card.
+   approval and Implementation. Request changes on one design document, and
+   check that a revise worker starts. Check that the implementation worker
+   reports `waiting` once its pull request is open, and that the workflow moves
+   the card to In review on green checks. Approve the pull request, and check
+   that it merges and that the workflow moves the card to Done. Record the
+   `STAGE RESULT` of each worker run on the card.
 
 ## What comes later
 

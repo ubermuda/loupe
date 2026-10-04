@@ -29,14 +29,14 @@ final class OpenCardRunsTest extends TestCase
     {
         $card = Uuid::v7();
         $runs = $this->openRuns(
-            $this->workerRun($card, WorkerRunState::Queued, '2026-09-01 09:00:00', ruleName: 'tech-design'),
-            $this->workerRun($card, WorkerRunState::Running, '2026-09-01 10:00:00', startedAt: '2026-09-01 10:01:00', ruleName: 'Session', kind: WorkerRunKind::Interactive),
+            $this->workerRun($card, WorkerRunState::Queued, '2026-09-01 09:00:00', workKind: 'tech-design'),
+            $this->workerRun($card, WorkerRunState::Running, '2026-09-01 10:00:00', startedAt: '2026-09-01 10:01:00', workKind: 'Session', kind: WorkerRunKind::Interactive),
         );
 
         self::assertCount(1, $runs);
         self::assertSame(WorkerRunState::Running, $runs[0]->state);
         self::assertSame(WorkerRunKind::Interactive, $runs[0]->kind);
-        self::assertSame('Session', $runs[0]->ruleName);
+        self::assertSame('Session', $runs[0]->workKind);
         self::assertTrue($card->equals($runs[0]->cardId));
     }
 
@@ -44,12 +44,12 @@ final class OpenCardRunsTest extends TestCase
     {
         $card = Uuid::v7();
         $runs = $this->openRuns(
-            $this->workerRun($card, WorkerRunState::Queued, '2026-09-01 10:00:00', ruleName: 'later'),
-            $this->workerRun($card, WorkerRunState::Queued, '2026-09-01 09:00:00', ruleName: 'earlier'),
+            $this->workerRun($card, WorkerRunState::Queued, '2026-09-01 10:00:00', workKind: 'later'),
+            $this->workerRun($card, WorkerRunState::Queued, '2026-09-01 09:00:00', workKind: 'earlier'),
         );
 
         self::assertCount(1, $runs);
-        self::assertSame('earlier', $runs[0]->ruleName);
+        self::assertSame('earlier', $runs[0]->workKind);
     }
 
     public function test_a_running_run_counts_from_its_start_and_a_waiting_run_from_its_arrival(): void
@@ -115,7 +115,7 @@ final class OpenCardRunsTest extends TestCase
         WorkerRunState $state,
         string $receivedAt,
         ?string $startedAt = null,
-        string $ruleName = 'implement',
+        ?string $workKind = 'implement',
         WorkerRunKind $kind = WorkerRunKind::Worker,
     ): WorkerRun {
         return new WorkerRun(
@@ -123,7 +123,7 @@ final class OpenCardRunsTest extends TestCase
             bridgeId: Uuid::v7(),
             cardId: $cardId,
             cardNumber: 1,
-            ruleName: $ruleName,
+            workKind: $workKind,
             state: $state,
             startedAt: null === $startedAt ? null : new \DateTimeImmutable($startedAt),
             receivedAt: new \DateTimeImmutable($receivedAt),

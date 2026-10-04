@@ -60,9 +60,6 @@
                             <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="configure-column-title-{{ column.id }}">
                                 <h3 class="lp-dialog-title" id="configure-column-title-{{ column.id }}">{{ 'board.column.configure.title'|trans({'%label%': label}) }}</h3>
                                 <p class="lp-dialog-desc">{{ 'board.column.rename.description'|trans }}</p>
-                                {% if column.slug in board.watchedColumnSlugs %}
-                                <p class="lp-board__rule-warning">{{ 'board.column.rename.bridge_rule_warning'|trans }}</p>
-                                {% endif %}
                                 {{ form_start(configureForm, {action: path('app_board_column_configure', {projectId: board.project.id, columnId: column.id}), attr: {
                                     class: 'lp-form',
                                     'data-controller': 'board-column-slug',

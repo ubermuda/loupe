@@ -191,10 +191,11 @@ asks Loupe for the project of the repository, through the MCP server, and
 prints the project name.
 
 Next, sign in with `loupe login` and write a rule file. After a script install,
-the rule file can already hold the `autoUpdate` line. Add your rules to that
-file.
+the rule file can already hold the `autoUpdate` line. Add your projects and a
+`work:` entry for each kind of work to that file. A file with a `rules:` list no
+longer loads.
 [`cli/README.md`](../../cli/README.md) describes both, and
 [Command-line bridge](../extending/cli-bridge.md) describes what the bridge
-does. When worker rules already exist, the
+does. When worker entries already exist, the
 [setup prompt](../using/mcp.md#set-up-with-one-prompt) can add a `before`
-command and a teardown rule to them.
+command and a teardown entry to them.

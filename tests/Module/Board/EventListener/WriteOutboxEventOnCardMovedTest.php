@@ -10,17 +10,12 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
-use App\Module\Board\Command\OpenInteractiveRun;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardMoved;
-use App\Module\Board\EventListener\WriteOutboxEventOnCardMoved;
-use App\Module\Board\Service\CardMove;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
@@ -29,7 +24,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Uid\Uuid;
 
 final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
 {
@@ -94,7 +88,6 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             'fromStatus' => 'backlog',
             'toStatus' => 'next',
             'actor' => 'human',
-            'card' => ['interactiveRun' => false, 'held' => false],
         ], $this->decode($row));
     }
 
@@ -130,80 +123,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             'fromStatus' => 'backlog',
             'toStatus' => 'done',
             'actor' => 'agent',
-            'card' => ['interactiveRun' => false, 'held' => false],
         ], $this->decode($row));
-    }
-
-    public function test_a_move_that_opens_a_run_publishes_it_as_open(): void
-    {
-        $card = $this->card('Designable', 'backlog');
-
-        ($this->updateCard)(new UpdateCardCommand(
-            card: $card,
-            actor: CardReporter::Agent,
-            column: $this->column($this->project, 'next'),
-            openInteractiveRun: new OpenInteractiveRun(Uuid::v4(), 'loupe:product-design'),
-        ));
-
-        self::assertSame(['interactiveRun' => true, 'held' => false], $this->decode($this->onlyRow())['card']);
-    }
-
-    /** A move to another column closes the run before the row is written. */
-    public function test_a_move_to_another_column_publishes_the_run_as_closed(): void
-    {
-        $card = $this->card('Left behind', 'backlog');
-        $this->openRun($card);
-
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next')));
-
-        self::assertSame(['interactiveRun' => false, 'held' => false], $this->decode($this->onlyRow())['card']);
-    }
-
-    public function test_a_rank_move_publishes_the_run_as_still_open(): void
-    {
-        $first = $this->card('Already first', 'next');
-        $second = $this->card('Worked on', 'next');
-        $this->openRun($second);
-
-        ($this->moveCard)(new MoveCardCommand($second, CardReporter::Human, $this->column($this->project, 'next'), 0));
-
-        self::assertSame(0, $second->position);
-        self::assertSame(1, $first->position);
-        self::assertSame(['interactiveRun' => true, 'held' => false], $this->decode($this->onlyRow())['card']);
-    }
-
-    public function test_an_agent_move_of_a_held_card_publishes_it_as_held(): void
-    {
-        $card = $this->card('Stopped', 'backlog');
-        $this->hold($card);
-
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, column: $this->column($this->project, 'next')));
-
-        self::assertSame(['interactiveRun' => false, 'held' => true], $this->decode($this->onlyRow())['card']);
-    }
-
-    /** A person's move releases the hold before the row is written. */
-    public function test_a_human_move_of_a_held_card_publishes_it_as_released(): void
-    {
-        $card = $this->card('Stopped', 'backlog');
-        $this->hold($card);
-
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next')));
-
-        self::assertSame(['interactiveRun' => false, 'held' => false], $this->decode($this->onlyRow())['card']);
-    }
-
-    /** A card with no id fails the run read, and the listener must not throw. */
-    public function test_a_failed_run_read_publishes_false(): void
-    {
-        $listener = self::getContainer()->get(WriteOutboxEventOnCardMoved::class);
-        self::assertInstanceOf(WriteOutboxEventOnCardMoved::class, $listener);
-        $unsaved = new Card($this->project, $this->column($this->project, 'next'), 'Unsaved', 'Body', 99);
-
-        $listener(new CardMoved($unsaved, new CardMove($this->column($this->project, 'backlog')), CardReporter::Human));
-        $this->em->flush();
-
-        self::assertSame(['interactiveRun' => false, 'held' => false], $this->decode($this->onlyRow())['card']);
     }
 
     #[DataProvider('actors')]
@@ -313,20 +233,6 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             'id' => (string) $this->project->id,
         ]));
         self::assertSame('backlog', $connection->fetchOne('SELECT k.slug FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id', ['id' => $cardId]));
-    }
-
-    private function openRun(Card $card): void
-    {
-        $runs = self::getContainer()->get(InteractiveRuns::class);
-        self::assertInstanceOf(InteractiveRuns::class, $runs);
-        $runs->open($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), $card->number, Uuid::v4(), 'pairing');
-    }
-
-    private function hold(Card $card): void
-    {
-        $holds = self::getContainer()->get(CardHolds::class);
-        self::assertInstanceOf(CardHolds::class, $holds);
-        $holds->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null);
     }
 
     private function card(string $title, string $column): Card

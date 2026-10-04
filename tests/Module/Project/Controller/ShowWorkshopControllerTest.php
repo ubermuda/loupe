@@ -361,7 +361,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
     }
 
     /** A null card stands for a card that no longer exists. */
-    private function openRun(EntityManagerInterface $em, Project $project, ?Card $card, WorkerRunState $state, string $ruleName, string $ago, WorkerRunKind $kind = WorkerRunKind::Worker): void
+    private function openRun(EntityManagerInterface $em, Project $project, ?Card $card, WorkerRunState $state, string $workKind, string $ago, WorkerRunKind $kind = WorkerRunKind::Worker): void
     {
         $at = new \DateTimeImmutable($ago);
         $em->persist(new WorkerRun(
@@ -369,7 +369,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
             bridgeId: Uuid::v7(),
             cardId: $card->id ?? Uuid::v7(),
             cardNumber: $card->number ?? 999,
-            ruleName: $ruleName,
+            workKind: $workKind,
             state: $state,
             startedAt: WorkerRunState::Running === $state ? $at : null,
             receivedAt: $at,

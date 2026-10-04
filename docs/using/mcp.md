@@ -24,11 +24,11 @@ and follow the steps it prints, in order. Use curl, not a web fetch tool.
 install the CLI with `/install.sh` when `loupe version` fails, and stop on
 Windows, which has no build. They sign in with `loupe login` and bind the repository with
 `loupe init`. Then they connect the MCP server, install the skills, and check
-the result with `loupe status`. When your rule file holds worker rules for the
-repository, the steps then ask whether each bridge worker gets its own folder.
+the result with `loupe status`. When your rule file holds worker entries under
+`work:`, the steps then ask whether each bridge worker gets its own folder.
 If it does, the agent adds a
-[`before` command](../extending/cli-bridge.md#before-command) to those rules,
-and a teardown rule. The agent asks you when a step needs you, such
+[`before` command](../extending/cli-bridge.md#before-command) to those entries,
+and a teardown entry. The agent asks you when a step needs you, such
 as the browser approval of the sign-in. It never writes a token or a password.
 
 The `project` parameter fills the project id into the commands. The page
@@ -289,13 +289,13 @@ Roughly in the order an agent uses them:
 | `inbox_list` | Read a page of inbox items, filtered by state, ask, session, card or document |
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
-| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, rule, bridge, words or the time a run ended, each with the reason it ended |
+| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended, each with the reason it ended |
 | `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
 | `bridge_list` | List the bridges that follow the project, with their name, their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
-| `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not pause the agents on the card, so call `card_hold` for that |
-| `card_hold` | Pause the agents on a card, by `cardId` or `number`. No bridge starts a worker on the card until the pause ends. A live run goes on |
-| `card_release` | Let the agents run on a paused card. The queued runs on the card then start |
+| `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
+| `card_hold` | Make a card unmanaged, by `cardId` or `number`. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until `card_release`. A live run goes on |
+| `card_release` | Make an unmanaged card managed again. The queued runs on the card then start |
 | `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
 
 ### Finding a document without reading every one
@@ -523,10 +523,8 @@ by default; a to-do or review requires `blocking: true` to block. An ask with no
 and its items stay open in the inbox.
 
 `inbox_list` and `inbox_get` take an optional `readerSessionId`. Pass your own
-session id there to record that you read the answers of your closed asks. The
-[ask check endpoint](../extending/cli-bridge.md#ask-check-endpoint) reports
-these reads, so a bridge can skip a resume when the session already read every
-item of the ask. A read counts only for an item that the call returns and that a
+session id there to record that you read the answers of your closed asks. A
+read counts only for an item that the call returns and that a
 closed ask of that session holds. The first read is kept.
 
 Loupe trusts the `readerSessionId` it receives, so pass only your own session
@@ -536,14 +534,13 @@ a read, so filtering by another session's id leaves its answers unread.
 Every item row carries `origin`. The value is `agent` for an item that an agent
 asked, or `loupe` for an [automatic item](inbox.md#automatic-items). Loupe opens
 an automatic item with the kind `wait` while a card waits for a person, and
-closes it when the card stops waiting. It opens an item with the kind `notice`
-for a fact of the project, such as a bridge rule that races its sync. A notice
-holds no card and takes no answer.
+closes it when the card stops waiting. An item with the kind `notice` states a
+fact of the project. A notice holds no card and takes no answer.
 
 `inbox_get` also returns `cardId` and `waits`. For a `wait` item, `cardId` names
 the card, and `waits` lists each reason the card waited, current and ended, in
 start order. Each entry holds `trigger`, `reason`, `documentId`,
-`versionNumber`, `runId`, `pullRequestId`, `headSha`, `startedAt`, `endedAt`
+`versionNumber`, `runId`, `pullRequestId`, `headSha`, `pauseId`, `startedAt`, `endedAt`
 and `endReason`. An id, a commit or a date that does not apply is null. `endedAt` and `endReason` are null for a
 current wait. `endReason` is `resolved`, `card-finished`, `card-deleted`,
 `switched-off` or `dismissed`. For any other kind,

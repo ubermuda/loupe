@@ -14,26 +14,20 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
-// launchRules opens a session for a card that enters next, and runs a worker
-// for a card that enters review. {launcher} is the launch command.
+// launchRules opens a session for plan work, and runs a worker for review
+// work. {launcher} is the launch command.
 const launchRules = `
 projects:
   loupe:
     dir: {dir}
 launch:
   command: {launcher}
-rules:
-  - name: design
+work:
+  plan:
     action: interactive
-    on: board.card_moved
-    project: loupe
-    to: next
     model: opus
     prompt: Design card {cardNumber}.
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+  review:
     prompt: Review {cardNumber}.
 `
 
@@ -75,8 +69,8 @@ func (h *harness) assertNoWorkerState(t *testing.T, rec *stateRecorder) {
 	t.Helper()
 	h.router.mu.Lock()
 	defer h.router.mu.Unlock()
-	if len(h.router.queue) != 0 || len(h.router.running) != 0 || len(h.router.held) != 0 || len(h.router.sessions) != 0 || len(h.router.live) != 0 || len(h.router.chains) != 0 {
-		t.Fatalf("queue = %v, running = %v, held = %v, sessions = %v, live = %v, chains = %v", h.router.queue, h.router.running, h.router.held, h.router.sessions, h.router.live, h.router.chains)
+	if len(h.router.queue) != 0 || len(h.router.running) != 0 || len(h.router.held) != 0 || len(h.router.sessions) != 0 || len(h.router.live) != 0 {
+		t.Fatalf("queue = %v, running = %v, held = %v, sessions = %v, live = %v", h.router.queue, h.router.running, h.router.held, h.router.sessions, h.router.live)
 	}
 	if h.router.usedLocked() != 0 || h.router.launching != 0 {
 		t.Fatalf("active = %d, launching = %d", h.router.usedLocked(), h.router.launching)
@@ -96,7 +90,7 @@ func TestAnInteractiveMatchLaunchesASession(t *testing.T) {
 	}
 	h.assertNoWorkerState(t, rec)
 	launching := h.only(t, "session_launching")
-	if str(t, launching, "session_id") != testSession || str(t, launching, "rule") != "design" || num(t, launching, "card") != 87 {
+	if str(t, launching, "session_id") != testSession || str(t, launching, "rule") != "work:plan" || num(t, launching, "card") != 87 {
 		t.Fatalf("session_launching = %v", launching)
 	}
 	if line := h.only(t, "session_launched"); str(t, line, "session_id") != testSession {
@@ -112,7 +106,7 @@ func TestAnInteractiveMatchLaunchesASession(t *testing.T) {
 		t.Fatalf("launch = %+v", got)
 	}
 	r := got.report
-	if r.State != api.RunRunning || r.FailureReason != "" || r.BridgeID != testBridgeID || r.CardID != cardUUID(87) || r.CardNumber != 87 || r.RuleName != "design" || r.At.IsZero() {
+	if r.State != api.RunRunning || r.FailureReason != "" || r.BridgeID != testBridgeID || r.CardID != cardUUID(87) || r.CardNumber != 87 || r.WorkKind != "plan" || r.At.IsZero() {
 		t.Fatalf("report = %+v", r)
 	}
 
@@ -194,7 +188,7 @@ func TestAWorkerOfTheCardStartsWhileItsLaunchRuns(t *testing.T) {
 	h.router.onData([]byte(movedPayload(87, "next", "review", "human")))
 	<-h.worker.started
 
-	if _, _, _, _, launches, _, _ := h.router.inFlight(); launches != 1 {
+	if _, _, launches, _, _ := h.router.inFlight(); launches != 1 {
 		t.Fatalf("launches in flight = %d", launches)
 	}
 	if err := os.WriteFile(gate, nil, 0o600); err != nil {
@@ -202,7 +196,7 @@ func TestAWorkerOfTheCardStartsWhileItsLaunchRuns(t *testing.T) {
 	}
 	h.router.wg.Wait()
 
-	if calls := h.worker.recorded(); len(calls) != 1 || !strings.HasPrefix(calls[0].prompt, "Review 87.") || calls[0].sessionID != sessionUUID(2) {
+	if calls := h.worker.recorded(); len(calls) != 1 || !strings.HasPrefix(calls[0].prompt, "Review 87.") || calls[0].sessionID == "" {
 		t.Fatalf("calls = %+v", calls)
 	}
 	h.only(t, "session_launched")
@@ -219,17 +213,17 @@ func TestAnEventMatchedBeforeTheSwapLaunchesOnTheNewSet(t *testing.T) {
 	rec := h.states()
 	old := h.router.rules()
 
-	src := h.source(strings.Replace(strings.Replace(launchRules, "{launcher}", `[sh, -c, 'exit 0', sh, '{script}']`, 1), "name: design", "name: plan", 1))
+	src := h.source(strings.Replace(launchRules, "{launcher}", `[sh, -c, 'exit 0', sh, '{script}']`, 1))
 	if res := h.router.reload(context.Background(), src); !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
-	h.router.enqueue(stale(old, testProject, 88, "next", event.ActorHuman))
+	h.router.enqueue(stale(old, testProject, 88, "plan", event.ActorHuman))
 	h.router.wg.Wait()
 
 	if n := h.runs(); n != 0 {
 		t.Fatalf("workers = %d", n)
 	}
-	if line := h.only(t, "session_launched"); num(t, line, "card") != 88 || str(t, line, "rule") != "plan" {
+	if line := h.only(t, "session_launched"); num(t, line, "card") != 88 || str(t, line, "rule") != "work:plan" {
 		t.Fatalf("session_launched = %v", line)
 	}
 	if sent := rec.launches(); len(sent) != 1 || sent[0].report.CardNumber != 88 {
@@ -242,14 +236,14 @@ func TestAReloadDropsAQueuedEventWhoseRuleTurnsInteractive(t *testing.T) {
 	h := busy(t, twoRuleFile)
 	h.router.onData([]byte(cardMoved(88)))
 
-	body := strings.Replace(strings.Replace(launchRules, "{launcher}", `[sh, -c, 'exit 0', sh, '{script}']`, 1), "name: design", "name: plan", 1)
+	body := strings.Replace(launchRules, "{launcher}", `[sh, -c, 'exit 0', sh, '{script}']`, 1)
 	if res := h.reload(t, body); !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
 	if got := h.queued(); len(got) != 0 {
 		t.Fatalf("queue = %v", got)
 	}
-	if line := h.only(t, "queue_dropped"); !slices.Equal(dropped(t, line), []string{"88/plan"}) {
+	if line := h.only(t, "queue_dropped"); !slices.Equal(dropped(t, line), []string{"88/work:plan"}) {
 		t.Fatalf("queue_dropped = %v", line)
 	}
 	close(h.worker.block)
@@ -311,7 +305,7 @@ func TestAReloadTakesTheClaudePathOfAnInteractiveSet(t *testing.T) {
 func TestALaunchReportToAnOldServerCountsAsDelivered(t *testing.T) {
 	client := &fakeRunClient{launch: func() (bool, error) { return false, api.ErrInteractiveRunsUnsupported }}
 	reports, log := newTestRunReports(client)
-	report := api.InteractiveLaunchReport{CardNumber: 87, RuleName: "design", State: api.RunRunning}
+	report := api.InteractiveLaunchReport{CardNumber: 87, WorkKind: "design", State: api.RunRunning}
 
 	for range 2 {
 		if ok, err := reports.launch(testProject, testSession, report).Send(context.Background()); !ok || err != nil {

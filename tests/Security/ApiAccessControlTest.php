@@ -48,7 +48,6 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertTrue($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/events', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
-        self::assertTrue($this->decide('/api/projects/loupe/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/rules', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/inbox/asks/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/heartbeat', ['ROLE_USER', 'ROLE_API_AGENT']));
@@ -93,16 +92,26 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/bridges/a/b/commands/'.$command, self::ALL_ROLES));
     }
 
-    /** The rules rule grants one route, so nothing beside it under a bridge opens. */
-    public function test_the_bridge_rules_rule_does_not_open_the_rest_of_a_project(): void
+    /** The work request rules grant the claim and the result of one request, and to an agent token alone. */
+    public function test_the_work_request_rules_do_not_open_the_rest_of_a_bridge(): void
+    {
+        $prefix = '/api/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/work-requests/1a2b3c4d-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
+        foreach (['claim', 'result'] as $action) {
+            self::assertTrue($this->decide($prefix.'/'.$action, ['ROLE_USER', 'ROLE_API_AGENT']));
+            self::assertFalse($this->decide($prefix.'/'.$action, ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+            self::assertFalse($this->decide($prefix.'/'.$action.'/extra', self::ALL_ROLES));
+        }
+        self::assertFalse($this->decide($prefix, self::ALL_ROLES));
+        self::assertFalse($this->decide($prefix.'/withdraw', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/a/b/work-requests/c/claim', self::ALL_ROLES));
+    }
+
+    /** The bridge rule report route is gone, so an agent token no longer opens it. */
+    public function test_no_bridge_rules_route_stays_open(): void
     {
         $bridge = '0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
         self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge, self::ALL_ROLES));
-        self::assertFalse($this->decide('/api/projects/loupe/bridges/rules', self::ALL_ROLES));
-        self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge.'/rules/extra', self::ALL_ROLES));
-        self::assertFalse($this->decide('/api/projects/client/app/bridges/'.$bridge.'/rules', self::ALL_ROLES));
-        self::assertFalse($this->decide('/api/projects/client%2Fapp/bridges/'.$bridge.'/rules', self::ALL_ROLES));
-        self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge.'/rules', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+        self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge.'/rules', self::ALL_ROLES));
     }
 
     /** The run rules grant two routes, so a path near them stays denied by default. */

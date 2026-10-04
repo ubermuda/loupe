@@ -72,7 +72,6 @@
         <span class="lp-board-backlog__count" id="board-count-{{ board.backlog.id }}">{{ board.backlogCount }}</span>
     </a>
     </div>
-    {% include '@Board/_board_rules_banner.html.twig' with {board: board} only %}
     <p class="lp-board-filter-empty" data-board-filter-target="empty" hidden>{{ 'board.filter.empty'|trans }}</p>
     {# A drop moves the card at once. This says so when the server refuses. #}
     <p class="lp-board__message"

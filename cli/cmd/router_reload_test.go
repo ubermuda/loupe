@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -62,12 +61,9 @@ func (h *harness) queued() []string {
 	return out
 }
 
-// twoRuleFile has a rule on next and a rule on review, both of loupe.
+// twoRuleFile runs plan and review work, both of loupe.
 const twoRuleFile = defaultRules + `
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+  review:
     prompt: Review {cardNumber}.
 `
 
@@ -78,24 +74,16 @@ projects:
     dir: {dir}
   other:
     dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
-    prompt: Card {cardNumber} ({cardId}) entered {to}.
-  - name: other-plan
-    on: board.card_moved
-    project: other
-    to: next
-    prompt: Other {cardNumber}.
+work:
+  plan:
+    prompt: Card {cardNumber} ({cardId}) entered next.
 `
 
 func TestAReloadThatFailsToParseKeepsTheSet(t *testing.T) {
 	h := newHarness(t)
 	old := h.router.rules()
 
-	res := h.reload(t, "projects: {}\nrules:\n  - {on: board.card_moved, project: gone, to: next, prompt: x}\n")
+	res := h.reload(t, "projects: {}\nwork:\n  plan: {}\n")
 
 	if res.OK || res.Stage != "parse" || len(res.Problems) != 2 {
 		t.Fatalf("result = %+v, want a parse failure with two problems", res)
@@ -127,7 +115,7 @@ func TestAReloadThatFailsTheCheckKeepsTheSet(t *testing.T) {
 	h := newHarness(t)
 	old := h.router.rules()
 
-	res := h.reload(t, strings.Replace(defaultRules, "to: next", "to: ready", 1))
+	res := h.reload(t, strings.Replace(defaultRules, "  loupe:\n", "  ready:\n", 1))
 
 	if res.OK || res.Stage != "check" || len(res.Problems) != 1 || !strings.Contains(res.Problems[0], `"ready"`) {
 		t.Fatalf("result = %+v", res)
@@ -231,11 +219,11 @@ func TestAQueuedEventWhoseRuleStillMatchesKeepsItsPlaceWithTheNewPrompt(t *testi
 	h.router.onData([]byte(cardMoved(88)))
 	h.router.onData([]byte(movedPayload(89, "backlog", "review", "human")))
 
-	res := h.reload(t, withMaxWorkers(strings.Replace(twoRuleFile, "prompt: Card {cardNumber} ({cardId}) entered {to}.", "prompt: New {cardNumber}.", 1), 1))
+	res := h.reload(t, withMaxWorkers(strings.Replace(twoRuleFile, "prompt: Card {cardNumber} ({cardId}) entered next.", "prompt: New {cardNumber}.", 1), 1))
 	if !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
-	if got := h.queued(); !slices.Equal(got, []string{"0088/plan", "0089/review"}) {
+	if got := h.queued(); !slices.Equal(got, []string{"0088/work:plan", "0089/work:review"}) {
 		t.Fatalf("queue = %v", got)
 	}
 	close(h.worker.block)
@@ -255,23 +243,21 @@ func TestAReloadDropsAQueuedEventItsRuleNoLongerRuns(t *testing.T) {
 	h.router.onData([]byte(cardMoved(88)))
 	h.router.onData([]byte(movedPayload(89, "backlog", "review", "human")))
 
-	// plan is gone, and review now fires on done.
+	// plan is gone, and review now runs a command.
 	res := h.reload(t, `
 projects:
   loupe:
     dir: {dir}
-rules:
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: done
-    prompt: Review {cardNumber}.
+work:
+  review:
+    action: command
+    run: [review, '{cardNumber}']
 `)
 	if !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
 	line := h.only(t, "queue_dropped")
-	if got := dropped(t, line); !slices.Equal(got, []string{"88/plan", "89/review"}) || line["reason"] != "reload" {
+	if got := dropped(t, line); !slices.Equal(got, []string{"88/work:plan", "89/work:review"}) || line["reason"] != "reload" {
 		t.Fatalf("queue_dropped = %v", line)
 	}
 	close(h.worker.block)
@@ -281,235 +267,23 @@ rules:
 	}
 }
 
-func TestAReloadThatDropsACheckedResumeFreesItsCard(t *testing.T) {
-	h := newHarnessWith(t, withMaxWorkers(resumeRules, 1), rules.Defaults{})
-	c := &checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}}
-	h.router.checkAsk = c.check
-	h.worker.started = make(chan workerSpec, 2)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(88)))
-	<-h.worker.started
-	h.router.onData([]byte(h.mine(ask{card: 87})))
-	eventually(t, "the checked resume in the queue", func() bool {
-		h.router.mu.Lock()
-		defer h.router.mu.Unlock()
-
-		return len(h.router.queue) == 1 && h.router.queue[0].checked
-	})
-
-	if res := h.reload(t, defaultRules); !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-	if got := dropped(t, h.only(t, "queue_dropped")); !slices.Equal(got, []string{"87/resume"}) {
-		t.Fatalf("dropped = %v", got)
-	}
-	if h.cardHeld(87) {
-		t.Fatal("the dropped resume still holds card 87")
-	}
-	close(h.worker.block)
-	h.router.wg.Wait()
-}
-
-// A resume sits outside the queue during its ask check. The check matches it
-// again, so a resume whose rule the reload removed starts nothing.
-func TestAResumeInItsCheckWhoseRuleIsRemovedStartsNothing(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	g := newGate()
-	h.router.checkAsk = g.check
-
-	h.router.onData([]byte(h.mine(ask{card: 87})))
-	<-g.entered
-	if res := h.reload(t, defaultRules); !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-	close(g.release)
-	h.router.wg.Wait()
-
-	if n := h.runs(); n != 0 {
-		t.Fatalf("%d workers, want none", n)
-	}
-	line := h.only(t, "queue_dropped")
-	if got := dropped(t, line); !slices.Equal(got, []string{"87/resume"}) || line["reason"] != "reload" {
-		t.Fatalf("queue_dropped = %v", line)
-	}
-	if h.cardHeld(87) {
-		t.Fatal("the dropped resume still holds card 87")
-	}
-}
-
-// A kill after a reload during the check drops the resume with no reason, as
-// any kill does.
-func TestAResumeWhoseRuleAKillEndsAfterAReloadHasNoReason(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	g := newGate()
-	h.router.checkAsk = g.check
-
-	h.router.onData([]byte(h.mine(ask{card: 87})))
-	<-g.entered
-	if res := h.reload(t, strings.Replace(resumeRules, "prompt: Ask {askId} closed on card {cardNumber}.", "prompt: Again {askId}.", 1)); !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-	h.router.onData([]byte(projectRenamed()))
-	close(g.release)
-	h.router.wg.Wait()
-
-	line := h.only(t, "queue_dropped")
-	if got := dropped(t, line); !slices.Equal(got, []string{"87/resume"}) || line["reason"] != nil {
-		t.Fatalf("queue_dropped = %v, want 87/resume with no reason", line)
-	}
-}
-
-// A resume in its check takes the new prompt of a rule the reload changed.
-func TestAResumeInItsCheckTakesTheNewPrompt(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	g := newGate()
-	h.router.checkAsk = g.check
-
-	h.router.onData([]byte(h.mine(ask{card: 87})))
-	<-g.entered
-	if res := h.reload(t, strings.Replace(resumeRules, "prompt: Ask {askId} closed on card {cardNumber}.", "prompt: Again {askId}.", 1)); !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-	close(g.release)
-	h.router.wg.Wait()
-
-	calls := h.worker.recorded()
-	if len(calls) != 1 || !strings.HasPrefix(calls[0].prompt, "Again "+testAsk+".") || !calls[0].resume || calls[0].sessionID != askSession {
-		t.Fatalf("workers = %+v", calls)
-	}
-}
-
-func TestAReloadPrunesTheChainsOfRemovedRules(t *testing.T) {
-	h := newHarnessWith(t, twoRuleFile, rules.Defaults{})
-	h.router.mu.Lock()
-	h.router.chains = map[string]map[string]int{cardUUID(87): {"plan": 2, "review": 1}}
-	h.router.mu.Unlock()
-
-	if res := h.reload(t, defaultRules); !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-	h.router.mu.Lock()
-	defer h.router.mu.Unlock()
-	if got := h.router.chains[cardUUID(87)]; len(got) != 1 || got["plan"] != 2 {
-		t.Fatalf("chains = %v", got)
-	}
-}
-
-// A column rename can land while the reload checks the new file against the
-// board. The old set does not map the project, and the new set learns of the
-// rename at the swap.
-func TestASlugChangeDuringTheCheckKillsTheRuleOfTheNewSet(t *testing.T) {
-	h := newHarness(t)
-	src, entered, release := blocked(h.source(twoProjectFile))
-
-	done := make(chan reloadResult)
-	go func() { done <- h.router.reload(context.Background(), src) }()
-	<-entered
-	h.router.onData([]byte(strings.Replace(slugPayload(event.ColumnRenamedType, `"fromSlug":"next","toSlug":"ready"`), testProject, otherProject, 1)))
-	close(release)
-	if res := <-done; !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-
-	line := h.only(t, "rule_dead")
-	if str(t, line, "rule") != "other-plan" || str(t, line, "project") != otherProject || !strings.Contains(str(t, line, "message"), "run loupe bridge reload") {
-		t.Fatalf("rule_dead = %v", line)
-	}
-	h.send(strings.Replace(cardMoved(88), testProject, otherProject, 1))
-	if n := h.runs(); n != 0 {
-		t.Fatalf("the dead rule started %d workers", n)
-	}
-	h.send(cardMoved(89))
-	if n := h.runs(); n != 1 {
-		t.Fatalf("the live rule started %d workers, want 1", n)
-	}
-}
-
-// ruleReports records each health report by project id.
-type ruleReports struct {
-	mu    sync.Mutex
-	calls map[string][][]api.RuleHealth
-}
-
-func (f *ruleReports) ReportRules(_ context.Context, handle, _ string, rules []api.RuleHealth) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.calls == nil {
-		f.calls = map[string][][]api.RuleHealth{}
-	}
-	f.calls[handle] = append(f.calls[handle], rules)
-
-	return nil
-}
-
-func (f *ruleReports) last(handle string) ([]api.RuleHealth, bool) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	c := f.calls[handle]
-	if len(c) == 0 {
-		return nil, false
-	}
-
-	return c[len(c)-1], true
-}
-
-func TestAProjectTheReloadDropsGetsAnEmptyReport(t *testing.T) {
-	h := newHarnessWith(t, twoProjectFile, rules.Defaults{})
-	f := &ruleReports{}
-	ctx, cancel := context.WithCancel(context.Background())
-	h.router.health = newHealthReporter(ctx, f, testBridgeID, h.router.log)
-	t.Cleanup(func() {
-		cancel()
-		h.router.health.wait()
-	})
-
-	if res := h.reload(t, defaultRules); !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-
-	eventually(t, "the empty report of other", func() bool {
-		got, ok := f.last(otherProject)
-
-		return ok && got != nil && len(got) == 0
-	})
-	eventually(t, "the report of loupe", func() bool {
-		got, ok := f.last(testProject)
-
-		return ok && len(got) == 1 && got[0].Name == "plan"
-	})
-}
-
 func TestReloadAppliedNamesWhatChanged(t *testing.T) {
 	h := newHarnessWith(t, twoRuleFile+`
-  - name: extra
-    on: board.card_moved
-    project: loupe
-    to: done
+  extra:
     prompt: Extra.
 `, rules.Defaults{})
 
-	// plan sets the default maxChain by hand, so it is the same rule.
+	// plan keeps its entry, so it is the same.
 	res := h.reload(t, `
 projects:
   loupe:
     dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
-    maxChain: 3
-    prompt: Card {cardNumber} ({cardId}) entered {to}.
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+work:
+  plan:
+    prompt: Card {cardNumber} ({cardId}) entered next.
+  review:
     prompt: Look at {cardNumber}.
-  - name: ship
-    on: board.card_moved
-    project: loupe
-    to: done
+  ship:
     prompt: Ship.
 `)
 	if !res.OK || !slices.Equal(res.Added, []string{"ship"}) || !slices.Equal(res.Removed, []string{"extra"}) || !slices.Equal(res.Changed, []string{"review"}) || !slices.Equal(res.Projects, []string{"loupe"}) || len(res.Dirs) != 0 {
@@ -538,7 +312,7 @@ func TestReloadAppliedNamesAProjectWhoseDirChanged(t *testing.T) {
 func TestAReloadWarnsOfAnUnknownPermissionMode(t *testing.T) {
 	h := newHarness(t)
 
-	if res := h.reload(t, strings.Replace(defaultRules, "    to: next\n", "    to: next\n    permissionMode: yolo\n", 1)); !res.OK {
+	if res := h.reload(t, strings.Replace(defaultRules, "  plan:\n", "  plan:\n    permissionMode: yolo\n", 1)); !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
 	if line := h.only(t, "permission_mode_unknown"); str(t, line, "mode") != "yolo" {
@@ -563,11 +337,18 @@ func TestAReloadSendsTheNewHeartbeatBody(t *testing.T) {
 	})
 }
 
-// stale is a move of the card into to, matched on old before a reload.
-func stale(old *rules.Set, project string, number int, to, actor string) pending {
-	e := event.Event{Type: event.CardMovedType, Subject: event.Subject{Type: "card", ID: cardUUID(number)}, ProjectID: project, CardNumber: number, FromStatus: "backlog", ToStatus: to, Actor: actor}
-	p := pending{key: cardUUID(number), event: e, set: old}
-	p.apply(old.Match(e))
+// stale is an offer of the kind for the card, matched on old before a
+// reload.
+func stale(old *rules.Set, project string, number int, kind, _ string) pending {
+	n := int(offerSeq.Add(1))
+	w := api.WorkRequest{
+		Type: event.WorkRequestType, ProjectID: project, Subject: api.WorkRequestSubject{Type: "work-request", ID: offerID(n)},
+		WorkRequestID: offerID(n), Kind: kind, State: api.WorkRequestOpen, CardID: cardUUID(number), CardNumber: number, RuleID: kind + "-rule",
+		CreatedAt: time.Date(2026, 10, 2, 8, 0, 0, 0, time.UTC),
+	}
+	offered.Store(w.WorkRequestID, w)
+	p := pending{key: cardUUID(number), event: workEvent(w), work: w, set: old}
+	p.apply(old.MatchWork(w))
 
 	return p
 }
@@ -578,13 +359,13 @@ func TestAnEventMatchedBeforeTheSwapMatchesTheNewSet(t *testing.T) {
 	h := busy(t, twoRuleFile)
 	old := h.router.rules()
 
-	if res := h.reload(t, withMaxWorkers(strings.Replace(defaultRules, "prompt: Card {cardNumber} ({cardId}) entered {to}.", "prompt: New {cardNumber}.", 1), 1)); !res.OK {
+	if res := h.reload(t, withMaxWorkers(strings.Replace(defaultRules, "prompt: Card {cardNumber} ({cardId}) entered next.", "prompt: New {cardNumber}.", 1), 1)); !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
-	h.router.enqueue(stale(old, testProject, 88, "next", event.ActorHuman))
+	h.router.enqueue(stale(old, testProject, 88, "plan", event.ActorHuman))
 	h.router.enqueue(stale(old, testProject, 89, "review", event.ActorHuman))
 
-	if got := h.queued(); !slices.Equal(got, []string{"0088/plan"}) {
+	if got := h.queued(); !slices.Equal(got, []string{"0088/work:plan"}) {
 		t.Fatalf("queue = %v", got)
 	}
 	h.router.mu.Lock()
@@ -597,25 +378,6 @@ func TestAnEventMatchedBeforeTheSwapMatchesTheNewSet(t *testing.T) {
 	h.router.wg.Wait()
 }
 
-// A reviewer's event that the old set let through, and the new set does not,
-// logs event_untrusted as a fresh event does.
-func TestAnEventTheNewSetDoesNotTrustIsLogged(t *testing.T) {
-	h := newHarnessWith(t, strings.Replace(defaultRules, "    to: next\n", "    to: next\n    allowUntrusted: true\n", 1), rules.Defaults{})
-	old := h.router.rules()
-
-	if res := h.reload(t, defaultRules); !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-	h.router.enqueue(stale(old, testProject, 88, "next", event.ActorReviewer))
-
-	if got := h.queued(); len(got) != 0 {
-		t.Fatalf("queue = %v", got)
-	}
-	if line := h.only(t, "event_untrusted"); str(t, line, "rule") != "plan" || num(t, line, "card") != 88 {
-		t.Fatalf("event_untrusted = %v", line)
-	}
-}
-
 // An event of a project the new set no longer maps logs project_unmapped
 // once, as a fresh event does.
 func TestAnEventOfAProjectTheNewSetDropsIsLoggedOnce(t *testing.T) {
@@ -625,8 +387,8 @@ func TestAnEventOfAProjectTheNewSetDropsIsLoggedOnce(t *testing.T) {
 	if res := h.reload(t, defaultRules); !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
-	h.router.enqueue(stale(old, otherProject, 88, "next", event.ActorHuman))
-	h.router.enqueue(stale(old, otherProject, 89, "next", event.ActorHuman))
+	h.router.enqueue(stale(old, otherProject, 88, "plan", event.ActorHuman))
+	h.router.enqueue(stale(old, otherProject, 89, "plan", event.ActorHuman))
 
 	if got := h.queued(); len(got) != 0 {
 		t.Fatalf("queue = %v", got)
@@ -685,16 +447,16 @@ func TestANewerGoneAnswerIsReplayedOnTheNewSet(t *testing.T) {
 		t.Fatalf("result = %+v", res)
 	}
 
-	if h.router.rules().Live("plan") {
-		t.Fatal("the new set keeps plan live for a gone project")
+	if h.router.rules().WorkDead("loupe") == "" {
+		t.Fatal("the new set keeps the work of a gone project")
 	}
-	for _, line := range h.events(t, "rule_dead") {
-		if str(t, line, "rule") != "plan" || str(t, line, "project") != testProject || str(t, line, "reason") != api.ReasonProjectGone {
-			t.Fatalf("rule_dead = %v", line)
+	for _, line := range h.events(t, "work_dead") {
+		if str(t, line, "project_slug") != "loupe" || str(t, line, "project") != testProject || str(t, line, "reason") != api.ReasonProjectGone {
+			t.Fatalf("work_dead = %v", line)
 		}
 	}
-	if n := len(h.events(t, "rule_dead")); n != 2 {
-		t.Fatalf("%d rule_dead lines, want one for each set", n)
+	if n := len(h.events(t, "work_dead")); n != 1 {
+		t.Fatalf("%d work_dead lines, want the one of the refresh", n)
 	}
 	h.send(cardMoved(88))
 	if n := h.runs(); n != 0 {
@@ -720,7 +482,7 @@ func TestAnOlderGoneAnswerDuringTheCheckIsNotReplayed(t *testing.T) {
 		t.Fatalf("result = %+v", res)
 	}
 
-	if !h.router.rules().Live("plan") {
+	if !(h.router.rules().WorkDead("loupe") == "") {
 		t.Fatal("an older answer killed the rule of the new set")
 	}
 	h.send(cardMoved(88))
@@ -752,7 +514,7 @@ func TestANewerGoneAnswerForAMarkedProjectIsReplayed(t *testing.T) {
 		t.Fatalf("result = %+v", res)
 	}
 
-	if h.router.rules().Live("plan") {
+	if h.router.rules().WorkDead("loupe") == "" {
 		t.Fatal("the newest answer omits the project, and its rule stayed live")
 	}
 }
@@ -770,10 +532,10 @@ func TestAnOlderGoneAnswerAfterTheSwapKillsNothing(t *testing.T) {
 	}
 	h.router.refreshGone(api.Events{}, seq)
 
-	if !h.router.rules().Live("plan") {
+	if !(h.router.rules().WorkDead("loupe") == "") {
 		t.Fatal("an older answer killed the rule of the new set")
 	}
-	if n := len(h.events(t, "project_gone")) + len(h.events(t, "rule_dead")); n != 0 {
+	if n := len(h.events(t, "project_gone")) + len(h.events(t, "work_dead")); n != 0 {
 		t.Fatalf("%d gone lines, want none", n)
 	}
 }
@@ -814,31 +576,30 @@ func TestAGoneProjectDoesNotKillAProjectWithItsSlugAndANewID(t *testing.T) {
 		t.Fatalf("result = %+v", res)
 	}
 
-	if !h.router.rules().Live("plan") {
-		t.Fatal("the gone old project killed the rule of the new one")
+	if !(h.router.rules().WorkDead("loupe") == "") {
+		t.Fatal("the gone old project killed the work of the new one")
 	}
-	if n := len(h.events(t, "rule_dead")); n != 1 {
-		t.Fatalf("%d rule_dead lines, want the old set's alone", n)
+	if n := len(h.events(t, "work_dead")); n != 1 {
+		t.Fatalf("%d work_dead lines, want the old set's alone", n)
 	}
-	h.send(strings.Replace(cardMoved(88), testProject, recreatedProject, 1))
+	h.send(offerPayloadIn(recreatedProject, 88, "plan"))
 	if n := h.runs(); n != 1 {
 		t.Fatalf("the new project started %d workers, want 1", n)
 	}
 
 	// The gone mark names the old id, so the new project going too is news.
 	h.router.onRefresh(api.Events{})
-	if h.router.rules().Live("plan") {
-		t.Fatal("the new project went, and its rule stayed live")
+	if h.router.rules().WorkDead("loupe") == "" {
+		t.Fatal("the new project went, and its work stayed")
 	}
 }
 
-// A rule joins its experiment by name, so a new variant model changes it.
+// The variants of an entry are part of it, so a new variant model changes it.
 func TestDiffRulesSeesAChangedVariant(t *testing.T) {
 	parse := func(model string) *rules.Set {
 		t.Helper()
 		body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n" +
-			"experiments:\n  - name: impl\n    variants:\n      - {name: a, weight: 1, model: " + model + "}\n" +
-			"rules:\n  - {name: plan, on: board.card_moved, project: loupe, to: next, experiment: impl, prompt: go}\n"
+			"work:\n  plan:\n    prompt: go\n    variants:\n      - {name: a, weight: 1, model: " + model + "}\n"
 		set, err := rules.Parse([]byte(body), rules.Defaults{})
 		if err != nil {
 			t.Fatal(err)
