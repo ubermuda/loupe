@@ -25,6 +25,7 @@ use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\TemplateSource;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsReady;
+use App\Tests\Module\Workflow\Fact\UnprovidedFactsReady;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\RecordingLogger;
 use Psr\Log\LoggerInterface;
@@ -143,6 +144,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             'workTimeoutMinutes' => 120,
             'rules' => [
                 ['id' => 'missing', 'slot' => 'tech-design', 'when' => ['card.gone' => []], 'then' => ['request' => ['kind' => 'gone']]],
+                ['id' => 'unprovided', 'slot' => 'tech-design', 'when' => [UnprovidedFactsReady::KEY => []], 'then' => ['request' => ['kind' => 'unprovided']]],
                 ['id' => 'provided', 'slot' => 'tech-design', 'when' => [ProvidedFactsReady::KEY => []], 'then' => ['move' => ['to' => 'implementation']]],
                 ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['all' => []], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
             ],

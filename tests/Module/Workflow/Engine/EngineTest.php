@@ -72,6 +72,7 @@ use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Module\Workflow\Fact\ProvidedFacts;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsReady;
+use App\Tests\Module\Workflow\Fact\UnprovidedFactsReady;
 use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -889,6 +890,25 @@ final class EngineTest extends KernelTestCase
         self::assertCount(1, $errors);
         self::assertSame('workflow.fact_source_failed', $errors[0]['message']);
         self::assertSame($this->provider()->failure, $errors[0]['context']['exception'] ?? null);
+    }
+
+    public function test_a_facts_class_that_no_provider_gives_skips_the_rule_that_reads_it_and_logs_one_error(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('unprovided', [UnprovidedFactsReady::KEY => []]),
+            self::requestRule('negated', ['not' => [UnprovidedFactsReady::KEY => []]]),
+            self::requestRule('work', self::ALWAYS),
+        ]);
+
+        $this->evaluate($card);
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertNull($this->ruleStateOrNull($card, 'unprovided'));
+        self::assertNull($this->ruleStateOrNull($card, 'negated'));
+        $errors = $this->errors();
+        self::assertCount(1, $errors);
+        self::assertSame('workflow.fact_provider_missing', $errors[0]['message']);
+        self::assertSame(\stdClass::class, $errors[0]['context']['factsClass'] ?? null);
     }
 
     public function test_a_source_that_is_off_makes_its_rule_wait_with_no_error(): void

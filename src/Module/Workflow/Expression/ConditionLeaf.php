@@ -7,6 +7,7 @@ namespace App\Module\Workflow\Expression;
 use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 
 final readonly class ConditionLeaf extends Expression
 {
@@ -23,15 +24,20 @@ final readonly class ConditionLeaf extends Expression
         return $this->condition->evaluate($facts, $this->params);
     }
 
+    /** A facts class that no provider gives counts as a failed source, so the rule waits instead of crashing. */
     #[\Override]
     public function unreadable(Facts $facts): ?Unreadable
     {
         foreach ($this->reads() as $key) {
-            if (\is_string($key)) {
-                $unreadable = $facts->unreadable($key);
-                if (null !== $unreadable) {
-                    return $unreadable;
-                }
+            if (!\is_string($key)) {
+                continue;
+            }
+            if (!\array_key_exists($key, $facts->provided)) {
+                return new Unreadable(UnreadableKind::Failed, $this->condition::source(), new \LogicException(\sprintf('No fact provider gives "%s".', $key)));
+            }
+            $unreadable = $facts->unreadable($key);
+            if (null !== $unreadable) {
+                return $unreadable;
             }
         }
 

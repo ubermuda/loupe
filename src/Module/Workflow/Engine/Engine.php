@@ -122,6 +122,7 @@ final readonly class Engine
         }
 
         $run = new Evaluation($card, $template, $this->facts($card, $now), $this->workflowRuleStates->findForCard($card), $now);
+        $this->logMissingProviders($run);
         if ($baseline) {
             $this->settleWorkRequests($run, $cardId, expire: false);
             // Before the baseline, which replaces the fingerprint a retries pause compares against.
@@ -376,6 +377,22 @@ final readonly class Engine
         }
 
         return $facts;
+    }
+
+    /** Logs once per evaluation each facts class that a rule reads and no provider gives. */
+    private function logMissingProviders(Evaluation $run): void
+    {
+        $missing = [];
+        foreach ($run->template->rules as $rule) {
+            foreach ([...$rule->when->reads(), ...($rule->then->until?->reads() ?? [])] as $key) {
+                if (\is_string($key) && !\array_key_exists($key, $run->facts->provided)) {
+                    $missing[$key] = true;
+                }
+            }
+        }
+        foreach (array_keys($missing) as $class) {
+            $this->logger->error('workflow.fact_provider_missing', ['cardId' => $run->card->id?->toRfc4122(), 'factsClass' => $class]);
+        }
     }
 
     private function state(Evaluation $run, Rule $rule): WorkflowRuleState

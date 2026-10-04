@@ -346,3 +346,6 @@ when@test:
 
         App\Tests\Module\Workflow\Fact\ProvidedFactsReady:
             autoconfigure: true
+
+        App\Tests\Module\Workflow\Fact\UnprovidedFactsReady:
+            autoconfigure: true

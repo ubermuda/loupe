@@ -20,6 +20,7 @@ use App\Module\Workflow\Expression\Not;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use App\Tests\Module\Workflow\Fact\ProvidedFacts;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsReady;
+use App\Tests\Module\Workflow\Fact\UnprovidedFactsReady;
 use PHPUnit\Framework\TestCase;
 
 final class ExpressionTest extends TestCase
@@ -220,6 +221,17 @@ final class ExpressionTest extends TestCase
         self::assertSame($failed, new AnyOf([$child, $provided])->unreadable($facts));
         self::assertNull(new AnyOf([$child, new Not($child)])->unreadable($facts));
         self::assertNull($child->unreadable($facts));
+    }
+
+    public function test_a_leaf_over_a_facts_class_that_no_provider_gives_is_a_failed_source(): void
+    {
+        $unprovided = new ConditionLeaf(new UnprovidedFactsReady(), []);
+
+        $unreadable = new Not($unprovided)->unreadable(FactsMother::facts());
+
+        self::assertNotNull($unreadable);
+        self::assertSame([UnreadableKind::Failed, 'workflow.source.board'], [$unreadable->kind, $unreadable->source]);
+        self::assertInstanceOf(\LogicException::class, $unreadable->cause);
     }
 
     public function test_a_missing_condition_is_never_readable_and_has_no_leaf(): void
