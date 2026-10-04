@@ -57,4 +57,19 @@ final class ConditionCatalogueTest extends KernelTestCase
             }
         }
     }
+
+    public function test_each_condition_names_the_module_whose_data_it_reads(): void
+    {
+        $conditions = static::getContainer()->get(Conditions::class);
+        $translator = static::getContainer()->get('translator');
+        self::assertInstanceOf(TranslatorBagInterface::class, $translator);
+        $catalogue = $translator->getCatalogue('en');
+        $sources = ['card' => 'workflow.source.board', 'pr' => 'workflow.source.forge', 'run' => 'workflow.source.bridge'];
+
+        foreach ($conditions->keys() as $key) {
+            $source = $conditions->get($key)::source();
+            self::assertSame($sources[explode('.', $key)[0]], $source, $key);
+            self::assertTrue($catalogue->defines($source), \sprintf('"%s" has no English string.', $source));
+        }
+    }
 }

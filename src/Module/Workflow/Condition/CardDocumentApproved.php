@@ -22,6 +22,12 @@ final readonly class CardDocumentApproved implements Condition
     }
 
     #[\Override]
+    public static function source(): string
+    {
+        return 'workflow.source.board';
+    }
+
+    #[\Override]
     public static function parameters(): array
     {
         return [new Parameter('tag', ParameterType::String)];

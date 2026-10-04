@@ -13,6 +13,9 @@ interface Condition
 {
     public static function key(): string;
 
+    /** The translation key of the module whose data the condition reads. */
+    public static function source(): string;
+
     /** @return list<Parameter> */
     public static function parameters(): array;
 

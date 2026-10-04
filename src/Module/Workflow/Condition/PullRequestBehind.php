@@ -18,6 +18,12 @@ final readonly class PullRequestBehind implements Condition
     }
 
     #[\Override]
+    public static function source(): string
+    {
+        return 'workflow.source.forge';
+    }
+
+    #[\Override]
     public static function parameters(): array
     {
         return [];

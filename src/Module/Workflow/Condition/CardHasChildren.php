@@ -18,6 +18,12 @@ final readonly class CardHasChildren implements Condition
     }
 
     #[\Override]
+    public static function source(): string
+    {
+        return 'workflow.source.board';
+    }
+
+    #[\Override]
     public static function parameters(): array
     {
         return [];

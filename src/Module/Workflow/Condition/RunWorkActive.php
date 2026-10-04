@@ -22,6 +22,12 @@ final readonly class RunWorkActive implements Condition
     }
 
     #[\Override]
+    public static function source(): string
+    {
+        return 'workflow.source.bridge';
+    }
+
+    #[\Override]
     public static function parameters(): array
     {
         return [new Parameter('kind', ParameterType::String, required: false)];
