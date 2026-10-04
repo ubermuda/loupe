@@ -164,6 +164,31 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame([], $logger->records);
     }
 
+    public function test_a_pause_rule_whose_until_cannot_be_read_blocks(): void
+    {
+        $card = $this->card('tech-design');
+        $binding = $this->service(WorkflowBindingRepository::class)->findOneByProjectId($this->project->id ?? throw new \LogicException('A flushed project has an id.'));
+        self::assertNotNull($binding);
+        $binding->definition = [
+            'key' => 'test',
+            'version' => 1,
+            'slots' => [['key' => 'tech-design', 'label' => 'workflow.slot.tech_design']],
+            'manualMoves' => [],
+            'backoffMinutes' => [10],
+            'workTimeoutMinutes' => 120,
+            'rules' => [
+                ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['all' => []], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
+            ],
+        ];
+        $this->em()->flush();
+        $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
+
+        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertNull($progress->waiting);
+        self::assertNotNull($progress->nextAction);
+    }
+
     private function builder(?TemplateSource $templates = null, LoggerInterface $logger = new NullLogger()): CardWorkflowPanelBuilder
     {
         return new CardWorkflowPanelBuilder(

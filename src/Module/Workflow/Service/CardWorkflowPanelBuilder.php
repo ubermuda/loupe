@@ -109,7 +109,7 @@ final readonly class CardWorkflowPanelBuilder
         $rules = $template->rulesFor($facts->card->slot);
         $falseRules = array_values(array_filter(
             $rules,
-            static fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || !$rule->when->evaluate($facts),
+            static fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$rule->when->evaluate($facts),
         ));
         $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
         $waiting = null === $blocking || null !== $blocking->when->unreadable($facts) ? null : $blocking->when->firstFalseLeaf($facts);
