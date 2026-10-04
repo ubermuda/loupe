@@ -137,6 +137,26 @@ final class FactsBuilderTest extends KernelTestCase
         $connection->rollBack();
     }
 
+    public function test_a_provider_that_swallows_its_own_database_error_gives_a_failed_source_and_leaves_the_transaction_usable(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('facts-database-swallowed'), 'next');
+        $connection = $this->em()->getConnection();
+        $this->provider->onBuild = static function () use ($connection): void {
+            try {
+                $connection->executeQuery('SELECT * FROM no_such_table');
+            } catch (\Throwable) {
+            }
+        };
+
+        $connection->beginTransaction();
+        $facts = $this->facts($card);
+
+        self::assertSame(UnreadableKind::Failed, $facts->unreadable(ProvidedFacts::class)?->kind);
+        self::assertSame(1, $connection->fetchOne('SELECT 1'));
+        $connection->rollBack();
+    }
+
     public function test_two_providers_for_one_facts_class_are_refused(): void
     {
         $this->expectException(\LogicException::class);

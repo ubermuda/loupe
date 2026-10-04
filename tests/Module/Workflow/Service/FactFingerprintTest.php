@@ -137,6 +137,18 @@ final class FactFingerprintTest extends TestCase
         self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(provided: [\stdClass::class => new \stdClass()]), [\stdClass::class]));
     }
 
+    public function test_a_provider_whose_fingerprint_throws_counts_as_null(): void
+    {
+        $provider = new ProvidedFactsProvider();
+        $provider->fingerprintFailure = new \RuntimeException('The fingerprint is broken.');
+        $fingerprint = new FactFingerprint(new FactProviders([$provider]));
+
+        self::assertSame(
+            $fingerprint->of(FactsMother::facts(), [ProvidedFacts::class]),
+            $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new ProvidedFacts()]), [ProvidedFacts::class]),
+        );
+    }
+
     private function facts(): Facts
     {
         return FactsMother::facts(

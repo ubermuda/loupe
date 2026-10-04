@@ -6,6 +6,7 @@ namespace App\Module\Workflow\Service;
 
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\FactProvider;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 
@@ -29,11 +30,21 @@ final readonly class FactFingerprint
             // The prefix keeps a facts class apart from a FactKey value, and leaves the stored fingerprints as they were.
             $provider = $this->providers->byClass[$key] ?? null;
             $provided = $facts->provided[$key] ?? null;
-            $groups['class:'.$key] = null === $provider || !$provided instanceof $key ? null : $provider->fingerprint($provided);
+            $groups['class:'.$key] = null === $provider || !$provided instanceof $key ? null : self::provided($provider, $provided);
         }
         ksort($groups);
 
         return hash('sha256', json_encode($groups, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
+    }
+
+    /** FactsBuilder already called fingerprint() once, so a throw here is a provider that changed its mind: count it as no fingerprint. */
+    private static function provided(FactProvider $provider, object $facts): mixed
+    {
+        try {
+            return $provider->fingerprint($facts);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function group(Facts $facts, FactKey $key): mixed

@@ -37,6 +37,8 @@ final readonly class FactsBuilder
 
     public const string TERMINAL_SLOT = '@terminal';
 
+    private const string SAVEPOINT = 'workflow_fact_provider';
+
     public function __construct(
         private WorkflowSlotLinkRepository $workflowSlotLinks,
         private CardRepository $cards,
@@ -99,26 +101,29 @@ final readonly class FactsBuilder
     private function provided(FactProvider $provider, Uuid $cardId): object
     {
         $source = $provider::class;
-        $this->connection->beginTransaction();
+        $savepoint = $this->connection->isTransactionActive() ? self::SAVEPOINT : null;
+        if (null !== $savepoint) {
+            $this->connection->createSavepoint($savepoint);
+        }
         try {
             $source = $provider->source();
-            if (!$provider->isOn()) {
-                $this->connection->commit();
-
-                return new Unreadable(UnreadableKind::Off, $source);
-            }
             $class = $provider->factsClass();
-            $facts = $provider->build($cardId);
-            if (!$facts instanceof $class) {
-                throw new \LogicException(\sprintf('The fact provider %s built a %s, not a %s.', $provider::class, $facts::class, $class));
+            $facts = $provider->isOn() ? $provider->build($cardId) : new Unreadable(UnreadableKind::Off, $source);
+            if (!$facts instanceof Unreadable) {
+                if (!$facts instanceof $class) {
+                    throw new \LogicException(\sprintf('The fact provider %s built a %s, not a %s.', $provider::class, $facts::class, $class));
+                }
+                $provider->fingerprint($facts);
             }
-            // The fingerprint is read later, outside this guard, so a provider that cannot fingerprint its facts fails here.
-            $provider->fingerprint($facts);
-            $this->connection->commit();
+            if (null !== $savepoint) {
+                $this->connection->releaseSavepoint($savepoint);
+            }
 
             return $facts;
         } catch (\Throwable $e) {
-            $this->connection->rollBack();
+            if (null !== $savepoint) {
+                $this->connection->rollbackSavepoint($savepoint);
+            }
 
             return new Unreadable(UnreadableKind::Failed, $source, $e);
         }
