@@ -10,7 +10,7 @@ use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Workflow\Action\ActionParams;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;

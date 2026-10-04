@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
 /** At least one pull request is linked to the card, whatever its state. */
@@ -15,6 +16,12 @@ final readonly class PullRequestLinked implements Condition
     public static function key(): string
     {
         return 'pr.linked';
+    }
+
+    #[\Override]
+    public static function source(): string
+    {
+        return 'workflow.source.forge';
     }
 
     #[\Override]

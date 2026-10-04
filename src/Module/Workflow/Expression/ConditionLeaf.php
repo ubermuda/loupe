@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Expression;
 
-use App\Module\Workflow\Condition\Condition;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\Facts;
 
 final readonly class ConditionLeaf extends Expression
 {

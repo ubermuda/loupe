@@ -22,6 +22,7 @@ use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
@@ -978,7 +979,7 @@ final class EngineTest extends KernelTestCase
         $events = new EventDispatcher();
         $events->addListener(CardHoldsReleased::class, new BaselineCardsOnCardHoldsReleased(
             $this->service(WorkflowPendingBaselineRepository::class),
-            new EvaluationTrigger($this->service(MessageBusInterface::class)),
+            new EvaluationTrigger($this->service(MessageBusInterface::class), $this->service(BoardAvailability::class)),
         ));
         $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), new MockClock(self::NOON), $events);
 

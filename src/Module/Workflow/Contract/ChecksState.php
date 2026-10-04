@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Fact;
+namespace App\Module\Workflow\Contract;
 
 /** The combined result of the required checks on the head commit. */
 enum ChecksState: string

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Fact;
+namespace App\Module\Workflow\Contract;
 
 /** What the engine knows about one card at one moment. Conditions read it and nothing else. */
 final readonly class Facts

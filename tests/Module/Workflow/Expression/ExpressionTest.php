@@ -8,12 +8,12 @@ use App\Module\Workflow\Condition\CardHasOpenBlocker;
 use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\CardIsChild;
 use App\Module\Workflow\Condition\PullRequestChecksFailed;
+use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Not;
-use App\Module\Workflow\Fact\ChecksState;
-use App\Module\Workflow\Fact\FactKey;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\TestCase;
 

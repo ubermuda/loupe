@@ -8,8 +8,8 @@ use App\Module\Board\Command\ReleaseCardPauseCommand;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardPauseRepository;
+use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\Fact\Facts;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 

@@ -7241,6 +7241,9 @@
             <trans-unit id="workflow.waiting.not.run_work_active"><source>workflow.waiting.not.run_work_active</source><target>Waiting: a matching work request is still active.</target></trans-unit>
             <trans-unit id="workflow.waiting.run_last_refusal"><source>workflow.waiting.run_last_refusal</source><target>Waiting: the last run did not refuse with the code %code%.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.run_last_refusal"><source>workflow.waiting.not.run_last_refusal</source><target>Waiting: the last run refused with the code %code%.</target></trans-unit>
+            <trans-unit id="workflow.source.board"><source>workflow.source.board</source><target>Board</target></trans-unit>
+            <trans-unit id="workflow.source.forge"><source>workflow.source.forge</source><target>Forge</target></trans-unit>
+            <trans-unit id="workflow.source.bridge"><source>workflow.source.bridge</source><target>Bridge</target></trans-unit>
             <trans-unit id="workflow.slot.next"><source>workflow.slot.next</source><target>Next</target></trans-unit>
             <trans-unit id="workflow.slot.product_design"><source>workflow.slot.product_design</source><target>Product design</target></trans-unit>
             <trans-unit id="workflow.slot.tech_design"><source>workflow.slot.tech_design</source><target>Tech design</target></trans-unit>

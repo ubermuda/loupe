@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Fact;
+namespace App\Module\Workflow\Contract;
 
 /** A group of facts that a condition reads. */
 enum FactKey: string

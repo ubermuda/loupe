@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Expression;
 
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
 
 abstract readonly class Expression
 {

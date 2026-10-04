@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Scheduler;
 
+use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Entity\CardHold;
 use App\Module\Workflow\Command\SweepWorkflowCardsHandler;
 use App\Module\Workflow\Messenger\EvaluateCard;
@@ -62,7 +63,7 @@ final class SweepWorkflowCardsTaskTest extends KernelTestCase
         return new SweepWorkflowCardsTask(
             new SweepWorkflowCardsHandler(
                 $this->service(WorkflowBindingRepository::class),
-                new EvaluationTrigger($this->service(MessageBusInterface::class)),
+                new EvaluationTrigger($this->service(MessageBusInterface::class), $this->service(BoardAvailability::class)),
             ),
             $logger,
         );

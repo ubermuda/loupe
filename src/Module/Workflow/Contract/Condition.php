@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Condition;
+namespace App\Module\Workflow\Contract;
 
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Translation\TranslatableMessage;
 
@@ -14,6 +12,9 @@ use Symfony\Component\Translation\TranslatableMessage;
 interface Condition
 {
     public static function key(): string;
+
+    /** The translation key of the module whose data the condition reads. */
+    public static function source(): string;
 
     /** @return list<Parameter> */
     public static function parameters(): array;

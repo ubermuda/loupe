@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Condition;
 
-use App\Module\Workflow\Condition\Condition;
 use App\Module\Workflow\Condition\RunLastRefusal;
 use App\Module\Workflow\Condition\RunWorkActive;
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;

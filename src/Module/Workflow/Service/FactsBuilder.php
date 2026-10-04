@@ -16,13 +16,13 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState as ForgePullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
-use App\Module\Workflow\Fact\CardFacts;
-use App\Module\Workflow\Fact\ChecksState;
-use App\Module\Workflow\Fact\DocumentFacts;
-use App\Module\Workflow\Fact\Facts;
-use App\Module\Workflow\Fact\PullRequestFacts;
-use App\Module\Workflow\Fact\PullRequestState;
-use App\Module\Workflow\Fact\RunFacts;
+use App\Module\Workflow\Contract\CardFacts;
+use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestFacts;
+use App\Module\Workflow\Contract\PullRequestState;
+use App\Module\Workflow\Contract\RunFacts;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 
 /** Reads what the engine knows about one card, from Board, Forge and Bridge. */

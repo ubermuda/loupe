@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Expression;
 
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Facts;
 
 /** True when at least one child is true. The parser refuses an empty list. */
 final readonly class AnyOf extends Expression

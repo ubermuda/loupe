@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Service;
 
-use App\Module\Workflow\Fact\ChecksState;
-use App\Module\Workflow\Fact\DocumentFacts;
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
-use App\Module\Workflow\Fact\PullRequestFacts;
-use App\Module\Workflow\Fact\PullRequestState;
-use App\Module\Workflow\Fact\RunFacts;
+use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestFacts;
+use App\Module\Workflow\Contract\PullRequestState;
+use App\Module\Workflow\Contract\RunFacts;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;

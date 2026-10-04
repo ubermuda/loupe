@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Template;
 
 use App\Module\Workflow\Condition\Conditions;
-use App\Module\Workflow\Condition\ParameterType;
+use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
