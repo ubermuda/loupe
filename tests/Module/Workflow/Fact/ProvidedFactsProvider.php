@@ -14,6 +14,11 @@ final class ProvidedFactsProvider implements FactProvider
 
     public ?\Throwable $failure = null;
 
+    /** The number of builds that succeed before $failure applies. Null applies it at once. */
+    public ?int $buildsBeforeFailure = null;
+
+    public int $builds = 0;
+
     public bool $on = true;
 
     public ?\Throwable $sourceFailure = null;
@@ -38,7 +43,8 @@ final class ProvidedFactsProvider implements FactProvider
     #[\Override]
     public function build(Uuid $cardId): object
     {
-        if (null !== $this->failure) {
+        ++$this->builds;
+        if (null !== $this->failure && $this->builds > ($this->buildsBeforeFailure ?? 0)) {
             throw $this->failure;
         }
 

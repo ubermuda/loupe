@@ -925,6 +925,23 @@ final class EngineTest extends KernelTestCase
         self::assertCount(1, $this->errors());
     }
 
+    public function test_a_source_that_fails_only_when_a_withdrawal_rebuilds_the_facts_logs_one_error(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+
+        $this->moveTo($card, 'in-progress');
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->provider()->buildsBeforeFailure = $this->provider()->builds + 1;
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(WorkRequestState::Cancelled, $request->state);
+        $errors = $this->errors();
+        self::assertCount(1, $errors);
+        self::assertSame('workflow.fact_source_failed', $errors[0]['message']);
+    }
+
     public function test_a_missing_provider_in_a_rule_of_another_slot_logs_nothing(): void
     {
         $card = $this->boundCard([

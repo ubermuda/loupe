@@ -196,7 +196,7 @@ final readonly class Engine
 
         if ($withdrawn) {
             // The first build of the pass logged its failed sources already.
-            $run->facts = $this->factsBuilder->build($run->card, $run->now);
+            $run->facts = $this->facts($run->card, $run->now, $run->facts);
         }
     }
 
@@ -363,12 +363,13 @@ final readonly class Engine
         }
     }
 
-    /** Logs each source that failed. A source that is off is not an error. */
-    private function facts(Card $card, \DateTimeImmutable $now): Facts
+    /** Logs each source that failed, unless it had already failed in the previous build of this evaluation. A source that is off is not an error. */
+    private function facts(Card $card, \DateTimeImmutable $now, ?Facts $previous = null): Facts
     {
         $facts = $this->factsBuilder->build($card, $now);
-        foreach ($facts->provided as $provided) {
-            if ($provided instanceof Unreadable && UnreadableKind::Failed === $provided->kind) {
+        foreach ($facts->provided as $class => $provided) {
+            if ($provided instanceof Unreadable && UnreadableKind::Failed === $provided->kind
+                && UnreadableKind::Failed !== $previous?->unreadable($class)?->kind) {
                 $this->logger->error('workflow.fact_source_failed', [
                     'cardId' => $card->id?->toRfc4122(),
                     'source' => $provided->source,
