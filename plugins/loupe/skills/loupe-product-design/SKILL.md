@@ -13,7 +13,7 @@ Move the card only in P0. Never move it when you stop, and never move it after P
 
 P0 opens an interactive run on the card with `card_run_open`. Close the run with `card_run_close` in P10. When you stop at any other point after P0, call `card_run_close` before you stop.
 
-`references/session-flow.md` holds the levels L1 to L4 and the phases P0 to P10. `references/question-rules.md` holds the question rules Q1 to Q7 and the coverage checklist of P6. `references/claude-design.md` holds the Claude Design rules C1 to C7.
+`references/session-flow.md` holds the levels L1 to L4 and the phases P0 to P10. `references/question-rules.md` holds the question rules Q1 to Q8 and the coverage checklist of P6. `references/claude-design.md` holds the Claude Design rules C1 to C7.
 
 ## Procedure
 
@@ -37,6 +37,7 @@ Put each item in its section of the product document.
 - A technical choice that Q6 parks goes in "For tech design".
 - A guess that the owner did not check goes in "Assumptions" (A4).
 - Each question and its answer go in "Decisions log" (A5).
+- A decision that the owner defers goes in "Open questions" (Q8).
 - The answers of the P7 pre-mortem go in "Risks".
 - The P8 scenarios go in "Scenarios".
 - The Claude Design canvas link and the frame name of the pick go in "Decisions log", and the `R` entry they shaped cites both (C6).

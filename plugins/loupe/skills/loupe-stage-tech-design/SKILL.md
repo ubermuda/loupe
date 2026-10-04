@@ -54,12 +54,21 @@ Use these `##` sections, in this order. Follow `../loupe-documents/references/de
 
 1. At a glance.
 2. Priorities. Cite the `P` entries of the product document that the design serves. With no product document, take them from the card body.
-3. How others do it. Give two or three libraries or systems that solve the same problem. Link each one, and give one takeaway.
-4. One section for each open decision, with a stable ID such as `D1` in its heading. Each decision cites the `R` and `P` IDs it serves.
-5. Decided. Give each settled choice one line with its reason. For a reversal, name the answer that lost and the argument that changed it.
-6. The work order. List the steps with stable IDs. Say which open decision blocks which step. Write a Breakdown section instead when "Judge the size" asks for one.
+3. Architecture. Name each part that the change adds or changes. Give each part one table row, with its role today and its change. Write "new" as the role of a part that the change adds. Then describe the main flow step by step. A diagram is optional, and `../loupe-documents/references/design-structure.md` "Diagrams" gives the types.
+4. How others do it. Give two or three libraries or systems that solve the same problem. Link each one, and give one takeaway.
+5. One section for each open decision, with a stable ID such as `D1` in its heading. Each decision cites the `R` and `P` IDs it serves.
+6. Decided. Write each entry in two to four sentences. Give the reason, the option that lost and why it lost, and the cost that the choice accepts. For a reversal, name the answer that lost and the argument that changed it.
+7. The work order. List the steps with stable IDs. Say which open decision blocks which step. Write a Breakdown section instead when "Judge the size" asks for one.
 
-Write a Light design when the product document has no Priorities section, or when the card body asks for a small change. Its At a glance is two sentences, and it skips Priorities and How others do it.
+Write a Light design when the product document has no Priorities section, or when the card body asks for a small change. Its At a glance is two sentences, and it skips Priorities and How others do it. It keeps a short Architecture section right after At a glance, with only the parts that change and the main flow.
+
+## Code sketches
+
+Show a short snippet where it makes a part or a decision concrete. Put the snippet in the section that it supports. The snippet can be an interface, a signature, a config block, a payload, or the columns of a migration.
+
+1. Show the shape only. Write no method body and no test.
+2. Keep the snippet near 20 lines.
+3. Name the file that the snippet lands in, and mark the snippet as a sketch.
 
 ## Facts and recommendations
 

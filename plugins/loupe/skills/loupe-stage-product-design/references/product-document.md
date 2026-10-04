@@ -8,7 +8,7 @@ A Light session uses these sections: At a glance, Problem, Current behaviour, Pr
 
 ## At a glance
 
-State the change in two or three sentences. List the open decisions, each linked to its heading in "Open questions". Write the sentences as a paragraph, and number the list.
+State the change in two or three sentences. When the document has an "Open questions" section, list the open decisions, each linked to its heading there. Write the sentences as a paragraph, and number the list.
 
 ## Problem
 
@@ -61,6 +61,8 @@ List the technical points that the session parked, such as an entity, a table, a
 Write each scenario as Given, When and Then, so a person can check it on a running instance. Cite the `R` IDs each scenario proves. Avoid words such as "fast", "easy" or "better" without a measure.
 
 ## Open questions
+
+The writer decides the use of this section. The interactive session writes a fence only for a decision that the owner deferred. A session where the owner answered every question therefore has no "Open questions" section. The unattended stage runs with no owner, so it writes each open decision as a fence.
 
 Put each open choice in its own decision fence (rule 12). Read `loupe-documents` `references/decision-fences.md` before you write one. Give each choice a `###` heading with a stable ID, such as `### D1: Export format`, so At a glance can link to it.
 
