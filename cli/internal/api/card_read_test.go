@@ -9,6 +9,9 @@ import (
 	"testing"
 )
 
+// checkProject is the project id the card read tests name.
+const checkProject = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
+
 const readCardID = "0199a0e2-b1f3-7a44-9c11-2d3e4f506172"
 
 func TestReadCardReadsTheColumn(t *testing.T) {

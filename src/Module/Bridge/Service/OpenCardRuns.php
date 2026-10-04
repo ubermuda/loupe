@@ -45,7 +45,7 @@ final readonly class OpenCardRuns
     {
         $since = \in_array($run->state, [WorkerRunState::Preparing, WorkerRunState::Running, WorkerRunState::Stopping], true) ? $run->startedAt ?? $run->receivedAt : $run->receivedAt;
 
-        return new OpenCardRun($run->cardId, $run->state, $run->kind, $run->ruleName, $since);
+        return new OpenCardRun($run->cardId, $run->state, $run->kind, $run->workKind, $since);
     }
 
     private static function compare(OpenCardRun $left, OpenCardRun $right): int

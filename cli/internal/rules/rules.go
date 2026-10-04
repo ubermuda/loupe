@@ -16,7 +16,6 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -32,10 +31,6 @@ import (
 // FileName is the rule file the bridge reads from the config directory.
 const FileName = "rules.yaml"
 
-// DefaultMaxChain bounds the agent-triggered runs in a row one rule starts for
-// one card.
-const DefaultMaxChain = 3
-
 // DefaultMaxWorkers bounds the workers the bridge runs at once when the file
 // sets no maxWorkers.
 const DefaultMaxWorkers = 3
@@ -46,10 +41,6 @@ const DefaultPool = "default"
 
 // poolNamePattern is the shape of a worker pool name.
 var poolNamePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
-
-// DefaultMaxResumes bounds the resumes the bridge runs after one run that did
-// not finish.
-const DefaultMaxResumes = 2
 
 // ActionInteractive is the rule action that opens an interactive claude session
 // in a terminal, instead of a worker.
@@ -93,121 +84,30 @@ const Example = `projects:
   my-app:
     dir: ~/Code/my-app
 
-rules:
-  - name: plan
-    on: board.card_moved
-    project: my-app
-    to: next
+work:
+  implement:
     prompt: |
-      Card {cardNumber} in Loupe project {projectId} moved to {to}.
-      Read it with the card_get MCP tool, passing cardId {cardId}.
-      If its column is no longer {to}, stop and do nothing.
-      Otherwise write an implementation plan into the card body
-      with card_update, and stop.
+      Loupe asks for {kind} work on card {cardNumber} of project {projectId}.
+      Read it with the card_get MCP tool, passing cardId {cardId}, and do it.
 `
-
-// eventTypePattern is the shape of an event type, such as board.card_moved. It
-// cannot catch a misspelt type, but it catches a value that is not a type.
-var eventTypePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`)
-
-// The limits the rule health endpoint puts on a report. The bridge refuses a
-// rule file past them at start, or every report of that project gets a 422.
-const (
-	MaxNameLength      = 100
-	MaxOnLength        = 100
-	MaxSlugLength      = 2000
-	MaxRulesPerProject = 200
-	// MaxResumesLimit is the largest resume cap a run report takes.
-	MaxResumesLimit = 32767
-)
-
-// phpTrimSet is the set PHP's trim strips by default.
-const phpTrimSet = " \t\n\r\x00\x0b"
 
 // PermissionModes are the values claude 2.1.270 takes for --permission-mode.
 // Its help omits default, and it still accepts it. A later claude can add a
 // mode, so a value outside the list is logged at start rather than refused.
 var PermissionModes = []string{"acceptEdits", "auto", "bypassPermissions", "default", "dontAsk", "manual", "plan"}
 
-// Placeholder names, and the ones each kind of event can fill.
-var (
-	cardMovedPlaceholders       = []string{"cardId", "cardNumber", "projectId", "project", "from", "to"}
-	askClosedPlaceholders       = []string{"askId", "sessionId", "cardNumber", "projectId", "project"}
-	reviewSubmittedPlaceholders = []string{"cardId", "cardNumber", "column", "documentId", "verdict", "projectId", "project"}
-	genericPlaceholders         = []string{"projectId", "project"}
-	pullRequestPlaceholders     = []string{"cardId", "cardNumber", "projectId", "project", "forge", "repository", "pullRequestNumber", "pullRequestUrl", "headSha"}
-	// pullRequestExtras are the placeholders a pull request type adds to the
-	// base set.
-	pullRequestExtras = map[string][]string{
-		event.ChecksConcludedType:            {"conclusion", "failedChecks"},
-		event.PullRequestReviewSubmittedType: {"verdict"},
-		event.FixRequestedType:               {"reason", "sessionId"},
-	}
-)
-
-// placeholdersOf lists the placeholders a pull request type fills.
-func placeholdersOf(on string) []string {
-	return slices.Concat(pullRequestPlaceholders, pullRequestExtras[on])
-}
-
-// knownPlaceholder reports whether some event type fills the name.
-func knownPlaceholder(name string) bool {
-	for _, set := range [][]string{cardMovedPlaceholders, askClosedPlaceholders, reviewSubmittedPlaceholders, pullRequestPlaceholders} {
-		if slices.Contains(set, name) {
-			return true
-		}
-	}
-	for _, extras := range pullRequestExtras {
-		if slices.Contains(extras, name) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// whenFields maps each type a rule can filter with when to the fields it
-// takes, and each field to its values.
-var whenFields = map[string]map[string][]string{
-	event.ChecksConcludedType:            {"conclusion": {event.ConclusionPassed, event.ConclusionFailed}},
-	event.PullRequestReviewSubmittedType: {"verdict": {event.VerdictApproved, event.VerdictChangesRequested}},
-	event.FixRequestedType:               {"reason": {event.ReasonChecksFailed, event.ReasonConflict, event.ReasonChangesRequested}},
-}
-
-// whenTypes lists the types that take when, in the order an error names them.
-var whenTypes = []string{event.ChecksConcludedType, event.PullRequestReviewSubmittedType, event.FixRequestedType}
-
-// whenValue is the event's value of a when field.
-func whenValue(e event.Event, field string) string {
-	switch field {
-	case "conclusion":
-		return e.Conclusion
-	case "verdict":
-		return e.Verdict
-	case "reason":
-		return e.Reason
-	}
-
-	return ""
-}
-
-// UnknownCard is what {cardNumber} renders for a resume whose card neither the
-// server nor the bridge knows.
-const UnknownCard = "unknown"
-
 // File is the rule file as written.
 type File struct {
 	Defaults FileDefaults       `yaml:"defaults"`
 	Projects map[string]Project `yaml:"projects"`
-	Rules    []Rule             `yaml:"rules"`
-	// Experiments are the model experiments a worker rule can join by name.
-	Experiments []Experiment `yaml:"experiments"`
-	Hooks       []HookEntry  `yaml:"hooks"`
-	Launch      LaunchConfig `yaml:"launch"`
+	Hooks    []HookEntry        `yaml:"hooks"`
+	Launch   LaunchConfig       `yaml:"launch"`
 	// AutoUpdate is off when the key is absent.
 	AutoUpdate  *bool                 `yaml:"autoUpdate"`
 	MaxWorkers  *int                  `yaml:"maxWorkers"`
 	WorkerPools map[string]WorkerPool `yaml:"workerPools"`
+	// Work maps each work request kind the bridge claims to what it runs.
+	Work map[string]WorkEntry `yaml:"work"`
 	// Name is the host name when absent, and a blank value opts out.
 	Name *string `yaml:"name"`
 }
@@ -269,58 +169,6 @@ type Project struct {
 	Dir string `yaml:"dir"`
 }
 
-// Rule starts an agent when an event matches it.
-type Rule struct {
-	Name string `yaml:"name"`
-	// Action is empty for a worker, ActionInteractive or ActionCommand.
-	Action         string `yaml:"action"`
-	On             string `yaml:"on"`
-	Project        string `yaml:"project"`
-	To             string `yaml:"to"`
-	From           string `yaml:"from"`
-	Prompt         string `yaml:"prompt"`
-	PermissionMode string `yaml:"permissionMode"`
-	Model          string `yaml:"model"`
-	MaxChain       *int   `yaml:"maxChain"`
-	MaxResumes     *int   `yaml:"maxResumes"`
-	AllowUntrusted bool   `yaml:"allowUntrusted"`
-	// Verdict limits a document.review_submitted rule to one verdict. Empty
-	// matches either.
-	Verdict string `yaml:"verdict"`
-	// Resume runs claude --resume on the session an inbox ask names, instead
-	// of a new session. On a fix request it resumes the session the event
-	// names, and with none it starts a new session.
-	Resume bool `yaml:"resume"`
-	// When limits a pull request rule to events whose fields hold these
-	// values. whenFields lists the fields each type takes.
-	When map[string]string `yaml:"when"`
-	// ResultFields maps an optional result field to its JSON Schema fragment.
-	ResultFields map[string]any `yaml:"resultFields"`
-	// Card limits a board.card_moved or document.review_submitted rule by the
-	// state of its card. Nil matches any card.
-	Card *CardCondition `yaml:"card"`
-	// WorkerPool names the pool the rule's workers take a slot from. Empty
-	// means DefaultPool.
-	WorkerPool string `yaml:"workerPool"`
-	// Experiment names the experiment whose variants pick the model. A rule
-	// that sets it sets no model.
-	Experiment string `yaml:"experiment"`
-	// Before is a command that runs ahead of claude and prints the folder to
-	// start claude in. Nil runs claude in the project's dir.
-	Before *BeforeConfig `yaml:"before"`
-	// Run is the argv of a command rule, and Timeout bounds it. No shell
-	// reads Run.
-	Run     []string `yaml:"run"`
-	Timeout string   `yaml:"timeout"`
-
-	schema     string
-	experiment *Experiment
-	// beforeTimeout has the default filled when Before is set, and
-	// commandTimeout when the rule is a command rule.
-	beforeTimeout  time.Duration
-	commandTimeout time.Duration
-}
-
 // BeforeConfig is the before block as written. No shell reads Run.
 type BeforeConfig struct {
 	Run     []string `yaml:"run"`
@@ -338,12 +186,6 @@ type Before struct {
 type Command struct {
 	Argv    []string
 	Timeout time.Duration
-}
-
-// CardCondition names the card state a rule needs. A nil field matches either
-// value.
-type CardCondition struct {
-	InteractiveRun *bool `yaml:"interactiveRun"`
 }
 
 // Defaults come from the bridge flags. They fill a rule's fields that neither
@@ -373,7 +215,6 @@ func checkWord(field, value string) error {
 
 // Set is a loaded, validated rule file.
 type Set struct {
-	rules []Rule
 	dirs  map[string]string
 	hooks []HookEntry
 	// launch has its default timeout filled.
@@ -388,11 +229,14 @@ type Set struct {
 	name          string
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
+	// work has the defaults of each worker entry filled.
+	work map[string]WorkEntry
 
-	// dead maps a rule name to the reason it died. The bridge reads and writes
-	// it on the stream goroutine alone. mu guards it for any other caller.
-	mu   sync.RWMutex
-	dead map[string]string
+	// deadWork maps a project slug to the reason its work died. The bridge
+	// reads and writes it on the stream goroutine alone. mu guards it for any
+	// other caller.
+	mu       sync.RWMutex
+	deadWork map[string]string
 }
 
 // ErrMissing marks a rule file that does not exist.
@@ -428,7 +272,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
+	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
 	var errs []error
 	for _, err := range []error{
 		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
@@ -456,8 +300,8 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 		s.dirs[slug] = dir
 	}
-	if len(f.Rules) == 0 {
-		errs = append(errs, errors.New("the rule file has no rules"))
+	if len(f.Work) == 0 {
+		errs = append(errs, errors.New("the rule file has no work"))
 	}
 	name, err := bridgeName(f.Name)
 	if err != nil {
@@ -474,88 +318,35 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	known := slices.AppendSeq([]string{DefaultPool}, maps.Keys(pools))
 	slices.Sort(known)
 	known = slices.Compact(known)
-	experiments, experimentErrs := checkExperiments(f.Experiments)
-	errs = append(errs, experimentErrs...)
-
-	names := map[string]bool{}
-	perProject := map[string]int{}
-	for i, r := range f.Rules {
-		if r.Name == "" {
-			r.Name = strconv.Itoa(i + 1)
+	for _, kind := range slices.Sorted(maps.Keys(f.Work)) {
+		w := f.Work[kind]
+		if err := checkWork(kind, &w); err != nil {
+			errs = append(errs, fmt.Errorf("work %q: %w", kind, err))
 		}
-		// The server trims a name with PHP's trim and counts code points, so
-		// two names that differ in spaces alone would share one row.
-		if trimmed := strings.Trim(r.Name, phpTrimSet); trimmed == "" {
-			errs = append(errs, fmt.Errorf("rule %d: name %q is blank", i+1, r.Name))
-		} else if n := utf8.RuneCountInString(trimmed); n > MaxNameLength {
-			errs = append(errs, fmt.Errorf("rule %d: name is %d characters, and the server takes at most %d", i+1, n, MaxNameLength))
-		} else {
-			r.Name = trimmed
-		}
-		perProject[r.Project]++
-		if names[r.Name] {
-			errs = append(errs, fmt.Errorf("rule %q: another rule has the same name", r.Name))
-		}
-		names[r.Name] = true
-
-		if err := checkRule(&r, f.Projects); err != nil {
-			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
-		}
-		if r.Action == "" {
-			pool := cmp.Or(r.WorkerPool, DefaultPool)
-			// A declared pool with an invalid size has its own error already.
-			if _, declared := f.WorkerPools[pool]; !declared && pool != DefaultPool {
-				errs = append(errs, fmt.Errorf("rule %q: workerPool %q is not in workerPools, which declares %s", r.Name, pool, strings.Join(known, ", ")))
-			} else if size, ok := pools[DefaultPool]; ok && size == 0 && pool == DefaultPool {
-				errs = append(errs, fmt.Errorf("rule %q: the default pool has no slot, because workerPools take all %d of maxWorkers; give the rule a workerPool or raise maxWorkers", r.Name, s.maxWorkers))
+		if w.Action == "" {
+			if err := checkPool(w.WorkerPool, f.WorkerPools, pools, known, s.maxWorkers); err != nil {
+				errs = append(errs, fmt.Errorf("work %q: %w", kind, err))
+			}
+			// A nil map of fields always builds.
+			w.schema, _ = resultSchema(nil)
+			if w.PermissionMode == "" {
+				w.PermissionMode = defaults.PermissionMode
+			}
+			if w.Model == "" && w.Variants == nil {
+				w.Model = defaults.Model
 			}
 		}
-		if r.Experiment != "" {
-			if r.Model != "" {
-				errs = append(errs, fmt.Errorf("rule %q: model and experiment are both set, and the experiment's variants name the model", r.Name))
-			}
-			if e, ok := experiments[r.Experiment]; ok {
-				r.experiment = e.clone()
-			} else {
-				errs = append(errs, fmt.Errorf("rule %q: experiment %q is not in experiments, which declares %s", r.Name, r.Experiment, strings.Join(slices.Sorted(maps.Keys(experiments)), ", ")))
-			}
-		}
-		if schema, err := resultSchema(r.ResultFields); err != nil {
-			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
-		} else {
-			r.schema = schema
-		}
-		if r.MaxChain == nil {
-			n := DefaultMaxChain
-			r.MaxChain = &n
-		}
-		if r.MaxResumes == nil {
-			n := DefaultMaxResumes
-			r.MaxResumes = &n
-		}
-		// The defaults configure a worker. A launch takes only what its rule sets.
-		if r.PermissionMode == "" && r.Action == "" {
-			r.PermissionMode = defaults.PermissionMode
-		}
-		if r.Model == "" && r.Action == "" && r.Experiment == "" {
-			r.Model = defaults.Model
-		}
-		s.rules = append(s.rules, r)
+		s.work[kind] = w
 	}
-	launch, err := checkLaunch(f.Launch, slices.ContainsFunc(f.Rules, func(r Rule) bool { return r.Action == ActionInteractive }))
+	interactive := slices.ContainsFunc(slices.Collect(maps.Values(f.Work)), func(w WorkEntry) bool { return w.Action == ActionInteractive })
+	launch, err := checkLaunch(f.Launch, interactive)
 	if err != nil {
 		errs = append(errs, err)
 	}
 	s.launch = launch
 	errs = append(errs, checkHooks(f.Hooks)...)
 	s.hooks = f.Hooks
-	for _, slug := range slices.Sorted(maps.Keys(perProject)) {
-		if perProject[slug] > MaxRulesPerProject {
-			errs = append(errs, fmt.Errorf("project %q has %d rules, and the server takes at most %d in one report", slug, perProject[slug], MaxRulesPerProject))
-		}
-	}
-
-	if len(f.Rules) == 0 {
+	if len(f.Work) == 0 {
 		return nil, withExample(errors.Join(errs...))
 	}
 	if len(errs) > 0 {
@@ -584,6 +375,9 @@ func decodeFile(data []byte) (File, error) {
 		if content >= 0 {
 			return f, errors.New("parse rule file: it holds a second YAML document after ---, and the bridge reads one")
 		}
+		if err := refuseOldFormat(doc); err != nil {
+			return f, err
+		}
 		content = i
 	}
 	if content < 0 {
@@ -600,6 +394,24 @@ func decodeFile(data []byte) (File, error) {
 	}
 
 	return f, nil
+}
+
+// refuseOldFormat names the work map for a file that still lists rules or
+// experiments. Loupe now decides when work runs, and the bridge only runs it.
+func refuseOldFormat(doc any) error {
+	top, ok := doc.(map[string]any)
+	if !ok {
+		return nil
+	}
+	var errs []error
+	if _, ok := top["rules"]; ok {
+		errs = append(errs, errors.New("parse rule file: the rules list is gone, because Loupe now decides when work runs; map each kind of work request under work instead, such as work: {implement: {prompt: ...}}, and drop on, to, from, when, maxChain, resume and maxResumes"))
+	}
+	if _, ok := top["experiments"]; ok {
+		errs = append(errs, errors.New("parse rule file: the experiments list is gone; give a work entry its variants instead, and the experiment takes the name of its kind"))
+	}
+
+	return errors.Join(errs...)
 }
 
 func checkProject(slug string, p Project) (string, error) {
@@ -657,7 +469,7 @@ func checkLaunch(c LaunchConfig, interactive bool) (Launch, error) {
 	}
 	if len(c.Command) == 0 {
 		if interactive {
-			errs = append(errs, fmt.Errorf("launch.command is required for a rule with action: %s", ActionInteractive))
+			errs = append(errs, fmt.Errorf("launch.command is required for action: %s", ActionInteractive))
 		}
 
 		return l, errors.Join(errs...)
@@ -753,6 +565,21 @@ func checkPools(budget int, declared map[string]WorkerPool) (map[string]int, []e
 	return pools, errs
 }
 
+// checkPool refuses a pool that workerPools does not declare, and the default
+// pool when it has no slot. A declared pool with an invalid size has its own
+// error already.
+func checkPool(name string, declared map[string]WorkerPool, pools map[string]int, known []string, maxWorkers int) error {
+	pool := cmp.Or(name, DefaultPool)
+	if _, ok := declared[pool]; !ok && pool != DefaultPool {
+		return fmt.Errorf("workerPool %q is not in workerPools, which declares %s", pool, strings.Join(known, ", "))
+	}
+	if size, ok := pools[DefaultPool]; ok && size == 0 && pool == DefaultPool {
+		return fmt.Errorf("the default pool has no slot, because workerPools take all %d of maxWorkers; give it a workerPool or raise maxWorkers", maxWorkers)
+	}
+
+	return nil
+}
+
 // refusal is a set of fields a rule of one action must not set. why takes the
 // name of the field.
 type refusal struct {
@@ -760,59 +587,9 @@ type refusal struct {
 	why    string
 }
 
-// refusals lists, for each action, the fields its rules refuse.
-var refusals = map[string][]refusal{
-	"": {
-		{[]string{"run", "timeout"}, "%s belongs to action command, and this rule runs a worker"},
-	},
-	ActionInteractive: {
-		{[]string{"before", "experiment", "maxChain", "maxResumes", "resultFields", "resume", "verdict", "when", "workerPool"}, "%s names worker behaviour, and action interactive launches no worker"},
-		{[]string{"run", "timeout"}, "%s belongs to action command, and this rule launches an interactive session"},
-	},
-	ActionCommand: {
-		{[]string{"before", "experiment", "maxResumes", "model", "permissionMode", "prompt", "resultFields", "resume", "workerPool"}, "%s names agent behaviour, and action command starts no agent"},
-	},
-}
-
-// checkAction refuses an unknown action, the events it cannot run on, and the
-// fields it has no use for.
-func checkAction(r Rule) []error {
-	table, ok := refusals[r.Action]
-	if !ok {
-		return []error{fmt.Errorf("action %q is not %s or %s; leave it out for a worker rule", r.Action, ActionInteractive, ActionCommand)}
-	}
+// refuse names each field of set that a refusal of table lists.
+func refuse(table []refusal, set map[string]bool) []error {
 	var errs []error
-	switch r.Action {
-	case ActionInteractive:
-		if r.On != event.CardMovedType {
-			errs = append(errs, fmt.Errorf("action %s applies to %s only, and this rule is on %s", ActionInteractive, event.CardMovedType, r.On))
-		}
-		if goos == "windows" {
-			errs = append(errs, fmt.Errorf("action %s needs a POSIX shell on macOS or Linux", ActionInteractive))
-		}
-	case ActionCommand:
-		// The run reports against a card, so the event must name one.
-		if r.On != event.CardMovedType && r.On != event.ReviewSubmittedType && !event.IsPullRequest(r.On) {
-			errs = append(errs, fmt.Errorf("action %s applies to %s, %s and %s* events only, because its run needs a card, and this rule is on %s",
-				ActionCommand, event.CardMovedType, event.ReviewSubmittedType, event.PullRequestPrefix, r.On))
-		}
-	}
-	set := map[string]bool{
-		"before":         r.Before != nil,
-		"experiment":     r.Experiment != "",
-		"maxChain":       r.MaxChain != nil,
-		"maxResumes":     r.MaxResumes != nil,
-		"model":          r.Model != "",
-		"permissionMode": r.PermissionMode != "",
-		"prompt":         r.Prompt != "",
-		"resultFields":   len(r.ResultFields) > 0,
-		"resume":         r.Resume,
-		"run":            r.Run != nil,
-		"timeout":        r.Timeout != "",
-		"verdict":        r.Verdict != "",
-		"when":           len(r.When) > 0,
-		"workerPool":     r.WorkerPool != "",
-	}
 	for _, rf := range table {
 		for _, name := range rf.fields {
 			if set[name] {
@@ -824,105 +601,6 @@ func checkAction(r Rule) []error {
 	return errs
 }
 
-// checkRule validates a rule and fills its before and command timeouts.
-func checkRule(r *Rule, projects map[string]Project) error {
-	errs := checkAction(*r)
-	switch {
-	case r.On == "":
-		errs = append(errs, errors.New("on is required"))
-	case len(r.On) > MaxOnLength:
-		errs = append(errs, fmt.Errorf("on is %d characters, and the server takes at most %d", len(r.On), MaxOnLength))
-	case !eventTypePattern.MatchString(r.On):
-		errs = append(errs, fmt.Errorf("on %q is not an event type, such as board.card_moved", r.On))
-	}
-	if r.Project == "" {
-		errs = append(errs, errors.New("project is required"))
-	} else if _, ok := projects[r.Project]; !ok && len(projects) > 0 {
-		errs = append(errs, fmt.Errorf("project %q is not in projects, which maps %s", r.Project, strings.Join(slices.Sorted(maps.Keys(projects)), ", ")))
-	} else if !ok {
-		errs = append(errs, fmt.Errorf("project %q is not in projects", r.Project))
-	}
-	if err := checkWord("permissionMode", r.PermissionMode); err != nil {
-		errs = append(errs, err)
-	}
-	if err := checkWord("model", r.Model); err != nil {
-		errs = append(errs, err)
-	}
-
-	allowed := genericPlaceholders
-	if r.On == event.CardMovedType {
-		allowed = cardMovedPlaceholders
-		switch {
-		case r.To == "":
-			errs = append(errs, errors.New("to is required for board.card_moved"))
-		case !event.SlugPattern.MatchString(r.To):
-			errs = append(errs, fmt.Errorf("to %q is not a column slug", r.To))
-		}
-		if r.From != "" && !event.SlugPattern.MatchString(r.From) {
-			errs = append(errs, fmt.Errorf("from %q is not a column slug", r.From))
-		}
-		for _, col := range [][2]string{{"to", r.To}, {"from", r.From}} {
-			if len(col[1]) > MaxSlugLength {
-				errs = append(errs, fmt.Errorf("%s is %d characters, and the server takes a column slug of at most %d", col[0], len(col[1]), MaxSlugLength))
-			}
-		}
-		if r.From != "" && r.From == r.To {
-			errs = append(errs, errors.New("from and to name one column, and a move inside one column never fires"))
-		}
-	} else {
-		if r.To != "" || r.From != "" {
-			errs = append(errs, fmt.Errorf("to and from apply to board.card_moved only, and this rule is on %s", r.On))
-		}
-	}
-	if r.On == event.AskClosedType {
-		allowed = askClosedPlaceholders
-		if !r.Resume {
-			errs = append(errs, errors.New("inbox.ask_closed needs resume: true, because resuming the session that asked is the one action it takes"))
-		}
-	} else if r.Resume && r.On != event.FixRequestedType {
-		errs = append(errs, fmt.Errorf("resume applies to %s and %s only, and this rule is on %s", event.AskClosedType, event.FixRequestedType, r.On))
-	}
-	if event.IsPullRequest(r.On) {
-		allowed = placeholdersOf(r.On)
-	}
-	errs = append(errs, checkWhen(*r)...)
-	if r.On == event.ReviewSubmittedType {
-		allowed = reviewSubmittedPlaceholders
-		if r.Verdict != "" && r.Verdict != event.VerdictApproved && r.Verdict != event.VerdictChangesRequested {
-			errs = append(errs, fmt.Errorf("verdict %q is not %s or %s", r.Verdict, event.VerdictApproved, event.VerdictChangesRequested))
-		}
-	} else if r.Verdict != "" {
-		errs = append(errs, fmt.Errorf("verdict applies to document.review_submitted only, and this rule is on %s", r.On))
-	}
-	if r.Card != nil && r.On != event.CardMovedType && r.On != event.ReviewSubmittedType {
-		errs = append(errs, fmt.Errorf("card applies to board.card_moved and document.review_submitted only, and this rule is on %s", r.On))
-	}
-
-	if r.Action == ActionCommand {
-		timeout, runErrs := checkRun("", r.Run, r.Timeout, DefaultCommandTimeout, MaxCommandTimeout, r.On, allowed)
-		errs = append(errs, runErrs...)
-		r.commandTimeout = timeout
-	} else if strings.TrimSpace(r.Prompt) == "" {
-		errs = append(errs, errors.New("prompt is required"))
-	}
-	errs = append(errs, checkPlaceholders("", r.Prompt, r.On, allowed)...)
-	if r.Before != nil {
-		timeout, beforeErrs := checkRun("before.", r.Before.Run, r.Before.Timeout, DefaultBeforeTimeout, MaxBeforeTimeout, r.On, allowed)
-		errs = append(errs, beforeErrs...)
-		r.beforeTimeout = timeout
-	}
-	if r.MaxChain != nil && *r.MaxChain < 1 {
-		errs = append(errs, fmt.Errorf("maxChain must be at least 1, got %d", *r.MaxChain))
-	}
-	if r.MaxResumes != nil && *r.MaxResumes < 0 {
-		errs = append(errs, fmt.Errorf("maxResumes must be at least 0, got %d", *r.MaxResumes))
-	} else if r.MaxResumes != nil && *r.MaxResumes > MaxResumesLimit {
-		errs = append(errs, fmt.Errorf("maxResumes is %d, and the server takes at most %d", *r.MaxResumes, MaxResumesLimit))
-	}
-
-	return errors.Join(errs...)
-}
-
 // checkPlaceholders refuses a placeholder of template that the rule's type
 // does not fill. prefix names the field in each error.
 func checkPlaceholders(prefix, template, on string, allowed []string) []error {
@@ -930,8 +608,6 @@ func checkPlaceholders(prefix, template, on string, allowed []string) []error {
 	for _, name := range directive.Placeholders(template) {
 		switch {
 		case slices.Contains(allowed, name):
-		case knownPlaceholder(name):
-			errs = append(errs, fmt.Errorf("%splaceholder {%s} has no value for %s events; this type fills %s", prefix, name, on, braces(allowed)))
 		default:
 			errs = append(errs, fmt.Errorf("%sunknown placeholder {%s}; this type fills %s", prefix, name, braces(allowed)))
 		}
@@ -966,39 +642,6 @@ func checkRun(prefix string, run []string, timeoutText string, timeout, most tim
 	}
 
 	return timeout, errs
-}
-
-// checkWhen refuses a when on a type that takes none, a field the type does
-// not carry, and a value outside the field's values.
-func checkWhen(r Rule) []error {
-	if len(r.When) == 0 {
-		return nil
-	}
-	fields, ok := whenFields[r.On]
-	if !ok {
-		return []error{fmt.Errorf("when applies to %s only, and this rule is on %s", orList(whenTypes, "and"), r.On)}
-	}
-	var errs []error
-	for _, name := range slices.Sorted(maps.Keys(r.When)) {
-		values, ok := fields[name]
-		switch {
-		case !ok:
-			errs = append(errs, fmt.Errorf("when.%s is not a field of %s; it takes %s", name, r.On, strings.Join(slices.Sorted(maps.Keys(fields)), ", ")))
-		case !slices.Contains(values, r.When[name]):
-			errs = append(errs, fmt.Errorf("when.%s %q is not %s", name, r.When[name], orList(values, "or")))
-		}
-	}
-
-	return errs
-}
-
-// orList joins names as "a, b or c", with the given last word.
-func orList(names []string, last string) string {
-	if len(names) < 2 {
-		return strings.Join(names, "")
-	}
-
-	return strings.Join(names[:len(names)-1], ", ") + " " + last + " " + names[len(names)-1]
 }
 
 func braces(names []string) string {
@@ -1042,18 +685,20 @@ var ResultStatuses = []string{"finished", "blocked", "unfinished", "waiting"}
 // resultFieldPattern is the shape of a result field name.
 var resultFieldPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 
-// resultSchema builds the JSON Schema of a worker's final reply. The extra
-// fields are optional. claude checks each fragment, and the bridge does not.
+// resultSchema builds the JSON Schema of a worker's final reply. The core
+// reason and the extra fields are optional. claude checks each fragment, and
+// the bridge does not.
 func resultSchema(fields map[string]any) (string, error) {
 	props := map[string]any{
 		"status":  map[string]any{"type": "string", "enum": ResultStatuses},
 		"summary": map[string]any{"type": "string"},
+		"reason":  map[string]any{"type": "string"},
 	}
 	var errs []error
 	for _, name := range slices.Sorted(maps.Keys(fields)) {
 		fragment, isMap := fields[name].(map[string]any)
 		switch {
-		case name == "status" || name == "summary":
+		case name == "status" || name == "summary" || name == "reason":
 			errs = append(errs, fmt.Errorf("resultFields: %q is a core field, and every result has it", name))
 		case !resultFieldPattern.MatchString(name):
 			errs = append(errs, fmt.Errorf("resultFields: %q is not a field name, such as prUrl", name))
@@ -1092,19 +737,14 @@ func (s *Set) Dir(slug string) string {
 	return s.dirs[slug]
 }
 
-// Rules lists the rules in file order, with their defaults filled.
-func (s *Set) Rules() []Rule {
-	return slices.Clone(s.rules)
-}
-
 // Launch is the launch command and its timeout.
 func (s *Set) Launch() Launch {
 	return Launch{Command: slices.Clone(s.launch.Command), Timeout: s.launch.Timeout}
 }
 
-// HasInteractive reports whether a rule has action interactive.
+// HasInteractive reports whether a work entry has action interactive.
 func (s *Set) HasInteractive() bool {
-	return slices.ContainsFunc(s.rules, func(r Rule) bool { return r.Action == ActionInteractive })
+	return slices.ContainsFunc(slices.Collect(maps.Values(s.work)), func(w WorkEntry) bool { return w.Action == ActionInteractive })
 }
 
 // ProjectID is the id Check resolved for a mapped slug.
@@ -1118,26 +758,15 @@ func (s *Set) ProjectID(slug string) string {
 	return ""
 }
 
-// UnknownPermissionModes lists, in order, the modes the rules pass that are not
-// in PermissionModes. The bridge warns about them, and claude has the last word.
+// UnknownPermissionModes lists, in kind order, the modes the work entries pass
+// that are not in PermissionModes. The bridge warns about them, and claude has
+// the last word.
 func (s *Set) UnknownPermissionModes() []string {
 	var out []string
-	for _, r := range s.rules {
-		if r.PermissionMode != "" && !slices.Contains(PermissionModes, r.PermissionMode) && !slices.Contains(out, r.PermissionMode) {
-			out = append(out, r.PermissionMode)
-		}
-	}
-
-	return out
-}
-
-// ExtraTypes names the event types the rules use that the event parser does
-// not know the fields of.
-func (s *Set) ExtraTypes() map[string]bool {
-	out := map[string]bool{}
-	for _, r := range s.rules {
-		if r.On != event.CardMovedType {
-			out[r.On] = true
+	for _, kind := range slices.Sorted(maps.Keys(s.work)) {
+		mode := s.work[kind].PermissionMode
+		if mode != "" && !slices.Contains(PermissionModes, mode) && !slices.Contains(out, mode) {
+			out = append(out, mode)
 		}
 	}
 
@@ -1193,21 +822,6 @@ func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 			continue
 		}
 		slugs[id] = slug
-
-		valid := make([]string, len(pc.Columns))
-		for i, c := range pc.Columns {
-			valid[i] = c.Slug
-		}
-		for _, r := range s.rules {
-			if r.Project != slug || r.On != event.CardMovedType {
-				continue
-			}
-			for _, col := range [][2]string{{"to", r.To}, {"from", r.From}} {
-				if col[1] != "" && !slices.Contains(valid, col[1]) {
-					errs = append(errs, fmt.Errorf("rule %q: %s %q is not a column of project %q; its columns are %s", r.Name, col[0], col[1], slug, strings.Join(valid, ", ")))
-				}
-			}
-		}
 	}
 	if len(errs) > 0 {
 		return errors.Join(errs...)
@@ -1242,17 +856,16 @@ func knownSlugs(ctx context.Context, src ColumnSource) string {
 type Skip int
 
 const (
-	// Run means a rule matched and the event starts a worker.
+	// Run means a work entry matched and the request starts a run.
 	Run Skip = iota
-	// NoRule means no rule matches the event.
+	// NoRule means no work entry runs the request.
 	NoRule
-	// Unmapped means the event belongs to a project the file does not map.
+	// Unmapped means the request belongs to a project the file does not map.
 	Unmapped
-	// Untrusted means the matching rule does not accept a reviewer's event.
-	Untrusted
 )
 
-// Match is the outcome of matching one event.
+// Match is the outcome of matching one work request. Rule names the run as
+// work:<kind>.
 type Match struct {
 	Skip           Skip
 	Rule           string
@@ -1261,181 +874,51 @@ type Match struct {
 	Dir            string
 	PermissionMode string
 	Model          string
-	MaxChain       int
-	MaxResumes     int
 	Prompt         string
-	Resume         bool
 	// Schema is the compact JSON Schema claude's final reply must match.
 	Schema string
 	// Pool is the worker pool the run takes a slot from. It is empty for an
-	// interactive rule.
+	// interactive entry.
 	Pool string
-	// Experiment is the experiment the rule joins, with its variants in file
+	// Experiment is the experiment of the entry, with its variants in file
 	// order, or nil. Model is empty when it is set.
 	Experiment *Experiment
 	// Before is the command that runs ahead of claude, or nil.
 	Before *Before
-	// Command is the command of a command rule, and nil for any other rule.
+	// Command is the command of a command entry, and nil for any other entry.
 	Command *Command
 }
 
-// Match picks the first rule, in file order, that the event triggers.
-//
-// A reviewer's event stops at the first matching rule when that rule does not
-// allow it. A later rule never catches it, so the order of the file stays the
-// whole answer to which rule runs.
-func (s *Set) Match(e event.Event) Match {
+// KillWork marks dead the work of the project that a project.renamed event
+// renames, and returns its slug and the reason. Dead work matches nothing
+// until a reload or a restart reads the file again. Any other event kills
+// nothing and returns two empty strings.
+func (s *Set) KillWork(e event.Event) (string, string) {
 	slug, ok := s.slugs[e.ProjectID]
-	if !ok {
-		return Match{Skip: Unmapped}
+	if !ok || e.Type != event.ProjectRenamedType {
+		return "", ""
+	}
+	if !s.KillProjectWork(slug, api.ReasonProjectRenamed) {
+		return "", ""
 	}
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, r := range s.rules {
-		if !s.triggers(r, slug, e) {
-			continue
-		}
-		if e.Actor == event.ActorReviewer && !r.AllowUntrusted {
-			return Match{Skip: Untrusted, Rule: r.Name, Project: slug}
-		}
-
-		return s.run(r, slug, e)
-	}
-
-	return Match{Skip: NoRule, Project: slug}
+	return slug, api.ReasonProjectRenamed
 }
 
-// RerunGaps names the placeholders in the run of the named rule that a rerun
-// cannot fill. A rerun knows the card and the project, and nothing else of
-// the event that started the first run.
-func (s *Set) RerunGaps(name string) []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	known := values(event.Event{Type: event.CommandType}, "")
-	var gaps []string
-	for _, r := range s.rules {
-		if r.Name != name {
-			continue
-		}
-		for _, arg := range r.Run {
-			for _, p := range directive.Placeholders(arg) {
-				if _, ok := known[p]; !ok && !slices.Contains(gaps, p) {
-					gaps = append(gaps, p)
-				}
-			}
-		}
-	}
-
-	return gaps
-}
-
-// MatchRule matches the event against the named rule alone. It fails when the
-// set has no live rule of that name, or when the rule would not run the event.
-// A reload keeps a queued event this way, under the rule that accepted it. A
-// command event, which a person's resume carries, needs a live rule of the
-// project alone.
-func (s *Set) MatchRule(e event.Event, name string) (Match, bool) {
-	slug, ok := s.slugs[e.ProjectID]
-	if !ok {
-		return Match{}, false
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, r := range s.rules {
-		if r.Name != name {
-			continue
-		}
-		if e.Type == event.CommandType {
-			if r.Project != slug || s.dead[r.Name] != "" {
-				return Match{}, false
-			}
-
-			return s.run(r, slug, e), true
-		}
-		if !s.triggers(r, slug, e) || (e.Actor == event.ActorReviewer && !r.AllowUntrusted) {
-			return Match{}, false
-		}
-
-		return s.run(r, slug, e), true
-	}
-
-	return Match{}, false
-}
-
-// triggers reports whether a live rule names the event, whatever its actor.
-// The caller holds mu.
-func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
-	if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
+// KillProjectWork marks dead the work of a mapped project, and reports
+// whether it lived until now.
+func (s *Set) KillProjectWork(slug, reason string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.deadWork[slug] != "" {
 		return false
 	}
-	if r.Card != nil && r.Card.InteractiveRun != nil && *r.Card.InteractiveRun != e.Card.InteractiveRun {
-		return false
+	if s.deadWork == nil {
+		s.deadWork = map[string]string{}
 	}
-	for field, value := range r.When {
-		if whenValue(e, field) != value {
-			return false
-		}
-	}
-	// A verdict with no stage card has nothing for a card agent to act on.
-	if e.Type == event.ReviewSubmittedType {
-		return e.CardID != "" && (r.Verdict == "" || e.Verdict == r.Verdict)
-	}
-	// Entered, not sits in: a card dragged to a new rank inside one column
-	// submits a move with that column on both sides.
-	return e.Type != event.CardMovedType || (e.ToStatus == r.To && e.FromStatus != e.ToStatus && (r.From == "" || e.FromStatus == r.From))
-}
+	s.deadWork[slug] = reason
 
-// run is the match of a rule that starts a worker for the event.
-func (s *Set) run(r Rule, slug string, e event.Event) Match {
-	render, schema := directive.Render, r.schema
-	switch {
-	case r.Action == ActionInteractive:
-		render, schema = directive.RenderPlain, ""
-	case r.Action == ActionCommand:
-		render, schema = func(string, map[string]string) string { return "" }, ""
-	case r.Resume && e.Type == event.AskClosedType:
-		render = directive.RenderResume
-	}
-	// A fix request with no session has none to resume.
-	resume := r.Resume && (e.Type == event.AskClosedType || e.SessionID != "")
-	pool := ""
-	if r.Action == "" {
-		pool = cmp.Or(r.WorkerPool, DefaultPool)
-	}
-	var experiment *Experiment
-	if r.experiment != nil {
-		experiment = r.experiment.clone()
-	}
-	v := values(e, slug)
-	var before *Before
-	if r.Action == "" && r.Before != nil {
-		before = &Before{Argv: renderArgv(r.Before.Run, v), Timeout: r.beforeTimeout}
-	}
-	var command *Command
-	if r.Action == ActionCommand {
-		command = &Command{Argv: renderArgv(r.Run, v), Timeout: r.commandTimeout}
-	}
-
-	return Match{
-		Skip:           Run,
-		Rule:           r.Name,
-		Action:         r.Action,
-		Project:        slug,
-		Dir:            s.dirs[slug],
-		PermissionMode: r.PermissionMode,
-		Model:          r.Model,
-		MaxChain:       *r.MaxChain,
-		MaxResumes:     *r.MaxResumes,
-		Prompt:         render(r.Prompt, v),
-		Resume:         resume,
-		Schema:         schema,
-		Pool:           pool,
-		Experiment:     experiment,
-		Before:         before,
-		Command:        command,
-	}
+	return true
 }
 
 // renderArgv fills each element of a command on its own, so a value never
@@ -1447,163 +930,4 @@ func renderArgv(run []string, v map[string]string) []string {
 	}
 
 	return out
-}
-
-// Dead names a rule that an event killed.
-type Dead struct {
-	Rule    string
-	Project string
-	Reason  string
-}
-
-// Kill marks dead every live rule that names the slug the event takes away,
-// and returns them in file order. A dead rule matches nothing until a reload
-// or a restart reads the file again, and its check refuses the stale slug.
-func (s *Set) Kill(e event.Event) []Dead {
-	slug, ok := s.slugs[e.ProjectID]
-	if !ok {
-		return nil
-	}
-	var reason, column string
-	switch e.Type {
-	case event.ColumnRenamedType:
-		reason, column = api.ReasonColumnRenamed, e.FromSlug
-	case event.ColumnDeletedType:
-		reason, column = api.ReasonColumnDeleted, e.Slug
-	case event.ProjectRenamedType:
-		reason = api.ReasonProjectRenamed
-	default:
-		return nil
-	}
-
-	return s.kill(slug, column, reason)
-}
-
-// KillProject marks dead every live rule of a mapped project, and returns them
-// in file order.
-func (s *Set) KillProject(slug, reason string) []Dead {
-	return s.kill(slug, "", reason)
-}
-
-// kill marks dead the live rules of a project, or with a column only the rules
-// whose to or from names it.
-func (s *Set) kill(slug, column, reason string) []Dead {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var out []Dead
-	for _, r := range s.rules {
-		if r.Project != slug || s.dead[r.Name] != "" {
-			continue
-		}
-		if column != "" && r.To != column && r.From != column {
-			continue
-		}
-		if s.dead == nil {
-			s.dead = map[string]string{}
-		}
-		s.dead[r.Name] = reason
-		out = append(out, Dead{Rule: r.Name, Project: slug, Reason: reason})
-	}
-
-	return out
-}
-
-// Live reports whether the named rule has not died.
-func (s *Set) Live(rule string) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.dead[rule] == ""
-}
-
-// Health lists every rule of a mapped project with its state, in file order.
-func (s *Set) Health(slug string) []api.RuleHealth {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := []api.RuleHealth{}
-	for _, r := range s.rules {
-		if r.Project != slug {
-			continue
-		}
-		h := api.RuleHealth{Name: r.Name, On: r.On, Columns: []string{}, State: api.RuleLive}
-		for _, col := range []string{r.To, r.From} {
-			if col != "" {
-				h.Columns = append(h.Columns, col)
-			}
-		}
-		if reason := s.dead[r.Name]; reason != "" {
-			h.State, h.Reason = api.RuleDead, &reason
-		}
-		out = append(out, h)
-	}
-
-	return out
-}
-
-// quotedList puts each name in double quotes and separates them with commas.
-// The forge names a check, so the quotes mark it as a value. Parse refuses a
-// name that holds a double quote or a backslash.
-func quotedList(names []string) string {
-	out := make([]string, len(names))
-	for i, n := range names {
-		out[i] = `"` + n + `"`
-	}
-
-	return strings.Join(out, ", ")
-}
-
-// values fills placeholders from fields Parse validated and from the slug the
-// rule file maps. Nothing a person wrote on the board is among them.
-func values(e event.Event, slug string) map[string]string {
-	v := map[string]string{"projectId": e.ProjectID, "project": slug}
-	switch e.Type {
-	case event.CardMovedType:
-		v["cardId"] = e.Subject.ID
-		v["cardNumber"] = strconv.Itoa(e.CardNumber)
-		v["from"] = e.FromStatus
-		v["to"] = e.ToStatus
-	case event.AskClosedType:
-		v["askId"] = e.Subject.ID
-		v["sessionId"] = e.SessionID
-		v["cardNumber"] = UnknownCard
-		if e.CardNumber > 0 {
-			v["cardNumber"] = strconv.Itoa(e.CardNumber)
-		}
-	case event.ReviewSubmittedType:
-		v["cardId"] = e.CardID
-		v["cardNumber"] = strconv.Itoa(e.CardNumber)
-		v["column"] = e.Column
-		v["documentId"] = e.Subject.ID
-		v["verdict"] = e.Verdict
-	case event.CommandType:
-		v["cardId"] = e.Subject.ID
-		v["cardNumber"] = UnknownCard
-		if e.CardNumber > 0 {
-			v["cardNumber"] = strconv.Itoa(e.CardNumber)
-		}
-	}
-	if event.IsPullRequest(e.Type) {
-		v["cardId"] = e.CardID
-		v["cardNumber"] = strconv.Itoa(e.CardNumber)
-		v["forge"] = e.Forge
-		v["repository"] = e.Repository
-		v["pullRequestNumber"] = ""
-		if e.PullRequestNumber > 0 {
-			v["pullRequestNumber"] = strconv.Itoa(e.PullRequestNumber)
-		}
-		v["pullRequestUrl"] = e.PullRequestURL
-		v["headSha"] = e.HeadSHA
-		switch e.Type {
-		case event.ChecksConcludedType:
-			v["conclusion"] = e.Conclusion
-			v["failedChecks"] = quotedList(e.FailedChecks)
-		case event.PullRequestReviewSubmittedType:
-			v["verdict"] = e.Verdict
-		case event.FixRequestedType:
-			v["reason"] = e.Reason
-			v["sessionId"] = e.SessionID
-		}
-	}
-
-	return v
 }

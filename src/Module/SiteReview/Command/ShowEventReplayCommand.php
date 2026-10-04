@@ -10,6 +10,7 @@ final readonly class ShowEventReplayCommand
 {
     public function __construct(
         public User $user,
+        public ?string $bridgeId,
         public int $after,
     ) {
     }

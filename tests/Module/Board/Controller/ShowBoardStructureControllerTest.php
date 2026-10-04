@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Session\ReadOnlyAwareSessionHandler;
@@ -14,7 +13,6 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\RouterInterface;
-use Symfony\Component\Uid\Uuid;
 use Symfony\UX\Turbo\TurboBundle;
 
 final class ShowBoardStructureControllerTest extends WebTestCase
@@ -172,28 +170,6 @@ final class ShowBoardStructureControllerTest extends WebTestCase
         $tags = $template->filter('[data-board-structure-tags] > [data-column-tag]');
         self::assertSame($columns, $tags->each(static fn (Crawler $node): string => (string) $node->attr('data-column-tag')));
         self::assertSame('Next', trim($tags->eq(0)->text()));
-    }
-
-    public function test_the_banner_shows_while_a_rule_is_dead_and_not_otherwise(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-        $owner = $this->user($em, 'structure-banner@example.com');
-        $project = $this->project($em, $owner);
-        $quiet = $this->project($em, $owner, 'quiet-app');
-        $em->persist(new BridgeRuleReport($project, Uuid::v4(), [
-            ['name' => 'plan', 'on' => 'board.card_moved', 'columns' => ['ready'], 'state' => 'dead', 'reason' => 'column_renamed'],
-        ], new \DateTimeImmutable()));
-        $em->flush();
-        $em->clear();
-
-        $client->loginUser($owner);
-        [, $template] = $this->structure($client, $project);
-        self::assertCount(1, $template->filter('[data-testid="bridge-rules-banner"] [data-bridge-rule="plan"]'));
-
-        [, $template] = $this->structure($client, $quiet);
-        self::assertCount(0, $template->filter('[data-testid="bridge-rules-banner"]'));
     }
 
     public function test_a_list_row_names_its_column_tag(): void

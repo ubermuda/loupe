@@ -11,8 +11,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -25,7 +23,6 @@ use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Uid\Uuid;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
@@ -59,7 +56,7 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
         $this->em->flush();
     }
 
-    public function test_changes_requested_names_the_card_in_the_stage_column(): void
+    public function test_a_verdict_writes_the_document_the_verdict_and_every_linked_card(): void
     {
         $document = $this->document(['design', 'decisions']);
         $card = $this->card('tech-design', $document);
@@ -73,71 +70,7 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
             'verdict' => 'changes-requested',
             'cardIds' => [(string) $card->id],
             'actor' => 'human',
-            'cardId' => (string) $card->id,
-            'cardNumber' => $card->number,
-            'column' => 'tech-design',
-            'card' => ['interactiveRun' => false, 'held' => false],
         ], $this->onlyPayload());
-    }
-
-    /** The row is written before an approval moves the card, so it sees the run open. */
-    public function test_the_row_says_the_stage_card_has_an_open_run(): void
-    {
-        $document = $this->document(['design', 'decisions']);
-        $card = $this->card('tech-design', $document);
-        $runs = self::getContainer()->get(InteractiveRuns::class);
-        self::assertInstanceOf(InteractiveRuns::class, $runs);
-        $runs->open($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), $card->number, Uuid::v4(), 'pairing');
-
-        $this->submit($document, Verdict::Approved);
-
-        self::assertSame(['interactiveRun' => true, 'held' => false], $this->onlyPayload()['card']);
-    }
-
-    public function test_the_row_says_the_stage_card_is_held(): void
-    {
-        $document = $this->document(['design', 'decisions']);
-        $card = $this->card('tech-design', $document);
-        $holds = self::getContainer()->get(CardHolds::class);
-        self::assertInstanceOf(CardHolds::class, $holds);
-        $holds->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null);
-
-        $this->submit($document, Verdict::ChangesRequested);
-
-        self::assertSame(['interactiveRun' => false, 'held' => true], $this->onlyPayload()['card']);
-    }
-
-    /** The row names the column the card left, because it is written before the card moves. */
-    public function test_an_approval_names_the_column_the_card_leaves(): void
-    {
-        $document = $this->document(['design', 'decisions']);
-        $card = $this->card('tech-design', $document);
-
-        $this->submit($document, Verdict::Approved);
-
-        $payload = $this->onlyPayload();
-        self::assertSame((string) $card->id, $payload['cardId']);
-        self::assertSame($card->number, $payload['cardNumber']);
-        self::assertSame('tech-design', $payload['column']);
-        self::assertSame('implementation', $card->column->slug);
-    }
-
-    public function test_a_document_with_no_stage_names_no_card(): void
-    {
-        $document = $this->document(['plan']);
-        $card = $this->card('tech-design', $document);
-
-        $this->submit($document, Verdict::ChangesRequested);
-
-        $payload = $this->onlyPayload();
-        self::assertSame([(string) $card->id], $payload['cardIds']);
-        self::assertArrayHasKey('cardId', $payload);
-        self::assertNull($payload['cardId']);
-        self::assertArrayHasKey('cardNumber', $payload);
-        self::assertNull($payload['cardNumber']);
-        self::assertArrayHasKey('column', $payload);
-        self::assertNull($payload['column']);
-        self::assertArrayNotHasKey('card', $payload);
     }
 
     /** @param list<string> $tags */

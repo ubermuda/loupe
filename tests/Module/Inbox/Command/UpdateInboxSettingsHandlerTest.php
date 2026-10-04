@@ -34,7 +34,7 @@ final class UpdateInboxSettingsHandlerTest extends KernelTestCase
 
         $handler = self::getContainer()->get(UpdateInboxSettingsHandler::class);
         self::assertInstanceOf(UpdateInboxSettingsHandler::class, $handler);
-        $handler(new UpdateInboxSettingsCommand($project, documentInReview: true, runBlocked: false, runGaveUp: true, runWaitingForPerson: false, pullRequestReady: false, pullRequestFixStopped: true));
+        $handler(new UpdateInboxSettingsCommand($project, documentInReview: true, runBlocked: false, runGaveUp: true, runWaitingForPerson: false, pullRequestReady: false, pullRequestFixStopped: true, cardPaused: false));
 
         $em->clear();
         $rows = self::getContainer()->get(InboxProjectSettingsRepository::class)->findBy(['project' => (string) $project->id]);
@@ -46,6 +46,7 @@ final class UpdateInboxSettingsHandlerTest extends KernelTestCase
         self::assertFalse($rows[0]->runWaitingForPerson);
         self::assertFalse($rows[0]->pullRequestReady);
         self::assertTrue($rows[0]->pullRequestFixStopped);
+        self::assertFalse($rows[0]->cardPaused);
         self::assertEquals(
             [new ReconcileCardWaits((string) $project->id, null)],
             array_map(static fn ($envelope): object => $envelope->getMessage(), $transport->getSent()),

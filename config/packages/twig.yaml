@@ -24,6 +24,7 @@ twig:
         '%kernel.project_dir%/templates/Module/Project': 'Project'
         '%kernel.project_dir%/templates/Module/Review': 'Review'
         '%kernel.project_dir%/templates/Module/SiteReview': 'SiteReview'
+        '%kernel.project_dir%/templates/Module/Workflow': 'Workflow'
         '%kernel.project_dir%/var/tailwind': 'tailwind'
         '%kernel.project_dir%/assets/styles': 'EmailStyles'
 

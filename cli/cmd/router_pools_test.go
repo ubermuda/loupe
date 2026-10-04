@@ -21,16 +21,10 @@ workerPools:
 projects:
   loupe:
     dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
+work:
+  plan:
     prompt: Card {cardNumber}.
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+  review:
     workerPool: quick
     prompt: Review {cardNumber}.
 `
@@ -44,11 +38,8 @@ workerPools:
 projects:
   loupe:
     dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
+work:
+  plan:
     workerPool: quick
     prompt: Card {cardNumber}.
 `
@@ -125,7 +116,7 @@ func TestAFullPoolQueuesItsEventAndNotTheOthers(t *testing.T) {
 	h.router.onData([]byte(cardMoved(87)))
 
 	wantInUse(t, h, map[string]int{rules.DefaultPool: 1, "quick": 1})
-	if got := h.queued(); !slices.Equal(got, []string{"0091/review"}) {
+	if got := h.queued(); !slices.Equal(got, []string{"0091/work:review"}) {
 		t.Fatalf("queue = %v", got)
 	}
 	quick := lineOf(t, h, "worker_queued", 91)
@@ -148,7 +139,8 @@ func TestAFullPoolQueuesItsEventAndNotTheOthers(t *testing.T) {
 
 	close(h.worker.block)
 	h.router.wg.Wait()
-	if got := startedCards(t, h); !slices.Equal(got, []int{90, 87, 91}) {
+	// Each start waits for its claim, so 87 and 91 can log in either order.
+	if got := startedCards(t, h); len(got) != 3 || got[0] != 90 || !slices.Contains(got, 87) || !slices.Contains(got, 91) {
 		t.Fatalf("started %v", got)
 	}
 	wantInUse(t, h, map[string]int{})
@@ -181,7 +173,7 @@ func TestAReloadThatShrinksAPoolStopsNoWorker(t *testing.T) {
 	h.router.onData([]byte(cardMoved(90)))
 	h.worker.block <- struct{}{}
 	eventually(t, "one run to end", func() bool { return h.used() == 2 })
-	if got := h.queued(); !slices.Equal(got, []string{"0090/plan"}) {
+	if got := h.queued(); !slices.Equal(got, []string{"0090/work:plan"}) {
 		t.Fatalf("queue = %v", got)
 	}
 	h.worker.block <- struct{}{}
@@ -253,10 +245,7 @@ func TestAnInteractiveMatchLaunchesWhileEveryPoolIsFull(t *testing.T) {
 // and its end frees that pool.
 func TestARunThatAReloadMovesFreesThePoolItStartedIn(t *testing.T) {
 	body := quickRules + `
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+  review:
     prompt: Review {cardNumber}.
 `
 	h := newHarnessWith(t, body, rules.Defaults{})
@@ -273,16 +262,10 @@ workerPools:
 projects:
   loupe:
     dir: {dir}
-rules:
-  - name: plan
-    on: board.card_moved
-    project: loupe
-    to: next
+work:
+  plan:
     prompt: Card {cardNumber}.
-  - name: review
-    on: board.card_moved
-    project: loupe
-    to: review
+  review:
     workerPool: quick
     prompt: Review {cardNumber}.
 `
@@ -291,7 +274,7 @@ rules:
 	}
 	h.router.onData([]byte(reviewMoved(88)))
 
-	if got := h.queued(); !slices.Equal(got, []string{"0088/review"}) {
+	if got := h.queued(); !slices.Equal(got, []string{"0088/work:review"}) {
 		t.Fatalf("queue = %v", got)
 	}
 	wantInUse(t, h, map[string]int{"quick": 1})
@@ -316,59 +299,6 @@ func TestADoubleReleaseAddsNoSlot(t *testing.T) {
 	}
 }
 
-// The run that continues a run of the quick pool starts in the pool its rule
-// names after a reload, and each end frees the pool its run started in.
-func TestARunThatContinuesAMovedRuleStartsInItsNewPool(t *testing.T) {
-	quick := "maxWorkers: 2\nworkerPools:\n  quick:\n    size: 1\n"
-	fixRule := "\n  - name: fix\n    on: pull_request.fix_requested\n    project: loupe\n    resume: true\n    prompt: Fix card {cardNumber} for {reason}.\n"
-	for name, tc := range map[string]struct {
-		before, after, payload string
-		first                  workerResult
-	}{
-		"resume of an unfinished run": {
-			before:  quick + strings.Replace(defaultRules, "    to: next\n", "    to: next\n    workerPool: quick\n", 1),
-			after:   quick + defaultRules,
-			payload: cardMoved(87),
-			first:   unfinishedRun,
-		},
-		"new session for a missing one": {
-			before:  quick + defaultRules + strings.Replace(fixRule, "    resume: true\n", "    resume: true\n    workerPool: quick\n", 1),
-			after:   quick + defaultRules + fixRule,
-			payload: fix{card: 87, session: askSession, bridge: testBridgeID}.payload(),
-			first:   workerResult{exitCode: 1, output: missingSession},
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			h := newHarnessWith(t, tc.before, rules.Defaults{})
-			h.worker.results = []workerResult{tc.first}
-			h.worker.result = finishedRun
-			h.worker.started = make(chan workerSpec, 2)
-			h.worker.block = make(chan struct{})
-			h.router.onData([]byte(tc.payload))
-			<-h.worker.started
-			wantInUse(t, h, map[string]int{"quick": 1})
-
-			if res := h.reload(t, tc.after); !res.OK {
-				t.Fatalf("result = %+v", res)
-			}
-			h.worker.block <- struct{}{}
-			<-h.worker.started
-			wantInUse(t, h, map[string]int{rules.DefaultPool: 1})
-
-			close(h.worker.block)
-			h.router.wg.Wait()
-			wantInUse(t, h, map[string]int{})
-			var pools []string
-			for _, line := range h.events(t, "worker_started") {
-				pools = append(pools, str(t, line, "worker_pool"))
-			}
-			if !slices.Equal(pools, []string{"quick", rules.DefaultPool}) {
-				t.Fatalf("worker_started pools = %v", pools)
-			}
-		})
-	}
-}
-
 // A run in a pool that a reload removes counts against the budget until it
 // ends.
 func TestARunInARemovedPoolCountsUntilItEnds(t *testing.T) {
@@ -389,7 +319,7 @@ func TestARunInARemovedPoolCountsUntilItEnds(t *testing.T) {
 	h.router.onData([]byte(cardMoved(89)))
 
 	wantInUse(t, h, map[string]int{rules.DefaultPool: 1, "quick": 1})
-	if got := h.queued(); !slices.Equal(got, []string{"0089/plan"}) {
+	if got := h.queued(); !slices.Equal(got, []string{"0089/work:plan"}) {
 		t.Fatalf("queue = %v", got)
 	}
 	h.worker.block <- struct{}{}
@@ -436,7 +366,7 @@ func sentPools(hb *heartbeater) []api.WorkerPoolReport {
 // The heartbeat names every pool of the set, an empty default pool too, and a
 // pool a reload removed while one of its runs still runs.
 func TestTheRouterReportsEachPoolToTheHeartbeat(t *testing.T) {
-	onlyQuick := "maxWorkers: 1\nworkerPools:\n  quick:\n    size: 1\n" + strings.Replace(defaultRules, "    to: next\n", "    to: next\n    workerPool: quick\n", 1)
+	onlyQuick := "maxWorkers: 1\nworkerPools:\n  quick:\n    size: 1\n" + strings.Replace(defaultRules, "  plan:\n", "  plan:\n    workerPool: quick\n", 1)
 	h := newHarnessWith(t, onlyQuick, rules.Defaults{})
 	hb := newHeartbeater(context.Background(), syncQueue{}, nil, testBridgeID, api.Heartbeat{}, time.Minute, h.router.log)
 	h.router.heartbeat = hb

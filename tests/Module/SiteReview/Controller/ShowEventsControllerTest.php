@@ -6,6 +6,8 @@ namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\BridgeEventType;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Project\Entity\Project;
 use App\Outbox\ActivityChangedPublisher;
@@ -17,6 +19,7 @@ use App\Outbox\OutboxWriter;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
+use App\Tests\Support\EventBridge;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -37,6 +40,9 @@ final class ShowEventsControllerTest extends WebTestCase
     private const string SIGTERM_FLAG = 'bridge.stop_sigterm_after_ms';
 
     private const string SIGKILL_FLAG = 'bridge.stop_sigkill_after_ms';
+
+    /** @var array<string, Bridge> */
+    private array $bridges = [];
 
     public function test_returns_the_callers_own_topic_its_projects_and_a_jwt_for_that_topic_alone(): void
     {
@@ -92,7 +98,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $writer = static::getContainer()->get(OutboxWriter::class);
         self::assertInstanceOf(OutboxWriter::class, $writer);
         foreach ([$first, $second, $foreign] as $project) {
-            $writer->write(AgentCredential::managed($em, $project, $project->id), 'test.event', ['projectId' => (string) $project->id]);
+            $writer->write(AgentCredential::managed($em, $project, $project->id), BridgeEventType::COMMAND, ['projectId' => (string) $project->id]);
         }
         $em->flush();
 
@@ -142,7 +148,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $em = $this->em();
         $user = $this->user($em, 'events-empty@example.com');
         $em->flush();
-        $raw = AgentCredential::agentToken(static::getContainer(), $user);
+        $raw = $this->agentToken($user);
 
         $data = $this->events($client, $raw);
 
@@ -294,6 +300,44 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertSame((int) $highest->sequence, $this->events($client, $raw)['head']);
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function refusedBridges(): iterable
+    {
+        yield 'no header' => ['none'];
+        yield 'not a uuid' => ['garbage'];
+        yield 'no heartbeat yet' => ['unknown'];
+        yield 'another account\'s bridge' => ['foreign'];
+        yield 'no work-requests capability' => ['incapable'];
+        yield 'no capabilities reported' => ['unreported'];
+    }
+
+    #[DataProvider('refusedBridges')]
+    public function test_a_bridge_that_runs_no_work_requests_is_told_to_upgrade(string $case): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        [$raw, $user] = $this->issue($client, 'events-refused@example.com');
+        [, $other] = $this->issue($client, 'events-refused-other@example.com');
+        $server = match ($case) {
+            'none' => ['HTTP_AUTHORIZATION' => 'Bearer '.$raw],
+            'garbage' => EventBridge::server($raw, 'not-a-uuid'),
+            'unknown' => EventBridge::server($raw, '0b0e4a8c-6f3e-4b55-9d0a-1c2d3e4f5a6b'),
+            'foreign' => EventBridge::server($raw, EventBridge::register($em, $other)),
+            'incapable' => EventBridge::server($raw, EventBridge::register($em, $user, [Bridge::CAPABILITY_COMMANDS])),
+            default => EventBridge::server($raw, $this->unreported($em, $user)),
+        };
+
+        $client->request(Request::METHOD_GET, '/api/events', server: $server);
+
+        self::assertResponseStatusCodeSame(426);
+        $body = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($body);
+        self::assertIsString($body['error'] ?? null);
+        self::assertStringContainsString('loupe CLI', $body['error']);
+        self::assertArrayNotHasKey('jwt', $body);
+    }
+
     public function test_push_disabled_hides_the_endpoint(): void
     {
         $client = static::createClient();
@@ -424,13 +468,30 @@ final class ShowEventsControllerTest extends WebTestCase
     /** @return array<string, mixed> */
     private function events(KernelBrowser $client, string $raw): array
     {
-        $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $client->request(Request::METHOD_GET, '/api/events', server: EventBridge::server($raw, $this->bridges[$raw]));
 
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
 
         return $data;
+    }
+
+    private function unreported(EntityManagerInterface $em, User $user): Bridge
+    {
+        $bridge = EventBridge::register($em, $user);
+        $bridge->capabilities = null;
+        $em->flush();
+
+        return $bridge;
+    }
+
+    private function agentToken(User $user): string
+    {
+        $raw = AgentCredential::agentToken(static::getContainer(), $user);
+        $this->bridges[$raw] = EventBridge::register($this->em(), $user);
+
+        return $raw;
     }
 
     /** @param non-empty-string $email */
@@ -460,7 +521,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $raw = AgentCredential::agentToken(static::getContainer(), $user);
+        $raw = $this->agentToken($user);
 
         return [
             $raw,

@@ -192,6 +192,26 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         );
     }
 
+    public function test_deleting_a_project_takes_its_work_requests_and_leaves_another_projects_requests(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'work-requests-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Requests');
+        $kept = $this->project($em, $owner, 'Kept Requests');
+        $this->seedWorkRequest($em, $doomed);
+        $keptRequest = $this->seedWorkRequest($em, $kept);
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(
+            [(string) $keptRequest->id],
+            $em->getConnection()->fetchFirstColumn('SELECT id FROM work_requests'),
+        );
+    }
+
     /**
      * One bridge follows several projects, so deleting one of them leaves the
      * bridge row and its list alone. The next heartbeat drops the id.

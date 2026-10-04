@@ -4,39 +4,25 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
-use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardAvailability;
-use App\Module\Board\Service\StageCard;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Review\ReviewEventType;
 use App\Outbox\OutboxWriter;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * Turns a verdict on a document into a durable outbox row, so the agent bound
- * to the project can act on it. It writes one for every verdict it hears,
- * because the rule that picks the verdicts worth acting on belongs to whatever
- * reads the outbox.
- *
- * It hears an approval and a changes-requested verdict alone. SubmitReviewHandler
- * refuses a withdrawal before its transaction, and UndoVerdictHandler dispatches
- * nothing, so taking a verdict back writes no row and moves no card.
+ * Turns a verdict on a document into a durable outbox row for the activity
+ * feed. It hears an approval and a changes-requested verdict alone, because
+ * SubmitReviewHandler refuses a withdrawal and UndoVerdictHandler dispatches
+ * nothing.
  *
  * It lives in Board rather than Review because the payload names the cards the
- * document hangs off, and no module outside Board may read a card.
- *
- * It runs inside SubmitReviewHandler's transaction, so it persists and lets that
- * transaction flush. It must never throw: anything raised here aborts the
- * verdict it was told about. AdvanceCardOnReviewSubmitted is the listener that
- * may, and it is separate for that reason.
- *
- * It runs before AdvanceCardOnReviewSubmitted, so the row names the column an
- * approved card leaves.
+ * document hangs off, and no module outside Board may read a card. It runs
+ * inside SubmitReviewHandler's transaction, so it persists and lets that
+ * transaction flush.
  */
 #[AsEventListener(priority: 10)]
 final readonly class WriteOutboxEventOnReviewSubmitted
@@ -45,62 +31,26 @@ final readonly class WriteOutboxEventOnReviewSubmitted
         private CardDocumentRepository $cardDocuments,
         private BoardAvailability $board,
         private OutboxWriter $outbox,
-        private StageCard $stageCard,
-        private InteractiveRuns $interactiveRuns,
-        private CardHolds $cardHolds,
     ) {
     }
 
     public function __invoke(ReviewSubmitted $event): void
     {
-        // A board switched off holds no cards to name, and the bridge that
-        // reads this event acts on cards alone.
         if (!$this->board->isEnabled()) {
             return;
         }
 
         $document = $event->review->version->document;
-        $links = $this->cardDocuments->findForDocument($document);
-        $cardIds = array_map(static fn (CardDocument $link): string => (string) $link->card->id, $links);
-        $stageCard = $this->stageCard->forDocument($document, $links);
+        $cardIds = array_map(static fn (CardDocument $link): string => (string) $link->card->id, $this->cardDocuments->findForDocument($document));
 
-        // Every key and every value is a contract with the reader of the
-        // outbox, so a rename here is a breaking change there. Identifiers and
-        // the verdict only: the note a reviewer typed must never reach an agent
-        // through a directive.
-        $payload = [
+        // Identifiers and the verdict only: the note a reviewer typed must never reach an agent.
+        $this->outbox->write($document->project, ReviewEventType::REVIEW_SUBMITTED, [
             'type' => ReviewEventType::REVIEW_SUBMITTED,
             'subject' => ['type' => 'document', 'id' => (string) $document->id],
             'projectId' => (string) $document->project->id,
             'verdict' => $event->review->verdict->value,
             'cardIds' => array_values($cardIds),
             'actor' => CardReporter::Human->value,
-            'cardId' => null === $stageCard ? null : (string) $stageCard->id,
-            'cardNumber' => $stageCard?->number,
-            'column' => $stageCard?->column->slug,
-        ];
-        if (null !== $stageCard) {
-            $payload['card'] = ['interactiveRun' => $this->hasOpenRun($stageCard), 'held' => $this->isHeld($stageCard)];
-        }
-
-        $this->outbox->write($document->project, ReviewEventType::REVIEW_SUBMITTED, $payload);
-    }
-
-    private function hasOpenRun(Card $card): bool
-    {
-        try {
-            return $this->interactiveRuns->hasOpenRun($card->project, $card->id ?? throw new \LogicException('A stage card has an id.'));
-        } catch (\Throwable) {
-            return false;
-        }
-    }
-
-    private function isHeld(Card $card): bool
-    {
-        try {
-            return $this->cardHolds->isHeld($card->project, $card->id ?? throw new \LogicException('A stage card has an id.'));
-        } catch (\Throwable) {
-            return false;
-        }
+        ]);
     }
 }

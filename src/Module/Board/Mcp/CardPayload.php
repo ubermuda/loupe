@@ -27,13 +27,13 @@ use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
  *
  * @phpstan-type PullRequestStateSummary array{state: string, draft: bool, checks: string, failedChecks: list<string>, mergeability: string, review: string, readyToMerge: bool, refreshedAt: string}
  * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int, state: ?PullRequestStateSummary}
- * @phpstan-type CardAutomationSummary array{fixRounds: int, blockedReason: ?string, lastAction: ?string, lastActionAt: ?string}
+ * @phpstan-type CardAutomationSummary array{lastAction: ?string, lastActionAt: ?string}
  * @phpstan-type FeedbackAnchorSummary array{selector: string, text: string, quote: ?string, quotePrefix: ?string, quoteSuffix: ?string}
  * @phpstan-type FeedbackSummary array{id: string, url: string, anchors: list<FeedbackAnchorSummary>, body: string, hasDrawing: bool, status: string, context: ?string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardRelatedCardSummary array{cardId: string, number: int, title: string, status: string, kind: string}
  * @phpstan-type CardRefSummary array{cardId: string, number: int, title: string, status: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, automation: ?CardAutomationSummary, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}, heldBy?: list<CardRefSummary>}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, automation: ?CardAutomationSummary, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}}
  * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, status: string, reporter: string, parentCardId: ?string, updatedAt: string}
  */
 final readonly class CardPayload
@@ -48,17 +48,13 @@ final readonly class CardPayload
 
     /**
      * One card whose links, related cards and children the caller already
-     * holds, from {@see \App\Module\Board\Command\ShowCardHandler}. Only
-     * this shape carries heldBy, which costs queries a list would pay per card.
+     * holds, from {@see \App\Module\Board\Command\ShowCardHandler}.
      *
      * @return CardSummary
      */
     public function forCard(CardView $view): array
     {
-        return [
-            ...$this->render($view->card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates),
-            'heldBy' => array_map(self::reference(...), $view->heldBy),
-        ];
+        return $this->render($view->card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates);
     }
 
     /**
@@ -163,8 +159,6 @@ final readonly class CardPayload
                 array_values($card->pullRequests->toArray()),
             ),
             'automation' => null === $automation ? null : [
-                'fixRounds' => $automation->fixRounds,
-                'blockedReason' => $automation->blockedReason,
                 'lastAction' => $automation->lastAction?->value,
                 'lastActionAt' => $automation->lastActionAt?->format(\DATE_ATOM),
             ],

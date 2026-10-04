@@ -72,6 +72,40 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** The newest run of the card of any kind, an interactive run too. */
+    public function findLatestOfCard(Project $project, Uuid $cardId): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.cardId = :cardId')
+            ->setParameter('project', $project)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The newest worker run of a claude session that the bridge ran, which a resume of the session continues. */
+    public function findLatestOfSessionOnBridge(Project $project, Uuid $bridgeId, Uuid $sessionId): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.bridgeId = :bridgeId')
+            ->andWhere('r.kind = :worker')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('worker', WorkerRunKind::Worker->value)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * The worker processes of a claude session in the project, in the order
      * they started, locked until the transaction ends. A run that never started
@@ -647,8 +681,8 @@ class WorkerRunRepository extends ServiceEntityRepository
             $qb->andWhere('r.cardNumber = :cardNumber')->setParameter('cardNumber', $query->cardNumber);
         }
 
-        if (null !== $query->rule) {
-            $qb->andWhere('r.ruleName = :rule')->setParameter('rule', $query->rule);
+        if (null !== $query->workKind) {
+            $qb->andWhere('r.workKind = :workKind')->setParameter('workKind', $query->workKind);
         }
 
         // A timed-out, lost or replaced run moves state with no end, so its first report stands in.
@@ -727,7 +761,7 @@ class WorkerRunRepository extends ServiceEntityRepository
      * the outcome. A resume jumps the queue, and two bridge clocks can disagree,
      * so neither the queue time nor the bridge end time orders outcomes.
      *
-     * @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}>
+     * @return list<array{id: string, card_id: string, state: string, output: string}>
      */
     public function findWarningRowsOfProject(Project $project): array
     {
@@ -737,7 +771,7 @@ class WorkerRunRepository extends ServiceEntityRepository
     /**
      * The warning of one card, by the rule of {@see findWarningRowsOfProject()}.
      *
-     * @return array{id: string, card_id: string, state: string, output: string, card_column: ?string}|null
+     * @return array{id: string, card_id: string, state: string, output: string}|null
      */
     public function findWarningRowOfCard(Project $project, Uuid $cardId): ?array
     {
@@ -750,7 +784,7 @@ class WorkerRunRepository extends ServiceEntityRepository
      *
      * @param list<Uuid>|null $cardIds
      *
-     * @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}>
+     * @return list<array{id: string, card_id: string, state: string, output: string}>
      */
     public function findLatestRunRows(Project $project, ?array $cardIds): array
     {
@@ -767,10 +801,10 @@ class WorkerRunRepository extends ServiceEntityRepository
             $types['cards'] = ArrayParameterType::STRING;
         }
 
-        /** @var list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> $rows */
+        /** @var list<array{id: string, card_id: string, state: string, output: string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->executeQuery(
             <<<SQL
-                SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output, r.card_column
+                SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output
                 FROM bridge_worker_runs r
                 WHERE r.project_id = :project {$cardFilter}
                 ORDER BY r.card_id, r.received_at DESC, r.id DESC
@@ -782,7 +816,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         return $rows;
     }
 
-    /** @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> */
+    /** @return list<array{id: string, card_id: string, state: string, output: string}> */
     private function findWarningRows(Project $project, ?Uuid $cardId): array
     {
         $outcomes = array_values(array_map(
@@ -805,12 +839,12 @@ class WorkerRunRepository extends ServiceEntityRepository
 
         // A late report can record an outcome the run does not hold, so the
         // close is the latest change to the run's own state.
-        /** @var list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> $rows */
+        /** @var list<array{id: string, card_id: string, state: string, output: string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->executeQuery(
             <<<SQL
-                SELECT latest.id, latest.card_id, latest.state, latest.output, latest.card_column
+                SELECT latest.id, latest.card_id, latest.state, latest.output
                 FROM (
-                    SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output, r.card_column
+                    SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output
                     FROM bridge_worker_runs r
                     LEFT JOIN LATERAL (
                         SELECT s.received_at, s.sequence
@@ -895,7 +929,7 @@ class WorkerRunRepository extends ServiceEntityRepository
             ],
         ];
         if (null !== $rule) {
-            $sql .= ' AND rule_name = :rule';
+            $sql .= ' AND work_kind = :rule';
             $parameters['rule'] = $rule;
         }
 

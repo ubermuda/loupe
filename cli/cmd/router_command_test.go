@@ -24,9 +24,7 @@ import (
 
 // commandRules names the command type in a rule, which the rule file allows.
 const commandRules = defaultRules + `
-  - name: command
-    on: bridge.command
-    project: loupe
+  command:
     prompt: Act on the command.
 `
 
@@ -36,7 +34,7 @@ const testCommandID = "0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f90"
 func testCommand(id, kind, bridgeID string, expires time.Time) api.Command {
 	return api.Command{
 		Type: event.CommandType, ProjectID: testProject, Subject: api.CommandSubject{Type: "bridge-command", ID: id}, CommandID: id,
-		Kind: kind, BridgeID: bridgeID, CardID: cardUUID(87), CardNumber: 87, RuleName: "plan", CardColumn: "next", ExpiresAt: expires,
+		Kind: kind, BridgeID: bridgeID, CardID: cardUUID(87), CardNumber: 87, WorkKind: "plan", ExpiresAt: expires,
 	}
 }
 
@@ -107,8 +105,8 @@ func dropReasons(t *testing.T, h *harness) []string {
 // refusedNoRun is the answer to a stop of a run the bridge does not hold.
 const refusedNoRun = "refused " + noOpenRun
 
-// A command is never an event a rule acts on, even when a rule names its type.
-// Another bridge's command is dropped in silence.
+// A command starts no run, even when a kind of work has its name. Another
+// bridge's command is dropped in silence.
 func TestACommandMatchesNoRule(t *testing.T) {
 	for name, bridgeID := range map[string]string{"this bridge": testBridgeID, "another bridge": foreignBridge} {
 		t.Run(name, func(t *testing.T) {
@@ -270,7 +268,7 @@ func TestAnAckGoesOutThroughTheQueue(t *testing.T) {
 		t.Fatalf("acks = %v, queued = %d", acks.recorded(), len(queue.reports))
 	}
 	report := queue.reports[0]
-	if report.Card != 87 || report.Rule != "plan" {
+	if report.Card != 87 || report.Rule != rules.WorkRulePrefix+"plan" {
 		t.Fatalf("report names card %d and rule %q", report.Card, report.Rule)
 	}
 	for _, tc := range []struct {

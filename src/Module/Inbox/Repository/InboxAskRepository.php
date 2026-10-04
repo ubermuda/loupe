@@ -38,6 +38,29 @@ class InboxAskRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** When the newest ask of the session on the bridge closed after the time, counting only an ask that held a blocking item. */
+    public function findLatestBlockingCloseOfSessionAfter(Uuid $projectId, Uuid $sessionId, Uuid $bridgeId, \DateTimeImmutable $after): ?\DateTimeImmutable
+    {
+        /** @var list<array{closedAt: \DateTimeImmutable}> $rows */
+        $rows = $this->createQueryBuilder('a')
+            ->select('a.closedAt')
+            ->andWhere('a.project = :projectId')
+            ->andWhere('a.sessionId = :sessionId')
+            ->andWhere('a.bridgeId = :bridgeId')
+            ->andWhere('a.closedAt > :after')
+            ->andWhere(\sprintf('EXISTS (SELECT 1 FROM %s l JOIN l.item i WHERE l.ask = a AND i.blocking = true)', InboxAskItem::class))
+            ->setParameter('projectId', $projectId, UuidType::NAME)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('after', $after, Types::DATETIME_IMMUTABLE)
+            ->orderBy('a.closedAt', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getArrayResult();
+
+        return $rows[0]['closedAt'] ?? null;
+    }
+
     /** The ask with its item memberships, or null when the project holds no such ask. */
     public function findOneByIdAndProject(Uuid $id, Project $project): ?InboxAsk
     {

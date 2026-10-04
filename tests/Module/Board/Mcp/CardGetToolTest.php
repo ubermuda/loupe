@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
-use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
@@ -15,9 +14,6 @@ use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
-use App\Module\Review\Command\CreateDocumentCommand;
-use App\Module\Review\Command\CreateDocumentHandler;
-use App\Module\Review\Entity\DocumentStatus;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Tests\Support\McpTokenScenario;
@@ -100,7 +96,6 @@ final class CardGetToolTest extends KernelTestCase
         $row->refreshedAt = new \DateTimeImmutable('2026-09-27T11:00:00+00:00');
         $card = $this->em->find(Card::class, $created['cardId']) ?? throw new \LogicException('The card exists.');
         $automation = new CardAutomation($card);
-        $automation->fixRounds = 1;
         $automation->lastAction = CardAutomationAction::FixRequested;
         $this->em->persist($automation);
         $this->em->flush();
@@ -115,7 +110,7 @@ final class CardGetToolTest extends KernelTestCase
         self::assertSame('conflicting', $state['mergeability']);
         self::assertSame('2026-09-27T11:00:00+00:00', $state['refreshedAt']);
         self::assertNull($read['pullRequests'][1]['state']);
-        self::assertSame(['fixRounds' => 1, 'blockedReason' => null, 'lastAction' => 'fix-requested', 'lastActionAt' => null], $read['automation']);
+        self::assertSame(['lastAction' => 'fix-requested', 'lastActionAt' => null], $read['automation']);
     }
 
     public function test_an_approval_of_an_older_head_reads_outdated(): void
@@ -164,32 +159,6 @@ final class CardGetToolTest extends KernelTestCase
             [['cardId' => $blocked['cardId'], 'number' => 2, 'title' => 'Blocked', 'status' => 'backlog', 'kind' => 'blocks']],
             ($this->tool)($blocker['cardId'])['relatedCards'],
         );
-    }
-
-    public function test_an_approved_card_names_the_open_blockers_that_hold_it(): void
-    {
-        $this->enableBoard();
-        $project = $this->makeProject('card-get-held');
-        $this->em->persist(new BoardColumn(project: $project, label: 'Product design', slug: 'product-design', position: 4));
-        $this->em->flush();
-        $this->actAsMcpTokenBoundTo($project);
-        $documentHandler = self::getContainer()->get(CreateDocumentHandler::class);
-        self::assertInstanceOf(CreateDocumentHandler::class, $documentHandler);
-        $document = $documentHandler(new CreateDocumentCommand($project, 'A product', '# A product', tagNames: ['product']));
-        $document->status = DocumentStatus::Approved;
-        $this->em->flush();
-        $finished = ($this->createTool)('Finished', 'Body', 'feature', status: 'done');
-        $open = ($this->createTool)('Open', 'Body', 'feature');
-        $held = ($this->createTool)('Held', 'Body', 'feature', status: 'product-design', documentIds: [(string) $document->id], relatedCards: [
-            ['cardId' => $finished['cardId'], 'kind' => 'blocked-by'],
-            ['cardId' => $open['cardId'], 'kind' => 'blocked-by'],
-        ]);
-
-        self::assertSame(
-            [['cardId' => $open['cardId'], 'number' => 2, 'title' => 'Open', 'status' => 'backlog']],
-            ($this->tool)($held['cardId'])['heldBy'] ?? null,
-        );
-        self::assertSame([], ($this->tool)($open['cardId'])['heldBy'] ?? null);
     }
 
     public function test_a_card_in_another_project_is_not_reachable(): void

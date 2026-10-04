@@ -7,6 +7,7 @@ namespace App\Module\Board\Form;
 use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -52,7 +53,8 @@ final class MoveCardFormType extends AbstractType
             // A drop inside a lane fills these instead of the rank.
             ->add('parent', HiddenType::class, ['required' => false])
             ->add('beforeCardId', HiddenType::class, ['required' => false])
-            ->add('afterCardId', HiddenType::class, ['required' => false]);
+            ->add('afterCardId', HiddenType::class, ['required' => false])
+            ->add('unmanage', CheckboxType::class, ['required' => false, 'label' => false]);
     }
 
     #[\Override]

@@ -40,10 +40,6 @@ final class ReportWorkerRunRequest
         #[Assert\Range(min: 1, max: self::MAX_CARD_NUMBER)]
         public ?int $cardNumber = null,
 
-        #[Assert\Length(max: WorkerRun::MAX_RULE_NAME_LENGTH, normalizer: 'trim')]
-        #[Assert\NotBlank(normalizer: 'trim')]
-        public ?string $ruleName = null,
-
         #[Assert\NotNull]
         public ?\DateTimeImmutable $startedAt = null,
 
@@ -135,12 +131,6 @@ final class ReportWorkerRunRequest
     public function cardId(): Uuid
     {
         return Uuid::fromString($this->cardId ?? throw new \LogicException('cardId is required after validation.'));
-    }
-
-    /** Trimmed, because the length constraint measured the trimmed value. */
-    public function ruleName(): string
-    {
-        return trim($this->ruleName ?? '');
     }
 
     public function failureReason(): ?string

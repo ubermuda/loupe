@@ -4,7 +4,7 @@ description: "The Experiments tab of the Activity page, which compares the varia
 ---
 
 An [experiment](../extending/cli-bridge.md#experiments) splits the cards of a
-worker rule between models. The **Experiments** tab of the project's
+kind of work between models. The **Experiments** tab of the project's
 **Activity** page shows how each variant did.
 
 Open **Activity** in the project sidebar, then the **Experiments** tab.
@@ -15,9 +15,9 @@ The list shows one row for each experiment that a run or a pin names. A row
 shows the name, the number of cards and the time of the last run. The latest
 run comes first. Select a name to open the comparison of that experiment.
 
-A project with no experiment shows how to start one. Declare the experiment and
-its variants in `rules.yaml`, and make a worker rule join it with
-`experiment:`.
+A project with no experiment shows how to start one. Give a worker entry of the
+`work:` map in `rules.yaml` its variants. The kind of the entry names the
+experiment.
 
 ## The comparison
 
@@ -56,8 +56,8 @@ started and reported no usage, because the sum of the others is too low. It stil
 with a usage row for a model that has no price has an unknown cost, so it
 stays out of the cost sample and the variant total.
 
-A card counts as merged only when a rule moved it because its pull request
-merged. A card that a person moved to a terminal column is finished, but it
+A card counts as merged only when the workflow moved it because its pull
+request merged. A card that a person moved to a terminal column is finished, but it
 is not merged.
 
 ## The likely range

@@ -45,6 +45,7 @@ final readonly class UpdateInboxSettingsHandler
             $settings->runWaitingForPerson = $command->runWaitingForPerson;
             $settings->pullRequestReady = $command->pullRequestReady;
             $settings->pullRequestFixStopped = $command->pullRequestFixStopped;
+            $settings->cardPaused = $command->cardPaused;
             $this->em->flush();
 
             // The Doctrine transport commits the message with this transaction.
@@ -62,6 +63,7 @@ final readonly class UpdateInboxSettingsHandler
                 'runWaitingForPerson' => $command->runWaitingForPerson,
                 'pullRequestReady' => $command->pullRequestReady,
                 'pullRequestFixStopped' => $command->pullRequestFixStopped,
+                'cardPaused' => $command->cardPaused,
             ],
             new AuditSubject('project', $projectId),
         );

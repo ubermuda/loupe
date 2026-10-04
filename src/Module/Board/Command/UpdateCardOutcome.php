@@ -27,6 +27,8 @@ final readonly class UpdateCardOutcome
         /** A title or body change that survives the form's own normalisation. */
         public bool $contentChanged,
         public ?WorkerRun $openedRun,
+        /** Whether the update held the card, which is announced after the commit. */
+        public bool $held,
     ) {
     }
 }

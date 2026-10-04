@@ -6,12 +6,16 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Service\BridgeUpgradeRequired;
 use App\Module\Bridge\Service\CliCompatibility;
+use App\Module\Bridge\Service\EventStreamGate;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\ShowEventsCommand;
 use App\Module\SiteReview\Command\ShowEventsHandler;
 use App\Outbox\AgentPush;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
@@ -41,14 +45,18 @@ final class ShowEventsController extends AppController
     ) {
     }
 
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('Events endpoint reached without an authenticated User.');
         }
 
-        $view = ($this->showEvents)(new ShowEventsCommand($user));
+        try {
+            $view = ($this->showEvents)(new ShowEventsCommand($user, $request->headers->get(EventStreamGate::HEADER)));
+        } catch (BridgeUpgradeRequired $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_UPGRADE_REQUIRED);
+        }
 
         return $this->json([
             'hubUrl' => $view->hubUrl,

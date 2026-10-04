@@ -20,6 +20,13 @@ const (
 	CommandRerunCommand = "rerun-command"
 )
 
+// The causes of a command. A resume after an ask close says that the owner
+// answered, and a person's resume says that a person fixed the cause.
+const (
+	CausePerson    = "person"
+	CauseAskClosed = "ask-closed"
+)
+
 // The states a bridge answers a command with.
 const (
 	CommandDone    = "done"
@@ -28,23 +35,25 @@ const (
 
 // Command asks this bridge to stop or resume one run, or to run the command
 // of a failed command run again. It arrives as a bridge.command event and
-// again in each heartbeat reply, with the same keys. A null runKey, sessionId
-// or cardColumn decodes as "". ResumeIndex is nil for a run that reported none.
+// again in each heartbeat reply, with the same keys. A null runKey, sessionId,
+// workRequestId, workKind or ruleId decodes as "". A run of a rules: entry
+// names no work request.
 type Command struct {
-	Type        string         `json:"type"`
-	ProjectID   string         `json:"projectId"`
-	Subject     CommandSubject `json:"subject"`
-	CommandID   string         `json:"commandId"`
-	Kind        string         `json:"kind"`
-	BridgeID    string         `json:"bridgeId"`
-	RunKey      string         `json:"runKey"`
-	SessionID   string         `json:"sessionId"`
-	CardID      string         `json:"cardId"`
-	CardNumber  int            `json:"cardNumber"`
-	RuleName    string         `json:"ruleName"`
-	CardColumn  string         `json:"cardColumn"`
-	ResumeIndex *int           `json:"resumeIndex"`
-	ExpiresAt   time.Time      `json:"expiresAt"`
+	Type          string         `json:"type"`
+	ProjectID     string         `json:"projectId"`
+	Subject       CommandSubject `json:"subject"`
+	CommandID     string         `json:"commandId"`
+	Kind          string         `json:"kind"`
+	BridgeID      string         `json:"bridgeId"`
+	RunKey        string         `json:"runKey"`
+	SessionID     string         `json:"sessionId"`
+	CardID        string         `json:"cardId"`
+	CardNumber    int            `json:"cardNumber"`
+	WorkRequestID string         `json:"workRequestId"`
+	WorkKind      string         `json:"workKind"`
+	RuleID        string         `json:"ruleId"`
+	ExpiresAt     time.Time      `json:"expiresAt"`
+	Cause         string         `json:"cause,omitempty"`
 }
 
 // CommandSubject names the command itself.
@@ -107,8 +116,8 @@ func (c *Client) AckCommand(ctx context.Context, bridgeID, commandID, state, rea
 }
 
 // decodeCommands decodes each command alone and drops one it cannot decode.
-// A field of the wrong type would otherwise leave a zero value, such as a nil
-// ResumeIndex, which means something else.
+// A field of the wrong type would otherwise leave a zero value, which means
+// something else.
 func decodeCommands(raw []json.RawMessage) []Command {
 	var out []Command
 	for _, item := range raw {

@@ -29,10 +29,10 @@ final class ShowWorkerRunCostControllerTest extends WebTestCase
         $second = $this->finishedCard($em, $project, 8, 'Second card', '-2 days');
         $this->finishedCard($em, $project, 9, 'No usage', '-1 day');
         $open = $this->finishedCard($em, $project, 10, 'Still open', null);
-        $this->seedUsage($em, $this->seedRun($em, $project, ruleName: 'plan', cardId: $first->id), costUsd: '1.250000');
-        $this->seedRun($em, $project, ruleName: 'plan', cardId: $first->id);
-        $this->seedUsage($em, $this->seedRun($em, $project, ruleName: 'build', cardId: $second->id), source: WorkerRunUsageSource::Estimated, costUsd: '0.750000');
-        $this->seedUsage($em, $this->seedRun($em, $project, ruleName: 'build', cardId: $open->id), costUsd: '5.000000');
+        $this->seedUsage($em, $this->seedRun($em, $project, workKind: 'plan', cardId: $first->id), costUsd: '1.250000');
+        $this->seedRun($em, $project, workKind: 'plan', cardId: $first->id);
+        $this->seedUsage($em, $this->seedRun($em, $project, workKind: 'build', cardId: $second->id), source: WorkerRunUsageSource::Estimated, costUsd: '0.750000');
+        $this->seedUsage($em, $this->seedRun($em, $project, workKind: 'build', cardId: $open->id), costUsd: '5.000000');
         $projectId = (string) $project->id;
         $firstDay = $this->day($first);
         $secondDay = $this->day($second);
@@ -101,7 +101,7 @@ final class ShowWorkerRunCostControllerTest extends WebTestCase
         $owner = $this->user($em, 'cost-group@example.com');
         $project = $this->boardProject($em, $owner);
         $card = $this->finishedCard($em, $project, 1, 'Monthly card', '-2 days');
-        $this->seedUsage($em, $this->seedRun($em, $project, ruleName: 'plan', cardId: $card->id), costUsd: '1.000000');
+        $this->seedUsage($em, $this->seedRun($em, $project, workKind: 'plan', cardId: $card->id), costUsd: '1.000000');
         $projectId = (string) $project->id;
         $em->clear();
 
@@ -122,8 +122,8 @@ final class ShowWorkerRunCostControllerTest extends WebTestCase
         $owner = $this->user($em, 'cost-filter@example.com');
         $project = $this->boardProject($em, $owner);
         $card = $this->finishedCard($em, $project, 1, 'Split card', '-3 days');
-        $this->seedUsage($em, $this->seedRun($em, $project, ruleName: 'plan', cardId: $card->id), costUsd: '1.000000');
-        $this->seedUsage($em, $this->seedRun($em, $project, ruleName: 'build', cardId: $card->id), costUsd: '3.000000');
+        $this->seedUsage($em, $this->seedRun($em, $project, workKind: 'plan', cardId: $card->id), costUsd: '1.000000');
+        $this->seedUsage($em, $this->seedRun($em, $project, workKind: 'build', cardId: $card->id), costUsd: '3.000000');
         $projectId = (string) $project->id;
         $em->clear();
 

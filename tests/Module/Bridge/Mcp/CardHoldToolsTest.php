@@ -76,7 +76,7 @@ final class CardHoldToolsTest extends KernelTestCase
             'cardId' => (string) $cardId,
             'outcome' => 'refused',
             'code' => 'already-paused',
-            'message' => 'Agents are already paused on this card.',
+            'message' => 'This card is already unmanaged.',
         ], $result);
         self::assertSame([], $this->outboxPayloads('board.card_held'));
     }
@@ -129,7 +129,7 @@ final class CardHoldToolsTest extends KernelTestCase
             'cardId' => (string) $cardId,
             'outcome' => 'refused',
             'code' => 'not-paused',
-            'message' => 'Agents are not paused on this card.',
+            'message' => 'This card is already managed.',
         ], $this->release()((string) $cardId));
     }
 

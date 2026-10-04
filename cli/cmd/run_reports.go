@@ -41,7 +41,7 @@ func newRunReports(client runReportClient, log *slog.Logger) *runReports {
 func (s *runReports) state(handle, runID string, report api.RunStateReport) outbound.Report {
 	return outbound.Report{
 		Card: report.CardNumber,
-		Rule: report.RuleName,
+		Rule: report.Rule,
 		Send: func(ctx context.Context) (bool, error) {
 			if !s.unsupported.Load() {
 				created, err := s.client.ReportRunState(ctx, handle, runID, report)
@@ -85,7 +85,7 @@ func (s *runReports) inventory(bridgeID string, runs []api.InventoryRun) outboun
 func (s *runReports) launch(handle, sessionID string, report api.InteractiveLaunchReport) outbound.Report {
 	return outbound.Report{
 		Card: report.CardNumber,
-		Rule: report.RuleName,
+		Rule: report.WorkKind,
 		Send: func(ctx context.Context) (bool, error) {
 			if s.launchUnsupported.Load() {
 				return true, nil
@@ -111,7 +111,7 @@ func (s *runReports) post(ctx context.Context, handle string, report api.RunStat
 	if report.SessionID == "" || report.StartedAt.IsZero() {
 		s.log.Warn("report_skipped",
 			"card", report.CardNumber,
-			"rule", report.RuleName,
+			"rule", report.Rule,
 			"message", "Loupe takes only the old report, which needs a session, and this run never started one",
 		)
 
@@ -123,7 +123,7 @@ func (s *runReports) post(ctx context.Context, handle string, report api.RunStat
 		SessionID:     report.SessionID,
 		CardID:        report.CardID,
 		CardNumber:    report.CardNumber,
-		RuleName:      report.RuleName,
+		RuleName:      report.Rule,
 		StartedAt:     report.StartedAt,
 		EndedAt:       report.EndedAt,
 		ExitCode:      report.ExitCode,

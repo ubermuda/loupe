@@ -54,10 +54,12 @@ final class ReportInteractiveLaunchController extends AppController
             bridgeId: $payload->bridgeId(),
             cardId: $payload->cardId(),
             cardNumber: $payload->cardNumber ?? throw new \LogicException('cardNumber is required after validation.'),
-            ruleName: $payload->ruleName(),
+            workKind: $payload->workKind(),
             state: $payload->state(),
             at: $payload->at(),
             failureReason: $payload->failureReason(),
+            workRequestId: $payload->workRequestId(),
+            ruleId: $payload->ruleId,
         ));
 
         if (null === $result->run) {

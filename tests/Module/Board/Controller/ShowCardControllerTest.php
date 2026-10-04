@@ -5,13 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
-use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
-use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardLink;
-use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -20,9 +16,6 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
-use App\Module\Review\Entity\Document;
-use App\Module\Review\Entity\DocumentStatus;
-use App\Module\Review\Entity\Tag;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -128,19 +121,17 @@ final class ShowCardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-automation]'));
     }
 
-    public function test_the_card_page_shows_the_last_automation_action_and_its_block(): void
+    public function test_the_card_page_shows_the_last_automation_action(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
-        $owner = $this->user($em, 'card-automation-blocked@example.com');
+        $owner = $this->user($em, 'card-automation-synced@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Stuck in a loop');
         $card->replacePullRequests($this->link($card, 7));
         $automation = new CardAutomation($card);
-        $automation->fixRounds = 3;
-        $automation->blockedReason = 'checks-failed';
-        $automation->lastAction = CardAutomationAction::Stopped;
+        $automation->lastAction = CardAutomationAction::Synced;
         $automation->lastActionAt = new \DateTimeImmutable('-2 hours');
         $em->persist($automation);
         $em->flush();
@@ -152,79 +143,11 @@ final class ShowCardControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $line = $crawler->filter('[data-card-automation]');
         self::assertCount(1, $line);
-        self::assertStringContainsString('The automation stopped.', $line->text());
+        self::assertStringContainsString('The automation updated the pull request branch with its base.', $line->text());
         self::assertStringContainsString('2h ago', $line->filter('time')->text());
-        $blocked = $crawler->filter('[data-card-automation-blocked]');
-        self::assertCount(1, $blocked);
-        self::assertStringContainsString('the checks fail', $blocked->text());
-        self::assertStringContainsString('when a person moves the card, when the checks pass, or when a reviewer approves or requests changes', $blocked->text());
     }
 
-    public function test_an_approved_card_names_the_open_blockers_that_hold_it(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-        $owner = $this->user($em, 'card-held@example.com');
-        $project = $this->project($em, $owner);
-        $em->persist(new BoardColumn(project: $project, label: 'Product design', slug: 'product-design', position: 4));
-        $em->flush();
-        $finished = $this->card($em, $project, 'Finished', 'done');
-        $first = $this->card($em, $project, 'First blocker');
-        $second = $this->card($em, $project, 'Second blocker', 'in-progress');
-        $held = $this->card($em, $project, 'Waiting', 'product-design');
-        $document = new Document($owner, $project, 'A product');
-        $tag = new Tag($project, 'product');
-        $document->tags->add($tag);
-        $document->status = DocumentStatus::Approved;
-        $em->persist($tag);
-        $em->persist($document);
-        $em->persist(new CardDocument($held, $document));
-        foreach ([$finished, $second, $first] as $blocker) {
-            $em->persist(new CardLink($blocker, $held, CardLinkKind::Blocks));
-        }
-        $em->flush();
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$held->id);
-
-        self::assertResponseIsSuccessful();
-        $note = $crawler->filter('[data-card-held]');
-        self::assertCount(1, $note);
-        self::assertStringContainsString('Approved, and waits for its blockers:', $note->text());
-        $links = $note->filter('[data-card-held-blocker]');
-        self::assertSame(['#'.$first->number, '#'.$second->number], $links->each(static fn (Crawler $link): string => $link->text()));
-        self::assertSame('/projects/'.$project->id.'/board/cards/'.$first->id, $links->first()->attr('href'));
-
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$first->id);
-        self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('[data-card-held]'));
-    }
-
-    public function test_a_finished_card_shows_no_block(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-        $owner = $this->user($em, 'card-automation-finished@example.com');
-        $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Merged by the agent', 'done');
-        $automation = new CardAutomation($card);
-        $automation->blockedReason = 'checks-failed';
-        $automation->lastAction = CardAutomationAction::Stopped;
-        $em->persist($automation);
-        $em->flush();
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
-
-        self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('[data-card-automation-blocked]'));
-    }
-
-    public function test_a_stop_whose_block_was_cleared_shows_no_line(): void
+    public function test_a_stop_shows_no_line(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -246,7 +169,7 @@ final class ShowCardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-automation]'));
     }
 
-    public function test_the_card_page_shows_a_fix_round_with_no_block(): void
+    public function test_the_card_page_shows_a_fix_round(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -256,7 +179,6 @@ final class ShowCardControllerTest extends WebTestCase
         $card = $this->card($em, $project, 'Fix requested');
         $card->replacePullRequests($this->link($card, 7));
         $automation = new CardAutomation($card);
-        $automation->fixRounds = 2;
         $automation->lastAction = CardAutomationAction::FixRequested;
         $em->persist($automation);
         $em->flush();
@@ -268,7 +190,6 @@ final class ShowCardControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('The automation asked for a fix.', $crawler->filter('[data-card-automation]')->text());
         self::assertCount(0, $crawler->filter('[data-card-automation] time'));
-        self::assertCount(0, $crawler->filter('[data-card-automation-blocked]'));
     }
 
     public function test_the_card_page_shows_the_sync_status_of_each_open_pull_request(): void

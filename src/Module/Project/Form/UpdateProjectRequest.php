@@ -7,8 +7,8 @@ namespace App\Module\Project\Form;
 use App\Module\Project\Entity\Project;
 
 /**
- * Identical fields and constraints to {@see CreateProjectRequest}; the only addition is
- * the factory that pre-fills the edit form from the existing project.
+ * The fields and constraints of {@see CreateProjectRequest}, plus the factory that
+ * pre-fills the edit form. The edit form leaves out the workflow template.
  */
 class UpdateProjectRequest extends CreateProjectRequest
 {

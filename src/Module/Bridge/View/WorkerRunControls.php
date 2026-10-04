@@ -10,7 +10,6 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeLiveness;
-use App\Module\Bridge\Service\CardColumnLookupInterface;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -27,7 +26,6 @@ final readonly class WorkerRunControls
         private BridgeCommandRepository $bridgeCommands,
         private BridgeRepository $bridges,
         private BridgeLiveness $liveness,
-        private CardColumnLookupInterface $cardColumns,
     ) {
     }
 
@@ -58,11 +56,10 @@ final readonly class WorkerRunControls
         $statuses = $this->liveness->forOwner($owner, array_values($bridgeIds));
         $latest = $this->bridgeCommands->findLatestForRuns($controllable);
 
-        $columns = [];
         $controls = [];
         foreach ($controllable as $run) {
             $bridgeKey = ($run->bridgeId ?? throw new \LogicException('A controllable run has a bridge.'))->toRfc4122();
-            $control = $this->controlOf($project, $run, $latest[(string) $run->id] ?? null, $bridges[$bridgeKey] ?? null, $statuses[$bridgeKey]->quiet ?? true, $columns);
+            $control = $this->controlOf($run, $latest[(string) $run->id] ?? null, $bridges[$bridgeKey] ?? null, $statuses[$bridgeKey]->quiet ?? true);
             if (null !== $control) {
                 $controls[(string) $run->id] = $control;
             }
@@ -71,8 +68,7 @@ final readonly class WorkerRunControls
         return $controls;
     }
 
-    /** @param array<string, ?string> $columns the column of each card looked up so far, keyed by the RFC 4122 card id */
-    private function controlOf(Project $project, WorkerRun $run, ?BridgeCommand $latest, ?Bridge $bridge, bool $quiet, array &$columns): ?WorkerRunControl
+    private function controlOf(WorkerRun $run, ?BridgeCommand $latest, ?Bridge $bridge, bool $quiet): ?WorkerRunControl
     {
         if (BridgeCommandState::Pending === $latest?->state) {
             $label = match ($latest->kind) {
@@ -98,17 +94,7 @@ final readonly class WorkerRunControls
 
         $disabledReason = null;
         $disabledParameters = [];
-        if (WorkerRunAction::Resume === $action && null !== $run->cardColumn) {
-            $cardKey = $run->cardId->toRfc4122();
-            if (!\array_key_exists($cardKey, $columns)) {
-                $columns[$cardKey] = $this->cardColumns->columnOf($project, $run->cardId);
-            }
-            if ($columns[$cardKey] !== $run->cardColumn) {
-                $disabledReason = 'bridge.worker_runs.control.card_left';
-                $disabledParameters = ['%column%' => $run->cardColumn];
-            }
-        }
-        if (null === $disabledReason && null !== $action && null !== $bridge && !$bridge->takesCommands()) {
+        if (null !== $action && null !== $bridge && !$bridge->takesCommands()) {
             $disabledReason = 'bridge.worker_runs.control.bridge_outdated';
             $disabledParameters = ['%version%' => self::COMMANDS_SINCE_VERSION];
         }

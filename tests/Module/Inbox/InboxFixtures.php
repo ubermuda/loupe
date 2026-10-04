@@ -15,6 +15,10 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Repository\TagRepository;
+use App\Module\Workflow\Entity\WorkflowBinding;
+use App\Module\Workflow\Entity\WorkflowSlotLink;
+use App\Module\Workflow\Repository\WorkflowBindingRepository;
+use App\Module\Workflow\Template\ShippedTemplates;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -29,6 +33,9 @@ trait InboxFixtures
 
     /** @var array<string, Tag> project id and name => tag */
     private array $stageTags = [];
+
+    /** @var array<string, true> project id, or project id and slug => bound */
+    private array $stageLinks = [];
 
     /** Stores the flag and drops the reader's copy, which lasts for the whole test otherwise. */
     private function switchFlag(EntityManagerInterface $em, string $name, bool $enabled): void
@@ -121,7 +128,10 @@ trait InboxFixtures
         }
     }
 
-    /** The project's column with that slug, created open when the seeded board lacks it. */
+    /**
+     * The project's column with that slug, created open when the seeded board lacks it.
+     * The project gets the Lifecycle template, and the column the slot of its slug.
+     */
     private function stageColumn(EntityManagerInterface $em, Project $project, string $slug): BoardColumn
     {
         $repository = self::getContainer()->get(BoardColumnRepository::class);
@@ -132,6 +142,20 @@ trait InboxFixtures
         if (null === $column) {
             $column = new BoardColumn(project: $project, label: $slug, slug: $slug, position: 10);
             $em->persist($column);
+        }
+
+        $bindings = self::getContainer()->get(WorkflowBindingRepository::class);
+        self::assertInstanceOf(WorkflowBindingRepository::class, $bindings);
+        $projectId = $project->id ?? throw new \LogicException('The project has no id.');
+        if (!isset($this->stageLinks[(string) $projectId]) && null === $bindings->findOneByProjectId($projectId)) {
+            $shipped = self::getContainer()->get(ShippedTemplates::class);
+            self::assertInstanceOf(ShippedTemplates::class, $shipped);
+            $em->persist(new WorkflowBinding($project, 'lifecycle', 1, $shipped->source('lifecycle')));
+        }
+        $this->stageLinks[(string) $projectId] = true;
+        if (!isset($this->stageLinks[$key])) {
+            $em->persist(new WorkflowSlotLink($project, $slug, $column));
+            $this->stageLinks[$key] = true;
         }
 
         return $this->seededColumns[$key] = $column;

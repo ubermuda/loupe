@@ -48,12 +48,6 @@ final readonly class WorkerRunListItem
             : max(0, $end->getTimestamp() - $run->startedAt->getTimestamp());
     }
 
-    /** The first run of a series has index 0, and a run from an older bridge has none. */
-    public function isResume(): bool
-    {
-        return null !== $this->run->resumeIndex && $this->run->resumeIndex > 0 && null !== $this->run->resumeCap;
-    }
-
     /**
      * The extra result fields, each value as text. A value that is not a string reads as JSON.
      *

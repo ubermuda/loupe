@@ -22,7 +22,7 @@ final class WorkerRunUsageExporterTest extends KernelTestCase
         $exporting = $this->user($em, 'usage-export-mine@example.com');
         $project = $this->project($em, $exporting, 'Usage Export');
         $runKey = Uuid::v4();
-        $linked = $this->seedRun($em, $project, ruleName: 'review', runKey: $runKey);
+        $linked = $this->seedRun($em, $project, workKind: 'review', runKey: $runKey);
         $this->seedUsage($em, $linked);
         $swept = $this->seedRun($em, $project, cardNumber: 2);
         $this->seedUsage($em, $swept, 'claude-haiku');
@@ -37,7 +37,7 @@ final class WorkerRunUsageExporterTest extends KernelTestCase
         self::assertSame([
             'project' => 'Usage Export',
             'cardId' => (string) $swept->cardId,
-            'ruleName' => 'plan',
+            'workKind' => 'plan',
             'runKey' => null,
             'model' => 'claude-haiku',
             'source' => 'reported',
@@ -48,7 +48,7 @@ final class WorkerRunUsageExporterTest extends KernelTestCase
             'costUsd' => '0.012345',
         ], $rows[0]);
         self::assertSame('claude-opus-5-5', $rows[1]['model']);
-        self::assertSame('review', $rows[1]['ruleName']);
+        self::assertSame('review', $rows[1]['workKind']);
         self::assertSame($runKey->toRfc4122(), $rows[1]['runKey']);
     }
 

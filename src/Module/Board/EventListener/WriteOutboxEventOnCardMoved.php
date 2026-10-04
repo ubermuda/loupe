@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Board\EventListener;
 
 use App\Module\Board\BoardEventType;
-use App\Module\Board\Entity\Card;
 use App\Module\Board\Event\CardMoved;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\Service\InteractiveRuns;
 use App\Outbox\OutboxWriter;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * Turns a card move into a durable outbox row, so the agent bound to the
- * project can act on it. Every move writes one, because the rule that picks the
- * moves worth acting on belongs to whatever reads the outbox.
+ * Turns a card move into a durable outbox row for the activity feed.
  *
  * It runs inside UpdateCardHandler's transaction, so it persists and lets that
  * transaction flush. It must never throw: anything raised here aborts the card
@@ -26,8 +21,6 @@ final readonly class WriteOutboxEventOnCardMoved
 {
     public function __construct(
         private OutboxWriter $outbox,
-        private InteractiveRuns $interactiveRuns,
-        private CardHolds $cardHolds,
     ) {
     }
 
@@ -48,25 +41,6 @@ final readonly class WriteOutboxEventOnCardMoved
             'fromStatus' => $event->move->fromColumn->slug,
             'toStatus' => $card->column->slug,
             'actor' => $event->actor->value,
-            'card' => ['interactiveRun' => $this->hasOpenRun($card), 'held' => $this->isHeld($card)],
         ]);
-    }
-
-    private function hasOpenRun(Card $card): bool
-    {
-        try {
-            return $this->interactiveRuns->hasOpenRun($card->project, $card->id ?? throw new \LogicException('A moved card has an id.'));
-        } catch (\Throwable) {
-            return false;
-        }
-    }
-
-    private function isHeld(Card $card): bool
-    {
-        try {
-            return $this->cardHolds->isHeld($card->project, $card->id ?? throw new \LogicException('A moved card has an id.'));
-        } catch (\Throwable) {
-            return false;
-        }
     }
 }

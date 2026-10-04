@@ -74,26 +74,13 @@
                         </table>
                     </div>
                     {% else %}<h2 class="lp-card-panel__title">{{ 'board.card.linked_work.title'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
-                    {% if heldBy|length > 0 %}
-                    <p class="lp-card-automation" role="status" data-card-held>
-                        <twig:ux:icon name="lucide:lock" class="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>{{ 'board.card.held_by'|trans }} {% for blocker in heldBy %}<a href="{{ path('app_board_card', {projectId: blocker.project.id, cardId: blocker.id}) }}" data-card-held-blocker>#{{ blocker.number }}</a>{{ loop.last ? '' : ', ' }}{% endfor %}</span>
-                    </p>
-                    {% endif %}
                     {% set automation = pullRequestStates.automationOf(card) %}
-                    {% if automation and automation.lastAction and (automation.lastAction.value != 'stopped' or automation.blockedReason) %}
+                    {% if automation and automation.lastAction and automation.lastAction.value != 'stopped' %}
                     <p class="lp-card-automation" data-card-automation>
                         <twig:ux:icon name="lucide:bot" class="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>{{ {'fix-requested': 'board.card.automation.fix_requested', stopped: 'board.card.automation.stopped', 'ready-to-merge': 'board.card.automation.ready_to_merge', synced: 'board.card.automation.synced'}[automation.lastAction.value]|trans }}</span>
+                        <span>{{ {'fix-requested': 'board.card.automation.fix_requested', 'ready-to-merge': 'board.card.automation.ready_to_merge', synced: 'board.card.automation.synced'}[automation.lastAction.value]|trans }}</span>
                         {% if automation.lastActionAt %}<time datetime="{{ automation.lastActionAt|date('c') }}">{{ automation.lastActionAt|relative_time }}</time>{% endif %}
                     </p>
-                    {% if automation.blockedReason and not card.column.terminal %}
-                    {% set reasonKey = {conflict: 'board.card.automation.reason.conflict', 'checks-failed': 'board.card.automation.reason.checks_failed', 'changes-requested': 'board.card.automation.reason.changes_requested'}[automation.blockedReason] ?? null %}
-                    <p class="lp-card-automation lp-card-automation--blocked" role="status" data-card-automation-blocked>
-                        <twig:ux:icon name="lucide:triangle-alert" class="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>{{ 'board.card.automation.blocked'|trans({'%reason%': reasonKey ? reasonKey|trans : automation.blockedReason}) }}</span>
-                    </p>
-                    {% endif %}
                     {% endif %}
                 </section>
                 {% if card.parent %}
@@ -145,6 +132,7 @@
                     </div>
                 </section>
                 {% endif %}
+                {{ workflow_card_panel(card) }}
                 {% include '@Bridge/_card_worker_runs.html.twig' with {project: card.project, cardId: card.id ~ ''} only %}
             </div>
         </section>

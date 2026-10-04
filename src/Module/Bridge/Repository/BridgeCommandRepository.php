@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -91,6 +92,22 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->andWhere('c.state = :pending')
             ->setParameter('run', $run)
             ->setParameter('pending', BridgeCommandState::Pending->value)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** Whether anyone asked to resume the run at or after the time. */
+    public function hasResumeOfRunSince(WorkerRun $run, \DateTimeImmutable $since): bool
+    {
+        return null !== $this->createQueryBuilder('c')
+            ->select('1')
+            ->andWhere('c.workerRun = :run')
+            ->andWhere('c.kind = :resume')
+            ->andWhere('c.requestedAt >= :since')
+            ->setParameter('run', $run)
+            ->setParameter('resume', BridgeCommandKind::ResumeRun->value)
+            ->setParameter('since', $since, Types::DATETIME_IMMUTABLE)
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();

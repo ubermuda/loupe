@@ -75,7 +75,7 @@ final class WorkerRunTest extends TestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 7,
-            ruleName: 'plan',
+            workKind: 'plan',
             state: WorkerRunState::Queued,
             runKey: Uuid::v7(),
         );

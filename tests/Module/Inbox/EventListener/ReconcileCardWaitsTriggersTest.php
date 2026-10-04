@@ -6,6 +6,7 @@ namespace App\Tests\Module\Inbox\EventListener;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
@@ -38,6 +39,7 @@ use App\Module\Review\Command\SubmitReviewCommand;
 use App\Module\Review\Command\SubmitReviewHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Event\DocumentStatusChanged;
+use App\Module\Workflow\Event\CardPaused;
 use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -82,6 +84,13 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
 
             self::assertSame([[(string) $this->projectId(), [(string) $this->card->id]]], $this->sent(), $change);
         }
+    }
+
+    public function test_a_workflow_pause_asks_for_its_card(): void
+    {
+        $this->dispatch(new CardPaused($this->projectId(), $this->cardId($this->card), 'owner-review', CardPauseKind::Rule));
+
+        self::assertSame([[(string) $this->projectId(), [(string) $this->card->id]]], $this->sent());
     }
 
     public function test_a_terminal_change_asks_for_the_cards_of_the_column(): void

@@ -6,8 +6,10 @@ namespace App\Tests\Module\Project\Controller;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
@@ -83,6 +85,72 @@ final class ProjectsPageTest extends WebTestCase
         self::assertCount(1, $projects);
         self::assertResponseRedirects('/projects/'.$projects[0]->id);
         self::assertSame(SearchLanguage::English, $projects[0]->searchLanguage);
+    }
+
+    public function test_the_form_offers_each_workflow_template_with_its_description(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->user($em, 'projects-workflow-templates@example.com');
+        $em->flush();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/projects');
+
+        self::assertResponseIsSuccessful();
+        $radios = $crawler->filter('input[type="radio"][name="create_project_form[workflowTemplate]"]');
+        self::assertSame(['lifecycle', 'simple'], $radios->each(static fn ($radio): string => (string) $radio->attr('value')));
+        self::assertSame('simple', $crawler->filter('input[name="create_project_form[workflowTemplate]"][checked]')->attr('value'));
+        $field = $crawler->filter('[data-workflow-template-field]');
+        self::assertStringContainsString('Lifecycle', $field->text());
+        self::assertStringContainsString('Simple', $field->text());
+        self::assertStringContainsString('Product design, tech design, implementation and review', $crawler->filter('[data-workflow-template-description="lifecycle"]')->text());
+        self::assertStringContainsString('A merged pull request finishes the card', $crawler->filter('[data-workflow-template-description="simple"]')->text());
+    }
+
+    public function test_picking_lifecycle_seeds_the_lifecycle_columns(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->user($em, 'projects-workflow-lifecycle@example.com');
+        $em->flush();
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/projects');
+        $client->submitForm('Add project', [
+            'create_project_form[name]' => 'lifecycle-project',
+            'create_project_form[workflowTemplate]' => 'lifecycle',
+        ]);
+
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($user);
+        self::assertCount(1, $projects);
+        self::assertResponseRedirects('/projects/'.$projects[0]->id);
+        self::assertSame(
+            ['backlog', 'next', 'product-design', 'tech-design', 'implementation', 'in-review', 'done'],
+            array_map(
+                static fn (BoardColumn $column): string => $column->slug,
+                static::getContainer()->get(BoardColumnRepository::class)->findForProject($projects[0]),
+            ),
+        );
+    }
+
+    public function test_a_submit_without_the_workflow_field_is_refused(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->user($em, 'projects-workflow-omitted@example.com');
+        $em->flush();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/projects');
+        $form = $crawler->selectButton('Add project')->form(['create_project_form[name]' => 'no-radio']);
+        $form->remove('create_project_form[workflowTemplate]');
+        $crawler = $client->submit($form);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertNotSame('', trim($crawler->filter('[data-workflow-template-field] .lp-field-errors')->text()));
+        self::assertSame([], static::getContainer()->get(ProjectRepository::class)->findByOwner($user));
     }
 
     public function test_paginates_at_twenty_per_page(): void

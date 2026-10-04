@@ -63,7 +63,7 @@ Finish a card by moving it to a terminal column, which is `done` on a board with
 
 Worktrees live in `.worktrees/`, which is gitignored. Every worktree is a full application of its own. Run `just worktree-up` and it gets its own URL at `https://<name>.loupe.dev.localhost`, its own migrated and seeded database, and its own compiled CSS. Log in with `dev@loupe.test` and `password`, or `admin@loupe.test` and `password` for the admin area.
 
-A bridge worker starts in its card worktree, `.worktrees/card-<number>`, which the bridge `before` rule makes. The rule below covers the main session only.
+A bridge worker starts in its card worktree, `.worktrees/card-<number>`, which the `before` command of its bridge work entry makes. The rule below covers the main session only.
 
 **The main session never moves into a worktree.** If you are the session running in the main checkout, do not bind the session to a worktree and do not change its persistent working directory to `.worktrees/`. Only a session created to work in one enters it. Three things bite, all of them silently:
 
@@ -163,7 +163,7 @@ An existing file keeps its old prose until a rewrite touches it. The `compressin
 
 ## Recommendations and the quality bar
 
-The owner ranks the priorities `correctness > simplicity > performance > shipping speed`. `docs/contributing/architectural-priorities.md` says which one yields in each of the six collisions, and when to escalate rather than apply the ranking. Read it before you call a trade-off. The records in `docs/adr/` apply that ranking to recurring questions. Read them before you design a new stage, a bridge rule or an automation.
+The owner ranks the priorities `correctness > simplicity > performance > shipping speed`. `docs/contributing/architectural-priorities.md` says which one yields in each of the six collisions, and when to escalate rather than apply the ranking. Read it before you call a trade-off. The records in `docs/adr/` apply that ranking to recurring questions. Read them before you design a new stage, a workflow rule or an automation.
 
 ### The owner sets the bar, not the agent
 

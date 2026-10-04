@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/hooks"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
@@ -52,7 +51,6 @@ func TestTheBridgeIsBusyFromTheFirstCardToTheLast(t *testing.T) {
 	h.router.onData([]byte(cardMoved(87)))
 	<-h.worker.started
 	h.router.onData([]byte(cardMoved(88)))
-	h.router.onData([]byte(cardMoved(88)))
 	wantFired(t, hr, hookBusy)
 
 	close(h.worker.block)
@@ -63,42 +61,12 @@ func TestTheBridgeIsBusyFromTheFirstCardToTheLast(t *testing.T) {
 	wantFired(t, hr, hookBusy, hookIdle, hookBusy, hookIdle)
 }
 
-// An ask check holds its card, so the bridge is busy while it runs. A skipped
-// resume leaves the bridge idle.
-func TestAnAskCheckKeepsTheBridgeBusy(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	hr := h.withHookRunner()
-	c := &checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: true}}
-	h.router.checkAsk = c.check
-
-	h.send(h.mine(ask{card: 87}))
-
-	if calls := h.worker.recorded(); len(calls) != 0 {
-		t.Fatalf("workers = %+v", calls)
-	}
-	wantFired(t, hr, hookBusy, hookIdle)
-}
-
-// A capped card holds nothing, so it does not make the bridge busy.
-func TestAChainCappedCardLeavesTheBridgeIdle(t *testing.T) {
-	h := newHarnessWith(t, chainRules, rules.Defaults{})
-	hr := h.withHookRunner()
-
-	h.send(movedPayload(87, "backlog", "next", "human"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-
-	h.only(t, "chain_capped")
-	wantFired(t, hr, hookBusy, hookIdle, hookBusy, hookIdle, hookBusy, hookIdle)
-}
-
 // A kill and a reload that drop a waiting card keep the bridge busy while a
 // worker runs, and it turns idle when the worker ends.
 func TestADroppedQueueTurnsIdleWithItsLastWorker(t *testing.T) {
 	for name, drop := range map[string]func(h *harness){
 		"kill":   func(h *harness) { h.router.onData([]byte(projectRenamed())) },
-		"reload": func(h *harness) { h.reload(t, strings.Replace(defaultRules, "name: plan", "name: build", 1)) },
+		"reload": func(h *harness) { h.reload(t, strings.Replace(defaultRules, "  plan:", "  build:", 1)) },
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})

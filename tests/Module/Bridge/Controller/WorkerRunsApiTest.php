@@ -42,7 +42,6 @@ final class WorkerRunsApiTest extends WebTestCase
             'sessionId' => $sessionId,
             'cardId' => $cardId,
             'cardNumber' => 42,
-            'ruleName' => 'plan',
             'startedAt' => '2026-09-13T10:00:00+00:00',
             'endedAt' => '2026-09-13T10:00:21+00:00',
             'exitCode' => 0,
@@ -61,7 +60,7 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertSame($sessionId, (string) $run->sessionId);
         self::assertSame($cardId, (string) $run->cardId);
         self::assertSame(42, $run->cardNumber);
-        self::assertSame('plan', $run->ruleName);
+        self::assertNull($run->workKind);
         self::assertSame(0, $run->exitCode);
         self::assertNull($run->failureReason);
         self::assertSame("reading card 42\nwrote a plan", $run->output);
@@ -252,7 +251,7 @@ final class WorkerRunsApiTest extends WebTestCase
      * The vector is written by Postgres and nothing else reads it yet, so the
      * assertion goes through a query the page will later run.
      */
-    public function test_the_search_vector_covers_the_card_number_the_rule_name_and_the_output(): void
+    public function test_the_search_vector_covers_the_card_number_and_the_output(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -262,7 +261,6 @@ final class WorkerRunsApiTest extends WebTestCase
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
             'cardNumber' => 137,
-            'ruleName' => 'brainstorm',
             'output' => 'migration applied cleanly',
         ]));
 
@@ -275,7 +273,7 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertInstanceOf(WorkerRun::class, $reloaded);
         self::assertNotNull($reloaded->searchVector);
 
-        foreach (['137', 'brainstorm', 'migration', 'cleanly'] as $term) {
+        foreach (['137', 'migration', 'cleanly'] as $term) {
             self::assertTrue($this->vectorMatches((string) $run->id, $term), $term);
         }
         self::assertFalse($this->vectorMatches((string) $run->id, 'nothinglikethis'));
@@ -414,8 +412,6 @@ final class WorkerRunsApiTest extends WebTestCase
         yield 'a card id that is not a uuid' => [['cardId' => 'not-a-uuid']];
         yield 'a card number of zero' => [['cardNumber' => 0]];
         yield 'a card number past a 32-bit integer' => [['cardNumber' => ReportWorkerRunRequest::MAX_CARD_NUMBER + 1]];
-        yield 'a blank rule name' => [['ruleName' => '   ']];
-        yield 'a rule name past the column' => [['ruleName' => str_repeat('r', 101)]];
         yield 'a malformed start date' => [['startedAt' => 'yesterday afternoon']];
         yield 'a missing end date' => [['endedAt' => null]];
         yield 'an end before the start' => [['endedAt' => '2026-09-13T09:59:59+00:00']];
@@ -629,7 +625,6 @@ final class WorkerRunsApiTest extends WebTestCase
             'sessionId' => (string) Uuid::v4(),
             'cardId' => (string) Uuid::v7(),
             'cardNumber' => 1,
-            'ruleName' => 'plan',
             'startedAt' => '2026-09-13T10:00:00+00:00',
             'endedAt' => '2026-09-13T10:00:21+00:00',
             'exitCode' => 0,

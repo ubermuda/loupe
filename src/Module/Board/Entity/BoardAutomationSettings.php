@@ -59,6 +59,22 @@ class BoardAutomationSettings
         #[ORM\Column(options: ['default' => false])]
         public bool $syncBehind = false,
 
+        /** Merges a pull request when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $mergePullRequests = false,
+
+        /** Changes the base of a pull request when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $changeBase = false,
+
+        /** Switches the draft state of an epic pull request when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $epicDraftSwitch = false,
+
+        /** Closes the pull requests of an epic when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $closeEpicPullRequests = false,
+
         /** How many days back a terminal column of the board reads. The history page shows the rest. */
         #[ORM\Column(options: ['default' => 3])]
         public int $terminalWindowDays = 3,

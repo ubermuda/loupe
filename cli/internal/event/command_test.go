@@ -2,7 +2,6 @@ package event
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -14,7 +13,7 @@ const commandPayload = `{"type":"bridge.command","projectId":"0192F3A1-4B2C-7D3E
 	`"subject":{"type":"bridge-command","id":"0199A0E2-0000-7C5E-9F2A-3B1C6D7E8F90"},"commandId":"0199A0E2-0000-7C5E-9F2A-3B1C6D7E8F90",` +
 	`"kind":"stop-run","bridgeId":"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A","runKey":"0199A0E2-1111-7C5E-9F2A-3B1C6D7E8F90",` +
 	`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90","cardId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7","cardNumber":42,` +
-	`"ruleName":"plan","cardColumn":"implementation","resumeIndex":1,"expiresAt":"2026-09-29T10:15:00+00:00"}`
+	`"workRequestId":"0199A0E2-3333-7C5E-9F2A-3B1C6D7E8F90","workKind":"plan","ruleId":"plan-on-entry","expiresAt":"2026-09-29T10:15:00+00:00"}`
 
 func TestParseCommand(t *testing.T) {
 	c, err := ParseCommand([]byte(commandPayload))
@@ -22,41 +21,43 @@ func TestParseCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := api.Command{
-		Type:        CommandType,
-		ProjectID:   "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",
-		Subject:     api.CommandSubject{Type: "bridge-command", ID: "0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f90"},
-		CommandID:   "0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f90",
-		Kind:        api.CommandStopRun,
-		BridgeID:    "7d1e2f3a-4b5c-4d6e-9f0a-1b2c3d4e5f6a",
-		RunKey:      "0199a0e2-1111-7c5e-9f2a-3b1c6d7e8f90",
-		SessionID:   "0199a0e2-2222-7c5e-9f2a-3b1c6d7e8f90",
-		CardID:      "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7",
-		CardNumber:  42,
-		RuleName:    "plan",
-		CardColumn:  "implementation",
-		ResumeIndex: c.ResumeIndex,
-		ExpiresAt:   c.ExpiresAt,
+		Type:          CommandType,
+		ProjectID:     "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",
+		Subject:       api.CommandSubject{Type: "bridge-command", ID: "0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f90"},
+		CommandID:     "0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f90",
+		Kind:          api.CommandStopRun,
+		BridgeID:      "7d1e2f3a-4b5c-4d6e-9f0a-1b2c3d4e5f6a",
+		RunKey:        "0199a0e2-1111-7c5e-9f2a-3b1c6d7e8f90",
+		SessionID:     "0199a0e2-2222-7c5e-9f2a-3b1c6d7e8f90",
+		CardID:        "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7",
+		CardNumber:    42,
+		WorkRequestID: "0199a0e2-3333-7c5e-9f2a-3b1c6d7e8f90",
+		WorkKind:      "plan",
+		RuleID:        "plan-on-entry",
+		ExpiresAt:     c.ExpiresAt,
+		Cause:         api.CausePerson,
 	}
-	if c != want || c.ResumeIndex == nil || *c.ResumeIndex != 1 || !c.ExpiresAt.Equal(time.Date(2026, 9, 29, 10, 15, 0, 0, time.UTC)) {
+	if c != want || !c.ExpiresAt.Equal(time.Date(2026, 9, 29, 10, 15, 0, 0, time.UTC)) {
 		t.Fatalf("command = %+v", c)
 	}
 }
 
-// A first run has no resume index, and a run with no session has no run key
-// or session yet.
+// A run of a rules: entry names no work request, and a run with no session
+// has no run key or session yet.
 func TestParseCommandTakesTheNullFields(t *testing.T) {
 	payload := strings.NewReplacer(
 		`"runKey":"0199A0E2-1111-7C5E-9F2A-3B1C6D7E8F90"`, `"runKey":null`,
 		`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90"`, `"sessionId":null`,
-		`"cardColumn":"implementation"`, `"cardColumn":null`,
-		`"resumeIndex":1`, `"resumeIndex":null`,
+		`"workRequestId":"0199A0E2-3333-7C5E-9F2A-3B1C6D7E8F90"`, `"workRequestId":null`,
+		`"workKind":"plan"`, `"workKind":null`,
+		`"ruleId":"plan-on-entry"`, `"ruleId":null`,
 		`"kind":"stop-run"`, `"kind":"resume-run"`,
 	).Replace(commandPayload)
 	c, err := ParseCommand([]byte(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.RunKey != "" || c.SessionID != "" || c.CardColumn != "" || c.ResumeIndex != nil || c.Kind != api.CommandResumeRun {
+	if c.RunKey != "" || c.SessionID != "" || c.WorkRequestID != "" || c.WorkKind != "" || c.RuleID != "" || c.Kind != api.CommandResumeRun {
 		t.Fatalf("command = %+v", c)
 	}
 }
@@ -77,6 +78,24 @@ func TestParseCommandTakesARerun(t *testing.T) {
 	}
 }
 
+// The close of an ask names its cause, so the bridge words the resume for it.
+// A server older than the cause sends none, and only a person asked then.
+func TestParseCommandReadsTheCause(t *testing.T) {
+	for payload, want := range map[string]string{
+		commandPayload: api.CausePerson,
+		strings.Replace(commandPayload, `"kind":"stop-run"`, `"kind":"resume-run","cause":"ask-closed"`, 1): api.CauseAskClosed,
+		strings.Replace(commandPayload, `"kind":"stop-run"`, `"kind":"resume-run","cause":"person"`, 1):     api.CausePerson,
+	} {
+		c, err := ParseCommand([]byte(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.Cause != want {
+			t.Fatalf("cause = %q, want %q", c.Cause, want)
+		}
+	}
+}
+
 func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 	for name, pair := range map[string][2]string{
 		"another type":       {`"type":"bridge.command"`, `"type":"board.card_moved"`},
@@ -90,11 +109,9 @@ func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 		"sessionId":          {`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90"`, `"sessionId":"s"`},
 		"cardId":             {`"cardId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7"`, `"cardId":null`},
 		"cardNumber":         {`"cardNumber":42`, `"cardNumber":0`},
-		"ruleName":           {`"ruleName":"plan"`, `"ruleName":""`},
-		"cardColumn":         {`"cardColumn":"implementation"`, `"cardColumn":"Not A Slug"`},
-		"negative index":     {`"resumeIndex":1`, `"resumeIndex":-1`},
-		"index too large":    {`"resumeIndex":1`, `"resumeIndex":32768`},
-		"index of a string":  {`"resumeIndex":1`, `"resumeIndex":"1"`},
+		"workRequestId":      {`"workRequestId":"0199A0E2-3333-7C5E-9F2A-3B1C6D7E8F90"`, `"workRequestId":"w"`},
+		"workKind":           {`"workKind":"plan"`, `"workKind":"Not A Kind"`},
+		"cause":              {`"kind":"stop-run"`, `"kind":"stop-run","cause":"a whim"`},
 		"no expiry":          {`,"expiresAt":"2026-09-29T10:15:00+00:00"`, ``},
 		"expiry not a date":  {`"expiresAt":"2026-09-29T10:15:00+00:00"`, `"expiresAt":"soon"`},
 	} {
@@ -110,12 +127,10 @@ func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 	}
 }
 
-// A command is never an event a rule acts on, even when a rule names its type.
+// A command has its own parser, so Parse drops it as an unknown type.
 func TestParseDropsACommandAsAnUnknownType(t *testing.T) {
-	for _, extra := range []map[string]bool{nil, {CommandType: true}} {
-		if err := parseErr(t, commandPayload, extra); !errors.Is(err, ErrUnknownType) {
-			t.Fatalf("extra %v: err = %v, want an unknown type", extra, err)
-		}
+	if err := parseErr(t, commandPayload); !errors.Is(err, ErrUnknownType) {
+		t.Fatalf("err = %v, want an unknown type", err)
 	}
 }
 
@@ -136,29 +151,6 @@ func TestForAnotherBridgeReadsACommand(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			if got := ForAnotherBridge([]byte(tc.payload), own); got != tc.want {
 				t.Fatalf("ForAnotherBridge = %v, want %v", got, tc.want)
-			}
-		})
-	}
-}
-
-// An older server sends no held key, and that reads as nil, apart from false.
-func TestParseCardMovedReadsTheHold(t *testing.T) {
-	for name, tc := range map[string]struct {
-		card string
-		want string
-	}{
-		"true":   {`{"interactiveRun":false,"held":true}`, "true"},
-		"false":  {`{"interactiveRun":false,"held":false}`, "false"},
-		"absent": {`{"interactiveRun":false}`, "nil"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			e := parseOK(t, moved(map[string]string{"card": tc.card}), nil)
-			got := "nil"
-			if e.Card.Held != nil {
-				got = fmt.Sprint(*e.Card.Held)
-			}
-			if got != tc.want {
-				t.Fatalf("held = %s, want %s", got, tc.want)
 			}
 		})
 	}

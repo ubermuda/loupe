@@ -60,10 +60,17 @@ final readonly class DrainOutboxHandler
         $failed = 0;
 
         foreach ($events as $event) {
+            if (!\in_array($event->type, AgentPush::BRIDGE_TYPES, true)) {
+                $event->markPublished();
+                ++$published;
+
+                continue;
+            }
+
             try {
                 $ownerId = $event->project->owner->id ?? throw new \LogicException('Project owner has no id.');
                 $this->hub->publish(new Update(
-                    [$event->topic, $this->userTopics->forUser($ownerId)],
+                    [$this->userTopics->forUser($ownerId)],
                     $event->payload,
                     true,
                     id: $event->sequence,

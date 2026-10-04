@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\EventListener\SeedBoardColumnsOnProjectCreating;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Command\CreateProjectCommand;
 use App\Module\Project\Command\CreateProjectHandler;
@@ -87,6 +88,25 @@ final class SeedBoardColumnsOnProjectCreatingTest extends KernelTestCase
         } catch (UniqueConstraintViolationException) {
         }
 
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM board_columns WHERE project_id = :id',
+            ['id' => (string) $project->id],
+        ));
+    }
+
+    public function test_it_seeds_nothing_when_another_listener_seeded_the_columns(): void
+    {
+        $listener = self::getContainer()->get(SeedBoardColumnsOnProjectCreating::class);
+        self::assertInstanceOf(SeedBoardColumnsOnProjectCreating::class, $listener);
+        $project = new Project($this->owner(), 'seeded-'.uniqid());
+        $this->em->persist($project);
+        $event = new ProjectCreating($project);
+        $event->markColumnsSeeded();
+
+        $listener($event);
+        $this->em->flush();
+
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM projects WHERE id = :id', ['id' => (string) $project->id]));
         self::assertSame(0, (int) $this->em->getConnection()->fetchOne(
             'SELECT COUNT(*) FROM board_columns WHERE project_id = :id',
             ['id' => (string) $project->id],
