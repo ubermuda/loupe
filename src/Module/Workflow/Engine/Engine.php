@@ -8,6 +8,7 @@ use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Command\ReleaseCardPauseCommand;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardPauseRepository;
@@ -21,6 +22,9 @@ use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Event\CardPaused;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
@@ -117,7 +121,7 @@ final readonly class Engine
             return null;
         }
 
-        $run = new Evaluation($card, $template, $this->factsBuilder->build($card, $now), $this->workflowRuleStates->findForCard($card), $now);
+        $run = new Evaluation($card, $template, $this->facts($card, $now), $this->workflowRuleStates->findForCard($card), $now);
         if ($baseline) {
             $this->settleWorkRequests($run, $cardId, expire: false);
             // Before the baseline, which replaces the fingerprint a retries pause compares against.
@@ -147,6 +151,9 @@ final readonly class Engine
                 if (null !== $state) {
                     $this->write($run, $state, static fn (WorkflowRuleState $state) => $state->reset());
                 }
+                continue;
+            }
+            if (null !== $rule->when->unreadable($run->facts)) {
                 continue;
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
@@ -187,7 +194,7 @@ final readonly class Engine
         }
 
         if ($withdrawn) {
-            $run->facts = $this->factsBuilder->build($run->card, $run->now);
+            $run->facts = $this->facts($run->card, $run->now);
         }
     }
 
@@ -240,15 +247,18 @@ final readonly class Engine
         return match ($pause->kind) {
             CardPauseKind::Rule => match (true) {
                 null === $rule->then->until => 'rule-removed',
+                null !== $rule->then->until->unreadable($run->facts) => null,
                 $rule->then->until->evaluate($run->facts) => 'until-met',
                 default => null,
             },
             CardPauseKind::WorkLimit => $applies ? null : 'left-slot',
-            CardPauseKind::Retries, CardPauseKind::WorkTimeout => (
-                !$applies
-                || !$rule->when->evaluate($run->facts)
-                || $this->fingerprint->of($run->facts, $rule->when->reads()) !== ($run->states[$rule->id] ?? null)?->fingerprint
-            ) ? 'facts-changed' : null,
+            CardPauseKind::Retries, CardPauseKind::WorkTimeout => match (true) {
+                !$applies => 'facts-changed',
+                null !== $rule->when->unreadable($run->facts) => null,
+                !$rule->when->evaluate($run->facts),
+                $this->fingerprint->of($run->facts, $rule->when->reads()) !== ($run->states[$rule->id] ?? null)?->fingerprint => 'facts-changed',
+                default => null,
+            },
         };
     }
 
@@ -261,6 +271,10 @@ final readonly class Engine
                 if (null !== $state) {
                     $this->write($run, $state, static fn (WorkflowRuleState $state) => $state->reset());
                 }
+                continue;
+            }
+            // Before state(), which persists a new state: a rule that cannot read its facts writes none.
+            if (null !== $rule->when->unreadable($run->facts)) {
                 continue;
             }
 
@@ -345,6 +359,23 @@ final readonly class Engine
 
                 return false;
         }
+    }
+
+    /** Logs each source that failed, once per build. A source that is off is not an error. */
+    private function facts(Card $card, \DateTimeImmutable $now): Facts
+    {
+        $facts = $this->factsBuilder->build($card, $now);
+        foreach ($facts->provided as $provided) {
+            if ($provided instanceof Unreadable && UnreadableKind::Failed === $provided->kind) {
+                $this->logger->error('workflow.fact_source_failed', [
+                    'cardId' => $card->id?->toRfc4122(),
+                    'source' => $provided->source,
+                    'exception' => $provided->cause,
+                ]);
+            }
+        }
+
+        return $facts;
     }
 
     private function state(Evaluation $run, Rule $rule): WorkflowRuleState

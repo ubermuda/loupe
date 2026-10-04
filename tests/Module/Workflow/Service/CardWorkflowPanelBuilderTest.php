@@ -17,12 +17,17 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
+use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\CardWorkflowPanelBuilder;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\TemplateSource;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsReady;
 use App\Tests\Module\Workflow\WorkflowProjects;
+use App\Tests\Support\RecordingLogger;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -124,7 +129,40 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertNull($panel->progress);
     }
 
-    private function builder(?TemplateSource $templates = null): CardWorkflowPanelBuilder
+    public function test_a_rule_that_cannot_read_its_facts_blocks_with_no_waiting_sentence_and_logs_nothing(): void
+    {
+        $card = $this->card('tech-design');
+        $binding = $this->service(WorkflowBindingRepository::class)->findOneByProjectId($this->project->id ?? throw new \LogicException('A flushed project has an id.'));
+        self::assertNotNull($binding);
+        $binding->definition = [
+            'key' => 'test',
+            'version' => 1,
+            'slots' => [['key' => 'tech-design', 'label' => 'workflow.slot.tech_design'], ['key' => 'implementation', 'label' => 'workflow.slot.implementation']],
+            'manualMoves' => [],
+            'backoffMinutes' => [10],
+            'workTimeoutMinutes' => 120,
+            'rules' => [
+                ['id' => 'missing', 'slot' => 'tech-design', 'when' => ['card.gone' => []], 'then' => ['request' => ['kind' => 'gone']]],
+                ['id' => 'provided', 'slot' => 'tech-design', 'when' => [ProvidedFactsReady::KEY => []], 'then' => ['move' => ['to' => 'implementation']]],
+                ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['all' => []], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
+            ],
+        ];
+        $this->em()->flush();
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'hold', CardPauseKind::Rule));
+        $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
+        $logger = new RecordingLogger();
+
+        $panel = $this->builder(logger: $logger)->build($card);
+
+        $progress = $panel->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+        self::assertSame('Tech design', $progress->slot);
+        self::assertNull($progress->waiting);
+        self::assertSame('Move the card to Implementation', $progress->nextAction);
+        self::assertSame('The workflow ends the pause when it next evaluates the card.', $panel->pause?->release);
+        self::assertSame([], $logger->records);
+    }
+
+    private function builder(?TemplateSource $templates = null, LoggerInterface $logger = new NullLogger()): CardWorkflowPanelBuilder
     {
         return new CardWorkflowPanelBuilder(
             $this->service(WorkflowAutomation::class),
@@ -135,7 +173,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             $this->service(WorkflowRuleStateRepository::class),
             $this->service(TranslatorInterface::class),
             new MockClock('2026-10-02 12:00'),
-            new NullLogger(),
+            $logger,
         );
     }
 

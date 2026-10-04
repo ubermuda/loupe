@@ -93,7 +93,7 @@ final readonly class CardWorkflowPanelBuilder
     private function ruleRelease(?Template $template, ?Facts $facts, string $ruleId): string
     {
         $until = null === $template ? null : self::rule($template, $ruleId)?->then->until;
-        if (null === $until || null === $facts) {
+        if (null === $until || null === $facts || null !== $until->unreadable($facts)) {
             return $this->translator->trans('workflow.panel.release.next_evaluation');
         }
 
@@ -107,12 +107,16 @@ final readonly class CardWorkflowPanelBuilder
     private function progress(Card $card, Template $template, Facts $facts): CardWorkflowProgress
     {
         $rules = $template->rulesFor($facts->card->slot);
-        $falseRules = array_values(array_filter($rules, static fn (Rule $rule): bool => !$rule->when->evaluate($facts)));
+        $falseRules = array_values(array_filter(
+            $rules,
+            static fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || !$rule->when->evaluate($facts),
+        ));
         $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
+        $waiting = null === $blocking || null !== $blocking->when->unreadable($facts) ? null : $blocking->when->firstFalseLeaf($facts);
 
         return new CardWorkflowProgress(
             $this->slotLabel($template, $facts->card->slot),
-            $blocking?->when->firstFalseLeaf($facts)?->waitingFor()->trans($this->translator),
+            $waiting?->waitingFor()->trans($this->translator),
             null === $blocking ? null : $this->nextAction($template, $blocking),
             $this->lastRefusal($card),
         );

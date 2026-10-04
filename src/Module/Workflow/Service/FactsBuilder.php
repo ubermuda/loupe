@@ -19,13 +19,17 @@ use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Workflow\Contract\CardFacts;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\FactProvider;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Contract\RunFacts;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
+use Symfony\Component\Uid\Uuid;
 
-/** Reads what the engine knows about one card, from Board, Forge and Bridge. */
+/** Reads what the engine knows about one card, from Board, Forge, Bridge and every fact provider. It logs nothing. */
 final readonly class FactsBuilder
 {
     public const string BACKLOG_SLOT = '@backlog';
@@ -39,6 +43,7 @@ final readonly class FactsBuilder
         private CardPullRequests $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
         private WorkRequestRepository $workRequests,
+        private FactProviders $providers,
     ) {
     }
 
@@ -84,7 +89,23 @@ final readonly class FactsBuilder
                 ))),
                 lastRefusalCode: WorkRequestState::Refused === $settled?->state ? $settled->reason : null,
             ),
+            provided: array_map(static fn (FactProvider $provider): object => self::provided($provider, $cardId), $this->providers->byClass),
         );
+    }
+
+    private static function provided(FactProvider $provider, Uuid $cardId): object
+    {
+        try {
+            if (!$provider->isOn()) {
+                return new Unreadable(UnreadableKind::Off, $provider->source());
+            }
+            $class = $provider->factsClass();
+            $facts = $provider->build($cardId);
+
+            return $facts instanceof $class ? $facts : throw new \LogicException(\sprintf('The fact provider %s built a %s, not a %s.', $provider::class, $facts::class, $class));
+        } catch (\Throwable $e) {
+            return new Unreadable(UnreadableKind::Failed, $provider->source(), $e);
+        }
     }
 
     /** The slot key of a column, or null for a column no slot links. */

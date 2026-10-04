@@ -32,9 +32,14 @@ use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Service\CardPullRequests;
+use App\Module\Workflow\Service\FactProviders;
 use App\Module\Workflow\Service\FactsBuilder;
+use App\Tests\Module\Workflow\Fact\ProvidedFacts;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -50,6 +55,57 @@ final class FactsBuilderTest extends KernelTestCase
 
     /** @var array<string, Tag> */
     private array $tags = [];
+
+    private ProvidedFactsProvider $provider;
+
+    #[\Override]
+    protected function setUp(): void
+    {
+        $this->provider = new ProvidedFactsProvider();
+    }
+
+    public function test_a_provider_that_is_on_gives_its_facts_beside_the_built_in_ones(): void
+    {
+        self::bootKernel();
+        $this->provider->facts = new ProvidedFacts(ready: true);
+
+        $facts = $this->facts($this->card($this->workflowProject('facts-provided'), 'next'));
+
+        self::assertSame($this->provider->facts, $facts->get(ProvidedFacts::class));
+        self::assertNull($facts->unreadable(ProvidedFacts::class));
+    }
+
+    public function test_a_provider_that_is_off_gives_an_off_source_and_is_not_built(): void
+    {
+        self::bootKernel();
+        $this->provider->on = false;
+        $this->provider->failure = new \RuntimeException('A provider that is off is never built.');
+
+        $unreadable = $this->facts($this->card($this->workflowProject('facts-off'), 'next'))->unreadable(ProvidedFacts::class);
+
+        self::assertEquals(new Unreadable(UnreadableKind::Off, 'workflow.source.board'), $unreadable);
+    }
+
+    public function test_a_provider_that_throws_gives_a_failed_source_with_its_cause(): void
+    {
+        self::bootKernel();
+        $failure = new \RuntimeException('The source is down.');
+        $this->provider->failure = $failure;
+
+        $facts = $this->facts($this->card($this->workflowProject('facts-failed'), 'next'));
+
+        self::assertEquals(new Unreadable(UnreadableKind::Failed, 'workflow.source.board', $failure), $facts->unreadable(ProvidedFacts::class));
+        self::assertFalse($facts->card->hasOpenBlocker);
+        $this->expectException(\LogicException::class);
+        $facts->get(ProvidedFacts::class);
+    }
+
+    public function test_two_providers_for_one_facts_class_are_refused(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        new FactProviders([new ProvidedFactsProvider(), new ProvidedFactsProvider()]);
+    }
 
     public function test_the_slot_is_the_flag_of_the_column_or_the_slot_linked_to_it(): void
     {
@@ -399,6 +455,7 @@ final class FactsBuilderTest extends KernelTestCase
             $this->cardPullRequests(),
             $this->service(ForgePullRequestRepository::class),
             $this->service(WorkRequestRepository::class),
+            new FactProviders([$this->provider]),
         );
     }
 

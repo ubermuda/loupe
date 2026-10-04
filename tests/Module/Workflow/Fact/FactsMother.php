@@ -11,17 +11,22 @@ use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Contract\RunFacts;
+use App\Module\Workflow\Contract\Unreadable;
 
 /** Builds facts for a neutral card. Each named argument overrides one default. */
 final class FactsMother
 {
-    /** @param list<PullRequestFacts> $pullRequests */
+    /**
+     * @param list<PullRequestFacts>                 $pullRequests
+     * @param array<class-string, object|Unreadable> $provided
+     */
     public static function facts(
         ?CardFacts $card = null,
         ?PullRequestFacts $pullRequest = null,
         array $pullRequests = [],
         ?RunFacts $run = null,
         \DateTimeImmutable $now = new \DateTimeImmutable('2026-10-01 12:00:00'),
+        array $provided = [],
     ): Facts {
         return new Facts(
             now: $now,
@@ -29,6 +34,7 @@ final class FactsMother
             pullRequest: $pullRequest,
             pullRequests: $pullRequests,
             run: $run ?? self::run(),
+            provided: $provided,
         );
     }
 

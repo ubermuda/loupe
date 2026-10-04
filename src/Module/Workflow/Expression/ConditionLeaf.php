@@ -6,6 +6,7 @@ namespace App\Module\Workflow\Expression;
 
 use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\Unreadable;
 
 final readonly class ConditionLeaf extends Expression
 {
@@ -20,6 +21,21 @@ final readonly class ConditionLeaf extends Expression
     public function evaluate(Facts $facts): bool
     {
         return $this->condition->evaluate($facts, $this->params);
+    }
+
+    #[\Override]
+    public function unreadable(Facts $facts): ?Unreadable
+    {
+        foreach ($this->reads() as $key) {
+            if (\is_string($key)) {
+                $unreadable = $facts->unreadable($key);
+                if (null !== $unreadable) {
+                    return $unreadable;
+                }
+            }
+        }
+
+        return null;
     }
 
     #[\Override]

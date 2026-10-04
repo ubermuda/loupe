@@ -338,3 +338,11 @@ when@test:
         App\Module\Workflow\Command\BindWorkflowTemplateHandler:
             autowire: true
             public: true
+
+        # A switchable fact provider and a condition that reads it, for the engine tests.
+        App\Tests\Module\Workflow\Fact\ProvidedFactsProvider:
+            autoconfigure: true
+            public: true
+
+        App\Tests\Module\Workflow\Fact\ProvidedFactsReady:
+            autoconfigure: true
