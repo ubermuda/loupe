@@ -24,7 +24,7 @@ The rule in detail:
 - Do not keep a column, a field, a method or a code path only so that existing code does not have to change. Rewrite that code.
 - Do not store one fact in two places. When a new field covers an old one, the old one goes.
 - A label that a person reads, such as a card number, is not a duplicate of an id. It can stay when the new model still shows it.
-- A rolling deploy can need a short transition, because an old image and a new image run at the same time. A transition is allowed only when the old image really writes the old field during the deploy. The step that removes it is a named entry of the same plan or breakdown, never a later card.
+- A rolling deploy can need a short transition, because an old image and a new image run at the same time. A transition is allowed only when the old image really reads or writes the old field during the deploy. The step that removes the field runs after no old image is left. It is a named entry of the same plan or breakdown, never a later card.
 - A design or a plan that keeps an old path must say why, and name the entry that removes it.
 
 Apply this rule when you write a tech design, a plan or a refactor. When a review finds a kept field or a kept path with no removal entry, treat it as a defect of the design.
