@@ -31,7 +31,7 @@ Give each open decision its own section, with a stable ID in the heading.
 2. When the decision has two or more real options, add a table with the columns Option, Pros and Cons. Write one row for each option.
 3. Put the decision fence under the table. Use the same options in the same order as the table rows.
 
-Keep the reasons in the table. The fence holds only its question and the one-line options (`decision-fences.md`). End the recommended option with its confidence marker, such as `(recommended: moderate)`, so Loupe shows a badge on it. Give a decision already made one line with its reason, in the Decided section or the Decisions log.
+Keep the reasons in the table. The fence holds only its question and the one-line options (`decision-fences.md`). End the recommended option with its confidence marker, such as `(recommended: moderate)`, so Loupe shows a badge on it. A Decisions log entry of a product document stays one line with its reason. A Decided entry of a tech design follows `../../loupe-stage-tech-design/SKILL.md`.
 
 ```markdown
 ## D1: Who may delete a tag
@@ -54,6 +54,15 @@ Who may delete a tag?
 ```
 
 ## Diagrams
+
+A diagram is encouraged and never required, in any section. Choose the Mermaid type from the subject.
+
+| Subject | Mermaid type |
+|---|---|
+| Steps and branches | Flowchart |
+| Who calls whom | Sequence diagram |
+| The states of one thing | State diagram |
+| Entities and their links | ER diagram or class diagram |
 
 1. Draw moving parts, flows and entity relations as a Mermaid diagram, in a fenced `mermaid` block.
 2. Do not turn a list into a diagram.
