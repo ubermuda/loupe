@@ -938,7 +938,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->errors());
     }
 
-    public function test_a_baseline_that_cannot_read_a_failing_source_stays_due_until_the_source_is_back(): void
+    public function test_a_rule_that_the_baseline_cannot_read_fires_once_when_its_source_is_back_and_it_is_true(): void
     {
         $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
         $this->provider()->facts = new ProvidedFacts(ready: true);
@@ -952,41 +952,10 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card, '2026-10-02 12:05:00');
         $this->evaluate($card, '2026-10-02 12:10:00');
 
-        self::assertSame([], $this->liveRequests($card));
-        self::assertTrue($this->ruleState($card, 'provided')->truth);
-    }
-
-    public function test_a_baseline_that_cannot_read_a_source_that_is_off_does_not_hold_back_the_other_rules(): void
-    {
-        $card = $this->boundCard([
-            self::requestRule('provided', self::PROVIDED_READY),
-            self::requestRule('fix', ['card.type' => ['type' => 'bug']]),
-        ]);
-        $this->hold($card);
-        $this->releaseHold($card);
-        $this->provider()->on = false;
-        $this->evaluate($card);
-
-        $this->setType($card, CardType::Bug);
-        $this->evaluate($card, '2026-10-02 12:05:00');
-
-        self::assertSame(['fix'], $this->firedRules());
-    }
-
-    public function test_a_baseline_that_cannot_read_a_facts_class_with_no_provider_does_not_hold_back_the_other_rules(): void
-    {
-        $card = $this->boundCard([
-            self::requestRule('unprovided', [UnprovidedFactsReady::KEY => []]),
-            self::requestRule('fix', ['card.type' => ['type' => 'bug']]),
-        ]);
-        $this->hold($card);
-        $this->releaseHold($card);
-        $this->evaluate($card);
-
-        $this->setType($card, CardType::Bug);
-        $this->evaluate($card, '2026-10-02 12:05:00');
-
-        self::assertSame(['fix'], $this->firedRules());
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame('provided', $live[0]->ruleId);
+        self::assertSame(1, $this->ruleState($card, 'provided')->fires);
     }
 
     public function test_a_rule_pause_whose_until_names_a_removed_condition_stays(): void

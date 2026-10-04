@@ -127,9 +127,7 @@ final readonly class Engine
             $this->settleWorkRequests($run, $cardId, expire: false);
             // Before the baseline, which replaces the fingerprint a retries pause compares against.
             $this->stillPaused($run);
-            if (!$this->baseline($run)) {
-                $this->workflowPendingBaselines->markCards($card->project->id ?? throw new \LogicException('A persisted project has an id.'), [$cardId]);
-            }
+            $this->baseline($run);
             $this->em->flush();
 
             return $run;
@@ -144,15 +142,10 @@ final readonly class Engine
         return $run;
     }
 
-    /**
-     * Records the truth of each rule the card reads now, clears its retries, and resets the rules of other slots. Fires none.
-     * Answers false when a provider that failed kept a rule from its baseline. A source that is off, a missing provider and a
-     * missing condition do not recover alone, and a baseline that waits for them would hold back every rule of the card.
-     */
-    private function baseline(Evaluation $run): bool
+    /** Records the truth of each rule the card reads now, clears its retries, and resets the rules of other slots. Fires none. */
+    private function baseline(Evaluation $run): void
     {
         $run->baselined = true;
-        $complete = true;
         foreach ($run->template->rules as $rule) {
             if (!$run->applies($rule)) {
                 $state = $run->states[$rule->id] ?? null;
@@ -161,9 +154,7 @@ final readonly class Engine
                 }
                 continue;
             }
-            $unreadable = $rule->when->unreadable($run->facts);
-            if (null !== $unreadable) {
-                $complete = $complete && !(UnreadableKind::Failed === $unreadable->kind && \in_array($unreadable, $run->facts->provided, true));
+            if (null !== $rule->when->unreadable($run->facts)) {
                 continue;
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
@@ -175,8 +166,6 @@ final readonly class Engine
                 $state->lastRefusalAt = null;
             });
         }
-
-        return $complete;
     }
 
     /**
