@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Condition;
 
-use App\Module\Workflow\Condition\Condition;
 use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
 use App\Module\Workflow\Condition\PullRequestBaseIsEpicBranch;
 use App\Module\Workflow\Condition\PullRequestBaseIsMergeTarget;
@@ -19,11 +18,12 @@ use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Condition\PullRequestParentMerged;
 use App\Module\Workflow\Condition\PullRequestsAllFinishedOneMerged;
 use App\Module\Workflow\Condition\PullRequestStacked;
-use App\Module\Workflow\Fact\ChecksState;
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
-use App\Module\Workflow\Fact\PullRequestFacts;
-use App\Module\Workflow\Fact\PullRequestState;
+use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestFacts;
+use App\Module\Workflow\Contract\PullRequestState;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;

@@ -6,8 +6,8 @@ namespace App\Module\Workflow\Action;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\Fact\Facts;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 

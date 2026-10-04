@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Condition;
+namespace App\Module\Workflow\Contract;
 
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Translation\TranslatableMessage;
 

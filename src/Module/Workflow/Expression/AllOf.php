@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Expression;
 
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Facts;
 
 /** True when every child is true, so an empty list is true. */
 final readonly class AllOf extends Expression

@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\Parameter;
+use App\Module\Workflow\Contract\ParameterType;
+use App\Module\Workflow\Contract\ParameterValue;
 use Symfony\Component\Translation\TranslatableMessage;
 
 final readonly class CardInSlot implements Condition

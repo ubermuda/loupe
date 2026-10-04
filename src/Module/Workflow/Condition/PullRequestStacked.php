@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
 /** The base is the head branch of another open pull request. */
