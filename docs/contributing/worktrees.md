@@ -39,8 +39,12 @@ dies with the command:
 
 ## Running tests in parallel
 
-PHPUnit's database is `app_test<TEST_TOKEN>`, so exporting a unique `TEST_TOKEN`
-per worktree gives each its own schema. `just worktree-up` writes one for you.
+PHPUnit's database is `app_test<TEST_TOKEN>`. `just worktree-up` writes a unique
+`TEST_TOKEN` into each worktree's `.env.test.local`, so each worktree gets its own
+schema. ParaTest replaces an exported `TEST_TOKEN` with the worker number, so set
+it in that file, not in the shell.
+ParaTest adds the worker number, so worker 3 of `card-116` uses
+`app_test_card_116__p3`. `just worktree-down` drops the worker databases too.
 
 The e2e suite is the exception and cannot be parallelised — Mailpit is shared.
 

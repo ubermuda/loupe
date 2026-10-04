@@ -67,12 +67,18 @@ if docker compose ps --status running --services 2>/dev/null | grep -qx php-fpm;
     ' sh "/var/www/html/${root#"$main"/}" || true
 fi
 
-# Drop both databases if the stack is up (best-effort). --force terminates any
+# Drop the databases if the stack is up (best-effort). --force terminates any
 # session still attached; without it a surviving connection makes dropdb fail
 # and leaves an orphaned database behind a worktree that is already gone.
 if docker compose ps --status running --services 2>/dev/null | grep -qx database; then
     docker compose exec -T database dropdb -U "${POSTGRES_USER:-app}" --force --if-exists "$dev_db" || true
     docker compose exec -T database dropdb -U "${POSTGRES_USER:-app}" --force --if-exists "$test_db" || true
+    # One test database per ParaTest worker, named by tests/bootstrap.php.
+    worker_dbs=$(docker compose exec -T database psql -U "${POSTGRES_USER:-app}" -d postgres -Atc \
+        "select datname from pg_database where datname ~ '^${test_db}__p[0-9]+\$'" || true)
+    for db in $worker_dbs; do
+        docker compose exec -T database dropdb -U "${POSTGRES_USER:-app}" --force --if-exists "$db" || true
+    done
 fi
 
 if [ "${WORKTREE_TEARDOWN_KEEP_TREE:-}" = "1" ]; then

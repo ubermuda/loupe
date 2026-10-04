@@ -42,7 +42,7 @@ targeted() {
 }
 
 is_phpunit() {
-    case "$1" in vendor/bin/phpunit|./vendor/bin/phpunit) return 0 ;; esac
+    case "$1" in vendor/bin/phpunit|./vendor/bin/phpunit|vendor/bin/paratest|./vendor/bin/paratest) return 0 ;; esac
 
     return 1
 }
