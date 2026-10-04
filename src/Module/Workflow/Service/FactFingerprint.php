@@ -6,18 +6,12 @@ namespace App\Module\Workflow\Service;
 
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\FactKey;
-use App\Module\Workflow\Contract\FactProvider;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 
 /** A hash of the fact groups that a rule reads, so a change elsewhere leaves it as it was. The time never counts. */
 final readonly class FactFingerprint
 {
-    public function __construct(
-        private FactProviders $providers,
-    ) {
-    }
-
     /** @param list<FactKey|class-string> $keys */
     public function of(Facts $facts, array $keys): string
     {
@@ -28,23 +22,11 @@ final readonly class FactFingerprint
                 continue;
             }
             // The prefix keeps a facts class apart from a FactKey value, and leaves the stored fingerprints as they were.
-            $provider = $this->providers->byClass[$key] ?? null;
-            $provided = $facts->provided[$key] ?? null;
-            $groups['class:'.$key] = null === $provider || !$provided instanceof $key ? null : self::provided($provider, $provided);
+            $groups['class:'.$key] = $facts->fingerprints[$key] ?? null;
         }
         ksort($groups);
 
         return hash('sha256', json_encode($groups, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
-    }
-
-    /** FactsBuilder already called fingerprint() once, so a throw here is a provider that changed its mind: count it as no fingerprint. */
-    private static function provided(FactProvider $provider, object $facts): mixed
-    {
-        try {
-            return $provider->fingerprint($facts);
-        } catch (\Throwable) {
-            return null;
-        }
     }
 
     private function group(Facts $facts, FactKey $key): mixed

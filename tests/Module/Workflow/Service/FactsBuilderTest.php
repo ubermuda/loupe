@@ -73,6 +73,7 @@ final class FactsBuilderTest extends KernelTestCase
 
         self::assertSame($this->provider->facts, $facts->get(ProvidedFacts::class));
         self::assertNull($facts->unreadable(ProvidedFacts::class));
+        self::assertSame([ProvidedFacts::class => [true, 1]], $facts->fingerprints);
     }
 
     public function test_a_provider_that_is_off_gives_an_off_source_and_is_not_built(): void

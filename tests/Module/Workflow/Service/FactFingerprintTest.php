@@ -14,10 +14,8 @@ use App\Module\Workflow\Contract\RunFacts;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Service\FactFingerprint;
-use App\Module\Workflow\Service\FactProviders;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use App\Tests\Module\Workflow\Fact\ProvidedFacts;
-use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -27,10 +25,10 @@ final class FactFingerprintTest extends TestCase
     {
         $keys = FactKey::cases();
 
-        $hash = new FactFingerprint(new FactProviders([]))->of($this->facts(), $keys);
+        $hash = new FactFingerprint()->of($this->facts(), $keys);
 
         self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $hash);
-        self::assertSame($hash, new FactFingerprint(new FactProviders([]))->of($this->facts(), $keys));
+        self::assertSame($hash, new FactFingerprint()->of($this->facts(), $keys));
     }
 
     public function test_the_time_and_the_order_of_lists_do_not_count(): void
@@ -47,7 +45,7 @@ final class FactFingerprintTest extends TestCase
             now: new \DateTimeImmutable('2030-01-01'),
         );
 
-        self::assertSame(new FactFingerprint(new FactProviders([]))->of($this->facts(), $keys), new FactFingerprint(new FactProviders([]))->of($reordered, $keys));
+        self::assertSame(new FactFingerprint()->of($this->facts(), $keys), new FactFingerprint()->of($reordered, $keys));
     }
 
     public function test_the_close_time_of_a_pull_request_does_not_count(): void
@@ -59,7 +57,7 @@ final class FactFingerprintTest extends TestCase
         };
         $keys = [FactKey::PullRequest, FactKey::PullRequests];
 
-        self::assertSame(new FactFingerprint(new FactProviders([]))->of($closedAt('2026-10-02 12:00:00'), $keys), new FactFingerprint(new FactProviders([]))->of($closedAt('2026-10-02 12:05:00'), $keys));
+        self::assertSame(new FactFingerprint()->of($closedAt('2026-10-02 12:00:00'), $keys), new FactFingerprint()->of($closedAt('2026-10-02 12:05:00'), $keys));
     }
 
     /** @return iterable<string, array{FactKey, Facts}> */
@@ -80,7 +78,7 @@ final class FactFingerprintTest extends TestCase
     #[DataProvider('changes')]
     public function test_a_change_counts_only_when_the_keys_read_its_group(FactKey $changed, Facts $facts): void
     {
-        $fingerprint = new FactFingerprint(new FactProviders([]));
+        $fingerprint = new FactFingerprint();
         $others = array_values(array_filter(FactKey::cases(), static fn (FactKey $key): bool => $key !== $changed));
 
         self::assertNotSame($fingerprint->of($this->facts(), [$changed]), $fingerprint->of($facts, [$changed]));
@@ -90,7 +88,7 @@ final class FactFingerprintTest extends TestCase
 
     public function test_the_key_order_and_a_repeated_key_do_not_count(): void
     {
-        $fingerprint = new FactFingerprint(new FactProviders([]));
+        $fingerprint = new FactFingerprint();
 
         self::assertSame(
             $fingerprint->of($this->facts(), [FactKey::Slot, FactKey::Refusal]),
@@ -100,7 +98,7 @@ final class FactFingerprintTest extends TestCase
 
     public function test_a_missing_pull_request_differs_from_a_present_one(): void
     {
-        $fingerprint = new FactFingerprint(new FactProviders([]));
+        $fingerprint = new FactFingerprint();
         $none = FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequests: self::all(), run: self::workRun());
 
         self::assertNotSame($fingerprint->of($this->facts(), [FactKey::PullRequest]), $fingerprint->of($none, [FactKey::PullRequest]));
@@ -108,45 +106,35 @@ final class FactFingerprintTest extends TestCase
 
     public function test_a_fact_key_keeps_the_hash_that_rule_states_already_store(): void
     {
-        $fingerprint = new FactFingerprint(new FactProviders([new ProvidedFactsProvider()]));
+        $fingerprint = new FactFingerprint();
 
         self::assertSame(hash('sha256', '{"slot":"implementation"}'), $fingerprint->of($this->facts(), [FactKey::Slot]));
     }
 
-    public function test_a_facts_class_counts_through_the_fingerprint_of_its_provider(): void
+    public function test_a_facts_class_counts_through_the_fingerprint_its_provider_gave(): void
     {
-        $fingerprint = new FactFingerprint(new FactProviders([new ProvidedFactsProvider()]));
-        $of = static fn (object $provided): string => $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => $provided]), [FactKey::Slot, ProvidedFacts::class]);
+        $fingerprint = new FactFingerprint();
+        $of = static fn (mixed $given): string => $fingerprint->of(
+            FactsMother::facts(provided: [ProvidedFacts::class => new ProvidedFacts()], fingerprints: [ProvidedFacts::class => $given]),
+            [FactKey::Slot, ProvidedFacts::class],
+        );
 
-        self::assertSame($of(new ProvidedFacts(ready: true)), $of(new ProvidedFacts(ready: true)));
-        self::assertNotSame($of(new ProvidedFacts(ready: true)), $of(new ProvidedFacts(ready: true, version: 2)));
-        self::assertNotSame($of(new ProvidedFacts()), $of(new Unreadable(UnreadableKind::Off, 'workflow.source.board')));
-        self::assertSame($of(new Unreadable(UnreadableKind::Off, 'workflow.source.board')), $of(new Unreadable(UnreadableKind::Failed, 'workflow.source.board')));
+        self::assertSame($of([true, 1]), $of([true, 1]));
+        self::assertNotSame($of([true, 1]), $of([true, 2]));
         self::assertNotSame(
-            $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new ProvidedFacts()]), [FactKey::Slot]),
-            $of(new ProvidedFacts()),
+            $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new ProvidedFacts()], fingerprints: [ProvidedFacts::class => [true, 1]]), [FactKey::Slot]),
+            $of([true, 1]),
         );
     }
 
-    public function test_a_facts_class_with_no_readable_facts_counts_as_null_and_never_throws(): void
+    public function test_a_facts_class_with_no_fingerprint_counts_as_null(): void
     {
-        $fingerprint = new FactFingerprint(new FactProviders([new ProvidedFactsProvider()]));
-        $unreadable = $fingerprint->of(FactsMother::facts(provided: [\stdClass::class => new Unreadable(UnreadableKind::Failed, 'workflow.source.board')]), [\stdClass::class]);
+        $fingerprint = new FactFingerprint();
+        $unreadable = $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new Unreadable(UnreadableKind::Failed, 'workflow.source.board')]), [ProvidedFacts::class]);
 
-        self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(), [\stdClass::class]));
-        self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(provided: [\stdClass::class => new \stdClass()]), [\stdClass::class]));
-    }
-
-    public function test_a_provider_whose_fingerprint_throws_counts_as_null(): void
-    {
-        $provider = new ProvidedFactsProvider();
-        $provider->fingerprintFailure = new \RuntimeException('The fingerprint is broken.');
-        $fingerprint = new FactFingerprint(new FactProviders([$provider]));
-
-        self::assertSame(
-            $fingerprint->of(FactsMother::facts(), [ProvidedFacts::class]),
-            $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new ProvidedFacts()]), [ProvidedFacts::class]),
-        );
+        self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(), [ProvidedFacts::class]));
+        self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new Unreadable(UnreadableKind::Off, 'workflow.source.board')]), [ProvidedFacts::class]));
+        self::assertNotSame($unreadable, $fingerprint->of(FactsMother::facts(fingerprints: [ProvidedFacts::class => [false, 1]]), [ProvidedFacts::class]));
     }
 
     private function facts(): Facts

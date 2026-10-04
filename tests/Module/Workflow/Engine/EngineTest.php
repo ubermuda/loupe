@@ -1237,7 +1237,7 @@ final class EngineTest extends KernelTestCase
                 $this->providers(),
                 $this->em()->getConnection(),
             ),
-            new FactFingerprint($this->providers()),
+            new FactFingerprint(),
             $this->service(WorkflowRuleStateRepository::class),
             $this->service(CardHolds::class),
             $this->service(WorkflowAutomation::class),

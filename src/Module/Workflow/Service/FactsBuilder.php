@@ -70,6 +70,8 @@ final readonly class FactsBuilder
         $primaryIndex = array_search($this->cardPullRequests->primary($pullRequests), $pullRequests, true);
         $settled = $this->workRequests->findLatestSettledForCard($cardId);
 
+        $provided = array_map(fn (FactProvider $provider): array => $this->provided($provider, $cardId), $this->providers->byClass);
+
         return new Facts(
             now: $now,
             card: new CardFacts(
@@ -93,12 +95,17 @@ final readonly class FactsBuilder
                 ))),
                 lastRefusalCode: WorkRequestState::Refused === $settled?->state ? $settled->reason : null,
             ),
-            provided: array_map(fn (FactProvider $provider): object => $this->provided($provider, $cardId), $this->providers->byClass),
+            provided: array_map(static fn (array $result): object => $result[0], $provided),
+            fingerprints: array_map(static fn (array $result): mixed => $result[1], array_filter($provided, static fn (array $result): bool => !$result[0] instanceof Unreadable)),
         );
     }
 
-    /** A savepoint isolates the queries of the provider, so a database error leaves the transaction of the caller usable. */
-    private function provided(FactProvider $provider, Uuid $cardId): object
+    /**
+     * The facts of the provider and their fingerprint. A savepoint isolates the queries of the provider, so a database error leaves the transaction of the caller usable.
+     *
+     * @return array{object, mixed}
+     */
+    private function provided(FactProvider $provider, Uuid $cardId): array
     {
         $source = $provider::class;
         $savepoint = $this->connection->isTransactionActive() ? self::SAVEPOINT : null;
@@ -109,23 +116,25 @@ final readonly class FactsBuilder
             $source = $provider->source();
             $class = $provider->factsClass();
             $facts = $provider->isOn() ? $provider->build($cardId) : new Unreadable(UnreadableKind::Off, $source);
+            $fingerprint = null;
             if (!$facts instanceof Unreadable) {
                 if (!$facts instanceof $class) {
                     throw new \LogicException(\sprintf('The fact provider %s built a %s, not a %s.', $provider::class, $facts::class, $class));
                 }
-                $provider->fingerprint($facts);
+                $fingerprint = $provider->fingerprint($facts);
+                json_encode($fingerprint, \JSON_THROW_ON_ERROR);
             }
             if (null !== $savepoint) {
                 $this->connection->releaseSavepoint($savepoint);
             }
 
-            return $facts;
+            return [$facts, $fingerprint];
         } catch (\Throwable $e) {
             if (null !== $savepoint) {
                 $this->connection->rollbackSavepoint($savepoint);
             }
 
-            return new Unreadable(UnreadableKind::Failed, $source, $e);
+            return [new Unreadable(UnreadableKind::Failed, $source, $e), null];
         }
     }
 

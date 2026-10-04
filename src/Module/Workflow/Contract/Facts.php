@@ -10,6 +10,7 @@ final readonly class Facts
     /**
      * @param list<PullRequestFacts>                 $pullRequests every pull request linked to the card
      * @param array<class-string, object|Unreadable> $provided     what each fact provider gave, keyed by its facts class
+     * @param array<class-string, mixed>             $fingerprints the fingerprint of each readable provided facts, keyed by its facts class
      */
     public function __construct(
         public \DateTimeImmutable $now,
@@ -18,6 +19,7 @@ final readonly class Facts
         public array $pullRequests,
         public RunFacts $run,
         public array $provided = [],
+        public array $fingerprints = [],
     ) {
     }
 

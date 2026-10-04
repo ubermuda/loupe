@@ -19,6 +19,7 @@ final class FactsMother
     /**
      * @param list<PullRequestFacts>                 $pullRequests
      * @param array<class-string, object|Unreadable> $provided
+     * @param array<class-string, mixed>             $fingerprints
      */
     public static function facts(
         ?CardFacts $card = null,
@@ -27,6 +28,7 @@ final class FactsMother
         ?RunFacts $run = null,
         \DateTimeImmutable $now = new \DateTimeImmutable('2026-10-01 12:00:00'),
         array $provided = [],
+        array $fingerprints = [],
     ): Facts {
         return new Facts(
             now: $now,
@@ -35,6 +37,7 @@ final class FactsMother
             pullRequests: $pullRequests,
             run: $run ?? self::run(),
             provided: $provided,
+            fingerprints: $fingerprints,
         );
     }
 
