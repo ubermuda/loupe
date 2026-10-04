@@ -64,7 +64,7 @@ A diagram is encouraged and never required, in any section. Choose the Mermaid t
 | The states of one thing | State diagram |
 | Entities and their links | ER diagram or class diagram |
 
-1. Draw moving parts, flows and entity relations as a Mermaid diagram, in a fenced `mermaid` block.
+1. Write each diagram in Mermaid, in a fenced `mermaid` block.
 2. Do not turn a list into a diagram.
 3. Let the diagram replace the prose it covers.
 4. Keep each diagram small enough to read on one screen.
@@ -75,4 +75,4 @@ The Loupe review page draws the diagram only when the operator turns on the diag
 
 1. A table or a diagram replaces the text it covers. Do not repeat its content in prose.
 2. Leave out a section with nothing real to say.
-3. A Light document has an At a glance of two sentences. It skips the Priorities and How others do it sections.
+3. A Light document has an At a glance of two sentences. It skips the Priorities and How others do it sections. A Light tech design keeps a short Architecture section.
