@@ -111,6 +111,32 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertEquals(new Unreadable(UnreadableKind::Failed, ProvidedFactsProvider::class, $failure), $unreadable);
     }
 
+    public function test_a_provider_whose_fingerprint_throws_gives_a_failed_source(): void
+    {
+        self::bootKernel();
+        $failure = new \RuntimeException('The fingerprint is broken.');
+        $this->provider->fingerprintFailure = $failure;
+
+        $unreadable = $this->facts($this->card($this->workflowProject('facts-fingerprint-failed'), 'next'))->unreadable(ProvidedFacts::class);
+
+        self::assertEquals(new Unreadable(UnreadableKind::Failed, 'workflow.source.board', $failure), $unreadable);
+    }
+
+    public function test_a_database_error_in_a_provider_leaves_the_transaction_of_the_caller_usable(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('facts-database-failed'), 'next');
+        $connection = $this->em()->getConnection();
+        $this->provider->onBuild = static fn () => $connection->executeQuery('SELECT * FROM no_such_table');
+
+        $connection->beginTransaction();
+        $facts = $this->facts($card);
+
+        self::assertSame(UnreadableKind::Failed, $facts->unreadable(ProvidedFacts::class)?->kind);
+        self::assertSame(1, $connection->fetchOne('SELECT 1'));
+        $connection->rollBack();
+    }
+
     public function test_two_providers_for_one_facts_class_are_refused(): void
     {
         $this->expectException(\LogicException::class);
@@ -467,6 +493,7 @@ final class FactsBuilderTest extends KernelTestCase
             $this->service(ForgePullRequestRepository::class),
             $this->service(WorkRequestRepository::class),
             new FactProviders([$this->provider]),
+            $this->em()->getConnection(),
         );
     }
 

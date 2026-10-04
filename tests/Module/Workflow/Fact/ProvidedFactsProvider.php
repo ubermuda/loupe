@@ -23,6 +23,11 @@ final class ProvidedFactsProvider implements FactProvider
 
     public ?\Throwable $sourceFailure = null;
 
+    public ?\Throwable $fingerprintFailure = null;
+
+    /** Runs inside build(), so a test can make the provider query the database. */
+    public ?\Closure $onBuild = null;
+
     public function __construct()
     {
         $this->facts = new ProvidedFacts();
@@ -44,6 +49,9 @@ final class ProvidedFactsProvider implements FactProvider
     public function build(Uuid $cardId): object
     {
         ++$this->builds;
+        if (null !== $this->onBuild) {
+            ($this->onBuild)();
+        }
         if (null !== $this->failure && $this->builds > ($this->buildsBeforeFailure ?? 0)) {
             throw $this->failure;
         }
@@ -54,6 +62,9 @@ final class ProvidedFactsProvider implements FactProvider
     #[\Override]
     public function fingerprint(object $facts): mixed
     {
+        if (null !== $this->fingerprintFailure) {
+            throw $this->fingerprintFailure;
+        }
         if (!$facts instanceof ProvidedFacts) {
             throw new \LogicException('The provider fingerprints its own facts.');
         }

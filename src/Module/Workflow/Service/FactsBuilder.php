@@ -27,6 +27,7 @@ use App\Module\Workflow\Contract\RunFacts;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
+use Doctrine\DBAL\Connection;
 use Symfony\Component\Uid\Uuid;
 
 /** Reads what the engine knows about one card, from Board, Forge, Bridge and every fact provider. It logs nothing. */
@@ -44,6 +45,7 @@ final readonly class FactsBuilder
         private ForgePullRequestRepository $forgePullRequests,
         private WorkRequestRepository $workRequests,
         private FactProviders $providers,
+        private Connection $connection,
     ) {
     }
 
@@ -89,23 +91,35 @@ final readonly class FactsBuilder
                 ))),
                 lastRefusalCode: WorkRequestState::Refused === $settled?->state ? $settled->reason : null,
             ),
-            provided: array_map(static fn (FactProvider $provider): object => self::provided($provider, $cardId), $this->providers->byClass),
+            provided: array_map(fn (FactProvider $provider): object => $this->provided($provider, $cardId), $this->providers->byClass),
         );
     }
 
-    private static function provided(FactProvider $provider, Uuid $cardId): object
+    /** A savepoint isolates the queries of the provider, so a database error leaves the transaction of the caller usable. */
+    private function provided(FactProvider $provider, Uuid $cardId): object
     {
         $source = $provider::class;
+        $this->connection->beginTransaction();
         try {
             $source = $provider->source();
             if (!$provider->isOn()) {
+                $this->connection->commit();
+
                 return new Unreadable(UnreadableKind::Off, $source);
             }
             $class = $provider->factsClass();
             $facts = $provider->build($cardId);
+            if (!$facts instanceof $class) {
+                throw new \LogicException(\sprintf('The fact provider %s built a %s, not a %s.', $provider::class, $facts::class, $class));
+            }
+            // The fingerprint is read later, outside this guard, so a provider that cannot fingerprint its facts fails here.
+            $provider->fingerprint($facts);
+            $this->connection->commit();
 
-            return $facts instanceof $class ? $facts : throw new \LogicException(\sprintf('The fact provider %s built a %s, not a %s.', $provider::class, $facts::class, $class));
+            return $facts;
         } catch (\Throwable $e) {
+            $this->connection->rollBack();
+
             return new Unreadable(UnreadableKind::Failed, $source, $e);
         }
     }
