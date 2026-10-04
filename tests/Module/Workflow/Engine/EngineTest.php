@@ -1094,6 +1094,24 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->liveRequests($card));
     }
 
+    public function test_the_release_baseline_writes_no_state_for_a_true_pause_rule_whose_until_cannot_be_read(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => self::ALWAYS,
+            'then' => ['pause' => ['reason' => 'on-hold', 'until' => self::PROVIDED_READY]],
+        ]]);
+        $this->hold($card);
+        $this->releaseHold($card);
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+
+        $this->evaluate($card);
+
+        self::assertNull($this->ruleStateOrNull($card, 'hold'));
+        self::assertNull($this->activePause($card));
+    }
+
     public function test_a_stored_copy_with_a_condition_this_instance_lacks_runs_every_other_rule(): void
     {
         $card = $this->boundCard([

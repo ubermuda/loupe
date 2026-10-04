@@ -154,7 +154,7 @@ final readonly class Engine
                 }
                 continue;
             }
-            if (null !== $rule->when->unreadable($run->facts)) {
+            if (self::waits($run, $rule)) {
                 continue;
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
@@ -275,12 +275,8 @@ final readonly class Engine
                 }
                 continue;
             }
-            // Before state(), which persists a new state: a rule that cannot read its facts writes none.
-            if (null !== $rule->when->unreadable($run->facts)) {
-                continue;
-            }
-            // A pause whose until cannot be read could never release, so a true rule waits. A false one still records its edge.
-            if (null !== $rule->then->until?->unreadable($run->facts) && $rule->when->evaluate($run->facts)) {
+            // Before state(), which persists a new state: a rule that waits writes none.
+            if (self::waits($run, $rule)) {
                 continue;
             }
 
@@ -402,6 +398,16 @@ final readonly class Engine
         foreach (array_keys($missing) as $class) {
             $this->logger->error('workflow.fact_provider_missing', ['cardId' => $run->card->id?->toRfc4122(), 'factsClass' => $class]);
         }
+    }
+
+    /**
+     * A rule waits when it cannot read its facts. A pause whose until cannot be read could never release,
+     * so its rule waits while it is true. A false one still records its edge.
+     */
+    private static function waits(Evaluation $run, Rule $rule): bool
+    {
+        return null !== $rule->when->unreadable($run->facts)
+            || (null !== $rule->then->until?->unreadable($run->facts) && $rule->when->evaluate($run->facts));
     }
 
     private function state(Evaluation $run, Rule $rule): WorkflowRuleState
