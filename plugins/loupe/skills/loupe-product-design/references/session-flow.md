@@ -20,7 +20,7 @@ A card that needs no product design does not use this skill. The owner moves it 
 
 1. P0: Start. Get the card into the Product design column, with the slug from the profile, and open an interactive run on it.
    - With no card, call `card_search` first with words from the prompt, when the tool exists. Show the owner each close match. When the owner picks one, use that card, and follow the rules for a card below.
-   - With no card that the owner picks, call `card_create` with `status` set to the slug and `reporter` set to `human`. Take the title and the body from the prompt. Set `type` to `feature`, or to the type the prompt names. A create writes no move event, so no bridge rule fires. When `card_create` refuses the slug, create the card with no `status`. Tell the owner that an approval will not move the card. Then open the run as below.
+   - With no card that the owner picks, call `card_create` with `status` set to the slug and `reporter` set to `human`. Take the title and the body from the prompt. Set `type` to `feature`, or to the type the prompt names. A create writes no move event. When `card_create` refuses the slug, create the card with no `status`. Tell the owner that an approval will not move the card. Then open the run as below.
    - With a card, check its product document first, as `SKILL.md` step 5 says. When that document is approved, stop before any move.
    - Read your session id with the Bash tool: `echo $CLAUDE_CODE_SESSION_ID`.
    - When the card sits in the Product design column, call `card_run_open` before P1. Send the card, `status` set to the slug, `sessionId` set to your session id, and `name` set to `loupe:product-design`. The card stays there.

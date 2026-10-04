@@ -128,12 +128,11 @@ final readonly class CardHistoryEntry
     }
 
     /** @param array<string, mixed> $detail */
-    private static function runFinished(CardEvent $event, string|TranslatableMessage $actor, array $detail, bool $runExists): ?self
+    private static function runFinished(CardEvent $event, string|TranslatableMessage $actor, array $detail, bool $runExists): self
     {
-        $rule = $detail['ruleName'] ?? null;
-        if (!\is_string($rule)) {
-            return null;
-        }
+        // A row written before runs carried a work kind holds the rule name.
+        $stored = $detail['workKind'] ?? $detail['ruleName'] ?? null;
+        $kind = \is_string($stored) && '' !== $stored ? $stored : null;
         $rawState = $detail['state'] ?? null;
         $state = \is_string($rawState) ? WorkerRunState::tryFrom($rawState) : null;
         $seconds = $detail['durationSeconds'] ?? null;
@@ -143,10 +142,10 @@ final readonly class CardHistoryEntry
             $event->occurredAt,
             $actor,
             new TranslatableMessage(
-                \in_array($state, [WorkerRunState::NotStarted, WorkerRunState::Skipped, WorkerRunState::Replaced, WorkerRunState::Dropped], true)
+                (\in_array($state, [WorkerRunState::NotStarted, WorkerRunState::Skipped, WorkerRunState::Replaced, WorkerRunState::Dropped], true)
                     ? 'board.card.history.run_not_started'
-                    : 'board.card.history.run_finished',
-                ['%actor%' => $actor, '%rule%' => $rule],
+                    : 'board.card.history.run_finished').(null === $kind ? '_no_kind' : ''),
+                ['%actor%' => $actor, '%kind%' => $kind ?? ''],
             ),
             run: new CardHistoryRun(
                 runId: $runExists ? self::runIdOf($event) : null,
@@ -176,6 +175,14 @@ final readonly class CardHistoryEntry
         if ('unblocked' === ($cause['type'] ?? null) && !\array_key_exists('blocker', $cause)) {
             return new TranslatableMessage('board.card.history.cause.unblocked_any');
         }
+        // A cause written before runs carried a work kind holds the rule name.
+        if ('run' === ($cause['type'] ?? null)) {
+            $kind = $cause['kind'] ?? $cause['rule'] ?? null;
+
+            return \is_string($kind) && '' !== $kind
+                ? new TranslatableMessage('board.card.history.cause.run', ['%kind%' => $kind])
+                : new TranslatableMessage('board.card.history.cause.run_no_kind');
+        }
         [$key, $field, $parameter] = match ($cause['type'] ?? null) {
             'merged' => ['board.card.history.cause.merged', 'pullRequest', '%pr%'],
             'checks-passed' => ['board.card.history.cause.checks_passed', 'pullRequest', '%pr%'],
@@ -184,7 +191,7 @@ final readonly class CardHistoryEntry
             'unblocked' => ['board.card.history.cause.unblocked', 'blocker', '%blocker%'],
             'column-deleted' => ['board.card.history.cause.column_deleted', 'column', '%column%'],
             'abandoned' => ['board.card.history.cause.abandoned', null, null],
-            'run' => ['board.card.history.cause.run', 'rule', '%rule%'],
+            'workflow-rule' => ['board.card.history.cause.workflow_rule', 'rule', '%rule%'],
             default => [null, null, null],
         };
         if (null === $key) {

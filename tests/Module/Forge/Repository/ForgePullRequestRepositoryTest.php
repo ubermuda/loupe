@@ -6,6 +6,7 @@ namespace App\Tests\Module\Forge\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\ArrayParameterType;
@@ -82,6 +83,34 @@ final class ForgePullRequestRepositoryTest extends KernelTestCase
         sort($expected);
         sort($remaining);
         self::assertSame($expected, $remaining);
+    }
+
+    public function test_find_by_head_branch_answers_the_rows_of_one_repository_whose_head_is_the_branch(): void
+    {
+        $project = $this->project();
+        $projectId = $project->id ?? throw new \LogicException('The project is persisted.');
+        $match = $this->row($project, 'ubermuda/loupe', 1, 'epic/42');
+        $merged = $this->row($project, 'ubermuda/loupe', 2, 'epic/42');
+        $merged->state = PullRequestState::Merged;
+        $this->row($project, 'ubermuda/loupe', 3, 'epic/43');
+        $this->row($project, 'ubermuda/other', 4, 'epic/42');
+        $this->row($this->project(), 'ubermuda/loupe', 5, 'epic/42');
+        $this->em->flush();
+
+        $rows = $this->pullRequests->findByHeadBranch($projectId, 'github', 'Ubermuda/Loupe', 'epic/42');
+
+        self::assertSame([$match->number, $merged->number], array_map(static fn (ForgePullRequest $row): int => $row->number, $rows));
+        self::assertSame([], $this->pullRequests->findByHeadBranch($projectId, 'gitlab', 'ubermuda/loupe', 'epic/42'));
+    }
+
+    private function row(Project $project, string $repository, int $number, string $headBranch): ForgePullRequest
+    {
+        $row = new ForgePullRequest($project, 'github', $repository, $number);
+        $row->headBranch = $headBranch;
+        $this->em->persist($row);
+        $this->em->flush();
+
+        return $row;
     }
 
     private function projectId(): Uuid

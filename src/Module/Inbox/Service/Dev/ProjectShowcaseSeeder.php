@@ -7,7 +7,6 @@ namespace App\Module\Inbox\Service\Dev;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
@@ -20,7 +19,6 @@ use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\BoardColumnRepository;
-use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardEventCause;
@@ -47,7 +45,6 @@ use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Inbox\Service\InboxSearchIndexer;
-use App\Module\Inbox\Service\RacingRuleNoticeReconciler;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
@@ -92,13 +89,8 @@ final readonly class ProjectShowcaseSeeder
         private DocumentTagApplier $tagApplier,
         private CardEventRepository $cardEvents,
         private BoardAutomationSettingsRepository $boardAutomationSettings,
-        private BridgeRuleReportRepository $bridgeRuleReports,
-        private RacingRuleNoticeReconciler $racingRuleNotice,
     ) {
     }
-
-    /** The bridge whose report holds a rule that races the app sync. */
-    public const string RACING_BRIDGE_ID = '0199a2f0-5c1e-7a3b-9d4e-6f8a1b2c3d4e';
 
     /** The card in Tech design whose tech design in review gives the showcase its wait item. */
     public const string WAITING_CARD_TITLE = 'Board onboarding';
@@ -142,8 +134,6 @@ final readonly class ProjectShowcaseSeeder
             $this->em->flush();
             $outdatedCard = '/projects/'.$project->id.'/board/cards/'.$card->id;
         }
-
-        $this->seedRacingRule($project);
 
         $enabled = $this->inbox->isEnabled();
         if (!$waitingCard instanceof Card) {
@@ -218,19 +208,6 @@ final readonly class ProjectShowcaseSeeder
         }
 
         return $columns['in-review'] ?? $columns['in-progress'] ?? $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
-    }
-
-    /** A live bridge rule on pull_request.behind, which races the sync seedSyncLine turns on, and the notice it opens. */
-    private function seedRacingRule(Project $project): void
-    {
-        $bridgeId = Uuid::fromString(self::RACING_BRIDGE_ID);
-        if (!$this->bridgeRuleReports->findOneByProjectAndBridge($project, $bridgeId) instanceof BridgeRuleReport) {
-            $this->em->persist(new BridgeRuleReport($project, $bridgeId, [
-                ['name' => 'sync-behind', 'on' => 'pull_request.behind', 'columns' => [], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
-            ]));
-            $this->em->flush();
-        }
-        $this->racingRuleNotice->reconcile($project);
     }
 
     /** A pull request whose base is the default branch, approved on its head when $approvedAt is set. */
@@ -309,9 +286,7 @@ final readonly class ProjectShowcaseSeeder
         $this->linkPullRequest($onboarding, 447, PullRequestChecks::Passed, PullRequestMergeability::Mergeable, PullRequestReview::Approved);
 
         $automation = new CardAutomation($columnRules);
-        $automation->fixRounds = 3;
-        $automation->blockedReason = 'checks-failed';
-        $automation->lastAction = CardAutomationAction::Stopped;
+        $automation->lastAction = CardAutomationAction::Synced;
         $automation->lastActionAt = new \DateTimeImmutable('-20 minutes');
         $this->em->persist($automation);
         $this->em->flush();
@@ -354,6 +329,7 @@ final readonly class ProjectShowcaseSeeder
         $state->failedChecks = $failedChecks;
         $state->mergeability = $mergeability;
         $state->review = $review;
+        $state->changesRequestedSha = PullRequestReview::ChangesRequested === $review ? $state->headSha : null;
         $state->refreshedAt = new \DateTimeImmutable('-5 minutes');
 
         return $link;
@@ -611,7 +587,7 @@ final readonly class ProjectShowcaseSeeder
             bridgeId: Uuid::v4(),
             cardId: $cardId,
             cardNumber: $card->number,
-            ruleName: 'fix',
+            workKind: 'fix',
             state: WorkerRunState::Succeeded,
             runKey: Uuid::v4(),
             startedAt: $endedAt->modify('-434 seconds'),
@@ -620,7 +596,6 @@ final readonly class ProjectShowcaseSeeder
             hasResult: true,
             output: 'The failing test now passes. The run pushed one commit.',
             receivedAt: $endedAt,
-            cardColumn: $inProgress['slug'],
         );
         $startedAt = new \DateTimeImmutable('-4 minutes');
         $open = new WorkerRun(
@@ -628,12 +603,11 @@ final readonly class ProjectShowcaseSeeder
             bridgeId: Uuid::v4(),
             cardId: $cardId,
             cardNumber: $card->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::Running,
             runKey: Uuid::v4(),
             startedAt: $startedAt,
             receivedAt: $startedAt,
-            cardColumn: $inProgress['slug'],
         );
         $this->em->persist($finished);
         $this->em->persist($open);
@@ -646,14 +620,12 @@ final readonly class ProjectShowcaseSeeder
         $this->cardEvents->record($card, CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks-failed', 'pullRequest' => 441], new \DateTimeImmutable('-48 hours'));
         $this->cardEvents->record($card, CardEventKind::RunFinished, CardReporter::Agent, $owner, [
             'runId' => (string) $finished->id,
-            'ruleName' => $finished->ruleName,
+            'workKind' => $finished->workKind,
             'state' => $finished->state->value,
             'interactive' => false,
             'startedAt' => $finished->startedAt?->format(\DateTimeInterface::ATOM),
             'endedAt' => $endedAt->format(\DateTimeInterface::ATOM),
             'durationSeconds' => 434,
-            'resumeIndex' => null,
-            'resumeCap' => null,
         ], $endedAt);
         $this->cardEvents->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => 441], new \DateTimeImmutable('-30 hours'));
         $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::System, null, ['from' => $inProgress, 'to' => $done, 'cause' => CardEventCause::merged(441)->detail()], new \DateTimeImmutable('-28 hours'));
@@ -698,7 +670,7 @@ final readonly class ProjectShowcaseSeeder
             bridgeId: Uuid::v4(),
             cardId: $child->id ?? throw new \LogicException('A stored card has an id.'),
             cardNumber: $child->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::GaveUp,
             runKey: Uuid::v4(),
             endedAt: $endedAt,
@@ -706,7 +678,6 @@ final readonly class ProjectShowcaseSeeder
             hasResult: true,
             output: 'The export tests still fail after three attempts. The archive writer cannot read a document that has no version.',
             receivedAt: $endedAt,
-            cardColumn: $inProgress->slug,
         );
         $this->em->persist($run);
         $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, $endedAt, $endedAt));

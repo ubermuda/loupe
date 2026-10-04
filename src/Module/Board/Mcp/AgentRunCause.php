@@ -35,6 +35,6 @@ final readonly class AgentRunCause
             return null;
         }
 
-        return CardEventCause::run($run->id ?? throw new \LogicException('A persisted run has an id.'), $run->ruleName);
+        return CardEventCause::run($run->id ?? throw new \LogicException('A persisted run has an id.'), $run->workKind);
     }
 }

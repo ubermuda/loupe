@@ -3,9 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 
@@ -191,7 +189,7 @@ func TestARunReportsEachStateUnderOneRunID(t *testing.T) {
 			t.Fatalf("report %s names run %q in %q, want %q in %q", s.report.State, s.runID, s.handle, runID, testProject)
 		}
 		r := s.report
-		if r.BridgeID != testBridgeID || r.CardID != cardUUID(87) || r.CardNumber != 87 || r.RuleName != "plan" || r.At.IsZero() {
+		if r.BridgeID != testBridgeID || r.CardID != cardUUID(87) || r.CardNumber != 87 || r.Rule != "work:plan" || r.WorkKind != "plan" || r.WorkRequestID == "" || r.RuleID != "plan-rule" || r.At.IsZero() {
 			t.Fatalf("report = %+v", r)
 		}
 	}
@@ -211,35 +209,6 @@ func TestARunReportsEachStateUnderOneRunID(t *testing.T) {
 	}
 	if rec.posts != 0 {
 		t.Fatalf("posted %d old reports to a server with run states", rec.posts)
-	}
-}
-
-// The queued report names the event that queued the run, with the pull request
-// of a fix request. No other report names it.
-func TestTheQueuedReportNamesTheEventThatQueuedTheRun(t *testing.T) {
-	h := newHarnessWith(t, fixRules, rules.Defaults{})
-	rec := h.states()
-
-	h.send(fmt.Sprintf(`{"type":"pull_request.fix_requested","subject":{"type":"card","id":%q},"projectId":%q,"cardNumber":87,"forge":"github","repository":"ubermuda/loupe","pullRequestNumber":644,"headSha":"9b84e07b","reason":"checks-failed","actor":"system"}`,
-		cardUUID(87), testProject))
-
-	sent := rec.states()
-	wantStates(t, sent, api.RunQueued, api.RunRunning, api.RunSucceeded)
-	want := api.RunTrigger{
-		EventType:         "pull_request.fix_requested",
-		Forge:             "github",
-		Repository:        "ubermuda/loupe",
-		PullRequestNumber: 644,
-		HeadSHA:           "9b84e07b",
-		Reason:            "checks-failed",
-	}
-	if got := sent[0].report.Trigger; got == nil || *got != want {
-		t.Fatalf("trigger = %+v, want %+v", got, want)
-	}
-	for _, s := range sent[1:] {
-		if s.report.Trigger != nil {
-			t.Fatalf("%s names trigger %+v, want none", s.report.State, s.report.Trigger)
-		}
 	}
 }
 
@@ -285,290 +254,6 @@ func TestAFinishedRunReportsHowItEnded(t *testing.T) {
 	}
 }
 
-// An event that replaces a waiting one closes the waiting run as replaced, and
-// names the run that takes its place.
-func TestACoalescedEventReplacesTheWaitingRun(t *testing.T) {
-	h := newHarness(t)
-	rec := h.states()
-	h.worker.started = make(chan workerSpec, 2)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	h.router.onData([]byte(cardMoved(87)))
-	h.router.onData([]byte(cardMoved(87)))
-
-	sent := rec.states()
-	wantStates(t, sent, api.RunQueued, api.RunRunning, api.RunQueued, api.RunReplaced, api.RunQueued)
-	waiting, replaced, next := sent[2], sent[3], sent[4]
-	if replaced.runID != waiting.runID || replaced.report.ReplacedBy != next.runID {
-		t.Fatalf("replaced = %+v, want run %q replaced by %q", replaced, waiting.runID, next.runID)
-	}
-	if next.runID == waiting.runID || next.runID == sent[0].runID {
-		t.Fatalf("the new run reuses id %q", next.runID)
-	}
-
-	close(h.worker.block)
-	h.router.wg.Wait()
-	wantStates(t, ofRun(rec.states(), next.runID), api.RunQueued, api.RunRunning, api.RunSucceeded)
-}
-
-// A capped event waits for a person as a run of its own. It never queued.
-func TestACappedEventWaitsForAPerson(t *testing.T) {
-	h := newHarnessWith(t, chainRules, rules.Defaults{})
-	rec := h.states()
-
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-	before := len(rec.states())
-	h.send(movedPayload(87, "backlog", "next", "agent"))
-
-	sent := rec.states()[before:]
-	wantStates(t, sent, api.RunWaitingForPerson)
-	if sent[0].report.MaxChain != 2 || sent[0].runID == "" {
-		t.Fatalf("waiting-for-person = %+v", sent[0])
-	}
-	for _, s := range rec.states()[:before] {
-		if s.runID == sent[0].runID {
-			t.Fatalf("the capped run reuses id %q", s.runID)
-		}
-	}
-}
-
-// A queued resume that meets the cap when the queue releases it closes the run
-// it queued as.
-func TestAQueuedResumeThatMeetsTheCapWaitsForAPerson(t *testing.T) {
-	h := newHarnessWith(t, defaultRules+`
-  - name: resume
-    on: inbox.ask_closed
-    project: loupe
-    resume: true
-    maxChain: 1
-    prompt: Ask {askId} closed.
-`, rules.Defaults{})
-	rec := h.states()
-	h.worker.started = make(chan workerSpec, 3)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	h.router.onData([]byte(h.mine(ask{card: 87, actor: "agent"})))
-	h.router.onData([]byte(h.mine(ask{id: otherAsk, card: 87, actor: "agent"})))
-	capped := rec.states()[3]
-	close(h.worker.block)
-	h.router.wg.Wait()
-
-	wantStates(t, ofRun(rec.states(), capped.runID), api.RunQueued, api.RunWaitingForPerson)
-	last := ofRun(rec.states(), capped.runID)[1].report
-	if last.MaxChain != 1 {
-		t.Fatalf("waiting-for-person = %+v", last)
-	}
-}
-
-// A resume the ask check lets through reports resumed with its ask, then runs.
-// A failed check resumes too.
-func TestACheckedResumeReportsResumed(t *testing.T) {
-	for name, c := range map[string]*checks{
-		"not all read": {state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}},
-		"check failed": {err: errors.New("ask check failed (HTTP 500)")},
-	} {
-		t.Run(name, func(t *testing.T) {
-			h := newHarnessWith(t, resumeRules, rules.Defaults{})
-			rec := h.states()
-			h.router.checkAsk = c.check
-
-			h.send(h.mine(ask{card: 87}))
-
-			sent := rec.states()
-			wantStates(t, sent, api.RunQueued, api.RunResumed, api.RunRunning, api.RunSucceeded)
-			if sent[1].report.AskID != testAsk || sent[1].runID != sent[0].runID {
-				t.Fatalf("resumed = %+v", sent[1])
-			}
-			if sent[2].report.SessionID != askSession {
-				t.Fatalf("running = %+v, want the session of the ask", sent[2].report)
-			}
-		})
-	}
-}
-
-// A run that replaces a checked resume inherits its check, so it reports
-// resumed as it queues.
-func TestARunThatReplacesACheckedResumeReportsResumed(t *testing.T) {
-	h := newHarnessWith(t, withMaxWorkers(resumeRules, 1), rules.Defaults{})
-	rec := h.states()
-	h.router.checkAsk = (&checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}}).check
-	h.worker.started = make(chan workerSpec, 2)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(88)))
-	<-h.worker.started
-	h.router.onData([]byte(h.mine(ask{card: 87})))
-	eventually(t, "the checked resume in the queue", func() bool {
-		h.router.mu.Lock()
-		defer h.router.mu.Unlock()
-
-		return len(h.router.queue) == 1 && h.router.queue[0].checked
-	})
-	h.router.onData([]byte(h.mine(ask{card: 87})))
-	close(h.worker.block)
-	h.router.wg.Wait()
-
-	next := rec.states()[5]
-	wantStates(t, rec.states()[2:6], api.RunQueued, api.RunResumed, api.RunReplaced, api.RunQueued)
-	wantStates(t, ofRun(rec.states(), next.runID), api.RunQueued, api.RunResumed, api.RunRunning, api.RunSucceeded)
-}
-
-// With no ask check, a resume reports resumed as it starts.
-func TestAnUncheckedResumeReportsResumedAsItStarts(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	rec := h.states()
-
-	h.send(h.mine(ask{card: 87}))
-
-	sent := rec.states()
-	wantStates(t, sent, api.RunQueued, api.RunResumed, api.RunRunning, api.RunSucceeded)
-	if sent[1].report.AskID != testAsk {
-		t.Fatalf("resumed = %+v", sent[1].report)
-	}
-}
-
-// A resume whose session read every item of its ask closes as skipped.
-func TestASkippedResumeReportsSkipped(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	rec := h.states()
-	h.router.checkAsk = (&checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: true}}).check
-
-	h.send(h.mine(ask{card: 87}))
-
-	sent := rec.states()
-	wantStates(t, sent, api.RunQueued, api.RunSkipped)
-	if sent[1].runID != sent[0].runID {
-		t.Fatalf("skipped names run %q, want %q", sent[1].runID, sent[0].runID)
-	}
-}
-
-// Each run a shutdown drops closes as dropped, for the shutdown.
-func TestAShutdownDropsEachWaitingRun(t *testing.T) {
-	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
-	rec := h.states()
-	h.worker.started = make(chan workerSpec, 1)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	h.router.onData([]byte(cardMoved(88)))
-	h.router.shutdown()
-	close(h.worker.block)
-	h.router.wg.Wait()
-
-	queued := rec.states()[2]
-	wantStates(t, ofRun(rec.states(), queued.runID), api.RunQueued, api.RunDropped)
-	if got := ofRun(rec.states(), queued.runID)[1].report; got.Reason != "shutdown" || got.CardNumber != 88 {
-		t.Fatalf("dropped = %+v", got)
-	}
-}
-
-// A run whose rule dies in the queue closes as dropped, for the dead rule.
-func TestADeadRuleDropsItsWaitingRun(t *testing.T) {
-	h := newHarness(t)
-	rec := h.states()
-	h.worker.started = make(chan workerSpec, 1)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	h.router.onData([]byte(cardMoved(87)))
-	h.router.onData([]byte(projectRenamed()))
-	close(h.worker.block)
-	h.router.wg.Wait()
-
-	queued := rec.states()[2]
-	wantStates(t, ofRun(rec.states(), queued.runID), api.RunQueued, api.RunDropped)
-	if got := ofRun(rec.states(), queued.runID)[1].report; got.Reason != "rule_dead" {
-		t.Fatalf("dropped = %+v", got)
-	}
-}
-
-// A resume out of the queue for its check is dropped for whichever stopped it.
-func TestAResumeDroppedAfterItsCheckNamesTheCause(t *testing.T) {
-	for name, stop := range map[string]func(h *harness){
-		"shutdown":  func(h *harness) { h.router.shutdown() },
-		"rule_dead": func(h *harness) { h.router.onData([]byte(projectRenamed())) },
-		"reload":    func(h *harness) { h.router.reload(context.Background(), h.source(defaultRules)) },
-	} {
-		t.Run(name, func(t *testing.T) {
-			h := newHarnessWith(t, resumeRules, rules.Defaults{})
-			rec := h.states()
-			g := newGate()
-			h.router.checkAsk = g.check
-
-			h.router.onData([]byte(h.mine(ask{card: 87})))
-			<-g.entered
-			stop(h)
-			close(g.release)
-			h.router.wg.Wait()
-
-			sent := rec.states()
-			wantStates(t, sent, api.RunQueued, api.RunDropped)
-			if sent[1].report.Reason != name {
-				t.Fatalf("dropped = %+v, want reason %s", sent[1].report, name)
-			}
-		})
-	}
-}
-
-// A reload that drops a waiting run closes it as dropped, for the reload, and
-// the next inventory no longer lists it. A run the reload keeps keeps its id.
-func TestAReloadDropsTheRunsItNoLongerRuns(t *testing.T) {
-	h := newHarnessWith(t, withMaxWorkers(twoRuleFile, 1), rules.Defaults{})
-	rec := h.states()
-	h.worker.started = make(chan workerSpec, 2)
-	h.worker.block = make(chan struct{})
-
-	h.router.onData([]byte(cardMoved(87)))
-	<-h.worker.started
-	h.router.onData([]byte(cardMoved(88)))
-	h.router.onData([]byte(movedPayload(89, "backlog", "review", "human")))
-	plan, review := rec.states()[2], rec.states()[3]
-
-	// plan takes another name, so its waiting run drops, and review stays.
-	res := h.reload(t, strings.Replace(twoRuleFile, "  - name: plan", "  - name: gone", 1))
-	if !res.OK {
-		t.Fatalf("result = %+v", res)
-	}
-	wantStates(t, ofRun(rec.states(), plan.runID), api.RunQueued, api.RunDropped)
-	if got := ofRun(rec.states(), plan.runID)[1].report; got.Reason != api.DropReload || got.CardNumber != 88 {
-		t.Fatalf("dropped = %+v", got)
-	}
-	h.router.handler().OnConnect()
-	inv := rec.inventories()
-	if len(inv) != 1 || len(inv[0]) != 2 || slices.ContainsFunc(inv[0], func(r api.InventoryRun) bool { return r.RunID == plan.runID }) {
-		t.Fatalf("inventory = %+v, want the running run and the kept run alone", inv)
-	}
-
-	close(h.worker.block)
-	h.router.wg.Wait()
-	wantStates(t, ofRun(rec.states(), review.runID), api.RunQueued, api.RunRunning, api.RunSucceeded)
-}
-
-// An event with no card sends no state, and logs the skip once.
-func TestARunWithNoCardSendsNoState(t *testing.T) {
-	h := newHarnessWith(t, defaultRules+`
-  - name: created
-    on: board.card_created
-    project: loupe
-    prompt: Created in {project}.
-`, rules.Defaults{})
-	rec := h.states()
-
-	h.send(`{"type":"board.card_created","subject":{"type":"card","id":"` + testCard + `"},"projectId":"` + testProject + `","actor":"human"}`)
-
-	if got := rec.names(); len(got) != 0 {
-		t.Fatalf("sent %v for a run with no card", got)
-	}
-	h.only(t, "report_skipped")
-}
-
 // A router with no queue sends nothing, and still runs.
 func TestARouterWithNoQueueSendsNoState(t *testing.T) {
 	h := newHarness(t)
@@ -595,17 +280,14 @@ func TestEachConnectSendsTheRunsTheBridgeHolds(t *testing.T) {
 	h.router.onData([]byte(cardMoved(88)))
 	h.router.handler().OnConnect()
 
+	// A waiting offer holds no claim, so the server has no run of it yet.
 	sent := rec.states()
-	want := []api.InventoryRun{
-		{RunID: sent[0].runID, ProjectID: testProject, State: api.RunRunning},
-		{RunID: sent[2].runID, ProjectID: testProject, State: api.RunQueued},
-	}
-	slices.SortFunc(want, func(a, b api.InventoryRun) int { return strings.Compare(a.RunID, b.RunID) })
+	want := []api.InventoryRun{{RunID: sent[0].runID, ProjectID: testProject, State: api.RunRunning}}
 	inv := rec.inventories()
 	if len(inv) != 2 || len(inv[0]) != 0 || !slices.Equal(inv[1], want) {
 		t.Fatalf("inventories = %+v, want none held, then %+v", inv, want)
 	}
-	if got := rec.names(); !slices.Equal(got, []string{"inventory", api.RunQueued, api.RunRunning, api.RunQueued, "inventory"}) {
+	if got := rec.names(); !slices.Equal(got, []string{"inventory", api.RunQueued, api.RunRunning, "inventory"}) {
 		t.Fatalf("sent = %v", got)
 	}
 

@@ -15,10 +15,14 @@ import (
 // PUT /api/projects/{handle}/interactive-runs/{sessionId} takes it. State is
 // RunRunning or RunNotStarted, and only RunNotStarted carries a FailureReason.
 type InteractiveLaunchReport struct {
-	BridgeID      string    `json:"bridgeId"`
-	CardID        string    `json:"cardId"`
-	CardNumber    int       `json:"cardNumber"`
-	RuleName      string    `json:"ruleName"`
+	BridgeID   string `json:"bridgeId"`
+	CardID     string `json:"cardId"`
+	CardNumber int    `json:"cardNumber"`
+	// WorkKind names the session: the kind of its work request, or the rule
+	// that launched it.
+	WorkKind      string    `json:"workKind"`
+	WorkRequestID string    `json:"workRequestId,omitempty"`
+	RuleID        string    `json:"ruleId,omitempty"`
 	State         string    `json:"state"`
 	At            time.Time `json:"at"`
 	FailureReason string    `json:"failureReason,omitzero"`
@@ -33,7 +37,7 @@ var ErrInteractiveRunsUnsupported = errors.New("the server has no interactive ru
 // projects. It answers whether the server wrote a new row: 201 for a new one
 // and 200 for one it already holds.
 func (c *Client) ReportInteractiveLaunch(ctx context.Context, handle, sessionID string, report InteractiveLaunchReport) (bool, error) {
-	report.RuleName = clip(strings.TrimSpace(report.RuleName), maxRuleName)
+	report.WorkKind = clip(strings.TrimSpace(report.WorkKind), maxRuleName)
 	report.FailureReason = clip(report.FailureReason, maxFailureReason)
 
 	body, err := json.Marshal(report)

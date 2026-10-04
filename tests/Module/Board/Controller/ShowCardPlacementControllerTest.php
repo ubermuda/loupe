@@ -254,7 +254,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $this->addTriageColumn($project);
         $em->flush();
         $card = $this->card($em, $project, 'Stuck', 'next');
-        $run = $this->gaveUp($em, $card, 'next');
+        $run = $this->gaveUp($em, $card);
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
         $em->clear();
 
@@ -516,7 +516,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $em->flush();
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
         $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
-        $run = $this->gaveUp($em, $epic, 'next');
+        $run = $this->gaveUp($em, $epic);
         $em->clear();
 
         $client->loginUser($owner);
@@ -659,14 +659,14 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertStringNotContainsString('data-lane', (string) $client->getResponse()->getContent());
     }
 
-    private function gaveUp(EntityManagerInterface $em, Card $card, string $columnSlug): WorkerRun
+    private function gaveUp(EntityManagerInterface $em, Card $card): WorkerRun
     {
         $run = new WorkerRun(
             project: $card->project,
             bridgeId: Uuid::v7(),
             cardId: $card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $card->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::GaveUp,
             runKey: Uuid::v7(),
             endedAt: new \DateTimeImmutable(),
@@ -674,7 +674,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
             hasResult: true,
             output: 'Tests still fail.',
             receivedAt: new \DateTimeImmutable(),
-            cardColumn: $columnSlug,
         );
         $em->persist($run);
         $em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, new \DateTimeImmutable(), new \DateTimeImmutable()));

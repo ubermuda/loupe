@@ -43,11 +43,6 @@ framework:
             limit: 60
             interval: '1 minute'
 
-        # Bounds the bridge's rule health reports. A bridge reports at start
-        # and whenever a rule changes state.
-        agent_bridge_rule_reports:
-            <<: *agent_per_token
-
         # Bounds the bridge's run reports: the finished run, each run state and
         # the run inventory. A run sends about four states, and a burst of card
         # moves sends them at once, so the limit drains a full bridge queue of 256.
@@ -63,6 +58,15 @@ framework:
         # Bounds bridge heartbeats. Several bridges can share a token, and each
         # posts once a minute at the default interval.
         agent_bridge_heartbeats:
+            <<: *agent_per_token
+
+        # Bounds the bridge's work request claims. A bridge claims each offer
+        # it can run once, and loses most races to other bridges.
+        agent_work_request_claims:
+            <<: *agent_per_token
+
+        # Bounds the bridge's work request results, one for each claim it won.
+        agent_work_request_results:
             <<: *agent_per_token
 
         # Bounds the bridge's event replay, a GET. A bridge reads it after each

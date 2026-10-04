@@ -1,0 +1,20 @@
+key: simple
+version: 1
+slots: []
+manualMoves:
+    - { from: '*', to: '*' }
+backoffMinutes: [10, 60, 360]
+workTimeoutMinutes: 120
+rules:
+    - id: merged
+      when:
+          all:
+              - not: { card.in_slot: { slot: '@terminal' } }
+              - pr.all_finished_one_merged: {}
+              - card.children_finished: {}
+      then: { move: { to: '@terminal' } }
+
+    - id: teardown
+      slot: '@terminal'
+      when: { all: [] }
+      then: { request: { kind: teardown, onTimeout: expire } }

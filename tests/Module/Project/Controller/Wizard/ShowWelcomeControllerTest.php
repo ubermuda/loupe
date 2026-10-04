@@ -6,6 +6,8 @@ namespace App\Tests\Module\Project\Controller\Wizard;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Tests\Support\AcceptedTerms;
@@ -109,6 +111,54 @@ final class ShowWelcomeControllerTest extends WebTestCase
         $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($user);
         self::assertCount(1, $projects);
         self::assertSame(SearchLanguage::French, $projects[0]->searchLanguage);
+    }
+
+    public function test_the_form_offers_each_workflow_template_with_its_description(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createUser($em, 'wizworkflowtemplates', 'wiz-workflow-templates@example.com');
+        $em->flush();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/welcome');
+
+        self::assertResponseIsSuccessful();
+        $radios = $crawler->filter('input[type="radio"][name="create_project_form[workflowTemplate]"]');
+        self::assertSame(['lifecycle', 'simple'], $radios->each(static fn ($radio): string => (string) $radio->attr('value')));
+        self::assertSame('simple', $crawler->filter('input[name="create_project_form[workflowTemplate]"][checked]')->attr('value'));
+        $field = $crawler->filter('[data-workflow-template-field]');
+        self::assertStringContainsString('Lifecycle', $field->text());
+        self::assertStringContainsString('Simple', $field->text());
+        self::assertStringContainsString('Product design, tech design, implementation and review', $crawler->filter('[data-workflow-template-description="lifecycle"]')->text());
+        self::assertStringContainsString('A merged pull request finishes the card', $crawler->filter('[data-workflow-template-description="simple"]')->text());
+    }
+
+    public function test_picking_lifecycle_seeds_the_lifecycle_columns(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createUser($em, 'wizworkflowlifecycle', 'wiz-workflow-lifecycle@example.com');
+        $em->flush();
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/welcome');
+        $client->submitForm('Create project', [
+            'create_project_form[name]' => 'lifecycle-project',
+            'create_project_form[workflowTemplate]' => 'lifecycle',
+        ]);
+
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($user);
+        self::assertCount(1, $projects);
+        self::assertResponseRedirects('/welcome/connect');
+        self::assertSame(
+            ['backlog', 'next', 'product-design', 'tech-design', 'implementation', 'in-review', 'done'],
+            array_map(
+                static fn (BoardColumn $column): string => $column->slug,
+                static::getContainer()->get(BoardColumnRepository::class)->findForProject($projects[0]),
+            ),
+        );
     }
 
     public function test_invalid_submit_rerenders_with_422(): void

@@ -7,8 +7,6 @@ namespace App\Tests\Module\Board\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Command\BoardLaneView;
-use App\Module\Board\Command\DeadBridgeRuleView;
-use App\Module\Board\Command\RacingBridgeRuleView;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
@@ -85,22 +83,6 @@ final class BoardStructureDigestTest extends TestCase
         self::assertNotSame($withLane, $this->digest(lanes: []));
     }
 
-    public function test_the_digest_changes_when_a_bridge_rule_dies_or_its_report_changes(): void
-    {
-        $rule = new DeadBridgeRuleView('ship', ['next'], 'unknown column', new \DateTimeImmutable('2026-09-27 10:00'), 'bridge-1');
-        $later = new DeadBridgeRuleView('ship', ['next'], 'unknown column', new \DateTimeImmutable('2026-09-27 11:00'), 'bridge-1');
-
-        self::assertNotSame($this->digest(), $this->digest(deadRules: [$rule]));
-        self::assertNotSame($this->digest(deadRules: [$rule]), $this->digest(deadRules: [$later]));
-    }
-
-    public function test_the_digest_changes_when_a_bridge_rule_starts_to_race_the_app_sync(): void
-    {
-        $rule = new RacingBridgeRuleView('merge-behind', new \DateTimeImmutable('2026-09-30 09:00'), 'bridge-1');
-
-        self::assertNotSame($this->digest(), $this->digest(racingRules: [$rule]));
-    }
-
     public function test_the_digest_ignores_the_face_of_a_lane_epic(): void
     {
         $before = $this->digest();
@@ -111,12 +93,10 @@ final class BoardStructureDigestTest extends TestCase
     }
 
     /**
-     * @param list<BoardColumn>|null     $columns
-     * @param list<BoardLaneView>|null   $lanes
-     * @param list<DeadBridgeRuleView>   $deadRules
-     * @param list<RacingBridgeRuleView> $racingRules
+     * @param list<BoardColumn>|null   $columns
+     * @param list<BoardLaneView>|null $lanes
      */
-    private function digest(?array $columns = null, ?array $lanes = null, array $deadRules = [], array $racingRules = [], int $terminalWindowDays = 3): string
+    private function digest(?array $columns = null, ?array $lanes = null, int $terminalWindowDays = 3): string
     {
         $views = array_map(
             static fn (BoardColumn $column): BoardColumnView => new BoardColumnView($column, [], 0),
@@ -127,8 +107,6 @@ final class BoardStructureDigestTest extends TestCase
             $views,
             $lanes ?? [new BoardLaneView($this->epic, [])],
             $terminalWindowDays,
-            $deadRules,
-            $racingRules,
         );
     }
 }

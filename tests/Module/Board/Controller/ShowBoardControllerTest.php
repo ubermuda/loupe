@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Mercure\ProjectTopicBuilder;
+use App\Module\Board\Command\PauseCardCommand;
+use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -465,7 +469,7 @@ final class ShowBoardControllerTest extends WebTestCase
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), CardType::Epic);
         $epic->laneEnabled = false;
         $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next'));
-        $this->workerRun($em, $project, $epic, WorkerRunState::GaveUp, 'in-progress', 'Gave up.');
+        $this->workerRun($em, $project, $epic, WorkerRunState::GaveUp, 'Gave up.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -517,8 +521,126 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame($boardDigest, $placement->filter('#board-row-'.$failing->id)->attr('data-card-digest'));
     }
 
-    /** The warning holds while the card stays in the column that started the run, or when the run names none. */
-    public function test_a_card_shows_the_run_that_gave_up_until_it_leaves_the_column(): void
+    public function test_a_card_shows_a_paused_and_an_unmanaged_marker_on_its_face_row_and_placement(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-markers@example.com');
+        $project = $this->project($em, $owner);
+        $paused = $this->card($em, $project, 'Paused', 'in-progress');
+        $this->pauseCard($paused);
+        $held = $this->card($em, $project, 'Held', 'in-progress');
+        $this->holdCard($project, $held);
+        $plain = $this->card($em, $project, 'Plain', 'in-progress');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        self::assertResponseIsSuccessful();
+        self::assertSame('paused', $crawler->filter('#board-card-'.$paused->id.' [data-card-badges]')->attr('data-card-badges'));
+        self::assertSame('Paused', trim($crawler->filter('#board-card-'.$paused->id.' .lp-status-chip--pending')->text()));
+        self::assertSame('unmanaged', $crawler->filter('#board-card-'.$held->id.' [data-card-badges]')->attr('data-card-badges'));
+        self::assertSame('Unmanaged', trim($crawler->filter('#board-card-'.$held->id.' .lp-status-chip--neutral')->text()));
+        self::assertSame('unmanaged', $this->listOf($client, $project)->filter('#board-row-'.$held->id.' [data-card-badges]')->attr('data-card-badges'));
+        self::assertCount(0, $crawler->filter('#board-card-'.$plain->id.' [data-card-badges]'));
+
+        foreach ([$paused, $held] as $card) {
+            $boardDigest = $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest');
+            $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id.'/placement');
+            self::assertResponseIsSuccessful();
+            $placement = new Crawler((string) $client->getResponse()->getContent());
+            self::assertSame(
+                $crawler->filter('#board-card-'.$card->id.' [data-card-badges]')->attr('data-card-badges'),
+                $placement->filter('#board-card-'.$card->id.' [data-card-badges]')->attr('data-card-badges'),
+            );
+            self::assertSame($boardDigest, $placement->filter('#board-card-'.$card->id)->attr('data-card-digest'));
+        }
+    }
+
+    public function test_a_marker_changes_the_digest_of_a_card(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-marker-digest@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Held later', 'in-progress');
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $before = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/board')->filter('#board-card-'.$card->id)->attr('data-card-digest');
+        $project = $em->find(Project::class, $projectId) ?? self::fail('The project is stored.');
+        $this->holdCard($project, $card);
+        $em->clear();
+        $after = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/board')->filter('#board-card-'.$card->id)->attr('data-card-digest');
+
+        self::assertNotSame($before, $after);
+    }
+
+    public function test_the_board_reads_the_markers_in_one_query_each_whatever_the_card_count(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'board-marker-queries@example.com');
+        $boards = [];
+        foreach (['three-cards' => 3, 'twelve-cards' => 12] as $name => $size) {
+            $project = $this->project($em, $owner, $name);
+            for ($index = 0; $index < $size; ++$index) {
+                $card = $this->card($em, $project, 'Card '.$index, 'next');
+                match ($index % 3) {
+                    0 => $this->pauseCard($card),
+                    1 => $this->holdCard($project, $card),
+                    default => null,
+                };
+            }
+            $boards[$name] = '/projects/'.$project->id.'/board';
+        }
+        $em->clear();
+
+        $client->loginUser($owner);
+        // The first request shares the kernel the fixtures used, so its profile holds their queries too.
+        $client->request(Request::METHOD_GET, $boards['three-cards']);
+
+        $reads = [];
+        foreach ($boards as $name => $url) {
+            $client->enableProfiler();
+            $crawler = $client->request(Request::METHOD_GET, $url);
+            self::assertResponseIsSuccessful();
+            self::assertCount(intdiv(\count($crawler->filter('.lp-board-card')) + 2, 3), $crawler->filter('.lp-board-card [data-card-badges="paused"]'));
+
+            $profile = $client->getProfile();
+            self::assertInstanceOf(Profile::class, $profile);
+            $collector = $profile->getCollector('db');
+            self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+
+            $selects = 0;
+            $pauseReads = 0;
+            $holdReads = 0;
+            foreach ($collector->getQueries() as $queries) {
+                foreach ($queries as $query) {
+                    $sql = (string) $query['sql'];
+                    if (!str_starts_with($sql, 'SELECT')) {
+                        continue;
+                    }
+                    ++$selects;
+                    $pauseReads += str_contains($sql, 'FROM card_pauses') ? 1 : 0;
+                    $holdReads += str_contains($sql, 'FROM bridge_card_holds') ? 1 : 0;
+                }
+            }
+            $reads[$name] = ['selects' => $selects, 'pauses' => $pauseReads, 'holds' => $holdReads];
+        }
+
+        self::assertSame(['selects' => $reads['three-cards']['selects'], 'pauses' => 1, 'holds' => 1], $reads['three-cards']);
+        self::assertSame(['selects' => $reads['three-cards']['selects'], 'pauses' => 1, 'holds' => 1], $reads['twelve-cards']);
+    }
+
+    /** The warning holds wherever the card goes, until a later outcome replaces it. */
+    public function test_a_card_shows_the_run_that_gave_up_in_any_column(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -530,10 +652,10 @@ final class ShowBoardControllerTest extends WebTestCase
         $moved = $this->card($em, $project, 'Moved', 'next');
         $unnamed = $this->card($em, $project, 'Unnamed', 'next');
         $quiet = $this->card($em, $project, 'Quiet', 'next');
-        $gaveUp = $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'in-progress', 'Tests <em>still</em> fail.');
-        $this->workerRun($em, $project, $moved, WorkerRunState::GaveUp, 'in-progress', 'Moved away.');
-        $blocked = $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, null, 'Needs a token.');
-        $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'next', 'Done.');
+        $gaveUp = $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'Tests <em>still</em> fail.');
+        $this->workerRun($em, $project, $moved, WorkerRunState::GaveUp, 'Moved away.');
+        $blocked = $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, 'Needs a token.');
+        $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'Done.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -551,7 +673,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertStringContainsString('Tests &lt;em&gt;still&lt;/em&gt; fail.', (string) $client->getResponse()->getContent());
 
         self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
-        self::assertCount(0, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
 
         $list = $this->listOf($client, $project);
@@ -575,8 +697,8 @@ final class ShowBoardControllerTest extends WebTestCase
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'in-progress'));
         $loose = $this->card($em, $project, 'Loose', 'in-progress');
-        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'in-progress', 'Child gave up.');
-        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'in-progress', 'Loose is blocked.');
+        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'Child gave up.');
+        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'Loose is blocked.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -624,10 +746,10 @@ final class ShowBoardControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'ordered');
         $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
         $warned = $this->card($em, $project, 'Warned', 'in-progress');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
-        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
-        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'Done.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'Gave up.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'Gave up.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'Done.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
         $em->clear();
 
         $client->loginUser($owner);
@@ -649,10 +771,10 @@ final class ShowBoardControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'clocks');
         $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
         $warned = $this->card($em, $project, 'Warned', 'in-progress');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
-        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
-        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'Gave up.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'Done.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'Done.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'Gave up.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
         $em->clear();
 
         $client->loginUser($owner);
@@ -663,14 +785,14 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
     }
 
-    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, ?string $column, string $output, string $receivedAt = 'now', string $endedAt = 'now', string $closedAt = 'now'): WorkerRun
+    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, string $output, string $receivedAt = 'now', string $endedAt = 'now', string $closedAt = 'now'): WorkerRun
     {
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
             cardId: $card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $card->number,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: $state,
             runKey: Uuid::v7(),
             endedAt: new \DateTimeImmutable($endedAt),
@@ -678,7 +800,6 @@ final class ShowBoardControllerTest extends WebTestCase
             hasResult: true,
             output: $output,
             receivedAt: new \DateTimeImmutable($receivedAt),
-            cardColumn: $column,
         );
         $em->persist($run);
         $em->persist(new WorkerRunStateChange($run, $state, new \DateTimeImmutable($endedAt), new \DateTimeImmutable($closedAt)));
@@ -714,6 +835,20 @@ final class ShowBoardControllerTest extends WebTestCase
         $em->flush();
 
         return $card;
+    }
+
+    private function pauseCard(Card $card): void
+    {
+        $pause = static::getContainer()->get(PauseCardHandler::class);
+        self::assertInstanceOf(PauseCardHandler::class, $pause);
+        $pause(new PauseCardCommand($card, 'no-bridge-took-work', 'implement', CardPauseKind::WorkTimeout));
+    }
+
+    private function holdCard(Project $project, Card $card): void
+    {
+        $holds = static::getContainer()->get(CardHolds::class);
+        self::assertInstanceOf(CardHolds::class, $holds);
+        $holds->hold($project, $card->id ?? throw new \LogicException('A flushed card has an id.'), null);
     }
 
     private function listOf(KernelBrowser $client, Project $project): Crawler

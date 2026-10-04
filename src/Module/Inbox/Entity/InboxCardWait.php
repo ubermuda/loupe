@@ -55,21 +55,36 @@ class InboxCardWait
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $startedAt = new \DateTimeImmutable(),
+
+        #[ORM\Column(type: UuidType::NAME, nullable: true)]
+        public readonly ?Uuid $pauseId = null,
     ) {
         if (mb_strlen($reason) > self::MAX_REASON_LENGTH) {
             throw new \InvalidArgumentException(\sprintf('A wait reason is at most %d characters.', self::MAX_REASON_LENGTH));
         }
-        self::computeKey($trigger, $documentId, $versionNumber, $runId, $pullRequestId, $headSha);
+        self::computeKey($trigger, $documentId, $versionNumber, $runId, $pullRequestId, $headSha, $pauseId);
     }
 
     /** Two waits with the same key are the same wait. */
     public function key(): string
     {
-        return self::computeKey($this->trigger, $this->documentId, $this->versionNumber, $this->runId, $this->pullRequestId, $this->headSha);
+        return self::computeKey($this->trigger, $this->documentId, $this->versionNumber, $this->runId, $this->pullRequestId, $this->headSha, $this->pauseId);
     }
 
-    public static function computeKey(InboxCardWaitTrigger $trigger, ?Uuid $documentId = null, ?int $versionNumber = null, ?Uuid $runId = null, ?Uuid $pullRequestId = null, ?string $headSha = null): string
+    public static function computeKey(InboxCardWaitTrigger $trigger, ?Uuid $documentId = null, ?int $versionNumber = null, ?Uuid $runId = null, ?Uuid $pullRequestId = null, ?string $headSha = null, ?Uuid $pauseId = null): string
     {
+        if ($trigger->isPause()) {
+            if (null === $pauseId || null !== $documentId || null !== $versionNumber || null !== $runId || null !== $pullRequestId || null !== $headSha) {
+                throw new \InvalidArgumentException('A pause wait names a pause, and nothing else.');
+            }
+
+            return \sprintf('%s:%s', $trigger->value, $pauseId->toRfc4122());
+        }
+
+        if (null !== $pauseId) {
+            throw new \InvalidArgumentException('Only a pause wait names a pause.');
+        }
+
         if ($trigger->isPullRequest()) {
             if (null === $pullRequestId || null === $headSha || '' === $headSha || null !== $documentId || null !== $versionNumber || null !== $runId) {
                 throw new \InvalidArgumentException('A pull request wait names a pull request and a head commit, and no document or run.');

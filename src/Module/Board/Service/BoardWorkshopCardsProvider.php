@@ -57,7 +57,7 @@ final readonly class BoardWorkshopCardsProvider implements WorkshopCardsProvider
                 $card->column->tone->value,
                 $run->state->translationKey(),
                 $run->state->chipModifier(),
-                WorkerRunKind::Interactive === $run->kind ? null : trim($run->ruleName),
+                WorkerRunKind::Interactive === $run->kind ? null : $run->workKind,
                 $run->since,
                 WorkerRunKind::Command === $run->kind,
             );

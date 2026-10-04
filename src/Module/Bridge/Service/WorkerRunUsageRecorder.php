@@ -39,7 +39,7 @@ final readonly class WorkerRunUsageRecorder
                 run: $run,
                 project: $run->project,
                 cardId: $run->cardId,
-                ruleName: $run->ruleName,
+                workKind: $run->workKind,
                 model: $model->model,
                 source: $report->source,
                 inputTokens: $model->inputTokens,

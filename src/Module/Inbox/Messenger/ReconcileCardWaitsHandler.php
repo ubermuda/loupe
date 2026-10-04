@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Messenger;
 
 use App\Module\Inbox\Service\CardWaitReconciler;
-use App\Module\Inbox\Service\RacingRuleNoticeReconciler;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,7 +18,6 @@ final readonly class ReconcileCardWaitsHandler
     public function __construct(
         private ProjectRepository $projects,
         private CardWaitReconciler $reconciler,
-        private RacingRuleNoticeReconciler $racingRuleNotice,
         private EntityManagerInterface $em,
         private MessageBusInterface $bus,
     ) {
@@ -42,10 +40,5 @@ final readonly class ReconcileCardWaitsHandler
         }
 
         $this->reconciler->reconcile($project, $message->cardIds);
-        // The sweep sends a whole-project reconcile, which is the backstop for
-        // a notice whose rule a bridge reported before any event could fire.
-        if (null === $message->cardIds) {
-            $this->racingRuleNotice->reconcile($project);
-        }
     }
 }

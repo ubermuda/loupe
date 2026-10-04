@@ -34,15 +34,6 @@ final readonly class BoardView
          * @var array<string, int>
          */
         public array $documentCounts = [],
-        /** @var list<DeadBridgeRuleView> */
-        public array $deadBridgeRules = [],
-        /**
-         * The column slugs a live bridge rule watches. A rename or a delete of
-         * such a column stops the rule matching.
-         *
-         * @var list<string>
-         */
-        public array $watchedColumnSlugs = [],
         /**
          * The epic lanes, in board order. Empty when no epic has its lane on,
          * and the board then draws its columns alone.
@@ -69,10 +60,6 @@ final readonly class BoardView
         public array $decks = [],
         /** @var array<string, non-empty-list<CardBadge>> card id => its badges; a card with none has no key */
         public array $badges = [],
-        /** @var list<RacingBridgeRuleView> */
-        public array $racingBridgeRules = [],
-        /** @var array<string, string> RFC 4122 bridge id => its label, for the bridges of the problem rules */
-        public array $bridgeLabels = [],
     ) {
     }
 }

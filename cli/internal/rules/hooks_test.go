@@ -102,13 +102,11 @@ projects:
   # The main app.
   loupe:
     dir: {dir}
-rules:
+work:
   # Plans a card.
-  - on: board.card_moved
-    project: loupe
-    to: ready
+  plan:
     prompt: |
-      Card {cardNumber} entered {to}. This line is long on purpose, so a rewrap of a long scalar shows up in the test.
+      Plan card {cardNumber}. This line is long on purpose, so a rewrap of a long scalar shows up in the test.
 `
 
 func writeRules(t *testing.T, body string) string {
@@ -150,7 +148,7 @@ func TestEditHooksKeepsTheComments(t *testing.T) {
 	for _, want := range []string{
 		"# The rule file of this machine.\n",
 		"  # The main app.\n  loupe:\n",
-		"  # Plans a card.\n  - on: board.card_moved\n",
+		"  # Plans a card.\n  plan:\n",
 		"This line is long on purpose, so a rewrap of a long scalar shows up in the test.\n",
 	} {
 		if !strings.Contains(got, want) {

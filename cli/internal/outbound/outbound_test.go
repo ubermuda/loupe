@@ -346,6 +346,95 @@ func TestQueueCountsAReportThatArrivesAfterTheClose(t *testing.T) {
 	}
 }
 
+// lostCounter counts the Lost calls of the reports it marks.
+type lostCounter struct {
+	mu    sync.Mutex
+	cards []int
+}
+
+func (l *lostCounter) mark(r Report) Report {
+	r.Lost = func() {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		l.cards = append(l.cards, r.Card)
+	}
+
+	return r
+}
+
+func (l *lostCounter) recorded() []int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return append([]int(nil), l.cards...)
+}
+
+// Lost runs once for each report the queue gives up on or drops, and never
+// for one it delivers.
+func TestQueueTellsAReportItLosesIt(t *testing.T) {
+	t.Run("give-up", func(t *testing.T) {
+		h := newHarness(t, 1, fmt.Errorf("connection refused"))
+		lost := &lostCounter{}
+		h.queue.Enqueue(lost.mark(h.report(42)))
+		h.next(t, 1)
+		h.next(t, 2)
+		h.waitFor(t, "report_failed")
+		h.queue.Close()
+		if got := lost.recorded(); len(got) != 1 || got[0] != 42 {
+			t.Fatalf("lost = %v", got)
+		}
+	})
+	t.Run("refused", func(t *testing.T) {
+		h := newHarness(t, 5, fmt.Errorf("%w (HTTP 422)", api.ErrReportRefused))
+		lost := &lostCounter{}
+		h.queue.Enqueue(lost.mark(h.report(42)))
+		h.next(t, 1)
+		h.waitFor(t, "report_failed")
+		h.queue.Close()
+		if got := lost.recorded(); len(got) != 1 {
+			t.Fatalf("lost = %v", got)
+		}
+	})
+	t.Run("delivered", func(t *testing.T) {
+		h := newHarness(t, 1)
+		lost := &lostCounter{}
+		h.queue.Enqueue(lost.mark(h.report(42)))
+		h.next(t, 1)
+		h.queue.Close()
+		if got := lost.recorded(); len(got) != 0 {
+			t.Fatalf("lost = %v", got)
+		}
+	})
+	t.Run("after the close", func(t *testing.T) {
+		h := newHarness(t, 1)
+		lost := &lostCounter{}
+		h.queue.Close()
+		h.queue.Enqueue(lost.mark(h.report(42)))
+		if got := lost.recorded(); len(got) != 1 {
+			t.Fatalf("lost = %v", got)
+		}
+	})
+	t.Run("at the shutdown", func(t *testing.T) {
+		held := make(chan struct{})
+		h := newHarnessWithSend(t, 3, func(ctx context.Context) (bool, error) {
+			<-held
+			<-ctx.Done()
+
+			return false, ctx.Err()
+		})
+		h.queue.grace = 0
+		lost := &lostCounter{}
+		h.queue.Enqueue(lost.mark(h.report(1)))
+		h.next(t, 1)
+		h.queue.Enqueue(lost.mark(h.report(2)))
+		close(held)
+		h.queue.Close()
+		if got := lost.recorded(); len(got) != 2 {
+			t.Fatalf("lost = %v", got)
+		}
+	})
+}
+
 // Close is called twice on a bridge that shuts down by itself, once by the
 // caller and once by the deferred call.
 func TestQueueTakesASecondClose(t *testing.T) {

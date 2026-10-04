@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\BulkMoveBacklogCardsCommand;
 use App\Module\Board\Command\BulkMoveBacklogCardsHandler;
+use App\Module\Board\Command\CardManaged;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\ListBacklogCardsCommand;
 use App\Module\Board\Command\ListBacklogCardsHandler;
@@ -91,6 +92,8 @@ final class BulkMoveBacklogCardsController extends AppController
                 $error = $this->translator->trans(array_first($e->errors));
             } catch (EpicChildrenOpen $e) {
                 $error = $this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()]);
+            } catch (CardManaged) {
+                $error = $this->translator->trans(CardManaged::MESSAGE);
             }
         }
 

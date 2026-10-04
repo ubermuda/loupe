@@ -54,11 +54,13 @@ final readonly class InteractiveRuns
      *
      * @return array{WorkerRun, bool}
      */
-    public function recordLaunch(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, Uuid $bridgeId): array
+    public function recordLaunch(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, Uuid $bridgeId, ?Uuid $workRequestId = null, ?string $ruleId = null): array
     {
         return $this->openUnlessFound(
             $project, $cardId, $cardNumber, $sessionId, $name, $bridgeId,
             fn (): ?WorkerRun => $this->workerRuns->findLatestInteractive($project, $cardId, $sessionId),
+            $workRequestId,
+            $ruleId,
         );
     }
 
@@ -67,14 +69,14 @@ final readonly class InteractiveRuns
      *
      * @return array{WorkerRun, bool}
      */
-    private function openUnlessFound(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, ?Uuid $bridgeId, \Closure $find): array
+    private function openUnlessFound(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, ?Uuid $bridgeId, \Closure $find, ?Uuid $workRequestId = null, ?string $ruleId = null): array
     {
-        if ('' === trim($name) || mb_strlen($name) > WorkerRun::MAX_RULE_NAME_LENGTH) {
-            throw new \InvalidArgumentException(\sprintf('An interactive run needs a name of 1 to %d characters.', WorkerRun::MAX_RULE_NAME_LENGTH));
+        if ('' === trim($name) || mb_strlen($name) > WorkerRun::MAX_WORK_KIND_LENGTH) {
+            throw new \InvalidArgumentException(\sprintf('An interactive run needs a name of 1 to %d characters.', WorkerRun::MAX_WORK_KIND_LENGTH));
         }
 
         /** @var array{WorkerRun, bool} $outcome */
-        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $find): array {
+        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $find, $workRequestId, $ruleId): array {
             // The project lock serialises two opens of one session, which would
             // otherwise both miss the read and trip the unique index.
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
@@ -90,12 +92,14 @@ final readonly class InteractiveRuns
                 bridgeId: $bridgeId,
                 cardId: $cardId,
                 cardNumber: $cardNumber,
-                ruleName: $name,
+                workKind: $name,
                 state: WorkerRunState::Running,
                 sessionId: $sessionId,
                 startedAt: $now,
                 receivedAt: $now,
                 kind: WorkerRunKind::Interactive,
+                workRequestId: $workRequestId,
+                ruleId: $ruleId,
             );
             $this->em->persist($run);
             $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $now, $now));
@@ -129,9 +133,11 @@ final readonly class InteractiveRuns
         Uuid $bridgeId,
         string $failureReason,
         \DateTimeImmutable $at,
+        ?Uuid $workRequestId = null,
+        ?string $ruleId = null,
     ): array {
         /** @var array{WorkerRun, bool, bool} $outcome */
-        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $failureReason, $at): array {
+        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $failureReason, $at, $workRequestId, $ruleId): array {
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
             $existing = $this->workerRuns->findLatestInteractive($project, $cardId, $sessionId);
@@ -148,13 +154,15 @@ final readonly class InteractiveRuns
                 bridgeId: $bridgeId,
                 cardId: $cardId,
                 cardNumber: $cardNumber,
-                ruleName: $name,
+                workKind: $name,
                 state: WorkerRunState::NotStarted,
                 sessionId: $sessionId,
                 endedAt: $at,
                 failureReason: mb_substr($failureReason, 0, WorkerRun::MAX_FAILURE_REASON_LENGTH),
                 receivedAt: $now,
                 kind: WorkerRunKind::Interactive,
+                workRequestId: $workRequestId,
+                ruleId: $ruleId,
             );
             $this->em->persist($run);
             $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::NotStarted, $at, $now));

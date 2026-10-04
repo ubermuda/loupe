@@ -1,0 +1,249 @@
+key: lifecycle
+version: 1
+slots:
+    - { key: next, label: workflow.slot.next }
+    - { key: product-design, label: workflow.slot.product_design }
+    - { key: tech-design, label: workflow.slot.tech_design }
+    - { key: implementation, label: workflow.slot.implementation }
+    - { key: in-review, label: workflow.slot.in_review }
+manualMoves:
+    - { from: '@backlog', to: next }
+    - { from: next, to: '@backlog' }
+    - { from: '@backlog', to: product-design }
+    - { from: '@backlog', to: tech-design }
+    - { from: next, to: product-design }
+    - { from: next, to: tech-design }
+backoffMinutes: [10, 60, 360]
+workTimeoutMinutes: 120
+rules:
+    - id: product-design-session
+      slot: product-design
+      when:
+          all:
+              - not: { card.document_approved: { tag: product } }
+              - not: { card.document_changes_requested: { tag: product } }
+      then: { request: { kind: product-design, capability: interactive } }
+
+    - id: product-design-revise
+      slot: product-design
+      when: { card.document_changes_requested: { tag: product } }
+      then: { request: { kind: product-design-revise } }
+
+    - id: product-design-approved
+      slot: product-design
+      when:
+          all:
+              - card.document_approved: { tag: product }
+              - not: { card.document_changes_requested: { tag: product } }
+      then: { move: { to: tech-design } }
+
+    - id: tech-design-write
+      slot: tech-design
+      when:
+          all:
+              - not: { card.document_approved: { tag: design } }
+              - not: { card.document_changes_requested: { tag: design } }
+      then: { request: { kind: tech-design } }
+
+    - id: tech-design-revise
+      slot: tech-design
+      when: { card.document_changes_requested: { tag: design } }
+      then: { request: { kind: tech-design-revise } }
+
+    - id: tech-design-approved
+      slot: tech-design
+      when:
+          all:
+              - card.document_approved: { tag: design }
+              - not: { card.document_changes_requested: { tag: design } }
+              - not: { card.has_open_blocker: {} }
+      then: { move: { to: implementation } }
+
+    - id: implement
+      slot: implementation
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - not: { pr.linked: {} }
+      then: { request: { kind: implement } }
+
+    - id: breakdown
+      slot: implementation
+      when:
+          all:
+              - card.type: { type: epic }
+              - not: { card.has_children: {} }
+      then: { request: { kind: breakdown } }
+
+    - id: reviewable
+      slot: implementation
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - pr.open: {}
+              - not: { pr.draft: {} }
+              - pr.checks_passed: {}
+              - not: { pr.conflicting: {} }
+              - not: { pr.changes_requested: {} }
+      then: { move: { to: in-review } }
+
+    - id: fix-in-implementation
+      slot: implementation
+      when:
+          all:
+              - pr.open: {}
+              - any:
+                    - pr.checks_failed: {}
+                    - pr.conflicting: {}
+                    - pr.changes_requested: {}
+      then: { request: { kind: fix, limit: 3 } }
+
+    - id: fix-in-review
+      slot: in-review
+      when:
+          all:
+              - pr.open: {}
+              - any:
+                    - pr.checks_failed: {}
+                    - pr.conflicting: {}
+                    - pr.changes_requested: {}
+      then: { request: { kind: fix, limit: 3 } }
+
+    - id: back-to-draft
+      slot: in-review
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - pr.draft: {}
+      then: { move: { to: implementation } }
+
+    - id: rebase-stacked
+      slot: in-review
+      when:
+          all:
+              - pr.open: {}
+              - pr.stacked: {}
+              - pr.parent_merged: {}
+      then: { forge-write: { write: change-base, fallback: rebase-stacked } }
+
+    - id: update-behind
+      slot: in-review
+      when:
+          all:
+              - pr.open: {}
+              - pr.behind: {}
+              - any:
+                    - pr.approval_covers_head: { min: 1 }
+                    - pr.base_is_epic_branch: {}
+      then: { forge-write: { write: update-branch, fallback: sync } }
+
+    - id: merge-ready
+      slot: in-review
+      when:
+          all:
+              - card.children_finished: {}
+              - pr.open: {}
+              - not: { pr.draft: {} }
+              - pr.checks_passed: {}
+              - pr.approval_covers_head: { min: 1 }
+              - pr.base_is_merge_target: {}
+              - not: { pr.base_is_epic_branch: {} }
+              - not: { pr.conflicting: {} }
+              - not: { pr.changes_requested: {} }
+              - not: { pr.behind: {} }
+      then: { forge-write: { write: merge, fallback: merge } }
+
+    - id: merge-ready-epic-child
+      slot: in-review
+      when:
+          all:
+              - card.children_finished: {}
+              - pr.open: {}
+              - not: { pr.draft: {} }
+              - pr.checks_passed: {}
+              - pr.base_is_epic_branch: {}
+              - not: { pr.conflicting: {} }
+              - not: { pr.changes_requested: {} }
+              - not: { pr.behind: {} }
+      then: { forge-write: { write: merge, fallback: merge } }
+
+    - id: epic-to-review
+      slot: implementation
+      when:
+          all:
+              - card.type: { type: epic }
+              - card.has_children: {}
+              - card.children_finished: {}
+              - pr.open: {}
+      then: { move: { to: in-review } }
+
+    - id: epic-to-done
+      slot: implementation
+      when:
+          all:
+              - card.type: { type: epic }
+              - card.has_children: {}
+              - card.children_finished: {}
+              - not: { pr.linked: {} }
+      then: { move: { to: '@terminal' } }
+
+    - id: epic-reopened-from-review
+      slot: in-review
+      when:
+          all:
+              - card.type: { type: epic }
+              - not: { card.children_finished: {} }
+      then: { move: { to: implementation } }
+
+    - id: epic-reopened-from-done
+      slot: '@terminal'
+      when:
+          all:
+              - card.type: { type: epic }
+              - not: { card.children_finished: {} }
+      then: { move: { to: implementation } }
+
+    - id: epic-draft
+      slot: implementation
+      when: { card.type: { type: epic } }
+      then: { forge-write: { write: draft } }
+
+    - id: epic-ready
+      slot: in-review
+      when: { card.type: { type: epic } }
+      then: { forge-write: { write: ready } }
+
+    - id: epic-close
+      slot: '@backlog'
+      when: { card.type: { type: epic } }
+      then: { forge-write: { write: close } }
+
+    - id: teardown
+      slot: '@terminal'
+      when: { all: [] }
+      then: { request: { kind: teardown, onTimeout: expire } }
+
+    - id: child-unblocked
+      slot: '@backlog'
+      when:
+          all:
+              - card.is_child: {}
+              - not: { card.has_open_blocker: {} }
+              - not: { pr.linked: {} }
+      then: { move: { to: implementation } }
+
+    # No slot, so its truth outlives a move: a person who moves a card with an open pull request to the Backlog makes no edge.
+    - id: pull-request-reopened
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - pr.open: {}
+      then: { move: { to: implementation, from: '@backlog' } }
+
+    - id: merged
+      when:
+          all:
+              - not: { card.in_slot: { slot: '@terminal' } }
+              - pr.all_finished_one_merged: {}
+              - card.children_finished: {}
+      then: { move: { to: '@terminal' } }

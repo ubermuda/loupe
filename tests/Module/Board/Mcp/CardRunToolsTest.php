@@ -100,7 +100,6 @@ final class CardRunToolsTest extends KernelTestCase
         self::assertSame('running', $result['run']['state']);
         $payload = CardMovedOutbox::onlyPayload(self::getContainer(), $this->project);
         self::assertSame('agent', $payload['actor'] ?? null);
-        self::assertSame(['interactiveRun' => true, 'held' => false], $payload['card'] ?? null);
     }
 
     public function test_open_with_a_status_names_the_opened_run_as_the_cause_of_the_move(): void
@@ -115,7 +114,7 @@ final class CardRunToolsTest extends KernelTestCase
         );
         self::assertCount(1, $rows);
         $detail = json_decode((string) $rows[0], true, flags: \JSON_THROW_ON_ERROR);
-        self::assertEquals(['type' => 'run', 'run' => $result['run']['runId'], 'rule' => self::SKILL], $detail['cause']);
+        self::assertEquals(['type' => 'run', 'run' => $result['run']['runId'], 'kind' => self::SKILL], $detail['cause']);
     }
 
     public function test_close_closes_the_run_and_a_second_close_changes_nothing(): void
@@ -163,7 +162,7 @@ final class CardRunToolsTest extends KernelTestCase
     public static function badNames(): iterable
     {
         yield 'blank' => ['   ', 'name: Pass the name of the skill that runs the session, such as loupe:product-design.'];
-        yield 'too long' => [str_repeat('a', WorkerRun::MAX_RULE_NAME_LENGTH + 1), \sprintf('name: A run name must be at most %d characters.', WorkerRun::MAX_RULE_NAME_LENGTH)];
+        yield 'too long' => [str_repeat('a', WorkerRun::MAX_WORK_KIND_LENGTH + 1), \sprintf('name: A run name must be at most %d characters.', WorkerRun::MAX_WORK_KIND_LENGTH)];
     }
 
     #[DataProvider('badNames')]

@@ -46,7 +46,7 @@ final class WorkerRunListQueryTest extends TestCase
     {
         yield 'states' => [new WorkerRunListQuery(states: [WorkerRunState::Failed])];
         yield 'card number' => [new WorkerRunListQuery(cardNumber: 7)];
-        yield 'rule' => [new WorkerRunListQuery(rule: 'plan')];
+        yield 'work kind' => [new WorkerRunListQuery(workKind: 'plan')];
         yield 'ended after' => [new WorkerRunListQuery(endedAfter: new \DateTimeImmutable('2026-09-01'))];
         yield 'ended before' => [new WorkerRunListQuery(endedBefore: new \DateTimeImmutable('2026-09-01'))];
     }

@@ -44,7 +44,7 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertSame($cardId->toRfc4122(), $run->cardId->toRfc4122());
         self::assertSame(17, $run->cardNumber);
         self::assertSame($sessionId->toRfc4122(), $run->sessionId?->toRfc4122());
-        self::assertSame('Pairing on the design', $run->ruleName);
+        self::assertSame('Pairing on the design', $run->workKind);
         self::assertSame(self::NOW, $run->startedAt?->format('Y-m-d H:i:s'));
         self::assertNull($run->endedAt);
         self::assertSame([['running', self::NOW]], $this->history($run));
@@ -87,7 +87,7 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertNotNull($launched->id);
         self::assertTrue($launched->id->equals($opened->id));
         $run = $this->reload($opened);
-        self::assertSame('design', $run->ruleName);
+        self::assertSame('design', $run->workKind);
         self::assertSame($bridgeId->toRfc4122(), $run->bridgeId?->toRfc4122());
         self::assertSame([['running', self::NOW]], $this->history($run));
     }
@@ -135,7 +135,7 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertSame($bridgeId->toRfc4122(), $run->bridgeId?->toRfc4122());
         self::assertSame($sessionId->toRfc4122(), $run->sessionId?->toRfc4122());
         self::assertSame(8, $run->cardNumber);
-        self::assertSame('design', $run->ruleName);
+        self::assertSame('design', $run->workKind);
         self::assertSame('launcher exited 127', $run->failureReason);
         self::assertNull($run->startedAt);
         self::assertNull($run->exitCode);
@@ -240,9 +240,9 @@ final class InteractiveRunsTest extends KernelTestCase
     {
         $project = $this->scenario('interactive-limit');
 
-        $run = $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), str_repeat('é', WorkerRun::MAX_RULE_NAME_LENGTH));
+        $run = $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), str_repeat('é', WorkerRun::MAX_WORK_KIND_LENGTH));
 
-        self::assertSame(str_repeat('é', WorkerRun::MAX_RULE_NAME_LENGTH), $this->reload($run)->ruleName);
+        self::assertSame(str_repeat('é', WorkerRun::MAX_WORK_KIND_LENGTH), $this->reload($run)->workKind);
     }
 
     public function test_a_name_over_the_limit_is_refused(): void
@@ -250,7 +250,7 @@ final class InteractiveRunsTest extends KernelTestCase
         $project = $this->scenario('interactive-long');
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), str_repeat('é', WorkerRun::MAX_RULE_NAME_LENGTH + 1));
+        $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), str_repeat('é', WorkerRun::MAX_WORK_KIND_LENGTH + 1));
     }
 
     public function test_close_ends_the_run_and_appends_closed(): void

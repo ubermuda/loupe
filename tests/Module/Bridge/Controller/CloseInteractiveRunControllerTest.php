@@ -26,7 +26,7 @@ final class CloseInteractiveRunControllerTest extends WebTestCase
         $owner = $this->user($em, 'close-run-owner@example.com');
         $project = $this->project($em, $owner, 'Close run');
         $cardId = Uuid::v7();
-        $run = $this->seedRun($em, $project, ruleName: 'loupe:product-design', cardId: $cardId, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $run = $this->seedRun($em, $project, workKind: 'loupe:product-design', cardId: $cardId, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
         $url = $this->closeUrl((string) $project->id, (string) $run->id);
         $runId = $run->id;
         $em->clear();

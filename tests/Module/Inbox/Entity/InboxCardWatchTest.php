@@ -208,6 +208,47 @@ final class InboxCardWatchTest extends KernelTestCase
         );
     }
 
+    public function test_a_pause_wait_names_its_pause_and_round_trips(): void
+    {
+        $project = $this->project($this->em, $this->owner($this->em, 'watch-pause'), 'inbox');
+        $watch = $this->watch($project, Uuid::v7());
+        $pauseId = Uuid::fromString('01a0f3c2-5d10-7b5e-9c1a-2f4e8d6b0a22');
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::CardPaused, 'Workflow paused: owner-review', pauseId: $pauseId);
+        $watch->waits->add($wait);
+        $this->em->flush();
+        $waitId = $wait->id;
+        $this->em->clear();
+
+        $stored = $this->em->find(InboxCardWait::class, $waitId);
+        self::assertInstanceOf(InboxCardWait::class, $stored);
+        self::assertSame('card-paused:01a0f3c2-5d10-7b5e-9c1a-2f4e8d6b0a22', $stored->key());
+        self::assertEquals($pauseId, $stored->pauseId);
+        self::assertNotSame($stored->key(), InboxCardWait::computeKey(InboxCardWaitTrigger::CardPaused, pauseId: Uuid::v7()));
+    }
+
+    public function test_a_pause_wait_carries_a_pause_and_nothing_else(): void
+    {
+        foreach ([
+            [null, null, null, null, null],
+            [Uuid::v7(), null, null, null, null],
+            [null, 1, null, null, null],
+            [null, null, Uuid::v7(), null, null],
+            [null, null, null, Uuid::v7(), 'abc123'],
+        ] as $index => [$documentId, $versionNumber, $runId, $pullRequestId, $headSha]) {
+            try {
+                InboxCardWait::computeKey(InboxCardWaitTrigger::CardPaused, $documentId, $versionNumber, $runId, $pullRequestId, $headSha, 0 === $index ? null : Uuid::v7());
+                self::fail(\sprintf('Case %d was accepted.', $index));
+            } catch (\InvalidArgumentException) {
+            }
+        }
+    }
+
+    public function test_only_a_pause_wait_names_a_pause(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        InboxCardWait::computeKey(InboxCardWaitTrigger::RunBlocked, runId: Uuid::v7(), pauseId: Uuid::v7());
+    }
+
     public function test_a_wait_reason_fits_its_column(): void
     {
         $project = $this->project($this->em, $this->owner($this->em, 'watch-reason'), 'inbox');

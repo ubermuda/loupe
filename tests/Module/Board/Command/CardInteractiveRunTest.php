@@ -116,7 +116,7 @@ final class CardInteractiveRunTest extends KernelTestCase
         self::assertSame(WorkerRunState::Closed, $this->stateOf($old));
         $new = $this->workerRuns()->findOpenInteractive($this->project, $this->idOf($card), $sessionId);
         self::assertNotNull($new);
-        self::assertSame('loupe:product-design', $new->ruleName);
+        self::assertSame('loupe:product-design', $new->workKind);
         self::assertSame($card->number, $new->cardNumber);
     }
 

@@ -14,6 +14,7 @@ const resultRequest = "End with the structured result. Set status to finished wh
 	"Set it to unfinished when work still runs or remains. " +
 	"Set it to waiting when the work waits on the forge, such as checks on a pushed pull request. " +
 	"Put one short sentence on what you did in summary. " +
+	"Set reason to the reason code of your result, such as the code on your STAGE RESULT line, when you have one. " +
 	"Never end your turn while a command, a monitor or a subagent still runs. Wait for it in the foreground. " +
 	"When work still runs, report unfinished."
 
@@ -44,6 +45,16 @@ func RenderResumeByPerson() string {
 		"Continue your task from where it stopped, then finish the stage. " +
 		"Wait for each command in the foreground, and report your status." +
 		"\n\n" + Footer
+}
+
+// RenderResumeAskClosed is the whole prompt of the resume that Loupe asks for
+// once the owner closes an ask of the session. No rule edits it.
+func RenderResumeAskClosed() string {
+	return "The project owner closed your inbox ask. " +
+		"Read the answers with inbox_list or inbox_get, and pass your session id as readerSessionId. " +
+		"Continue your task with the answers, then finish the stage. " +
+		"Wait for each command in the foreground, and report your status." +
+		"\n\n" + ResumeFooter
 }
 
 // InboxLine ends the footer of a worker on an instance with the inbox on. An

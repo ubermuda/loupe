@@ -6,6 +6,7 @@ namespace App\Module\Board\Mcp;
 
 use App\Exception\DomainErrors;
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\CardManaged;
 use App\Module\Board\Command\OpenCardRunCommand;
 use App\Module\Board\Command\OpenCardRunHandler;
 use App\Module\Board\Command\ShowCardCommand;
@@ -75,10 +76,12 @@ final readonly class CardRunOpenTool implements FlagGatedToolInterface
 
             return [
                 ...$this->payload->forCard($view),
-                'run' => ['runId' => (string) $run->id, 'state' => $run->state->value, 'name' => $run->ruleName],
+                'run' => ['runId' => (string) $run->id, 'state' => $run->state->value, 'name' => $run->workKind],
             ];
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
+        } catch (CardManaged $e) {
+            throw new ToolCallException(CardManaged::AGENT_MESSAGE, previous: $e);
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

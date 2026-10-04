@@ -18,10 +18,13 @@ final readonly class ReportInteractiveLaunchCommand
         public Uuid $bridgeId,
         public Uuid $cardId,
         public int $cardNumber,
-        public string $ruleName,
+        /** The kind of the work request, or the name of the session when it runs no work request. */
+        public string $workKind,
         public WorkerRunState $state,
         public \DateTimeImmutable $at,
         public ?string $failureReason = null,
+        public ?Uuid $workRequestId = null,
+        public ?string $ruleId = null,
     ) {
     }
 }

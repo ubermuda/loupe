@@ -110,14 +110,18 @@ class OutboxEventRepository extends ServiceEntityRepository
     }
 
     /**
-     * The owner's highest rows at or below the sequence created since the given
-     * time, highest first.
+     * The owner's highest rows of the types at or below the sequence created
+     * since the given time, highest first.
+     *
+     * @param list<string> $types
      *
      * @return list<OutboxEvent>
      */
-    public function findOwnedAtOrBelowSince(User $owner, int $sequence, \DateTimeImmutable $since, int $limit): array
+    public function findOwnedAtOrBelowSince(User $owner, array $types, int $sequence, \DateTimeImmutable $since, int $limit): array
     {
         return $this->ownedQueryBuilder($owner)
+            ->andWhere('e.type IN (:types)')
+            ->setParameter('types', $types)
             ->andWhere('e.sequence <= :sequence')
             ->andWhere('e.createdAt >= :since')
             ->setParameter('sequence', $sequence)
@@ -129,13 +133,17 @@ class OutboxEventRepository extends ServiceEntityRepository
     }
 
     /**
-     * The owner's rows above the sequence, lowest first.
+     * The owner's rows of the types above the sequence, lowest first.
+     *
+     * @param list<string> $types
      *
      * @return list<OutboxEvent>
      */
-    public function findOwnedAbove(User $owner, int $sequence, int $limit): array
+    public function findOwnedAbove(User $owner, array $types, int $sequence, int $limit): array
     {
         return $this->ownedQueryBuilder($owner)
+            ->andWhere('e.type IN (:types)')
+            ->setParameter('types', $types)
             ->andWhere('e.sequence > :sequence')
             ->setParameter('sequence', $sequence)
             ->orderBy('e.sequence', 'ASC')

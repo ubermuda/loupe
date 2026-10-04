@@ -11,6 +11,8 @@ final readonly class BoardAutomationSettingsSaved
 {
     public function __construct(
         public Project $project,
+        /** True when this save switched the automation on. */
+        public bool $turnedOn = false,
     ) {
     }
 }

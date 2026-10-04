@@ -1,0 +1,100 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'workflow.settings.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: project.id}) }}">{{ project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'nav.link.workflow'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-orchestration-page lp-redesign-secondary">
+    {% if template is null %}
+    <header class="lp-orchestration-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'workflow.settings.page.title'|trans }}</h1>
+        </div>
+    </header>
+    <div class="lp-empty-state" data-workflow-unbound>
+        <twig:ux:icon name="lucide:workflow" class="lp-empty-state__icon w-12 h-12" />
+        <p>{{ 'workflow.settings.unbound'|trans }}</p>
+    </div>
+    {% else %}
+    <header class="lp-orchestration-header" data-workflow-template="{{ template.key }}">
+        <div>
+            <h1 class="lp-workspace-title">{{ template.labelKey|trans }}</h1>
+            <p class="lp-workspace-desc">{{ template.descriptionKey|trans }}</p>
+            <p class="lp-workspace-desc">
+                {{ 'workflow.settings.version'|trans({'%version%': template.version}) }}
+                · <time datetime="{{ template.boundAt|date('c') }}">{{ 'workflow.settings.bound_at'|trans({'%date%': template.boundAt|date('M j, Y')}) }}</time>
+            </p>
+        </div>
+    </header>
+
+    <section class="lp-workflow-section">
+        <h2 class="lp-section-title">{{ 'workflow.settings.slots.heading'|trans }}</h2>
+        {% if template.slots is not empty %}
+        <twig:DataTable :columns="[
+            {label: 'workflow.settings.slots.slot'|trans},
+            {label: 'workflow.settings.slots.column'|trans},
+        ]">
+            {% for slot in template.slots %}
+            <div class="lp-data-table__row" data-slot-key="{{ slot.key }}">
+                <span class="lp-data-table__cell lp-data-table__title">{{ slot.labelKey|trans }}</span>
+                <span class="lp-data-table__cell" data-slot-column>
+                    {%- if slot.columnLabel is not null %}{{ slot.columnLabel|trans }}{% else %}<span class="lp-tag lp-tag--amber">{{ 'workflow.settings.slots.not_linked'|trans }}</span>{% endif -%}
+                </span>
+            </div>
+            {% endfor %}
+        </twig:DataTable>
+        {% else %}
+        <p class="lp-workspace-desc">{{ 'workflow.settings.slots.none'|trans }}</p>
+        {% endif %}
+    </section>
+
+    <section class="lp-workflow-section">
+        <h2 class="lp-section-title">{{ 'workflow.settings.rules.heading'|trans }}</h2>
+        <twig:DataTable :columns="[
+            {label: 'workflow.settings.rules.id'|trans},
+            {label: 'workflow.settings.rules.applies_to'|trans},
+            {label: 'workflow.settings.rules.action'|trans},
+        ]">
+            {% for rule in template.rules %}
+            <div class="lp-data-table__row" data-rule-id="{{ rule.id }}">
+                <span class="lp-data-table__cell lp-data-table__title">{{ rule.id }}</span>
+                <span class="lp-data-table__cell">{{ rule.appliesToKey|trans }}</span>
+                <span class="lp-data-table__cell">{{ rule.actionKey|trans({'%target%': rule.targetKey is null ? '' : rule.targetKey|trans, '%kind%': rule.kind ?? ''}) }}</span>
+            </div>
+            {% endfor %}
+        </twig:DataTable>
+    </section>
+
+    <section class="lp-workflow-section">
+        <h2 class="lp-section-title">{{ 'workflow.settings.moves.heading'|trans }}</h2>
+        <p class="lp-workspace-desc">{{ 'workflow.settings.moves.description'|trans }}</p>
+        {% if template.manualMoves is not empty %}
+        <twig:DataTable :columns="[
+            {label: 'workflow.settings.moves.from'|trans},
+            {label: 'workflow.settings.moves.to'|trans},
+        ]">
+            {% for move in template.manualMoves %}
+            <div class="lp-data-table__row" data-manual-move>
+                <span class="lp-data-table__cell">{{ move.fromKey|trans }}</span>
+                <span class="lp-data-table__cell">{{ move.toKey|trans }}</span>
+            </div>
+            {% endfor %}
+        </twig:DataTable>
+        {% else %}
+        <p class="lp-workspace-desc">{{ 'workflow.settings.moves.none'|trans }}</p>
+        {% endif %}
+    </section>
+
+    <section class="lp-workflow-section" data-workflow-timings>
+        <h2 class="lp-section-title">{{ 'workflow.settings.timings.heading'|trans }}</h2>
+        <p class="lp-workspace-desc">{{ 'workflow.settings.timings.backoff'|trans({'%minutes%': template.backoffMinutes|join(', ')}) }}</p>
+        <p class="lp-workspace-desc">{{ 'workflow.settings.timings.work_timeout'|trans({'%minutes%': template.workTimeoutMinutes}) }}</p>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

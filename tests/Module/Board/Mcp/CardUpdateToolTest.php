@@ -160,7 +160,7 @@ final class CardUpdateToolTest extends KernelTestCase
             bridgeId: Uuid::v4(),
             cardId: Uuid::fromString($created['cardId']),
             cardNumber: $created['number'],
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::Running,
             sessionId: $sessionId,
         );
@@ -170,7 +170,7 @@ final class CardUpdateToolTest extends KernelTestCase
 
         ($this->tool)($created['cardId'], status: 'next');
 
-        self::assertEquals(['type' => 'run', 'run' => (string) $run->id, 'rule' => 'implement'], $this->moveCause($created['cardId']));
+        self::assertEquals(['type' => 'run', 'run' => (string) $run->id, 'kind' => 'implement'], $this->moveCause($created['cardId']));
     }
 
     public function test_a_move_without_the_session_header_names_no_cause(): void

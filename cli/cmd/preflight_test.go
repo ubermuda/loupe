@@ -70,7 +70,7 @@ func TestPreflightPassesWithGoodRules(t *testing.T) {
 func TestPreflightFailsOnBadRules(t *testing.T) {
 	preflightHome(t)
 	path := filepath.Join(t.TempDir(), "rules.yaml")
-	if err := os.WriteFile(path, []byte("projects: {}\nrules: []\nsite: loupe\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("projects: {}\nwork: {}\nsite: loupe\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

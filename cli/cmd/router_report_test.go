@@ -7,7 +7,6 @@ import (
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
-	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
 const testBridge = "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90"
@@ -71,7 +70,7 @@ func TestEachFinishedRunReachesLoupe(t *testing.T) {
 	if got.run.BridgeID != testBridge || got.run.CardID != cardUUID(87) || got.run.CardNumber != 87 {
 		t.Fatalf("run = %+v", got.run)
 	}
-	if got.run.RuleName != "plan" || got.run.Output != "wrote a plan" {
+	if got.run.RuleName != "work:plan" || got.run.Output != "wrote a plan" {
 		t.Fatalf("run = %+v", got.run)
 	}
 	if got.run.ExitCode == nil || *got.run.ExitCode != 0 || got.run.FailureReason != nil {
@@ -164,35 +163,10 @@ func TestReportingLeavesTheWorkerLogAlone(t *testing.T) {
 	<-sent
 
 	finished := h.only(t, "worker_finished")
-	if num(t, finished, "card") != 87 || num(t, finished, "exit") != 0 || str(t, finished, "rule") != "plan" {
+	if num(t, finished, "card") != 87 || num(t, finished, "exit") != 0 || str(t, finished, "rule") != "work:plan" {
 		t.Fatalf("worker_finished = %v", finished)
 	}
 	if str(t, finished, "output") != "wrote a plan" || finished["duration_ms"] == nil {
 		t.Fatalf("worker_finished = %v", finished)
-	}
-}
-
-// Loupe records a run against a card, so an event that names no card number has
-// nothing to report. The skip is logged, because a missing record must not read
-// as a run that did not happen.
-func TestAnEventWithNoCardNumberIsNotReported(t *testing.T) {
-	h := newHarnessWith(t, defaultRules+`
-  - name: created
-    on: board.card_created
-    project: loupe
-    prompt: Created in {project}.
-`, rules.Defaults{})
-	sent := h.reports(t)
-
-	h.send(`{"type":"board.card_created","subject":{"type":"card","id":"` + testCard + `"},"projectId":"` + testProject + `","actor":"human"}`)
-
-	select {
-	case got := <-sent:
-		t.Fatalf("reported a run with no card number: %+v", got)
-	default:
-	}
-	skipped := h.only(t, "report_skipped")
-	if str(t, skipped, "subject") != testCard || str(t, skipped, "rule") != "created" {
-		t.Fatalf("report_skipped = %v", skipped)
 	}
 }

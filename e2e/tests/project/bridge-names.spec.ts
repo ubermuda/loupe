@@ -39,10 +39,9 @@ test('a bridge shows its name, and a second claim of the name shows a clash', as
                 data: {
                     bridgeId,
                     at: '2026-10-02T10:00:00+00:00',
-                    ruleName: 'implement',
+                    workKind: 'implement',
                     cardId: crypto.randomUUID(),
                     cardNumber: 7,
-                    cardColumn: 'implementation',
                     state: 'queued',
                 },
             },

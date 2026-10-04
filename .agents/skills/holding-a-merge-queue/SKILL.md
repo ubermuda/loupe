@@ -240,10 +240,9 @@ state file.
 ### A conflicting branch waits for the bridge
 
 Never resolve a conflict, and never dispatch an agent to resolve one. The
-bridge's `fix-pr` rule runs on `pull_request.fix_requested` for the reasons
-`checks-failed`, `conflict` and `changes-requested`. It resumes the session that
-built the branch, or starts a new one. That worker resolves the conflict with
-the `loupe-stage-fix-round` skill. Hold the pull request, and tell the owner that it
+workflow asks a bridge for `fix` work on a failed check, a conflict and a
+request for changes. That worker resolves the conflict with the
+`loupe-stage-fix-round` skill. Hold the pull request, and tell the owner that it
 waits for that worker. When no worker comes, report the pull request to the
 owner as held.
 

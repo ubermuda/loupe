@@ -22,6 +22,8 @@ class MoveCardRequest
         public ?string $beforeCardId = null,
         /** The card the drop lands below, when no card is below it. */
         public ?string $afterCardId = null,
+        /** Hold the card first, so a managed card may go where its workflow does not move it. */
+        public bool $unmanage = false,
     ) {
     }
 }

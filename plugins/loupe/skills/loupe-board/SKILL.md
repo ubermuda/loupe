@@ -75,10 +75,9 @@ read from `card_list`, `card_search` or `card_create`. They also take the card
 
 An interactive session, such as `/loupe:product-design`, calls `card_run_open`
 with `sessionId` set to `$CLAUDE_CODE_SESSION_ID` and `name` set to the skill
-name. The run shows on the card and on the worker runs page. While it is open, a
-bridge rule with `card: { interactiveRun: false }` skips the card. A move of the
-card to another column closes the run, except the move that `card_run_open`
-makes with `status`. Call `card_run_close` when the session ends.
+name. The run shows on the card and on the worker runs page. A move of the card
+to another column closes the run, except the move that `card_run_open` makes
+with `status`. Call `card_run_close` when the session ends.
 
 ## Search before you write a card
 
@@ -307,30 +306,23 @@ whole set. Read the card with `card_get` first. Add your lines to the Markdown
 it returns. Send the whole result. A two-line handover note sent on its own
 erases the card.
 
-### A move can start a worker
+### A move can start work
 
-Every card move writes a `board.card_moved` event. A `loupe bridge` running
-against the project starts a worker when a rule in its `rules.yaml` watches the
-column the card enters.
+The workflow of the board checks a card after each move. When a rule of its
+template fires, it can move the card again, or ask a bridge for work on it. A
+bridge that runs that kind of work then starts a worker.
 
-- An event that no rule matches starts nothing. No bridge running means no
-  worker starts.
-- A move that keeps the card in its column, such as a new rank, starts
-  nothing.
-- A card that `card_create` puts in a column writes no move event, so it starts
-  nothing.
-- Your own move starts a worker when a rule watches the column you move the
-  card to.
-- A move that `card_run_open` makes starts nothing under a rule that sets
-  `card: { interactiveRun: false }`.
+- A rule fires only when its condition turns true. A move back into the same
+  slot does not fire a rule that already fired.
+- No bridge running means the request waits. After the work timeout the card
+  pauses with "no bridge took the work".
+- A card that a person made unmanaged gets no work, whatever you move.
+- A managed card takes only the moves that the template lists. Any other move
+  is refused, and the error names `card_hold`.
 
-`references/bridge-rules.md` says how a rule matches, caps agent chains and
-breaks on a rename.
-
-You cannot read the rule file through the MCP. Ask the owner which columns a
-bridge watches before you move a card into a column only to hold it. The example
-rule that `cli/README.md` shows, and that the bridge prints when it finds no
-rule file, fires on a move to `next`.
+`references/workflow.md` says how the workflow starts work, and what a rename
+does. Ask the owner which slot asks for work before you move a card into a
+column only to hold it.
 
 ## Link a pull request to a card
 
@@ -368,8 +360,8 @@ For a repository connected through the GitHub App, with the board automation
 on, Loupe moves the card itself. Green checks move a card from `implementation`
 to `in-review`. A merge moves the card to a terminal column once each of its
 pull requests is merged or closed. When each pull request is closed and none
-merged, the card moves to the Backlog about ten minutes after the last close.
-For any other link, an agent or a person moves the card.
+merged, the card stays where it is. For any other link, an agent or a person
+moves the card.
 
 ## Common mistakes
 

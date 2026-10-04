@@ -33,7 +33,7 @@ test('a resume that gave up shows its place in the series and the run it resumes
                 data: {
                     bridgeId,
                     at: '2026-09-23T10:00:00+00:00',
-                    ruleName: 'implement',
+                    workKind: 'implement',
                     ...card,
                     ...data,
                 },
@@ -53,15 +53,12 @@ test('a resume that gave up shows its place in the series and the run it resumes
         output: 'CI still runs',
     };
     const first = crypto.randomUUID();
-    await report(first, { state: 'queued', cardColumn: 'implementation' });
+    await report(first, { state: 'queued' });
     const firstId = await report(first, { state: 'unfinished', ...outcome });
     const resume = crypto.randomUUID();
     await report(resume, {
         state: 'queued',
-        cardColumn: 'implementation',
         continues: first,
-        resumeIndex: 2,
-        resumeCap: 2,
     });
     const resumeId = await report(resume, {
         state: 'gave-up',
@@ -85,7 +82,9 @@ test('a resume that gave up shows its place in the series and the run it resumes
     await row.getByRole('button', { name: 'View attempt' }).click();
     const drawer = page.getByRole('dialog', { name: 'Run attempt' });
     await expect(drawer).toBeVisible();
-    await expect(drawer).toContainText('Resume 2 of 2');
+    await expect(drawer.locator('[data-worker-run-work-kind]')).toHaveText(
+        'implement',
+    );
     await expect(
         drawer.locator('[data-worker-run-result-status]'),
     ).toContainText('Unfinished');
@@ -147,7 +146,6 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                     sessionId: crypto.randomUUID(),
                     cardId: crypto.randomUUID(),
                     cardNumber: index + 1,
-                    ruleName: 'R'.repeat(100),
                     startedAt: '2026-09-17T12:00:00+00:00',
                     endedAt: '2026-09-17T12:00:21+00:00',
                     exitCode: report.exitCode,

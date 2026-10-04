@@ -149,34 +149,33 @@ final class CardDocumentRepository extends ServiceEntityRepository
     }
 
     /**
-     * The tag names of each approved, unarchived document linked to the card, as the
-     * database holds them now, so a document loaded earlier cannot answer with
-     * a stale status. An approved document with no tag maps to an empty list.
+     * The status and the tag names of each unarchived document linked to the card, as the
+     * database holds them now, in link order.
      *
-     * @return array<string, list<string>> document id => tag names
+     * @return list<array{status: string, tags: list<string>}>
      */
-    public function findApprovedTagNamesForCard(Card $card): array
+    public function findStatusesAndTagsForCard(Card $card): array
     {
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT d.id AS document_id, t.name AS tag_name FROM board_card_documents cd
+            'SELECT d.id AS document_id, d.status, t.name AS tag_name FROM board_card_documents cd
              JOIN documents d ON d.id = cd.document_id
              LEFT JOIN document_tags dt ON dt.document_id = d.id
              LEFT JOIN tags t ON t.id = dt.tag_id
-             WHERE cd.card_id = :card AND d.status = :status AND d.archived_at IS NULL
-             ORDER BY cd.linked_at, d.id',
-            ['card' => (string) $card->id, 'status' => DocumentStatus::Approved->value],
+             WHERE cd.card_id = :card AND d.archived_at IS NULL
+             ORDER BY cd.linked_at, d.id, t.name',
+            ['card' => (string) $card->id],
         );
 
-        $names = [];
+        $documents = [];
         foreach ($rows as $row) {
             $documentId = (string) $row['document_id'];
-            $names[$documentId] ??= [];
+            $documents[$documentId] ??= ['status' => (string) $row['status'], 'tags' => []];
             if (null !== $row['tag_name']) {
-                $names[$documentId][] = (string) $row['tag_name'];
+                $documents[$documentId]['tags'][] = (string) $row['tag_name'];
             }
         }
 
-        return $names;
+        return array_values($documents);
     }
 
     private function inReview(Project $project): QueryBuilder

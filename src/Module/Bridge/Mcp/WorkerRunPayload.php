@@ -13,8 +13,8 @@ use App\Module\Bridge\ValueObject\BridgeCommandState;
  * Shapes worker runs and bridge commands for an MCP tool result.
  *
  * @phpstan-type PendingCommand array{commandId: string, kind: string, state: string}
- * @phpstan-type WorkerRunRow array{runId: string, runKey: ?string, kind: string, cardId: string, cardNumber: int, rule: string, state: string, sessionId: ?string, resumeIndex: ?int, resumeCap: ?int, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string}
- * @phpstan-type WorkerRunDetail array{runId: string, runKey: ?string, kind: string, cardId: string, cardNumber: int, rule: string, state: string, sessionId: ?string, resumeIndex: ?int, resumeCap: ?int, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string, continuesRunId: ?string, receivedAt: string, triggerEventType: ?string, triggerForge: ?string, triggerRepository: ?string, triggerPullRequestNumber: ?int, triggerHeadSha: ?string, triggerReason: ?string, failureReason: ?string, output: string, stateChanges: list<array{state: string, at: string}>}
+ * @phpstan-type WorkerRunRow array{runId: string, runKey: ?string, kind: string, cardId: string, cardNumber: int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string}
+ * @phpstan-type WorkerRunDetail array{runId: string, runKey: ?string, kind: string, cardId: string, cardNumber: int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string, continuesRunId: ?string, receivedAt: string, failureReason: ?string, output: string, stateChanges: list<array{state: string, at: string}>}
  * @phpstan-type BridgeCommandRow array{commandId: string, runId: string, kind: string, state: string, reason: ?string, requestedAt: string, expiresAt: string, settledAt: ?string}
  */
 final readonly class WorkerRunPayload
@@ -30,11 +30,11 @@ final readonly class WorkerRunPayload
             'kind' => $run->kind->value,
             'cardId' => (string) $run->cardId,
             'cardNumber' => $run->cardNumber,
-            'rule' => $run->ruleName,
+            'workRequestId' => $run->workRequestId?->toRfc4122(),
+            'workKind' => $run->workKind,
+            'ruleId' => $run->ruleId,
             'state' => $run->state->value,
             'sessionId' => $run->sessionId?->toRfc4122(),
-            'resumeIndex' => $run->resumeIndex,
-            'resumeCap' => $run->resumeCap,
             'startedAt' => $run->startedAt?->format(\DATE_ATOM),
             'endedAt' => $run->endedAt?->format(\DATE_ATOM),
             'exitCode' => $run->exitCode,
@@ -57,12 +57,6 @@ final readonly class WorkerRunPayload
             ...$this->forRow($run, $pending),
             'continuesRunId' => null === $run->continuesRun || $run->continuesRun->project !== $run->project ? null : (string) $run->continuesRun->id,
             'receivedAt' => $run->receivedAt->format(\DATE_ATOM),
-            'triggerEventType' => $run->triggerEventType,
-            'triggerForge' => $run->triggerForge,
-            'triggerRepository' => $run->triggerRepository,
-            'triggerPullRequestNumber' => $run->triggerPullRequestNumber,
-            'triggerHeadSha' => $run->triggerHeadSha,
-            'triggerReason' => $run->triggerReason,
             'failureReason' => $run->failureReason,
             'output' => $run->output,
             'stateChanges' => array_map(

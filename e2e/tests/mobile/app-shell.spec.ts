@@ -139,6 +139,9 @@ test('no authenticated page scrolls sideways at 375px', async ({
     page,
     seeded,
 }) => {
+    // The seeding fixture and eight navigations share the 30s budget, and a
+    // cold first login on a loaded runner once took 18s of it.
+    test.slow();
     const projectId = seeded.projectId;
     const paths = [
         '/projects',

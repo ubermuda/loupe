@@ -12,7 +12,6 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
-use App\Module\Board\Service\StageHold;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use Psr\Clock\ClockInterface;
@@ -28,7 +27,6 @@ final readonly class ShowCardHandler
         private BoardAutomationSettingsRepository $boardAutomationSettings,
         private ForgePullRequestRepository $forgePullRequests,
         private ClockInterface $clock,
-        private StageHold $hold,
     ) {
     }
 
@@ -55,7 +53,6 @@ final readonly class ShowCardHandler
             ($this->history)(new ShowCardHistoryCommand($command->card)),
             $children,
             $progress,
-            $this->hold->heldBy($command->card),
         );
     }
 

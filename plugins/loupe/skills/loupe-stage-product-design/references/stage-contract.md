@@ -41,9 +41,11 @@ When no linked document matches, page `document_list` for the title the stage sk
 
 Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences.
 
+End the first line with ` [reason: <code>]`. Take the code from the reason table below. An example is `STAGE RESULT: not ready <url>: stacked on main [reason: stacked]`.
+
 After a `not ready` or `blocked:` line, the first sentence says what unblocks the work. Name the next step of a person, such as "Approve the head commit".
 
-When the harness asks for a structured result, put the same sentence in `summary`. Set `status` from the `STAGE RESULT:` form:
+When the harness asks for a structured result, put the same sentence in `summary`. Set `reason` to the code of the first line, or to `work-remains` when no form applies yet. Set `status` from the `STAGE RESULT:` form:
 
 | `STAGE RESULT:` form | `status` |
 |---|---|
@@ -51,3 +53,26 @@ When the harness asks for a structured result, put the same sentence in `summary
 | `blocked:`, `loupe MCP unavailable`, `not approved`, `no approved tech design`, `no product document`, `no linked`, `open pull request exists`, `no fix round for column` | `blocked` |
 | `waiting` or `not ready`, because the work waits on the forge, such as checks on a pushed pull request | `waiting` |
 | No form yet, because work still runs or remains | `unfinished` |
+
+Set the reason code from the `STAGE RESULT:` form. A form takes the code of the most specific row that names it.
+
+| Reason code | `STAGE RESULT:` forms |
+|---|---|
+| `done` | `merged`, `breakdown`, `created`, `revised`, `comments answered`, `unchanged`, `nothing to fix`, `already approved` |
+| `card-left` | `card left <column>`, `no fix round for column` |
+| `waiting-checks` | `waiting <pr url>`, and a `not ready` item for a failed or pending check, or for a head that moved after the event |
+| `not-approved` | `not ready: not approved`, `product document not approved` |
+| `approval-stale` | `not ready: commits after approval`, `not ready: conflict resolution after approval` |
+| `stacked` | `not ready: stacked on <base>` |
+| `conflicting` | `not ready: conflicting`, `blocked: merge conflict with <base>` |
+| `not-behind` | `not ready: not behind` |
+| `no-design` | `no approved tech design`, `blocked: needs its own tech design`, `no product document`, `no linked <document>`, `blocked: no breakdown item` |
+| `open-pull-request` | `open pull request exists` |
+| `no-pull-request` | `no open pull request`, `blocked: pull request not linked to the card`, `blocked: no merge request in the prompt` |
+| `tool-unavailable` | `loupe MCP unavailable`, `blocked: codex MCP unavailable`, `blocked: no forge adapter`, `blocked: no <section> in .loupe/lifecycle.md` |
+| `worktree-failed` | `blocked: worktree binding failed`, `blocked: worktree is not on the PR branch`, `blocked: local branch diverged from origin` |
+| `merge-refused` | `blocked: merge refused` |
+| `needs-person` | Every other `blocked:` form, and every other `not ready` item, such as a draft |
+| `work-remains` | No form yet, because work still runs or remains |
+
+The app stores `other` for a code that it does not know. Never write `other` yourself.

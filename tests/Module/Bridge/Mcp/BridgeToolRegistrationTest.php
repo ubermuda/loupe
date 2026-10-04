@@ -133,7 +133,7 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         $schema = $this->registry->getTool(WorkerRunListTool::NAME)->tool->inputSchema;
         $properties = $schema['properties'];
 
-        foreach (['states', 'cardNumber', 'rule', 'bridgeId', 'endedAfter', 'endedBefore', 'search', 'page', 'perPage'] as $argument) {
+        foreach (['states', 'cardNumber', 'workKind', 'bridgeId', 'endedAfter', 'endedBefore', 'search', 'page', 'perPage'] as $argument) {
             self::assertArrayHasKey($argument, $properties, $argument);
         }
         self::assertSame(['type' => 'string'], $properties['states']['items']);

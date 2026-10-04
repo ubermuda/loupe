@@ -18,6 +18,10 @@ final readonly class SeedBoardColumnsOnProjectCreating
 
     public function __invoke(ProjectCreating $event): void
     {
+        if ($event->columnsSeeded) {
+            return;
+        }
+
         $this->seeder->seed($event->project);
     }
 }

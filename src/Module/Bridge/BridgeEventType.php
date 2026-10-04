@@ -14,6 +14,8 @@ final class BridgeEventType
 
     public const string CARD_RELEASED = 'board.card_released';
 
+    public const string WORK_REQUEST = 'bridge.work_request';
+
     private function __construct()
     {
     }

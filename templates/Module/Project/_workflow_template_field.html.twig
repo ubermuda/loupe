@@ -1,0 +1,13 @@
+<fieldset class="lp-form-field" data-workflow-template-field>
+    <legend class="lp-label">{{ field.vars.label|trans }}</legend>
+    {% for choice in field %}
+    <div class="lp-form-field">
+        <label class="lp-choice">
+            {{ form_widget(choice) }}
+            {{ choice.vars.label|trans }}
+        </label>
+        <p class="lp-form-hint" data-workflow-template-description="{{ choice.vars.value }}">{{ choice.vars.description|trans }}</p>
+    </div>
+    {% endfor %}
+    <div class="lp-field-errors">{{ form_errors(field) }}</div>
+</fieldset>

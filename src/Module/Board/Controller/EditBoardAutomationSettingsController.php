@@ -47,12 +47,13 @@ final class EditBoardAutomationSettingsController extends AppController
             ($this->saveSettings)(new SaveBoardAutomationSettingsCommand(
                 project: $project,
                 enabled: $data->enabled,
-                mergeStrategy: $data->mergeStrategy ?? throw new \LogicException('merge strategy required after validation'),
-                fixStrategy: $data->fixStrategy ?? throw new \LogicException('fix strategy required after validation'),
-                loopLimit: $data->loopLimit ?? throw new \LogicException('loop limit required after validation'),
                 commentOnFixQueued: $data->commentOnFixQueued,
                 commentOnStaleApproval: $data->commentOnStaleApproval,
                 syncBehind: $data->syncBehind,
+                mergePullRequests: $data->mergePullRequests,
+                changeBase: $data->changeBase,
+                epicDraftSwitch: $data->epicDraftSwitch,
+                closeEpicPullRequests: $data->closeEpicPullRequests,
             ));
             $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 

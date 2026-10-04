@@ -46,7 +46,7 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 3. Otherwise add no Breakdown section.
 4. Never write a Breakdown section for a card that has a parent, because epics do not nest. A child with no entry line of `../loupe-stage-implementation/references/breakdown.md` gets a design of its own, like any other card.
 
-Write the final reply as the contract says.
+Write the final reply, its reason code and the structured result as the contract "Final reply" section says.
 
 ## The design sections
 

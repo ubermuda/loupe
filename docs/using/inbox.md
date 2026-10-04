@@ -22,8 +22,7 @@ from 1 inside the project, so you can say "item 12" to an agent.
 - A **waiting** item tells you that a card waits for you. Loupe opens it, not
   an agent. See [Automatic items](#automatic-items).
 - A **notice** tells you about a fact of the project that needs a change.
-  Loupe opens it, takes no answer, and closes it when the fact ends. See
-  [Notices](#notices).
+  Loupe opens it and takes no answer. See [Notices](#notices).
 
 An **ask** is the set of items that one agent session hands over at once. The
 agent writes a short context for the ask, and the page shows that context above
@@ -171,16 +170,16 @@ A removed target shows an unavailable state, while completed results retain thei
 Loupe opens an item by itself when a card waits for a person. A card waits in
 these cases:
 
-- A product design of the card is in review, and the card sits in the Product
-  design column. A product design is a linked document with the tag `product`.
-- A tech design of the card is in review, and the card sits in the Tech design
-  column. A tech design is a linked document with the tags `design` and
-  `decisions`.
+- A linked document of the card is in review, and the workflow of the card
+  waits for it in the column where the card sits. With the Lifecycle template,
+  that is a product design, a document with the tag `product`, in the Product
+  design column, or a tech design, a document with the tag `design`, in the
+  Tech design column.
 - The newest worker run of the card is blocked, gave up, or waits for a person.
   The card must stay in the column that started the run.
 - A GitHub pull request that is linked to the card is ready for review.
-- The board automation stopped the fix loop of a GitHub pull request that is
-  linked to the card.
+- The workflow paused the card. The wait names the reason code of the pause,
+  and it ends when the pause is released. A new pause starts a new wait.
 
 Other linked documents, such as a plan, open no wait. A change to the tags of
 a document makes Loupe check each card that links it again.
@@ -206,18 +205,10 @@ on the next check.
 
 ### Notices
 
-Loupe opens one notice for a project while a bridge rule races its sync. The
-rule listens to `pull_request.behind`, and the project has the board setting
-**Sync an approved pull request that is behind** on. Loupe and the worker of
-that rule then both update the same branch. The notice names each such rule and
-the first eight characters of its bridge id. Remove each rule from the
-`rules.yaml` of its bridge.
-
-A notice does not block an agent and takes no answer. It holds no card. Loupe
-closes it as **done** when a bridge report or a change of the setting ends the
-conflict. Loupe reads the rules when a bridge reports them, and again in a
-check every 15 minutes. That check also opens or closes the notice. A rule that
-you remove stays in the notice until that bridge sends its next report.
+A notice states a fact of the project. It does not block an agent and takes no
+answer, and it holds no card. Loupe opened a notice while a bridge rule raced
+the sync of the project. Bridge rules are gone, so Loupe closed each such
+notice as **obsolete**, and opens no new one.
 
 ### Pull request waits
 
@@ -246,24 +237,20 @@ count, with or without a conflict resolution. A force push, such as a rebase,
 counts, so you approve the rewritten branch again. A new approval of the newest
 commit ends the wait.
 
-The fix loop wait opens when the board automation stops asking for fixes,
-because the card used all of its fix rounds. The wait names the reason of the
-fix that the automation did not ask for, such as `checks-failed`. While a
-worker run of the card is open, used fix rounds alone give no wait, because the
-run can still push a fix. The wait ends when the pull request closes or merges.
-It also ends when the automation of the card starts again, for example after a
-move of the card.
+A workflow that stops asking for fixes pauses the card, and the pause opens
+the wait.
 
 ### Choosing which waits open an item
 
-Each project has six switches, one for each cause of a wait:
+Each project has seven switches, one for each cause of a wait:
 
 - **Document in review**
 - **Run blocked**
 - **Run gave up**
 - **Run waiting for a person**
 - **Pull request ready for review**
-- **Pull request fix loop stopped**
+- **Pull request fix loop stopped**, which no longer opens a wait
+- **Workflow paused the card**
 
 The switches are on the inbox settings page, at **Project settings > Inbox**.
 The **Settings** button at the top of the inbox page also opens it. Only the
@@ -281,7 +268,7 @@ an archive. A new version of the document also ends the wait, and a new wait
 for the new version replaces it. The item then stays open. An open review
 request from an agent for the same document holds back the wait, because it
 asks for the same verdict. A document wait also ends when the card leaves the
-column of the stage, or when the document loses its stage tags.
+column that waits for the document, or when the document loses its tag.
 
 A run wait ends when a newer run of the card starts. It also ends when the card
 moves to another column.
@@ -325,13 +312,10 @@ One item can sit in several asks. Your response then counts toward each of
 them, and each ask closes when nothing in it blocks any more.
 
 When the ask came from a session that the command-line bridge started, Loupe
-also tells that bridge. A bridge rule with `resume: true` then continues that
-session, and the agent reads your answers. See
-[The inbox.ask_closed event](../extending/cli-bridge.md#the-inboxask_closed-event)
-and [Resume action](../extending/cli-bridge.md#resume-action).
-An agent that reads its answers with its own session id as `readerSessionId`
-records the read, so a bridge can skip the resume of a session that already read
-every answer.
+asks that bridge to resume the session, and the agent reads your answers. A run
+that is still open when the ask closes resumes when it ends. See
+[Pause, stop and resume](../extending/cli-bridge.md#pause-stop-and-resume).
+An agent reads its answers with its own session id as `readerSessionId`.
 
 ## All inboxes
 

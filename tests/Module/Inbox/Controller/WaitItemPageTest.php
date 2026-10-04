@@ -182,10 +182,9 @@ final class WaitItemPageTest extends WebTestCase
             bridgeId: Uuid::v7(),
             cardId: $this->card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: 4,
-            ruleName: 'implement',
+            workKind: 'implement',
             state: WorkerRunState::Blocked,
             output: 'Needs the API key',
-            cardColumn: 'tech-design',
         );
         $this->em->persist($run);
         $this->em->flush();

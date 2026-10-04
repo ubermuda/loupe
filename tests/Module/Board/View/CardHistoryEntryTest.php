@@ -78,7 +78,10 @@ final class CardHistoryEntryTest extends TestCase
         yield 'unblocked' => [['type' => 'unblocked', 'blocker' => 3], new TranslatableMessage('board.card.history.cause.unblocked', ['%blocker%' => 3])];
         yield 'unblocked with no blocker' => [['type' => 'unblocked'], new TranslatableMessage('board.card.history.cause.unblocked_any')];
         yield 'abandoned' => [['type' => 'abandoned'], new TranslatableMessage('board.card.history.cause.abandoned')];
-        yield 'run' => [['type' => 'run', 'run' => '01a0f000-0000-7000-8000-000000000001', 'rule' => 'implement'], new TranslatableMessage('board.card.history.cause.run', ['%rule%' => 'implement'])];
+        yield 'run' => [['type' => 'run', 'run' => '01a0f000-0000-7000-8000-000000000001', 'kind' => 'implement'], new TranslatableMessage('board.card.history.cause.run', ['%kind%' => 'implement'])];
+        yield 'run written with a rule name' => [['type' => 'run', 'run' => '01a0f000-0000-7000-8000-000000000001', 'rule' => 'implement'], new TranslatableMessage('board.card.history.cause.run', ['%kind%' => 'implement'])];
+        yield 'run with no work kind' => [['type' => 'run', 'run' => '01a0f000-0000-7000-8000-000000000001'], new TranslatableMessage('board.card.history.cause.run_no_kind')];
+        yield 'workflow rule' => [['type' => 'workflow-rule', 'rule' => 'merge-on-green'], new TranslatableMessage('board.card.history.cause.workflow_rule', ['%rule%' => 'merge-on-green'])];
         yield 'column deleted' => [['type' => 'column-deleted', 'column' => 'board.column.next'], new TranslatableMessage('board.card.history.cause.column_deleted', ['%column%' => new TranslatableMessage('board.column.next')])];
         yield 'an unknown type' => [['type' => 'moon-phase'], null];
         yield 'a cause with its field missing' => [['type' => 'merged'], null];
@@ -149,14 +152,14 @@ final class CardHistoryEntryTest extends TestCase
         ]), $entry->sentence);
     }
 
-    public function test_a_finished_run_carries_its_rule_duration_and_result(): void
+    public function test_a_finished_run_carries_its_work_kind_duration_and_result(): void
     {
         $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $this->runDetail('succeeded', 192)), true);
 
         self::assertSame('lucide:bot', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.run_finished', [
             '%actor%' => new TranslatableMessage('board.card.history.actor.agent', ['%name%' => 'Riley Chen']),
-            '%rule%' => 'implement',
+            '%kind%' => 'implement',
         ]), $entry->sentence);
         self::assertEquals(new CardHistoryRun(
             runId: self::RUN_ID,
@@ -185,9 +188,31 @@ final class CardHistoryEntryTest extends TestCase
 
             self::assertEquals(new TranslatableMessage('board.card.history.run_not_started', [
                 '%actor%' => new TranslatableMessage('board.card.history.actor.agent', ['%name%' => 'Riley Chen']),
-                '%rule%' => 'implement',
+                '%kind%' => 'implement',
             ]), $entry->sentence, $state);
         }
+    }
+
+    public function test_a_run_written_with_a_rule_name_reads_it_as_the_work_kind(): void
+    {
+        $detail = $this->runDetail('succeeded', 1);
+        unset($detail['workKind']);
+        $detail['ruleName'] = 'plan';
+
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $detail), true);
+
+        self::assertSame('plan', $entry->sentence->getParameters()['%kind%']);
+        self::assertSame('board.card.history.run_finished', $entry->sentence->getMessage());
+    }
+
+    public function test_a_run_with_no_work_kind_names_none(): void
+    {
+        $finished = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, ['state' => 'succeeded']));
+        $notStarted = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, ['state' => 'not-started']));
+
+        self::assertSame('board.card.history.run_finished_no_kind', $finished->sentence->getMessage());
+        self::assertSame('board.card.history.run_not_started_no_kind', $notStarted->sentence->getMessage());
+        self::assertNotNull($finished->run);
     }
 
     public function test_a_purged_run_keeps_its_row_with_no_link(): void
@@ -237,7 +262,6 @@ final class CardHistoryEntryTest extends TestCase
         yield 'a fix request with no pull request' => [CardEventKind::FixRequested, ['reason' => 'conflict']];
         yield 'a stop with no pull request' => [CardEventKind::Stopped, []];
         yield 'a ready pull request with a text number' => [CardEventKind::ReadyToMerge, ['pullRequest' => 'twelve']];
-        yield 'a run with no rule' => [CardEventKind::RunFinished, ['state' => 'succeeded']];
     }
 
     /** @return iterable<string, array{CardReporter, bool, string|TranslatableMessage}> */
@@ -265,15 +289,13 @@ final class CardHistoryEntryTest extends TestCase
     {
         return [
             'runId' => self::RUN_ID,
-            'ruleName' => 'implement',
+            'workKind' => 'implement',
             'state' => $state,
             'interactive' => false,
             'command' => false,
             'startedAt' => '2026-09-30T10:00:00+00:00',
             'endedAt' => '2026-09-30T10:03:12+00:00',
             'durationSeconds' => $durationSeconds,
-            'resumeIndex' => 0,
-            'resumeCap' => 3,
         ];
     }
 

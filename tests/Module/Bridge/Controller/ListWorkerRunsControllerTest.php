@@ -15,6 +15,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\MercureCookies;
@@ -38,8 +39,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $owner = $this->user($em, 'runs-owner@example.com');
         $project = $this->project($em, $owner, 'Mine');
         $other = $this->project($em, $owner, 'Theirs');
-        $this->seedRun($em, $project, cardNumber: 42, ruleName: 'plan');
-        $this->seedRun($em, $other, cardNumber: 99, ruleName: 'othersrule');
+        $this->seedRun($em, $project, cardNumber: 42, workKind: 'plan');
+        $this->seedRun($em, $other, cardNumber: 99, workKind: 'othersrule');
 
         $projectId = (string) $project->id;
         $em->clear();
@@ -97,7 +98,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 5,
-            ruleName: 'waiting rule',
+            workKind: 'waiting rule',
             state: WorkerRunState::Queued,
             runKey: Uuid::v7(),
             receivedAt: new \DateTimeImmutable('2026-03-04 05:06:00'),
@@ -146,8 +147,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'pool-owner@example.com');
         $project = $this->project($em, $owner, 'Pools');
-        $pooled = (string) $this->seedRun($em, $project, cardNumber: 1, ruleName: 'plan', workerPool: 'quick')->id;
-        $plain = (string) $this->seedRun($em, $project, cardNumber: 2, ruleName: 'review')->id;
+        $pooled = (string) $this->seedRun($em, $project, cardNumber: 1, workKind: 'plan', workerPool: 'quick')->id;
+        $plain = (string) $this->seedRun($em, $project, cardNumber: 2, workKind: 'review')->id;
 
         $projectId = (string) $project->id;
         $em->clear();
@@ -176,15 +177,15 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'experiment-owner@example.com');
         $project = $this->project($em, $owner, 'Experiments');
-        $pinned = $this->seedRun($em, $project, cardNumber: 1, ruleName: 'implement');
+        $pinned = $this->seedRun($em, $project, cardNumber: 1, workKind: 'implement');
         $pinned->experiment = 'impl-model';
         $pinned->variant = 'sonnet';
         $pinned->requestedModel = 'claude-sonnet-5-5';
-        $switched = $this->seedRun($em, $project, cardNumber: 2, ruleName: 'implement');
+        $switched = $this->seedRun($em, $project, cardNumber: 2, workKind: 'implement');
         $switched->experiment = 'impl-model';
         $switched->variant = 'sonnet';
         $switched->switchedFrom = '<b>opus</b>';
-        $plain = (string) $this->seedRun($em, $project, cardNumber: 3, ruleName: 'review')->id;
+        $plain = (string) $this->seedRun($em, $project, cardNumber: 3, workKind: 'review')->id;
         $em->flush();
         $pinnedId = (string) $pinned->id;
         $switchedId = (string) $switched->id;
@@ -262,15 +263,15 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertResponseRedirects('/projects/'.$projectId.'/worker-runs?page=1');
     }
 
-    public function test_search_covers_the_card_number_the_rule_name_and_the_output(): void
+    public function test_search_covers_the_card_number_the_work_kind_and_the_output(): void
     {
         $client = static::createClient();
         $em = $this->em();
 
         $owner = $this->user($em, 'search-owner@example.com');
         $project = $this->project($em, $owner, 'Searched');
-        $this->seedRun($em, $project, cardNumber: 512, output: 'nothing special', ruleName: 'plan');
-        $this->seedRun($em, $project, cardNumber: 7, output: 'segmentation fault', ruleName: 'implement');
+        $this->seedRun($em, $project, cardNumber: 512, output: 'nothing special', workKind: 'plan');
+        $this->seedRun($em, $project, cardNumber: 7, output: 'segmentation fault', workKind: 'implement');
 
         $projectId = (string) $project->id;
         $em->clear();
@@ -490,7 +491,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertSame('2026-01-01T09:59:00+00:00', $timeline->first()->filter('time')->attr('datetime'));
     }
 
-    public function test_a_resumed_run_shows_its_place_in_the_series_and_its_result(): void
+    public function test_a_resumed_run_shows_the_run_it_continues_and_its_result(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -500,12 +501,9 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $cardId = Uuid::v7();
         $first = $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Unfinished, hasResult: true);
         $resume = $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::GaveUp, hasResult: true);
-        $first->resumeIndex = 0;
-        $first->resumeCap = 3;
         $resume->continuesRun = $first;
-        $resume->resumeIndex = 2;
-        $resume->resumeCap = 3;
         $resume->resultStatus = 'unfinished';
+        $resume->resultReason = WorkerRunReason::Stacked;
         $resume->resultFields = ['branch' => '<b>feat/x</b>', 'tests' => 12];
         $resume->resumeSkipped = 'card_moved';
         $em->flush();
@@ -520,16 +518,15 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $row = $crawler->filter('[data-worker-run-id="'.$resumeId.'"]');
-        // The row drops the place in the series, and the drawer keeps it.
-        self::assertStringNotContainsString('Resume', $crawler->filter('[data-worker-run-id="'.$resumeId.'"] > :not(dialog)')->text());
         $drawer = $row->filter('.lp-run-drawer__body');
-        self::assertStringContainsString('Resume 2 of 3', $drawer->filter('.lp-run-drawer__metadata')->text());
-        self::assertStringNotContainsString('Resume', $crawler->filter('[data-worker-run-id="'.$firstId.'"] .lp-run-drawer__metadata')->text());
+        self::assertSame('plan', $drawer->filter('[data-worker-run-work-kind]')->text());
 
         $continues = $drawer->filter('a[data-worker-run-continues]');
         self::assertSame($firstId, $continues->text());
         self::assertStringContainsString('search='.$firstId, (string) $continues->attr('href'));
         self::assertStringContainsString('Unfinished', $drawer->filter('[data-worker-run-result-status]')->text());
+        self::assertStringContainsString('Stacked on another pull request', $drawer->filter('[data-worker-run-result-reason]')->text());
+        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$firstId.'"] [data-worker-run-result-reason]'));
         self::assertSame(
             ['branch: <b>feat/x</b>', 'tests: 12'],
             $drawer->filter('[data-worker-run-result-fields] > div')->each(static fn (Crawler $field): string => $field->filter('dt')->text().': '.$field->filter('dd')->text()),
@@ -612,7 +609,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 1,
-            ruleName: 'running rule',
+            workKind: 'running rule',
             state: WorkerRunState::Queued,
             runKey: Uuid::v7(),
         );
@@ -622,7 +619,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             bridgeId: Uuid::v7(),
             cardId: Uuid::v7(),
             cardNumber: 2,
-            ruleName: 'queued rule',
+            workKind: 'queued rule',
             state: WorkerRunState::Queued,
             runKey: Uuid::v7(),
         );
@@ -737,8 +734,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $owner = $this->user($em, 'interactive-owner@example.com');
         $project = $this->project($em, $owner, 'Interactive');
         $this->seedRun($em, $project, cardNumber: 11);
-        $closed = $this->seedRun($em, $project, cardNumber: 22, exitCode: null, ruleName: 'loupe:product-design', state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
-        $open = $this->seedRun($em, $project, cardNumber: 33, exitCode: null, ruleName: 'loupe:tech-design', state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $closed = $this->seedRun($em, $project, cardNumber: 22, exitCode: null, workKind: 'loupe:product-design', state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $open = $this->seedRun($em, $project, cardNumber: 33, exitCode: null, workKind: 'loupe:tech-design', state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
 
         $projectId = (string) $project->id;
         $closedId = (string) $closed->id;
@@ -773,7 +770,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'command-run-owner@example.com');
         $project = $this->project($em, $owner, 'Command Runs');
-        $command = $this->seedRun($em, $project, cardNumber: 12, exitCode: -1, ruleName: 'sync', runKey: Uuid::v4(), kind: WorkerRunKind::Command);
+        $command = $this->seedRun($em, $project, cardNumber: 12, exitCode: -1, workKind: 'sync', runKey: Uuid::v4(), kind: WorkerRunKind::Command);
         $worker = $this->seedRun($em, $project, cardNumber: 13);
 
         $projectId = (string) $project->id;
@@ -803,7 +800,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
         $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND];
         $em->flush();
-        $run = $this->seedRun($em, $project, exitCode: -1, ruleName: 'sync', bridgeId: $bridge->id, runKey: Uuid::v4(), kind: WorkerRunKind::Command);
+        $run = $this->seedRun($em, $project, exitCode: -1, workKind: 'sync', bridgeId: $bridge->id, runKey: Uuid::v4(), kind: WorkerRunKind::Command);
 
         $projectId = (string) $project->id;
         $runId = (string) $run->id;

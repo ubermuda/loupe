@@ -95,16 +95,16 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         $this->experimentRun($switchedAndMixed, 'a', at: '+2 hours', switchedFrom: 'b');
 
         $beforeTest = Uuid::v7();
-        $this->plainRun($beforeTest, 'implementation', '+1 hour');
+        $this->plainRun($beforeTest, 'implement', '+1 hour');
         $this->experimentRun($beforeTest, 'a', at: '+2 hours');
 
-        $otherColumn = Uuid::v7();
-        $this->plainRun($otherColumn, 'tech-design', '+1 hour');
-        $this->experimentRun($otherColumn, 'a', at: '+2 hours');
+        $otherKind = Uuid::v7();
+        $this->plainRun($otherKind, 'design', '+1 hour');
+        $this->experimentRun($otherKind, 'a', at: '+2 hours');
 
         $plainAfter = Uuid::v7();
         $this->experimentRun($plainAfter, 'a', at: '+1 hour');
-        $this->plainRun($plainAfter, 'implementation', '+2 hours');
+        $this->plainRun($plainAfter, 'implement', '+2 hours');
 
         $noHistory = Uuid::v7();
         $this->experimentRun($noHistory, 'a', at: '-31 days');
@@ -117,10 +117,10 @@ final class ShowExperimentHandlerTest extends KernelTestCase
             (string) $mixed => ['mixed'],
             (string) $switchedAndMixed => ['switched', 'mixed'],
             (string) $beforeTest => ['before-test'],
-            (string) $otherColumn => [],
+            (string) $otherKind => [],
             (string) $plainAfter => [],
             (string) $noHistory => ['no-history'],
-        ], $this->reasonsById($view, [$switched, $mixed, $switchedAndMixed, $beforeTest, $otherColumn, $plainAfter, $noHistory]));
+        ], $this->reasonsById($view, [$switched, $mixed, $switchedAndMixed, $beforeTest, $otherKind, $plainAfter, $noHistory]));
         self::assertSame(2, $view->includedCards);
         self::assertSame(5, $view->leftOutCards);
         // A left-out card counts in no variant.
@@ -240,11 +240,11 @@ final class ShowExperimentHandlerTest extends KernelTestCase
                 foreach (['+20 hours' => WorkerRunState::Blocked, '+21 hours' => WorkerRunState::Failed, '+22 hours' => WorkerRunState::Stopped] as $at => $state) {
                     $stopped = $this->experimentRun($card, 'a', at: $at, state: $state);
                     $stopped->usageSource = WorkerRunUsageSource::Reported;
-                    $this->em->persist(new WorkerRunUsage($stopped, $run->project, $card, $stopped->ruleName, 'claude-opus-5-5', WorkerRunUsageSource::Reported, 0, 0, 0, 0, '0.000000'));
+                    $this->em->persist(new WorkerRunUsage($stopped, $run->project, $card, $stopped->workKind, 'claude-opus-5-5', WorkerRunUsageSource::Reported, 0, 0, 0, 0, '0.000000'));
                 }
                 // Neither a row whose run is gone nor the usage of a run outside the experiment counts.
                 $this->em->persist(new WorkerRunUsage(null, $run->project, $card, 'build', 'claude-opus-5-5', WorkerRunUsageSource::Reported, 1, 1, 0, 0, '5.000000'));
-                $this->seedUsage($this->em, $this->plainRun($card, 'tech-design', '-1 hour'), costUsd: '5.000000');
+                $this->seedUsage($this->em, $this->plainRun($card, 'design', '-1 hour'), costUsd: '5.000000');
             }
         }
         $byHand = Uuid::v7();
@@ -578,24 +578,19 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         string $experiment = self::EXPERIMENT,
     ): WorkerRun {
         // A run with no key reads as one from an older bridge, and a trigger rewrites its failed state.
-        $run = $this->seedRun($this->em, $this->managedProject(), receivedAt: $this->start->modify($at), cardId: $cardId, state: $state, runKey: Uuid::v7());
+        $run = $this->seedRun($this->em, $this->managedProject(), receivedAt: $this->start->modify($at), workKind: 'implement', cardId: $cardId, state: $state, runKey: Uuid::v7());
         $run->experiment = $experiment;
         $run->variant = $variant;
         $run->switchedFrom = $switchedFrom;
         $run->requestedModel = $model;
-        $run->cardColumn = 'implementation';
         $this->em->flush();
 
         return $run;
     }
 
-    private function plainRun(Uuid $cardId, string $column, string $at): WorkerRun
+    private function plainRun(Uuid $cardId, string $workKind, string $at): WorkerRun
     {
-        $run = $this->seedRun($this->em, $this->managedProject(), receivedAt: $this->start->modify($at), cardId: $cardId, state: WorkerRunState::Succeeded);
-        $run->cardColumn = $column;
-        $this->em->flush();
-
-        return $run;
+        return $this->seedRun($this->em, $this->managedProject(), receivedAt: $this->start->modify($at), workKind: $workKind, cardId: $cardId, state: WorkerRunState::Succeeded);
     }
 
     /**

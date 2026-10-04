@@ -89,7 +89,7 @@ final class AgentRunCauseTest extends KernelTestCase
         $cause = $this->cause->forCard($this->card);
 
         self::assertNotNull($cause);
-        self::assertSame(['type' => 'run', 'run' => (string) $resumed->id, 'rule' => 'fix-round'], $cause->detail());
+        self::assertSame(['type' => 'run', 'run' => (string) $resumed->id, 'kind' => 'fix-round'], $cause->detail());
     }
 
     public function test_a_run_on_the_moved_card_beats_a_newer_run_on_another_card(): void
@@ -99,7 +99,7 @@ final class AgentRunCauseTest extends KernelTestCase
         $this->workerRun($sessionId, 'product-design', new \DateTimeImmutable('-1 hour'), state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
         $this->pushRequest((string) $sessionId);
 
-        self::assertSame(['type' => 'run', 'run' => (string) $onCard->id, 'rule' => 'implement'], $this->cause->forCard($this->card)?->detail());
+        self::assertSame(['type' => 'run', 'run' => (string) $onCard->id, 'kind' => 'implement'], $this->cause->forCard($this->card)?->detail());
     }
 
     public function test_with_no_run_on_the_moved_card_an_open_run_beats_a_newer_closed_one(): void
@@ -109,7 +109,7 @@ final class AgentRunCauseTest extends KernelTestCase
         $this->workerRun($sessionId, 'fix-round', new \DateTimeImmutable('-1 hour'), state: WorkerRunState::Succeeded);
         $this->pushRequest((string) $sessionId);
 
-        self::assertSame(['type' => 'run', 'run' => (string) $open->id, 'rule' => 'implement'], $this->cause->forCard($this->card)?->detail());
+        self::assertSame(['type' => 'run', 'run' => (string) $open->id, 'kind' => 'implement'], $this->cause->forCard($this->card)?->detail());
     }
 
     private function pushRequest(?string $session): void
@@ -138,7 +138,7 @@ final class AgentRunCauseTest extends KernelTestCase
             bridgeId: Uuid::v4(),
             cardId: $cardId ?? Uuid::v4(),
             cardNumber: 1,
-            ruleName: $rule,
+            workKind: $rule,
             state: $state,
             sessionId: $sessionId,
             receivedAt: $receivedAt,

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Outbox;
 
+use App\Module\Bridge\BridgeEventType;
+use App\Module\Project\ProjectEventType;
+
 /**
  * Live push of outbox events to a waiting agent, over Mercure.
  *
@@ -18,6 +21,15 @@ namespace App\Outbox;
 final class AgentPush
 {
     public const string FLAG = 'agent.push.enabled';
+
+    /** The only event types a bridge acts on. The drain pushes these alone, and the replay serves these alone. */
+    public const array BRIDGE_TYPES = [
+        BridgeEventType::WORK_REQUEST,
+        BridgeEventType::COMMAND,
+        BridgeEventType::CARD_HELD,
+        BridgeEventType::CARD_RELEASED,
+        ProjectEventType::RENAMED,
+    ];
 
     private function __construct()
     {
