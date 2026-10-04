@@ -975,21 +975,20 @@ final class EngineTest extends KernelTestCase
         self::assertSame(1, $this->ruleState($card, 'provided')->fires);
     }
 
-    public function test_a_rule_pause_whose_until_names_a_removed_condition_stays(): void
+    public function test_a_pause_rule_whose_until_names_a_removed_condition_does_not_pause_the_card(): void
     {
         $card = $this->boundCard([[
             'id' => 'hold',
             'slot' => 'one',
             'when' => self::ALWAYS,
             'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['not' => ['card.gone' => []]]]],
-        ]]);
+        ], self::requestRule('work', self::ALWAYS)]);
+
         $this->evaluate($card);
-        $pause = $this->activePause($card);
-        self::assertNotNull($pause);
 
-        $this->evaluate($card, '2026-10-02 12:05:00');
-
-        self::assertNull($pause->releasedAt);
+        self::assertNull($this->activePause($card));
+        self::assertNull($this->ruleStateOrNull($card, 'hold'));
+        self::assertSame(['work'], $this->firedRules());
     }
 
     public function test_a_source_that_is_off_makes_its_rule_wait_with_no_error(): void

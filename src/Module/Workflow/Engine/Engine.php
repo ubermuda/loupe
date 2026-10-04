@@ -276,7 +276,8 @@ final readonly class Engine
                 continue;
             }
             // Before state(), which persists a new state: a rule that cannot read its facts writes none.
-            if (null !== $rule->when->unreadable($run->facts)) {
+            // A pause whose until cannot be read could never release, so it waits too.
+            if (null !== ($rule->when->unreadable($run->facts) ?? $rule->then->until?->unreadable($run->facts))) {
                 continue;
             }
 
