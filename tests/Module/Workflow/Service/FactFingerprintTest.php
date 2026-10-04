@@ -11,8 +11,11 @@ use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Contract\RunFacts;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Tests\Module\Workflow\Fact\FactsMother;
+use App\Tests\Module\Workflow\Fact\ProvidedFacts;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -99,6 +102,39 @@ final class FactFingerprintTest extends TestCase
         $none = FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequests: self::all(), run: self::workRun());
 
         self::assertNotSame($fingerprint->of($this->facts(), [FactKey::PullRequest]), $fingerprint->of($none, [FactKey::PullRequest]));
+    }
+
+    public function test_a_fact_key_keeps_the_hash_that_rule_states_already_store(): void
+    {
+        $fingerprint = new FactFingerprint();
+
+        self::assertSame(hash('sha256', '{"slot":"implementation"}'), $fingerprint->of($this->facts(), [FactKey::Slot]));
+    }
+
+    public function test_a_facts_class_counts_through_the_fingerprint_its_provider_gave(): void
+    {
+        $fingerprint = new FactFingerprint();
+        $of = static fn (mixed $given): string => $fingerprint->of(
+            FactsMother::facts(provided: [ProvidedFacts::class => new ProvidedFacts()], fingerprints: [ProvidedFacts::class => $given]),
+            [FactKey::Slot, ProvidedFacts::class],
+        );
+
+        self::assertSame($of([true, 1]), $of([true, 1]));
+        self::assertNotSame($of([true, 1]), $of([true, 2]));
+        self::assertNotSame(
+            $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new ProvidedFacts()], fingerprints: [ProvidedFacts::class => [true, 1]]), [FactKey::Slot]),
+            $of([true, 1]),
+        );
+    }
+
+    public function test_a_facts_class_with_no_fingerprint_counts_as_null(): void
+    {
+        $fingerprint = new FactFingerprint();
+        $unreadable = $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new Unreadable(UnreadableKind::Failed, 'workflow.source.board')]), [ProvidedFacts::class]);
+
+        self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(), [ProvidedFacts::class]));
+        self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(provided: [ProvidedFacts::class => new Unreadable(UnreadableKind::Off, 'workflow.source.board')]), [ProvidedFacts::class]));
+        self::assertNotSame($unreadable, $fingerprint->of(FactsMother::facts(fingerprints: [ProvidedFacts::class => [false, 1]]), [ProvidedFacts::class]));
     }
 
     private function facts(): Facts

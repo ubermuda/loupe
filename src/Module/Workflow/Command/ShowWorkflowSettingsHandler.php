@@ -30,7 +30,7 @@ final readonly class ShowWorkflowSettingsHandler
             return new WorkflowSettingsView($project, null);
         }
 
-        $template = $this->parser->parse($binding->definition);
+        $template = $this->parser->parseStored($binding->definition);
         $columns = $this->workflowSlotLinks->findColumnsBySlot($project);
 
         return new WorkflowSettingsView($project, new BoundWorkflowView(

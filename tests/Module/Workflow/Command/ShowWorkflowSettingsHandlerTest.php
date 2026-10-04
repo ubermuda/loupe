@@ -13,6 +13,7 @@ use App\Module\Workflow\Command\WorkflowManualMoveView;
 use App\Module\Workflow\Command\WorkflowRuleView;
 use App\Module\Workflow\Command\WorkflowSettingsView;
 use App\Module\Workflow\Command\WorkflowSlotView;
+use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -104,6 +105,30 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             new WorkflowRuleView('teardown', 'workflow.settings.where.any_terminal', 'workflow.settings.action.request', null, 'teardown'),
         ], $template->rules);
         self::assertEquals([new WorkflowManualMoveView('workflow.settings.where.any', 'workflow.settings.where.any')], $template->manualMoves);
+    }
+
+    public function test_a_stored_copy_that_names_a_condition_this_instance_lacks_still_shows(): void
+    {
+        $project = $this->workflowProject('workflow-settings-missing-condition');
+        $this->em()->persist(new WorkflowBinding($project, 'test', 1, [
+            'key' => 'test',
+            'version' => 1,
+            'slots' => [],
+            'manualMoves' => [],
+            'backoffMinutes' => [10],
+            'workTimeoutMinutes' => 120,
+            'rules' => [
+                ['id' => 'gone', 'when' => ['card.gone' => []], 'then' => ['request' => ['kind' => 'gone']]],
+                ['id' => 'work', 'when' => ['all' => []], 'then' => ['request' => ['kind' => 'work']]],
+            ],
+        ]));
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $template = $this->show($project)->template;
+
+        self::assertInstanceOf(BoundWorkflowView::class, $template);
+        self::assertSame(['gone', 'work'], array_map(static fn (WorkflowRuleView $rule): string => $rule->id, $template->rules));
     }
 
     private function show(Project $project): WorkflowSettingsView

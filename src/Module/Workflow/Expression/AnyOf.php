@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Expression;
 
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\Unreadable;
 
 /** True when at least one child is true. The parser refuses an empty list. */
 final readonly class AnyOf extends Expression
@@ -19,6 +20,12 @@ final readonly class AnyOf extends Expression
     public function evaluate(Facts $facts): bool
     {
         return array_any($this->children, fn ($child) => $child->evaluate($facts));
+    }
+
+    #[\Override]
+    public function unreadable(Facts $facts): ?Unreadable
+    {
+        return self::unreadableOf($this->children, $facts);
     }
 
     #[\Override]

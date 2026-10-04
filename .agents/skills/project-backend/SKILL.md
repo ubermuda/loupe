@@ -17,6 +17,22 @@ Three patterns cover a legitimate cross-module need:
 - Events. For a side effect that crosses a boundary, dispatch a domain event from the originating module and handle it in the receiving module.
 - Shared value objects. A truly generic type, such as a `Slug` value object, may live in the root namespace `src/`.
 
+## Feeding facts to the workflow engine
+
+A module gives the engine its facts through `App\Module\Workflow\Contract`. Import nothing else from Workflow. `just arkitect` enforces this.
+
+1. Write a `final readonly` facts class in your module. It holds what your conditions read about one card.
+2. Implement `FactProvider` in your module. The `app.workflow_fact_provider` tag is autoconfigured. `build()` returns your facts class. `fingerprint()` returns the part whose change must retry a refused rule at once. `source()` returns the translation key of your module label. One facts class takes one provider.
+3. Implement `Condition`. `reads()` returns `[YourFacts::class]`. `evaluate()` reads `$facts->get(YourFacts::class)`. Add the `workflow.waiting.<key>` and `workflow.waiting.not.<key>` strings to `translations/messages.en.xlf`. Add the key and its source to `ConditionCatalogueTest`.
+4. Write a listener in your module for your own domain event. Inject the `CardEvaluations` port. Call `isOn()` before your repository read, and return when it is false. Then call `forCards()` with the ids of the cards whose facts changed.
+
+A rule that reads a source the engine cannot read waits. The engine runs the other rules and writes no rule state for the waiting rule. A `not:` does not make the rule true.
+
+1. `isOn()` answers false. The rule waits, and the engine logs nothing.
+2. `build()` throws. The rule waits, and the engine logs one error per evaluation.
+3. No provider gives the facts class. The rule waits, and the engine logs one error per evaluation.
+4. A stored template copy names a condition that no longer exists. That rule waits, and the settings page still shows the template.
+
 ## Read models
 
 A structured read model consumed by several controllers and templates is an immutable `final readonly` value object with query methods. Do not return an `array{a: …, b: …}` shape.

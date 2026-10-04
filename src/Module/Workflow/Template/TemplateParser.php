@@ -10,6 +10,7 @@ use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Expression;
+use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 
 /**
@@ -35,6 +36,24 @@ final readonly class TemplateParser
      * @throws InvalidTemplate
      */
     public function parse(array $source): Template
+    {
+        return $this->parseWith($source, lenient: false);
+    }
+
+    /**
+     * Parses a stored copy. A condition this instance no longer has becomes a leaf that is never readable.
+     *
+     * @param array<mixed> $source
+     *
+     * @throws InvalidTemplate on every other error
+     */
+    public function parseStored(array $source): Template
+    {
+        return $this->parseWith($source, lenient: true);
+    }
+
+    /** @param array<mixed> $source */
+    private function parseWith(array $source, bool $lenient): Template
     {
         $errors = [];
 
@@ -65,7 +84,7 @@ final readonly class TemplateParser
         $slots = $this->slots(self::topLevelList($source, 'slots', $errors), $errors);
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
         $manualMoves = $this->manualMoves(self::topLevelList($source, 'manualMoves', $errors), $slotKeys, $errors);
-        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $errors);
+        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $errors, $lenient);
 
         if ([] !== $errors) {
             throw new InvalidTemplate($errors);
@@ -151,7 +170,7 @@ final readonly class TemplateParser
      *
      * @return list<Rule>
      */
-    private function rules(array $source, array $slotKeys, array &$errors): array
+    private function rules(array $source, array $slotKeys, array &$errors, bool $lenient): array
     {
         $rules = [];
         $seen = [];
@@ -192,14 +211,14 @@ final readonly class TemplateParser
 
             $when = null;
             if (\array_key_exists('when', $entry)) {
-                $when = $this->expression($entry['when'], $where.' when', $slotKeys, $errors);
+                $when = $this->expression($entry['when'], $where.' when', $slotKeys, $errors, $lenient);
             } else {
                 $errors[] = $where.' when: is missing';
             }
 
             $then = null;
             if (\array_key_exists('then', $entry)) {
-                $then = $this->action($entry['then'], $where.' then', $slotKeys, $errors);
+                $then = $this->action($entry['then'], $where.' then', $slotKeys, $errors, $lenient);
             } else {
                 $errors[] = $where.' then: is missing';
             }
@@ -216,7 +235,7 @@ final readonly class TemplateParser
      * @param list<string> $slotKeys
      * @param list<string> $errors
      */
-    private function expression(mixed $node, string $where, array $slotKeys, array &$errors): ?Expression
+    private function expression(mixed $node, string $where, array $slotKeys, array &$errors, bool $lenient): ?Expression
     {
         if (!\is_array($node) || 1 !== \count($node) || !\is_string(array_key_first($node))) {
             $errors[] = $where.': a node must have exactly one key';
@@ -227,7 +246,7 @@ final readonly class TemplateParser
         $value = $node[$key];
 
         if ('not' === $key) {
-            $inner = $this->expression($value, $where.'.not', $slotKeys, $errors);
+            $inner = $this->expression($value, $where.'.not', $slotKeys, $errors, $lenient);
 
             return null === $inner ? null : new Not($inner);
         }
@@ -240,7 +259,7 @@ final readonly class TemplateParser
             }
             $children = [];
             foreach ($value as $index => $child) {
-                $children[] = $this->expression($child, \sprintf('%s.%s[%d]', $where, $key, $index), $slotKeys, $errors);
+                $children[] = $this->expression($child, \sprintf('%s.%s[%d]', $where, $key, $index), $slotKeys, $errors, $lenient);
             }
             $children = array_values(array_filter($children));
             if (\count($children) !== \count($value)) {
@@ -252,6 +271,10 @@ final readonly class TemplateParser
             }
 
             return new AnyOf($children);
+        }
+
+        if ($lenient && !$this->conditions->has($key)) {
+            return new MissingConditionLeaf($key, $value);
         }
 
         return $this->conditionLeaf($key, $value, $where, $slotKeys, $errors);
@@ -315,7 +338,7 @@ final readonly class TemplateParser
      * @param list<string> $slotKeys
      * @param list<string> $errors
      */
-    private function action(mixed $node, string $where, array $slotKeys, array &$errors): ?ActionCall
+    private function action(mixed $node, string $where, array $slotKeys, array &$errors, bool $lenient): ?ActionCall
     {
         if (!\is_array($node) || 1 !== \count($node) || !\is_string(array_key_first($node))) {
             $errors[] = $where.': an action must have exactly one key';
@@ -352,7 +375,7 @@ final readonly class TemplateParser
             }
             $given = $value[$param];
             if ('until' === $param) {
-                $until = $this->expression($given, $where.'.until', $slotKeys, $errors);
+                $until = $this->expression($given, $where.'.until', $slotKeys, $errors, $lenient);
                 continue;
             }
             $error = match ($param) {

@@ -10,11 +10,17 @@ use App\Module\Workflow\Condition\CardIsChild;
 use App\Module\Workflow\Condition\PullRequestChecksFailed;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
+use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Tests\Module\Workflow\Fact\FactsMother;
+use App\Tests\Module\Workflow\Fact\ProvidedFacts;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsReady;
+use App\Tests\Module\Workflow\Fact\UnprovidedFactsReady;
 use PHPUnit\Framework\TestCase;
 
 final class ExpressionTest extends TestCase
@@ -182,5 +188,62 @@ final class ExpressionTest extends TestCase
         self::assertSame([FactKey::Parent, FactKey::Blockers], new AnyOf([$child, $blocker, $child])->reads());
         self::assertSame([FactKey::PullRequest], new Not($checks)->reads());
         self::assertSame([], new AllOf([])->reads());
+    }
+
+    public function test_a_composite_reads_a_facts_class_once_beside_the_fact_keys(): void
+    {
+        $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
+        $child = new ConditionLeaf(new CardIsChild(), []);
+
+        self::assertSame([ProvidedFacts::class, FactKey::Parent], new AllOf([$provided, new Not($provided), $child, $provided])->reads());
+    }
+
+    public function test_a_leaf_over_readable_provided_facts_evaluates_them(): void
+    {
+        $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
+        $facts = FactsMother::facts(provided: [ProvidedFacts::class => new ProvidedFacts(ready: true)]);
+
+        self::assertNull($provided->unreadable($facts));
+        self::assertTrue($provided->evaluate($facts));
+    }
+
+    public function test_an_unreadable_leaf_makes_every_expression_above_it_unreadable(): void
+    {
+        $failed = new Unreadable(UnreadableKind::Failed, 'workflow.source.board');
+        $facts = FactsMother::facts(card: FactsMother::card(isChild: true), provided: [ProvidedFacts::class => $failed]);
+        $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
+        $child = new ConditionLeaf(new CardIsChild(), []);
+
+        self::assertSame($failed, $provided->unreadable($facts));
+        self::assertSame($failed, new Not($provided)->unreadable($facts));
+        self::assertSame($failed, new Not(new Not($provided))->unreadable($facts));
+        self::assertSame($failed, new AllOf([$child, $provided])->unreadable($facts));
+        self::assertSame($failed, new AnyOf([$child, $provided])->unreadable($facts));
+        self::assertNull(new AnyOf([$child, new Not($child)])->unreadable($facts));
+        self::assertNull($child->unreadable($facts));
+    }
+
+    public function test_a_leaf_over_a_facts_class_that_no_provider_gives_is_a_failed_source(): void
+    {
+        $unprovided = new ConditionLeaf(new UnprovidedFactsReady(), []);
+
+        $unreadable = new Not($unprovided)->unreadable(FactsMother::facts());
+
+        self::assertNotNull($unreadable);
+        self::assertSame([UnreadableKind::Failed, 'workflow.source.board'], [$unreadable->kind, $unreadable->source]);
+        self::assertInstanceOf(\LogicException::class, $unreadable->cause);
+    }
+
+    public function test_a_missing_condition_is_never_readable_and_has_no_leaf(): void
+    {
+        $missing = new MissingConditionLeaf('card.gone', ['any' => 'value']);
+        $facts = FactsMother::facts();
+
+        self::assertEquals(new Unreadable(UnreadableKind::MissingCondition, 'card.gone'), $missing->unreadable($facts));
+        self::assertEquals(new Unreadable(UnreadableKind::MissingCondition, 'card.gone'), new Not($missing)->unreadable($facts));
+        self::assertFalse($missing->evaluate($facts));
+        self::assertNull($missing->firstFalseLeaf($facts));
+        self::assertSame([], $missing->reads());
+        self::assertSame([], new AllOf([$missing])->leaves());
     }
 }
