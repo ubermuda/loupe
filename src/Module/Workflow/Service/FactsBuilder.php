@@ -95,16 +95,18 @@ final readonly class FactsBuilder
 
     private static function provided(FactProvider $provider, Uuid $cardId): object
     {
+        $source = $provider::class;
         try {
+            $source = $provider->source();
             if (!$provider->isOn()) {
-                return new Unreadable(UnreadableKind::Off, $provider->source());
+                return new Unreadable(UnreadableKind::Off, $source);
             }
             $class = $provider->factsClass();
             $facts = $provider->build($cardId);
 
             return $facts instanceof $class ? $facts : throw new \LogicException(\sprintf('The fact provider %s built a %s, not a %s.', $provider::class, $facts::class, $class));
         } catch (\Throwable $e) {
-            return new Unreadable(UnreadableKind::Failed, $provider->source(), $e);
+            return new Unreadable(UnreadableKind::Failed, $source, $e);
         }
     }
 

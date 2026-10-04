@@ -127,7 +127,9 @@ final readonly class Engine
             $this->settleWorkRequests($run, $cardId, expire: false);
             // Before the baseline, which replaces the fingerprint a retries pause compares against.
             $this->stillPaused($run);
-            $this->baseline($run);
+            if (!$this->baseline($run)) {
+                $this->workflowPendingBaselines->markCards($card->project->id ?? throw new \LogicException('A persisted project has an id.'), [$cardId]);
+            }
             $this->em->flush();
 
             return $run;
@@ -142,10 +144,15 @@ final readonly class Engine
         return $run;
     }
 
-    /** Records the truth of each rule the card reads now, clears its retries, and resets the rules of other slots. Fires none. */
-    private function baseline(Evaluation $run): void
+    /**
+     * Records the truth of each rule the card reads now, clears its retries, and resets the rules of other slots. Fires none.
+     * Answers false when a provider that failed kept a rule from its baseline. A source that is off, a missing provider and a
+     * missing condition do not recover alone, and a baseline that waits for them would hold back every rule of the card.
+     */
+    private function baseline(Evaluation $run): bool
     {
         $run->baselined = true;
+        $complete = true;
         foreach ($run->template->rules as $rule) {
             if (!$run->applies($rule)) {
                 $state = $run->states[$rule->id] ?? null;
@@ -154,7 +161,9 @@ final readonly class Engine
                 }
                 continue;
             }
-            if (null !== $rule->when->unreadable($run->facts)) {
+            $unreadable = $rule->when->unreadable($run->facts);
+            if (null !== $unreadable) {
+                $complete = $complete && !(UnreadableKind::Failed === $unreadable->kind && \in_array($unreadable, $run->facts->provided, true));
                 continue;
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
@@ -166,6 +175,8 @@ final readonly class Engine
                 $state->lastRefusalAt = null;
             });
         }
+
+        return $complete;
     }
 
     /**
@@ -195,7 +206,8 @@ final readonly class Engine
         }
 
         if ($withdrawn) {
-            $run->facts = $this->facts($run->card, $run->now);
+            // The first build of the pass logged its failed sources already.
+            $run->facts = $this->factsBuilder->build($run->card, $run->now);
         }
     }
 
@@ -362,7 +374,7 @@ final readonly class Engine
         }
     }
 
-    /** Logs each source that failed, once per build. A source that is off is not an error. */
+    /** Logs each source that failed. A source that is off is not an error. */
     private function facts(Card $card, \DateTimeImmutable $now): Facts
     {
         $facts = $this->factsBuilder->build($card, $now);
@@ -379,11 +391,14 @@ final readonly class Engine
         return $facts;
     }
 
-    /** Logs once per evaluation each facts class that a rule reads and no provider gives. */
+    /** Logs once per evaluation each facts class that a rule of the card reads and no provider gives. */
     private function logMissingProviders(Evaluation $run): void
     {
         $missing = [];
         foreach ($run->template->rules as $rule) {
+            if (!$run->applies($rule)) {
+                continue;
+            }
             foreach ([...$rule->when->reads(), ...($rule->then->until?->reads() ?? [])] as $key) {
                 if (\is_string($key) && !\array_key_exists($key, $run->facts->provided)) {
                     $missing[$key] = true;

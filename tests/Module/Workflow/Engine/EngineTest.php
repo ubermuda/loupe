@@ -911,6 +911,101 @@ final class EngineTest extends KernelTestCase
         self::assertSame(\stdClass::class, $errors[0]['context']['factsClass'] ?? null);
     }
 
+    public function test_a_failing_source_logs_once_when_a_withdrawal_rebuilds_the_facts(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+
+        $this->moveTo($card, 'in-progress');
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(WorkRequestState::Cancelled, $request->state);
+        self::assertCount(1, $this->errors());
+    }
+
+    public function test_a_missing_provider_in_a_rule_of_another_slot_logs_nothing(): void
+    {
+        $card = $this->boundCard([
+            ['id' => 'elsewhere', 'slot' => 'two', 'when' => [UnprovidedFactsReady::KEY => []], 'then' => ['request' => ['kind' => 'elsewhere']]],
+            self::requestRule('work', self::ALWAYS),
+        ]);
+
+        $this->evaluate($card);
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertSame([], $this->errors());
+    }
+
+    public function test_a_baseline_that_cannot_read_a_failing_source_stays_due_until_the_source_is_back(): void
+    {
+        $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->hold($card);
+        $this->releaseHold($card);
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->evaluate($card);
+        self::assertNull($this->ruleStateOrNull($card, 'provided'));
+
+        $this->provider()->failure = null;
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        $this->evaluate($card, '2026-10-02 12:10:00');
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertTrue($this->ruleState($card, 'provided')->truth);
+    }
+
+    public function test_a_baseline_that_cannot_read_a_source_that_is_off_does_not_hold_back_the_other_rules(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('provided', self::PROVIDED_READY),
+            self::requestRule('fix', ['card.type' => ['type' => 'bug']]),
+        ]);
+        $this->hold($card);
+        $this->releaseHold($card);
+        $this->provider()->on = false;
+        $this->evaluate($card);
+
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(['fix'], $this->firedRules());
+    }
+
+    public function test_a_baseline_that_cannot_read_a_facts_class_with_no_provider_does_not_hold_back_the_other_rules(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('unprovided', [UnprovidedFactsReady::KEY => []]),
+            self::requestRule('fix', ['card.type' => ['type' => 'bug']]),
+        ]);
+        $this->hold($card);
+        $this->releaseHold($card);
+        $this->evaluate($card);
+
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(['fix'], $this->firedRules());
+    }
+
+    public function test_a_rule_pause_whose_until_names_a_removed_condition_stays(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => self::ALWAYS,
+            'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['not' => ['card.gone' => []]]]],
+        ]]);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertNull($pause->releasedAt);
+    }
+
     public function test_a_source_that_is_off_makes_its_rule_wait_with_no_error(): void
     {
         $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);

@@ -27,7 +27,9 @@ final readonly class FactFingerprint
                 continue;
             }
             // The prefix keeps a facts class apart from a FactKey value, and leaves the stored fingerprints as they were.
-            $groups['class:'.$key] = null === $facts->unreadable($key) ? $this->providers->get($key)->fingerprint($facts->get($key)) : null;
+            $provider = $this->providers->byClass[$key] ?? null;
+            $provided = $facts->provided[$key] ?? null;
+            $groups['class:'.$key] = null === $provider || !$provided instanceof $key ? null : $provider->fingerprint($provided);
         }
         ksort($groups);
 

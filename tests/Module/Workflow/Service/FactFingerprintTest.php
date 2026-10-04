@@ -128,6 +128,15 @@ final class FactFingerprintTest extends TestCase
         );
     }
 
+    public function test_a_facts_class_with_no_readable_facts_counts_as_null_and_never_throws(): void
+    {
+        $fingerprint = new FactFingerprint(new FactProviders([new ProvidedFactsProvider()]));
+        $unreadable = $fingerprint->of(FactsMother::facts(provided: [\stdClass::class => new Unreadable(UnreadableKind::Failed, 'workflow.source.board')]), [\stdClass::class]);
+
+        self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(), [\stdClass::class]));
+        self::assertSame($unreadable, $fingerprint->of(FactsMother::facts(provided: [\stdClass::class => new \stdClass()]), [\stdClass::class]));
+    }
+
     private function facts(): Facts
     {
         return FactsMother::facts(

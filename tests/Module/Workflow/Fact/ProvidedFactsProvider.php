@@ -7,7 +7,7 @@ namespace App\Tests\Module\Workflow\Fact;
 use App\Module\Workflow\Contract\FactProvider;
 use Symfony\Component\Uid\Uuid;
 
-/** A fact provider that a test switches at runtime: it gives $facts, throws $failure, or is off. */
+/** A fact provider that a test switches at runtime: it gives $facts, throws $failure, or is off. Its source() can throw too. */
 final class ProvidedFactsProvider implements FactProvider
 {
     public ProvidedFacts $facts;
@@ -15,6 +15,8 @@ final class ProvidedFactsProvider implements FactProvider
     public ?\Throwable $failure = null;
 
     public bool $on = true;
+
+    public ?\Throwable $sourceFailure = null;
 
     public function __construct()
     {
@@ -56,6 +58,10 @@ final class ProvidedFactsProvider implements FactProvider
     #[\Override]
     public function source(): string
     {
+        if (null !== $this->sourceFailure) {
+            throw $this->sourceFailure;
+        }
+
         return 'workflow.source.board';
     }
 }

@@ -100,6 +100,17 @@ final class FactsBuilderTest extends KernelTestCase
         $facts->get(ProvidedFacts::class);
     }
 
+    public function test_a_provider_whose_source_throws_gives_a_failed_source_named_by_its_class(): void
+    {
+        self::bootKernel();
+        $failure = new \RuntimeException('The label is gone.');
+        $this->provider->sourceFailure = $failure;
+
+        $unreadable = $this->facts($this->card($this->workflowProject('facts-source-failed'), 'next'))->unreadable(ProvidedFacts::class);
+
+        self::assertEquals(new Unreadable(UnreadableKind::Failed, ProvidedFactsProvider::class, $failure), $unreadable);
+    }
+
     public function test_two_providers_for_one_facts_class_are_refused(): void
     {
         $this->expectException(\LogicException::class);
