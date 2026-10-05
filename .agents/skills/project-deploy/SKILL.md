@@ -26,6 +26,43 @@ it holds. The spec change goes live and the code does not.
 That is not a bug in the platform. `variable "image_tag"` says so: "A fixed tag
 means App Platform's deployment history is the only record of what ran."
 
+## What deploy notes hold
+
+A card can link a Loupe document titled `Deploy notes: <card title>`, tagged `deploy-notes`. The tech design and implementation stages of the Loupe plugin write it. They read this section through `.loupe/lifecycle.md`, "Instruction files", item 8.
+
+Record each item of the change that the deploy must handle:
+
+- An environment variable, with its value or its source. `DeploymentConfigParityCheck` cross-checks `.env`, Terraform, the prod compose files and `docs/reference/environment.md`. Set a `terraform.tfvars` value before the deploy.
+- A migration and its risk. The pre-deploy job runs it. Name long locks, backfills and irreversible steps.
+- A new feature flag. `/install` seeds flags once, so ship a per-flag migration, as `migrations/Version20260906142530.php` does. Otherwise, name the manual switch-on.
+- A new messenger transport or schedule. It must reach `worker_command` in `terraform/main.tf` and the `worker` service in `docker/compose/prod.yaml`.
+- A new CSP origin in `config/packages/nelmio_security.yaml`.
+- A new external service and its `DiagnosticInterface` check.
+- The order of the steps, for example `terraform apply` before or after the image push.
+- The checks to do after the deploy.
+
+## Check the release diff
+
+Do this check before you read the deploy notes. It finds a deploy item that has no note. Get the last deployed sha from `/healthz`, as "Verify what is actually live" shows.
+
+```bash
+git fetch -q origin main
+git diff --name-only <last deployed sha>..origin/main -- migrations/ .env terraform/ \
+  config/packages/messenger.yaml config/packages/nelmio_security.yaml docker/compose/prod.yaml
+```
+
+Read each file in this list that no deploy note covers. Say whether the release ships a migration.
+
+## Read the deploy notes of the release
+
+1. Run `bin/agents/release-cards`. With no argument, it reads the live version from `/healthz`. Give it the deployed sha when `terraform/terraform.tfvars` is absent.
+2. Read the output. Each line is `<pr number>`, `<card ids>` and `<subject>`, separated by tabs. A card column can hold several ids, separated by commas.
+3. Call `card_get` through the `loupe` MCP for each card id.
+4. For an epic, also call `card_get` for each child in `children`. A standalone child owns its own deploy notes.
+5. Call `document_get` for each linked document. Keep the documents tagged `deploy-notes`.
+6. Make a deploy checklist from those documents.
+7. Find each line with `-` as the card. Read the diff of that pull request, or of that commit, yourself. Never guess a card.
+
 ## Ship code
 
 ```bash
@@ -118,14 +155,8 @@ running old code. `manual` came from `create-deployment`.
 `doctrine:migrations:migrate` before the new containers take traffic. A failed
 migration fails the deployment and the previous one keeps serving.
 
-Check whether the release adds any before you deploy:
-
-```bash
-git diff --name-only <last deployed sha>..HEAD -- migrations/
-```
-
-A release with no migration is a much smaller risk than one with. Say which you
-are shipping.
+"Check the release diff" lists the migrations of the release. A release with no
+migration is a much smaller risk than one with. Say which you are shipping.
 
 ## Trusted proxies
 
