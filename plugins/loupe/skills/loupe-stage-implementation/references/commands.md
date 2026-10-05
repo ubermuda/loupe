@@ -50,7 +50,7 @@ git branch --show-current
 
 ## Reruns
 
-1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
+1. A linked document tagged `plan` whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
 2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch for it. `<base>` is the base branch of that pull request. Run `git branch --show-current`. When HEAD is detached, or on another `card-<number>-` branch and `git status --porcelain` prints nothing, run `git fetch origin <head>` and `git switch <head>`. When no local branch has that name, run `git switch --track -c <head> origin/<head>` instead. When the current branch then differs from the head branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
 3. Sync that branch with `git fetch origin <head>` and `git merge --ff-only origin/<head>`. When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push. When the switch or the sync brought commits, run the refresh of the profile `Environment` section, when it names one. Then resume at the gate.
 4. Before you create a pull request, list the open pull requests for the branch with the forge adapter. Link one it lists, and create none.

@@ -16,7 +16,7 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 3. Connect to the Loupe tools, as the contract's first steps say.
 4. Load the `loupe-board` instruction.
 5. Call `card_get`, and run the contract's column check.
-6. Read the tags of each linked document with `document_get`. The product document has the tag `product`, or a title that starts `Product design`.
+6. Read the tags of each linked document with `document_get`. The product document has the tag `product`, or a title that starts `Product design`. The deploy notes have the tag `deploy-notes`, or a title that starts `Deploy notes`.
 7. Choose the requirement source:
    - A product document with `status` `approved`: read it with `document_get`. Every decision cites the `R` IDs it serves.
    - A product document that is not approved: stop with `STAGE RESULT: product document not approved`.
@@ -30,14 +30,16 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 1. When its `status` is `approved`, stop with `STAGE RESULT: tech design already approved`.
 2. Read the code and those design inputs.
 3. Judge the size again, as "Judge the size" says. A revision never changes the ID of an entry.
-4. Follow `../loupe-stage-product-design/references/review-round.md`. The document is `tech design`, and the requirement source is the one step 7 chose.
+4. Follow `../loupe-stage-product-design/references/review-round.md`. The document is `tech design`, and the requirement source is the one step 7 chose. Run Revise step 5 below before the round stops.
+5. When the round adds, changes or removes a deploy item, update the deploy notes after the `document_revise` of the design. Do this before the replies. Revise the linked notes with `document_revise`, or create and link them as "Deploy notes" says. Keep the deploy line of the design true. When Architecture is approved, keep its text. The linked notes are then the record.
 
 ### Create, when neither step finds a design
 
 1. Read the code and those design inputs. Answer each entry that applies.
-2. Write the sections that "The design sections" lists. Judge the size, as the next section says.
+2. Write the sections that "The design sections" lists, with the deploy line that "Deploy notes" names. Judge the size, as the next section says.
 3. Call `document_create` with the title `Tech design: <card title>`. Set `references` to the product document id, or leave it empty when the requirement source is the card body. Use the tags `design` and `decisions`, or the spelling `tag_list` already has for them.
-4. Link the new id to the card (contract rule 5). Stop with `STAGE RESULT: tech design created <id>`.
+4. When the feature adds, changes or removes a deploy item, create the deploy notes, as "Deploy notes" says. Their `references` hold the new design id.
+5. Link the new ids to the card in one `card_update` (contract rule 5). Stop with `STAGE RESULT: tech design created <id>`, with the id of the design.
 
 ### Judge the size
 
@@ -61,6 +63,28 @@ Use these `##` sections, in this order. Follow `../loupe-documents/references/de
 7. The work order. List the steps with stable IDs. Say which open decision blocks which step. Write a Breakdown section instead when "Judge the size" asks for one.
 
 Write a Light design when the product document has no Priorities section, or when the card body asks for a small change. Its At a glance is two sentences, and it skips Priorities and How others do it. It keeps a short Architecture section right after At a glance, with only the parts that change and the main flow.
+
+## Deploy notes
+
+The deploy notes tell the person who deploys what production needs for the change. They are a separate Loupe document. Write them when the feature adds, changes or removes one of these deploy items:
+
+1. An environment variable, with its value or the source of its value.
+2. A migration, with its risk: a long lock, a backfill or a step that cannot be reversed.
+3. A feature flag that needs a migration or a manual switch-on.
+4. A background worker, a message transport or a schedule.
+5. An external origin or an external service.
+6. An order that the deploy steps must keep, and a check to run after the deploy.
+
+Write the notes as follows:
+
+1. Read the profile `Instruction files` for the deploy items of the project. Add them to the list above. A profile that names none uses the list above alone, and never blocks the stage.
+2. List each deploy item that the feature adds, changes or removes, and what the deploy must do for it.
+3. Search `document_list` for the title `Deploy notes: <card title>`, as the contract "Find a linked document" says. Revise a single match with `document_revise`, and create no second document.
+4. When no match exists, call `document_create` with the title `Deploy notes: <card title>`. Set `references` to the tech design id.
+5. Use the tag `deploy-notes` only, or the spelling `tag_list` already has for it. Never add `design`, `product` or `decisions`, because workflow rules match those tags and can move the card.
+6. Link the notes to the card (contract rule 5). Send the `card_get` ids plus each new id. On the Create path, Create step 5 makes this link.
+
+The tech design always carries one deploy line, as the last line of Architecture. The line names the notes by their title, `Deploy notes: <card title>`. With no deploy item, the line is `Deploy notes: none`, with the reason.
 
 ## Code sketches
 
