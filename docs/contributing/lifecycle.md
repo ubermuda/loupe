@@ -41,12 +41,12 @@ The owner can run `/loupe:product-design` by hand in Claude Code, from a card or
 from a one-line idea. The session creates the card in Product design, or moves
 an existing card there from an earlier column, such as Backlog or Next. Then it
 writes the product document with the owner. The session takes its intake from
-the card, and offers Claude Design on a look-and-feel choice when the Claude
-Design MCP is connected. The session asks every open decision in the chat, and
-writes a decision fence only for a decision that the owner defers. The approval
-of that document moves the card to Tech design. When a person requests changes
-on the document, the workflow asks for `product-design-revise` work, which runs
-`loupe-stage-fix-round`.
+the card. When the Claude Design MCP is connected, it recommends one Claude
+Design session at the first choice with a visible side. The session asks every
+open decision in the chat, and writes a decision fence only for a decision that
+the owner defers. The approval of that document moves the card to Tech design.
+When a person requests changes on the document, the workflow asks for
+`product-design-revise` work, which runs `loupe-stage-fix-round`.
 
 The `product-design` work entry opens the session for you. When a card enters
 Product design, the bridge opens a terminal window on its machine that runs
