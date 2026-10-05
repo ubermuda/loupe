@@ -194,6 +194,30 @@ reading context, not for a terminal or a README.
     open decision gets a pros and cons table. Read that file before you write
     one.
 
+16. **Give the meaning of each outside ID.** An outside ID is a short ID that
+    the document does not define and does not take from a referenced document.
+    Examples are a rule ID of a skill, a decision record number, or an ID of a
+    document that is not in `references`. The reviewer reads the document
+    without the source open, so a bare outside ID tells them nothing.
+
+    1. Put the meaning in a few words at the first mention of the ID in each
+       section, such as "C2 (offer a design session only on a visual option
+       set, from `claude-design.md`)".
+    2. Name the source file or document once in each section, at that first
+       mention.
+    3. A colliding ID goes in a code span, with its meaning in prose:
+       `` `P4` (the Options phase of the session, from `session-flow.md`) ``.
+       An outside ID collides when it shares its letter prefix with IDs that
+       the document or a referenced document defines. The review page gives a
+       bare mention of a defined ID its tooltip. A bare outside `P4` therefore
+       shows the tooltip of priority P4 when the document defines P4. The
+       prefix test also protects an ID that a later revision defines. The page
+       skips a code span.
+    4. The IDs of a referenced document need no meaning. The review page shows
+       their tooltip when `references` holds that document and its list entries
+       lead with a bold ID, such as `**R3: Title.**`. Keep the reference, and keep
+       the bold lead in the source document.
+
 ## Example
 
 Entry shape, lead sentence first and detail after:
@@ -248,3 +272,5 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
   (rule 8); if it does not fit in a short paragraph, it belongs in the document.
 - Writing a table and then the same content again in prose. The table replaces
   the text it covers (rule 15).
+- Citing a rule ID of a skill, such as C2, with no meaning and no source. The
+  reviewer does not have the skill open (rule 16).
