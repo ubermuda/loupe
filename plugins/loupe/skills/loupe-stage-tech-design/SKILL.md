@@ -38,7 +38,7 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 1. Read the code and those design inputs. Answer each entry that applies.
 2. Write the sections that "The design sections" lists, with the deploy line that "Deploy notes" names. Judge the size, as the next section says.
 3. Call `document_create` with the title `Tech design: <card title>`. Set `references` to the product document id, or leave it empty when the requirement source is the card body. Use the tags `design` and `decisions`, or the spelling `tag_list` already has for them.
-4. When the feature changes a deploy item, create the deploy notes, as "Deploy notes" says. Their `references` hold the new design id.
+4. When the feature adds, changes or removes a deploy item, create the deploy notes, as "Deploy notes" says. Their `references` hold the new design id.
 5. Link the new ids to the card in one `card_update` (contract rule 5). Stop with `STAGE RESULT: tech design created <id>`, with the id of the design.
 
 ### Judge the size
