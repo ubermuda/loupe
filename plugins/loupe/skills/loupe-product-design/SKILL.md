@@ -40,13 +40,14 @@ Put each item in its section of the product document.
 - A decision that the owner defers goes in "Open questions" (Q8).
 - The answers of the P7 pre-mortem go in "Risks".
 - The P8 scenarios go in "Scenarios".
-- The Claude Design canvas link and the label of each pick go in "Decisions log", and the `R` entry they shaped cites both. The product document also links the recap of the picks (C6).
+- The Claude Design canvas link and the label of each pick go in "Decisions log", and the `R` entry they shaped cites both. When a Claude Design session ran, the product document also links the recap of the picks (C6).
 
 ## P10: write and link
 
-1. With no draft, call `document_create` with the title `Product design: <card title>`.
-2. Use the tags `design` and `product`, or the spelling `tag_list` already has for them. Without `product`, an approval moves nothing and shows no error.
-3. With a draft, call `document_revise` on it instead. When the draft lacks the tag `design` or `product`, or has the tag `decisions`, call `document_set_tags`. Send its current tags without `decisions`, plus `design` and `product`. A document with both stage tags moves no card on approval. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the draft has open review comments, answer them as "Answer every open comment" in that file says.
-4. Call `card_get` again. When the card does not link the document yet, call `card_update` with the existing `documentIds` plus the new id. The field replaces the whole set.
-5. Call `card_run_close` with the card and the `sessionId` of P0.
-6. Never move the card after P0. Give the owner the review URL, and stop. The owner reviews the `R` entries and the scenarios there.
+1. When a Claude Design session ran, add the recap of the picks to its project (C6).
+2. With no draft, call `document_create` with the title `Product design: <card title>`.
+3. Use the tags `design` and `product`, or the spelling `tag_list` already has for them. Without `product`, an approval moves nothing and shows no error.
+4. With a draft, call `document_revise` on it instead. When the draft lacks the tag `design` or `product`, or has the tag `decisions`, call `document_set_tags`. Send its current tags without `decisions`, plus `design` and `product`. A document with both stage tags moves no card on approval. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the draft has open review comments, answer them as "Answer every open comment" in that file says.
+5. Call `card_get` again. When the card does not link the document yet, call `card_update` with the existing `documentIds` plus the new id. The field replaces the whole set.
+6. Call `card_run_close` with the card and the `sessionId` of P0.
+7. Never move the card after P0. Give the owner the review URL, and stop. The owner reviews the `R` entries and the scenarios there.

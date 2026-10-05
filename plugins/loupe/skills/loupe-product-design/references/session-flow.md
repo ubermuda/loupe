@@ -39,7 +39,7 @@ A card that needs no product design does not use this skill. The owner moves it 
    - When you cannot draft one of those two parts, ask one question about that part only. Ask nothing else at intake.
    - Keep solutions out of the problem.
 3. P2: Calibrate. Propose the session level (L3), and let the owner confirm it.
-4. P4: Options. When the solution is not obvious, show two or three solution shapes, and recommend one. Skip this phase for a small card. When the options differ in what the user sees, follow `claude-design.md`. Make the offer when no visual choice came before, and otherwise use the canvas or the sketches that the first answer chose.
+4. P4: Options. When the solution is not obvious, show two or three solution shapes, and recommend one. Skip this phase for a small card. When the options differ in what the user sees, follow `claude-design.md`. Make the offer when no visual choice came before. Otherwise, use the project or the sketches of the first answer.
    - In a Full session, first find two or three products, also when the solution is obvious. Choose products that solve the same problem. Use a subagent or a web search, when the tools exist. The findings go in "How others do it".
 5. P5: Scope. Fix the first slice, which is the smallest end-to-end slice that works. Fix the no-gos, and what waits for later.
    - In a Full session, then name two or three trade-offs that this feature faces. Ask the owner to pick a side on each (Q7). The answers go in "Priorities".
