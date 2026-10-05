@@ -13,6 +13,8 @@ Follow `plugins/loupe/skills/loupe-stage-tech-design/SKILL.md` for the design se
 
 Write the document in ASD-STE100 Simplified Technical English. The writing rules are in `compressing-skills`.
 
+An ADR name such as `0001-app-over-worker` never gets a tooltip on the review page. Give it a meaning inline each time, as `loupe-documents` rule 16 says for an outside ID.
+
 ## Verify each claim against the code
 
 Read the code before you state a fact about it. Never write a count from memory.
