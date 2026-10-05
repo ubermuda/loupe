@@ -9,6 +9,8 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Controller\SubmitReviewController;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\Verdict;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
@@ -160,6 +162,38 @@ final class SubmitReviewControllerTest extends WebTestCase
         $em->clear();
 
         return [$owner, $doc, $projectId, $docId];
+    }
+
+    public function test_a_standing_verdict_changes_in_one_submit_without_a_withdrawal(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, 'change');
+        $client->loginUser($owner);
+        $url = "/projects/$projectId/documents/$docId/review";
+        $page = $client->request(Request::METHOD_GET, $url);
+        $client->submit($page->selectButton('Submit review')->form([
+            'submit_review_form[verdict]' => 'changes-requested',
+            'submit_review_form[note]' => 'Clarify the retry policy.',
+        ]));
+        self::assertResponseRedirects($url);
+
+        $page = $client->followRedirect();
+        self::assertSelectorExists('.lp-verdict-bar--changes-requested');
+        self::assertSelectorTextSame('.lp-verdict-bar button[data-action="click->modal#open"]', 'Change verdict');
+        $client->submit($page->selectButton('Submit review')->form(['submit_review_form[verdict]' => 'approved']));
+        self::assertResponseRedirects($url);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $document = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $document);
+        self::assertSame(DocumentStatus::Approved, $document->status);
+        $log = $em->getRepository(Review::class)->findBy(['version' => $document->currentVersion()], ['sequence' => 'ASC']);
+        self::assertSame(
+            [Verdict::ChangesRequested, Verdict::Approved],
+            array_map(static fn (Review $review): Verdict => $review->verdict, $log),
+        );
     }
 
     public function test_a_recognised_verdict_is_persisted_and_flashes_success(): void
