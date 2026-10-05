@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Expression\AllOf;
@@ -24,6 +25,10 @@ final readonly class TemplateParser
     private const array RULE_KEYS = ['id', 'slot', 'when', 'then'];
     private const array STATE_WRITES = ['draft', 'ready', 'close'];
     private const array ON_TIMEOUT = ['pause', 'expire'];
+
+    /** The parameters that hold the tag and the status of a request's `document` map. A template cannot write them. */
+    public const string DOCUMENT_TAG = 'document.tag';
+    public const string DOCUMENT_STATUS = 'document.status';
 
     public function __construct(
         private Conditions $conditions,
@@ -378,6 +383,10 @@ final readonly class TemplateParser
                 $until = $this->expression($given, $where.'.until', $slotKeys, $errors, $lenient);
                 continue;
             }
+            if ('document' === $param) {
+                $params += self::document($given, $where, $errors);
+                continue;
+            }
             $error = match ($param) {
                 'limit' => \is_int($given) && $given >= 1 ? null : 'parameter "limit" must be a positive integer',
                 'write' => \is_string($given) && null !== ForgeWriteKind::tryFrom($given) ? null : \sprintf(
@@ -409,11 +418,41 @@ final readonly class TemplateParser
     {
         return match ($type) {
             ActionType::Move => ['to' => true, 'from' => false],
-            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false],
+            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false, 'document' => false],
             ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
             ActionType::Pause => ['reason' => true, 'until' => true],
             ActionType::Release => ['reason' => true],
         };
+    }
+
+    /**
+     * @param list<string> $errors
+     *
+     * @return array<string, string> the tag, and the status when the map names one
+     */
+    private static function document(mixed $given, string $where, array &$errors): array
+    {
+        if (!self::isMap($given) || !\array_key_exists('tag', $given) || [] !== array_diff(array_keys($given), ['tag', 'status'])) {
+            $errors[] = $where.': parameter "document" must be a map with the key tag, and optionally status';
+
+            return [];
+        }
+        if (!\is_string($given['tag']) || '' === $given['tag']) {
+            $errors[] = $where.'.document: parameter "tag" must be a non-empty string';
+
+            return [];
+        }
+        if (!\array_key_exists('status', $given)) {
+            return [self::DOCUMENT_TAG => $given['tag']];
+        }
+        $status = \is_string($given['status']) ? DocumentStatus::tryFrom($given['status']) : null;
+        if (null === $status) {
+            $errors[] = \sprintf('%s.document: parameter "status" must be one of %s', $where, implode(', ', array_map(static fn (DocumentStatus $s): string => $s->value, DocumentStatus::cases())));
+
+            return [];
+        }
+
+        return [self::DOCUMENT_TAG => $given['tag'], self::DOCUMENT_STATUS => $status->value];
     }
 
     /** @param list<string> $slotKeys */

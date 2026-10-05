@@ -36,8 +36,8 @@ final class FactFingerprintTest extends TestCase
         $keys = FactKey::cases();
         $reordered = FactsMother::facts(
             card: FactsMother::card(slot: 'implementation', documents: [
-                new DocumentFacts(['tech', 'design'], 'in_review'),
-                new DocumentFacts(['product'], 'approved'),
+                new DocumentFacts(['tech', 'design'], 'in_review', '01a10beb-ba65-736b-8626-a6e3fa59dfc5'),
+                new DocumentFacts(['product'], 'approved', '01a10beb-ba65-736b-8626-a6e3fa59dfc5'),
             ]),
             pullRequest: FactsMother::pullRequest(checks: ChecksState::Passed),
             pullRequests: [FactsMother::pullRequest(state: PullRequestState::Closed), FactsMother::pullRequest(checks: ChecksState::Passed)],
@@ -68,7 +68,7 @@ final class FactFingerprintTest extends TestCase
         yield 'blockers' => [FactKey::Blockers, FactsMother::facts(card: FactsMother::card(slot: 'implementation', hasOpenBlocker: true, documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'parent' => [FactKey::Parent, FactsMother::facts(card: FactsMother::card(slot: 'implementation', isChild: true, documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'children' => [FactKey::Children, FactsMother::facts(card: FactsMother::card(slot: 'implementation', childCount: 2, openChildCount: 1, documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
-        yield 'documents' => [FactKey::Documents, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: [new DocumentFacts(['product'], 'approved')]), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
+        yield 'documents' => [FactKey::Documents, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: [new DocumentFacts(['product'], 'approved', '01a10beb-ba65-736b-8626-a6e3fa59dfc5')]), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'pull request' => [FactKey::PullRequest, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed), pullRequests: self::all(), run: self::workRun())];
         yield 'pull requests' => [FactKey::PullRequests, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: [self::primary()], run: self::workRun())];
         yield 'work requests' => [FactKey::WorkRequests, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement'], 'no-capacity'))];
@@ -150,7 +150,7 @@ final class FactFingerprintTest extends TestCase
     /** @return list<DocumentFacts> */
     private static function documents(): array
     {
-        return [new DocumentFacts(['product'], 'approved'), new DocumentFacts(['design', 'tech'], 'in_review')];
+        return [new DocumentFacts(['product'], 'approved', '01a10beb-ba65-736b-8626-a6e3fa59dfc5'), new DocumentFacts(['design', 'tech'], 'in_review', '01a10beb-ba65-736b-8626-a6e3fa59dfc5')];
     }
 
     private static function primary(): PullRequestFacts

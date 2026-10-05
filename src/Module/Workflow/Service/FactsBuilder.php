@@ -82,7 +82,7 @@ final readonly class FactsBuilder
                 childCount: $children['total'],
                 openChildCount: $children['total'] - $children['done'],
                 documents: array_map(
-                    static fn (array $document): DocumentFacts => new DocumentFacts($document['tags'], $document['status']),
+                    static fn (array $document): DocumentFacts => new DocumentFacts($document['tags'], $document['status'], $document['id']),
                     $this->cardDocuments->findStatusesAndTagsForCard($card),
                 ),
             ),

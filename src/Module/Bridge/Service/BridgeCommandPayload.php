@@ -22,8 +22,8 @@ final class BridgeCommandPayload
     {
         $run = $command->workerRun;
 
-        // Every key is a contract with the bridge. Ids and names only: text a
-        // person wrote must never reach an agent through a command.
+        // Every key is a contract with the bridge. Ids, names and context values of a
+        // strict shape only: text a person wrote must never reach an agent through a command.
         return [
             'type' => BridgeEventType::COMMAND,
             'projectId' => (string) $command->project->id,
@@ -40,6 +40,7 @@ final class BridgeCommandPayload
             'ruleId' => $run->ruleId,
             'expiresAt' => $command->expiresAt->format(\DateTimeInterface::ATOM),
             'cause' => $command->cause->value,
+            'context' => $command->context->toArray(),
         ];
     }
 }

@@ -257,6 +257,19 @@ class CardPullRequestRepository extends ServiceEntityRepository
             ->execute();
     }
 
+    /** The URL of the first link of the card to one pull request, as a person gave it. */
+    public function findUrlOfPullRequest(Card $card, string $forge, string $repository, int $number): ?string
+    {
+        $url = $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT url FROM board_card_pull_requests
+             WHERE card_id = :card AND forge = :forge AND LOWER(repository) = :repository AND number = :number
+             ORDER BY id LIMIT 1',
+            ['card' => (string) $card->id, 'forge' => $forge, 'repository' => mb_strtolower($repository), 'number' => $number],
+        );
+
+        return \is_string($url) ? $url : null;
+    }
+
     public function findUrlForUpdate(CardPullRequest $link): ?string
     {
         $row = $this->createQueryBuilder('link')

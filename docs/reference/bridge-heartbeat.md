@@ -226,6 +226,7 @@ holds, by `commandId`. Each command carries these fields:
 | `workRequestId`, `workKind`, `ruleId` | the work request of the run, or `null` for a run from before the work map |
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
 | `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
+| `context` | the context of the work request of the run, taken when the command was stored, with the five keys of the [work request context](#work-requests). Each key is `null` for a run with no work request. A server from before the context sends no `context` key |
 
 The `bridge.command_ttl_minutes` feature flag sets how long a command waits,
 and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from
@@ -284,7 +285,7 @@ The bridge refuses a rerun with one of these reasons:
 |---|---|
 | The rule of the run no longer runs a command on this bridge. | the rule is gone, or it no longer has `action: command` |
 | The card has a run that is still open on this bridge. | a run of the card runs or waits in the queue, a rerun of the same run included |
-| The command of the rule needs values that only its first event held: `{to}` | the `run` of the rule names a placeholder other than `{cardId}`, `{cardNumber}`, `{projectId}` and `{project}`, and the reason lists each one |
+| The command of the work entry needs values that the run does not hold: `{workRequestId}` | the `run` of the work entry names a placeholder that the rerun holds no value for, and the reason lists each one. A context placeholder never counts, because an empty context value is a real state |
 The server writes a `bridge.command_settled` record to the audit log when an
 answer settles a command.
 
@@ -301,8 +302,8 @@ answer settles a command.
 ## Work requests
 
 A work request is a piece of agent work on one card that the server asks a
-bridge to run. One bridge claims it, runs it, and sends the result. No part of
-the app creates a work request yet. A later release does.
+bridge to run. One bridge claims it, runs it, and sends the result. A rule of
+the [workflow](../using/workflows.md) opens a request when it asks for work.
 
 A bridge that claims work requests reports the `work-requests` capability. A
 request can also name a capability that the bridge must report, such as
@@ -337,6 +338,19 @@ another bridge claimed. Each request carries these fields:
 | `cardId`, `cardNumber` | the card of the work |
 | `ruleId` | the id of the rule that opened the request |
 | `createdAt` | the time the request opened, as an RFC 3339 date |
+| `resumeSessionId` | the session of an unfinished run of the card and kind that the run resumes, or `null` for a fresh start |
+| `context` | what the card held when the request opened. See the table below |
+
+The `context` object always holds five keys. Each one is `null` when the card
+held no such value. A server from before the context sends no `context` key.
+
+| Key | Meaning |
+|---|---|
+| `pullRequestNumber` | the number of the primary pull request of the card |
+| `pullRequestUrl` | the link to that pull request, as the card holds it. Only an `https` URL of at most 2000 characters is sent |
+| `headSha` | the head commit of that pull request, as 7 to 64 lower-case hex digits. A later push leaves it behind |
+| `reason` | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |
+| `documentId` | the id of the one linked document that carries the tag of the `document` parameter of the request rule |
 
 The event and the reply never carry the claim token.
 

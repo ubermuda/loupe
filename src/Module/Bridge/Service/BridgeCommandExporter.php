@@ -35,6 +35,7 @@ final readonly class BridgeCommandExporter implements UserDataExporterInterface
                 'state' => $command->state->value,
                 'reason' => $command->reason,
                 'cause' => $command->cause->value,
+                'context' => $command->context->toArray(),
                 // A boolean, so the file names no other person.
                 'requestedByYou' => (string) $command->requestedBy?->id === (string) $user->id,
                 'requestedAt' => $command->requestedAt->format(\DateTimeInterface::ATOM),

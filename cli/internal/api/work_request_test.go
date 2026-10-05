@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -234,5 +235,35 @@ func TestHeartbeatReadsTheWorkRequestsAndTheLostClaims(t *testing.T) {
 	}
 	if len(got.LostClaims) != 1 || got.LostClaims[0] != workRequestID {
 		t.Fatalf("lost claims = %v", got.LostClaims)
+	}
+}
+
+// A newer server sends the context of the request. An older one sends no
+// context key, and a value it does not know is null; both decode as empty.
+func TestAWorkRequestDecodesItsContext(t *testing.T) {
+	full := `{"pullRequestNumber":42,"pullRequestUrl":"https://github.com/acme/widgets/pull/42",` +
+		`"headSha":"abc1234","reason":"checks-failed","documentId":"01a10beb-ba65-736b-8626-a6e3fa59dfc5"}`
+	for name, tc := range map[string]struct {
+		body string
+		want WorkRequestContext
+	}{
+		"full": {strings.TrimSuffix(workRequestJSON(WorkRequestOpen), "}") + `,"context":` + full + `}`, WorkRequestContext{
+			PullRequestNumber: 42, PullRequestURL: "https://github.com/acme/widgets/pull/42", HeadSHA: "abc1234",
+			Reason: "checks-failed", DocumentID: "01a10beb-ba65-736b-8626-a6e3fa59dfc5",
+		}},
+		"null values": {strings.TrimSuffix(workRequestJSON(WorkRequestOpen), "}") +
+			`,"context":{"pullRequestNumber":null,"pullRequestUrl":null,"headSha":null,"reason":null,"documentId":null}}`, WorkRequestContext{}},
+		"null context": {strings.TrimSuffix(workRequestJSON(WorkRequestOpen), "}") + `,"context":null}`, WorkRequestContext{}},
+		"older server": {workRequestJSON(WorkRequestOpen), WorkRequestContext{}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var w WorkRequest
+			if err := json.Unmarshal([]byte(tc.body), &w); err != nil {
+				t.Fatal(err)
+			}
+			if w.Context != tc.want || w.WorkRequestID != workRequestID {
+				t.Fatalf("work request = %+v, want context %+v", w, tc.want)
+			}
+		})
 	}
 }

@@ -20,6 +20,8 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
+use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -74,6 +76,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'ruleId' => null,
             'expiresAt' => '2026-09-29T12:15:00+00:00',
             'cause' => 'person',
+            'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
         ]], $this->outboxPayloads());
 
         $record = $audit->record('bridge.command_requested');
@@ -285,6 +288,38 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         self::assertFalse($this->service(CardHolds::class)->isHeld($run->project, $run->cardId));
     }
 
+    public function test_a_command_carries_the_context_of_the_work_request_of_its_run(): void
+    {
+        $this->boot();
+        $context = new WorkRequestContext(42, 'https://github.com/acme/widgets/pull/42', 'abc1234', 'conflict', '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
+        [$owner, $run] = $this->scenario('command-context', state: WorkerRunState::Failed, kind: WorkerRunKind::Command, context: $context);
+
+        $command = $this->request($run, BridgeCommandKind::RerunCommand, $owner);
+
+        $this->em()->clear();
+        self::assertEquals($context, $this->em()->find(BridgeCommand::class, $command->id)?->context);
+        self::assertSame($context->toArray(), $this->outboxPayloads()[0]['context']);
+    }
+
+    public function test_a_command_takes_no_context_from_a_work_request_of_another_project_or_card(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('command-context-foreign', state: WorkerRunState::Failed, kind: WorkerRunKind::Command, context: new WorkRequestContext(42));
+        $foreign = $this->seedWorkRequest($this->em(), $this->project($this->em(), $owner, 'Foreign Project'), cardId: $run->cardId, state: WorkRequestState::Done);
+        $foreign->context = new WorkRequestContext(7, null, 'abc1234');
+        $otherCard = $this->seedWorkRequest($this->em(), $run->project, state: WorkRequestState::Done);
+        $otherCard->context = new WorkRequestContext(8);
+        $this->em()->flush();
+
+        foreach ([$foreign, $otherCard] as $request) {
+            $stray = $this->seedRun($this->em(), $run->project, cardNumber: 7, bridgeId: $run->bridgeId, cardId: $run->cardId, state: WorkerRunState::Failed, runKey: Uuid::v7(), kind: WorkerRunKind::Command, workRequestId: $request->id);
+
+            $this->request($stray, BridgeCommandKind::RerunCommand, $owner);
+        }
+
+        self::assertSame([new WorkRequestContext()->toArray(), new WorkRequestContext()->toArray()], array_column($this->outboxPayloads(), 'context'));
+    }
+
     public function test_a_rerun_of_a_worker_run_is_refused(): void
     {
         $this->boot();
@@ -401,6 +436,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         ?string $cardColumn = null,
         WorkerRunKind $kind = WorkerRunKind::Worker,
         array $capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND],
+        ?WorkRequestContext $context = null,
     ): array {
         $em = $this->em();
         $owner = $this->user($em, $name.'@example.com');
@@ -414,7 +450,15 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             $em->flush();
             $cardId = $card->id;
         }
-        $run = $this->seedRun($em, $project, cardNumber: 7, bridgeId: $bridge->id, cardId: $cardId, state: $state, runKey: $runKey, kind: $kind);
+        $workRequestId = null;
+        if (null !== $context) {
+            $cardId ??= Uuid::v7();
+            $request = $this->seedWorkRequest($em, $project, cardId: $cardId, state: WorkRequestState::Done);
+            $request->context = $context;
+            $em->flush();
+            $workRequestId = $request->id;
+        }
+        $run = $this->seedRun($em, $project, cardNumber: 7, bridgeId: $bridge->id, cardId: $cardId, state: $state, runKey: $runKey, kind: $kind, workRequestId: $workRequestId);
 
         return [$owner, $run];
     }

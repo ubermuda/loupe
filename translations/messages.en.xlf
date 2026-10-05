@@ -7331,6 +7331,8 @@
             <trans-unit id="workflow.refusal.no-parent-base"><source>workflow.refusal.no-parent-base</source><target>The parent pull request has no base branch.</target></trans-unit>
             <trans-unit id="workflow.refusal.no-head"><source>workflow.refusal.no-head</source><target>The pull request has no head commit.</target></trans-unit>
             <trans-unit id="workflow.refusal.invalid-work-request"><source>workflow.refusal.invalid-work-request</source><target>The app refused to open the work request.</target></trans-unit>
+            <trans-unit id="workflow.refusal.document-not-found"><source>workflow.refusal.document-not-found</source><target>The card has no document with the tag that the rule names.</target></trans-unit>
+            <trans-unit id="workflow.refusal.document-ambiguous"><source>workflow.refusal.document-ambiguous</source><target>The card has more than one document with the tag that the rule names.</target></trans-unit>
         </body>
     </file>
 </xliff>

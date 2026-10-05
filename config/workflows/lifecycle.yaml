@@ -27,7 +27,7 @@ rules:
     - id: product-design-revise
       slot: product-design
       when: { card.document_changes_requested: { tag: product } }
-      then: { request: { kind: product-design-revise } }
+      then: { request: { kind: product-design-revise, document: { tag: product, status: changes-requested } } }
 
     - id: product-design-approved
       slot: product-design
@@ -48,7 +48,7 @@ rules:
     - id: tech-design-revise
       slot: tech-design
       when: { card.document_changes_requested: { tag: design } }
-      then: { request: { kind: tech-design-revise } }
+      then: { request: { kind: tech-design-revise, document: { tag: design, status: changes-requested } } }
 
     - id: tech-design-approved
       slot: tech-design

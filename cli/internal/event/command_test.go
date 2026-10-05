@@ -128,6 +128,27 @@ func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 }
 
 // A command has its own parser, so Parse drops it as an unknown type.
+// A command carries the context of the work request of its run. An older
+// server sends none, and a malformed value rejects the command.
+func TestParseCommandReadsTheContext(t *testing.T) {
+	payload := strings.Replace(commandPayload, `"workKind":"plan"`, `"workKind":"plan","context":{"pullRequestNumber":42,`+
+		`"pullRequestUrl":null,"headSha":"abc1234","reason":"conflict","documentId":"01A10BEB-BA65-736B-8626-A6E3FA59DFC5"}`, 1)
+	c, err := ParseCommand([]byte(payload))
+	want := api.WorkRequestContext{PullRequestNumber: 42, HeadSHA: "abc1234", Reason: "conflict", DocumentID: "01a10beb-ba65-736b-8626-a6e3fa59dfc5"}
+	if err != nil || c.Context != want {
+		t.Fatalf("command = %+v, err = %v", c, err)
+	}
+
+	if c, err := ParseCommand([]byte(commandPayload)); err != nil || c.Context != (api.WorkRequestContext{}) {
+		t.Fatalf("command = %+v, err = %v", c, err)
+	}
+
+	bad := strings.Replace(commandPayload, `"workKind":"plan"`, `"workKind":"plan","context":{"headSha":"not a sha"}`, 1)
+	if _, err := ParseCommand([]byte(bad)); err == nil {
+		t.Fatal("expected a malformed context to be rejected")
+	}
+}
+
 func TestParseDropsACommandAsAnUnknownType(t *testing.T) {
 	if err := parseErr(t, commandPayload); !errors.Is(err, ErrUnknownType) {
 		t.Fatalf("err = %v, want an unknown type", err)

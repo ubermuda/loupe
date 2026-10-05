@@ -278,13 +278,13 @@ final class ShippedTemplatesTest extends KernelTestCase
         ];
 
         yield 'a product design with changes requested asks only for a revision' => [
-            FactsMother::facts(card: FactsMother::card(slot: 'product-design', documents: [new DocumentFacts(tags: ['product'], status: 'changes-requested')])),
+            FactsMother::facts(card: FactsMother::card(slot: 'product-design', documents: [new DocumentFacts(tags: ['product'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')])),
             ['product-design-session', 'product-design-revise'],
             'product-design-revise',
         ];
 
         yield 'a tech design with changes requested asks only for a revision' => [
-            FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [new DocumentFacts(tags: ['design'], status: 'changes-requested')])),
+            FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [new DocumentFacts(tags: ['design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')])),
             ['tech-design-write', 'tech-design-revise'],
             'tech-design-revise',
         ];
@@ -337,14 +337,14 @@ final class ShippedTemplatesTest extends KernelTestCase
             'epic-to-done',
         ];
 
-        $productDocuments = [new DocumentFacts(tags: ['product'], status: 'approved'), new DocumentFacts(tags: ['product'], status: 'changes-requested')];
+        $productDocuments = [new DocumentFacts(tags: ['product'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5'), new DocumentFacts(tags: ['product'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')];
         yield 'a product design with one document approved and one to revise stays to revise' => [
             FactsMother::facts(card: FactsMother::card(slot: 'product-design', documents: $productDocuments)),
             ['product-design-approved', 'product-design-revise'],
             'product-design-revise',
         ];
 
-        $designDocuments = [new DocumentFacts(tags: ['design'], status: 'approved'), new DocumentFacts(tags: ['design'], status: 'changes-requested')];
+        $designDocuments = [new DocumentFacts(tags: ['design'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5'), new DocumentFacts(tags: ['design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')];
         yield 'a tech design with one document approved and one to revise stays to revise' => [
             FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: $designDocuments)),
             ['tech-design-approved', 'tech-design-revise'],
@@ -407,6 +407,18 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertSame([], $this->template('simple')->documentTagsFor(null));
     }
 
+    public function test_a_revision_request_names_the_document_it_revises_by_the_tag_its_rule_reads(): void
+    {
+        $params = [];
+        foreach ($this->lifecycle()->rules as $rule) {
+            if (\in_array($rule->id, ['product-design-revise', 'tech-design-revise'], true)) {
+                $params[$rule->id] = [$rule->then->params[TemplateParser::DOCUMENT_TAG] ?? null, $rule->then->params[TemplateParser::DOCUMENT_STATUS] ?? null];
+            }
+        }
+
+        self::assertSame(['product-design-revise' => ['product', 'changes-requested'], 'tech-design-revise' => ['design', 'changes-requested']], $params);
+    }
+
     private function shipped(): ShippedTemplates
     {
         return static::getContainer()->get(ShippedTemplates::class);
@@ -450,6 +462,6 @@ final class ShippedTemplatesTest extends KernelTestCase
 
     private static function approved(string $tag): DocumentFacts
     {
-        return new DocumentFacts(tags: [$tag], status: 'approved');
+        return new DocumentFacts(tags: [$tag], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
     }
 }

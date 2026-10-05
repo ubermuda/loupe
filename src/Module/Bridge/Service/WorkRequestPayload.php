@@ -20,8 +20,8 @@ final class WorkRequestPayload
     /** @return array<string, mixed> */
     public static function of(WorkRequest $request): array
     {
-        // Every key is a contract with the bridge. Ids and names only, and
-        // never the claim token, because every subscriber of the project reads this.
+        // Every key is a contract with the bridge, and every subscriber of the project reads this.
+        // Ids, names and context values of a strict shape only, and never the claim token.
         return [
             'type' => BridgeEventType::WORK_REQUEST,
             'projectId' => (string) $request->project->id,
@@ -35,6 +35,7 @@ final class WorkRequestPayload
             'ruleId' => $request->ruleId,
             'createdAt' => $request->createdAt->format(\DateTimeInterface::ATOM),
             'resumeSessionId' => $request->resumeSessionId?->toRfc4122(),
+            'context' => $request->context->toArray(),
         ];
     }
 }

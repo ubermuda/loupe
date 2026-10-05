@@ -219,3 +219,66 @@ func TestARerunFromAHeartbeatIsAnswered(t *testing.T) {
 		t.Fatalf("acks = %v, commands = %d", got, len(f.recorded()))
 	}
 }
+
+// contextWorkRules runs a command and a worker that read the context of the
+// work request.
+const contextWorkRules = `
+projects:
+  loupe:
+    dir: {dir}
+work:
+  plan:
+    prompt: Plan card {cardNumber}.
+    before:
+      run: [prepare, '{cardNumber}', '{pullRequestNumber}']
+  teardown:
+    action: command
+    run: [teardown, '{cardNumber}', '{pullRequestNumber}', '{headSha}']
+    timeout: 1m
+`
+
+// A person's rerun fills the context that the server attached to the
+// command, which is the context of the run's work request. An older server
+// attaches none, and the rerun runs with empty values.
+func TestARerunFillsTheContextOfItsRun(t *testing.T) {
+	for name, tc := range map[string]struct {
+		context api.WorkRequestContext
+		argv    []string
+	}{
+		"a context":    {api.WorkRequestContext{PullRequestNumber: 42, HeadSHA: "abc1234"}, []string{"teardown", "87", "42", "abc1234"}},
+		"older server": {api.WorkRequestContext{}, []string{"teardown", "87", "", ""}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarnessWith(t, contextWorkRules, rules.Defaults{})
+			f := &fakeCommand{}
+			h.router.worker.command = f.run
+			c := workRerunOf(failedCommandKey)
+			c.Context = tc.context
+
+			if state, reason := h.rerun(c); state != api.CommandDone {
+				t.Fatalf("rerun = %s %q", state, reason)
+			}
+			if specs := f.recorded(); len(specs) != 1 || !slices.Equal(specs[0].argv, tc.argv) {
+				t.Fatalf("command = %+v, want %q", specs, tc.argv)
+			}
+		})
+	}
+}
+
+// A person's resume of a worker run fills its before command with the context
+// that the server attached to the command.
+func TestAPersonsResumeFillsTheBeforeCommandWithTheContext(t *testing.T) {
+	h := newHarnessWith(t, contextWorkRules, rules.Defaults{})
+	h.transcripts(true)
+	f := &fakeBefore{result: procResult{dir: t.TempDir()}}
+	h.router.worker.before = f.run
+	c := workResumeOf(endedRunKey)
+	c.Context = api.WorkRequestContext{PullRequestNumber: 42}
+
+	if state, reason := h.resume(c); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+	if specs := f.recorded(); len(specs) != 1 || !slices.Equal(specs[0].argv, []string{"prepare", "87", "42"}) {
+		t.Fatalf("before = %+v", specs)
+	}
+}

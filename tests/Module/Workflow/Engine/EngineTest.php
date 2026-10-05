@@ -43,7 +43,6 @@ use App\Module\Workflow\Action\MoveCard;
 use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Action\RequestWork;
-use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\EvaluateWorkflowCardHandler;
 use App\Module\Workflow\Contract\CardEvaluations;
@@ -1233,7 +1232,7 @@ final class EngineTest extends KernelTestCase
         $cardPauses = $this->service(CardPauseRepository::class);
         $workRequests = $this->service(WorkRequestRepository::class);
         $releaseCardPause = new ReleaseCardPauseHandler($this->em(), $clock, $auditor, $dispatcher);
-        $opener = new WorkRequestOpener($this->openWorkRequestHandler());
+        $opener = $this->opener();
         $forgePullRequests = $this->service(ForgePullRequestRepository::class);
 
         $engineEvents = new EventDispatcher();

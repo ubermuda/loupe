@@ -9,7 +9,6 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardEventRepository;
-use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Service\CardPullRequests;
@@ -43,7 +42,7 @@ final readonly class RequestWork implements Action
         }
 
         $kind = ActionParams::string($rule, 'kind');
-        $outcome = $this->opener->open($rule, $card, $kind, ActionParams::optionalString($rule, 'capability'));
+        $outcome = $this->opener->open($rule, $card, $facts, $kind, ActionParams::optionalString($rule, 'capability'));
         if (self::FIX_KIND === $kind && ActionOutcomeKind::Done === $outcome->kind && !$outcome->alreadyLive) {
             $this->recordFixRequested($card, $facts);
         }
@@ -53,14 +52,7 @@ final readonly class RequestWork implements Action
 
     private function recordFixRequested(Card $card, Facts $facts): void
     {
-        $pullRequest = $facts->pullRequest;
-        $reason = match (true) {
-            true === $pullRequest?->conflicting => 'conflict',
-            ChecksState::Failed === $pullRequest?->checks => 'checks-failed',
-            true === $pullRequest?->changesRequested => 'changes-requested',
-            default => 'unknown',
-        };
-        $detail = ['reason' => $reason];
+        $detail = ['reason' => $facts->pullRequest?->fixReason() ?? 'unknown'];
         $number = $this->cardPullRequests->primary($this->cardPullRequests->forCard($card))?->number;
         if (null !== $number) {
             $detail['pullRequest'] = $number;

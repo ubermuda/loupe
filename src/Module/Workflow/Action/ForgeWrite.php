@@ -56,7 +56,7 @@ final readonly class ForgeWrite implements Action
         $write = ForgeWriteKind::tryFrom(ActionParams::string($rule, 'write'))
             ?? throw new \LogicException(\sprintf('The rule "%s" names an unknown forge write.', $rule->id));
         $fallbackKind = ActionParams::optionalString($rule, 'fallback');
-        $fallback = fn (): ActionOutcome => null === $fallbackKind ? ActionOutcome::done() : $this->opener->open($rule, $card, $fallbackKind, null);
+        $fallback = fn (): ActionOutcome => null === $fallbackKind ? ActionOutcome::done() : $this->opener->open($rule, $card, $facts, $fallbackKind, null);
 
         $pullRequests = $this->cardPullRequests->forCard($card);
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
