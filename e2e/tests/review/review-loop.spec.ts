@@ -930,7 +930,9 @@ test('requesting changes asks for a note and keeps it across Cancel', async ({
     await page.getByRole('button', { name: 'Submit review' }).click();
     await expect(
         page.getByRole('dialog', { name: 'Finish review' }),
-    ).toContainText('Explain the changes you request in a review note.');
+    ).toContainText(
+        'Write a review note, or leave a comment on the passage to change.',
+    );
     await page
         .getByRole('textbox', { name: 'Review note' })
         .fill('Explain the retry behaviour.');
@@ -949,6 +951,24 @@ test('requesting changes asks for a note and keeps it across Cancel', async ({
         'Explain the retry behaviour.',
         { timeout: coverageScaled(10000) },
     );
+});
+
+test('requesting changes needs no note when the document has an open comment', async ({
+    page,
+}) => {
+    await postComment(page);
+    await expectThreadVisible(page);
+
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page.getByRole('radio', { name: 'Request changes' }).check();
+    await page.getByRole('button', { name: 'Submit review' }).click();
+
+    await expect(
+        page.locator('.lp-verdict-bar--changes-requested'),
+    ).toBeVisible({ timeout: coverageScaled(10000) });
+    await expect(page.locator('.lp-review-verdict-note')).toHaveCount(0);
 });
 
 test('requesting changes shows the verdict on the project dashboard', async ({

@@ -76,6 +76,7 @@ final readonly class ToolCallErrorMessages
             'review.document.flash.verdict_stale' => 'The document has a newer version. Review it before you submit a verdict.',
             'review.document.flash.verdict_changed' => 'The review changed. Read the current verdict before changing it.',
             'review.document.flash.note_required' => 'Explain the changes you request in a review note.',
+            'review.document.flash.note_or_comment_required' => 'Write a review note, or leave a comment on the passage to change.',
             'review.revise.error.stale_version' => 'The document has a newer version. Compare it with your draft before you save a revision.',
             'comment.error.not_owner' => 'You can only comment on your own documents.',
             'comment.error.not_found' => 'This thread no longer exists. Read the document review again.',

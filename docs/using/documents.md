@@ -61,7 +61,8 @@ On narrow screens, the floating review menu hides while an annotation composer i
 
 Threads carry a status: pending, addressed, or resolved.
 Select **Finish review** beside the document title to approve the version or request changes.
-A request for changes requires a review note. An approval can include a note.
+A request for changes needs a review note only when the version has no open comment.
+An open comment is a thread that is pending or addressed. An approval can include a note.
 The saved verdict shows the reviewer, version, time and note.
 The account export and `document_get_review` result include the note.
 Open threads and unapproved sections do not prevent approval.
