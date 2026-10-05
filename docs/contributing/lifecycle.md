@@ -60,6 +60,11 @@ Tech design when the card body already says what to build. The tech design
 worker then uses the card body as its requirement source. When the card has a
 product document that is not approved yet, the worker stops and waits for it.
 
+When the feature changes how production deploys, the tech design worker also
+writes a deploy notes document with the tag `deploy-notes`. The implementation
+worker revises it when the build changes a deploy item. The deploy agent reads
+it before a deploy.
+
 The template links each slot to a column by its id, so a rename of a column
 keeps the workflow working.
 

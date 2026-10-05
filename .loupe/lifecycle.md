@@ -11,6 +11,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 5. Writing style: AGENTS.md "Writing style", which is ASD-STE100.
 6. Product document: answer the documentation and landing page checks of AGENTS.md "Planning and shipping a feature". It names the `docs/` sections and the landing page templates.
 7. Tech design: load `project-tech-design`. Read the AGENTS.md section "What a new entity or feature must also register", with its table and the list "Four more that no registry covers".
+8. Deploy notes: `project-deploy` "What deploy notes hold" lists the deploy items of this project.
 
 ## Environment
 

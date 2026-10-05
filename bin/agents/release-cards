@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Lists the pull requests and Loupe cards between a deployed commit and origin/main.
+#
+# Usage:
+#   bin/agents/release-cards [<deployed sha>]
+#
+# With no argument, reads the live version from https://loupe.ac/healthz.
+# Output: one line per first-parent commit, "<pr number>\t<comma-separated card ids or ->\t<subject>".
+# A commit with no "(#N)" prints as "-\t-\t<subject>", and a failed PR read as "?".
+# Requires: git, gh (GitHub CLI), jq, curl
+
+set -euo pipefail
+
+for tool in git gh jq curl; do
+  command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
+done
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
+if [[ $# -gt 1 ]]; then
+  echo "Usage: $(basename "$0") [<deployed sha>]" >&2
+  exit 1
+fi
+
+if [[ $# -eq 1 ]]; then
+  VERSION="$1"
+else
+  TFVARS="$(git rev-parse --path-format=absolute --git-common-dir)/../terraform/terraform.tfvars"
+  if [[ ! -f "$TFVARS" ]]; then
+    echo "Cannot read the live version: $TFVARS is missing. Pass the deployed sha instead." >&2
+    exit 1
+  fi
+  TOKEN=$(grep -E '^health_probe_token' "$TFVARS" | sed -E 's/.*= *"([^"]*)".*/\1/' || true)
+  if [[ -z "$TOKEN" ]]; then
+    echo "No health_probe_token in $TFVARS. Pass the deployed sha instead." >&2
+    exit 1
+  fi
+  if ! RESPONSE=$(curl -fsS --max-time 15 -H "X-Probe-Token: $TOKEN" https://loupe.ac/healthz); then
+    echo "The /healthz request failed. Pass the deployed sha instead." >&2
+    exit 1
+  fi
+  VERSION=$(jq -r '.version // empty' <<<"$RESPONSE")
+  if [[ -z "$VERSION" ]]; then
+    echo "/healthz returned no version (wrong token?): $RESPONSE" >&2
+    exit 1
+  fi
+fi
+
+# Accepts a bare sha or a "git describe" form such as web/v1.2-3-gabc123-dirty.
+SHA="${VERSION%-dirty}"
+if [[ "$SHA" =~ -g([0-9a-f]+)$ ]]; then
+  SHA="${BASH_REMATCH[1]}"
+fi
+
+git fetch -q origin main
+
+if ! FROM=$(git rev-parse --verify --quiet "${SHA}^{commit}" || git rev-parse --verify --quiet "web/${SHA}^{commit}"); then
+  echo "Unknown commit for version '$VERSION'." >&2
+  exit 1
+fi
+if ! git merge-base --is-ancestor "$FROM" origin/main; then
+  echo "Warning: $FROM is not an ancestor of origin/main, so the range may be wrong." >&2
+fi
+
+echo "Range: ${FROM:0:12}..origin/main ($(git rev-parse --short=12 origin/main)), deployed version '$VERSION'" >&2
+
+git log --first-parent --format=%s "$FROM..origin/main" | while IFS= read -r SUBJECT; do
+  PR=$(grep -oE '\(#[0-9]+\)' <<<"$SUBJECT" | tail -n 1 | tr -dc '0-9' || true)
+  if [[ -z "$PR" ]]; then
+    printf -- '-\t-\t%s\n' "$SUBJECT"
+    continue
+  fi
+  if ! BODY=$(gh pr view "$PR" --json body --jq .body </dev/null); then
+    echo "Warning: gh pr view $PR failed." >&2
+    printf '%s\t?\t%s\n' "$PR" "$SUBJECT"
+    continue
+  fi
+  CARDS=$(grep -oE '/board/cards/[0-9a-f-]{36}' <<<"$BODY" | sed 's|.*/||' | awk '!seen[$0]++' | paste -sd, - || true)
+  printf '%s\t%s\t%s\n' "$PR" "${CARDS:--}" "$SUBJECT"
+done

@@ -24,7 +24,7 @@ Answer one round of feedback on the current stage of a card.
 3. When its `status` is `approved`, stop with `STAGE RESULT: <document> already approved`.
 4. When the `verdict` is `changes-requested`, check the triggers of `review-round.md` first: an open comment, an answered decision without a matching `**Decided:**` line, or an uncovered requirement. Stop with `STAGE RESULT: blocked: changes requested with no comment` only when none holds.
 5. Load `loupe-documents`. For a product document, read `../loupe-stage-product-design/references/product-document.md`. For a tech design, load the instructions and read the design inputs that the profile `Instruction files` section names.
-6. Follow `../loupe-stage-product-design/references/review-round.md`. The requirement source is the card body for the product document. For the tech design, it is the approved product document, or the card body when the card has no product document.
+6. Follow `../loupe-stage-product-design/references/review-round.md`. The requirement source is the card body for the product document. For the tech design, it is the approved product document, or the card body when the card has no product document. For the tech design, also run Revise step 5 of `../loupe-stage-tech-design/SKILL.md` before the round stops, so the deploy notes stay true.
 7. When the review round ends `<document> unchanged`, stop with `STAGE RESULT: nothing to fix`.
 
 ### Code round
@@ -40,7 +40,7 @@ The round ends at the push. It never waits for CI, because the app reads the new
 5. Check the worker folder, and sync it with the pull request branch, per the reference. Keep every existing commit.
 6. When the branch differs from the pull request branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
 7. When the pull request conflicts, resolve it first, per "Resolve a conflict with the base" in the reference.
-8. Fix every open item and failing check. Read the log of each failed check, and fix the cause. Follow the implementation skill for sub-agents, the gate and the code review. In this round, `<base>` is the base branch of the pull request, such as the epic branch of an epic child.
+8. Fix every open item and failing check. Read the log of each failed check, and fix the cause. Follow the implementation skill for sub-agents, the gate and the code review. In this round, `<base>` is the base branch of the pull request, such as the epic branch of an epic child. Before the gate, run implementation step 11 on the diff of the pull request, so the deploy notes stay true.
 9. Push without force.
 10. Post a marker reply for each handled item, per the reference. A conflict has no item, so it gets no reply.
 11. Stop with `STAGE RESULT: waiting <pr url>`. Never move the card.
