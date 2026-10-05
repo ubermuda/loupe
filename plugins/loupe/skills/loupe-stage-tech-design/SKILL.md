@@ -31,7 +31,7 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 2. Read the code and those design inputs.
 3. Judge the size again, as "Judge the size" says. A revision never changes the ID of an entry.
 4. Follow `../loupe-stage-product-design/references/review-round.md`. The document is `tech design`, and the requirement source is the one step 7 chose. Run Revise step 5 below before the round stops.
-5. When the round adds or changes a deploy item, update the deploy notes after the `document_revise` of the design. Do this before the replies. Revise the linked notes with `document_revise`, or create and link them as "Deploy notes" says. Keep the deploy line of the design true. When Architecture is approved, keep its text. The linked notes are then the record.
+5. When the round adds, changes or removes a deploy item, update the deploy notes after the `document_revise` of the design. Do this before the replies. Revise the linked notes with `document_revise`, or create and link them as "Deploy notes" says. Keep the deploy line of the design true. When Architecture is approved, keep its text. The linked notes are then the record.
 
 ### Create, when neither step finds a design
 
