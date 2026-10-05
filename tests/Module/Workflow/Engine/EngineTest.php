@@ -894,6 +894,28 @@ final class EngineTest extends KernelTestCase
         self::assertSame('done', $epic->column->slug);
     }
 
+    public function test_a_lifecycle_epic_whose_breakdown_stopped_to_ask_the_owner_moves_to_done_and_a_new_child_brings_it_back(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-blocked');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->childOf($epic, 'done');
+        $this->evaluate($epic);
+        $breakdown = $this->liveRequests($epic);
+        self::assertCount(1, $breakdown);
+
+        $breakdown[0]->state = WorkRequestState::Claimed;
+        $breakdown[0]->settle(WorkRequestState::Refused, 'needs-person', new \DateTimeImmutable('2026-10-02 12:20:00'));
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:25:00');
+        self::assertSame('done', $epic->column->slug);
+
+        $this->childOf($epic, 'next');
+        $this->evaluate($epic, '2026-10-02 12:30:00');
+        self::assertSame('in-progress', $epic->column->slug);
+    }
+
     public function test_a_card_evaluations_call_evaluates_the_card_and_its_provided_fact_fires_the_rule(): void
     {
         $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);

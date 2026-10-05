@@ -126,7 +126,9 @@ The workflow makes three moves on its own:
    Implementation, which asks for its implementation.
 2. When every child of an epic is done, the epic moves to In review when it has
    a pull request, and to Done when it has none. While a breakdown request is
-   active, the epic stays in Implementation.
+   active, the epic stays in Implementation. A breakdown that stops to ask the
+   owner ends its request, so the epic can move on. A child that the resumed
+   breakdown creates then brings the epic back.
 3. When a done epic gets an open child again, the epic moves back to
    Implementation.
 
