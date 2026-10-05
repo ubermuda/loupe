@@ -89,6 +89,54 @@ final class CardWorkflowPanelPageTest extends WebTestCase
         self::assertStringContainsString('api-failed-rate-limited', $crawler->filter('[data-workflow-pause]')->text());
     }
 
+    public function test_a_retries_pause_offers_the_manager_a_retry_button(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'panel-retry@example.com');
+        $project = $this->project($em, $owner);
+        $this->bindSimple($project);
+        $card = $this->card($em, $project, 'Paused', 'next');
+        $pause = static::getContainer()->get(PauseCardHandler::class);
+        self::assertInstanceOf(PauseCardHandler::class, $pause);
+        $paused = $pause(new PauseCardCommand($card, 'move-refused', 'implement', CardPauseKind::Retries));
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        $button = $crawler->filter('[data-workflow-pause] [data-workflow-retry]');
+        self::assertSame('Retry now', trim($button->text()));
+        $form = $button->closest('form') ?? self::fail('The button sits in a form.');
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$card->id.'/workflow-pauses/'.$paused?->id.'/release', $form->attr('action'));
+        self::assertSame('_top', $form->attr('data-turbo-frame'));
+        self::assertNotEmpty($form->filter('input[name="_csrf_token"]')->attr('value'));
+    }
+
+    public function test_a_rule_pause_offers_no_retry_button(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'panel-rule@example.com');
+        $project = $this->project($em, $owner);
+        $this->bindSimple($project);
+        $card = $this->card($em, $project, 'Paused', 'next');
+        $pause = static::getContainer()->get(PauseCardHandler::class);
+        self::assertInstanceOf(PauseCardHandler::class, $pause);
+        $pause(new PauseCardCommand($card, 'on-hold', 'implement', CardPauseKind::Rule));
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-workflow-pause]'));
+        self::assertCount(0, $crawler->filter('[data-workflow-retry]'));
+    }
+
     private function bindSimple(Project $project): void
     {
         $bind = static::getContainer()->get(BindWorkflowTemplateHandler::class);

@@ -25,6 +25,7 @@ framework:
             - worker-run-command
             - bridge-pause
             - card-agents
+            - workflow-pause-release
             - billing-checkout
             - billing-portal
             - wizard-skip

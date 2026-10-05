@@ -7313,6 +7313,12 @@
             <trans-unit id="workflow.panel.release.facts_changed"><source>workflow.panel.release.facts_changed</source><target>The pause ends when the facts that the rule reads change.</target></trans-unit>
             <trans-unit id="workflow.panel.release.next_evaluation"><source>workflow.panel.release.next_evaluation</source><target>The workflow ends the pause when it next evaluates the card.</target></trans-unit>
             <trans-unit id="workflow.panel.release.met"><source>workflow.panel.release.met</source><target>The release condition is met. The workflow ends the pause when it next evaluates the card.</target></trans-unit>
+            <trans-unit id="workflow.panel.retry"><source>workflow.panel.retry</source><target>Retry now</target></trans-unit>
+            <trans-unit id="workflow.pause_release.flash.released"><source>workflow.pause_release.flash.released</source><target>The pause ended. The workflow runs the rule again.</target></trans-unit>
+            <trans-unit id="workflow.pause_release.error.card_unmanaged"><source>workflow.pause_release.error.card_unmanaged</source><target>The workflow does not manage this card.</target></trans-unit>
+            <trans-unit id="workflow.pause_release.error.not_paused"><source>workflow.pause_release.error.not_paused</source><target>The card is not paused.</target></trans-unit>
+            <trans-unit id="workflow.pause_release.error.pause_changed"><source>workflow.pause_release.error.pause_changed</source><target>The pause on the card changed. Read the new pause before you retry.</target></trans-unit>
+            <trans-unit id="workflow.pause_release.error.kind_not_releasable"><source>workflow.pause_release.error.kind_not_releasable</source><target>A pause that a rule made ends only when its release condition is met.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.failed"><source>workflow.panel.unreadable.failed</source><target>Waiting: could not read %source%.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.off"><source>workflow.panel.unreadable.off</source><target>Waiting: %source% is off on this instance.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.missing_condition"><source>workflow.panel.unreadable.missing_condition</source><target>Waiting: the condition %condition% no longer exists.</target></trans-unit>
