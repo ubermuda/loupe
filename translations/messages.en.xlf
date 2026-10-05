@@ -1411,6 +1411,10 @@
                 <source>review.document.verdict.undo</source>
                 <target>Undo</target>
             </trans-unit>
+            <trans-unit id="review.document.verdict.change">
+                <source>review.document.verdict.change</source>
+                <target>Change verdict</target>
+            </trans-unit>
             <trans-unit id="review.document.verdict.approved">
                 <source>review.document.verdict.approved</source>
                 <target>Approved</target>
@@ -7205,6 +7209,10 @@
             <trans-unit id="workflow.waiting.not.card_has_children"><source>workflow.waiting.not.card_has_children</source><target>Waiting: the card has child cards.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_children_finished"><source>workflow.waiting.card_children_finished</source><target>Waiting: a child card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_children_finished"><source>workflow.waiting.not.card_children_finished</source><target>Waiting: no child card is open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_document"><source>workflow.waiting.card_document</source><target>Waiting: the card has no %tag% document.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_document"><source>workflow.waiting.not.card_document</source><target>Waiting: the card has a %tag% document.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_document_status"><source>workflow.waiting.card_document_status</source><target>Waiting: the card has no %tag% document with the status "%status%".</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_document_status"><source>workflow.waiting.not.card_document_status</source><target>Waiting: the card has a %tag% document with the status "%status%".</target></trans-unit>
             <trans-unit id="workflow.waiting.card_document_approved"><source>workflow.waiting.card_document_approved</source><target>Waiting: no %tag% document is approved.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_document_approved"><source>workflow.waiting.not.card_document_approved</source><target>Waiting: a %tag% document is approved.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_document_changes_requested"><source>workflow.waiting.card_document_changes_requested</source><target>Waiting: no reviewer asked for changes on a %tag% document.</target></trans-unit>

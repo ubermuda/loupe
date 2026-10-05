@@ -18,10 +18,7 @@ workTimeoutMinutes: 120
 rules:
     - id: product-design-session
       slot: product-design
-      when:
-          all:
-              - not: { card.document_approved: { tag: product } }
-              - not: { card.document_changes_requested: { tag: product } }
+      when: { not: { card.document: { tag: product } } }
       then: { request: { kind: product-design, capability: interactive } }
 
     - id: product-design-revise
@@ -39,10 +36,7 @@ rules:
 
     - id: tech-design-write
       slot: tech-design
-      when:
-          all:
-              - not: { card.document_approved: { tag: design } }
-              - not: { card.document_changes_requested: { tag: design } }
+      when: { not: { card.document: { tag: design } } }
       then: { request: { kind: tech-design } }
 
     - id: tech-design-revise
