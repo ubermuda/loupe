@@ -39,7 +39,7 @@ final class EvaluateCardHandlerTest extends KernelTestCase
 
         $document = new Document($project->owner, $project, 'Product');
         $document->status = DocumentStatus::Approved;
-        $tag = new Tag($project, 'product');
+        $tag = new Tag($project, 'product-design');
         $this->em()->persist($tag);
         $document->tags->add($tag);
         $this->em()->persist($document);

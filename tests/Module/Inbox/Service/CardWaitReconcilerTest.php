@@ -434,7 +434,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
     public function test_a_document_on_a_project_with_no_template_opens_no_wait(): void
     {
         $document = $this->untaggedLinkedDocument('Tech design');
-        $this->tagDocument($this->em, $document, ['design']);
+        $this->tagDocument($this->em, $document, ['tech-design']);
         $this->em->flush();
 
         $this->reconcile();
@@ -499,7 +499,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
         $setTags = self::getContainer()->get(SetDocumentTagsHandler::class);
         self::assertInstanceOf(SetDocumentTagsHandler::class, $setTags);
-        $setTags(new SetDocumentTagsCommand($document, ['design']));
+        $setTags(new SetDocumentTagsCommand($document, ['tech-design']));
         $this->em->clear();
         $project = $this->em->find(Project::class, $this->project->id);
         self::assertInstanceOf(Project::class, $project);
