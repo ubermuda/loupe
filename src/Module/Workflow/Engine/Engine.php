@@ -333,6 +333,10 @@ final readonly class Engine
                 if ((ActionType::Request === $type || ActionType::ForgeWrite === $type) && !$outcome->alreadyLive) {
                     ++$state->fires;
                 }
+                // The rules after this one read the new request.
+                if (ActionType::Request === $type && !$outcome->alreadyLive) {
+                    $run->facts = $this->facts($run->card, $run->now, $run->facts);
+                }
 
                 // The move queues the next evaluation, and the rules after it would read the old slot.
                 return ActionType::Move !== $type;
