@@ -714,7 +714,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-lifecycle');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $this->document($card, 'design');
+        $this->document($card, 'tech-design');
 
         $this->evaluate($card);
 
@@ -734,7 +734,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-design-revision');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $design = $this->document($card, 'design', DocumentStatus::ChangesRequested);
+        $design = $this->document($card, 'tech-design', DocumentStatus::ChangesRequested);
         $this->evaluate($card);
         self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
 
@@ -752,7 +752,7 @@ final class EngineTest extends KernelTestCase
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
         $this->block($card);
-        $design = $this->document($card, 'design');
+        $design = $this->document($card, 'tech-design');
         $this->evaluate($card);
         self::assertSame('tech-design', $card->column->slug);
 
@@ -769,7 +769,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-design-approved-after-changes');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $design = $this->document($card, 'design', DocumentStatus::ChangesRequested);
+        $design = $this->document($card, 'tech-design', DocumentStatus::ChangesRequested);
         $this->evaluate($card);
         self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
 
@@ -787,7 +787,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-product-revision');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'product-design');
-        $product = $this->document($card, 'product', DocumentStatus::ChangesRequested);
+        $product = $this->document($card, 'product-design', DocumentStatus::ChangesRequested);
         $this->evaluate($card);
         self::assertSame(['product-design-revise'], $this->requestRuleIds($card));
 
@@ -805,7 +805,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-live');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $this->document($card, 'design');
+        $this->document($card, 'tech-design');
         $changed = [];
         $dispatcher = self::getContainer()->get('event_dispatcher');
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);

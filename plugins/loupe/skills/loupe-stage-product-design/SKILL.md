@@ -17,7 +17,7 @@ Change nothing but Loupe documents, and never move the card. `references/stage-c
 4. Load the `loupe-board` instruction.
 5. Call `card_get`, and run the contract's column check.
 6. Load `loupe-documents`, then read `references/product-document.md`.
-7. Find the product document among the linked documents, as the contract says. It has the tag `product`, or a title that starts `Product design`.
+7. Find the product document among the linked documents, as the contract says. It has the tag `product-design`, or a title that starts `Product design`.
 8. When step 7 finds none, search `document_list` for the title `Product design: <card title>`, as the contract says.
 
 ### Revise, when step 7 or 8 finds the document

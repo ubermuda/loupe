@@ -173,9 +173,9 @@ these cases:
 
 - A linked document of the card is in review, and the workflow of the card
   waits for it in the column where the card sits. With the Lifecycle template,
-  that is a product design, a document with the tag `product`, in the Product
-  design column, or a tech design, a document with the tag `design`, in the
-  Tech design column.
+  that is a product design, a document with the tag `product-design`, in the
+  Product design column, or a tech design, a document with the tag
+  `tech-design`, in the Tech design column.
 - The newest worker run of the card is blocked, gave up, or waits for a person.
   The card must stay in the column that started the run.
 - A GitHub pull request that is linked to the card is ready for review.

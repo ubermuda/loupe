@@ -18,38 +18,38 @@ workTimeoutMinutes: 120
 rules:
     - id: product-design-session
       slot: product-design
-      when: { not: { card.document: { tag: product } } }
+      when: { not: { card.document: { tag: product-design } } }
       then: { request: { kind: product-design, capability: interactive } }
 
     - id: product-design-revise
       slot: product-design
-      when: { card.document_changes_requested: { tag: product } }
-      then: { request: { kind: product-design-revise, document: { tag: product, status: changes-requested } } }
+      when: { card.document_changes_requested: { tag: product-design } }
+      then: { request: { kind: product-design-revise, document: { tag: product-design, status: changes-requested } } }
 
     - id: product-design-approved
       slot: product-design
       when:
           all:
-              - card.document_approved: { tag: product }
-              - not: { card.document_changes_requested: { tag: product } }
+              - card.document_approved: { tag: product-design }
+              - not: { card.document_changes_requested: { tag: product-design } }
       then: { move: { to: tech-design } }
 
     - id: tech-design-write
       slot: tech-design
-      when: { not: { card.document: { tag: design } } }
+      when: { not: { card.document: { tag: tech-design } } }
       then: { request: { kind: tech-design } }
 
     - id: tech-design-revise
       slot: tech-design
-      when: { card.document_changes_requested: { tag: design } }
-      then: { request: { kind: tech-design-revise, document: { tag: design, status: changes-requested } } }
+      when: { card.document_changes_requested: { tag: tech-design } }
+      then: { request: { kind: tech-design-revise, document: { tag: tech-design, status: changes-requested } } }
 
     - id: tech-design-approved
       slot: tech-design
       when:
           all:
-              - card.document_approved: { tag: design }
-              - not: { card.document_changes_requested: { tag: design } }
+              - card.document_approved: { tag: tech-design }
+              - not: { card.document_changes_requested: { tag: tech-design } }
               - not: { card.has_open_blocker: {} }
       then: { move: { to: implementation } }
 
