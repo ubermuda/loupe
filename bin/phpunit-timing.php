@@ -126,5 +126,5 @@ foreach (\array_slice($tests, 0, $top) as $test) {
     printf("%9s  %s\n", clock($test['time']), $test['name']);
 }
 
-echo "\nThe total sums the reported test times. Bootstrap, schema creation and\n";
-echo "process start-up sit outside it, so the wall clock of the job is longer.\n";
+echo "\nThe total sums the reported test times across every ParaTest worker, so it\n";
+echo "is not the wall clock. Bootstrap, schema creation and start-up sit outside it.\n";

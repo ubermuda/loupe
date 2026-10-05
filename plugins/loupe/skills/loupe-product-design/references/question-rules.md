@@ -11,8 +11,9 @@ Each rule has a stable ID, so a comment can cite it.
 5. Q5: Send look and feel to a mockup. A question about how something looks gets a sketch or a prototype, not more questions. Follow `claude-design.md` for the offer.
 6. Q6: Park technical choices. An entity, a table, an API or a module goes to the "For tech design" section. Do not settle it in the session.
 7. Q7: Ask for priorities as trade-off pairs. Take each pair from this feature, such as an early first release against a complete permission model. Ask one pair per question, and recommend a side (Q2). Never ask the owner to rank goals that face no trade-off.
+8. Q8: Defer a decision only on the owner's word. A decision goes to "Open questions" as a decision fence only when the owner's answer defers it, such as "decide later". Never defer a question yourself.
 
-Write each answer in the "Decisions log" section, with the question. Write each Q7 answer in the "Priorities" section too. Write each guess that the owner did not check in the "Assumptions" section.
+Write each answer in the "Decisions log" section, with the question. Write each Q7 answer in the "Priorities" section too. Write each decision that the owner defers in the "Open questions" section. Write each guess that you did not ask about in the "Assumptions" section.
 
 ## Coverage checklist
 

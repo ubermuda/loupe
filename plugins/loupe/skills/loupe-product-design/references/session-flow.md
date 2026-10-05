@@ -51,4 +51,4 @@ A card that needs no product design does not use this skill. The owner moves it 
 
 ## When to stop asking
 
-Stop when no open decision is left, then run P8 to P10. Use no fixed cap of questions. Put a low-impact unknown in "Open questions" instead of asking more.
+Stop when no open decision is left, then run P8 to P10. Use no fixed cap of questions. Ask about every open decision in the chat, including a low-impact one, with the rules of `question-rules.md`. Write a decision fence in "Open questions" only for a decision that the owner defers (Q8).

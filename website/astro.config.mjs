@@ -160,6 +160,7 @@ export default defineConfig({
             { label: 'Overview', slug: 'adr' },
             { slug: 'adr/0001-app-over-worker' },
             { slug: 'adr/0002-generic-stage-skills' },
+            { slug: 'adr/0003-replace-dont-keep' },
           ],
         },
         { label: 'What runs in production', slug: 'architecture' },
