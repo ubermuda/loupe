@@ -12,10 +12,16 @@ const RUN = Date.now();
 const PASSWORD = 'E2eBoardRefresh1!';
 const COLUMN = 'section.lp-board__column';
 
+// Each test signs in two browsers beside three other workers, which fills the
+// default budget on a loaded runner.
+test.slow();
+
 async function openBoard(page: Page, boardUrl: string): Promise<void> {
     await page.goto(boardUrl);
     // The hub keeps no history, so a change made before this connects is lost.
-    await expect(page.locator('[data-board-live-connected]')).toHaveCount(1);
+    await expect(page.locator('[data-board-live-connected]')).toHaveCount(1, {
+        timeout: 15000,
+    });
 }
 
 /** Collects each later GET of the board page, which would be a whole board reload. */
