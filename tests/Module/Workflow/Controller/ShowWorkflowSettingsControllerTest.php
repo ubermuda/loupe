@@ -43,8 +43,9 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-slot-key="implementation"] [data-slot-column]', 'In progress');
         self::assertSelectorTextContains('[data-rule-id="product-design-approved"]', 'Move the card to Tech design');
         self::assertSelectorTextContains('[data-rule-id="implement"]', 'implement');
-        self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.board"]', 'Board: card.type');
-        self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.forge"]', 'Forge: pr.linked');
+        self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.board"]', 'Board: not card.type (type: epic)');
+        self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.forge"]', 'Forge: not pr.linked');
+        self::assertSelectorTextContains('[data-rule-id="merged"] [data-condition-source="workflow.source.board"]', 'Board: not card.in_slot (slot: @terminal), card.children_finished');
         self::assertSelectorNotExists('[data-rule-missing]');
         self::assertSelectorExists('[data-manual-move]');
         self::assertSelectorTextContains('[data-workflow-timings]', '10, 60, 360');
