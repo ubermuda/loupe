@@ -22,6 +22,7 @@ use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
@@ -44,12 +45,16 @@ use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Command\EvaluateWorkflowCardHandler;
+use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
 use App\Module\Workflow\Event\CardPaused;
 use App\Module\Workflow\EventListener\BaselineCardsOnCardHoldsReleased;
+use App\Module\Workflow\Messenger\EvaluateCard;
+use App\Module\Workflow\Messenger\EvaluateCardHandler;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -57,19 +62,26 @@ use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Module\Workflow\Service\FactFingerprint;
+use App\Module\Workflow\Service\FactProviders;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\ProjectTemplateCopy;
 use App\Module\Workflow\Template\TemplateParser;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Workflow\Action\ActionScenario;
+use App\Tests\Module\Workflow\Fact\ProvidedFacts;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsReady;
+use App\Tests\Module\Workflow\Fact\UnprovidedFactsReady;
 use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Psr\Log\LogLevel;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
@@ -83,6 +95,8 @@ final class EngineTest extends KernelTestCase
     private const array ALWAYS = ['all' => []];
 
     private const array NOT_EPIC = ['not' => ['card.type' => ['type' => 'epic']]];
+
+    private const array PROVIDED_READY = [ProvidedFactsReady::KEY => []];
 
     /** @var list<CardPaused> */
     private array $paused = [];
@@ -816,6 +830,304 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $card->column->slug);
     }
 
+    public function test_a_card_evaluations_call_evaluates_the_card_and_its_provided_fact_fires_the_rule(): void
+    {
+        $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+        $transport->reset();
+
+        $this->service(CardEvaluations::class)->forCards([$card->id ?? throw new \LogicException('A flushed card has an id.')]);
+
+        $handler = new EvaluateCardHandler(new EvaluateWorkflowCardHandler($this->service(Engine::class), new MockClock(self::NOON)));
+        $evaluations = 0;
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof EvaluateCard && $message->cardId === $card->id->toRfc4122()) {
+                $handler($message);
+                ++$evaluations;
+            }
+        }
+
+        self::assertSame(1, $evaluations);
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame('provided', $live[0]->ruleId);
+    }
+
+    public function test_a_refused_rule_fires_again_at_once_when_its_provided_facts_change(): void
+    {
+        $card = $this->boundCard([self::moveRule('stuck', 'three', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+
+        $this->evaluate($card);
+        self::assertSame([1, '2026-10-02 12:10:00'], [$this->ruleState($card, 'stuck')->attempts, $this->ruleState($card, 'stuck')->dueAt?->format('Y-m-d H:i:s')]);
+
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        self::assertSame(1, $this->ruleState($card, 'stuck')->attempts);
+
+        $this->provider()->facts = new ProvidedFacts(ready: true, version: 2);
+        $this->evaluate($card, '2026-10-02 12:06:00');
+
+        self::assertSame(2, $this->ruleState($card, 'stuck')->attempts);
+    }
+
+    public function test_a_failing_source_skips_the_rule_that_reads_it_logs_one_error_and_runs_the_later_rules(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('provided', self::PROVIDED_READY),
+            self::requestRule('built-in', self::NOT_EPIC),
+        ]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+
+        $this->evaluate($card);
+
+        self::assertSame(['built-in'], $this->firedRules());
+        self::assertNull($this->ruleStateOrNull($card, 'provided'));
+        $errors = $this->errors();
+        self::assertCount(1, $errors);
+        self::assertSame('workflow.fact_source_failed', $errors[0]['message']);
+        self::assertSame($this->provider()->failure, $errors[0]['context']['exception'] ?? null);
+    }
+
+    public function test_a_facts_class_that_no_provider_gives_skips_the_rule_that_reads_it_and_logs_one_error(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('unprovided', [UnprovidedFactsReady::KEY => []]),
+            self::requestRule('negated', ['not' => [UnprovidedFactsReady::KEY => []]]),
+            self::requestRule('work', self::ALWAYS),
+        ]);
+
+        $this->evaluate($card);
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertNull($this->ruleStateOrNull($card, 'unprovided'));
+        self::assertNull($this->ruleStateOrNull($card, 'negated'));
+        $errors = $this->errors();
+        self::assertCount(1, $errors);
+        self::assertSame('workflow.fact_provider_missing', $errors[0]['message']);
+        self::assertSame(\stdClass::class, $errors[0]['context']['factsClass'] ?? null);
+    }
+
+    public function test_a_failing_source_logs_once_when_a_withdrawal_rebuilds_the_facts(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+
+        $this->moveTo($card, 'in-progress');
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(WorkRequestState::Cancelled, $request->state);
+        self::assertCount(1, $this->errors());
+    }
+
+    public function test_a_source_that_fails_only_when_a_withdrawal_rebuilds_the_facts_logs_one_error(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+
+        $this->moveTo($card, 'in-progress');
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->provider()->buildsBeforeFailure = $this->provider()->builds + 1;
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(WorkRequestState::Cancelled, $request->state);
+        $errors = $this->errors();
+        self::assertCount(1, $errors);
+        self::assertSame('workflow.fact_source_failed', $errors[0]['message']);
+    }
+
+    public function test_a_missing_provider_in_a_rule_of_another_slot_logs_nothing(): void
+    {
+        $card = $this->boundCard([
+            ['id' => 'elsewhere', 'slot' => 'two', 'when' => [UnprovidedFactsReady::KEY => []], 'then' => ['request' => ['kind' => 'elsewhere']]],
+            self::requestRule('work', self::ALWAYS),
+        ]);
+
+        $this->evaluate($card);
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertSame([], $this->errors());
+    }
+
+    public function test_a_rule_that_the_baseline_cannot_read_fires_once_when_its_source_is_back_and_it_is_true(): void
+    {
+        $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->hold($card);
+        $this->releaseHold($card);
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->evaluate($card);
+        self::assertNull($this->ruleStateOrNull($card, 'provided'));
+
+        $this->provider()->failure = null;
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        $this->evaluate($card, '2026-10-02 12:10:00');
+
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame('provided', $live[0]->ruleId);
+        self::assertSame(1, $this->ruleState($card, 'provided')->fires);
+    }
+
+    public function test_a_pause_rule_whose_until_names_a_removed_condition_does_not_pause_the_card(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => self::ALWAYS,
+            'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['not' => ['card.gone' => []]]]],
+        ], self::requestRule('work', self::ALWAYS)]);
+
+        $this->evaluate($card);
+
+        self::assertNull($this->activePause($card));
+        self::assertNull($this->ruleStateOrNull($card, 'hold'));
+        self::assertSame(['work'], $this->firedRules());
+    }
+
+    public function test_a_pause_rule_with_an_unreadable_until_keeps_its_falling_edge(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => self::NOT_EPIC,
+            'then' => ['pause' => ['reason' => 'on-hold', 'until' => self::PROVIDED_READY]],
+        ]]);
+        $this->provider()->facts = new ProvidedFacts(ready: false);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        self::assertSame('until-met', $pause->releaseReason);
+
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->setType($card, CardType::Epic);
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        self::assertFalse($this->ruleState($card, 'hold')->truth);
+
+        $this->provider()->failure = null;
+        $this->provider()->facts = new ProvidedFacts(ready: false);
+        $this->setType($card, CardType::Feature);
+        $this->evaluate($card, '2026-10-02 12:15:00');
+        self::assertNotNull($this->activePause($card));
+    }
+
+    public function test_a_source_that_is_off_makes_its_rule_wait_with_no_error(): void
+    {
+        $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->provider()->on = false;
+
+        $this->evaluate($card);
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertNull($this->ruleStateOrNull($card, 'provided'));
+        self::assertSame([], $this->errors());
+
+        $this->provider()->on = true;
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(['provided'], $this->firedRules());
+    }
+
+    public function test_a_rule_pause_whose_until_is_unreadable_stays(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => self::ALWAYS,
+            'then' => ['pause' => ['reason' => 'on-hold', 'until' => self::PROVIDED_READY]],
+        ]]);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        self::assertNull($pause->releasedAt);
+
+        $this->provider()->failure = null;
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        self::assertSame('until-met', $pause->releaseReason);
+    }
+
+    public function test_a_retries_pause_whose_rule_is_unreadable_stays(): void
+    {
+        $card = $this->boundCard([self::moveRule('stuck', 'three', self::PROVIDED_READY)], backoffMinutes: []);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+
+        $this->provider()->facts = new ProvidedFacts(ready: true, version: 2);
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+        $this->evaluate($card, '2026-10-02 13:00:00');
+        self::assertNull($pause->releasedAt);
+
+        $this->provider()->failure = null;
+        $this->evaluate($card, '2026-10-02 13:01:00');
+        self::assertSame('facts-changed', $pause->releaseReason);
+    }
+
+    public function test_the_release_baseline_writes_no_state_for_a_rule_that_cannot_read_its_facts(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('provided', self::PROVIDED_READY),
+            self::requestRule('work', self::ALWAYS),
+        ]);
+        $this->hold($card);
+        $this->releaseHold($card);
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+
+        $this->evaluate($card);
+
+        self::assertTrue($this->ruleState($card, 'work')->truth);
+        self::assertNull($this->ruleStateOrNull($card, 'provided'));
+        self::assertSame([], $this->liveRequests($card));
+    }
+
+    public function test_the_release_baseline_writes_no_state_for_a_true_pause_rule_whose_until_cannot_be_read(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => self::ALWAYS,
+            'then' => ['pause' => ['reason' => 'on-hold', 'until' => self::PROVIDED_READY]],
+        ]]);
+        $this->hold($card);
+        $this->releaseHold($card);
+        $this->provider()->failure = new \RuntimeException('The source is down.');
+
+        $this->evaluate($card);
+
+        self::assertNull($this->ruleStateOrNull($card, 'hold'));
+        self::assertNull($this->activePause($card));
+    }
+
+    public function test_a_stored_copy_with_a_condition_this_instance_lacks_runs_every_other_rule(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('gone', ['card.gone' => ['any' => 'value']]),
+            self::requestRule('negated-gone', ['not' => ['card.gone' => []]]),
+            self::requestRule('work', self::ALWAYS),
+        ]);
+
+        $this->evaluate($card);
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertNull($this->ruleStateOrNull($card, 'gone'));
+        self::assertNull($this->ruleStateOrNull($card, 'negated-gone'));
+        self::assertSame([], $this->errors());
+    }
+
     /**
      * Binds a template whose slot "one" is the column "next", "two" is "in-progress" and "three" has no column.
      *
@@ -891,6 +1203,22 @@ final class EngineTest extends KernelTestCase
         return $rules;
     }
 
+    /** @return list<array<string, mixed>> */
+    private function errors(): array
+    {
+        return array_values(array_filter($this->logger->records, static fn (array $record): bool => LogLevel::ERROR === $record['level']));
+    }
+
+    private function provider(): ProvidedFactsProvider
+    {
+        return $this->service(ProvidedFactsProvider::class);
+    }
+
+    private function providers(): FactProviders
+    {
+        return new FactProviders([$this->provider()]);
+    }
+
     private function evaluate(Card $card, string $at = self::NOON): void
     {
         $this->engine()->evaluate($card->id ?? throw new \LogicException('A flushed card has an id.'), new \DateTimeImmutable($at));
@@ -924,6 +1252,8 @@ final class EngineTest extends KernelTestCase
                 new CardPullRequests($this->service(CardPullRequestRepository::class), $forgePullRequests),
                 $forgePullRequests,
                 $workRequests,
+                $this->providers(),
+                $this->em()->getConnection(),
             ),
             new FactFingerprint(),
             $this->service(WorkflowRuleStateRepository::class),
@@ -978,7 +1308,7 @@ final class EngineTest extends KernelTestCase
         $events = new EventDispatcher();
         $events->addListener(CardHoldsReleased::class, new BaselineCardsOnCardHoldsReleased(
             $this->service(WorkflowPendingBaselineRepository::class),
-            new EvaluationTrigger($this->service(MessageBusInterface::class)),
+            new EvaluationTrigger($this->service(MessageBusInterface::class), $this->service(BoardAvailability::class)),
         ));
         $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), new MockClock(self::NOON), $events);
 

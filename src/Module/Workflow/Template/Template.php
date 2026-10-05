@@ -6,7 +6,7 @@ namespace App\Module\Workflow\Template;
 
 use App\Module\Workflow\Condition\CardDocumentApproved;
 use App\Module\Workflow\Condition\CardDocumentChangesRequested;
-use App\Module\Workflow\Condition\ParameterValue;
+use App\Module\Workflow\Contract\ParameterValue;
 
 final readonly class Template
 {

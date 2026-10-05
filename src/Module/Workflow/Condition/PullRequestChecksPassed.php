@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
-use App\Module\Workflow\Fact\ChecksState;
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
 final readonly class PullRequestChecksPassed implements Condition
@@ -15,6 +16,12 @@ final readonly class PullRequestChecksPassed implements Condition
     public static function key(): string
     {
         return 'pr.checks_passed';
+    }
+
+    #[\Override]
+    public static function source(): string
+    {
+        return 'workflow.source.forge';
     }
 
     #[\Override]

@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Condition;
+namespace App\Module\Workflow\Contract;
 
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Translation\TranslatableMessage;
 
@@ -15,13 +13,16 @@ interface Condition
 {
     public static function key(): string;
 
+    /** The translation key of the module whose data the condition reads. */
+    public static function source(): string;
+
     /** @return list<Parameter> */
     public static function parameters(): array;
 
     /**
      * @param array<string, mixed> $params
      *
-     * @return list<FactKey>
+     * @return list<FactKey|class-string> a FactKey for a built-in fact group, a facts class for the facts of a provider
      */
     public function reads(array $params): array;
 

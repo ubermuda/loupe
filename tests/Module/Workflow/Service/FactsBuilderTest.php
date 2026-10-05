@@ -27,14 +27,19 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
-use App\Module\Workflow\Fact\ChecksState;
-use App\Module\Workflow\Fact\DocumentFacts;
-use App\Module\Workflow\Fact\Facts;
-use App\Module\Workflow\Fact\PullRequestFacts;
-use App\Module\Workflow\Fact\PullRequestState;
+use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestFacts;
+use App\Module\Workflow\Contract\PullRequestState;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Service\CardPullRequests;
+use App\Module\Workflow\Service\FactProviders;
 use App\Module\Workflow\Service\FactsBuilder;
+use App\Tests\Module\Workflow\Fact\ProvidedFacts;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -50,6 +55,115 @@ final class FactsBuilderTest extends KernelTestCase
 
     /** @var array<string, Tag> */
     private array $tags = [];
+
+    private ProvidedFactsProvider $provider;
+
+    #[\Override]
+    protected function setUp(): void
+    {
+        $this->provider = new ProvidedFactsProvider();
+    }
+
+    public function test_a_provider_that_is_on_gives_its_facts_beside_the_built_in_ones(): void
+    {
+        self::bootKernel();
+        $this->provider->facts = new ProvidedFacts(ready: true);
+
+        $facts = $this->facts($this->card($this->workflowProject('facts-provided'), 'next'));
+
+        self::assertSame($this->provider->facts, $facts->get(ProvidedFacts::class));
+        self::assertNull($facts->unreadable(ProvidedFacts::class));
+        self::assertSame([ProvidedFacts::class => [true, 1]], $facts->fingerprints);
+    }
+
+    public function test_a_provider_that_is_off_gives_an_off_source_and_is_not_built(): void
+    {
+        self::bootKernel();
+        $this->provider->on = false;
+        $this->provider->failure = new \RuntimeException('A provider that is off is never built.');
+
+        $unreadable = $this->facts($this->card($this->workflowProject('facts-off'), 'next'))->unreadable(ProvidedFacts::class);
+
+        self::assertEquals(new Unreadable(UnreadableKind::Off, 'workflow.source.board'), $unreadable);
+    }
+
+    public function test_a_provider_that_throws_gives_a_failed_source_with_its_cause(): void
+    {
+        self::bootKernel();
+        $failure = new \RuntimeException('The source is down.');
+        $this->provider->failure = $failure;
+
+        $facts = $this->facts($this->card($this->workflowProject('facts-failed'), 'next'));
+
+        self::assertEquals(new Unreadable(UnreadableKind::Failed, 'workflow.source.board', $failure), $facts->unreadable(ProvidedFacts::class));
+        self::assertFalse($facts->card->hasOpenBlocker);
+        $this->expectException(\LogicException::class);
+        $facts->get(ProvidedFacts::class);
+    }
+
+    public function test_a_provider_whose_source_throws_gives_a_failed_source_named_by_its_class(): void
+    {
+        self::bootKernel();
+        $failure = new \RuntimeException('The label is gone.');
+        $this->provider->sourceFailure = $failure;
+
+        $unreadable = $this->facts($this->card($this->workflowProject('facts-source-failed'), 'next'))->unreadable(ProvidedFacts::class);
+
+        self::assertEquals(new Unreadable(UnreadableKind::Failed, ProvidedFactsProvider::class, $failure), $unreadable);
+    }
+
+    public function test_a_provider_whose_fingerprint_throws_gives_a_failed_source(): void
+    {
+        self::bootKernel();
+        $failure = new \RuntimeException('The fingerprint is broken.');
+        $this->provider->fingerprintFailure = $failure;
+
+        $unreadable = $this->facts($this->card($this->workflowProject('facts-fingerprint-failed'), 'next'))->unreadable(ProvidedFacts::class);
+
+        self::assertEquals(new Unreadable(UnreadableKind::Failed, 'workflow.source.board', $failure), $unreadable);
+    }
+
+    public function test_a_database_error_in_a_provider_leaves_the_transaction_of_the_caller_usable(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('facts-database-failed'), 'next');
+        $connection = $this->em()->getConnection();
+        $this->provider->onBuild = static fn () => $connection->executeQuery('SELECT * FROM no_such_table');
+
+        $connection->beginTransaction();
+        $facts = $this->facts($card);
+
+        self::assertSame(UnreadableKind::Failed, $facts->unreadable(ProvidedFacts::class)?->kind);
+        self::assertSame(1, $connection->fetchOne('SELECT 1'));
+        $connection->rollBack();
+    }
+
+    public function test_a_provider_that_swallows_its_own_database_error_gives_a_failed_source_and_leaves_the_transaction_usable(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('facts-database-swallowed'), 'next');
+        $connection = $this->em()->getConnection();
+        $this->provider->onBuild = static function () use ($connection): void {
+            try {
+                $connection->executeQuery('SELECT * FROM no_such_table');
+            } catch (\Throwable) {
+            }
+        };
+
+        $connection->beginTransaction();
+        $facts = $this->facts($card);
+
+        self::assertSame(UnreadableKind::Failed, $facts->unreadable(ProvidedFacts::class)?->kind);
+        self::assertSame(1, $connection->fetchOne('SELECT 1'));
+        $connection->rollBack();
+    }
+
+    public function test_two_providers_for_one_facts_class_are_refused(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        new FactProviders([new ProvidedFactsProvider(), new ProvidedFactsProvider()]);
+    }
 
     public function test_the_slot_is_the_flag_of_the_column_or_the_slot_linked_to_it(): void
     {
@@ -399,6 +513,8 @@ final class FactsBuilderTest extends KernelTestCase
             $this->cardPullRequests(),
             $this->service(ForgePullRequestRepository::class),
             $this->service(WorkRequestRepository::class),
+            new FactProviders([$this->provider]),
+            $this->em()->getConnection(),
         );
     }
 

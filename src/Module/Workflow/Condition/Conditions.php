@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
+use App\Module\Workflow\Contract\Condition;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 final readonly class Conditions

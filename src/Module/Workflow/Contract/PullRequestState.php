@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Fact;
+namespace App\Module\Workflow\Contract;
 
 enum PullRequestState: string
 {
