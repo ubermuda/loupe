@@ -61,4 +61,10 @@ final readonly class ConditionLeaf extends Expression
     {
         return [$this];
     }
+
+    #[\Override]
+    public function missingKeys(): array
+    {
+        return [];
+    }
 }

@@ -61,4 +61,10 @@ final readonly class AnyOf extends Expression
     {
         return array_merge(...array_map(static fn (Expression $child): array => $child->leaves(), $this->children));
     }
+
+    #[\Override]
+    public function missingKeys(): array
+    {
+        return array_merge(...array_map(static fn (Expression $child): array => $child->missingKeys(), $this->children));
+    }
 }

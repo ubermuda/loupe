@@ -34,6 +34,9 @@ abstract readonly class Expression
     /** @return list<ConditionLeaf> every leaf, in template order */
     abstract public function leaves(): array;
 
+    /** @return list<string> the key of every condition this instance no longer has, in template order */
+    abstract public function missingKeys(): array;
+
     /**
      * @param list<Expression> $children
      *

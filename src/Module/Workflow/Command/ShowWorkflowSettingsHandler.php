@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
+use App\Module\Workflow\Expression\AllOf;
+use App\Module\Workflow\Expression\AnyOf;
+use App\Module\Workflow\Expression\ConditionLeaf;
+use App\Module\Workflow\Expression\Expression;
+use App\Module\Workflow\Expression\MissingConditionLeaf;
+use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Template\ActionType;
@@ -57,6 +63,8 @@ final readonly class ShowWorkflowSettingsHandler
     {
         $params = $rule->then->params;
         $type = $rule->then->type;
+        $expressions = array_values(array_filter([$rule->when, $rule->then->until]));
+        $missing = array_merge(...array_map(static fn (Expression $expression): array => $expression->missingKeys(), $expressions));
 
         return new WorkflowRuleView(
             id: $rule->id,
@@ -74,7 +82,52 @@ final readonly class ShowWorkflowSettingsHandler
                 ActionType::ForgeWrite => (string) $params['write'],
                 default => null,
             },
+            whenGroups: self::groups($rule->when),
+            untilGroups: null === $rule->then->until ? [] : self::groups($rule->then->until),
+            missingConditions: array_values(array_unique($missing)),
         );
+    }
+
+    /** @return list<WorkflowConditionGroupView> */
+    private static function groups(Expression $expression): array
+    {
+        $groups = [];
+        foreach (self::conditions($expression, false) as [$leaf, $negated]) {
+            $condition = new WorkflowConditionView($leaf->condition::key(), $negated, self::params($leaf->params));
+            $groups[$leaf->condition::source()][serialize($condition)] = $condition;
+        }
+
+        return array_map(
+            static fn (string $source, array $conditions): WorkflowConditionGroupView => new WorkflowConditionGroupView($source, array_values($conditions)),
+            array_keys($groups),
+            array_values($groups),
+        );
+    }
+
+    /**
+     * A missing condition yields nothing here, because missingKeys() lists it.
+     *
+     * @return list<array{ConditionLeaf, bool}> each leaf with whether a `not` above it negates it, in template order
+     */
+    private static function conditions(Expression $expression, bool $negated): array
+    {
+        return match (true) {
+            $expression instanceof ConditionLeaf => [[$expression, $negated]],
+            $expression instanceof Not => self::conditions($expression->inner, !$negated),
+            $expression instanceof AllOf, $expression instanceof AnyOf => array_merge(...array_map(static fn (Expression $child): array => self::conditions($child, $negated), $expression->children)),
+            $expression instanceof MissingConditionLeaf => [],
+            default => throw new \LogicException(\sprintf('The settings page cannot list a %s.', $expression::class)),
+        };
+    }
+
+    /** @param array<string, mixed> $params */
+    private static function params(array $params): string
+    {
+        return implode(', ', array_map(
+            static fn (string $name, mixed $value): string => $name.': '.(\is_string($value) ? $value : json_encode($value, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)),
+            array_keys($params),
+            array_values($params),
+        ));
     }
 
     /** @param string $place a slot key, '@backlog', '@terminal' or '*' */
