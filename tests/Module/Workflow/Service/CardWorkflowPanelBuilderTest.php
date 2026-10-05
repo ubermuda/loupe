@@ -233,6 +233,20 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame('Move the card to Implementation', $progress->nextAction);
     }
 
+    public function test_a_pause_rule_whose_when_is_false_shows_the_when_leaf_even_when_its_until_cannot_be_read(): void
+    {
+        $card = $this->card('tech-design');
+        $this->define([
+            ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['card.document_approved' => ['tag' => 'design']], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
+        ]);
+        $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
+
+        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertSame('Waiting: no design document is approved.', $progress->waiting);
+        self::assertSame('Pause the card', $progress->nextAction);
+    }
+
     /** @param list<array<string, mixed>> $rules */
     private function define(array $rules): void
     {

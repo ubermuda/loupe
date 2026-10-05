@@ -116,7 +116,11 @@ final readonly class CardWorkflowPanelBuilder
         $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
         $waiting = null;
         if (null !== $blocking) {
-            $unreadable = $blocking->when->unreadable($facts) ?? $blocking->then->until?->unreadable($facts);
+            $unreadable = $blocking->when->unreadable($facts);
+            // The engine reads the until of a pause only once its when is true.
+            if (null === $unreadable && $blocking->when->evaluate($facts)) {
+                $unreadable = $blocking->then->until?->unreadable($facts);
+            }
             $waiting = null === $unreadable
                 ? $blocking->when->firstFalseLeaf($facts)?->waitingFor()->trans($this->translator)
                 : $this->unreadableReason($unreadable);
