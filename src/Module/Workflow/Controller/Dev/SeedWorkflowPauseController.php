@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -31,6 +32,9 @@ final class SeedWorkflowPauseController extends AppController
 {
     public function __construct(
         private readonly PauseCardHandler $pauseCard,
+
+        #[Autowire('%kernel.environment%')]
+        private readonly string $environment,
     ) {
     }
 
@@ -38,6 +42,10 @@ final class SeedWorkflowPauseController extends AppController
         #[MapEntity(id: 'projectId')] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
     ): JsonResponse {
+        if (!\in_array($this->environment, ['dev', 'test'], true)) {
+            throw $this->createNotFoundException();
+        }
+
         $pause = ($this->pauseCard)(new PauseCardCommand($card, 'move-refused', 'tech-design-write', CardPauseKind::Retries))
             ?? throw new \LogicException('The card was already paused.');
 
