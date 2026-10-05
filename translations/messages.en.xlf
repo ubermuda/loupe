@@ -2562,6 +2562,10 @@
                 <source>project.connect.tool.card_release</source>
                 <target>Manage an unmanaged card again. The queued runs on the card then start.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.card_pause_release">
+                <source>project.connect.tool.card_pause_release</source>
+                <target>Lift the workflow pause of a card, so the paused rule runs again with a fresh budget. card_release lifts a hold of card_hold instead.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.bridge_command_cancel">
                 <source>project.connect.tool.bridge_command_cancel</source>
                 <target>Withdraw the resume or stop command that waits on a worker run, before its bridge reads it.</target>
