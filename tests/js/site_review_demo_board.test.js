@@ -9,8 +9,8 @@ import {
 
 /**
  * The landing page runs the widget over itself with `data-demo` and no token,
- * against an in-memory transport that never reaches a server. So `board.enabled`
- * cannot reach it, and the demo carries a board of its own.
+ * against an in-memory transport that never reaches a server. So the demo
+ * carries a board of its own.
  *
  * Before that board existed, every /api/board/ path fell through to the comment
  * store: the picker listed nothing, and creating a card pushed a comment and

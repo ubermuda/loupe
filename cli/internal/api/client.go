@@ -388,9 +388,6 @@ var ErrProjectNotFound = errors.New("project not found")
 // caller's projects.
 var ErrProjectAmbiguous = errors.New("project handle is ambiguous")
 
-// ErrBoardDisabled is returned when the instance has the board switched off.
-var ErrBoardDisabled = errors.New("the board is disabled on this instance")
-
 // ErrEndpointMissing is returned for a 404 that carries no error code, which
 // is the answer of a server that predates the endpoint.
 var ErrEndpointMissing = errors.New("the server has no columns endpoint")
@@ -405,8 +402,6 @@ func notFound(body io.Reader) error {
 	switch payload.Error {
 	case "project_not_found":
 		return ErrProjectNotFound
-	case "board_disabled":
-		return ErrBoardDisabled
 	default:
 		return ErrEndpointMissing
 	}

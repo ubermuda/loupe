@@ -436,7 +436,7 @@ func TestCheckRefusesWhatTheServerDoesNotHave(t *testing.T) {
 }
 
 // Each refusal the server can give at start gets its own message, so the
-// operator knows whether to fix the file, the instance, or the server version.
+// operator knows whether to fix the file or the server version.
 func TestCheckNamesEachRefusal(t *testing.T) {
 	for name, tc := range map[string]struct {
 		status int
@@ -445,7 +445,6 @@ func TestCheckNamesEachRefusal(t *testing.T) {
 		not    string
 	}{
 		"unknown project": {http.StatusNotFound, `{"error":"project_not_found"}`, "no project of yours has this slug", "too old"},
-		"board disabled":  {http.StatusNotFound, `{"error":"board_disabled"}`, "the board is switched off on this Loupe instance", "no project"},
 		"server too old":  {http.StatusNotFound, `<!DOCTYPE html><title>Not Found</title>`, "the server is too old for this bridge version", "no project"},
 		"ambiguous":       {http.StatusConflict, `{"error":"ambiguous_project"}`, "names more than one of your projects", "too old"},
 	} {
