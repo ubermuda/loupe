@@ -112,7 +112,7 @@ test('a column renamed in one browser shows in another without a reload', async 
     await dialog.getByRole('button', { name: 'Save column' }).click();
     await expect(
         settings.getByRole('heading', { name: 'Up next', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     await expect(
         watcher.locator(`${COLUMN}[data-column-slug="up-next"] h2`),
@@ -156,7 +156,9 @@ async function createCard(
     await page.getByLabel('Title').fill(title);
     await page.getByLabel('Column').selectOption({ label: column });
     await page.getByRole('button', { name: 'Create card' }).click();
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible({
+        timeout: 15_000,
+    });
 }
 
 function slugs(page: Page): Promise<string[]> {

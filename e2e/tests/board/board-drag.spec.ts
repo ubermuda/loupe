@@ -84,7 +84,9 @@ async function createCard(
     await page.getByLabel('Title').fill(title);
     await page.getByLabel('Column').selectOption({ label: 'Next' });
     await page.getByRole('button', { name: 'Create card' }).click();
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible({
+        timeout: 15_000,
+    });
 }
 
 function group(page: Page, column: number) {

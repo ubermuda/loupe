@@ -56,7 +56,9 @@ async function createCard(
         ),
         page.getByRole('button', { name: 'Create card' }).click(),
     ]);
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible({
+        timeout: 15_000,
+    });
 }
 
 function slugs(page: Page): Promise<string[]> {

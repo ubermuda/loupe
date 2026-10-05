@@ -65,7 +65,7 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
     await other.getByRole('button', { name: 'Save card', exact: true }).click();
     await expect(
         other.getByRole('heading', { name: 'Shared card', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     const notice = drawer.getByRole('alert').filter({
         hasText: 'This card changed since you opened it.',

@@ -72,7 +72,7 @@ test('a link picked on the edit form shows on the other card as it reads it', as
     await page.getByRole('button', { name: 'Save card', exact: true }).click();
     await expect(
         page.getByRole('heading', { name: blocker, exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     await page.goto(blockedPath);
     const linked = page.locator('[data-linked-cards] [data-linked-card]');

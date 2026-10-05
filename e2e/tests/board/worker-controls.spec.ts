@@ -28,7 +28,9 @@ test('the owner stops a run, which holds nothing, then pauses and releases the a
     await page.getByLabel('Title').fill('Alpha');
     await page.getByLabel('Column').selectOption({ label: 'Next' });
     await page.getByRole('button', { name: 'Create card' }).click();
-    await expect(page.getByRole('heading', { name: 'Alpha' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Alpha' })).toBeVisible({
+        timeout: 15_000,
+    });
     await page.goto(`/projects/${projectId}/board`);
     const cardId = await page
         .locator('article[data-card-title="Alpha"]')

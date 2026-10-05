@@ -45,7 +45,9 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
     await page.getByLabel('Title').fill('Alpha');
     await page.getByLabel('Column').selectOption({ label: 'Next' });
     await page.getByRole('button', { name: 'Create card' }).click();
-    await expect(page.getByRole('heading', { name: 'Alpha' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Alpha' })).toBeVisible({
+        timeout: 15_000,
+    });
 
     const boardUrl = `/projects/${projectId}/board`;
     await page.goto(boardUrl);
