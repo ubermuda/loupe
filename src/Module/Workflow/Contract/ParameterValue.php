@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Condition;
+namespace App\Module\Workflow\Contract;
 
 /** Reads a typed parameter value. The template parser checks the types, so a wrong type here is a bug. */
 final class ParameterValue

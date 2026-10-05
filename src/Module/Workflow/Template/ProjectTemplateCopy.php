@@ -23,6 +23,6 @@ final readonly class ProjectTemplateCopy implements TemplateSource
     {
         $binding = $this->workflowBindings->findOneByProjectId($projectId) ?? throw new TemplateMissing($projectId);
 
-        return $this->parser->parse($binding->definition);
+        return $this->parser->parseStored($binding->definition);
     }
 }

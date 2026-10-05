@@ -8,6 +8,7 @@ use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Command\ReleaseCardPauseCommand;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardPauseRepository;
@@ -21,6 +22,9 @@ use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Event\CardPaused;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
@@ -117,7 +121,8 @@ final readonly class Engine
             return null;
         }
 
-        $run = new Evaluation($card, $template, $this->factsBuilder->build($card, $now), $this->workflowRuleStates->findForCard($card), $now);
+        $run = new Evaluation($card, $template, $this->facts($card, $now), $this->workflowRuleStates->findForCard($card), $now);
+        $this->logMissingProviders($run);
         if ($baseline) {
             $this->settleWorkRequests($run, $cardId, expire: false);
             // Before the baseline, which replaces the fingerprint a retries pause compares against.
@@ -147,6 +152,9 @@ final readonly class Engine
                 if (null !== $state) {
                     $this->write($run, $state, static fn (WorkflowRuleState $state) => $state->reset());
                 }
+                continue;
+            }
+            if (self::waits($run, $rule)) {
                 continue;
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
@@ -187,7 +195,8 @@ final readonly class Engine
         }
 
         if ($withdrawn) {
-            $run->facts = $this->factsBuilder->build($run->card, $run->now);
+            // The first build of the pass logged its failed sources already.
+            $run->facts = $this->facts($run->card, $run->now, $run->facts);
         }
     }
 
@@ -240,15 +249,18 @@ final readonly class Engine
         return match ($pause->kind) {
             CardPauseKind::Rule => match (true) {
                 null === $rule->then->until => 'rule-removed',
+                null !== $rule->then->until->unreadable($run->facts) => null,
                 $rule->then->until->evaluate($run->facts) => 'until-met',
                 default => null,
             },
             CardPauseKind::WorkLimit => $applies ? null : 'left-slot',
-            CardPauseKind::Retries, CardPauseKind::WorkTimeout => (
-                !$applies
-                || !$rule->when->evaluate($run->facts)
-                || $this->fingerprint->of($run->facts, $rule->when->reads()) !== ($run->states[$rule->id] ?? null)?->fingerprint
-            ) ? 'facts-changed' : null,
+            CardPauseKind::Retries, CardPauseKind::WorkTimeout => match (true) {
+                !$applies => 'facts-changed',
+                null !== $rule->when->unreadable($run->facts) => null,
+                !$rule->when->evaluate($run->facts),
+                $this->fingerprint->of($run->facts, $rule->when->reads()) !== ($run->states[$rule->id] ?? null)?->fingerprint => 'facts-changed',
+                default => null,
+            },
         };
     }
 
@@ -261,6 +273,10 @@ final readonly class Engine
                 if (null !== $state) {
                     $this->write($run, $state, static fn (WorkflowRuleState $state) => $state->reset());
                 }
+                continue;
+            }
+            // Before state(), which persists a new state: a rule that waits writes none.
+            if (self::waits($run, $rule)) {
                 continue;
             }
 
@@ -345,6 +361,53 @@ final readonly class Engine
 
                 return false;
         }
+    }
+
+    /** Logs each source that failed, unless it had already failed in the previous build of this evaluation. A source that is off is not an error. */
+    private function facts(Card $card, \DateTimeImmutable $now, ?Facts $previous = null): Facts
+    {
+        $facts = $this->factsBuilder->build($card, $now);
+        foreach ($facts->provided as $class => $provided) {
+            if ($provided instanceof Unreadable && UnreadableKind::Failed === $provided->kind
+                && UnreadableKind::Failed !== $previous?->unreadable($class)?->kind) {
+                $this->logger->error('workflow.fact_source_failed', [
+                    'cardId' => $card->id?->toRfc4122(),
+                    'source' => $provided->source,
+                    'exception' => $provided->cause,
+                ]);
+            }
+        }
+
+        return $facts;
+    }
+
+    /** Logs once per evaluation each facts class that a rule of the card reads and no provider gives. */
+    private function logMissingProviders(Evaluation $run): void
+    {
+        $missing = [];
+        foreach ($run->template->rules as $rule) {
+            if (!$run->applies($rule)) {
+                continue;
+            }
+            foreach ([...$rule->when->reads(), ...($rule->then->until?->reads() ?? [])] as $key) {
+                if (\is_string($key) && !\array_key_exists($key, $run->facts->provided)) {
+                    $missing[$key] = true;
+                }
+            }
+        }
+        foreach (array_keys($missing) as $class) {
+            $this->logger->error('workflow.fact_provider_missing', ['cardId' => $run->card->id?->toRfc4122(), 'factsClass' => $class]);
+        }
+    }
+
+    /**
+     * A rule waits when it cannot read its facts. A pause whose until cannot be read could never release,
+     * so its rule waits while it is true. A false one still records its edge.
+     */
+    private static function waits(Evaluation $run, Rule $rule): bool
+    {
+        return null !== $rule->when->unreadable($run->facts)
+            || (null !== $rule->then->until?->unreadable($run->facts) && $rule->when->evaluate($run->facts));
     }
 
     private function state(Evaluation $run, Rule $rule): WorkflowRuleState

@@ -12,7 +12,7 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Action\WorkRequestOpener;
-use App\Module\Workflow\Fact\ChecksState;
+use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;

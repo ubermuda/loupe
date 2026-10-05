@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
 /** True for a card with no child, so that a rule for any card can require it. */
@@ -15,6 +16,12 @@ final readonly class CardChildrenFinished implements Condition
     public static function key(): string
     {
         return 'card.children_finished';
+    }
+
+    #[\Override]
+    public static function source(): string
+    {
+        return 'workflow.source.board';
     }
 
     #[\Override]

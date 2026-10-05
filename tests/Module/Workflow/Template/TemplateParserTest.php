@@ -14,6 +14,7 @@ use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Condition\RunWorkActive;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
+use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\InvalidTemplate;
@@ -360,6 +361,39 @@ final class TemplateParserTest extends TestCase
             self::assertSame([$message], $e->errors);
             self::assertStringContainsString($message, $e->getMessage());
         }
+    }
+
+    /** @param \Closure(array<string, mixed>): array<string, mixed> $mutate */
+    #[DataProvider('refusals')]
+    public function test_a_stored_copy_refuses_every_error_but_an_unknown_condition(\Closure $mutate, string $message): void
+    {
+        if (str_contains($message, 'unknown condition')) {
+            self::assertCount(\count(self::valid()['rules']), $this->parser->parseStored($mutate(self::valid()))->rules);
+
+            return;
+        }
+        try {
+            $this->parser->parseStored($mutate(self::valid()));
+            self::fail('The parser must refuse the template.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame([$message], $e->errors);
+        }
+    }
+
+    public function test_a_stored_copy_keeps_an_unknown_condition_as_a_missing_condition_leaf(): void
+    {
+        $template = self::valid();
+        $template['rules'][2]['when'] = ['not' => ['pr.foo' => ['min' => 1]]];
+        $template['rules'][1]['when']['any'][0] = ['pr.bar' => 'not a map'];
+
+        $rules = $this->parser->parseStored($template)->rules;
+
+        $not = $rules[2]->when;
+        self::assertInstanceOf(Not::class, $not);
+        self::assertEquals(new MissingConditionLeaf('pr.foo', ['min' => 1]), $not->inner);
+        $any = $rules[1]->when;
+        self::assertInstanceOf(AnyOf::class, $any);
+        self::assertEquals(new MissingConditionLeaf('pr.bar', 'not a map'), $any->children[0]);
     }
 
     public function test_it_reports_every_error_at_once(): void

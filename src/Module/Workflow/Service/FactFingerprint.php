@@ -4,20 +4,25 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Workflow\Fact\DocumentFacts;
-use App\Module\Workflow\Fact\FactKey;
-use App\Module\Workflow\Fact\Facts;
-use App\Module\Workflow\Fact\PullRequestFacts;
+use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestFacts;
 
 /** A hash of the fact groups that a rule reads, so a change elsewhere leaves it as it was. The time never counts. */
 final readonly class FactFingerprint
 {
-    /** @param list<FactKey> $keys */
+    /** @param list<FactKey|class-string> $keys */
     public function of(Facts $facts, array $keys): string
     {
         $groups = [];
         foreach ($keys as $key) {
-            $groups[$key->value] = $this->group($facts, $key);
+            if ($key instanceof FactKey) {
+                $groups[$key->value] = $this->group($facts, $key);
+                continue;
+            }
+            // The prefix keeps a facts class apart from a FactKey value, and leaves the stored fingerprints as they were.
+            $groups['class:'.$key] = $facts->fingerprints[$key] ?? null;
         }
         ksort($groups);
 
