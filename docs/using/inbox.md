@@ -148,7 +148,8 @@ behind it finishes. Such an item takes no response from you.
 ## Review requests
 
 Open the linked document or pull request before choosing **Approve** or **Request changes**.
-Request changes requires a note that explains what to change.
+In a document review, Request changes needs a note only when the version has no open comment.
+A pull request review always needs a note that explains what to change.
 Select **Submit review** in the inbox, or on the card that links the request.
 
 A document submission records the same verdict as the document review page.

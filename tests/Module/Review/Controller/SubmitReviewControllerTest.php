@@ -57,7 +57,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         self::assertResponseRedirects($url);
     }
 
-    public function test_requesting_changes_requires_a_note_and_preserves_the_verdict(): void
+    public function test_requesting_changes_with_no_note_and_no_open_comment_is_refused_and_preserves_the_verdict(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -70,7 +70,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         ]));
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('dialog .lp-field-errors li', 'Explain the changes you request in a review note.');
+        self::assertSelectorTextContains('dialog .lp-field-errors li', 'Write a review note, or leave a comment on the passage to change.');
         self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="changes-requested"]:checked');
         self::assertSelectorExists('[data-modal-reopen-value="true"]');
 

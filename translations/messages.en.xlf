@@ -1359,6 +1359,10 @@
                 <source>review.document.flash.note_required</source>
                 <target>Explain the changes you request in a review note.</target>
             </trans-unit>
+            <trans-unit id="review.document.flash.note_or_comment_required">
+                <source>review.document.flash.note_or_comment_required</source>
+                <target>Write a review note, or leave a comment on the passage to change.</target>
+            </trans-unit>
             <trans-unit id="review.document.finish.title">
                 <source>review.document.finish.title</source>
                 <target>Finish review</target>
@@ -1401,7 +1405,7 @@
             </trans-unit>
             <trans-unit id="review.form.submit_review_form.note.help">
                 <source>review.form.submit_review_form.note.help</source>
-                <target>A note is required when you request changes.</target>
+                <target>Optional when the document has an open comment. Otherwise say what to change.</target>
             </trans-unit>
             <trans-unit id="review.document.verdict.request_changes">
                 <source>review.document.verdict.request_changes</source>
