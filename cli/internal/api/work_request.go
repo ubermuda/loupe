@@ -41,6 +41,20 @@ type WorkRequest struct {
 	// ResumeSessionID is the session of an unfinished run of the card and
 	// kind, which the run of this request resumes. A null decodes as "".
 	ResumeSessionID string `json:"resumeSessionId,omitempty"`
+	// Context is what the card held when the request opened.
+	Context WorkRequestContext `json:"context"`
+}
+
+// WorkRequestContext is the pull request a work request acts on and why, and
+// the document it revises, as the card held them when the request opened. An
+// older server sends no context, and an unknown value is null. Both decode as
+// 0 or "".
+type WorkRequestContext struct {
+	PullRequestNumber int    `json:"pullRequestNumber"`
+	PullRequestURL    string `json:"pullRequestUrl"`
+	HeadSHA           string `json:"headSha"`
+	Reason            string `json:"reason"`
+	DocumentID        string `json:"documentId"`
 }
 
 // WorkRequestSubject names the work request itself.

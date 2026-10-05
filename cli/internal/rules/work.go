@@ -25,7 +25,10 @@ const (
 )
 
 // workPlaceholders are the names a work entry can fill.
-var workPlaceholders = []string{"cardId", "cardNumber", "projectId", "project", "kind", "ruleId", "workRequestId"}
+var workPlaceholders = []string{
+	"cardId", "cardNumber", "projectId", "project", "kind", "ruleId", "workRequestId",
+	"pullRequestNumber", "pullRequestUrl", "headSha", "reason", "documentId",
+}
 
 // WorkEntry runs one kind of work request. Action is empty for a worker,
 // ActionInteractive or ActionCommand, as for a rule.
@@ -182,16 +185,27 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 	return m
 }
 
-// workValues are the values a work entry fills its placeholders with.
+// workValues are the values a work entry fills its placeholders with. A
+// context value the request lacks fills as empty.
 func workValues(w api.WorkRequest, slug string) map[string]string {
+	pullRequestNumber := ""
+	if w.Context.PullRequestNumber > 0 {
+		pullRequestNumber = strconv.Itoa(w.Context.PullRequestNumber)
+	}
+
 	return map[string]string{
-		"cardId":        w.CardID,
-		"cardNumber":    strconv.Itoa(w.CardNumber),
-		"projectId":     w.ProjectID,
-		"project":       slug,
-		"kind":          w.Kind,
-		"ruleId":        w.RuleID,
-		"workRequestId": w.WorkRequestID,
+		"cardId":            w.CardID,
+		"cardNumber":        strconv.Itoa(w.CardNumber),
+		"projectId":         w.ProjectID,
+		"project":           slug,
+		"kind":              w.Kind,
+		"ruleId":            w.RuleID,
+		"workRequestId":     w.WorkRequestID,
+		"pullRequestNumber": pullRequestNumber,
+		"pullRequestUrl":    w.Context.PullRequestURL,
+		"headSha":           w.Context.HeadSHA,
+		"reason":            w.Context.Reason,
+		"documentId":        w.Context.DocumentID,
 	}
 }
 

@@ -318,3 +318,81 @@ func checkLoupe(t *testing.T, s *Set) {
 		t.Fatal(err)
 	}
 }
+
+const contextFile = `
+projects:
+  loupe:
+    dir: {dir}
+work:
+  fix:
+    prompt: Fix pull request {pullRequestNumber} at {pullRequestUrl} on {headSha} for {reason}.
+    before:
+      run: [prep, '{cardNumber}', '{cardId}', '{pullRequestNumber}']
+  revise:
+    prompt: Revise document {documentId}.
+  sync:
+    action: command
+    run: [sync, '{pullRequestNumber}', '{headSha}', '{reason}', '{documentId}', '{pullRequestUrl}']
+`
+
+func TestMatchWorkFillsTheContext(t *testing.T) {
+	s := checked(t, contextFile)
+	w := workRequest("fix")
+	w.Context = api.WorkRequestContext{
+		PullRequestNumber: 42, PullRequestURL: "https://github.com/acme/widgets/pull/42", HeadSHA: "abc1234",
+		Reason: "checks-failed", DocumentID: "01a10beb-ba65-736b-8626-a6e3fa59dfc5",
+	}
+
+	m := s.MatchWork(w)
+	want := directive.Render("Fix pull request 42 at https://github.com/acme/widgets/pull/42 on abc1234 for checks-failed.", nil)
+	if m.Skip != Run || m.Prompt != want {
+		t.Fatalf("prompt = %q, want %q", m.Prompt, want)
+	}
+	if m.Before == nil || !slices.Equal(m.Before.Argv, []string{"prep", "87", cardID, "42"}) {
+		t.Fatalf("before = %+v", m.Before)
+	}
+
+	w.Kind = "revise"
+	if m := s.MatchWork(w); m.Prompt != directive.Render("Revise document 01a10beb-ba65-736b-8626-a6e3fa59dfc5.", nil) {
+		t.Fatalf("prompt = %q", m.Prompt)
+	}
+
+	w.Kind = "sync"
+	m = s.MatchWork(w)
+	if m.Command == nil || !slices.Equal(m.Command.Argv, []string{
+		"sync", "42", "abc1234", "checks-failed", "01a10beb-ba65-736b-8626-a6e3fa59dfc5", "https://github.com/acme/widgets/pull/42",
+	}) {
+		t.Fatalf("command = %+v", m.Command)
+	}
+}
+
+// A request with no context, as an older server sends it, fills each context
+// placeholder as empty, so bridge-before.sh reads no pull request.
+func TestMatchWorkFillsAnAbsentContextAsEmpty(t *testing.T) {
+	s := checked(t, contextFile)
+
+	m := s.MatchWork(workRequest("fix"))
+	if m.Skip != Run || m.Prompt != directive.Render("Fix pull request  at  on  for .", nil) {
+		t.Fatalf("prompt = %q", m.Prompt)
+	}
+	if m.Before == nil || !slices.Equal(m.Before.Argv, []string{"prep", "87", cardID, ""}) {
+		t.Fatalf("before = %+v", m.Before)
+	}
+
+	w := workRequest("sync")
+	m = s.MatchWork(w)
+	if m.Command == nil || !slices.Equal(m.Command.Argv, []string{"sync", "", "", "", "", ""}) {
+		t.Fatalf("command = %+v", m.Command)
+	}
+}
+
+// A person's rerun carries no work request context, so a command that reads
+// one would run with empty values where the first run had real ones.
+func TestWorkGapsNamesTheContextPlaceholdersARerunLacks(t *testing.T) {
+	s := checked(t, contextFile)
+
+	gaps := s.WorkGaps(workRequest("sync"))
+	if !slices.Equal(gaps, []string{"pullRequestNumber", "headSha", "reason", "documentId", "pullRequestUrl"}) {
+		t.Fatalf("gaps = %v", gaps)
+	}
+}

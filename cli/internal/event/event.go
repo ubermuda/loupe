@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -63,6 +65,17 @@ var KindPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 // ruleIDPattern is the shape of the id of the server rule that opened a work
 // request.
 var ruleIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,99}$`)
+
+// The shapes of the context values of a work request, as the server checks
+// them. A bridge fills prompts and commands with these values.
+var (
+	pullRequestURLPattern = regexp.MustCompile(`^https://[A-Za-z0-9._~:/?#\[\]@!$&()*+,;=%-]+$`)
+	headSHAPattern        = regexp.MustCompile(`^[0-9a-f]{7,64}$`)
+	reasonPattern         = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+)
+
+// maxPullRequestURL is the longest pull request URL the server sends.
+const maxPullRequestURL = 2000
 
 // The actors the server names. Reviewer is someone using the site-review
 // widget, whom the app cannot authenticate. System is the app acting on a
@@ -305,12 +318,41 @@ func CheckWorkRequest(w *api.WorkRequest) error {
 	if w.ResumeSessionID != "" && !uuidPattern.MatchString(w.ResumeSessionID) {
 		return errors.New("work request has a resumeSessionId that is not a uuid")
 	}
+	if err := checkWorkContext(w.Context); err != nil {
+		return fmt.Errorf("work request %s: %w", w.WorkRequestID, err)
+	}
 
 	w.ProjectID = strings.ToLower(w.ProjectID)
 	w.WorkRequestID = strings.ToLower(w.WorkRequestID)
 	w.Subject.ID = strings.ToLower(w.Subject.ID)
 	w.CardID = strings.ToLower(w.CardID)
 	w.ResumeSessionID = strings.ToLower(w.ResumeSessionID)
+	w.Context.DocumentID = strings.ToLower(w.Context.DocumentID)
+
+	return nil
+}
+
+// checkWorkContext checks each value the context holds. An empty value is
+// one the server did not send.
+func checkWorkContext(c api.WorkRequestContext) error {
+	if c.PullRequestNumber < 0 || c.PullRequestNumber > math.MaxInt32 {
+		return fmt.Errorf("the context has an invalid pullRequestNumber %d", c.PullRequestNumber)
+	}
+	if c.PullRequestURL != "" {
+		u, err := url.Parse(c.PullRequestURL)
+		if len(c.PullRequestURL) > maxPullRequestURL || !pullRequestURLPattern.MatchString(c.PullRequestURL) || err != nil || u.Host == "" {
+			return errors.New("the context has a pullRequestUrl that is not an https URL")
+		}
+	}
+	if c.HeadSHA != "" && !headSHAPattern.MatchString(c.HeadSHA) {
+		return fmt.Errorf("the context has an invalid headSha %q", c.HeadSHA)
+	}
+	if c.Reason != "" && !reasonPattern.MatchString(c.Reason) {
+		return fmt.Errorf("the context has an invalid reason %q", c.Reason)
+	}
+	if c.DocumentID != "" && !uuidPattern.MatchString(c.DocumentID) {
+		return errors.New("the context has a documentId that is not a uuid")
+	}
 
 	return nil
 }

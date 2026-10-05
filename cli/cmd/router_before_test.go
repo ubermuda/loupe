@@ -352,6 +352,30 @@ func TestAResumeRunsTheBeforeCommandAgain(t *testing.T) {
 	}
 }
 
+// The before command of a resume reads the pull request of the request, as
+// bridge-before.sh takes it, while the worker resumes with its own prompt.
+func TestAResumeFillsTheBeforeCommandWithTheContext(t *testing.T) {
+	text := strings.NewReplacer("TIMEOUT", "1m", "[prepare, '{cardNumber}']", "[prepare, '{cardNumber}', '{pullRequestNumber}', '{headSha}']").Replace(beforeRules)
+	h := newHarnessWith(t, text, rules.Defaults{})
+	f := &fakeBefore{result: procResult{dir: t.TempDir()}}
+	h.router.worker.before = f.run
+	h.router.findTranscript = func(string) error { return nil }
+	w := workRequest(1, 87, "plan", api.WorkRequestOpen)
+	w.ResumeSessionID = testSession
+	w.Context = api.WorkRequestContext{PullRequestNumber: 42, HeadSHA: "abc1234"}
+	offered.Store(w.WorkRequestID, w)
+
+	h.send(workPayload(w))
+
+	specs := f.recorded()
+	if len(specs) != 1 || !slices.Equal(specs[0].argv, []string{"prepare", "87", "42", "abc1234"}) {
+		t.Fatalf("before = %+v", specs)
+	}
+	if calls := h.worker.recorded(); len(calls) != 1 || !calls[0].resume {
+		t.Fatalf("worker = %+v", calls)
+	}
+}
+
 // A before command that ends while a handover pauses the router keeps its run
 // for the next image. A resume of the router starts claude then.
 func TestABeforeThatEndsInAHandoverPauseWaitsForIt(t *testing.T) {
