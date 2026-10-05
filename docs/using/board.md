@@ -475,6 +475,11 @@ The panel also shows the slot of the card, the condition that the card waits
 for and the next action. It also shows the last refusal, with its reason, its
 time and the number of attempts. An unmanaged card shows none of these.
 
+A rule can fail to read its facts. Then the condition line gives the reason:
+the workflow could not read the source, the source is off on this instance, or
+the condition no longer exists. The rule waits, and the workflow tries it again
+at the next evaluation.
+
 An unmanaged card is a different control from the pause of a bridge. **Pause
 new work** on the Agents page stops one bridge from starting any queued run,
 on every card. See [Bridge health](worker-runs.md#bridge-health).
