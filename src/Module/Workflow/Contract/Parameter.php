@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Condition;
+namespace App\Module\Workflow\Contract;
 
 final readonly class Parameter
 {

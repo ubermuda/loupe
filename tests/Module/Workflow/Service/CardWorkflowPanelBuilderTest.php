@@ -17,12 +17,18 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
+use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\CardWorkflowPanelBuilder;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\TemplateSource;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
+use App\Tests\Module\Workflow\Fact\ProvidedFactsReady;
+use App\Tests\Module\Workflow\Fact\UnprovidedFactsReady;
 use App\Tests\Module\Workflow\WorkflowProjects;
+use App\Tests\Support\RecordingLogger;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -142,7 +148,141 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertNull($panel->progress);
     }
 
-    private function builder(?TemplateSource $templates = null): CardWorkflowPanelBuilder
+    public function test_a_rule_that_cannot_read_its_facts_blocks_with_its_reason_and_logs_nothing(): void
+    {
+        $card = $this->card('tech-design');
+        $binding = $this->service(WorkflowBindingRepository::class)->findOneByProjectId($this->project->id ?? throw new \LogicException('A flushed project has an id.'));
+        self::assertNotNull($binding);
+        $binding->definition = [
+            'key' => 'test',
+            'version' => 1,
+            'slots' => [['key' => 'tech-design', 'label' => 'workflow.slot.tech_design'], ['key' => 'implementation', 'label' => 'workflow.slot.implementation']],
+            'manualMoves' => [],
+            'backoffMinutes' => [10],
+            'workTimeoutMinutes' => 120,
+            'rules' => [
+                ['id' => 'missing', 'slot' => 'tech-design', 'when' => ['card.gone' => []], 'then' => ['request' => ['kind' => 'gone']]],
+                ['id' => 'unprovided', 'slot' => 'tech-design', 'when' => [UnprovidedFactsReady::KEY => []], 'then' => ['request' => ['kind' => 'unprovided']]],
+                ['id' => 'provided', 'slot' => 'tech-design', 'when' => [ProvidedFactsReady::KEY => []], 'then' => ['move' => ['to' => 'implementation']]],
+                ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['all' => []], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
+            ],
+        ];
+        $this->em()->flush();
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'hold', CardPauseKind::Rule));
+        $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
+        $logger = new RecordingLogger();
+
+        $panel = $this->builder(logger: $logger)->build($card);
+
+        $progress = $panel->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+        self::assertSame('Tech design', $progress->slot);
+        self::assertSame('Waiting: could not read Board.', $progress->waiting);
+        self::assertSame('Move the card to Implementation', $progress->nextAction);
+        self::assertSame('The workflow ends the pause when it next evaluates the card.', $panel->pause?->release);
+        self::assertSame([], $logger->records);
+    }
+
+    public function test_a_pause_rule_whose_until_cannot_be_read_blocks(): void
+    {
+        $card = $this->card('tech-design');
+        $binding = $this->service(WorkflowBindingRepository::class)->findOneByProjectId($this->project->id ?? throw new \LogicException('A flushed project has an id.'));
+        self::assertNotNull($binding);
+        $binding->definition = [
+            'key' => 'test',
+            'version' => 1,
+            'slots' => [['key' => 'tech-design', 'label' => 'workflow.slot.tech_design']],
+            'manualMoves' => [],
+            'backoffMinutes' => [10],
+            'workTimeoutMinutes' => 120,
+            'rules' => [
+                ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['all' => []], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
+            ],
+        ];
+        $this->em()->flush();
+        $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
+
+        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertSame('Waiting: could not read Board.', $progress->waiting);
+        self::assertSame('Pause the card', $progress->nextAction);
+    }
+
+    public function test_a_rule_whose_source_is_off_waits_for_the_source(): void
+    {
+        $card = $this->card('tech-design');
+        $this->define([
+            ['id' => 'provided', 'slot' => 'tech-design', 'when' => [ProvidedFactsReady::KEY => []], 'then' => ['move' => ['to' => 'implementation']]],
+        ]);
+        $this->service(ProvidedFactsProvider::class)->on = false;
+        $logger = new RecordingLogger();
+
+        $progress = $this->builder(logger: $logger)->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertSame('Waiting: Board is off on this instance.', $progress->waiting);
+        self::assertSame('Move the card to Implementation', $progress->nextAction);
+        self::assertSame([], $logger->records);
+    }
+
+    public function test_a_rule_whose_condition_no_longer_exists_names_the_condition(): void
+    {
+        $card = $this->card('tech-design');
+        $this->define([
+            ['id' => 'missing', 'slot' => 'tech-design', 'when' => ['all' => [['card.gone' => []]]], 'then' => ['move' => ['to' => 'implementation']]],
+        ]);
+
+        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertSame('Waiting: the condition card.gone no longer exists.', $progress->waiting);
+        self::assertSame('Move the card to Implementation', $progress->nextAction);
+    }
+
+    public function test_a_built_in_rule_beside_an_unreadable_rule_shows_its_own_waiting_sentence(): void
+    {
+        $card = $this->card('tech-design');
+        $this->define([
+            ['id' => 'provided', 'slot' => 'tech-design', 'when' => [ProvidedFactsReady::KEY => []], 'then' => ['request' => ['kind' => 'provided']]],
+            ['id' => 'approved', 'slot' => 'tech-design', 'when' => ['card.document_approved' => ['tag' => 'design']], 'then' => ['move' => ['to' => 'implementation']]],
+        ]);
+        $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
+
+        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertSame('Waiting: no design document is approved.', $progress->waiting);
+        self::assertSame('Move the card to Implementation', $progress->nextAction);
+    }
+
+    public function test_a_pause_rule_whose_when_is_false_shows_the_when_leaf_even_when_its_until_cannot_be_read(): void
+    {
+        $card = $this->card('tech-design');
+        $this->define([
+            ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['card.document_approved' => ['tag' => 'design']], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
+        ]);
+        $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
+
+        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertSame('Waiting: no design document is approved.', $progress->waiting);
+        self::assertSame('Pause the card', $progress->nextAction);
+    }
+
+    /** @param list<array<string, mixed>> $rules */
+    private function define(array $rules): void
+    {
+        $binding = $this->service(WorkflowBindingRepository::class)->findOneByProjectId($this->project->id ?? throw new \LogicException('A flushed project has an id.'));
+        self::assertNotNull($binding);
+        $binding->definition = [
+            'key' => 'test',
+            'version' => 1,
+            'slots' => [['key' => 'tech-design', 'label' => 'workflow.slot.tech_design'], ['key' => 'implementation', 'label' => 'workflow.slot.implementation']],
+            'manualMoves' => [],
+            'backoffMinutes' => [10],
+            'workTimeoutMinutes' => 120,
+            'rules' => $rules,
+        ];
+        $this->em()->flush();
+    }
+
+    private function builder(?TemplateSource $templates = null, LoggerInterface $logger = new NullLogger()): CardWorkflowPanelBuilder
     {
         return new CardWorkflowPanelBuilder(
             $this->service(WorkflowAutomation::class),
@@ -153,7 +293,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             $this->service(WorkflowRuleStateRepository::class),
             $this->service(TranslatorInterface::class),
             new MockClock('2026-10-02 12:00'),
-            new NullLogger(),
+            $logger,
         );
     }
 

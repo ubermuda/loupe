@@ -16,21 +16,28 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState as ForgePullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
-use App\Module\Workflow\Fact\CardFacts;
-use App\Module\Workflow\Fact\ChecksState;
-use App\Module\Workflow\Fact\DocumentFacts;
-use App\Module\Workflow\Fact\Facts;
-use App\Module\Workflow\Fact\PullRequestFacts;
-use App\Module\Workflow\Fact\PullRequestState;
-use App\Module\Workflow\Fact\RunFacts;
+use App\Module\Workflow\Contract\CardFacts;
+use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\FactProvider;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestFacts;
+use App\Module\Workflow\Contract\PullRequestState;
+use App\Module\Workflow\Contract\RunFacts;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
+use Doctrine\DBAL\Connection;
+use Symfony\Component\Uid\Uuid;
 
-/** Reads what the engine knows about one card, from Board, Forge and Bridge. */
+/** Reads what the engine knows about one card, from Board, Forge, Bridge and every fact provider. It logs nothing. */
 final readonly class FactsBuilder
 {
     public const string BACKLOG_SLOT = '@backlog';
 
     public const string TERMINAL_SLOT = '@terminal';
+
+    private const string SAVEPOINT = 'workflow_fact_provider';
 
     public function __construct(
         private WorkflowSlotLinkRepository $workflowSlotLinks,
@@ -39,6 +46,8 @@ final readonly class FactsBuilder
         private CardPullRequests $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
         private WorkRequestRepository $workRequests,
+        private FactProviders $providers,
+        private Connection $connection,
     ) {
     }
 
@@ -60,6 +69,8 @@ final readonly class FactsBuilder
         $pullRequestFacts = array_map(fn (ForgePullRequest $pullRequest): PullRequestFacts => $this->pullRequestFacts($pullRequest, $epicBranches), $pullRequests);
         $primaryIndex = array_search($this->cardPullRequests->primary($pullRequests), $pullRequests, true);
         $settled = $this->workRequests->findLatestSettledForCard($cardId);
+
+        $provided = array_map(fn (FactProvider $provider): array => $this->provided($provider, $cardId), $this->providers->byClass);
 
         return new Facts(
             now: $now,
@@ -84,7 +95,47 @@ final readonly class FactsBuilder
                 ))),
                 lastRefusalCode: WorkRequestState::Refused === $settled?->state ? $settled->reason : null,
             ),
+            provided: array_map(static fn (array $result): object => $result[0], $provided),
+            fingerprints: array_map(static fn (array $result): mixed => $result[1], array_filter($provided, static fn (array $result): bool => !$result[0] instanceof Unreadable)),
         );
+    }
+
+    /**
+     * The facts of the provider and their fingerprint. A savepoint isolates the queries of the provider, so a database error leaves the transaction of the caller usable.
+     *
+     * @return array{object, mixed}
+     */
+    private function provided(FactProvider $provider, Uuid $cardId): array
+    {
+        $source = $provider::class;
+        $savepoint = $this->connection->isTransactionActive() ? self::SAVEPOINT : null;
+        if (null !== $savepoint) {
+            $this->connection->createSavepoint($savepoint);
+        }
+        try {
+            $source = $provider->source();
+            $class = $provider->factsClass();
+            $facts = $provider->isOn() ? $provider->build($cardId) : new Unreadable(UnreadableKind::Off, $source);
+            $fingerprint = null;
+            if (!$facts instanceof Unreadable) {
+                if (!$facts instanceof $class) {
+                    throw new \LogicException(\sprintf('The fact provider %s built a %s, not a %s.', $provider::class, $facts::class, $class));
+                }
+                $fingerprint = $provider->fingerprint($facts);
+                json_encode($fingerprint, \JSON_THROW_ON_ERROR);
+            }
+            if (null !== $savepoint) {
+                $this->connection->releaseSavepoint($savepoint);
+            }
+
+            return [$facts, $fingerprint];
+        } catch (\Throwable $e) {
+            if (null !== $savepoint) {
+                $this->connection->rollbackSavepoint($savepoint);
+            }
+
+            return [new Unreadable(UnreadableKind::Failed, $source, $e), null];
+        }
     }
 
     /** The slot key of a column, or null for a column no slot links. */

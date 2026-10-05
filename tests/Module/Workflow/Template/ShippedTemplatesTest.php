@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
-use App\Module\Workflow\Fact\ChecksState;
-use App\Module\Workflow\Fact\DocumentFacts;
-use App\Module\Workflow\Fact\Facts;
-use App\Module\Workflow\Fact\PullRequestState;
+use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\ShippedTemplates;

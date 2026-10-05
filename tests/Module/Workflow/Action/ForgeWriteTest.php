@@ -22,7 +22,7 @@ use App\Module\Forge\Service\PullRequestWriteFailed;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ForgeWrite;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;

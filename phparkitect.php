@@ -53,8 +53,15 @@ return static function (Config $config): void {
     $config->add($src,
         Rule::allClasses()
             ->that(new ResideInOneOfTheseNamespaces('App\Module\Board', 'App\Module\Bridge', 'App\Module\Forge', 'App\Module\GitHub'))
-            ->should(new NotDependsOnTheseNamespaces(['App\Module\Workflow']))
-            ->because('Workflow depends on Board, Bridge, Forge and GitHub to read facts and act on cards, so an import back closes a cycle. Board reaches the engine through a port it declares, and Workflow implements that port'),
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Workflow'], ['App\Module\Workflow\Contract']))
+            ->because('Workflow depends on Board, Bridge, Forge and GitHub to read facts and act on cards, so an import back closes a cycle. A module plugs its facts and conditions into the engine through Workflow\Contract, which imports nothing back. Board reaches the engine through a port it declares, and Workflow implements that port'),
+    );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Workflow\Contract'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module'], ['App\Module\Workflow\Contract']))
+            ->because('Workflow\Contract is a leaf: every module may import it, so it imports no module and no import of it can close a cycle'),
     );
 
     $config->add($src,

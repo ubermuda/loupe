@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Workflow\Scheduler;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Service\BoardAvailability;
 use App\Module\Workflow\Command\EvaluateDueWorkflowCardsHandler;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Messenger\EvaluateCard;
@@ -62,7 +63,7 @@ final class EvaluateDueCardsTaskTest extends KernelTestCase
     {
         return new EvaluateDueCardsTask(new EvaluateDueWorkflowCardsHandler(
             $this->service(WorkflowRuleStateRepository::class),
-            new EvaluationTrigger($this->service(MessageBusInterface::class)),
+            new EvaluationTrigger($this->service(MessageBusInterface::class), $this->service(BoardAvailability::class)),
             new MockClock('2026-10-02 12:00:00'),
         ));
     }

@@ -12,7 +12,7 @@ final class ConditionCatalogueTest extends KernelTestCase
 {
     public function test_the_container_registers_exactly_the_catalogue(): void
     {
-        $keys = static::getContainer()->get(Conditions::class)->keys();
+        $keys = self::catalogueKeys(static::getContainer()->get(Conditions::class));
         sort($keys);
 
         self::assertSame([
@@ -50,11 +50,32 @@ final class ConditionCatalogueTest extends KernelTestCase
         self::assertInstanceOf(TranslatorBagInterface::class, $translator);
         $catalogue = $translator->getCatalogue('en');
 
-        foreach ($conditions->keys() as $key) {
+        foreach (self::catalogueKeys($conditions) as $key) {
             $suffix = str_replace('.', '_', $key);
             foreach (['workflow.waiting.'.$suffix, 'workflow.waiting.not.'.$suffix] as $message) {
                 self::assertTrue($catalogue->defines($message), \sprintf('"%s" has no English string.', $message));
             }
         }
+    }
+
+    public function test_each_condition_names_the_module_whose_data_it_reads(): void
+    {
+        $conditions = static::getContainer()->get(Conditions::class);
+        $translator = static::getContainer()->get('translator');
+        self::assertInstanceOf(TranslatorBagInterface::class, $translator);
+        $catalogue = $translator->getCatalogue('en');
+        $sources = ['card' => 'workflow.source.board', 'pr' => 'workflow.source.forge', 'run' => 'workflow.source.bridge'];
+
+        foreach (self::catalogueKeys($conditions) as $key) {
+            $source = $conditions->get($key)::source();
+            self::assertSame($sources[explode('.', $key)[0]], $source, $key);
+            self::assertTrue($catalogue->defines($source), \sprintf('"%s" has no English string.', $source));
+        }
+    }
+
+    /** @return list<string> the keys of the shipped conditions, without the ones the test container adds */
+    private static function catalogueKeys(Conditions $conditions): array
+    {
+        return array_values(array_filter($conditions->keys(), static fn (string $key): bool => !str_starts_with($key, 'test.')));
     }
 }

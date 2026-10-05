@@ -10,7 +10,9 @@ use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Workflow\Action\ActionParams;
-use App\Module\Workflow\Fact\Facts;
+use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
@@ -93,7 +95,7 @@ final readonly class CardWorkflowPanelBuilder
     private function ruleRelease(?Template $template, ?Facts $facts, string $ruleId): string
     {
         $until = null === $template ? null : self::rule($template, $ruleId)?->then->until;
-        if (null === $until || null === $facts) {
+        if (null === $until || null === $facts || null !== $until->unreadable($facts)) {
             return $this->translator->trans('workflow.panel.release.next_evaluation');
         }
 
@@ -107,15 +109,38 @@ final readonly class CardWorkflowPanelBuilder
     private function progress(Card $card, Template $template, Facts $facts): CardWorkflowProgress
     {
         $rules = $template->rulesFor($facts->card->slot);
-        $falseRules = array_values(array_filter($rules, static fn (Rule $rule): bool => !$rule->when->evaluate($facts)));
+        $falseRules = array_values(array_filter(
+            $rules,
+            static fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$rule->when->evaluate($facts),
+        ));
         $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
+        $waiting = null;
+        if (null !== $blocking) {
+            $unreadable = $blocking->when->unreadable($facts);
+            // The engine reads the until of a pause only once its when is true.
+            if (null === $unreadable && $blocking->when->evaluate($facts)) {
+                $unreadable = $blocking->then->until?->unreadable($facts);
+            }
+            $waiting = null === $unreadable
+                ? $blocking->when->firstFalseLeaf($facts)?->waitingFor()->trans($this->translator)
+                : $this->unreadableReason($unreadable);
+        }
 
         return new CardWorkflowProgress(
             $this->slotLabel($template, $facts->card->slot),
-            $blocking?->when->firstFalseLeaf($facts)?->waitingFor()->trans($this->translator),
+            $waiting,
             null === $blocking ? null : $this->nextAction($template, $blocking),
             $this->lastRefusal($card),
         );
+    }
+
+    private function unreadableReason(Unreadable $unreadable): string
+    {
+        return match ($unreadable->kind) {
+            UnreadableKind::Failed => $this->translator->trans('workflow.panel.unreadable.failed', ['%source%' => $this->translator->trans($unreadable->source)]),
+            UnreadableKind::Off => $this->translator->trans('workflow.panel.unreadable.off', ['%source%' => $this->translator->trans($unreadable->source)]),
+            UnreadableKind::MissingCondition => $this->translator->trans('workflow.panel.unreadable.missing_condition', ['%condition%' => $unreadable->source]),
+        };
     }
 
     private function nextAction(Template $template, Rule $rule): string

@@ -34,6 +34,10 @@ The **Workflow** page of the project shows the template of the board, its slots
 and the column each slot links to, and its rules. The page is read-only. A later
 release adds a way to change the template.
 
+The page lists the conditions of each rule. It groups them by the module whose
+data they read: Board, Forge or Bridge. A rule whose condition no longer exists
+on this instance gets an amber tag that names the condition.
+
 ## Slots and columns
 
 A slot links to a column by the column's id. A rename of the column keeps the
