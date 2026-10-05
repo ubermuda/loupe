@@ -66,7 +66,7 @@ Write a Light design when the product document has no Priorities section, or whe
 
 ## Deploy notes
 
-The deploy notes tell the person who deploys what production needs for the change. They are a separate Loupe document. Write them when the feature adds or changes one of these deploy items:
+The deploy notes tell the person who deploys what production needs for the change. They are a separate Loupe document. Write them when the feature adds, changes or removes one of these deploy items:
 
 1. An environment variable, with its value or the source of its value.
 2. A migration, with its risk: a long lock, a backfill or a step that cannot be reversed.
@@ -78,7 +78,7 @@ The deploy notes tell the person who deploys what production needs for the chang
 Write the notes as follows:
 
 1. Read the profile `Instruction files` for the deploy items of the project. Add them to the list above. A profile that names none uses the list above alone, and never blocks the stage.
-2. List each deploy item that the feature adds or changes, and what the deploy must do for it.
+2. List each deploy item that the feature adds, changes or removes, and what the deploy must do for it.
 3. Search `document_list` for the title `Deploy notes: <card title>`, as the contract "Find a linked document" says. Revise a single match with `document_revise`, and create no second document.
 4. When no match exists, call `document_create` with the title `Deploy notes: <card title>`. Set `references` to the tech design id.
 5. Use the tag `deploy-notes` only, or the spelling `tag_list` already has for it. Never add `design`, `product` or `decisions`, because workflow rules match those tags and can move the card.
