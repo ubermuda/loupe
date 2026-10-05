@@ -97,8 +97,13 @@ same page covers the two work request endpoints. The firewall refuses a token th
 The handle is a project id or a project slug. A project name does not resolve.
 The bridge reads the columns by the slug in `rules.yaml`.
 
-A prompt holds validated identifiers and slugs only, and the bridge adds a fixed
-line that tells the agent to treat the card as data.
+A prompt holds validated identifiers, slugs and pull request values only, and
+the bridge adds a fixed line that tells the agent to treat the card as data. A
+work request also carries the context of its card: the number, the link and the
+head commit of its pull request, the reason for a fix, and the document that a
+revision works on. The bridge checks the shape of each value before it fills a
+prompt or a command with it. [The work map](../../cli/README.md#the-work-map)
+lists the placeholders.
 
 The bridge is a supervisor. `maxWorkers` in `rules.yaml` bounds the workers
 that run at once, three by default, and requests past the bound wait in a

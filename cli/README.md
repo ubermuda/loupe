@@ -652,6 +652,19 @@ An interactive prompt gets none.
 | `{kind}` | the kind of the request |
 | `{ruleId}` | the id of the rule that opened the request |
 | `{workRequestId}` | the id of the request |
+| `{pullRequestNumber}` | the number of the primary pull request of the card when the request opened |
+| `{pullRequestUrl}` | the link to that pull request, as the card holds it |
+| `{headSha}` | the head commit of that pull request when the request opened |
+| `{reason}` | why the pull request needs work: `conflict`, `checks-failed` or `changes-requested` |
+| `{documentId}` | the id of the document that a revision works on, from the `document` parameter of the request rule |
+
+The last five come from the context of the request, a snapshot taken when the
+request opened. A push after that leaves `{headSha}` behind. A value the request
+does not hold fills as an empty string. A request from an older server holds
+none. A worker entry that runs `bin/worktrees/bridge-before.sh` can pass
+`{pullRequestNumber}` as its third argument, and an empty value means no pull
+request. A person's rerun of a command entry holds no context, so the bridge
+refuses a rerun whose `run` names one of these placeholders.
 
 A worker entry with `variants` runs an experiment that the kind names. Each
 variant has a `name`, a `weight` and a `model`, and the variants pick the model.

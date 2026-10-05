@@ -134,3 +134,34 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 | `teardown` | The removal of the card's worktree |
 
 Simple asks for `teardown` alone.
+
+## What a request carries
+
+A request for work carries the context of its card, as the card was when the
+request opened. The bridge can fill a prompt or a command with each value.
+
+| Value | What it holds |
+|---|---|
+| Pull request number | the number of the primary pull request of the card |
+| Pull request link | the link to that pull request, as the card holds it |
+| Head commit | the head commit of that pull request. A later push leaves it behind |
+| Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |
+| Document | the id of the document that a revision works on |
+
+A request rule names its document with the optional `document` parameter, a
+map with one key, `tag`:
+
+```yaml
+- id: tech-design-revise
+  slot: tech-design
+  when: { card.document_changes_requested: { tag: design } }
+  then: { request: { kind: tech-design-revise, document: { tag: design } } }
+```
+
+The request then names the one unarchived document of the card that carries the
+tag. No such document refuses the action with `document-not-found`. Two or more
+refuse it with `document-ambiguous`. A refused action retries and pauses as
+[Pauses and retries](#pauses-and-retries) says. In Lifecycle, the product design
+revision names the document with the tag `product`, and the tech design revision
+names the one with the tag `design`. A request rule with no `document`
+parameter names no document.
