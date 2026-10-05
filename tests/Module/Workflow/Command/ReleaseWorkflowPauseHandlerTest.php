@@ -69,7 +69,7 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
 
         $rearmed = $this->em()->find(WorkflowRuleState::class, $state->id);
         self::assertInstanceOf(WorkflowRuleState::class, $rearmed);
-        self::assertSame([false, 0, 0, null], [$rearmed->truth, $rearmed->attempts, $rearmed->fires, $rearmed->dueAt]);
+        self::assertSame([false, 0, 0, null, null, null], [$rearmed->truth, $rearmed->attempts, $rearmed->fires, $rearmed->dueAt, $rearmed->lastRefusal, $rearmed->lastRefusalAt]);
 
         $rows = $this->releasedRows($card);
         self::assertCount(1, $rows);
@@ -186,6 +186,8 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
         $state->attempts = 3;
         $state->fires = 2;
         $state->dueAt = new \DateTimeImmutable('2026-10-02 13:00');
+        $state->lastRefusal = 'move-refused';
+        $state->lastRefusalAt = new \DateTimeImmutable('2026-10-02 12:00');
         $this->em()->persist($state);
         $this->em()->flush();
 
