@@ -605,7 +605,9 @@ on the run. The bridge queues the command as a new run that continues the
 failed run. It refuses the rerun when the work map no longer runs a command of
 the kind of the run, and when the card has a run that is open on this bridge.
 It also refuses a command that reads a value the run lacks, such as the work
-request id of a run from before the work map. A bridge that does not report the
+request id of a run from before the work map. A rerun or a resume carries the
+context of the run's work request, so the command and the `before` command fill
+the pull request and the document that the first run had. A bridge that does not report the
 `rerun-command` capability gets no rerun, and the web UI disables the control.
 [Pause and commands](../../cli/README.md#pause-and-commands) in `cli/README.md`
 gives every field and log event.

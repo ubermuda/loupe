@@ -663,8 +663,9 @@ request opened. A push after that leaves `{headSha}` behind. A value the request
 does not hold fills as an empty string. A request from an older server holds
 none. A worker entry that runs `bin/worktrees/bridge-before.sh` can pass
 `{pullRequestNumber}` as its third argument, and an empty value means no pull
-request. A person's rerun of a command entry holds no context, so the bridge
-refuses a rerun whose `run` names one of these placeholders.
+request. A person's rerun or resume of a run fills them from the context that
+the command carries, which is the context of the run's work request. A command
+from an older server carries none, and the values fill as empty.
 
 A worker entry with `variants` runs an experiment that the kind names. Each
 variant has a `name`, a `weight` and a `model`, and the variants pick the model.
@@ -1107,9 +1108,10 @@ A rerun, of the kind `rerun-command`, names a
 [command run](#the-command-action) that ended as `failed`, `timed-out` or
 `lost`. The bridge queues the command of the run's work entry again, as a new
 run that continues the failed run. The new run fills the command from the run's
-card, project and work request. The bridge refuses the rerun of a command that
-names a value the run lacks, such as the work request id of a run from before
-the work map. Its `queued` report carries `continues` with the run key. The
+card, project and work request, and from the context that the command carries.
+The bridge refuses the rerun of a command that names a value the run lacks, such
+as the work request id of a run from before the work map. An empty context value
+never refuses a rerun, because a card with no pull request is a real state. Its `queued` report carries `continues` with the run key. The
 bridge refuses the rerun when the work map no longer runs a command of the kind
 of the run. It also refuses when the card has a run that is open on this
 bridge, and during a handover or a shutdown. A held card passes, and the rerun

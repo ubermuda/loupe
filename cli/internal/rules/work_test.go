@@ -386,13 +386,17 @@ func TestMatchWorkFillsAnAbsentContextAsEmpty(t *testing.T) {
 	}
 }
 
-// A person's rerun carries no work request context, so a command that reads
-// one would run with empty values where the first run had real ones.
-func TestWorkGapsNamesTheContextPlaceholdersARerunLacks(t *testing.T) {
+// An empty context value is a real state, such as a card with no pull
+// request, so a rerun never lacks one.
+func TestWorkGapsLeavesOutTheContextPlaceholders(t *testing.T) {
 	s := checked(t, contextFile)
 
-	gaps := s.WorkGaps(workRequest("sync"))
-	if !slices.Equal(gaps, []string{"pullRequestNumber", "headSha", "reason", "documentId", "pullRequestUrl"}) {
+	if gaps := s.WorkGaps(workRequest("sync")); gaps != nil {
 		t.Fatalf("gaps = %v", gaps)
+	}
+	w := workRequest("sync")
+	w.WorkRequestID = ""
+	if gaps := s.WorkGaps(w); gaps != nil {
+		t.Fatalf("gaps = %v, want none, because the sync command names no work request", gaps)
 	}
 }

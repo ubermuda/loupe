@@ -54,6 +54,9 @@ type Command struct {
 	RuleID        string         `json:"ruleId"`
 	ExpiresAt     time.Time      `json:"expiresAt"`
 	Cause         string         `json:"cause,omitempty"`
+	// Context is the context of the work request of the run, so a rerun or a
+	// resume fills the values the run had. An older server sends none.
+	Context WorkRequestContext `json:"context"`
 }
 
 // CommandSubject names the command itself.

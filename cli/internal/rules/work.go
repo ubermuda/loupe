@@ -25,10 +25,11 @@ const (
 )
 
 // workPlaceholders are the names a work entry can fill.
-var workPlaceholders = []string{
-	"cardId", "cardNumber", "projectId", "project", "kind", "ruleId", "workRequestId",
-	"pullRequestNumber", "pullRequestUrl", "headSha", "reason", "documentId",
-}
+var workPlaceholders = append([]string{"cardId", "cardNumber", "projectId", "project", "kind", "ruleId", "workRequestId"}, contextPlaceholders...)
+
+// contextPlaceholders fill from the context of the request. An empty value is
+// a real state, such as a card with no pull request.
+var contextPlaceholders = []string{"pullRequestNumber", "pullRequestUrl", "headSha", "reason", "documentId"}
 
 // WorkEntry runs one kind of work request. Action is empty for a worker,
 // ActionInteractive or ActionCommand, as for a rule.
@@ -211,7 +212,8 @@ func workValues(w api.WorkRequest, slug string) map[string]string {
 
 // WorkGaps lists the placeholders of the command of the kind that w leaves
 // empty. A run of a migrated rule names no work request, so its rerun would
-// run a command that differs from the first.
+// run a command that differs from the first. A context placeholder never
+// counts, because the command carries the context and an empty value is real.
 func (s *Set) WorkGaps(w api.WorkRequest) []string {
 	entry, ok := s.work[w.Kind]
 	if !ok {
@@ -221,7 +223,7 @@ func (s *Set) WorkGaps(w api.WorkRequest) []string {
 	var gaps []string
 	for _, arg := range entry.Run {
 		for _, p := range directive.Placeholders(arg) {
-			if v[p] == "" && !slices.Contains(gaps, p) {
+			if v[p] == "" && !slices.Contains(contextPlaceholders, p) && !slices.Contains(gaps, p) {
 				gaps = append(gaps, p)
 			}
 		}

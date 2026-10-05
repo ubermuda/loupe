@@ -226,6 +226,7 @@ holds, by `commandId`. Each command carries these fields:
 | `workRequestId`, `workKind`, `ruleId` | the work request of the run, or `null` for a run from before the work map |
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
 | `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
+| `context` | the context of the work request of the run, taken when the command was stored, with the five keys of the [work request context](#work-requests). Each key is `null` for a run with no work request. A server from before the context sends no `context` key |
 
 The `bridge.command_ttl_minutes` feature flag sets how long a command waits,
 and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from
@@ -284,7 +285,7 @@ The bridge refuses a rerun with one of these reasons:
 |---|---|
 | The rule of the run no longer runs a command on this bridge. | the rule is gone, or it no longer has `action: command` |
 | The card has a run that is still open on this bridge. | a run of the card runs or waits in the queue, a rerun of the same run included |
-| The command of the work entry needs values that the run does not hold: `{headSha}` | the `run` of the work entry names a placeholder that the rerun holds no value for, and the reason lists each one. A rerun holds no context of a work request, so `{pullRequestNumber}`, `{pullRequestUrl}`, `{headSha}`, `{reason}` and `{documentId}` are always missing |
+| The command of the work entry needs values that the run does not hold: `{workRequestId}` | the `run` of the work entry names a placeholder that the rerun holds no value for, and the reason lists each one. A context placeholder never counts, because an empty context value is a real state |
 The server writes a `bridge.command_settled` record to the audit log when an
 answer settles a command.
 

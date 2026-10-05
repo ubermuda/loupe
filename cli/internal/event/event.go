@@ -252,6 +252,9 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	if c.Cause != api.CausePerson && c.Cause != api.CauseAskClosed {
 		return c, fmt.Errorf("command has an unknown cause %q", c.Cause)
 	}
+	if err := checkWorkContext(c.Context); err != nil {
+		return c, fmt.Errorf("command %s: %w", c.CommandID, err)
+	}
 
 	c.ProjectID = strings.ToLower(c.ProjectID)
 	c.CommandID = strings.ToLower(c.CommandID)
@@ -261,6 +264,7 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	c.RunKey = strings.ToLower(c.RunKey)
 	c.SessionID = strings.ToLower(c.SessionID)
 	c.WorkRequestID = strings.ToLower(c.WorkRequestID)
+	c.Context.DocumentID = strings.ToLower(c.Context.DocumentID)
 
 	return c, nil
 }
