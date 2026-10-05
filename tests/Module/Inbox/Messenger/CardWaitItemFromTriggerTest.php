@@ -38,7 +38,7 @@ final class CardWaitItemFromTriggerTest extends KernelTestCase
         $project = $this->project($em, $this->owner($em, 'wait-trigger-flow'), 'wait-trigger-flow');
         $document = $this->document($em, $project);
         $document->addVersion('# One', '<h1>One</h1>');
-        $this->tagDocument($em, $document, ['design', 'decisions']);
+        $this->tagDocument($em, $document, ['tech-design', 'decisions']);
         $column = $this->stageColumn($em, $project, 'tech-design');
         $em->flush();
         $this->switchFlag($em, InboxInstallFlags::FLAG_INBOX_ENABLED, true);

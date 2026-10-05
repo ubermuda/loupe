@@ -201,9 +201,9 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         $cards['next'] = $this->card($project, 'next');
         $cards['product design'] = $this->card($project, 'product-design');
         $cards['approved design'] = $this->card($project, 'tech-design');
-        $this->approvedDocument($cards['approved design'], 'design');
+        $this->approvedDocument($cards['approved design'], 'tech-design');
         $cards['held tech design'] = $this->card($project, 'tech-design');
-        $this->approvedDocument($cards['held tech design'], 'design');
+        $this->approvedDocument($cards['held tech design'], 'tech-design');
         $cards['implementation no pull request'] = $this->card($project, 'implementation');
         $cards['failing checks'] = $this->card($project, 'implementation');
         $this->pullRequest($cards['failing checks'])->checks = PullRequestChecks::Failed;
