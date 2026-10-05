@@ -7,6 +7,7 @@ namespace App\Tests\Module\Workflow\Action;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
@@ -14,8 +15,10 @@ use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Expression\AllOf;
+use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
@@ -62,6 +65,11 @@ trait ActionScenario
         );
     }
 
+    private function opener(): WorkRequestOpener
+    {
+        return new WorkRequestOpener($this->openWorkRequestHandler(), $this->service(CardPullRequests::class), $this->service(CardPullRequestRepository::class));
+    }
+
     private function card(Project $project, string $column): Card
     {
         $card = new Card($project, $this->column($project, $column), 'Card', '', ++$this->cardNumber);
@@ -88,9 +96,10 @@ trait ActionScenario
         ?string $base = 'main',
         ?string $head = null,
         ?string $headSha = 'head1',
+        ?string $url = null,
     ): ForgePullRequest {
         $number = ++$this->pullRequestNumber;
-        $this->em()->persist(new CardPullRequest($card, 'https://github.com/acme/widgets/pull/'.$number, Forge::GitHub, 'acme/widgets', $number));
+        $this->em()->persist(new CardPullRequest($card, $url ?? 'https://github.com/acme/widgets/pull/'.$number, Forge::GitHub, 'acme/widgets', $number));
         $pullRequest = new ForgePullRequest($card->project, 'github', 'acme/widgets', $number);
         $pullRequest->state = $state;
         $pullRequest->baseBranch = $base;

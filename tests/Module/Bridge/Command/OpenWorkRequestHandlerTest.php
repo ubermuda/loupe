@@ -14,6 +14,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
 use App\Outbox\OutboxWriter;
@@ -70,6 +71,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             'ruleId' => 'implement-on-entry',
             'createdAt' => self::NOW,
             'resumeSessionId' => null,
+            'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
         ]], $this->outboxPayloads());
 
         $record = $audit->record('bridge.work_request_opened');
@@ -80,6 +82,42 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
 
         self::assertEquals([new WorkRequestChanged($project->id ?? throw new \LogicException(), $cardId, $request->id ?? throw new \LogicException(), WorkRequestState::Open)], $changes->events());
         self::assertSame([$depth], $changes->transactionDepths());
+    }
+
+    public function test_the_context_is_stored_and_written_to_the_outbox(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-context');
+        $context = new WorkRequestContext(42, 'https://github.com/acme/widgets/pull/42', 'abc1234', 'checks-failed', Uuid::v7()->toRfc4122());
+
+        $request = $this->open($project, Uuid::v7(), kind: 'fix', context: $context);
+
+        $this->em()->clear();
+        $stored = $this->em()->find(WorkRequest::class, $request->id);
+        self::assertInstanceOf(WorkRequest::class, $stored);
+        self::assertEquals($context, $stored->context);
+        self::assertSame($context->toArray(), $this->outboxPayloads()[0]['context']);
+    }
+
+    public function test_a_live_request_keeps_the_context_it_opened_with(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-context-live');
+        $cardId = Uuid::v7();
+        $first = new WorkRequestContext(42, null, 'abc1234', 'conflict');
+        $request = $this->open($project, $cardId, kind: 'fix', context: $first);
+
+        try {
+            $this->open($project, $cardId, kind: 'fix', context: new WorkRequestContext(43, null, 'def5678', 'checks-failed'));
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['card' => OpenWorkRequestHandler::LIVE], $e->errors);
+        }
+
+        $this->em()->clear();
+        $stored = $this->em()->find(WorkRequest::class, $request->id);
+        self::assertInstanceOf(WorkRequest::class, $stored);
+        self::assertEquals($first, $stored->context);
     }
 
     public function test_the_retry_of_a_request_whose_run_ended_unfinished_resumes_its_session(): void
@@ -229,7 +267,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(WorkRequestAnnouncer::class), $this->service(WorkerRunRepository::class));
 
         try {
-            $handler(new OpenWorkRequestCommand($project, $cardId, 7, 'implement', null, 'implement-on-entry'));
+            $handler(new OpenWorkRequestCommand($project, $cardId, 7, 'implement', null, 'implement-on-entry', new WorkRequestContext()));
             self::fail('Expected a refusal.');
         } catch (DomainErrors $e) {
             self::assertSame(['card' => OpenWorkRequestHandler::LIVE], $e->errors);
@@ -327,11 +365,17 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         return $this->project($em, $this->user($em, $name.'@example.com'), 'Project '.substr(md5($name), 0, 8));
     }
 
-    private function open(Project $project, Uuid $cardId, string $kind = 'implement', ?string $capability = null, string $ruleId = 'implement-on-entry'): WorkRequest
-    {
+    private function open(
+        Project $project,
+        Uuid $cardId,
+        string $kind = 'implement',
+        ?string $capability = null,
+        string $ruleId = 'implement-on-entry',
+        WorkRequestContext $context = new WorkRequestContext(),
+    ): WorkRequest {
         $handler = $this->handler();
 
-        return $handler(new OpenWorkRequestCommand($project, $cardId, 7, $kind, $capability, $ruleId));
+        return $handler(new OpenWorkRequestCommand($project, $cardId, 7, $kind, $capability, $ruleId, $context));
     }
 
     private function unfinishedRunOf(

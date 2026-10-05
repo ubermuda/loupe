@@ -124,16 +124,16 @@ final class FactsBuilderTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('facts-documents');
         $card = $this->card($project, 'tech-design');
-        $this->document($card, DocumentStatus::Approved, ['product']);
-        $this->document($card, DocumentStatus::ChangesRequested, ['tech', 'design']);
-        $this->document($card, DocumentStatus::InReview, []);
+        $product = $this->document($card, DocumentStatus::Approved, ['product']);
+        $design = $this->document($card, DocumentStatus::ChangesRequested, ['tech', 'design']);
+        $untagged = $this->document($card, DocumentStatus::InReview, []);
         $this->document($card, DocumentStatus::Approved, ['tech'], archived: true);
         $this->document($this->card($project, 'next'), DocumentStatus::Approved, ['elsewhere']);
 
         self::assertEquals([
-            new DocumentFacts(['product'], 'approved'),
-            new DocumentFacts(['design', 'tech'], 'changes-requested'),
-            new DocumentFacts([], 'in-review'),
+            new DocumentFacts(['product'], 'approved', $product),
+            new DocumentFacts(['design', 'tech'], 'changes-requested', $design),
+            new DocumentFacts([], 'in-review', $untagged),
         ], $this->facts($card)->card->documents);
     }
 
@@ -454,7 +454,7 @@ final class FactsBuilderTest extends KernelTestCase
     }
 
     /** @param list<string> $tags */
-    private function document(Card $card, DocumentStatus $status, array $tags, bool $archived = false): void
+    private function document(Card $card, DocumentStatus $status, array $tags, bool $archived = false): string
     {
         $document = new Document($card->project->owner, $card->project, 'Design');
         $document->status = $status;
@@ -472,6 +472,8 @@ final class FactsBuilderTest extends KernelTestCase
         $this->em()->persist($document);
         $this->em()->persist(new CardDocument($card, $document));
         $this->em()->flush();
+
+        return ($document->id ?? throw new \LogicException('A flushed document has an id.'))->toRfc4122();
     }
 
     private function workRequest(Card $card, string $kind, WorkRequestState $state, ?string $reason = null, ?string $settledAt = null): void

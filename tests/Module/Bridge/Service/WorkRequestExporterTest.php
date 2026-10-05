@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Service;
 
 use App\Module\Bridge\Service\WorkRequestExporter;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -35,6 +36,7 @@ final class WorkRequestExporterTest extends KernelTestCase
             leaseUntil: new \DateTimeImmutable('2026-10-01T12:05:00+00:00'),
         );
         $claimed->claims = 2;
+        $claimed->context = new WorkRequestContext(42, 'https://github.com/acme/widgets/pull/42', 'abc1234', 'checks-failed', '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
         $refused = $this->seedWorkRequest($em, $project, kind: 'merge', createdAt: new \DateTimeImmutable('2026-10-01T12:10:00+00:00'));
         $refused->state = WorkRequestState::Refused;
         $refused->reason = 'no-capacity';
@@ -59,6 +61,13 @@ final class WorkRequestExporterTest extends KernelTestCase
                 'claims' => 2,
                 'leaseUntil' => '2026-10-01T12:05:00+00:00',
                 'reason' => null,
+                'context' => [
+                    'pullRequestNumber' => 42,
+                    'pullRequestUrl' => 'https://github.com/acme/widgets/pull/42',
+                    'headSha' => 'abc1234',
+                    'reason' => 'checks-failed',
+                    'documentId' => '01a10beb-ba65-736b-8626-a6e3fa59dfc5',
+                ],
                 'createdAt' => '2026-10-01T12:00:00+00:00',
                 'reopenedAt' => null,
                 'settledAt' => null,
@@ -76,6 +85,7 @@ final class WorkRequestExporterTest extends KernelTestCase
                 'claims' => 0,
                 'leaseUntil' => null,
                 'reason' => 'no-capacity',
+                'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
                 'createdAt' => '2026-10-01T12:10:00+00:00',
                 'reopenedAt' => null,
                 'settledAt' => '2026-10-01T12:11:00+00:00',

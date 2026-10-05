@@ -10,6 +10,7 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
 use App\Outbox\OutboxWriter;
@@ -60,6 +61,23 @@ final class ReopenLapsedWorkRequestsHandlerTest extends KernelTestCase
         self::assertEqualsCanonicalizing([(string) $lapsed->id, (string) $atTheEdge->id], array_column($payloads, 'workRequestId'));
         self::assertSame(['open', 'open'], array_column($payloads, 'state'));
         self::assertSame([(string) $project->id, (string) $project->id], array_column($payloads, 'projectId'));
+    }
+
+    public function test_a_reopened_request_keeps_its_context(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'reopen-context@example.com'), 'Reopen Context');
+        $lapsed = $this->claimed($project, '2026-10-01 12:00:00');
+        $context = new WorkRequestContext(42, 'https://github.com/acme/widgets/pull/42', 'abc1234', 'conflict');
+        $lapsed->context = $context;
+        $em->flush();
+
+        self::assertSame(1, $this->handler()(new ReopenLapsedWorkRequestsCommand()));
+
+        $em->clear();
+        self::assertEquals($context, $em->find(WorkRequest::class, $lapsed->id)?->context);
+        self::assertSame($context->toArray(), $this->outboxPayloads()[0]['context']);
     }
 
     public function test_a_sweep_with_no_lapsed_claim_writes_nothing(): void

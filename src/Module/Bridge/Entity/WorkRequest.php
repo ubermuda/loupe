@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Entity;
 
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -82,6 +84,18 @@ class WorkRequest
 
     #[ORM\Column(name: 'reason', length: self::MAX_REASON_LENGTH, nullable: true)]
     public ?string $reason = null;
+
+    /** What the card held when the request opened. A row from before the column reads as an empty context. */
+    public WorkRequestContext $context {
+        get => WorkRequestContext::fromArray($this->contextData);
+        set {
+            $this->contextData = $value->toArray();
+        }
+    }
+
+    /** @var array<mixed>|null */
+    #[ORM\Column(name: 'context', type: Types::JSON, nullable: true)]
+    private ?array $contextData = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]

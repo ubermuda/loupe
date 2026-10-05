@@ -149,10 +149,10 @@ final class CardDocumentRepository extends ServiceEntityRepository
     }
 
     /**
-     * The status and the tag names of each unarchived document linked to the card, as the
+     * The id, the status and the tag names of each unarchived document linked to the card, as the
      * database holds them now, in link order.
      *
-     * @return list<array{status: string, tags: list<string>}>
+     * @return list<array{id: string, status: string, tags: list<string>}>
      */
     public function findStatusesAndTagsForCard(Card $card): array
     {
@@ -169,7 +169,7 @@ final class CardDocumentRepository extends ServiceEntityRepository
         $documents = [];
         foreach ($rows as $row) {
             $documentId = (string) $row['document_id'];
-            $documents[$documentId] ??= ['status' => (string) $row['status'], 'tags' => []];
+            $documents[$documentId] ??= ['id' => $documentId, 'status' => (string) $row['status'], 'tags' => []];
             if (null !== $row['tag_name']) {
                 $documents[$documentId]['tags'][] = (string) $row['tag_name'];
             }

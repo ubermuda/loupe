@@ -52,10 +52,10 @@ final class CardConditionsTest extends TestCase
         yield 'a child open' => [new CardChildrenFinished(), [], self::card(childCount: 2, openChildCount: 1), false];
         yield 'no child counts as finished' => [new CardChildrenFinished(), [], self::card(childCount: 0, openChildCount: 0), true];
 
-        $approvedDesign = new DocumentFacts(tags: ['design'], status: 'approved');
-        $changesOnDesign = new DocumentFacts(tags: ['plan', 'design'], status: 'changes-requested');
-        $approvedProduct = new DocumentFacts(tags: ['product'], status: 'approved');
-        $designInReview = new DocumentFacts(tags: ['design'], status: 'in-review');
+        $approvedDesign = new DocumentFacts(tags: ['design'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
+        $changesOnDesign = new DocumentFacts(tags: ['plan', 'design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
+        $approvedProduct = new DocumentFacts(tags: ['product'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
+        $designInReview = new DocumentFacts(tags: ['design'], status: 'in-review', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
 
         yield 'approved, tagged document approved' => [new CardDocumentApproved(), ['tag' => 'design'], self::card(documents: [$designInReview, $approvedDesign]), true];
         yield 'approved, other tag approved' => [new CardDocumentApproved(), ['tag' => 'design'], self::card(documents: [$approvedProduct, $designInReview]), false];

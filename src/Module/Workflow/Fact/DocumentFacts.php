@@ -10,6 +10,7 @@ final readonly class DocumentFacts
     public function __construct(
         public array $tags,
         public string $status,
+        public string $id,
     ) {
     }
 }

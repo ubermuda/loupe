@@ -8,15 +8,19 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardEventRepository;
+use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\RequestWork;
-use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Fact\ChecksState;
+use App\Module\Workflow\Fact\DocumentFacts;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class RequestWorkTest extends KernelTestCase
 {
@@ -117,6 +121,89 @@ final class RequestWorkTest extends KernelTestCase
         self::assertCount(1, $this->fixEvents($card));
     }
 
+    public function test_a_request_carries_the_primary_pull_request_and_the_reason_as_its_context(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-context'), 'in-progress');
+        $this->pullRequest($card, PullRequestState::Closed, headSha: 'fff0000');
+        $primary = $this->pullRequest($card, headSha: 'ABC1234');
+        $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed, changesRequested: true));
+
+        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'fix']), $card, $facts, $this->state($card));
+
+        self::assertEquals(
+            new WorkRequestContext($primary->number, 'https://github.com/acme/widgets/pull/'.$primary->number, 'abc1234', 'checks-failed'),
+            $this->liveRequest($card)->context,
+        );
+    }
+
+    public function test_a_card_with_no_pull_request_opens_a_request_with_an_empty_context(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-context-empty'), 'next');
+
+        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'implement']), $card, FactsMother::facts(), $this->state($card));
+
+        self::assertEquals(new WorkRequestContext(), $this->liveRequest($card)->context);
+    }
+
+    public function test_a_link_url_or_a_head_sha_of_another_shape_is_left_out(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-context-shape'), 'in-progress');
+        $pullRequest = $this->pullRequest($card, headSha: 'not-a-sha', url: 'http://github.com/acme/widgets/pull/1');
+
+        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'sync']), $card, FactsMother::facts(pullRequest: FactsMother::pullRequest()), $this->state($card));
+
+        self::assertEquals(new WorkRequestContext($pullRequest->number), $this->liveRequest($card)->context);
+    }
+
+    public function test_a_document_tag_names_the_one_linked_document_with_that_tag(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-document'), 'tech-design');
+        $documentId = Uuid::v7()->toRfc4122();
+        $facts = FactsMother::facts(card: FactsMother::card(documents: [
+            new DocumentFacts(['product'], 'approved', Uuid::v7()->toRfc4122()),
+            new DocumentFacts(['design', 'tech'], 'changes-requested', $documentId),
+        ]));
+
+        $outcome = $this->action()->run($this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design']), $card, $facts, $this->state($card));
+
+        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
+    }
+
+    /** @return iterable<string, array{list<string>, string}> */
+    public static function unresolvedDocuments(): iterable
+    {
+        yield 'no document with the tag' => [['product'], 'document-not-found'];
+        yield 'two documents with the tag' => [['design', 'design'], 'document-ambiguous'];
+    }
+
+    /** @param list<string> $tags the tag of each linked document */
+    #[\PHPUnit\Framework\Attributes\DataProvider('unresolvedDocuments')]
+    public function test_a_document_tag_that_names_no_single_document_is_refused_and_opens_nothing(array $tags, string $code): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-document-'.$code), 'tech-design');
+        $documents = array_map(static fn (string $tag): DocumentFacts => new DocumentFacts([$tag], 'changes-requested', Uuid::v7()->toRfc4122()), $tags);
+        $facts = FactsMother::facts(card: FactsMother::card(documents: $documents));
+
+        $outcome = $this->action()->run($this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design']), $card, $facts, $this->state($card));
+
+        self::assertEquals(ActionOutcome::refused($code), $outcome);
+        self::assertSame([], $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.')));
+    }
+
+    private function liveRequest(Card $card): WorkRequest
+    {
+        $live = $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.'));
+        self::assertCount(1, $live);
+
+        return $live[0];
+    }
+
     /** @return list<array<mixed>> the detail of each fix-requested event of the card */
     private function fixEvents(Card $card): array
     {
@@ -127,6 +214,6 @@ final class RequestWorkTest extends KernelTestCase
 
     private function action(): RequestWork
     {
-        return new RequestWork(new WorkRequestOpener($this->openWorkRequestHandler()), $this->service(CardPullRequests::class), $this->service(CardEventRepository::class));
+        return new RequestWork($this->opener(), $this->service(CardPullRequests::class), $this->service(CardEventRepository::class));
     }
 }

@@ -24,6 +24,9 @@ final readonly class TemplateParser
     private const array STATE_WRITES = ['draft', 'ready', 'close'];
     private const array ON_TIMEOUT = ['pause', 'expire'];
 
+    /** The parameter that holds the tag of a request's `document` map. A template cannot write it. */
+    public const string DOCUMENT_TAG = 'document.tag';
+
     public function __construct(
         private Conditions $conditions,
     ) {
@@ -355,6 +358,13 @@ final readonly class TemplateParser
                 $until = $this->expression($given, $where.'.until', $slotKeys, $errors);
                 continue;
             }
+            if ('document' === $param) {
+                $tag = self::documentTag($given, $where, $errors);
+                if (null !== $tag) {
+                    $params[self::DOCUMENT_TAG] = $tag;
+                }
+                continue;
+            }
             $error = match ($param) {
                 'limit' => \is_int($given) && $given >= 1 ? null : 'parameter "limit" must be a positive integer',
                 'write' => \is_string($given) && null !== ForgeWriteKind::tryFrom($given) ? null : \sprintf(
@@ -386,11 +396,28 @@ final readonly class TemplateParser
     {
         return match ($type) {
             ActionType::Move => ['to' => true, 'from' => false],
-            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false],
+            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false, 'document' => false],
             ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
             ActionType::Pause => ['reason' => true, 'until' => true],
             ActionType::Release => ['reason' => true],
         };
+    }
+
+    /** @param list<string> $errors */
+    private static function documentTag(mixed $given, string $where, array &$errors): ?string
+    {
+        if (!self::isMap($given) || ['tag'] !== array_keys($given)) {
+            $errors[] = $where.': parameter "document" must be a map with one key, tag';
+
+            return null;
+        }
+        if (!\is_string($given['tag']) || '' === $given['tag']) {
+            $errors[] = $where.'.document: parameter "tag" must be a non-empty string';
+
+            return null;
+        }
+
+        return $given['tag'];
     }
 
     /** @param list<string> $slotKeys */

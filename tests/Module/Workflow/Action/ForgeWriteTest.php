@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\ForgePullRequestWrites;
@@ -21,7 +22,7 @@ use App\Module\Forge\Service\PullRequestWriteFailed;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ForgeWrite;
-use App\Module\Workflow\Action\WorkRequestOpener;
+use App\Module\Workflow\Fact\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
@@ -59,6 +60,22 @@ final class ForgeWriteTest extends KernelTestCase
 
         self::assertSame([], $this->writer->calls);
         self::assertSame(['merge'], $this->liveKinds($card));
+    }
+
+    public function test_the_fallback_work_carries_the_pull_request_and_the_reason_as_its_context(): void
+    {
+        $card = $this->card($this->project(syncBehind: true), 'in-review');
+        $pullRequest = $this->pullRequest($card, headSha: 'abc1234');
+        $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(conflicting: true));
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'update-branch', fallback: 'sync', writers: false, facts: $facts));
+
+        $live = $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.'));
+        self::assertCount(1, $live);
+        self::assertEquals(
+            new WorkRequestContext($pullRequest->number, 'https://github.com/acme/widgets/pull/'.$pullRequest->number, 'abc1234', 'conflict'),
+            $live[0]->context,
+        );
     }
 
     public function test_it_merges_the_primary_pull_request_with_the_configured_method(): void
@@ -254,7 +271,7 @@ final class ForgeWriteTest extends KernelTestCase
         return $project;
     }
 
-    private function write(Card $card, string $write, ?string $fallback = 'fallback', bool $writers = true): ActionOutcome
+    private function write(Card $card, string $write, ?string $fallback = 'fallback', bool $writers = true, ?Facts $facts = null): ActionOutcome
     {
         $registered = $writers ? [$this->writer] : [];
         $forgePullRequests = $this->service(ForgePullRequestRepository::class);
@@ -271,13 +288,13 @@ final class ForgeWriteTest extends KernelTestCase
             $forgePullRequests,
             new PullRequestBranchUpdaters($registered),
             new PullRequestStateWriters($registered),
-            new WorkRequestOpener($this->openWorkRequestHandler()),
+            $this->opener(),
             'squash',
         );
 
         $params = null === $fallback ? ['write' => $write] : ['write' => $write, 'fallback' => $fallback];
 
-        return $action->run($this->rule(ActionType::ForgeWrite, $params), $card, FactsMother::facts(), $this->state($card));
+        return $action->run($this->rule(ActionType::ForgeWrite, $params), $card, $facts ?? FactsMother::facts(), $this->state($card));
     }
 
     /** @return list<string> */

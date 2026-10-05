@@ -25,4 +25,15 @@ final readonly class PullRequestFacts
         public ?\DateTimeImmutable $closedAt,
     ) {
     }
+
+    /** What a fix of the pull request answers, most pressing first. Null when nothing needs a fix. */
+    public function fixReason(): ?string
+    {
+        return match (true) {
+            $this->conflicting => 'conflict',
+            ChecksState::Failed === $this->checks => 'checks-failed',
+            $this->changesRequested => 'changes-requested',
+            default => null,
+        };
+    }
 }

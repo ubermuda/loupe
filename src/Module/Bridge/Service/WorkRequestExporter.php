@@ -39,6 +39,7 @@ final readonly class WorkRequestExporter implements UserDataExporterInterface
                 'claims' => $request->claims,
                 'leaseUntil' => $request->leaseUntil?->format(\DateTimeInterface::ATOM),
                 'reason' => $request->reason,
+                'context' => $request->context->toArray(),
                 'createdAt' => $request->createdAt->format(\DateTimeInterface::ATOM),
                 'reopenedAt' => $request->reopenedAt?->format(\DateTimeInterface::ATOM),
                 'settledAt' => $request->settledAt?->format(\DateTimeInterface::ATOM),

@@ -45,6 +45,23 @@ final class CardPullRequestRepositoryTest extends KernelTestCase
         self::assertSame([], $links->findForPullRequest($project->id, Forge::GitHub, 'acme/widgets', 6));
     }
 
+    public function test_find_url_of_pull_request_answers_the_first_link_of_the_card_to_it(): void
+    {
+        $project = $this->makeProject('links-url');
+        $card = new Card($project, $this->column($project, 'backlog'), 'Ship it', '', 1);
+        $other = new Card($project, $this->column($project, 'backlog'), 'Other', '', 2);
+        $this->em->persist($card);
+        $this->em->persist($other);
+        $this->em->persist(new CardPullRequest($other, 'https://github.com/acme/widgets/pull/5#other', Forge::GitHub, 'acme/widgets', 5));
+        $this->em->persist(new CardPullRequest($card, 'https://gitlab.com/acme/widgets/-/merge_requests/5', Forge::GitLab, 'acme/widgets', 5));
+        $this->em->persist(new CardPullRequest($card, 'https://github.com/Acme/Widgets/pull/5', Forge::GitHub, 'Acme/Widgets', 5));
+        $this->em->persist(new CardPullRequest($card, 'https://github.com/acme/widgets/pull/5#again', Forge::GitHub, 'acme/widgets', 5));
+        $this->em->flush();
+
+        self::assertSame('https://github.com/Acme/Widgets/pull/5', $this->links()->findUrlOfPullRequest($card, 'github', 'acme/widgets', 5));
+        self::assertNull($this->links()->findUrlOfPullRequest($card, 'github', 'acme/widgets', 6));
+    }
+
     public function test_find_git_hub_references_for_cards_answers_the_parsed_github_links_of_the_cards(): void
     {
         $project = $this->makeProject('links-batch');

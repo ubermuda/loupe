@@ -143,6 +143,14 @@ final class TemplateParserTest extends TestCase
         self::assertSame(['kind' => 'teardown', 'onTimeout' => 'expire'], $this->parser->parse($template)->rulesFor('build')[0]->then->params);
     }
 
+    public function test_a_request_can_name_a_document_by_tag(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['then'] = ['request' => ['kind' => 'tech-design-revise', 'document' => ['tag' => 'design']]];
+
+        self::assertSame(['kind' => 'tech-design-revise', 'document.tag' => 'design'], $this->parser->parse($template)->rulesFor('build')[0]->then->params);
+    }
+
     public function test_a_valid_template_round_trips_through_json(): void
     {
         $decoded = json_decode(json_encode(self::valid(), \JSON_THROW_ON_ERROR), true, flags: \JSON_THROW_ON_ERROR);
@@ -336,6 +344,31 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[0] (start) then.request: parameter "onTimeout" must be one of pause, expire'];
+        yield 'a document that is not a map' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['document'] = 'design';
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "document" must be a map with one key, tag'];
+        yield 'a document with no tag' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['document'] = [];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "document" must be a map with one key, tag'];
+        yield 'a document with an unknown key' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['document'] = ['tag' => 'design', 'status' => 'approved'];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "document" must be a map with one key, tag'];
+        yield 'a document tag that is not a string' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['document'] = ['tag' => 5];
+
+            return $t;
+        }, 'rules[0] (start) then.request.document: parameter "tag" must be a non-empty string'];
+        yield 'a document on another action' => [static function (array $t): array {
+            $t['rules'][2]['then']['forge-write']['document'] = ['tag' => 'design'];
+
+            return $t;
+        }, 'rules[2] (merge) then.forge-write: unknown parameter "document"'];
         yield 'until outside a pause' => [static function (array $t): array {
             $t['rules'][4]['then']['release']['until'] = ['pr.open' => []];
 
