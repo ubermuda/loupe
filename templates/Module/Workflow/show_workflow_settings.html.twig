@@ -59,12 +59,23 @@
             {label: 'workflow.settings.rules.id'|trans},
             {label: 'workflow.settings.rules.applies_to'|trans},
             {label: 'workflow.settings.rules.action'|trans},
+            {label: 'workflow.settings.rules.conditions'|trans},
         ]">
             {% for rule in template.rules %}
-            <div class="lp-data-table__row" data-rule-id="{{ rule.id }}">
+            <div class="lp-data-table__row" data-rule-id="{{ rule.id }}"{% if rule.missingConditions is not empty %} data-rule-missing{% endif %}>
                 <span class="lp-data-table__cell lp-data-table__title">{{ rule.id }}</span>
                 <span class="lp-data-table__cell">{{ rule.appliesToKey|trans }}</span>
                 <span class="lp-data-table__cell">{{ rule.actionKey|trans({'%target%': rule.targetKey is null ? '' : rule.targetKey|trans, '%kind%': rule.kind ?? ''}) }}</span>
+                <div class="lp-data-table__cell" data-rule-conditions>
+                    {% for group in rule.conditionGroups %}
+                    <div data-condition-source="{{ group.sourceKey }}">{{ group.sourceKey|trans }}:
+                        {% for key in group.conditionKeys %}<code>{{ key }}</code>{{ not loop.last ? ', ' }}{% endfor %}
+                    </div>
+                    {% endfor %}
+                    {% for key in rule.missingConditions %}
+                    <span class="lp-tag lp-tag--amber">{{ 'workflow.settings.rules.missing_condition'|trans({'%condition%': key}) }}</span>
+                    {% endfor %}
+                </div>
             </div>
             {% endfor %}
         </twig:DataTable>

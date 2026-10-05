@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
+use App\Module\Workflow\Expression\Expression;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Template\ActionType;
@@ -57,6 +58,15 @@ final readonly class ShowWorkflowSettingsHandler
     {
         $params = $rule->then->params;
         $type = $rule->then->type;
+        $expressions = array_values(array_filter([$rule->when, $rule->then->until]));
+
+        $groups = [];
+        foreach ($expressions as $expression) {
+            foreach ($expression->leaves() as $leaf) {
+                $groups[$leaf->condition::source()][$leaf->condition::key()] = true;
+            }
+        }
+        $missing = array_merge(...array_map(static fn (Expression $expression): array => $expression->missingKeys(), $expressions));
 
         return new WorkflowRuleView(
             id: $rule->id,
@@ -74,6 +84,12 @@ final readonly class ShowWorkflowSettingsHandler
                 ActionType::ForgeWrite => (string) $params['write'],
                 default => null,
             },
+            conditionGroups: array_map(
+                static fn (string $source, array $keys): WorkflowConditionGroupView => new WorkflowConditionGroupView($source, array_keys($keys)),
+                array_keys($groups),
+                array_values($groups),
+            ),
+            missingConditions: array_values(array_unique($missing)),
         );
     }
 

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Workflow\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\AcceptedTerms;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -42,6 +43,9 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-slot-key="implementation"] [data-slot-column]', 'In progress');
         self::assertSelectorTextContains('[data-rule-id="product-design-approved"]', 'Move the card to Tech design');
         self::assertSelectorTextContains('[data-rule-id="implement"]', 'implement');
+        self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.board"]', 'Board: card.type');
+        self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.forge"]', 'Forge: pr.linked');
+        self::assertSelectorNotExists('[data-rule-missing]');
         self::assertSelectorExists('[data-manual-move]');
         self::assertSelectorTextContains('[data-workflow-timings]', '10, 60, 360');
         self::assertSelectorTextContains('[data-workflow-timings]', '120');
@@ -63,6 +67,31 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[data-slot-key="tech-design"] [data-slot-column]', 'Not linked');
+    }
+
+    public function test_a_rule_whose_condition_no_longer_exists_is_marked(): void
+    {
+        $this->enableBoard();
+        $project = $this->workflowProject('workflow-page-missing');
+        $this->em()->persist(new WorkflowBinding($project, 'test', 1, [
+            'key' => 'test',
+            'version' => 1,
+            'slots' => [],
+            'manualMoves' => [],
+            'backoffMinutes' => [10],
+            'workTimeoutMinutes' => 120,
+            'rules' => [
+                ['id' => 'gone', 'when' => ['all' => [['card.gone' => []], ['card.is_child' => []]]], 'then' => ['request' => ['kind' => 'gone']]],
+            ],
+        ]));
+        $owner = $this->stampedOwner($project);
+
+        $this->client->loginUser($owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/workflow');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[data-rule-id="gone"][data-rule-missing] .lp-tag', 'Condition no longer exists: card.gone');
+        self::assertSelectorTextContains('[data-rule-id="gone"] [data-condition-source="workflow.source.board"]', 'Board: card.is_child');
     }
 
     public function test_an_unbound_project_says_it_runs_no_template(): void
