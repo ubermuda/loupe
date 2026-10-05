@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\ReviewSubmitted;
+use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use Doctrine\DBAL\LockMode;
@@ -19,6 +20,7 @@ final readonly class SubmitReviewHandler
     public function __construct(
         private EntityManagerInterface $em,
         private DocumentVersionRepository $documentVersions,
+        private CommentRepository $comments,
         private ReviewRepository $reviews,
         private EventDispatcherInterface $events,
     ) {
@@ -38,9 +40,6 @@ final readonly class SubmitReviewHandler
         }
 
         $note = trim($command->note ?? '');
-        if (Verdict::ChangesRequested === $verdict && '' === $note) {
-            throw new DomainErrors(['note' => 'review.document.flash.note_required']);
-        }
 
         $document = $command->document;
 
@@ -60,6 +59,10 @@ final readonly class SubmitReviewHandler
             $expectedReviewId = null === $command->expectedReviewId ? null : strtolower($command->expectedReviewId);
             if ($newest?->id?->toRfc4122() !== $expectedReviewId) {
                 return new DomainErrors(['expectedReviewId' => 'review.document.flash.verdict_changed']);
+            }
+
+            if (Verdict::ChangesRequested === $verdict && '' === $note && 0 === $this->comments->countOpenThreadsByVersion($version)) {
+                return new DomainErrors(['note' => 'review.document.flash.note_or_comment_required']);
             }
 
             // Appended rather than replacing whatever stands: a version may be

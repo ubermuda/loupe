@@ -11,10 +11,13 @@ use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Command\SubmitReviewCommand;
 use App\Module\Review\Command\SubmitReviewHandler;
+use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
+use App\Module\Review\ValueObject\Anchor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -184,5 +187,86 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             verdict: 'not-a-real-verdict',
             versionNumber: 1,
         ));
+    }
+
+    public function test_a_bare_change_request_is_saved_when_the_version_has_an_open_comment(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$reviewer, $doc] = $this->createUserAndDocument($em, 'bare-open');
+        $this->comment($em, $doc, $reviewer, CommentStatus::Pending);
+        $docId = $doc->id;
+        self::assertInstanceOf(Uuid::class, $docId);
+
+        $handler = self::getContainer()->get(SubmitReviewHandler::class);
+        self::assertInstanceOf(SubmitReviewHandler::class, $handler);
+        $review = $handler(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value, 1, '   '));
+
+        self::assertSame(Verdict::ChangesRequested, $review->verdict);
+        self::assertNull($review->note);
+        $em->clear();
+        $freshDoc = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $freshDoc);
+        self::assertSame(DocumentStatus::ChangesRequested, $freshDoc->status);
+    }
+
+    public function test_a_bare_change_request_is_refused_when_the_version_has_no_comment(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$reviewer, $doc] = $this->createUserAndDocument($em, 'bare-none');
+
+        $this->assertBareChangeRequestRefused($em, $reviewer, $doc);
+    }
+
+    public function test_a_bare_change_request_is_refused_when_the_only_comment_is_resolved(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$reviewer, $doc] = $this->createUserAndDocument($em, 'bare-resolved');
+        $this->comment($em, $doc, $reviewer, CommentStatus::Resolved);
+
+        $this->assertBareChangeRequestRefused($em, $reviewer, $doc);
+    }
+
+    public function test_a_bare_change_request_is_refused_when_the_only_open_comment_is_deleted(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$reviewer, $doc] = $this->createUserAndDocument($em, 'bare-deleted');
+        $this->comment($em, $doc, $reviewer, CommentStatus::Pending)->deletedAt = new \DateTimeImmutable();
+        $em->flush();
+
+        $this->assertBareChangeRequestRefused($em, $reviewer, $doc);
+    }
+
+    private function comment(EntityManagerInterface $em, Document $doc, User $author, CommentStatus $status): Comment
+    {
+        $comment = new Comment($doc->currentVersion(), $author, 'Change this passage.', Anchor::unanchored());
+        $comment->status = $status;
+        $em->persist($comment);
+        $em->flush();
+
+        return $comment;
+    }
+
+    private function assertBareChangeRequestRefused(EntityManagerInterface $em, User $reviewer, Document $doc): void
+    {
+        $handler = self::getContainer()->get(SubmitReviewHandler::class);
+        self::assertInstanceOf(SubmitReviewHandler::class, $handler);
+
+        try {
+            $handler(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value, 1));
+            self::fail('A bare change request with no open comment must be refused.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['note' => 'review.document.flash.note_or_comment_required'], $e->errors);
+        }
+
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM reviews WHERE version_id = ?', [(string) $doc->currentVersion()->id]));
+        self::assertSame('in-review', $em->getConnection()->fetchOne('SELECT status FROM documents WHERE id = ?', [(string) $doc->id]));
     }
 }
