@@ -84,10 +84,13 @@ Tech design, and from Next back to the Backlog or on to a design slot.
 
 | Slot | The workflow |
 |---|---|
-| Product design | Asks for an interactive product design session, and asks for a revision when the product document gets changes requested. An approved product document, with the tag `product`, moves the card to Tech design |
-| Tech design | Asks for the tech design, and for a revision when it gets changes requested. An approved tech design, with the tag `design`, moves the card to Implementation once the card has no open blocker |
+| Product design | Asks for an interactive product design session, and asks for a revision when the product document gets changes requested. An approved product document, with the tag `product-design`, moves the card to Tech design |
+| Tech design | Asks for the tech design, and for a revision when it gets changes requested. An approved tech design, with the tag `tech-design`, moves the card to Implementation once the card has no open blocker |
 | Implementation | Asks for the implementation, or for a breakdown of an epic into children. A pull request that is open, not a draft and whose required checks passed moves the card to In review. Failed checks, a conflict or a request for changes ask for a fix, 3 rounds at most |
 | In review | Asks for a fix as in Implementation. A pull request that turns back into a draft moves the card to Implementation. A stacked pull request whose parent merged gets a new base. An approved pull request that is behind gets its branch updated. A ready pull request merges |
+
+An upgrade retags the existing documents. The tag `product` becomes
+`product-design`, and the tag `design` becomes `tech-design`.
 
 A pull request is ready to merge when it is reviewable, an approval covers its
 head, its base is the default branch or the card's epic branch, and it has no
@@ -159,11 +162,11 @@ a map with the key `tag`, and an optional `status`: `in-review`, `approved`,
 ```yaml
 - id: tech-design-revise
   slot: tech-design
-  when: { card.document_changes_requested: { tag: design } }
+  when: { card.document_changes_requested: { tag: tech-design } }
   then:
       request:
           kind: tech-design-revise
-          document: { tag: design, status: changes-requested }
+          document: { tag: tech-design, status: changes-requested }
 ```
 
 The request then names the one unarchived document of the card that carries the
@@ -171,7 +174,8 @@ tag, and that has the status when the map names one. No such document refuses
 the action with `document-not-found`. Two or more refuse it with
 `document-ambiguous`. A refused action retries and pauses as
 [Pauses and retries](#pauses-and-retries) says. In Lifecycle, the product design
-revision names the document with the tag `product` and changes requested. The
-tech design revision names the one with the tag `design` and changes requested.
+revision names the document with the tag `product-design` and changes requested.
+The tech design revision names the one with the tag `tech-design` and changes
+requested.
 An approved document with the same tag does not count. A request rule with no `document`
 parameter names no document.
