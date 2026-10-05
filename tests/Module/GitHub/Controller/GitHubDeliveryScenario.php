@@ -9,7 +9,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
@@ -27,7 +26,6 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /** Fixtures the GitHub delivery tests share. */
 trait GitHubDeliveryScenario
@@ -38,14 +36,6 @@ trait GitHubDeliveryScenario
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
         return $em;
-    }
-
-    private function enableBoard(): void
-    {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
-        $this->em()->flush();
     }
 
     /** Sets the App id and key, so an installation repository gets state reads. Call it before the first request. */

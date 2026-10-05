@@ -7,7 +7,6 @@
 {% endblock %}
 
 {% block body %}
-{% set boardEnabled = is_feature_enabled('board.enabled') %}
 {% set query = cost.query %}
 {% set costRoute = 'app_project_worker_run_cost' %}
 {% set noUsage = cost.chart is null and cost.rules is empty %}
@@ -136,7 +135,7 @@
                     {% set periodLabel = chart.group.value == 'week' ? 'bridge.worker_run_cost.period.week'|trans({'%date%': bar.periodStart|date(dayFormat)}) : bar.periodStart|date(chart.group.value == 'month' ? 'F Y' : dayFormat) %}
                     {% set onlyCard = count == 1 ? bar.cards[0].card : null %}
                     <a class="lp-cost-chart__bar"
-                       {% if boardEnabled and onlyCard is not null %}href="{{ path('app_board_card', {projectId: project.id, cardId: onlyCard.id}) }}"{% else %}tabindex="0"{% endif %}
+                       {% if onlyCard is not null %}href="{{ path('app_board_card', {projectId: project.id, cardId: onlyCard.id}) }}"{% else %}tabindex="0"{% endif %}
                        aria-label="{{ onlyCard is not null
                            ? 'bridge.worker_run_cost.chart.bar_card'|trans({'%period%': periodLabel, '%number%': onlyCard.number, '%title%': onlyCard.title, '%cost%': average})
                            : 'bridge.worker_run_cost.chart.bar'|trans({'%period%': periodLabel, '%cards%': countLabel, '%cost%': average}) }}"

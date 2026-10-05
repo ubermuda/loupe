@@ -15,7 +15,6 @@ final readonly class CardSearchProvider implements SearchProviderInterface
 {
     public function __construct(
         private CardRepository $cards,
-        private BoardAvailability $board,
         private UrlGeneratorInterface $urls,
     ) {
     }
@@ -23,7 +22,7 @@ final readonly class CardSearchProvider implements SearchProviderInterface
     #[\Override]
     public function search(Project $project, string $query, int $page): SearchResults
     {
-        if ('' === $query || !$this->board->isEnabled()) {
+        if ('' === $query) {
             return new SearchResults();
         }
         if (1 === preg_match('/^#?([1-9][0-9]*)$/D', $query, $matches)) {

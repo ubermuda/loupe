@@ -10,7 +10,6 @@ use App\Module\Board\Command\SaveBoardTerminalWindowHandler;
 use App\Module\Board\Form\SaveBoardTerminalWindowFormType;
 use App\Module\Board\Form\SaveBoardTerminalWindowRequest;
 use App\Module\Board\Security\BoardColumnVoter;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,15 +27,12 @@ final class SaveBoardTerminalWindowController extends AppController
 {
     public function __construct(
         private readonly SaveBoardTerminalWindowHandler $saveWindow,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
 
     public function __invoke(Request $request, Project $project): Response
     {
-        $this->board->requireEnabled();
-
         $data = new SaveBoardTerminalWindowRequest();
         $form = $this->createForm(SaveBoardTerminalWindowFormType::class, $data);
         $form->handleRequest($request);

@@ -44,19 +44,8 @@ final class CardGetHistoryToolTest extends KernelTestCase
         $this->createTool = $createTool;
     }
 
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-history-flag-off'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)('01920000-0000-7000-8000-000000000000');
-    }
-
     public function test_a_creation_and_a_move_read_newest_first_with_translated_columns(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-history');
         $this->actAsMcpTokenBoundTo($project);
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
@@ -84,7 +73,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_an_automation_row_reads_its_reason_and_pull_request_and_names_no_one(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-automation'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
         $this->events()->record($this->card($created['cardId']), CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks failed', 'pullRequest' => 42], new \DateTimeImmutable('+1 minute'));
@@ -101,7 +89,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_a_finished_run_passes_its_whole_detail_through(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-run'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
         $detail = ['outcome' => 'succeeded', 'stage' => 'implementation'];
@@ -113,7 +100,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_a_malformed_detail_reads_null_rather_than_fail(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-malformed'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
         $this->events()->record($this->card($created['cardId']), CardEventKind::Moved, CardReporter::System, null, ['from' => 'backlog', 'to' => ['slug' => 'next'], 'cause' => 'merged', 'reason' => 7, 'pullRequest' => '42'], new \DateTimeImmutable('+1 minute'));
@@ -126,7 +112,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_the_actor_name_is_read_when_the_history_is(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-history-rename');
         $this->actAsMcpTokenBoundTo($project);
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
@@ -140,7 +125,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_the_page_size_is_clamped_and_a_page_past_the_end_reads_empty(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-paging'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
 
@@ -154,7 +138,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_a_card_reads_back_by_its_number(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-number'));
         ($this->createTool)('Ship it', 'Body', 'feature');
 
@@ -163,7 +146,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_a_card_in_another_project_is_not_reachable(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-theirs'));
         $theirs = ($this->createTool)('Not yours', 'Body', 'feature');
 
@@ -176,7 +158,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_a_card_id_and_a_number_together_are_refused(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-both'));
 
         $this->expectException(ToolCallException::class);

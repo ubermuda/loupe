@@ -36,19 +36,8 @@ final class CardCreateToolTest extends KernelTestCase
         $this->tool = $tool;
     }
 
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-flag-off'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)('Ship it', 'Body', 'feature');
-    }
-
     public function test_a_card_is_created_in_the_backlog_with_an_agent_reporter(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create'));
 
         $card = ($this->tool)('Ship the board', '## Why', 'feature');
@@ -66,7 +55,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_a_caller_may_say_a_person_raised_the_card(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-human'));
 
         $card = ($this->tool)('Dictated', 'Body', 'idea', reporter: 'human');
@@ -82,7 +70,6 @@ final class CardCreateToolTest extends KernelTestCase
     /** Release 1 keeps the old parameter working, so an agent mid-upgrade is not broken. */
     public function test_the_deprecated_origin_parameter_still_sets_the_reporter(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-origin-alias'));
 
         $card = ($this->tool)('Old caller', 'Body', 'idea', origin: 'human');
@@ -92,7 +79,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_reporter_wins_when_a_caller_sends_both_names(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-both-names'));
 
         $card = ($this->tool)('Both', 'Body', 'idea', reporter: 'human', origin: 'agent');
@@ -103,7 +89,6 @@ final class CardCreateToolTest extends KernelTestCase
     /** The widget owns `reviewer`, because it says the app could not name who raised the card. */
     public function test_a_caller_cannot_claim_the_reviewer_reporter(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-reviewer'));
 
         $this->expectException(ToolCallException::class);
@@ -113,7 +98,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_pull_request_urls_are_resolved_and_an_unknown_forge_is_kept(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-links'));
 
         $card = ($this->tool)('Linked', 'Body', 'bug', pullRequestUrls: [
@@ -132,7 +116,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_a_blank_title_is_reported_as_a_sentence(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-blank'));
 
         $this->expectException(ToolCallException::class);
@@ -142,7 +125,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_an_unknown_status_names_the_columns_of_the_board(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-status'));
 
         $this->expectException(ToolCallException::class);
@@ -152,7 +134,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_related_cards_are_linked_with_their_kinds(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-links'));
         $blocker = ($this->tool)('Blocker', 'Body', 'feature');
 
@@ -169,7 +150,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_an_unknown_link_kind_lists_the_three_kinds(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-link-kind'));
         $other = ($this->tool)('Other', 'Body', 'feature');
 
@@ -180,7 +160,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_a_linked_card_of_no_card_is_reported_as_a_sentence(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-link-unknown'));
 
         $this->expectException(ToolCallException::class);
@@ -190,7 +169,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_a_card_is_created_under_an_epic(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-parent'));
         $epic = ($this->tool)('Epic', 'Body', 'epic');
 
@@ -206,7 +184,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_the_lane_setting_is_stored_and_defaults_to_on(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-lane'));
 
         self::assertTrue(($this->tool)('Epic', 'Body', 'epic')['laneEnabled']);
@@ -215,7 +192,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_a_parent_that_is_not_an_epic_is_reported_as_a_sentence(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-parent-not-epic'));
         $feature = ($this->tool)('Feature', 'Body', 'feature');
 
@@ -226,7 +202,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_an_epic_that_names_a_parent_is_reported_as_a_sentence(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-epic-parent'));
         $epic = ($this->tool)('Epic', 'Body', 'epic');
 
@@ -237,7 +212,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_a_parent_of_another_project_reads_as_unknown(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-parent-elsewhere'));
         $elsewhere = ($this->tool)('Epic', 'Body', 'epic');
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-parent-here'));
@@ -249,7 +223,6 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_an_unbound_mcp_token_is_rejected(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-create-unbound');
         $this->actAsUnboundMcpToken($project->owner);
 

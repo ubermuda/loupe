@@ -25,7 +25,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-rows@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Remember everything');
@@ -59,7 +58,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-empty@example.com');
         $card = $this->card($em, $this->project($em, $owner), 'Nothing yet');
         $em->clear();
@@ -76,7 +74,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-older@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'A long story');
@@ -122,7 +119,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-shift@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'A busy story');
@@ -157,7 +153,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-ties@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'All at once');
@@ -186,7 +181,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-cursor@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Bad cursor');
@@ -217,7 +211,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-owner@example.com');
         $stranger = $this->user($em, 'history-stranger@example.com');
         $project = $this->project($em, $owner);
@@ -237,7 +230,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-victim@example.com');
         $intruder = $this->user($em, 'history-intruder@example.com');
         $project = $this->project($em, $owner);
@@ -258,7 +250,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-run@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Run it');
@@ -323,7 +314,6 @@ final class CardHistoryTabTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'history-command@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Sync it');

@@ -76,8 +76,6 @@
                         {% include '@Inbox/_open_count.html.twig' with {project: project, openCount: project_inbox_open_count(project)} only %}
                     </a>
                     {% endif %}
-                    {# With the flag off, the board answers 404, so no link points to it. #}
-                    {% if is_feature_enabled('board.enabled') %}
                     {% set boardActive = route starts with 'app_project_board' or route starts with 'app_board_card' %}
                     <a href="{{ path('app_project_board', {id: project.id}) }}"
                        class="lp-sidebar__link{% if boardActive %} lp-sidebar__link--active{% endif %}"
@@ -85,7 +83,6 @@
                         <twig:ux:icon name="lucide:square-kanban" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.board'|trans }}</span>
                     </a>
-                    {% endif %}
                     {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
                     <a href="{{ path('app_project_documents', {id: project.id}) }}"
                        class="lp-sidebar__link{% if documentsActive %} lp-sidebar__link--active{% endif %}"
@@ -101,14 +98,12 @@
                         <twig:ux:icon name="lucide:bot" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.agents'|trans }}</span>
                     </a>
-                    {% if is_feature_enabled('board.enabled') %}
                     <a href="{{ path('app_project_workflow', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_workflow' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_workflow' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:workflow" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.workflow'|trans }}</span>
                     </a>
-                    {% endif %}
                     {% set activityActive = route in ['app_project_worker_runs', 'app_project_activity', 'app_project_worker_run_cost', 'app_project_experiments', 'app_project_experiment', 'app_project_experiment_cards'] %}
                     <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
                        class="lp-sidebar__link{% if activityActive %} lp-sidebar__link--active{% endif %}"
@@ -215,7 +210,7 @@
                             {% if project %}
                             {% include 'outbox/_activity_drawer.html.twig' with {project: project} only %}
                             {% endif %}
-                            {% if project and is_feature_enabled('board.enabled') %}
+                            {% if project %}
                             <a class="lp-btn lp-btn--primary lp-topbar__new-work" href="{{ path('app_board_card_create', {id: project.id}) }}" aria-label="{{ 'nav.new_work'|trans }}">
                                 <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
                                 <span>{{ 'nav.new_work'|trans }}</span>

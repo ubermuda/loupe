@@ -23,7 +23,6 @@ final class ShowBoardStructureControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'structure-anonymous@example.com'));
         $em->clear();
 
@@ -36,7 +35,6 @@ final class ShowBoardStructureControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'structure-owner@example.com'));
         $outsider = $this->user($em, 'structure-outsider@example.com');
         $em->clear();
@@ -46,21 +44,6 @@ final class ShowBoardStructureControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(403);
         self::assertStringNotContainsString('board-structure', (string) $client->getResponse()->getContent());
-    }
-
-    public function test_the_structure_is_not_found_while_the_board_is_off(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $owner = $this->user($em, 'structure-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $this->disableBoard();
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $this->structureUrl($project));
-
-        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_the_structure_route_does_not_write_the_session(): void
@@ -75,7 +58,6 @@ final class ShowBoardStructureControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'structure-plain@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Visible on the page', 'next');
@@ -112,7 +94,6 @@ final class ShowBoardStructureControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'structure-lanes@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
@@ -158,7 +139,6 @@ final class ShowBoardStructureControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'structure-tags@example.com');
         $project = $this->project($em, $owner);
         $columns = $this->columnIds($project);
@@ -176,7 +156,6 @@ final class ShowBoardStructureControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'structure-row-tag@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Tagged', 'next');

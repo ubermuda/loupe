@@ -40,7 +40,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'feedback-scope-owner@example.com');
         $stranger = $this->user($em, 'feedback-scope-stranger@example.com');
         $project = $this->project($em, $owner);
@@ -71,7 +70,6 @@ final class CardCrudControllerTest extends WebTestCase
         $surface = 'feedback';
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-feedback-status@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Resolve the capture');
@@ -111,7 +109,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-feedback-javascript@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Sneaky capture');
@@ -135,7 +132,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-create@example.com');
         $project = $this->project($em, $owner);
@@ -173,7 +169,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-create-in-column@example.com');
         $project = $this->project($em, $owner);
@@ -210,7 +205,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-create-invalid@example.com');
         $project = $this->project($em, $owner);
@@ -227,7 +221,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-edit@example.com');
         $project = $this->project($em, $owner);
@@ -276,7 +269,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-clear-links@example.com');
         $project = $this->project($em, $owner);
@@ -307,7 +299,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-delete@example.com');
         $project = $this->project($em, $owner);
@@ -339,7 +330,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-delete-untokened@example.com');
         $project = $this->project($em, $owner);
@@ -363,7 +353,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-move-page@example.com');
         $project = $this->project($em, $owner);
@@ -426,7 +415,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-queued-run@example.com');
         $project = $this->project($em, $owner);
@@ -493,7 +481,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-tab-'.md5($query).'@example.com');
         $project = $this->project($em, $owner);
@@ -525,7 +512,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-live-refresh-'.\count($server).'@example.com');
         $project = $this->project($em, $owner);
@@ -553,7 +539,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-owner@example.com');
         $stranger = $this->user($em, 'card-stranger@example.com');
@@ -574,7 +559,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-crossed@example.com');
         $mine = $this->project($em, $owner, 'mine');
@@ -589,27 +573,10 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function test_creating_is_not_found_while_the_flag_is_off(): void
-    {
-        $client = static::createClient();
-        $this->disableBoard();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'card-create-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new');
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
     public function test_a_link_with_an_unsafe_scheme_is_shown_but_never_href(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-unsafe-link@example.com');
         $project = $this->project($em, $owner);
@@ -646,7 +613,6 @@ final class CardCrudControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'card-linked-cards@example.com');
         $project = $this->project($em, $owner);

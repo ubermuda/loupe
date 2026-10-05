@@ -47,16 +47,6 @@ final class CardListToolTest extends KernelTestCase
         $this->createTool = $createTool;
     }
 
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-list-flag-off'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)();
-    }
-
     public function test_an_open_column_reads_in_rank_order(): void
     {
         $project = $this->boardWith('card-list-order');
@@ -453,7 +443,6 @@ final class CardListToolTest extends KernelTestCase
 
     private function boardWith(string $label): Project
     {
-        $this->enableBoard();
         $project = $this->makeProject($label);
         $this->actAsMcpTokenBoundTo($project);
 
