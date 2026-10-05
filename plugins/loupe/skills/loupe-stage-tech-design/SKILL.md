@@ -30,8 +30,8 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 1. When its `status` is `approved`, stop with `STAGE RESULT: tech design already approved`.
 2. Read the code and those design inputs.
 3. Judge the size again, as "Judge the size" says. A revision never changes the ID of an entry.
-4. Follow `../loupe-stage-product-design/references/review-round.md`. The document is `tech design`, and the requirement source is the one step 7 chose. Run step 5 before the round stops.
-5. When the round adds or changes a deploy item, update the deploy notes after the `document_revise` of the design, and before the replies. Revise the linked notes with `document_revise`, or create and link them as "Deploy notes" says. Keep the deploy line of the design true. When Architecture is approved, keep its text, and the linked notes are the record.
+4. Follow `../loupe-stage-product-design/references/review-round.md`. The document is `tech design`, and the requirement source is the one step 7 chose. Run Revise step 5 below before the round stops.
+5. When the round adds or changes a deploy item, update the deploy notes after the `document_revise` of the design. Do this before the replies. Revise the linked notes with `document_revise`, or create and link them as "Deploy notes" says. Keep the deploy line of the design true. When Architecture is approved, keep its text. The linked notes are then the record.
 
 ### Create, when neither step finds a design
 
@@ -79,9 +79,10 @@ Write the notes as follows:
 
 1. Read the profile `Instruction files` for the deploy items of the project. Add them to the list above. A profile that names none uses the list above alone, and never blocks the stage.
 2. List each deploy item that the feature adds or changes, and what the deploy must do for it.
-3. Call `document_create` with the title `Deploy notes: <card title>`. Set `references` to the tech design id.
-4. Use the tag `deploy-notes` only, or the spelling `tag_list` already has for it. Never add `design`, `product` or `decisions`, because workflow rules match those tags and can move the card.
-5. Link the notes to the card (contract rule 5). Send the `card_get` ids plus each new id.
+3. Search `document_list` for the title `Deploy notes: <card title>`, as the contract "Find a linked document" says. Revise a single match with `document_revise`, and create no second document.
+4. When no match exists, call `document_create` with the title `Deploy notes: <card title>`. Set `references` to the tech design id.
+5. Use the tag `deploy-notes` only, or the spelling `tag_list` already has for it. Never add `design`, `product` or `decisions`, because workflow rules match those tags and can move the card.
+6. Link the notes to the card (contract rule 5). Send the `card_get` ids plus each new id. On the Create path, Create step 5 makes this link.
 
 The tech design always carries one deploy line, as the last line of Architecture. The line names the notes by their title, `Deploy notes: <card title>`. With no deploy item, the line is `Deploy notes: none`, with the reason.
 

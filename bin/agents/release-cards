@@ -5,8 +5,8 @@
 #   bin/agents/release-cards [<deployed sha>]
 #
 # With no argument, reads the live version from https://loupe.ac/healthz.
-# Output: one line per first-parent commit, "<pr number>\t<card ids or ->\t<subject>".
-# A commit with no "(#N)" prints as "-\t-\t<subject>". Several card ids are comma-separated.
+# Output: one line per first-parent commit, "<pr number>\t<comma-separated card ids or ->\t<subject>".
+# A commit with no "(#N)" prints as "-\t-\t<subject>", and a failed PR read as "?".
 # Requires: git, gh (GitHub CLI), jq, curl
 
 set -euo pipefail
@@ -26,7 +26,7 @@ fi
 if [[ $# -eq 1 ]]; then
   VERSION="$1"
 else
-  TFVARS="$ROOT/terraform/terraform.tfvars"
+  TFVARS="$(git rev-parse --path-format=absolute --git-common-dir)/../terraform/terraform.tfvars"
   if [[ ! -f "$TFVARS" ]]; then
     echo "Cannot read the live version: $TFVARS is missing. Pass the deployed sha instead." >&2
     exit 1
@@ -55,7 +55,7 @@ fi
 
 git fetch -q origin main
 
-if ! FROM=$(git rev-parse --verify --quiet "${SHA}^{commit}"); then
+if ! FROM=$(git rev-parse --verify --quiet "${SHA}^{commit}" || git rev-parse --verify --quiet "web/${SHA}^{commit}"); then
   echo "Unknown commit for version '$VERSION'." >&2
   exit 1
 fi
@@ -71,7 +71,11 @@ git log --first-parent --format=%s "$FROM..origin/main" | while IFS= read -r SUB
     printf -- '-\t-\t%s\n' "$SUBJECT"
     continue
   fi
-  BODY=$(gh pr view "$PR" --json body --jq .body)
+  if ! BODY=$(gh pr view "$PR" --json body --jq .body </dev/null); then
+    echo "Warning: gh pr view $PR failed." >&2
+    printf '%s\t?\t%s\n' "$PR" "$SUBJECT"
+    continue
+  fi
   CARDS=$(grep -oE '/board/cards/[0-9a-f-]{36}' <<<"$BODY" | sed 's|.*/||' | awk '!seen[$0]++' | paste -sd, - || true)
   printf '%s\t%s\t%s\n' "$PR" "${CARDS:--}" "$SUBJECT"
 done

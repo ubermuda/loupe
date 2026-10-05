@@ -43,7 +43,7 @@ Record each item of the change that the deploy must handle:
 
 ## Check the release diff
 
-Do this check before you read the deploy notes. It finds a deploy item that has no note. Get the last deployed sha from `/healthz`, as "Verify what is actually live" shows.
+Do this check together with the deploy notes. It finds a deploy item that has no note. Get the last deployed sha from `/healthz`, as "Verify what is actually live" shows.
 
 ```bash
 git fetch -q origin main
@@ -55,13 +55,13 @@ Read each file in this list that no deploy note covers. Say whether the release 
 
 ## Read the deploy notes of the release
 
-1. Run `bin/agents/release-cards`. With no argument, it reads the live version from `/healthz`. Give it the deployed sha when `terraform/terraform.tfvars` is absent.
+1. Run `bin/agents/release-cards`. With no argument, it reads the live version from `/healthz`. Otherwise, give it the deployed sha.
 2. Read the output. Each line is `<pr number>`, `<card ids>` and `<subject>`, separated by tabs. A card column can hold several ids, separated by commas.
 3. Call `card_get` through the `loupe` MCP for each card id.
 4. For an epic, also call `card_get` for each child in `children`. A standalone child owns its own deploy notes.
 5. Call `document_get` for each linked document. Keep the documents tagged `deploy-notes`.
 6. Make a deploy checklist from those documents.
-7. Find each line with `-` as the card. Read the diff of that pull request, or of that commit, yourself. Never guess a card.
+7. Find each line with `-` or `?` as the card. A `?` means that `gh pr view` failed. Read the diff of that pull request, or of that commit, yourself. Never guess a card.
 
 ## Ship code
 
