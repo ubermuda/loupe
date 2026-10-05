@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/url"
 	"regexp"
 	"strings"
 
@@ -338,9 +337,13 @@ func checkWorkContext(c api.WorkRequestContext) error {
 	if c.PullRequestNumber < 0 || c.PullRequestNumber > math.MaxInt32 {
 		return fmt.Errorf("the context has an invalid pullRequestNumber %d", c.PullRequestNumber)
 	}
+	// The server keeps a link as a person gave it, so a strict URL parser
+	// would refuse some links it sends, such as one with a bad escape.
 	if c.PullRequestURL != "" {
-		u, err := url.Parse(c.PullRequestURL)
-		if len(c.PullRequestURL) > maxPullRequestURL || !pullRequestURLPattern.MatchString(c.PullRequestURL) || err != nil || u.Host == "" {
+		authority, _, _ := strings.Cut(strings.TrimPrefix(c.PullRequestURL, "https://"), "/")
+		authority, _, _ = strings.Cut(authority, "?")
+		authority, _, _ = strings.Cut(authority, "#")
+		if len(c.PullRequestURL) > maxPullRequestURL || !pullRequestURLPattern.MatchString(c.PullRequestURL) || authority == "" {
 			return errors.New("the context has a pullRequestUrl that is not an https URL")
 		}
 	}

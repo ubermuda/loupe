@@ -135,6 +135,17 @@ func TestParseWorkRequestReadsTheContext(t *testing.T) {
 	}
 }
 
+// The server takes a link as a person gave it, within its pattern, so the
+// bridge takes any URL that pattern takes, a bad percent escape included.
+func TestParseWorkRequestTakesAnyURLTheServerTakes(t *testing.T) {
+	for _, link := range []string{"https://github.com/acme/widgets/pull/42?x=%ZZ", "https://github.com/acme/%ZZ/pull/42", "https://github.com%41/pull/42", "https://user@github.com:443/acme/widgets/pull/42#top"} {
+		payload := strings.Replace(workRequestPayload, `"resumeSessionId":null`, `"resumeSessionId":null,"context":{"pullRequestUrl":"`+link+`"}`, 1)
+		if w, err := ParseWorkRequest([]byte(payload)); err != nil || w.Context.PullRequestURL != link {
+			t.Fatalf("%s: work request = %+v, err = %v", link, w, err)
+		}
+	}
+}
+
 func TestParseWorkRequestRejectsEachMalformedContextValue(t *testing.T) {
 	for name, context := range map[string]string{
 		"a negative number":         `{"pullRequestNumber":-1}`,
