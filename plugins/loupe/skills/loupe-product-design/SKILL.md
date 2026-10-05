@@ -40,7 +40,7 @@ Put each item in its section of the product document.
 - A decision that the owner defers goes in "Open questions" (Q8).
 - The answers of the P7 pre-mortem go in "Risks".
 - The P8 scenarios go in "Scenarios".
-- The Claude Design canvas link and the frame name of the pick go in "Decisions log", and the `R` entry they shaped cites both (C6).
+- The Claude Design canvas link and the label of each pick go in "Decisions log", and the `R` entry they shaped cites both. The product document also links the recap of the picks (C6).
 
 ## P10: write and link
 
