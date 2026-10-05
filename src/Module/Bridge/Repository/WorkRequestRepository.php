@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
@@ -218,6 +219,20 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->setParameter('kind', $kind)
             ->setParameter('live', [WorkRequestState::Open->value, WorkRequestState::Claimed->value])
             ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The request with the id, when it belongs to the card of the project. A run report names its request unchecked. */
+    public function findOneOfCard(Uuid $id, Project $project, Uuid $cardId): ?WorkRequest
+    {
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.id = :id')
+            ->andWhere('w.project = :project')
+            ->andWhere('w.cardId = :cardId')
+            ->setParameter('id', $id, UuidType::NAME)
+            ->setParameter('project', $project)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
             ->getQuery()
             ->getOneOrNullResult();
     }
