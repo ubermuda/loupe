@@ -58,7 +58,7 @@ Use these `##` sections, in this order. Follow `../loupe-documents/references/de
 2. Priorities. Cite the `P` entries of the product document that the design serves. With no product document, take them from the card body.
 3. Architecture. Name each part that the change adds or changes. Give each part one table row, with its role today and its change. Write "new" as the role of a part that the change adds. Then describe the main flow step by step. A diagram is optional, and `../loupe-documents/references/design-structure.md` "Diagrams" gives the types.
 4. How others do it. Give two or three libraries or systems that solve the same problem. Link each one, and give one takeaway.
-5. One section for each open decision, with a stable ID such as `D1` in its heading. Each decision cites the `R` and `P` IDs it serves.
+5. One section for each open decision, with a stable ID such as `D1` in its heading. Each decision cites the `R` and `P` IDs it serves. Give each one the worked example of `../loupe-documents/references/design-structure.md` "Decisions".
 6. Decided. Write each entry in two to four sentences. Give the reason, the option that lost and why it lost, and the cost that the choice accepts. For a reversal, name the answer that lost and the argument that changed it.
 7. The work order. List the steps with stable IDs. Say which open decision blocks which step. Write a Breakdown section instead when "Judge the size" asks for one.
 
