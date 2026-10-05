@@ -452,13 +452,6 @@ agent never learns of a tool this instance would refuse — switch it on in
 **Admin → Feature flags**. A client holding a tool list from before the flag
 changed and calling it anyway gets a plain refusal, not a broken call.
 
-The `card_*` tools, `board_columns`, `feedback_list` and
-`feedback_mark_addressed` are behind the `board.enabled` feature flag, which
-ships **on**. Site review writes each note to a card, so it needs the board. An
-operator can switch the flag off. The gate then behaves the same way as the one
-above: the tools are absent from `tools/list` and from the Connect page, and a
-client that calls one anyway gets a plain refusal.
-
 Each board has its own columns. `board_columns` lists them in board order, and
 `card_list` returns the same list in `columns` beside its cards. The `status`
 argument of `card_create`, `card_update` and `card_list` takes a column slug. An

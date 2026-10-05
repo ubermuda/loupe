@@ -9,9 +9,7 @@ Each project in Loupe has one board, and each board has its own columns. A card
 carries a title, a Markdown body, a type, a status and a reporter.
 The status is the slug of the column the card sits in.
 
-The tools act on the project the connection is bound to. An instance can switch the
-board off, and every tool then answers "The board is switched off on this
-instance."
+The tools act on the project the connection is bound to.
 
 ## Read the columns before you name one
 

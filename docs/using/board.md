@@ -8,9 +8,8 @@ piece of work: what it asks for, how urgent it is, and which column it sits in.
 A person works the board on its own screen. An agent reads and writes the same
 board through the MCP endpoint.
 
-The board is behind the `board.enabled` feature flag, and the flag ships on.
-[Site review](site-review.md) writes each note to a card, so it needs the board.
-See [Turning the board off](#turning-the-board-off).
+Every instance has the board. [Site review](site-review.md) writes each note to
+a card.
 
 ## Columns
 
@@ -967,10 +966,6 @@ Such a card always lands in Backlog, and carries no pull request
 link. The widget offers neither, so a page visitor cannot file work straight
 into a column. The widget refuses a card or an epic in a terminal column.
 
-All of this needs `board.enabled`. While the flag is off, the feedback endpoints
-answer 409 `board_disabled`, and the widget says "Turn on the board to use site
-review".
-
 ## Documents on a card
 
 A card links to any number of documents in the same project, and the card page
@@ -1090,27 +1085,6 @@ the widget deletes the note's card too when all of these are true:
 - The card keeps the site review type and the title that the note gave it.
 - The card body is empty.
 - The card has no pull request, no document and no link to or from another card.
-
-## Turning the board off
-
-`board.enabled` ships on, because site review writes each note to a card. The
-install wizard sets it on for a fresh install. On an instance that upgrades, a
-database migration sets it on, and writes the row when it is missing. Run the
-migrations as part of the upgrade.
-
-An operator can switch it off at **`/admin/feature-flags`**. The change needs no
-restart. See [The admin area](admin.md). While the flag is off:
-
-- The `card_*` tools, `board_columns`, `feedback_list` and
-  `feedback_mark_addressed` are absent from `tools/list` and from the project's
-  Connect page. A client that holds an older tool list and calls one anyway gets
-  a plain refusal.
-- The widget refuses notes and says "Turn on the board to use site review".
-
-A missing row reads as off. If the flags page does not list the flag, the
-migration has not run. **`/admin/feature-flags/scan`** lists every flag the code
-references that the database does not define, and it creates those rows on
-request.
 
 ## Deleting a project
 

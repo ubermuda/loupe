@@ -57,8 +57,6 @@ Every event names `system` as its actor, because the fact arrived from outside
 Loupe and nobody here judged the card. The events feed the activity feed and
 the workflow of the board. No bridge receives them.
 
-Loupe writes no event while the board is off.
-
 ### Events from an App repository
 
 A repository that an App installation feeds gets its events from
@@ -153,7 +151,7 @@ know, is dropped.
 
 | Status | When |
 |---|---|
-| 200 | the delivery verified. This includes a dropped delivery, an event Loupe does not use, and a project whose board is off. |
+| 200 | the delivery verified. This includes a dropped delivery and an event Loupe does not use. |
 | 400 | the signature did not verify, the secret is empty, or the body is not JSON |
 | 404 | no webhook has that hook key |
 | 429 | the key sent too many deliveries in one minute: 3000 for the App route, 300 for one webhook |

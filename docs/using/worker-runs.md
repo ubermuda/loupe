@@ -417,9 +417,6 @@ reference, so deleting a card leaves its run history intact. The card number
 still carries the link, and that link answers 404 once the card is gone. The run
 row itself keeps reading correctly.
 
-An instance with the board feature off shows the card number as plain text,
-because it has no card page to link to.
-
 ## How long a run is kept
 
 The server keeps a run record for 180 days, counted from when the report
