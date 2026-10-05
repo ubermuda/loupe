@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  * Reads the tag vocabulary of the project the authenticating token is bound to.
  *
  * Because tags are created implicitly, nothing rejects a near-duplicate name —
- * an agent that coins "design-spec" alongside an established "design" gets no
+ * an agent that coins "tech-design-spec" alongside an established "tech-design" gets no
  * error, and the two simply stop grouping anything together. The document count
  * is what makes that visible: it separates a convention in use from a name
  * somebody minted once.

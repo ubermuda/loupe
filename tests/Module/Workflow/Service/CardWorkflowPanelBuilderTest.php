@@ -58,7 +58,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertNull($panel->pause);
         $progress = $panel->progress ?? self::fail('The automation is on, so the panel shows the progress.');
         self::assertSame('Tech design', $progress->slot);
-        self::assertSame('Waiting: no design document is approved.', $progress->waiting);
+        self::assertSame('Waiting: no tech-design document is approved.', $progress->waiting);
         self::assertSame('Move the card to Implementation', $progress->nextAction);
         $refusal = $progress->lastRefusal ?? self::fail('The card has a refusal.');
         self::assertSame('move-refused', $refusal->code);

@@ -27,7 +27,7 @@ Build the approved tech design of one card into a ready, linked pull request. An
 1. Load the `loupe-board` instruction.
 2. Call `card_get`.
 3. Slug the prompt's column label (`references/commands.md`). When it differs from the card `status`, stop with `STAGE RESULT: card left <column>`.
-4. Find the linked tech design by its tags `design` and `decisions` (`document_get`), or a title starting `Tech design`. A card with a parent is a Breakdown child when its body has the entry line of `references/breakdown.md`, and a standalone child when it does not.
+4. Find the linked tech design by its tags `tech-design` and `decisions` (`document_get`), or a title starting `Tech design`. A card with a parent is a Breakdown child when its body has the entry line of `references/breakdown.md`, and a standalone child when it does not.
    - A Breakdown child that links none uses the tech design of its parent.
    - A standalone child uses only a tech design of its own. It ignores the design of its parent, even when the card links it (`references/breakdown.md`). When it has no approved one, record the block (step 15). Stop with `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.
    - Any other card with no approved tech design stops with `STAGE RESULT: no approved tech design`.
