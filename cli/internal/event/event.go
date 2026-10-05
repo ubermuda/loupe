@@ -343,7 +343,11 @@ func checkWorkContext(c api.WorkRequestContext) error {
 		authority, _, _ := strings.Cut(strings.TrimPrefix(c.PullRequestURL, "https://"), "/")
 		authority, _, _ = strings.Cut(authority, "?")
 		authority, _, _ = strings.Cut(authority, "#")
-		if len(c.PullRequestURL) > maxPullRequestURL || !pullRequestURLPattern.MatchString(c.PullRequestURL) || authority == "" {
+		host := authority[strings.LastIndex(authority, "@")+1:]
+		if !strings.HasPrefix(host, "[") {
+			host, _, _ = strings.Cut(host, ":")
+		}
+		if len(c.PullRequestURL) > maxPullRequestURL || !pullRequestURLPattern.MatchString(c.PullRequestURL) || host == "" {
 			return errors.New("the context has a pullRequestUrl that is not an https URL")
 		}
 	}
