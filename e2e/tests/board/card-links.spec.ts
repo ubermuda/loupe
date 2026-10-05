@@ -10,6 +10,9 @@ const test = createTest({
     name: 'Card Links Reviewer',
 });
 
+// Some of its tests run 20s or more beside three other workers, near the default budget.
+test.slow();
+
 test.beforeEach(async ({ page }) => {
     await suppressToolbar(page);
     await suppressWidget(page);

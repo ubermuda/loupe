@@ -132,6 +132,9 @@ const test = base.extend<{ board: Board }>({
     ],
 });
 
+// Some of its tests run 20s or more beside three other workers, near the default budget.
+test.slow();
+
 test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1600, height: 900 },
