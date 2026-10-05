@@ -61,6 +61,24 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-10-02 09:00'), $refusal->at);
     }
 
+    /** @return iterable<string, array{string, string}> */
+    public static function documentRefusals(): iterable
+    {
+        yield 'no document' => ['document-not-found', 'The card has no document with the tag that the rule names.'];
+        yield 'several documents' => ['document-ambiguous', 'The card has more than one document with the tag that the rule names.'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('documentRefusals')]
+    public function test_a_document_refusal_has_its_own_text(string $code, string $text): void
+    {
+        $card = $this->card('tech-design');
+        $this->refusal($card, 'tech-design-revise', $code, '2026-10-02 09:00', 1);
+
+        $refusal = ($this->builder()->build($card)->progress ?? self::fail('The automation is on.'))->lastRefusal ?? self::fail('The card has a refusal.');
+
+        self::assertSame($text, $refusal->reason);
+    }
+
     public function test_a_slot_with_no_rule_of_its_own_shows_the_first_global_move_rule(): void
     {
         $card = $this->card('next');
