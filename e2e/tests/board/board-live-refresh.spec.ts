@@ -5,28 +5,12 @@
  * nudge, so the run needs a Mercure hub the browser can reach.
  */
 
-import {
-    test,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { signedInPage } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardRefresh1!';
 const COLUMN = 'section.lp-board__column';
-
-async function setFlag(
-    request: APIRequestContext,
-    name: string,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name, enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
 
 async function openBoard(page: Page, boardUrl: string): Promise<void> {
     await page.goto(boardUrl);
@@ -49,17 +33,10 @@ function countBoardLoads(page: Page, boardUrl: string): string[] {
     return loads;
 }
 
-test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', true);
-});
-
 test('a column renamed in one browser shows in another without a reload', async ({
     browser,
     request,
 }) => {
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
-
     const email = `e2e+refresh+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Refresh User', email, password: PASSWORD },
@@ -190,9 +167,6 @@ test('columns added, reordered and deleted in one browser update another in plac
     browser,
     request,
 }) => {
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
-
     const email = `e2e+refresh+columns+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Refresh User', email, password: PASSWORD },

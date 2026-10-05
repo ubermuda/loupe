@@ -5,7 +5,7 @@
  * with no navigation, so the run needs a Mercure hub the browser can reach.
  */
 
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
     agentAccessToken,
     signedInPage,
@@ -16,30 +16,12 @@ import {
 const RUN = Date.now();
 const PASSWORD = 'E2eRunWarning1!';
 
-async function setFlag(
-    request: APIRequestContext,
-    name: string,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name, enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
-
-// The flag is global, so it goes back off for the specs that run after this one.
-test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', false);
-});
-
 test('a card whose latest run gave up shows a warning until a later run succeeds', async ({
     browser,
     request,
 }) => {
     // A sign-in, a card, a token and two live reports outlast the default budget.
     test.slow();
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
 
     const email = `e2e+run-warning+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {

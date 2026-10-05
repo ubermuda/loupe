@@ -11,24 +11,12 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
-// The flag is global, so it goes back off for the specs that run after this one.
-test.afterAll(async ({ request }) => {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-});
-
 test('the owner stops a run, which holds nothing, then pauses and releases the agents', async ({
     page,
 }) => {
     // A card, a board load, a token and two reports outlast the default budget on CI.
     test.slow();
     await suppressWidget(page);
-    const flag = await page.request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(flag.ok()).toBeTruthy();
 
     const seed = await page.request.post('/dev/seed/document', {
         form: { title: 'E2E Worker Controls', markdown: '# Controls' },

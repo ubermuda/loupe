@@ -5,12 +5,7 @@
  * change is read back after a reload, because the server is what decides.
  */
 
-import {
-    test as base,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 import { expectFilterFocusRingVisible } from '../helpers';
 
@@ -21,16 +16,6 @@ const COLUMN = 'section.lp-board__column';
 
 // Under a loaded run, the POST and the redirected GET take longer than the 5 s default.
 const ROUND_TRIP = { timeout: process.env.COVERAGE ? 20_000 : 15_000 };
-
-async function setBoardFlag(
-    request: APIRequestContext,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
 
 async function registerAndLogin(page: Page, email: string): Promise<void> {
     const response = await page.request.post('/dev/register-and-verify', {
@@ -127,7 +112,6 @@ const test = base.extend<{ board: Board }>({
         async ({ page }, use, testInfo) => {
             await suppressToolbar(page);
             await suppressWidget(page);
-            await setBoardFlag(page.request, true);
 
             const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
             await registerAndLogin(
@@ -151,10 +135,6 @@ const test = base.extend<{ board: Board }>({
 test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1600, height: 900 },
-});
-
-test.afterAll(async ({ request }) => {
-    await setBoardFlag(request, true);
 });
 
 test('board filters retain an outline in forced colors', async ({ page }) => {

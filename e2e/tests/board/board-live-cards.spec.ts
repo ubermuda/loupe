@@ -5,28 +5,12 @@
  * message, so the run needs a Mercure hub the browser can reach.
  */
 
-import {
-    test,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { signedInPage } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardLiveCards1!';
 const CARD = '[data-board-drag-target="card"]';
-
-async function setFlag(
-    request: APIRequestContext,
-    name: string,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name, enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
 
 async function createCard(
     page: Page,
@@ -47,18 +31,12 @@ function group(page: Page, slug: string) {
     );
 }
 
-test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', false);
-});
-
 test('a card moved in one browser moves in another, marked, with the filter and the scroll kept', async ({
     browser,
     request,
 }) => {
     // Five cards go through the create form, one page visit each.
     test.slow();
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
 
     const email = `e2e+livecards+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
