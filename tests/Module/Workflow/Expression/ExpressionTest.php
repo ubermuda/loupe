@@ -246,4 +246,15 @@ final class ExpressionTest extends TestCase
         self::assertSame([], $missing->reads());
         self::assertSame([], new AllOf([$missing])->leaves());
     }
+
+    public function test_an_expression_lists_the_keys_of_its_missing_conditions_in_template_order(): void
+    {
+        $child = new ConditionLeaf(new CardIsChild(), []);
+        $gone = new MissingConditionLeaf('card.gone', []);
+        $lost = new MissingConditionLeaf('pr.lost', []);
+
+        self::assertSame(['card.gone', 'pr.lost', 'card.gone'], new AllOf([$gone, new AnyOf([$child, new Not($lost)]), $gone])->missingKeys());
+        self::assertSame([], $child->missingKeys());
+        self::assertSame([], new AllOf([])->missingKeys());
+    }
 }

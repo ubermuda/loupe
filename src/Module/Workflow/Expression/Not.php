@@ -44,4 +44,10 @@ final readonly class Not extends Expression
     {
         return $this->inner->leaves();
     }
+
+    #[\Override]
+    public function missingKeys(): array
+    {
+        return $this->inner->missingKeys();
+    }
 }

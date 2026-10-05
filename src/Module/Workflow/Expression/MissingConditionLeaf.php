@@ -46,4 +46,10 @@ final readonly class MissingConditionLeaf extends Expression
     {
         return [];
     }
+
+    #[\Override]
+    public function missingKeys(): array
+    {
+        return [$this->key];
+    }
 }
