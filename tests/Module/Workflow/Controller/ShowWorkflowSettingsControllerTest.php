@@ -83,16 +83,22 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
             'workTimeoutMinutes' => 120,
             'rules' => [
                 ['id' => 'gone', 'when' => ['all' => [['card.gone' => []], ['card.is_child' => []]]], 'then' => ['request' => ['kind' => 'gone']]],
+                ['id' => 'hold', 'when' => ['card.is_child' => []], 'then' => ['pause' => ['reason' => 'held', 'until' => ['all' => [['card.is_child' => []], ['pr.open' => []]]]]]],
             ],
         ]));
         $owner = $this->stampedOwner($project);
 
         $this->client->loginUser($owner);
-        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/workflow');
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/workflow');
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[data-rule-id="gone"][data-rule-missing] .lp-tag', 'Condition no longer exists: card.gone');
         self::assertSelectorTextContains('[data-rule-id="gone"] [data-condition-source="workflow.source.board"]', 'Board: card.is_child');
+        self::assertSelectorNotExists('[data-rule-id="gone"] [data-rule-until]');
+        self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until]', 'Until:');
+        self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until] [data-condition-source="workflow.source.board"]', 'Board: card.is_child');
+        self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until] [data-condition-source="workflow.source.forge"]', 'Forge: pr.open');
+        self::assertCount(2, $crawler->filter('[data-rule-id="hold"] [data-condition-source="workflow.source.board"]'));
     }
 
     public function test_an_unbound_project_says_it_runs_no_template(): void

@@ -67,11 +67,16 @@
                 <span class="lp-data-table__cell">{{ rule.appliesToKey|trans }}</span>
                 <span class="lp-data-table__cell">{{ rule.actionKey|trans({'%target%': rule.targetKey is null ? '' : rule.targetKey|trans, '%kind%': rule.kind ?? ''}) }}</span>
                 <div class="lp-data-table__cell" data-rule-conditions>
-                    {% for group in rule.conditionGroups %}
-                    <div data-condition-source="{{ group.sourceKey }}">{{ group.sourceKey|trans }}:
-                        {% for condition in group.conditions %}{{ condition.negated ? 'workflow.settings.rules.not'|trans ~ ' ' }}<code>{{ condition.key }}</code>{{ condition.params is not same as('') ? ' (' ~ condition.params ~ ')' }}{{ not loop.last ? ', ' }}{% endfor %}
-                    </div>
+                    {% for group in rule.whenGroups %}
+                    {% include '@Workflow/_condition_group.html.twig' with {group: group} only %}
                     {% endfor %}
+                    {% if rule.untilGroups is not empty %}
+                    <div data-rule-until>{{ 'workflow.settings.rules.until'|trans }}
+                        {% for group in rule.untilGroups %}
+                        {% include '@Workflow/_condition_group.html.twig' with {group: group} only %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     {% for key in rule.missingConditions %}
                     <span class="lp-tag lp-tag--amber">{{ 'workflow.settings.rules.missing_condition'|trans({'%condition%': key}) }}</span>
                     {% endfor %}

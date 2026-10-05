@@ -64,14 +64,6 @@ final readonly class ShowWorkflowSettingsHandler
         $params = $rule->then->params;
         $type = $rule->then->type;
         $expressions = array_values(array_filter([$rule->when, $rule->then->until]));
-
-        $groups = [];
-        foreach ($expressions as $expression) {
-            foreach (self::conditions($expression, false) as [$leaf, $negated]) {
-                $condition = new WorkflowConditionView($leaf->condition::key(), $negated, self::params($leaf->params));
-                $groups[$leaf->condition::source()][serialize($condition)] = $condition;
-            }
-        }
         $missing = array_merge(...array_map(static fn (Expression $expression): array => $expression->missingKeys(), $expressions));
 
         return new WorkflowRuleView(
@@ -90,12 +82,25 @@ final readonly class ShowWorkflowSettingsHandler
                 ActionType::ForgeWrite => (string) $params['write'],
                 default => null,
             },
-            conditionGroups: array_map(
-                static fn (string $source, array $conditions): WorkflowConditionGroupView => new WorkflowConditionGroupView($source, array_values($conditions)),
-                array_keys($groups),
-                array_values($groups),
-            ),
+            whenGroups: self::groups($rule->when),
+            untilGroups: null === $rule->then->until ? [] : self::groups($rule->then->until),
             missingConditions: array_values(array_unique($missing)),
+        );
+    }
+
+    /** @return list<WorkflowConditionGroupView> */
+    private static function groups(Expression $expression): array
+    {
+        $groups = [];
+        foreach (self::conditions($expression, false) as [$leaf, $negated]) {
+            $condition = new WorkflowConditionView($leaf->condition::key(), $negated, self::params($leaf->params));
+            $groups[$leaf->condition::source()][serialize($condition)] = $condition;
+        }
+
+        return array_map(
+            static fn (string $source, array $conditions): WorkflowConditionGroupView => new WorkflowConditionGroupView($source, array_values($conditions)),
+            array_keys($groups),
+            array_values($groups),
         );
     }
 
