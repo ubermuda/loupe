@@ -258,7 +258,9 @@ for (const target of ['document', 'pull-request']) {
             .getByRole('button', { name: 'Submit review', exact: true })
             .click();
         await expect(item).toContainText(
-            'Explain the changes you request in a review note.',
+            target === 'document'
+                ? 'Write a review note, or leave a comment on the passage to change.'
+                : 'Explain the changes you request in a review note.',
         );
         await expect(drawer).toBeVisible();
         await expect(page).toHaveURL(boardUrl);

@@ -53,6 +53,20 @@ class CommentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function countOpenThreadsByVersion(DocumentVersion $version): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->where('c.version = :version')
+            ->andWhere('c.parent IS NULL')
+            ->andWhere('c.deletedAt IS NULL')
+            ->andWhere('c.status != :resolved')
+            ->setParameter('version', $version)
+            ->setParameter('resolved', CommentStatus::Resolved)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     /**
      * Every signal the pages derive from a version's comments, for several
      * versions in one grouped query. The documents list renders a page of rows,
