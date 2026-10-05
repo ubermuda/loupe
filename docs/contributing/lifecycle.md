@@ -85,7 +85,11 @@ covers, and its blockers:
 An ID never changes across revisions. The text after the ID is the title of the
 child. The entry line at the top of the child's body names its entry:
 `Breakdown item B3 of card #214.` A rerun matches an existing child by that
-line, then by the exact title, so it never creates a duplicate.
+line first. A child with no entry line matches by judgement, from its title and
+body against the entry. When a match is unsure, the worker asks the owner with
+one `inbox_ask`, writes nothing, and stops with
+`STAGE RESULT: blocked: breakdown match needs the owner`. The bridge resumes it
+when the ask closes. So the breakdown never creates a duplicate.
 `plugins/loupe/skills/loupe-stage-implementation/references/breakdown.md` holds
 the full format.
 
@@ -101,14 +105,18 @@ design:
    `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.
 2. Breakdown: the card is an epic, or its tech design has a `Breakdown`
    section. The worker writes no code and changes no file. It sets the type
-   `epic`, creates each missing child in Backlog, and sets the blocked-by
-   links. Then it moves each child with no open blocker to Implementation. The
-   result line is `STAGE RESULT: breakdown <n> children, <m> started`.
+   `epic`, adds the entry line to each matched child, creates each missing
+   child in Backlog, and sets the blocked-by links. Then it moves each child
+   with no open blocker to Implementation. The result line is
+   `STAGE RESULT: breakdown <n> children, <m> started`, and the lines after it
+   list each match with its reason.
 3. Normal: every other card. The worker builds the whole design into one pull
    request.
 
-An epic never gets a coding worker. When an epic moves back to Implementation,
-its worker runs the breakdown again, finds no missing child, and stops. That
+An epic never gets a coding worker. An epic that already has children still
+gets the breakdown when it enters Implementation. When an epic moves back to
+Implementation, its worker runs the breakdown again, finds no missing child,
+and stops. That
 rerun also starts a child that a person put back in Backlog on purpose, when
 the child has no open blocker. A parked child stays in Backlog.
 
@@ -117,7 +125,8 @@ The workflow makes three moves on its own:
 1. When the last open blocker of a child in Backlog finishes, the child moves to
    Implementation, which asks for its implementation.
 2. When every child of an epic is done, the epic moves to In review when it has
-   a pull request, and to Done when it has none.
+   a pull request, and to Done when it has none. While a breakdown request is
+   active, the epic stays in Implementation.
 3. When a done epic gets an open child again, the epic moves back to
    Implementation.
 
