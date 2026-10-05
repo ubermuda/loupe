@@ -376,7 +376,7 @@ final readonly class ProjectShowcaseSeeder
             "# Tech design: First handoff guide\n\n## The first five minutes\n\nMove a card to Ready. The rule of that column starts an agent, and the card shows the run.\n",
             '<h1>Tech design: First handoff guide</h1><h2>The first five minutes</h2><p>Move a card to Ready. The rule of that column starts an agent, and the card shows the run.</p>',
         );
-        $this->tagApplier->apply($onboarding, ['design', 'decisions']);
+        $this->tagApplier->apply($onboarding, ['tech-design', 'decisions']);
         $onboardingCard->documents->add(new CardDocument($onboardingCard, $onboarding));
 
         foreach ([$history, $rules, $onboarding] as $document) {

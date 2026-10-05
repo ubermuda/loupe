@@ -714,7 +714,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-lifecycle');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $this->approvedDocument($card, 'design');
+        $this->approvedDocument($card, 'tech-design');
 
         $this->evaluate($card);
 
@@ -735,7 +735,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-live');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $this->approvedDocument($card, 'design');
+        $this->approvedDocument($card, 'tech-design');
         $changed = [];
         $dispatcher = self::getContainer()->get('event_dispatcher');
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);

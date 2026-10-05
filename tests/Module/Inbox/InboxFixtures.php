@@ -107,7 +107,7 @@ trait InboxFixtures
      */
     private function stageDocument(EntityManagerInterface $em, Document $document, Card $card, string $stage = 'tech-design'): void
     {
-        $this->tagDocument($em, $document, 'tech-design' === $stage ? ['design', 'decisions'] : ['product']);
+        $this->tagDocument($em, $document, 'tech-design' === $stage ? ['tech-design', 'decisions'] : ['product-design']);
         $card->column = $this->stageColumn($em, $card->project, $stage);
     }
 

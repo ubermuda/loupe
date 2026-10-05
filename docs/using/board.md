@@ -996,9 +996,9 @@ not learn that cards exist.
 ### An approval moves a card
 
 The workflow of the board decides what an approval does. In the Lifecycle
-template, an approved product document, with the tag `product`, moves the card
-from Product design to Tech design. An approved tech design, with the tag
-`design`, moves the card from Tech design to Implementation, once the card has no
+template, an approved product document, with the tag `product-design`, moves the
+card from Product design to Tech design. An approved tech design, with the tag
+`tech-design`, moves the card from Tech design to Implementation, once the card has no
 open blocker. A blocker is open while it sits in a column that is not terminal,
 and only a `blocks` link counts. The Workflow panel shows what the card waits
 for. See [Workflows](workflows.md).

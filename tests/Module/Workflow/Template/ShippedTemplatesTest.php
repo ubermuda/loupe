@@ -83,18 +83,34 @@ final class ShippedTemplatesTest extends KernelTestCase
 
     public function test_an_approved_tech_design_with_no_blocker_moves_to_implementation(): void
     {
-        $facts = FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [self::approved('design')]));
+        $facts = FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [self::approved('tech-design')]));
 
         self::assertContainsEquals(new ActionCall(ActionType::Move, ['to' => 'implementation']), $this->actions($facts));
     }
 
     public function test_an_approved_tech_design_with_an_open_blocker_does_not_move(): void
     {
-        $facts = FactsMother::facts(card: FactsMother::card(slot: 'tech-design', hasOpenBlocker: true, documents: [self::approved('design')]));
+        $facts = FactsMother::facts(card: FactsMother::card(slot: 'tech-design', hasOpenBlocker: true, documents: [self::approved('tech-design')]));
 
         $actions = $this->actions($facts);
         self::assertNotEmpty($this->lifecycle()->rulesFor('tech-design'));
         self::assertSame([], array_values(array_filter($actions, static fn (ActionCall $action): bool => ActionType::Move === $action->type)));
+    }
+
+    public function test_an_approved_product_design_asks_for_a_tech_design_and_does_not_move(): void
+    {
+        $facts = FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [self::approved('product-design')]));
+
+        self::assertSame(['tech-design-write'], $this->firingRuleIds($facts));
+        self::assertContainsEquals(new ActionCall(ActionType::Request, ['kind' => 'tech-design']), $this->actions($facts));
+    }
+
+    public function test_an_approved_tech_design_next_to_an_approved_product_design_moves_to_implementation(): void
+    {
+        $facts = FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [self::approved('product-design'), self::approved('tech-design')]));
+
+        self::assertSame(['tech-design-approved'], $this->firingRuleIds($facts));
+        self::assertContainsEquals(new ActionCall(ActionType::Move, ['to' => 'implementation']), $this->actions($facts));
     }
 
     public function test_a_reviewable_pull_request_moves_to_in_review(): void
@@ -278,13 +294,13 @@ final class ShippedTemplatesTest extends KernelTestCase
         ];
 
         yield 'a product design with changes requested asks only for a revision' => [
-            FactsMother::facts(card: FactsMother::card(slot: 'product-design', documents: [new DocumentFacts(tags: ['product'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')])),
+            FactsMother::facts(card: FactsMother::card(slot: 'product-design', documents: [new DocumentFacts(tags: ['product-design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')])),
             ['product-design-session', 'product-design-revise'],
             'product-design-revise',
         ];
 
         yield 'a tech design with changes requested asks only for a revision' => [
-            FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [new DocumentFacts(tags: ['design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')])),
+            FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [new DocumentFacts(tags: ['tech-design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')])),
             ['tech-design-write', 'tech-design-revise'],
             'tech-design-revise',
         ];
@@ -337,14 +353,14 @@ final class ShippedTemplatesTest extends KernelTestCase
             'epic-to-done',
         ];
 
-        $productDocuments = [new DocumentFacts(tags: ['product'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5'), new DocumentFacts(tags: ['product'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')];
+        $productDocuments = [new DocumentFacts(tags: ['product-design'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5'), new DocumentFacts(tags: ['product-design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')];
         yield 'a product design with one document approved and one to revise stays to revise' => [
             FactsMother::facts(card: FactsMother::card(slot: 'product-design', documents: $productDocuments)),
             ['product-design-approved', 'product-design-revise'],
             'product-design-revise',
         ];
 
-        $designDocuments = [new DocumentFacts(tags: ['design'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5'), new DocumentFacts(tags: ['design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')];
+        $designDocuments = [new DocumentFacts(tags: ['tech-design'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5'), new DocumentFacts(tags: ['tech-design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5')];
         yield 'a tech design with one document approved and one to revise stays to revise' => [
             FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: $designDocuments)),
             ['tech-design-approved', 'tech-design-revise'],
@@ -400,8 +416,8 @@ final class ShippedTemplatesTest extends KernelTestCase
     {
         $lifecycle = $this->lifecycle();
 
-        self::assertSame(['product'], $lifecycle->documentTagsFor('product-design'));
-        self::assertSame(['design'], $lifecycle->documentTagsFor('tech-design'));
+        self::assertSame(['product-design'], $lifecycle->documentTagsFor('product-design'));
+        self::assertSame(['tech-design'], $lifecycle->documentTagsFor('tech-design'));
         self::assertSame([], $lifecycle->documentTagsFor('implementation'));
         self::assertSame([], $lifecycle->documentTagsFor(null));
         self::assertSame([], $this->template('simple')->documentTagsFor(null));
@@ -416,7 +432,7 @@ final class ShippedTemplatesTest extends KernelTestCase
             }
         }
 
-        self::assertSame(['product-design-revise' => ['product', 'changes-requested'], 'tech-design-revise' => ['design', 'changes-requested']], $params);
+        self::assertSame(['product-design-revise' => ['product-design', 'changes-requested'], 'tech-design-revise' => ['tech-design', 'changes-requested']], $params);
     }
 
     private function shipped(): ShippedTemplates
