@@ -412,11 +412,11 @@ final class ShippedTemplatesTest extends KernelTestCase
         $params = [];
         foreach ($this->lifecycle()->rules as $rule) {
             if (\in_array($rule->id, ['product-design-revise', 'tech-design-revise'], true)) {
-                $params[$rule->id] = $rule->then->params[TemplateParser::DOCUMENT_TAG] ?? null;
+                $params[$rule->id] = [$rule->then->params[TemplateParser::DOCUMENT_TAG] ?? null, $rule->then->params[TemplateParser::DOCUMENT_STATUS] ?? null];
             }
         }
 
-        self::assertSame(['product-design-revise' => 'product', 'tech-design-revise' => 'design'], $params);
+        self::assertSame(['product-design-revise' => ['product', 'changes-requested'], 'tech-design-revise' => ['design', 'changes-requested']], $params);
     }
 
     private function shipped(): ShippedTemplates

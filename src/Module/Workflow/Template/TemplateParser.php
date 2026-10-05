@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Condition\ParameterType;
 use App\Module\Workflow\Expression\AllOf;
@@ -24,8 +25,9 @@ final readonly class TemplateParser
     private const array STATE_WRITES = ['draft', 'ready', 'close'];
     private const array ON_TIMEOUT = ['pause', 'expire'];
 
-    /** The parameter that holds the tag of a request's `document` map. A template cannot write it. */
+    /** The parameters that hold the tag and the status of a request's `document` map. A template cannot write them. */
     public const string DOCUMENT_TAG = 'document.tag';
+    public const string DOCUMENT_STATUS = 'document.status';
 
     public function __construct(
         private Conditions $conditions,
@@ -359,10 +361,7 @@ final readonly class TemplateParser
                 continue;
             }
             if ('document' === $param) {
-                $tag = self::documentTag($given, $where, $errors);
-                if (null !== $tag) {
-                    $params[self::DOCUMENT_TAG] = $tag;
-                }
+                $params += self::document($given, $where, $errors);
                 continue;
             }
             $error = match ($param) {
@@ -403,21 +402,34 @@ final readonly class TemplateParser
         };
     }
 
-    /** @param list<string> $errors */
-    private static function documentTag(mixed $given, string $where, array &$errors): ?string
+    /**
+     * @param list<string> $errors
+     *
+     * @return array<string, string> the tag, and the status when the map names one
+     */
+    private static function document(mixed $given, string $where, array &$errors): array
     {
-        if (!self::isMap($given) || ['tag'] !== array_keys($given)) {
-            $errors[] = $where.': parameter "document" must be a map with one key, tag';
+        if (!self::isMap($given) || !\array_key_exists('tag', $given) || [] !== array_diff(array_keys($given), ['tag', 'status'])) {
+            $errors[] = $where.': parameter "document" must be a map with the key tag, and optionally status';
 
-            return null;
+            return [];
         }
         if (!\is_string($given['tag']) || '' === $given['tag']) {
             $errors[] = $where.'.document: parameter "tag" must be a non-empty string';
 
-            return null;
+            return [];
+        }
+        if (!\array_key_exists('status', $given)) {
+            return [self::DOCUMENT_TAG => $given['tag']];
+        }
+        $status = \is_string($given['status']) ? DocumentStatus::tryFrom($given['status']) : null;
+        if (null === $status) {
+            $errors[] = \sprintf('%s.document: parameter "status" must be one of %s', $where, implode(', ', array_map(static fn (DocumentStatus $s): string => $s->value, DocumentStatus::cases())));
+
+            return [];
         }
 
-        return $given['tag'];
+        return [self::DOCUMENT_TAG => $given['tag'], self::DOCUMENT_STATUS => $status->value];
     }
 
     /** @param list<string> $slotKeys */

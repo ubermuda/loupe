@@ -174,6 +174,21 @@ final class RequestWorkTest extends KernelTestCase
         self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
     }
 
+    public function test_a_document_status_picks_the_one_document_with_that_tag_in_that_status(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-document-status'), 'tech-design');
+        $documentId = Uuid::v7()->toRfc4122();
+        $facts = FactsMother::facts(card: FactsMother::card(documents: [
+            new DocumentFacts(['design'], 'approved', Uuid::v7()->toRfc4122()),
+            new DocumentFacts(['design'], 'changes-requested', $documentId),
+        ]));
+        $rule = $this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design', 'document.status' => 'changes-requested']);
+
+        self::assertEquals(ActionOutcome::done(), $this->action()->run($rule, $card, $facts, $this->state($card)));
+        self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
+    }
+
     /** @return iterable<string, array{list<string>, string}> */
     public static function unresolvedDocuments(): iterable
     {

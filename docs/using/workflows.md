@@ -148,20 +148,26 @@ request opened. The bridge can fill a prompt or a command with each value.
 | Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |
 | Document | the id of the document that a revision works on |
 
-A request rule names its document with the optional `document` parameter, a
-map with one key, `tag`:
+A request rule names its document with the optional `document` parameter. It is
+a map with the key `tag`, and an optional `status`: `in-review`, `approved`,
+`changes-requested` or `draft`.
 
 ```yaml
 - id: tech-design-revise
   slot: tech-design
   when: { card.document_changes_requested: { tag: design } }
-  then: { request: { kind: tech-design-revise, document: { tag: design } } }
+  then:
+      request:
+          kind: tech-design-revise
+          document: { tag: design, status: changes-requested }
 ```
 
 The request then names the one unarchived document of the card that carries the
-tag. No such document refuses the action with `document-not-found`. Two or more
-refuse it with `document-ambiguous`. A refused action retries and pauses as
+tag, and that has the status when the map names one. No such document refuses
+the action with `document-not-found`. Two or more refuse it with
+`document-ambiguous`. A refused action retries and pauses as
 [Pauses and retries](#pauses-and-retries) says. In Lifecycle, the product design
-revision names the document with the tag `product`, and the tech design revision
-names the one with the tag `design`. A request rule with no `document`
+revision names the document with the tag `product` and changes requested. The
+tech design revision names the one with the tag `design` and changes requested.
+An approved document with the same tag does not count. A request rule with no `document`
 parameter names no document.

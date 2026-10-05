@@ -151,6 +151,17 @@ final class TemplateParserTest extends TestCase
         self::assertSame(['kind' => 'tech-design-revise', 'document.tag' => 'design'], $this->parser->parse($template)->rulesFor('build')[0]->then->params);
     }
 
+    public function test_a_request_can_name_a_document_by_tag_and_status(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['then'] = ['request' => ['kind' => 'tech-design-revise', 'document' => ['tag' => 'design', 'status' => 'changes-requested']]];
+
+        self::assertSame(
+            ['kind' => 'tech-design-revise', 'document.tag' => 'design', 'document.status' => 'changes-requested'],
+            $this->parser->parse($template)->rulesFor('build')[0]->then->params,
+        );
+    }
+
     public function test_a_valid_template_round_trips_through_json(): void
     {
         $decoded = json_decode(json_encode(self::valid(), \JSON_THROW_ON_ERROR), true, flags: \JSON_THROW_ON_ERROR);
@@ -348,17 +359,22 @@ final class TemplateParserTest extends TestCase
             $t['rules'][0]['then']['request']['document'] = 'design';
 
             return $t;
-        }, 'rules[0] (start) then.request: parameter "document" must be a map with one key, tag'];
+        }, 'rules[0] (start) then.request: parameter "document" must be a map with the key tag, and optionally status'];
         yield 'a document with no tag' => [static function (array $t): array {
             $t['rules'][0]['then']['request']['document'] = [];
 
             return $t;
-        }, 'rules[0] (start) then.request: parameter "document" must be a map with one key, tag'];
+        }, 'rules[0] (start) then.request: parameter "document" must be a map with the key tag, and optionally status'];
         yield 'a document with an unknown key' => [static function (array $t): array {
-            $t['rules'][0]['then']['request']['document'] = ['tag' => 'design', 'status' => 'approved'];
+            $t['rules'][0]['then']['request']['document'] = ['tag' => 'design', 'name' => 'Design'];
 
             return $t;
-        }, 'rules[0] (start) then.request: parameter "document" must be a map with one key, tag'];
+        }, 'rules[0] (start) then.request: parameter "document" must be a map with the key tag, and optionally status'];
+        yield 'a document status that is not a status' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['document'] = ['tag' => 'design', 'status' => 'rejected'];
+
+            return $t;
+        }, 'rules[0] (start) then.request.document: parameter "status" must be one of in-review, approved, changes-requested, draft'];
         yield 'a document tag that is not a string' => [static function (array $t): array {
             $t['rules'][0]['then']['request']['document'] = ['tag' => 5];
 

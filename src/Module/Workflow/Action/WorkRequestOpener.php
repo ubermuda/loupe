@@ -34,7 +34,11 @@ final readonly class WorkRequestOpener
         $documentId = null;
         $tag = ActionParams::optionalString($rule, TemplateParser::DOCUMENT_TAG);
         if (null !== $tag) {
-            $documents = array_values(array_filter($facts->card->documents, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true)));
+            $status = ActionParams::optionalString($rule, TemplateParser::DOCUMENT_STATUS);
+            $documents = array_values(array_filter(
+                $facts->card->documents,
+                static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true) && (null === $status || $status === $document->status),
+            ));
             if (1 !== \count($documents)) {
                 return ActionOutcome::refused([] === $documents ? 'document-not-found' : 'document-ambiguous');
             }
