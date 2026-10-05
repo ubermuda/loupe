@@ -202,18 +202,20 @@ reading context, not for a terminal or a README.
 
     1. Put the meaning in a few words at the first mention of the ID in each
        section, such as "C2 (offer a design session only on a visual option
-       set)".
+       set, from `claude-design.md`)".
     2. Name the source file or document once in each section, at that first
        mention.
     3. A colliding ID goes in a code span, with its meaning in prose:
        `` `P4` (the Options phase of the session, from `session-flow.md`) ``.
        An outside ID collides when it shares its letter prefix with IDs that
        the document or a referenced document defines. The review page gives a
-       bare mention of a defined ID its tooltip, so a bare outside `P4` shows
-       the tooltip of priority P4. The page skips a code span.
+       bare mention of a defined ID its tooltip. A bare outside `P4` therefore
+       shows the tooltip of priority P4 when the document defines P4. The
+       prefix test also protects an ID that a later revision defines. The page
+       skips a code span.
     4. The IDs of a referenced document need no meaning. The review page shows
-       their tooltip when `references` holds that document and its entries lead
-       with a bold ID, such as `**R3: Title.**`. Keep the reference, and keep
+       their tooltip when `references` holds that document and its list entries
+       lead with a bold ID, such as `**R3: Title.**`. Keep the reference, and keep
        the bold lead in the source document.
 
 ## Example
