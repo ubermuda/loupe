@@ -1262,7 +1262,7 @@ final class EngineTest extends KernelTestCase
             $workRequests,
             new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class)),
             $cardPauses,
-            new PauseCardHandler($cardPauses, $this->em(), $clock, $auditor, $dispatcher),
+            new PauseCardHandler($cardPauses, $this->em(), $clock, $auditor, $dispatcher, $this->service(\App\Module\Board\Repository\CardEventRepository::class)),
             $releaseCardPause,
             new Actions([
                 new MoveCard($this->service(BoardColumnRepository::class), $this->service(WorkflowSlotLinkRepository::class), $this->service(UpdateCardHandler::class)),

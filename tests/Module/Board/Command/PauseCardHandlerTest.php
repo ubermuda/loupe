@@ -68,6 +68,20 @@ final class PauseCardHandlerTest extends KernelTestCase
         self::assertSame([$depth], $changes->transactionDepths());
     }
 
+    public function test_a_pause_writes_a_paused_history_row_by_the_app(): void
+    {
+        $card = $this->cardIn($this->makeProject('pause-history'));
+
+        $this->pauseHandler($this->silentAuditor())(new PauseCardCommand($card, 'review-failed', 'fix-on-review', CardPauseKind::Retries));
+
+        $rows = $this->pausedRows((string) $card->id);
+        self::assertCount(1, $rows);
+        self::assertSame('system', $rows[0]['actor_kind']);
+        self::assertNull($rows[0]['actor_user_id']);
+        self::assertSame(['kind' => 'retries', 'reason' => 'review-failed', 'ruleId' => 'fix-on-review'], json_decode((string) $rows[0]['detail'], true));
+        self::assertSame('2026-10-02 10:00:00', substr((string) $rows[0]['occurred_at'], 0, 19));
+    }
+
     public function test_a_second_pause_of_an_active_card_answers_null_and_changes_nothing(): void
     {
         $card = $this->cardIn($this->makeProject('pause-twice'));
@@ -80,6 +94,7 @@ final class PauseCardHandlerTest extends KernelTestCase
         self::assertNull($second);
         self::assertTrue($this->em->isOpen());
         self::assertSame(1, $this->countPauses());
+        self::assertCount(1, $this->pausedRows((string) $card->id));
         self::assertSame($first, $this->pauseRepository()->findActiveForCard($card));
         self::assertSame([], $audit->operations());
         self::assertSame([], $changes->events());
@@ -134,5 +149,14 @@ final class PauseCardHandlerTest extends KernelTestCase
         }
 
         self::assertSame(0, $this->countPauses());
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function pausedRows(string $cardId): array
+    {
+        return $this->em->getConnection()->fetchAllAssociative(
+            "SELECT actor_kind, actor_user_id, detail, occurred_at FROM board_card_events WHERE card_id = :card AND kind = 'paused'",
+            ['card' => $cardId],
+        );
     }
 }
