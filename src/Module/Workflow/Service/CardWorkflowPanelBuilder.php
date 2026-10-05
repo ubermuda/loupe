@@ -11,6 +11,8 @@ use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
@@ -112,14 +114,29 @@ final readonly class CardWorkflowPanelBuilder
             static fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$rule->when->evaluate($facts),
         ));
         $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
-        $waiting = null === $blocking || null !== $blocking->when->unreadable($facts) ? null : $blocking->when->firstFalseLeaf($facts);
+        $waiting = null;
+        if (null !== $blocking) {
+            $unreadable = $blocking->when->unreadable($facts) ?? $blocking->then->until?->unreadable($facts);
+            $waiting = null === $unreadable
+                ? $blocking->when->firstFalseLeaf($facts)?->waitingFor()->trans($this->translator)
+                : $this->unreadableReason($unreadable);
+        }
 
         return new CardWorkflowProgress(
             $this->slotLabel($template, $facts->card->slot),
-            $waiting?->waitingFor()->trans($this->translator),
+            $waiting,
             null === $blocking ? null : $this->nextAction($template, $blocking),
             $this->lastRefusal($card),
         );
+    }
+
+    private function unreadableReason(Unreadable $unreadable): string
+    {
+        return match ($unreadable->kind) {
+            UnreadableKind::Failed => $this->translator->trans('workflow.panel.unreadable.failed', ['%source%' => $this->translator->trans($unreadable->source)]),
+            UnreadableKind::Off => $this->translator->trans('workflow.panel.unreadable.off', ['%source%' => $this->translator->trans($unreadable->source)]),
+            UnreadableKind::MissingCondition => $this->translator->trans('workflow.panel.unreadable.missing_condition', ['%condition%' => $unreadable->source]),
+        };
     }
 
     private function nextAction(Template $template, Rule $rule): string

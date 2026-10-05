@@ -7299,6 +7299,9 @@
             <trans-unit id="workflow.panel.release.facts_changed"><source>workflow.panel.release.facts_changed</source><target>The pause ends when the facts that the rule reads change.</target></trans-unit>
             <trans-unit id="workflow.panel.release.next_evaluation"><source>workflow.panel.release.next_evaluation</source><target>The workflow ends the pause when it next evaluates the card.</target></trans-unit>
             <trans-unit id="workflow.panel.release.met"><source>workflow.panel.release.met</source><target>The release condition is met. The workflow ends the pause when it next evaluates the card.</target></trans-unit>
+            <trans-unit id="workflow.panel.unreadable.failed"><source>workflow.panel.unreadable.failed</source><target>Waiting: could not read %source%.</target></trans-unit>
+            <trans-unit id="workflow.panel.unreadable.off"><source>workflow.panel.unreadable.off</source><target>Waiting: %source% is off on this instance.</target></trans-unit>
+            <trans-unit id="workflow.panel.unreadable.missing_condition"><source>workflow.panel.unreadable.missing_condition</source><target>Waiting: the condition %condition% no longer exists.</target></trans-unit>
             <trans-unit id="workflow.panel.slot.label"><source>workflow.panel.slot.label</source><target>Slot</target></trans-unit>
             <trans-unit id="workflow.panel.slot.none"><source>workflow.panel.slot.none</source><target>No slot</target></trans-unit>
             <trans-unit id="workflow.panel.slot.backlog"><source>workflow.panel.slot.backlog</source><target>Backlog</target></trans-unit>
