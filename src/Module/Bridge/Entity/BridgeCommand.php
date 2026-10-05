@@ -9,6 +9,7 @@ use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\ValueObject\BridgeCommandCause;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -45,6 +46,18 @@ class BridgeCommand
 
     #[ORM\Column(name: 'settled_at', nullable: true)]
     public ?\DateTimeImmutable $settledAt = null;
+
+    /** The context of the work request of the run, so a rerun fills the values its first run had. */
+    public WorkRequestContext $context {
+        get => WorkRequestContext::fromArray($this->contextData);
+        set {
+            $this->contextData = $value->toArray();
+        }
+    }
+
+    /** @var array<mixed>|null */
+    #[ORM\Column(name: 'context', type: Types::JSON, nullable: true)]
+    private ?array $contextData = null;
 
     public function __construct(
         /** The owner of the bridge row, which is the owner of the project. */

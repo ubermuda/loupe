@@ -10,6 +10,7 @@ use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\BridgeCommandPayload;
 use App\Module\Bridge\Service\BridgeCommandTtl;
 use App\Module\Bridge\Service\CardHolds;
@@ -56,6 +57,7 @@ final readonly class RequestBridgeCommandHandler
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private Auditor $auditor,
+        private WorkRequestRepository $workRequests,
     ) {
     }
 
@@ -115,6 +117,9 @@ final readonly class RequestBridgeCommandHandler
                     reason: $reason,
                     cause: $command->cause,
                 );
+                if (null !== $run->workRequestId) {
+                    $bridgeCommand->context = $this->workRequests->find($run->workRequestId)->context ?? $bridgeCommand->context;
+                }
                 $this->em->persist($bridgeCommand);
                 // The payload names the command, so the row needs its id first.
                 $this->em->flush();
