@@ -6,6 +6,7 @@ namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
@@ -191,6 +192,93 @@ final class WorkerRunSessionUsageApiTest extends WebTestCase
         self::assertJsonStringEqualsJsonString('{"error":"invalid_session_id"}', (string) $client->getResponse()->getContent());
     }
 
+    public function test_a_run_id_fills_the_closed_interactive_run_and_its_fact_row(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'session-usage-run-id@example.com');
+        $project = $this->project($em, $owner, 'Session Usage Run Id');
+        $session = Uuid::v4();
+        $run = $this->interactiveRun($project, $session);
+        $this->interactiveRun($project, $session);
+        $this->sessionRun($project, $session, '2026-09-23 10:00:00');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $project, (string) $session, $raw, ['runId' => (string) $run->id, 'processes' => [self::process('estimated', 'claude-interactive')]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertJsonStringEqualsJsonString('{"runs":1,"updated":1}', (string) $client->getResponse()->getContent());
+        self::assertSame([[(string) $run->id, 'claude-interactive']], $this->usageRows());
+        self::assertSame(WorkerRunUsageSource::Estimated, $this->runOf($run)->usageSource);
+        self::assertSame(250000, (int) $this->em()->getConnection()->fetchOne('SELECT cost_micro_usd FROM bridge_worker_run_facts WHERE run_id = ?', [(string) $run->id]));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function runsTheRunIdCannotFill(): iterable
+    {
+        yield 'an open run' => ['open'];
+        yield 'a run of another session' => ['other-session'];
+        yield 'a worker run' => ['worker'];
+        yield 'an unknown run' => ['unknown'];
+    }
+
+    #[DataProvider('runsTheRunIdCannotFill')]
+    public function test_a_run_id_that_names_no_closed_interactive_run_of_the_session_writes_nothing(string $case): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'session-usage-run-id-'.$case.'@example.com');
+        $project = $this->project($em, $owner, 'Session Usage Run Id '.$case);
+        $session = Uuid::v4();
+        $runId = match ($case) {
+            'open' => $this->interactiveRun($project, $session, WorkerRunState::Running)->id,
+            'other-session' => $this->interactiveRun($project, Uuid::v4())->id,
+            'worker' => $this->sessionRun($project, $session, '2026-09-23 10:00:00')->id,
+            default => Uuid::v7(),
+        };
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $project, (string) $session, $raw, ['runId' => (string) $runId, 'processes' => [self::process('estimated', 'claude')]]);
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertJsonStringEqualsJsonString('{"error":"process_count_mismatch"}', (string) $client->getResponse()->getContent());
+        self::assertSame([], $this->usageRows());
+    }
+
+    public function test_a_run_id_with_more_than_one_process_writes_nothing(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'session-usage-run-id-two@example.com');
+        $project = $this->project($em, $owner, 'Session Usage Run Id Two');
+        $session = Uuid::v4();
+        $run = $this->interactiveRun($project, $session);
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $project, (string) $session, $raw, ['runId' => (string) $run->id, 'processes' => [
+            self::process('estimated', 'claude-one'),
+            self::process('estimated', 'claude-two'),
+        ]]);
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertJsonStringEqualsJsonString('{"error":"process_count_mismatch"}', (string) $client->getResponse()->getContent());
+        self::assertSame([], $this->usageRows());
+    }
+
+    public function test_a_run_id_that_is_not_a_uuid_is_refused(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'session-usage-bad-run-id@example.com');
+        $project = $this->project($em, $owner, 'Session Usage Bad Run Id');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $project, (string) Uuid::v4(), $raw, ['runId' => 'not-a-uuid', 'processes' => [self::process('reported', 'claude')]]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertJsonStringEqualsJsonString('{"error":"invalid_run_id"}', (string) $client->getResponse()->getContent());
+    }
+
     /** @return iterable<string, array{array<string, mixed>}> */
     public static function invalidBodies(): iterable
     {
@@ -290,6 +378,19 @@ final class WorkerRunSessionUsageApiTest extends WebTestCase
         $run = $this->seedRun($em, $project, kind: $kind);
         $run->sessionId = $session;
         $run->startedAt = null === $startedAt ? null : new \DateTimeImmutable($startedAt);
+        $em->flush();
+
+        return $run;
+    }
+
+    private function interactiveRun(Project $project, Uuid $session, WorkerRunState $state = WorkerRunState::Closed): WorkerRun
+    {
+        $em = $this->em();
+        $run = $this->seedRun($em, $project, kind: WorkerRunKind::Interactive, state: $state);
+        $run->sessionId = $session;
+        if (WorkerRunState::Running === $state) {
+            $run->endedAt = null;
+        }
         $em->flush();
 
         return $run;

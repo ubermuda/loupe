@@ -392,6 +392,17 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** Locked until the transaction ends. */
+    public function findInteractiveOfSessionForUpdate(Project $project, Uuid $runId, Uuid $sessionId): ?WorkerRun
+    {
+        return self::forUpdate($this->interactive($project)
+            ->andWhere('r.id = :runId')
+            ->andWhere('r.sessionId = :sessionId')
+            ->setParameter('runId', $runId, UuidType::NAME)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME))
+            ->getOneOrNullResult();
+    }
+
     public function findInteractiveById(Project $project, Uuid $runId): ?WorkerRun
     {
         return $this->interactive($project)
