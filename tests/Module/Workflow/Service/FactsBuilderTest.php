@@ -14,8 +14,11 @@ use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
@@ -42,6 +45,7 @@ use App\Tests\Module\Workflow\Fact\ProvidedFacts;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class FactsBuilderTest extends KernelTestCase
 {
@@ -205,6 +209,8 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertSame([], $facts->pullRequests);
         self::assertSame([], $facts->run->activeWorkKinds);
         self::assertNull($facts->run->lastRefusalCode);
+        self::assertSame([], $facts->run->activeWorkerKinds);
+        self::assertSame([], $facts->run->parentActiveKinds);
     }
 
     public function test_the_card_facts_count_open_blockers_children_and_the_parent(): void
@@ -268,6 +274,27 @@ final class FactsBuilderTest extends KernelTestCase
 
         $this->workRequest($card, 'design', WorkRequestState::Done, settledAt: '2026-10-02 11:30:00');
         self::assertNull($this->facts($card)->run->lastRefusalCode);
+    }
+
+    public function test_the_run_facts_give_the_kinds_of_the_open_worker_runs_of_the_card_and_of_its_parent(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-worker-runs');
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $child = $this->card($project, 'backlog');
+        $child->parent = $epic;
+        $this->em()->flush();
+        $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->workerRun($epic, 'implement', WorkerRunState::Succeeded);
+        $this->workerRun($child, 'fix', WorkerRunState::Queued);
+
+        $childRun = $this->facts($child)->run;
+        self::assertSame(['fix'], $childRun->activeWorkerKinds);
+        self::assertSame(['breakdown'], $childRun->parentActiveKinds);
+
+        $epicRun = $this->facts($epic)->run;
+        self::assertSame(['breakdown'], $epicRun->activeWorkerKinds);
+        self::assertSame([], $epicRun->parentActiveKinds);
     }
 
     public function test_a_pull_request_maps_its_forge_state(): void
@@ -513,9 +540,23 @@ final class FactsBuilderTest extends KernelTestCase
             $this->cardPullRequests(),
             $this->service(ForgePullRequestRepository::class),
             $this->service(WorkRequestRepository::class),
+            $this->service(WorkerRunRepository::class),
             new FactProviders([$this->provider]),
             $this->em()->getConnection(),
         );
+    }
+
+    private function workerRun(Card $card, string $workKind, WorkerRunState $state): void
+    {
+        $this->em()->persist(new WorkerRun(
+            project: $card->project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('A flushed card has an id.'),
+            cardNumber: $card->number,
+            workKind: $workKind,
+            state: $state,
+        ));
+        $this->em()->flush();
     }
 
     private function cardPullRequests(): CardPullRequests

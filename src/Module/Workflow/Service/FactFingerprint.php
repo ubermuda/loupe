@@ -44,6 +44,8 @@ final readonly class FactFingerprint
             FactKey::PullRequests => self::sorted(array_map(self::pullRequest(...), $facts->pullRequests)),
             FactKey::WorkRequests => self::sorted($facts->run->activeWorkKinds),
             FactKey::Refusal => $facts->run->lastRefusalCode,
+            FactKey::WorkerRuns => self::sorted($facts->run->activeWorkerKinds),
+            FactKey::ParentWork => self::sorted($facts->run->parentActiveKinds),
         };
     }
 

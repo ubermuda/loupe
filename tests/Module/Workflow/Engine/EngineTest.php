@@ -28,6 +28,7 @@ use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Repository\CardHoldRepository;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
@@ -1429,6 +1430,7 @@ final class EngineTest extends KernelTestCase
                 new CardPullRequests($this->service(CardPullRequestRepository::class), $forgePullRequests),
                 $forgePullRequests,
                 $workRequests,
+                $this->service(WorkerRunRepository::class),
                 $this->providers(),
                 $this->em()->getConnection(),
             ),

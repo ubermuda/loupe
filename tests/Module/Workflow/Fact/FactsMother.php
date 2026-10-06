@@ -92,9 +92,13 @@ final class FactsMother
         );
     }
 
-    /** @param list<string> $activeWorkKinds */
-    public static function run(array $activeWorkKinds = [], ?string $lastRefusalCode = null): RunFacts
+    /**
+     * @param list<string> $activeWorkKinds
+     * @param list<string> $activeWorkerKinds
+     * @param list<string> $parentActiveKinds
+     */
+    public static function run(array $activeWorkKinds = [], ?string $lastRefusalCode = null, array $activeWorkerKinds = [], array $parentActiveKinds = []): RunFacts
     {
-        return new RunFacts(activeWorkKinds: $activeWorkKinds, lastRefusalCode: $lastRefusalCode);
+        return new RunFacts(activeWorkKinds: $activeWorkKinds, lastRefusalCode: $lastRefusalCode, activeWorkerKinds: $activeWorkerKinds, parentActiveKinds: $parentActiveKinds);
     }
 }

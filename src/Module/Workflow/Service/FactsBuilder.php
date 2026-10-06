@@ -8,6 +8,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -46,6 +47,7 @@ final readonly class FactsBuilder
         private CardPullRequests $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
         private WorkRequestRepository $workRequests,
+        private WorkerRunRepository $workerRuns,
         private FactProviders $providers,
         private Connection $connection,
     ) {
@@ -94,6 +96,8 @@ final readonly class FactsBuilder
                     $this->workRequests->findLiveForCard($cardId),
                 ))),
                 lastRefusalCode: WorkRequestState::Refused === $settled?->state ? $settled->reason : null,
+                activeWorkerKinds: $this->workerRuns->findOpenWorkKindsOfCard($cardId),
+                parentActiveKinds: null === $card->parent ? [] : $this->workerRuns->findOpenWorkKindsOfCard($card->parent->id ?? throw new \LogicException('A stored card has an id.')),
             ),
             provided: array_map(static fn (array $result): object => $result[0], $provided),
             fingerprints: array_map(static fn (array $result): mixed => $result[1], array_filter($provided, static fn (array $result): bool => !$result[0] instanceof Unreadable)),
