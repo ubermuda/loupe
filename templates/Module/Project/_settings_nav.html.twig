@@ -1,4 +1,4 @@
-{#- Project settings sections. Props: project, active (general, columns, automation, inbox or connections). -#}
+{#- Project settings sections. Props: project, active (general, columns, automation, inbox, readiness or connections). -#}
 <nav class="lp-settings-nav" aria-label="{{ 'project.edit.nav.label'|trans }}">
     <a class="lp-settings-nav__item{{ active == 'general' ? ' lp-settings-nav__item--active' }}" href="{{ path('app_project_edit', {id: project.id}) }}"{% if active == 'general' %} aria-current="page"{% endif %}>
         <twig:ux:icon name="lucide:settings" />
@@ -18,6 +18,10 @@
         {{ 'project.edit.nav.inbox'|trans }}
     </a>
     {% endif %}
+    <a class="lp-settings-nav__item{{ active == 'readiness' ? ' lp-settings-nav__item--active' }}" href="{{ path('app_readiness_settings', {id: project.id}) }}"{% if active == 'readiness' %} aria-current="page"{% endif %}>
+        <twig:ux:icon name="lucide:list-checks" />
+        {{ 'project.edit.nav.readiness'|trans }}
+    </a>
     <a class="lp-settings-nav__item{{ active == 'connections' ? ' lp-settings-nav__item--active' }}" href="{{ path('app_project_connect', {id: project.id}) }}"{% if active == 'connections' %} aria-current="page"{% endif %}>
         <twig:ux:icon name="lucide:link" />
         {{ 'project.edit.nav.connections'|trans }}
