@@ -513,6 +513,12 @@ final class ShowExperimentHandlerTest extends KernelTestCase
             }
 
             #[\Override]
+            public function typesFor(Project $project, array $cardIds): array
+            {
+                return [];
+            }
+
+            #[\Override]
             public function historyStartFor(Project $project): ?\DateTimeImmutable
             {
                 return $this->historyStart;
