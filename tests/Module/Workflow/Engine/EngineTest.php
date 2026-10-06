@@ -42,6 +42,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\EvaluateChildren;
 use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Action\MoveCard;
 use App\Module\Workflow\Action\PauseCard;
@@ -1450,6 +1451,7 @@ final class EngineTest extends KernelTestCase
                 new PauseCard(),
                 new ReleasePause($cardPauses, $releaseCardPause),
                 $this->service(ForgeWrite::class),
+                new EvaluateChildren($this->service(CardRepository::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
             ]),
             $engineEvents,
             $this->logger,

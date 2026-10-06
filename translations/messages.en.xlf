@@ -7300,6 +7300,7 @@
             <trans-unit id="workflow.settings.action.forge_write"><source>workflow.settings.action.forge_write</source><target>Forge write: %kind%</target></trans-unit>
             <trans-unit id="workflow.settings.action.pause"><source>workflow.settings.action.pause</source><target>Pause the card</target></trans-unit>
             <trans-unit id="workflow.settings.action.release"><source>workflow.settings.action.release</source><target>Release the pause</target></trans-unit>
+            <trans-unit id="workflow.settings.action.evaluate"><source>workflow.settings.action.evaluate</source><target>Evaluate the children again</target></trans-unit>
             <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
             <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A person may move a managed card along these paths.</target></trans-unit>
             <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
@@ -7349,6 +7350,7 @@
             <trans-unit id="workflow.panel.action.forge_write"><source>workflow.panel.action.forge_write</source><target>Write %write% to the pull request</target></trans-unit>
             <trans-unit id="workflow.panel.action.pause"><source>workflow.panel.action.pause</source><target>Pause the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.release"><source>workflow.panel.action.release</source><target>End the pause of the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.evaluate"><source>workflow.panel.action.evaluate</source><target>Evaluate the children of the card again</target></trans-unit>
             <trans-unit id="workflow.pause.no-bridge-took-work"><source>workflow.pause.no-bridge-took-work</source><target>No bridge took the requested work in time.</target></trans-unit>
             <trans-unit id="workflow.pause.work-limit-reached"><source>workflow.pause.work-limit-reached</source><target>The rule requested the most work that it may request for this card.</target></trans-unit>
             <trans-unit id="workflow.refusal.move-refused"><source>workflow.refusal.move-refused</source><target>The board refused the move.</target></trans-unit>

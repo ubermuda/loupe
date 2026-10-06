@@ -128,6 +128,16 @@ final class TemplateParserTest extends TestCase
         self::assertInstanceOf(Not::class, $wait->then->until);
     }
 
+    public function test_an_evaluate_action_names_the_children(): void
+    {
+        $template = self::valid();
+        $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
+
+        $then = $this->parser->parse($template)->rulesFor('@terminal')[1]->then;
+        self::assertSame(ActionType::Evaluate, $then->type);
+        self::assertSame(['cards' => 'children'], $then->params);
+    }
+
     public function test_a_state_write_needs_no_fallback(): void
     {
         foreach (['draft', 'ready', 'close'] as $write) {
@@ -420,6 +430,16 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[2] (merge) when: card.document: parameter "status" must be one of: in-review, approved, changes-requested, draft'];
+        yield 'evaluate of other cards' => [static function (array $t): array {
+            $t['rules'][4]['then'] = ['evaluate' => ['cards' => 'siblings']];
+
+            return $t;
+        }, 'rules[4] (done) then.evaluate: parameter "cards" must be one of children'];
+        yield 'evaluate with no cards' => [static function (array $t): array {
+            $t['rules'][4]['then'] = ['evaluate' => []];
+
+            return $t;
+        }, 'rules[4] (done) then.evaluate: missing parameter "cards"'];
         yield 'pause with no until' => [static function (array $t): array {
             unset($t['rules'][3]['then']['pause']['until']);
 
