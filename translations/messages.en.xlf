@@ -6824,6 +6824,22 @@
                 <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.help</source>
                 <target>Loupe closes the pull requests of an epic that a person moves back to the Backlog. The GitHub App needs "Pull requests: read and write".</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.label">
+                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.label</source>
+                <target>Open the epic pull request</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.help">
+                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.help</source>
+                <target>Loupe opens a draft pull request from the epic branch to the default branch after the first child merges, and links it to the epic. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
+                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
+                <target>Epic branch pattern</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.help">
+                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.help</source>
+                <target>The branch that the breakdown pushes for an epic. {number} stands for the epic card number. The pattern must match the epic branch of your repository profile. Leave it empty when the project uses no epic branches.</target>
+            </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
                 <target>Loupe could not post the last fix run comment on %pull_request%</target>

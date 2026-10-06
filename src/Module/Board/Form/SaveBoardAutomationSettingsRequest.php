@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
+use Symfony\Component\Validator\Constraints as Assert;
 
 class SaveBoardAutomationSettingsRequest
 {
@@ -17,11 +18,17 @@ class SaveBoardAutomationSettingsRequest
         public bool $changeBase = false,
         public bool $epicDraftSwitch = false,
         public bool $closeEpicPullRequests = false,
+        public bool $openEpicPullRequests = false,
+
+        /** Blank, or the epic number placeholder exactly once. */
+        #[Assert\Length(max: 255)]
+        #[Assert\Regex(pattern: '/^\s*$|^(?!(?:.*\{number\}){2})(?=.*\{number\})/s', message: 'board.form.save_board_automation_settings_form.epic_branch_pattern.invalid')]
+        public ?string $epicBranchPattern = BoardAutomationSettings::DEFAULT_EPIC_BRANCH_PATTERN,
     ) {
     }
 
     public static function fromSettings(BoardAutomationSettings $settings): self
     {
-        return new self($settings->enabled, $settings->commentOnFixQueued, $settings->commentOnStaleApproval, $settings->syncBehind, $settings->mergePullRequests, $settings->changeBase, $settings->epicDraftSwitch, $settings->closeEpicPullRequests);
+        return new self($settings->enabled, $settings->commentOnFixQueued, $settings->commentOnStaleApproval, $settings->syncBehind, $settings->mergePullRequests, $settings->changeBase, $settings->epicDraftSwitch, $settings->closeEpicPullRequests, $settings->openEpicPullRequests, $settings->epicBranchPattern);
     }
 }
