@@ -1021,7 +1021,9 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($epic, '2026-10-02 12:25:00');
 
         self::assertSame('in-progress', $epic->column->slug);
-        self::assertSame(1, $this->ruleState($epic, 'epic-open-pull-request')->fires);
+        $state = $this->ruleState($epic, 'epic-open-pull-request');
+        self::assertSame('open-epic-off', $state->lastRefusal);
+        self::assertNotNull($state->dueAt);
     }
 
     public function test_a_lifecycle_child_merged_into_the_epic_branch_asks_for_an_epic_preview_and_one_merged_into_main_does_not(): void
