@@ -9,6 +9,7 @@ use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Template\Rule;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Picks the pull request a rule acts on. A rule that reads the pull request takes the first open one,
@@ -35,5 +36,15 @@ final readonly class RuleSubject
         }
 
         return new BoundRule($facts->withPullRequest($candidates[0]), $candidates[0]->id, false, true);
+    }
+
+    /** The facts a rule pause reads its until on: the pull request it paused, while the card still links it, else the bound one. */
+    public function paused(Rule $rule, Facts $facts, ?Uuid $stored): Facts
+    {
+        $bound = $this->bind($rule, $facts);
+        $paused = !$bound->binds || null === $stored ? null
+            : array_find($facts->pullRequests, static fn (PullRequestFacts $pullRequest): bool => true === $stored->equals($pullRequest->id));
+
+        return null === $paused ? $bound->facts : $facts->withPullRequest($paused);
     }
 }

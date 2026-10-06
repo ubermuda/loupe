@@ -81,7 +81,7 @@ final readonly class CardWorkflowPanelBuilder
     private function pause(CardPause $pause, ?Template $template, ?Facts $facts, bool $managed): CardWorkflowPause
     {
         $release = match ($pause->kind) {
-            CardPauseKind::Rule => $this->ruleRelease($template, $facts, $pause->ruleId),
+            CardPauseKind::Rule => $this->ruleRelease($pause, $template, $facts),
             CardPauseKind::WorkLimit => $this->translator->trans('workflow.panel.release.left_slot'),
             CardPauseKind::Retries, CardPauseKind::WorkTimeout => $this->translator->trans('workflow.panel.release.facts_changed'),
         };
@@ -97,15 +97,16 @@ final readonly class CardWorkflowPanelBuilder
         );
     }
 
-    private function ruleRelease(?Template $template, ?Facts $facts, string $ruleId): string
+    private function ruleRelease(CardPause $pause, ?Template $template, ?Facts $facts): string
     {
-        $rule = null === $template ? null : self::rule($template, $ruleId);
+        $rule = null === $template ? null : self::rule($template, $pause->ruleId);
         $until = $rule?->then->until;
         if (null === $rule || null === $until || null === $facts || null !== $until->unreadable($facts)) {
             return $this->translator->trans('workflow.panel.release.next_evaluation');
         }
 
-        $leaf = $until->firstFalseLeaf($this->ruleSubject->bind($rule, $facts)->facts);
+        $stored = ($this->workflowRuleStates->findForCard($pause->card)[$rule->id] ?? null)?->subjectPullRequestId;
+        $leaf = $until->firstFalseLeaf($this->ruleSubject->paused($rule, $facts, $stored));
 
         return null === $leaf
             ? $this->translator->trans('workflow.panel.release.met')

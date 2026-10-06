@@ -23,7 +23,6 @@ use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Contract\Facts;
-use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
@@ -268,7 +267,7 @@ final readonly class Engine
             CardPauseKind::Rule => match (true) {
                 null === $rule->then->until => 'rule-removed',
                 null !== $rule->then->until->unreadable($run->facts) => null,
-                $rule->then->until->evaluate(self::pausedFacts($run, $bound, $stored)) => 'until-met',
+                $rule->then->until->evaluate($this->ruleSubject->paused($rule, $run->facts, $stored)) => 'until-met',
                 default => null,
             },
             CardPauseKind::WorkLimit => $applies ? null : 'left-slot',
@@ -280,15 +279,6 @@ final readonly class Engine
                 default => null,
             },
         };
-    }
-
-    /** A rule pause reads its until on the pull request it paused, while the card still links it. */
-    private static function pausedFacts(Evaluation $run, BoundRule $bound, ?Uuid $stored): Facts
-    {
-        $paused = !$bound->binds || null === $stored ? null
-            : array_find($run->facts->pullRequests, static fn (PullRequestFacts $pullRequest): bool => true === $stored->equals($pullRequest->id));
-
-        return null === $paused ? $bound->facts : $run->facts->withPullRequest($paused);
     }
 
     /** @param array<Rule> $rules */
