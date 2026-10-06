@@ -78,7 +78,7 @@ func TestSignaturesAreBoundedAndDistinct(t *testing.T) {
 }
 
 func TestSignaturesOfACall(t *testing.T) {
-	if got := Signatures(Call{Tool: "Bash", Command: "git status | grep x"}, nil); !reflect.DeepEqual(got, []string{"git status", "grep"}) {
+	if got := Signatures(Call{Tool: "Bash", Commands: commands("git status | grep x")}, nil); !reflect.DeepEqual(got, []string{"git status", "grep"}) {
 		t.Fatalf("Bash: %q", got)
 	}
 	if got := Signatures(Call{Tool: "Read", FullText: `{"file_path":"/secret"}`}, nil); !reflect.DeepEqual(got, []string{"Read"}) {

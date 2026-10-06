@@ -24,6 +24,13 @@ var (
 // keywords are the shell words that lead a simple command and name no program.
 var keywords = []string{"do", "then", "else", "elif", "if", "!", "time", "done", "fi", "esac"}
 
+// Command is one simple command of a Bash call. Sub is its second word when
+// that word looks like a subcommand, and "" otherwise.
+type Command struct {
+	Program string
+	Sub     string
+}
+
 // Signatures names what a call ran, with no argument a person typed. A Bash
 // call gets a signature for each program its command runs. Any other call
 // gets its tool name. programs are the programs that keep a subcommand, and
@@ -36,9 +43,25 @@ func Signatures(c Call, programs []string) []string {
 
 		return []string{c.Tool}
 	}
-	sigs := commandSignatures(c.Command, programs)
-	if sigs == nil {
-		return []string{}
+
+	return signaturesOf(c.Commands, programs)
+}
+
+// signaturesOf keeps a subcommand only for a program on the list.
+func signaturesOf(commands []Command, programs []string) []string {
+	if programs == nil {
+		programs = DefaultPrograms
+	}
+	sigs := []string{}
+	for _, c := range commands {
+		sig := c.Program
+		if c.Sub != "" && slices.Contains(programs, c.Program) {
+			sig += " " + c.Sub
+		}
+		sig = cut(sig, maxSignature)
+		if len(sigs) < maxSignatures && !slices.Contains(sigs, sig) {
+			sigs = append(sigs, sig)
+		}
 	}
 
 	return sigs
@@ -54,8 +77,7 @@ type heredoc struct {
 // substitution inside double quotes, so a quoted text never names a program.
 type tokenizer struct {
 	s        string
-	programs []string
-	sigs     []string
+	commands []Command
 
 	words  []string
 	word   strings.Builder
@@ -69,14 +91,22 @@ type tokenizer struct {
 	heredocs  []heredoc
 }
 
-func commandSignatures(command string, programs []string) []string {
-	if programs == nil {
-		programs = DefaultPrograms
-	}
-	t := &tokenizer{s: command, programs: programs}
+// commands are the distinct simple commands of a shell command, at most
+// maxSignatures of them, in order.
+func commands(command string) []Command {
+	t := &tokenizer{s: command}
 	t.run()
 
-	return t.sigs
+	return t.commands
+}
+
+func commandSignatures(command string, programs []string) []string {
+	sigs := signaturesOf(commands(command), programs)
+	if len(sigs) == 0 {
+		return nil
+	}
+
+	return sigs
 }
 
 func (t *tokenizer) run() {
@@ -236,7 +266,7 @@ func (t *tokenizer) endWord() {
 	}
 }
 
-// endCommand ends the simple command and keeps its signature.
+// endCommand ends the simple command and keeps its program and subcommand.
 func (t *tokenizer) endCommand() {
 	t.endWord()
 	words := t.words
@@ -251,12 +281,11 @@ func (t *tokenizer) endCommand() {
 	if program == "" {
 		return
 	}
-	sig := program
-	if len(words) > 1 && slices.Contains(t.programs, program) && subcommandPattern.MatchString(words[1]) {
-		sig += " " + words[1]
+	c := Command{Program: cut(program, maxSignature)}
+	if len(words) > 1 && subcommandPattern.MatchString(words[1]) {
+		c.Sub = words[1]
 	}
-	sig = cut(sig, maxSignature)
-	if len(t.sigs) < maxSignatures && !slices.Contains(t.sigs, sig) {
-		t.sigs = append(t.sigs, sig)
+	if len(t.commands) < maxSignatures && !slices.Contains(t.commands, c) {
+		t.commands = append(t.commands, c)
 	}
 }

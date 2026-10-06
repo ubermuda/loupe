@@ -28,13 +28,9 @@ const idleGap = 300 * time.Second
 // maxName bounds a tool name and a background id, in bytes.
 const maxName = 64
 
-// maxCommand bounds the Bash command a call keeps for its signatures, and
-// maxFullText the full text it keeps, which is all the server takes. Both are
-// in bytes.
-const (
-	maxCommand  = 64 << 10
-	maxFullText = 20000
-)
+// maxFullText bounds the full text a call keeps, in bytes. It is all the
+// server takes.
+const maxFullText = 20000
 
 // Call is one tool_use block. A nil pointer is a value the stream did not give.
 type Call struct {
@@ -53,9 +49,9 @@ type Call struct {
 	// WaitsOn is the background id of an earlier call that this call's input
 	// names.
 	WaitsOn *string
-	// Command is the start of a Bash call's command, and FullText the start
-	// of the raw input JSON. A call keeps no more of its input.
-	Command  string
+	// Commands are the simple commands of a Bash call's command, and FullText
+	// the start of the raw input JSON. A call keeps no more of its input.
+	Commands []Command
 	FullText string
 }
 
@@ -256,7 +252,7 @@ func (rd *reader) use(b block, ts time.Time, inSubagent bool) {
 			Command string `json:"command"`
 		}
 		_ = json.Unmarshal(b.Input, &input)
-		c.Command = cut(input.Command, maxCommand)
+		c.Commands = commands(input.Command)
 	}
 	// A call can name only an id whose result it has seen, so the ids known
 	// now are all it can wait on.

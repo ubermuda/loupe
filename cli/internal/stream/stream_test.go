@@ -370,9 +370,9 @@ func TestASynchronousAgentCountsWholeAsToolTime(t *testing.T) {
 	checkTiming(t, out.Timing, i64(5000), i64(0))
 }
 
-// A call keeps a bounded part of its input: the Bash command up to
-// maxCommand and the full text up to maxFullText. waitsOn still reads the
-// whole input, so an id past the cut still links.
+// A call keeps a bounded part of its input: the simple commands of a Bash
+// call and the full text up to maxFullText. waitsOn still reads the whole
+// input, so an id past the cut still links.
 func TestACallKeepsABoundedPartOfItsInput(t *testing.T) {
 	big := strings.Repeat("é", 3<<20)
 	write, _ := json.Marshal(map[string]string{"file_path": "/work/run/a", "content": big + " bg1"})
@@ -387,19 +387,37 @@ func TestACallKeepsABoundedPartOfItsInput(t *testing.T) {
 	}
 
 	w, b := out.Calls[1], out.Calls[2]
-	if len(w.FullText) > maxFullText || !strings.HasPrefix(string(write), w.FullText) || !utf8.ValidString(w.FullText) || w.Command != "" {
-		t.Fatalf("Write keeps %d bytes of full text and command %q", len(w.FullText), w.Command)
+	if len(w.FullText) > maxFullText || !strings.HasPrefix(string(write), w.FullText) || !utf8.ValidString(w.FullText) || w.Commands != nil {
+		t.Fatalf("Write keeps %d bytes of full text and commands %q", len(w.FullText), w.Commands)
 	}
 	if w.WaitsOn == nil || *w.WaitsOn != "bg1" {
 		t.Fatalf("Write waits on %v", show(w.WaitsOn))
 	}
-	if len(b.Command) > maxCommand || !strings.HasPrefix(b.Command, "git status; echo é") || !utf8.ValidString(b.Command) {
-		t.Fatalf("Bash keeps %d bytes of command", len(b.Command))
+	if !reflect.DeepEqual(b.Commands, []Command{{Program: "git", Sub: "status"}, {Program: "echo"}}) {
+		t.Fatalf("Bash keeps commands %q", b.Commands)
 	}
 	if len(b.FullText) > maxFullText {
 		t.Fatalf("Bash keeps %d bytes of full text", len(b.FullText))
 	}
 	if got := Signatures(b, nil); !reflect.DeepEqual(got, []string{"git status", "echo"}) {
+		t.Fatalf("signatures %q", got)
+	}
+}
+
+// The whole command is tokenized when the call is read, so a here-document
+// longer than any cap still lets the command after it name its program.
+func TestALongHeredocKeepsTheCommandAfterIt(t *testing.T) {
+	command := "cat > f <<'EOF'\n" + strings.Repeat("x\n", 40<<10) + "EOF\ngit add x"
+	input, _ := json.Marshal(map[string]string{"command": command})
+	in := `{"type":"assistant","timestamp":"2026-10-06T10:00:00.000Z","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":` + string(input) + `}]}}` + "\n"
+	out, err := Read(strings.NewReader(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(command) <= 64<<10 {
+		t.Fatalf("the command is %d bytes, which no cap cuts", len(command))
+	}
+	if got := Signatures(out.Calls[0], nil); !reflect.DeepEqual(got, []string{"cat", "git add"}) {
 		t.Fatalf("signatures %q", got)
 	}
 }

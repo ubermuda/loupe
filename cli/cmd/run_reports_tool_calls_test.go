@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,13 +15,23 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/stream"
 )
 
-// bashCalls makes n Bash calls that each run command.
+// bashCalls makes n Bash calls that each run command. The command holds
+// simple commands split by "; ", each of plain words.
 func bashCalls(n int, command string) []stream.Call {
 	input, _ := json.Marshal(map[string]string{"command": command})
+	var commands []stream.Command
+	for _, part := range strings.Split(command, "; ") {
+		words := strings.Fields(part)
+		c := stream.Command{Program: words[0]}
+		if len(words) > 1 {
+			c.Sub = words[1]
+		}
+		commands = append(commands, c)
+	}
 	start := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	calls := make([]stream.Call, n)
 	for i := range calls {
-		calls[i] = stream.Call{Seq: i + 1, Tool: "Bash", StartedAt: start.Add(time.Duration(i) * time.Second), Command: command, FullText: string(input)}
+		calls[i] = stream.Call{Seq: i + 1, Tool: "Bash", StartedAt: start.Add(time.Duration(i) * time.Second), Commands: commands, FullText: string(input)}
 	}
 
 	return calls
