@@ -38,7 +38,7 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 
 1. Read the code and those design inputs. Answer each entry that applies.
 2. Write the sections that "The design sections" lists, with the deploy line that "Deploy notes" names. Judge the size, as the next section says.
-3. Call `document_create` with the title `Tech design: <card title>` and `draft: true`, as `loupe-documents` rule 17 says. Set `references` to the product document id, or leave it empty when the requirement source is the card body. Use the tags `tech-design` and `decisions`, or the spelling `tag_list` already has for them.
+3. Call `document_create` with the title `Tech design: <card title>`. Pass `draft: true` only when `document_publish` is among the tools, as `loupe-documents` rule 17 says. Set `references` to the product document id, or leave it empty when the requirement source is the card body. Use the tags `tech-design` and `decisions`, or the spelling `tag_list` already has for them.
 4. When the feature adds, changes or removes a deploy item, create the deploy notes, as "Deploy notes" says. Their `references` hold the new design id.
 5. Link the new ids to the card in one `card_update` (contract rule 5).
 6. Run your last checks, and revise the drafts when a check finds a gap. Then publish them, as "Publish the drafts" says. Stop with `STAGE RESULT: tech design created <id>`, with the id of the design.
@@ -87,7 +87,7 @@ Write the notes as follows:
 1. Read the profile `Instruction files` for the deploy items of the project. Add them to the list above. A profile that names none uses the list above alone, and never blocks the stage.
 2. List each deploy item that the feature adds, changes or removes, and what the deploy must do for it.
 3. Search `document_list` for the title `Deploy notes: <card title>`, as the contract "Find a linked document" says. Revise a single match with `document_revise`, and create no second document.
-4. When no match exists, call `document_create` with the title `Deploy notes: <card title>` and `draft: true`. Set `references` to the tech design id. Publish the notes before the final reply, as "Publish the drafts" says.
+4. When no match exists, call `document_create` with the title `Deploy notes: <card title>`. Pass `draft: true` only when `document_publish` is among the tools. Set `references` to the tech design id. Publish the notes before the final reply, as "Publish the drafts" says.
 5. Use the tag `deploy-notes` only, or the spelling `tag_list` already has for it. Never add `tech-design`, `product-design` or `decisions`, because workflow rules match those tags and can move the card.
 6. Link the notes to the card (contract rule 5). Send the `card_get` ids plus each new id. On the Create path, Create step 5 makes this link.
 

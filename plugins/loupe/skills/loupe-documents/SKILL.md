@@ -229,7 +229,8 @@ reading context, not for a terminal or a README.
     3. Call `document_publish` for each draft of the run, as your last
        document step. The document then enters review on its final version.
     4. When `document_publish` is not among your tools, the instance does not
-       have drafts yet. Create the document without `draft`, as before.
+       have drafts yet, and `document_create` refuses the `draft` argument.
+       Create the document without `draft`, as before.
 
     A review round on a document that is already in review revises it once,
     and needs no draft step. A person in the session with you can read the
