@@ -454,7 +454,9 @@ final class EngineTest extends KernelTestCase
         $state = $this->ruleState($card, 'fix');
         self::assertTrue($base->id?->equals($state->subjectPullRequestId));
         self::assertSame(1, $state->fires);
-        $this->finish($this->liveRequests($card)[0]);
+        $first = $this->liveRequests($card)[0];
+        self::assertSame($base->number, $first->context->pullRequestNumber);
+        $this->finish($first);
 
         $base->checks = PullRequestChecks::Passed;
         $this->em()->flush();
@@ -462,8 +464,14 @@ final class EngineTest extends KernelTestCase
 
         $state = $this->ruleState($card, 'fix');
         self::assertTrue($upper->id?->equals($state->subjectPullRequestId));
-        self::assertCount(1, $this->liveRequests($card), 'The rule stayed true, and the new subject fired it again.');
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live, 'The rule stayed true, and the new subject fired it again.');
+        self::assertSame($upper->number, $live[0]->context->pullRequestNumber);
         self::assertSame(1, $state->fires, 'A new subject starts a fresh fix budget.');
+        self::assertEqualsCanonicalizing([
+            ['reason' => 'checks-failed', 'pullRequest' => $base->number],
+            ['reason' => 'checks-failed', 'pullRequest' => $upper->number],
+        ], $this->fixEvents($card));
     }
 
     public function test_a_new_subject_waits_for_the_live_request_of_the_old_one_to_settle(): void

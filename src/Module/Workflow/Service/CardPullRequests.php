@@ -9,6 +9,7 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Workflow\Contract\PullRequestFacts;
 
 /** The pull requests that Forge tracks for the links of a card, and the one the engine acts on. */
 final readonly class CardPullRequests
@@ -59,6 +60,20 @@ final readonly class CardPullRequests
         }
 
         return $primary;
+    }
+
+    /**
+     * The pull request the facts read, by its id. Facts with no id fall back to the primary one.
+     *
+     * @param list<ForgePullRequest> $pullRequests
+     */
+    public function subjectOf(array $pullRequests, ?PullRequestFacts $facts): ?ForgePullRequest
+    {
+        if (null === $facts?->id) {
+            return $this->primary($pullRequests);
+        }
+
+        return array_find($pullRequests, static fn (ForgePullRequest $pullRequest): bool => true === $pullRequest->id?->equals($facts->id));
     }
 
     /** @return array{string, string} */

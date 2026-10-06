@@ -69,7 +69,7 @@ final readonly class WorkRequestOpener
     private function context(Card $card, Facts $facts, ?string $documentId): WorkRequestContext
     {
         $reason = $facts->pullRequest?->fixReason();
-        $pullRequest = $this->trackedPullRequests->primary($this->trackedPullRequests->forCard($card));
+        $pullRequest = $this->trackedPullRequests->subjectOf($this->trackedPullRequests->forCard($card), $facts->pullRequest);
         if (null === $pullRequest) {
             return new WorkRequestContext(reason: $reason, documentId: $documentId);
         }
