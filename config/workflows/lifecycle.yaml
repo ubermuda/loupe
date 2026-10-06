@@ -69,10 +69,7 @@ rules:
 
     - id: breakdown
       slot: implementation
-      when:
-          all:
-              - card.type: { type: epic }
-              - not: { card.has_children: {} }
+      when: { card.type: { type: epic } }
       then: { request: { kind: breakdown } }
 
     - id: reviewable
@@ -175,6 +172,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - pr.open: {}
+              - not: { run.work_active: { kind: breakdown } }
       then: { move: { to: in-review } }
 
     - id: epic-to-done
@@ -185,6 +183,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - not: { pr.linked: {} }
+              - not: { run.work_active: { kind: breakdown } }
       then: { move: { to: '@terminal' } }
 
     - id: epic-reopened-from-review

@@ -25,37 +25,55 @@ The entry line opens the body of each child and names its entry:
 Breakdown item B3 of card #214.
 ```
 
-`#214` is the number of the epic. A parked child keeps its `**Parked.**` line above this line. A rerun matches a child to its entry by this line. When no child has the line, it matches by the exact title.
+`#214` is the number of the epic. A parked child keeps its `**Parked.**` line above this line. A rerun matches a child to its entry by this line first, and that match is certain. A child with no entry line matches by judgement. Read the title and the body of the child against the text of the entry and the design sections it covers.
+
+1. A match is sure when one child plainly covers one entry.
+2. A match is unsure when two children seem to cover one entry, or one child seems to cover two entries. It is also unsure when you cannot tell.
+3. A child that links a tech design other than the design of the epic is standalone. It matches no entry by judgement.
+4. A child that no entry covers stays as it is.
+5. A matched child keeps its title. The breakdown adds only the entry line.
 
 ## Run the breakdown
 
 The breakdown changes the board, and the remote branches when the profile has an `Epics` section. It writes no code and no file. `<design>` is the approved tech design, and `<default>`, `<implementation>` and `<terminal>` are the slugs of the profile `Board` section.
 
-1. Note the type of the card. When it is not `epic`, set the type `epic` with `card_update`. `card_create` refuses a parent that is not an epic, so this step comes first.
-2. Read every page of `card_list` with `parentCardId` set to the card id and `full` set, so each row carries its body. Match each entry of the Breakdown section to a child, by the entry line, then by the exact title. A child that links a tech design other than `<design>` is standalone, and matches no entry by title. Leave a child that matches no entry as it is. A child that matches by title only has no entry line. Add the entry line to the top of its body with `card_update`, and send the rest of the body unchanged. When the body opens with `**Parked.**`, keep that line first and put the entry line after it.
-3. When the profile has an `Epics` section, create the epic branch before you create a child. Fill the epic branch pattern of that section with the number of the card. `<base>` is the base branch of the profile `Gate` section. Run this from the main checkout:
+1. Read every page of `card_list` with `parentCardId` set to the card id and `full` set, so each row carries its body and its `pullRequests`. Match each entry of the Breakdown section to a child, as "The entry line of a child" says.
+2. When a match is unsure, load the `loupe-inbox` instruction. Read the answers of your earlier asks with `inbox_list` and `readerSessionId`, as `loupe-inbox` says. A child that the owner picks matches the entry. An entry for which the owner picks no child gets a new child. An item that closed with no clear answer stays unsure.
+3. When a match is still unsure after step 2, make one `inbox_ask` with one item for each unsure entry. Each item names the entry and its candidate children, by number and title. Pass your session id and the bridge id of the worker. Then stop with `STAGE RESULT: blocked: breakdown match needs the owner`. The first sentence after it is "Answer the inbox ask." Record no block on the card, because the ask is the record. A resumed run starts again at step 1. The blocked run settles its work request, so an epic whose children are all finished can move to `in-review` or `<terminal>` while the ask is open. The column check of `SKILL.md` step 3 accepts those two moves for a resumed run, and stops on any other column. A child that the resumed run creates brings the epic back to `<implementation>`. Steps 1 to 3 change no card and no branch, so the breakdown waits until every unsure match has an answer.
+4. Note the type of the card. When it is not `epic`, set the type `epic` with `card_update`. `card_create` refuses a parent that is not an epic, so this step comes before step 7.
+5. Add the entry line to the top of the body of each matched child that has no entry line, with `card_update`. Send the rest of the body unchanged. When the body opens with `**Parked.**`, keep that line first and put the entry line after it.
+6. When the profile has an `Epics` section, create the epic branch before you create a child. Fill the epic branch pattern of that section with the number of the card. `<base>` is the base branch of the profile `Gate` section. Run this from the main checkout:
 
    ```bash
    git ls-remote --exit-code origin refs/heads/<epic branch>
    ```
 
-   Exit 0 means the branch exists, so push nothing. When the branch does not exist and step 2 found no child, push it:
+   Exit 0 means the branch exists, so push nothing. When the branch does not exist and no child of the epic has an entry in `pullRequests`, push it:
 
    ```bash
    git fetch origin <base>
    git push origin origin/<base>:refs/heads/<epic branch>
    ```
 
-   When the push fails, stop with `STAGE RESULT: blocked: epic branch push refused: <message>`. An epic that has a child and no epic branch started on the old flow. Push nothing for it, so its children keep the profile base branch.
-4. For each entry with no child, call `card_create` with no `status`, so the child lands in `<default>`. Send the title of the entry, the entry line and the whole entry as the body, the card id as `parentCardId`, and `<design>` in `documentIds`. The type is the type step 1 noted, or `feature` when that type was `epic`.
-5. Set the blockers in a second pass, because an entry can name a child that step 4 creates later. For each child whose entry names blockers, read the child with `card_get` just before the write. Send its `relatedCards` back, plus a `blocked-by` entry for each blocker that it does not already carry. `relatedCards` replaces every link of the card, so never send the new entries alone.
-6. Move each child that matches an entry, sits in `<default>` and has no open blocker to `<implementation>` with `card_update`. A blocker is open when its `status` is not `<terminal>`. Skip a child whose body opens with `**Parked.**`, because the owner paused it. These moves are the only moves the breakdown makes. The epic stays in its column.
+   When the push fails, stop with `STAGE RESULT: blocked: epic branch push refused: <message>`. An epic with no epic branch and a child that links a pull request started on the old flow. Push nothing for it, so its children keep the profile base branch.
+7. For each entry with no child, call `card_create` with no `status`, so the child lands in `<default>`. Send the title of the entry, the entry line and the whole entry as the body, the card id as `parentCardId`, and `<design>` in `documentIds`. The type is the type step 4 noted, or `feature` when that type was `epic`.
+8. Set the blockers in a second pass, because an entry can name a child that step 7 creates later. For each child whose entry names blockers, read the child with `card_get` just before the write. Send its `relatedCards` back, plus a `blocked-by` entry for each blocker that it does not already carry. `relatedCards` replaces every link of the card, so never send the new entries alone.
+9. Move each child that matches an entry, sits in `<default>` and has no open blocker to `<implementation>` with `card_update`. A blocker is open when its `status` is not `<terminal>`. Skip a child whose body opens with `**Parked.**`, because the owner paused it. These moves are the only moves the breakdown makes. The epic stays in its column.
 
-The result line is `STAGE RESULT: breakdown <n> children, <m> started`. `<n>` is the number of children the epic has after step 4, and `<m>` is the number of children step 6 moved.
+The result line is `STAGE RESULT: breakdown <n> children, <m> started`. `<n>` is the number of children the epic has after step 7, and `<m>` is the number of children step 9 moved.
+
+After the result line, list each match on its own short line: the entry ID, the child number, and the reason. The reason is `entry line`, `judgement` or `owner`. Then list each child that step 7 created. The bridge keeps only the first 4 KB of the reply, so write nothing else on a line:
+
+```text
+B1: #231 (entry line)
+B2: #232 (judgement)
+B3: #240 (owner)
+Created: B4 #245, B5 #246
+```
 
 A design with no Breakdown section gives the epic no entries. The run then creates nothing and moves nothing.
 
-Step 6 also moves a child that a person put back in `<default>` on purpose, when it has no open blocker and is not parked. That is an accepted cost of a rerun. Park the child to keep it in `<default>`.
+Step 9 also moves a child that a person put back in `<default>` on purpose, when it has no open blocker and is not parked. That is an accepted cost of a rerun. Park the child to keep it in `<default>`.
 
 ## Build a child
 

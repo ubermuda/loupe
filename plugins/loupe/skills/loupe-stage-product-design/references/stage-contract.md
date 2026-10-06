@@ -39,7 +39,7 @@ When no linked document matches, page `document_list` for the title the stage sk
 
 ## Final reply
 
-Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences.
+Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. A `breakdown` result then lists its matches, as `../../loupe-stage-implementation/references/breakdown.md` says.
 
 End the first line with ` [reason: <code>]`. Take the code from the reason table below. An example is `STAGE RESULT: not ready <url>: stacked on main [reason: stacked]`.
 
