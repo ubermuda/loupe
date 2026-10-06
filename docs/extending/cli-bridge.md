@@ -377,8 +377,8 @@ text.
 
 A server with no tool call endpoint answers 404 with no error code, and so does
 a server with agent push switched off. The bridge then logs
-`tool_calls_unsupported` once. It drops the tool calls of every run until it
-restarts. Set `collect: false` in `rules.yaml` to send no tool call and no
+`tool_calls_unsupported` once. It drops that batch with no retry. The batches
+of later runs still try, so the calls come back when agent push comes back on. Set `collect: false` in `rules.yaml` to send no tool call and no
 timing at all.
 
 ## Experiments

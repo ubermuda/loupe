@@ -140,8 +140,8 @@ func TestTheProjectSettingsAreCachedForTenMinutes(t *testing.T) {
 	}
 }
 
-// A server with no tool call endpoint drops the batch at once, says so once,
-// and gets no later batch.
+// A server with no tool call endpoint drops each batch at once, says so once,
+// and still gets the later batches, because agent push can come back on.
 func TestAServerWithNoToolCallEndpointDropsTheBatches(t *testing.T) {
 	client := &fakeRunClient{toolCalls: func(api.ToolCallBatch) error { return api.ErrToolCallsUnsupported }}
 	reports, log := newTestRunReports(client)
@@ -149,8 +149,8 @@ func TestAServerWithNoToolCallEndpointDropsTheBatches(t *testing.T) {
 	sendAll(t, reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", bashCalls(600, "ls"), stream.Timing{}))
 	sendAll(t, reports.toolCalls(context.Background(), testProject, "run-2", 87, "plan", bashCalls(1, "ls"), stream.Timing{}))
 
-	if len(client.batches) != 1 {
-		t.Fatalf("sent %d batches, want only the first", len(client.batches))
+	if len(client.batches) != 3 {
+		t.Fatalf("sent %d batches, want 3", len(client.batches))
 	}
 	if n := countEvents(t, log, "tool_calls_unsupported"); n != 1 {
 		t.Fatalf("logged tool_calls_unsupported %d times", n)

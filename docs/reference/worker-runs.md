@@ -427,7 +427,8 @@ the others. A retry is therefore safe, and it answers 200 with a lower
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
 
 The bridge reads a 404 with no error code as a server with no tool call
-endpoint. It then sends no tool calls until it restarts.
+endpoint, and drops that batch with no retry. The batches of later runs still
+try.
 
 ### Run metrics
 

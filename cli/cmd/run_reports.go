@@ -43,7 +43,8 @@ type runReports struct {
 	unsupported atomic.Bool
 	// launchUnsupported is set by the first 404 of the interactive run endpoint.
 	launchUnsupported atomic.Bool
-	// toolCallsUnsupported is set by the first 404 of the tool call endpoint.
+	// toolCallsUnsupported logs the first 404 of the tool call endpoint once.
+	// Each later batch still tries, because agent push can come back on.
 	toolCallsUnsupported atomic.Bool
 
 	// sites caches the projects of the caller, read at sitesAt. now is
@@ -144,9 +145,6 @@ func (s *runReports) toolCalls(ctx context.Context, handle, runID string, card i
 			Card: card,
 			Rule: rule,
 			Send: func(ctx context.Context) (bool, error) {
-				if s.toolCallsUnsupported.Load() {
-					return true, nil
-				}
 				batch := api.ToolCallBatch{Calls: part, Timing: last}
 				err := s.client.ReportToolCalls(ctx, handle, runID, batch)
 				if !errors.Is(err, api.ErrToolCallsUnsupported) {

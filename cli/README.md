@@ -790,7 +790,7 @@ default list is `git`, `just`, `npm`, `pnpm`, `yarn`, `cargo`, `go`, `docker`,
 The bridge sends the full input of a call only when the project collects full
 text. It reads the project settings from Loupe, and keeps them for 10 minutes.
 When it cannot read them, it sends no full text and uses the default list. A
-Loupe with no tool call endpoint drops the calls, and the bridge logs
+Loupe with no tool call endpoint drops each batch, and the bridge logs
 `tool_calls_unsupported` once. Set `collect: false` in the rule file to send
 nothing.
 
@@ -1226,7 +1226,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `reload_applied` | `added`, `removed`, `changed`, `dirs`, `projects`: a reload applied the rule file. `pools` lists each pool the reload added, removed or resized, such as `quick: added 1` or `default: 3 -> 2`, and `max_workers` names a new budget. Each appears only when it changed |
 | `reload_failed` | `stage`, `problems`: a reload changed nothing. Level `ERROR` |
 | `report_failed` | `project`, `project_slug`, `error`, `retry`, `retry_in_ms` when `retry` is true, and `message` when the fix is yours |
-| `tool_calls_unsupported` | `message`: Loupe answered 404 with no error code to a tool call report, so the bridge sends no tool calls until it restarts. Logged once. Level `WARN` |
+| `tool_calls_unsupported` | `message`: Loupe answered 404 with no error code to a tool call report, so the bridge drops that batch. Later batches still try. Logged once. Level `WARN` |
 | `heartbeat_sent` | `bridge_id`, `interval_seconds`, `failed_before`: the first heartbeat that lands, and the one that ends a run of failures or of 404 answers |
 | `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
