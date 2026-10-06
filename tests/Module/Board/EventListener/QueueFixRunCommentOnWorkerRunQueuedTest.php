@@ -108,6 +108,46 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertSame('conflict', $rows[0]->reason);
     }
 
+    public function test_the_comment_goes_to_the_pull_request_whose_url_the_event_names(): void
+    {
+        $this->commentOnFixQueued(true);
+        $card = $this->stackedCard();
+
+        $this->listener()($this->event(cardId: $card->id, pullRequestNumber: 4, pullRequestUrl: 'https://EXAMPLE.com/acme/widgets/pull/5'));
+
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame(5, $rows[0]->number);
+        self::assertSame('upper', $rows[0]->headSha);
+        self::assertSame('checks-failed', $rows[0]->reason);
+    }
+
+    public function test_the_comment_goes_to_the_pull_request_whose_number_the_event_names_when_no_url_matches(): void
+    {
+        $this->commentOnFixQueued(true);
+        $card = $this->stackedCard();
+
+        $this->listener()($this->event(cardId: $card->id, pullRequestNumber: 5, pullRequestUrl: 'https://example.com/other/pull/5'));
+
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame(5, $rows[0]->number);
+        self::assertSame('upper', $rows[0]->headSha);
+    }
+
+    public function test_an_event_that_names_no_link_of_the_card_falls_back_to_the_first_open_pull_request(): void
+    {
+        $this->commentOnFixQueued(true);
+        $card = $this->stackedCard();
+
+        $this->listener()($this->event(cardId: $card->id, pullRequestNumber: 99, pullRequestUrl: 'https://example.com/acme/widgets/pull/99'));
+
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame(4, $rows[0]->number);
+        self::assertSame('conflict', $rows[0]->reason);
+    }
+
     public function test_an_untracked_pull_request_gets_a_comment_with_no_head_and_no_reason(): void
     {
         $this->commentOnFixQueued(true);
@@ -235,13 +275,27 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function event(?Uuid $projectId = null, ?Uuid $cardId = null): WorkerRunQueued
+    private function event(?Uuid $projectId = null, ?Uuid $cardId = null, ?int $pullRequestNumber = null, ?string $pullRequestUrl = null): WorkerRunQueued
     {
         return new WorkerRunQueued(
             projectId: $projectId ?? $this->project->id ?? throw new \LogicException('A persisted project has an id.'),
             runId: Uuid::v7(),
             cardId: $cardId ?? Uuid::v7(),
+            pullRequestNumber: $pullRequestNumber,
+            pullRequestUrl: $pullRequestUrl,
         );
+    }
+
+    /** A card with two open pull requests: number 4 conflicts and number 5 fails its checks. */
+    private function stackedCard(): Card
+    {
+        $card = $this->card();
+        $this->link($card, Forge::GitHub, 'acme/widgets', 4);
+        $this->link($card, Forge::GitHub, 'acme/widgets', 5);
+        $this->tracked('acme/widgets', 4, headSha: 'base', conflicting: true);
+        $this->tracked('acme/widgets', 5, headSha: 'upper', checks: PullRequestChecks::Failed);
+
+        return $card;
     }
 
     private function linkedEvent(): WorkerRunQueued

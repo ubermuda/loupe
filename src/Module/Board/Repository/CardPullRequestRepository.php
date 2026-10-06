@@ -111,7 +111,7 @@ class CardPullRequestRepository extends ServiceEntityRepository
      * The pull requests one card of the project links by number, in the order
      * of the links.
      *
-     * @return list<array{forge: string, repository: string, number: int}>
+     * @return list<array{forge: string, repository: string, number: int, url: string}>
      */
     public function findNumberedKeysOfCard(Uuid $projectId, Uuid $cardId): array
     {
@@ -119,8 +119,9 @@ class CardPullRequestRepository extends ServiceEntityRepository
             'forge' => (string) $row['forge'],
             'repository' => (string) $row['repository'],
             'number' => (int) $row['number'],
+            'url' => (string) $row['url'],
         ], $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT link.forge, link.repository, link.number FROM board_card_pull_requests link
+            'SELECT link.forge, link.repository, link.number, link.url FROM board_card_pull_requests link
              JOIN board_cards card ON card.id = link.card_id
              WHERE link.card_id = :card AND card.project_id = :project AND link.repository IS NOT NULL AND link.number IS NOT NULL
              ORDER BY link.id',
