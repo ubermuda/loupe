@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Mcp;
 
-use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -19,28 +17,15 @@ use Mcp\Exception\ToolCallException;
  * @phpstan-import-type CardSummary from CardPayload
  */
 #[McpTool(name: self::NAME, description: 'Read one card from the project board, with its full Markdown body and every pull request linked to it. Each pull request carries state, the last state Loupe read from the forge: state, draft, checks, failedChecks, mergeability, review, readyToMerge and refreshedAt. state is null when Loupe holds no reading, such as for a link it cannot parse or a pull request it has not read yet. siteReviewComments lists the feedback items that belong to the card, each with its id, url, anchors, body, hasDrawing, status, context and createdAt; mark one addressed with feedback_mark_addressed. relatedCards lists the linked cards, each with its cardId, number, title, status and kind as this card reads it: a blocks link from card A reads blocked-by from card B. parent names the epic the card belongs to, or null. An epic lists its children, and progress counts how many of them sit in a terminal column (done) out of all of them (total); progress is null for any other type. laneEnabled says whether the board draws a lane for an epic. pause is null, or names the active workflow pause that holds the card: pauseId, kind (rule, retries, work-limit or work-timeout), reason, ruleId and since. Use a card id from card_list or card_create. The response also carries a number, the short label that counts from 1 inside this project. Use the number to name the card to a person. Pass the cardId or the number to read a card, never both.')]
-final readonly class CardGetTool implements FlagGatedToolInterface
+final readonly class CardGetTool
 {
     public const string NAME = 'card_get';
 
     public function __construct(
-        private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
         private ShowCardHandler $showCard,
         private CardPayload $payload,
     ) {
-    }
-
-    #[\Override]
-    public function gatedToolName(): string
-    {
-        return self::NAME;
-    }
-
-    #[\Override]
-    public function requiredFlag(): string
-    {
-        return BoardInstallFlags::FLAG_BOARD_ENABLED;
     }
 
     /**
@@ -51,8 +36,6 @@ final readonly class CardGetTool implements FlagGatedToolInterface
      */
     public function __invoke(?string $cardId = null, #[Schema(minimum: 1)] ?int $number = null): array
     {
-        $this->gate->requireEnabled();
-
         try {
             $view = ($this->showCard)(new ShowCardCommand(
                 $this->subjects->requireCardByIdOrNumber($cardId, $number, McpBoundProjectVoter::CARD_READ),

@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Exception\DomainErrors;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\DeleteCommentCommand;
 use App\Module\SiteReview\Command\DeleteCommentHandler;
@@ -29,15 +27,12 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class DeleteFeedbackHandler
 {
-    public const string BOARD_DISABLED = AddFeedbackHandler::BOARD_DISABLED;
-
     public function __construct(
         private DeleteCommentHandler $deleteComment,
         private DeleteCardHandler $deleteCard,
         private SiteReviewCommentRepository $siteReviewComments,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardRepository $cards,
-        private BoardAvailability $board,
         private EntityManagerInterface $em,
         private Auditor $auditor,
     ) {
@@ -46,10 +41,6 @@ final readonly class DeleteFeedbackHandler
     /** @throws CommentNotFound when the note is not a pending note of the project */
     public function __invoke(DeleteFeedbackCommand $command): bool
     {
-        if (!$this->board->isEnabled()) {
-            throw new DomainErrors(['board' => self::BOARD_DISABLED]);
-        }
-
         // A refusal leaves the closure as a value, because a throw closes the
         // EntityManager. The project lock orders this against a note that
         // lands on the same card.

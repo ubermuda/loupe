@@ -23,7 +23,6 @@ final readonly class DocumentWorkLinks implements DocumentWorkLinksInterface
     public function __construct(
         private CardRepository $cards,
         private CardDocumentRepository $cardDocuments,
-        private BoardAvailability $board,
         private EntityManagerInterface $em,
         private EventDispatcherInterface $events,
     ) {
@@ -32,16 +31,12 @@ final readonly class DocumentWorkLinks implements DocumentWorkLinksInterface
     #[\Override]
     public function isEnabled(): bool
     {
-        return $this->board->isEnabled();
+        return true;
     }
 
     #[\Override]
     public function choices(Project $project, ?Document $document): array
     {
-        if (!$this->isEnabled()) {
-            return [];
-        }
-
         $selected = null === $document ? [] : $this->selectedIds($document);
         $choices = [];
         foreach ($this->cards->findBy(['project' => $project], ['number' => 'DESC']) as $card) {

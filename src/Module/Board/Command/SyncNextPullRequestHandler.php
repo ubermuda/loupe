@@ -6,7 +6,6 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -45,7 +44,6 @@ final readonly class SyncNextPullRequestHandler
 
     public function __construct(
         private ProjectRepository $projects,
-        private BoardAvailability $board,
         private BoardAutomationSettingsRepository $boardAutomationSettings,
         private ForgePullRequestRepository $forgePullRequests,
         private PullRequestBranchUpdaters $updaters,
@@ -58,9 +56,6 @@ final readonly class SyncNextPullRequestHandler
 
     public function __invoke(SyncNextPullRequestCommand $command): void
     {
-        if (!$this->board->isEnabled()) {
-            return;
-        }
         $project = $this->projects->find($command->projectId);
         if (null === $project) {
             return;

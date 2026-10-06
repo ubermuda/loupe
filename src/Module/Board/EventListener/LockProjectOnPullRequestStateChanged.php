@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,14 +20,11 @@ final readonly class LockProjectOnPullRequestStateChanged
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private BoardAvailability $board,
     ) {
     }
 
     public function __invoke(PullRequestStateChanged $event): void
     {
-        if ($this->board->isEnabled()) {
-            $this->em->lock($event->pullRequest->project, LockMode::PESSIMISTIC_WRITE);
-        }
+        $this->em->lock($event->pullRequest->project, LockMode::PESSIMISTIC_WRITE);
     }
 }

@@ -40,7 +40,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-columns@example.com');
         $project = $this->project($em, $owner);
@@ -78,7 +77,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-backlog-button@example.com');
         $project = $this->project($em, $owner);
@@ -108,7 +106,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-own-columns@example.com');
         $project = $this->project($em, $owner);
@@ -136,7 +133,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-face@example.com');
         $project = $this->project($em, $owner);
@@ -166,7 +162,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-indicator@example.com');
         $project = $this->project($em, $owner);
@@ -208,7 +203,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-done@example.com');
         $project = $this->project($em, $owner);
@@ -233,27 +227,10 @@ final class ShowBoardControllerTest extends WebTestCase
         );
     }
 
-    public function test_the_board_is_not_found_while_the_flag_is_off(): void
-    {
-        $client = static::createClient();
-        $this->disableBoard();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'board-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
     public function test_a_stranger_is_forbidden(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-owner@example.com');
         $stranger = $this->user($em, 'board-stranger@example.com');
@@ -266,10 +243,9 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    public function test_the_sidebar_offers_the_board_only_while_the_flag_is_on(): void
+    public function test_the_sidebar_offers_the_board(): void
     {
         $client = static::createClient();
-        $this->disableBoard();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = $this->user($em, 'board-sidebar@example.com');
@@ -279,11 +255,6 @@ final class ShowBoardControllerTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents');
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('a[href$="/board"]'));
-
-        $this->enableBoard();
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents');
-        self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('a[href$="/board"]'));
     }
 
@@ -291,7 +262,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-queries@example.com');
         $project = $this->project($em, $owner, 'many-cards');
@@ -339,7 +309,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'board-document-queries@example.com');
         $boards = [];
         foreach (['three-cards' => 3, 'twelve-cards' => 12] as $name => $size) {
@@ -392,7 +361,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-document-badge@example.com');
         $project = $this->project($em, $owner);
@@ -412,7 +380,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-title-only@example.com');
         $project = $this->project($em, $owner);
@@ -437,7 +404,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-document-digest@example.com');
         $project = $this->project($em, $owner);
@@ -462,7 +428,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-epic-digest@example.com');
         $project = $this->project($em, $owner);
@@ -491,7 +456,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-badges@example.com');
         $project = $this->project($em, $owner);
@@ -525,7 +489,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-markers@example.com');
         $project = $this->project($em, $owner);
@@ -563,7 +526,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-marker-digest@example.com');
         $project = $this->project($em, $owner);
@@ -585,7 +547,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'board-marker-queries@example.com');
         $boards = [];
         foreach (['three-cards' => 3, 'twelve-cards' => 12] as $name => $size) {
@@ -644,7 +605,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-run-warning@example.com');
         $project = $this->project($em, $owner, 'warned');
@@ -690,7 +650,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-lane-warning@example.com');
         $project = $this->project($em, $owner, 'laned');
@@ -715,7 +674,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-topics@example.com');
         $project = $this->project($em, $owner, 'topics');
@@ -740,7 +698,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-run-warning-order@example.com');
         $project = $this->project($em, $owner, 'ordered');
@@ -765,7 +722,6 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-run-warning-clocks@example.com');
         $project = $this->project($em, $owner, 'clocks');

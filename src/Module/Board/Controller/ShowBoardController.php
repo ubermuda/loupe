@@ -8,7 +8,6 @@ use App\Controller\AppController;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,15 +31,12 @@ final class ShowBoardController extends AppController
 {
     public function __construct(
         private readonly ShowBoardHandler $showBoard,
-        private readonly BoardAvailability $board,
         private readonly ProjectTopicBuilder $topics,
     ) {
     }
 
     public function __invoke(Request $request, Project $project): Response
     {
-        $this->board->requireEnabled();
-
         return $this->render($request->attributes->getBoolean('boardSettings') ? '@Board/show_board_settings.html.twig' : '@Board/show_board.html.twig', [
             'board' => ($this->showBoard)(new ShowBoardCommand($project)),
             'addColumnForm' => $this->getInjectedFormView($request, 'addColumnForm'),

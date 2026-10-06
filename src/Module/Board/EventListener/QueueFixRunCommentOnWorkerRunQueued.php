@@ -8,7 +8,6 @@ use App\Module\Board\Messenger\PostFixRunComment;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Event\WorkerRunQueued;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
@@ -33,7 +32,6 @@ use Symfony\Component\Messenger\MessageBusInterface;
 final readonly class QueueFixRunCommentOnWorkerRunQueued
 {
     public function __construct(
-        private BoardAvailability $board,
         private ProjectRepository $projects,
         private BoardAutomation $boardAutomation,
         private PullRequestCommenters $commenters,
@@ -64,10 +62,6 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
 
     private function queue(WorkerRunQueued $event): void
     {
-        if (!$this->board->isEnabled()) {
-            return;
-        }
-
         $project = $this->projects->find($event->projectId);
         if (null === $project || !$this->boardAutomation->settingsOf($project)->commentOnFixQueued) {
             return;

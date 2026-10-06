@@ -8,7 +8,6 @@ use App\Mercure\ProjectTopicBuilder;
 use App\Module\Review\Entity\Document;
 use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
-use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -22,7 +21,6 @@ final class BoardLiveSubscriptionTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-live-viewer@example.com');
         $project = $this->project($em, $owner);
@@ -66,7 +64,6 @@ final class BoardLiveSubscriptionTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-live-workshop@example.com');
         $project = $this->project($em, $owner);
@@ -84,16 +81,13 @@ final class BoardLiveSubscriptionTest extends WebTestCase
         self::assertContains($topics->forWorkerRuns($project->id), $subscribed);
     }
 
-    /** The document page hosts the card drawer, which updates on the board topic while the board is on. */
-    #[TestWith([true])]
-    #[TestWith([false])]
-    public function test_the_document_page_subscribes_its_card_drawer_to_the_board_topic(bool $boardEnabled): void
+    /** The document page hosts the card drawer, which updates on the board topic. */
+    public function test_the_document_page_subscribes_its_card_drawer_to_the_board_topic(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->setBoardEnabled($boardEnabled);
 
-        $owner = $this->user($em, 'board-live-document-'.($boardEnabled ? 'on' : 'off').'@example.com');
+        $owner = $this->user($em, 'board-live-document@example.com');
         $project = $this->project($em, $owner);
         $document = new Document(owner: $owner, project: $project, title: 'Hosts a drawer');
         $document->addVersion('# Drawer', '<h1>Drawer</h1>');
@@ -111,18 +105,13 @@ final class BoardLiveSubscriptionTest extends WebTestCase
         $subscribed = self::subscribedTopics($client->getResponse());
         self::assertNotNull($subscribed);
         self::assertContains($topics->forWorkerRuns($project->id), $subscribed);
-        if ($boardEnabled) {
-            self::assertContains($topics->forBoard($project->id), $subscribed);
-        } else {
-            self::assertNotContains($topics->forBoard($project->id), $subscribed);
-        }
+        self::assertContains($topics->forBoard($project->id), $subscribed);
     }
 
     public function test_a_stranger_gets_no_token(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-live-owner@example.com');
         $stranger = $this->user($em, 'board-live-stranger@example.com');
@@ -140,7 +129,6 @@ final class BoardLiveSubscriptionTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'board-live-old-route@example.com');
         $project = $this->project($em, $owner);
@@ -157,7 +145,6 @@ final class BoardLiveSubscriptionTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $this->setHubFlags($em, liveUpdates: true, agentPush: false);
 
         $owner = $this->user($em, 'board-live-push-off@example.com');
@@ -179,7 +166,6 @@ final class BoardLiveSubscriptionTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $this->setHubFlags($em, liveUpdates: false, agentPush: true);
 
         $owner = $this->user($em, 'board-live-off@example.com');

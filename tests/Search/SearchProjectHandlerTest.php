@@ -8,7 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -18,8 +17,6 @@ use App\Search\SearchResult;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class SearchProjectHandlerTest extends KernelTestCase
 {
@@ -29,8 +26,6 @@ final class SearchProjectHandlerTest extends KernelTestCase
     {
         self::bootKernel();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $owner = new User(fullName: 'Search owner', email: 'global-search@example.com', password: 'x');
         $em->persist($owner);
         $project = new Project($owner, 'Search target');
@@ -72,14 +67,6 @@ final class SearchProjectHandlerTest extends KernelTestCase
             self::assertStringNotContainsString('Foreign', $result->title);
             self::assertStringContainsString('/projects/'.$project->id.'/', $result->url);
         }
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = false;
-        $em->flush();
-        self::getContainer()->get(DoctrineFeatureFlagReader::class)->reset();
-        $disabled = $search(new SearchProjectCommand($project, 'quartz'));
-        self::assertCount(10, $disabled->results->items);
-        foreach ($disabled->results->items as $result) {
-            self::assertSame('document', $result->kind);
-        }
         $pages = $search(new SearchProjectCommand($project, 'activity'));
         self::assertSame(['Activity · Runs', 'Activity · Events'], array_map(static fn (SearchResult $result): string => $result->title, $pages->results->items));
         self::assertSame(['page', 'page'], array_map(static fn (SearchResult $result): string => $result->kind, $pages->results->items));
@@ -87,7 +74,9 @@ final class SearchProjectHandlerTest extends KernelTestCase
         self::assertStringEndsWith('/activity', $pages->results->items[1]->url);
         self::assertSame([], $search(new SearchProjectCommand($project, 'Run history'))->results->items);
         self::assertSame([], $search(new SearchProjectCommand($project, 'unfindablequartz'))->results->items);
-        self::assertSame([], $search(new SearchProjectCommand($project, 'Board'))->results->items);
+        $board = $search(new SearchProjectCommand($project, 'Board'));
+        self::assertSame(['page'], array_map(static fn (SearchResult $result): string => $result->kind, $board->results->items));
+        self::assertSame('/projects/'.$project->id.'/board', $board->results->items[0]->url);
         self::assertSame([], $search(new SearchProjectCommand($project, 'Rules'))->results->items);
         $account = $search(new SearchProjectCommand($project, 'Account'));
         self::assertCount(1, $account->results->items);

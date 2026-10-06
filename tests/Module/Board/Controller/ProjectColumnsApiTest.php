@@ -25,7 +25,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         $owner = $this->user($em, 'columns-api-list@example.com');
         $project = $this->project($em, $owner, 'Columns App');
         $raw = $this->agentToken($client, $owner);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
@@ -56,7 +55,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         $this->column($project, 'next')->label = 'Ready for review';
         $em->flush();
         $raw = $this->agentToken($client, $owner);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
@@ -74,7 +72,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         $owner = $this->user($em, 'columns-api-slug@example.com');
         $project = $this->project($em, $owner, 'Slugged App');
         $raw = $this->agentToken($client, $owner);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/slugged-app/board/columns', $raw);
 
@@ -91,7 +88,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         $owner = $this->user($em, 'columns-api-name@example.com');
         $this->project($em, $owner, 'Named App');
         $raw = $this->agentToken($client, $owner);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.rawurlencode('Named App').'/board/columns', $raw);
 
@@ -110,7 +106,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         $caller = $this->user($em, 'columns-api-caller@example.com');
         $other = $this->project($em, $this->user($em, 'columns-api-other@example.com'), 'Private App');
         $raw = $this->agentToken($client, $caller);
-        $this->enableBoard();
 
         foreach ([(string) $other->id, 'private-app', (string) Uuid::v7()] as $handle) {
             $this->get($client, '/api/projects/'.rawurlencode($handle).'/board/columns', $raw);
@@ -124,24 +119,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         }
     }
 
-    public function test_it_is_absent_while_the_board_is_switched_off(): void
-    {
-        $client = static::createClient();
-        $this->disableBoard();
-        $em = $this->em();
-        $owner = $this->user($em, 'columns-api-flag@example.com');
-        $project = $this->project($em, $owner, 'Flagged App');
-        $raw = $this->agentToken($client, $owner);
-
-        $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
-
-        self::assertResponseStatusCodeSame(404);
-        self::assertJsonStringEqualsJsonString(
-            '{"error":"board_disabled"}',
-            (string) $client->getResponse()->getContent(),
-        );
-    }
-
     public function test_a_widget_token_is_refused_by_the_firewall(): void
     {
         $client = static::createClient();
@@ -149,7 +126,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         $owner = $this->user($em, 'columns-api-widget@example.com');
         $project = $this->project($em, $owner, 'Widget App');
         $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
@@ -165,7 +141,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $project = $this->project($em, $this->user($em, 'columns-api-anonymous@example.com'), 'Anonymous App');
-        $this->enableBoard();
 
         $client->request(Request::METHOD_GET, '/api/projects/'.$project->id.'/board/columns');
 
@@ -193,7 +168,6 @@ final class ProjectColumnsApiTest extends WebTestCase
         // Two access tokens of one grant share a bucket, so the second budget
         // needs a second account.
         $second = $this->agentToken($client, $other);
-        $this->enableBoard();
         $path = '/api/projects/'.$project->id.'/board/columns';
 
         $this->get($client, $path, $first, '203.0.113.7');

@@ -18,7 +18,6 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
 use App\Module\Board\Security\CardVoter;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -58,7 +57,6 @@ final class MoveCardController extends AppController
         private readonly MoveCardHandler $moveCard,
         private readonly ShowCardPlacementHandler $showPlacement,
         private readonly FormFactoryInterface $formFactory,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -67,8 +65,6 @@ final class MoveCardController extends AppController
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
     ): Response {
-        $this->board->requireEnabled();
-
         $project = $card->project;
         $data = new MoveCardRequest();
         $stream = TurboBundle::STREAM_FORMAT === $request->getPreferredFormat();

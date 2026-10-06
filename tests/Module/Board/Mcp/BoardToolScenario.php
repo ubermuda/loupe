@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Account\Entity\User;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /**
  * KernelTestCase helper for the board MCP tools.
@@ -19,24 +17,6 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 trait BoardToolScenario
 {
     use BoardColumnFixtures;
-
-    private function enableBoard(): void
-    {
-        $this->setBoardEnabled(true);
-    }
-
-    private function disableBoard(): void
-    {
-        $this->setBoardEnabled(false);
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->em->flush();
-    }
 
     private function makeProject(string $label): Project
     {

@@ -32,7 +32,6 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-        $this->enableBoard();
     }
 
     public function test_the_owner_sees_the_defaults_saves_and_reads_them_back(): void
@@ -220,23 +219,6 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         ]);
         self::assertResponseStatusCodeSame(403);
         self::assertNull($this->stored($project));
-    }
-
-    public function test_the_page_and_its_tab_are_gone_like_the_columns_page_while_the_flag_is_off(): void
-    {
-        $project = $this->ownedProject('automation-flag-off@example.com');
-        $this->disableBoard();
-        $this->em->clear();
-
-        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/settings/columns');
-        self::assertResponseStatusCodeSame(404);
-        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/settings/automation');
-        self::assertResponseStatusCodeSame(404);
-
-        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/edit');
-        self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('.lp-settings-nav a[href$="/settings/automation"]'));
-        self::assertCount(0, $crawler->filter('.lp-settings-nav a[href$="/settings/columns"]'));
     }
 
     /** @param non-empty-string $email */

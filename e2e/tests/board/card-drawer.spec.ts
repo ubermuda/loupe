@@ -10,21 +10,12 @@ const test = createTest({
     name: 'Card Drawer Reviewer',
 });
 
+// Some of its tests run 20s or more beside three other workers, near the default budget.
+test.slow();
+
 test.beforeEach(async ({ page }) => {
     await suppressToolbar(page);
     await suppressWidget(page);
-    const flag = await page.request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(flag.ok()).toBeTruthy();
-});
-
-// The flag is global, so it goes back to its shipped value, on, for later specs.
-test.afterAll(async ({ request }) => {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(response.ok()).toBeTruthy();
 });
 
 /** The site-review harness gives the account its project, so it runs first. */

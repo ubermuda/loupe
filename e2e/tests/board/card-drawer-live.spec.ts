@@ -5,26 +5,11 @@
  * delivers each change, so the run needs a Mercure hub the browser can reach.
  */
 
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { signedInPage } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eCardDrawerLive1!';
-
-async function setFlag(
-    request: APIRequestContext,
-    name: string,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name, enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
-
-test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', false);
-});
 
 test('the drawer warns about a change made elsewhere, and shows a card deleted elsewhere', async ({
     browser,
@@ -32,8 +17,6 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
 }) => {
     // Two sessions, two saves and a delete, each a page visit.
     test.slow();
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
 
     const email = `e2e+drawerlive+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
@@ -58,7 +41,7 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
         .click();
     await expect(
         editor.getByRole('heading', { name: 'Shared card', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     const cardUrl = new URL(editor.url()).pathname;
 
     await editor.goto(boardUrl);
@@ -82,7 +65,7 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
     await other.getByRole('button', { name: 'Save card', exact: true }).click();
     await expect(
         other.getByRole('heading', { name: 'Shared card', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     const notice = drawer.getByRole('alert').filter({
         hasText: 'This card changed since you opened it.',
@@ -132,8 +115,6 @@ test('the open drawer shows a move made elsewhere, on the tab the reader had ope
     request,
 }) => {
     test.slow();
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
 
     const email = `e2e+drawermove+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
@@ -157,7 +138,7 @@ test('the open drawer shows a move made elsewhere, on the tab the reader had ope
         .click();
     await expect(
         reader.getByRole('heading', { name: 'Moving card', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     const cardUrl = new URL(reader.url()).pathname;
 
     await reader.goto(boardUrl);

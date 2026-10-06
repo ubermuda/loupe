@@ -5,28 +5,12 @@
  * message, so the run needs a Mercure hub the browser can reach.
  */
 
-import {
-    test,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { signedInPage } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardLiveCards1!';
 const CARD = '[data-board-drag-target="card"]';
-
-async function setFlag(
-    request: APIRequestContext,
-    name: string,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name, enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
 
 async function createCard(
     page: Page,
@@ -38,7 +22,9 @@ async function createCard(
     await page.getByLabel('Title').fill(title);
     await page.getByLabel('Column').selectOption({ label: column });
     await page.getByRole('button', { name: 'Create card' }).click();
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible({
+        timeout: 15_000,
+    });
 }
 
 function group(page: Page, slug: string) {
@@ -47,18 +33,13 @@ function group(page: Page, slug: string) {
     );
 }
 
-test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', false);
-});
-
 test('a card moved in one browser moves in another, marked, with the filter and the scroll kept', async ({
     browser,
     request,
 }) => {
-    // Five cards go through the create form, one page visit each.
-    test.slow();
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
+    // Five cards go through the create form, and two browsers sign in. Beside
+    // three other workers that took more than the 90 s of test.slow().
+    test.setTimeout(test.info().timeout * 6);
 
     const email = `e2e+livecards+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {

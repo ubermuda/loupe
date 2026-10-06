@@ -9,7 +9,6 @@ use App\Module\Board\Command\PreviewBoardColumnRenameCommand;
 use App\Module\Board\Command\PreviewBoardColumnRenameHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Security\BoardColumnVoter;
-use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,7 +28,6 @@ final class PreviewBoardColumnRenameController extends AppController
 {
     public function __construct(
         private readonly PreviewBoardColumnRenameHandler $preview,
-        private readonly BoardAvailability $board,
     ) {
     }
 
@@ -37,8 +35,6 @@ final class PreviewBoardColumnRenameController extends AppController
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(columnId, projectId)')] BoardColumn $column,
     ): Response {
-        $this->board->requireEnabled();
-
         // One character past the limit is enough for the preview to refuse the
         // length, and the slugger never sees an unbounded string.
         $label = mb_substr($request->query->getString('label'), 0, BoardColumn::MAX_LABEL_LENGTH + 1);

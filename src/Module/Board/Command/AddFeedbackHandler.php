@@ -12,7 +12,6 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\FeedbackCardTitle;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
@@ -32,7 +31,6 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class AddFeedbackHandler
 {
-    public const string BOARD_DISABLED = 'board_disabled';
     public const string TARGET_NOT_FOUND = 'target_not_found';
     public const string TARGET_CLOSED = 'target_closed';
     public const string TARGET_NOT_EPIC = 'target_not_epic';
@@ -43,7 +41,6 @@ final readonly class AddFeedbackHandler
         private CardRepository $cards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private SiteReviewCommentRepository $siteReviewComments,
-        private BoardAvailability $board,
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
@@ -79,12 +76,6 @@ final readonly class AddFeedbackHandler
                 // A comment saved through the old path has no card to return.
                 return $this->cardSiteReviewComments->findOneBy(['comment' => $retried])
                     ?? new DomainErrors(['deliveryId' => 'delivery_conflict']);
-            }
-
-            // After the retry lookup, so a note saved before the board went off
-            // still answers its retry with the saved item.
-            if (!$this->board->isEnabled()) {
-                return new DomainErrors(['board' => self::BOARD_DISABLED]);
             }
 
             $card = $this->targetCard($command);

@@ -8,7 +8,6 @@ use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -24,7 +23,6 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ListWorkerRunsControllerTest extends WebTestCase
 {
@@ -845,7 +843,6 @@ final class ListWorkerRunsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = $this->em();
-        static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
 
         $owner = $this->user($em, 'row-owner@example.com');
         $project = $this->project($em, $owner, 'Rows');

@@ -19,21 +19,12 @@ const test = createTest({
     name: 'Feedback Resolve Reviewer',
 });
 
+// Board pages run near the default budget beside three other workers.
+test.slow();
+
 test.beforeEach(async ({ page }) => {
     await suppressToolbar(page);
     await suppressWidget(page);
-    const flag = await page.request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(flag.ok()).toBeTruthy();
-});
-
-// The flag is global, so it goes back to its shipped value, on, for later specs.
-test.afterAll(async ({ request }) => {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(response.ok()).toBeTruthy();
 });
 
 test('moving a card to Done resolves the feedback on it', async ({ page }) => {

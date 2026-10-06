@@ -8,7 +8,6 @@ use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -20,7 +19,6 @@ use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ProjectsPageTest extends WebTestCase
 {
@@ -205,9 +203,6 @@ final class ProjectsPageTest extends WebTestCase
             $comment->status = 3 === $i ? SiteReviewCommentStatus::Resolved : SiteReviewCommentStatus::Pending;
             $em->persist($comment);
         }
-        $flags = static::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = false;
         $em->flush();
 
         $client->loginUser($owner);
@@ -220,11 +215,9 @@ final class ProjectsPageTest extends WebTestCase
         self::assertStringContainsString('3 open', $meta);
         // The open figure is the amber-tinted span.
         self::assertSame('3 open', trim($crawler->filter('[data-project-id] .lp-project-row__open')->text()));
-        // With the board off, the row claims no card count.
-        self::assertCount(0, $crawler->filter('[data-project-id] .lp-project-row__cards'));
     }
 
-    public function test_row_renders_the_open_card_count_once_the_board_is_on(): void
+    public function test_row_renders_the_open_card_count(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -236,9 +229,6 @@ final class ProjectsPageTest extends WebTestCase
         $em->persist(new Card(project: $project, column: $this->column($project, 'next'), title: 'Open two', body: '', number: 2));
         $em->persist(new Card(project: $project, column: $this->column($project, 'done'), title: 'Finished', body: '', number: 3));
 
-        $flags = static::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $em->flush();
 
         $client->loginUser($owner);

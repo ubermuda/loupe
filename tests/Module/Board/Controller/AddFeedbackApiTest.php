@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Project\Entity\Project;
@@ -17,7 +16,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class AddFeedbackApiTest extends WebTestCase
 {
@@ -117,18 +115,6 @@ final class AddFeedbackApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['error' => 'target_closed'], $data);
-    }
-
-    public function test_the_board_switched_off_is_a_conflict(): void
-    {
-        $client = static::createClient();
-        [$raw] = $this->projectWithToken($client, 'feedback-api-off@example.com');
-        $this->setBoardEnabled(false);
-
-        $data = $this->post($client, $raw, $this->note(['newCard' => new \stdClass()]));
-
-        self::assertResponseStatusCodeSame(409);
-        self::assertSame(['error' => 'board_disabled'], $data);
     }
 
     /** @return iterable<string, array{mixed}> */
@@ -231,7 +217,6 @@ final class AddFeedbackApiTest extends WebTestCase
         $this->seedColumns($project);
         $this->em()->flush();
         $raw = $scenario->accessTokenFor($client, $user, 'site-review', $project);
-        $this->setBoardEnabled(true);
 
         return [$raw, AgentCredential::managed($this->em(), $project, $project->id)];
     }
@@ -263,12 +248,5 @@ final class AddFeedbackApiTest extends WebTestCase
     private function em(): EntityManagerInterface
     {
         return $this->service(EntityManagerInterface::class);
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $flags = $this->service(FeatureFlagRepository::class);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->em()->flush();
     }
 }

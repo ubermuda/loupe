@@ -89,7 +89,6 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $project = $this->project('hook-review');
         $hook = $this->hook($project);
         $this->linkedCard($project, 'acme/w', 13);
@@ -145,7 +144,6 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $owner = $this->project('owner');
         $stranger = $this->project('stranger');
         $hook = $this->hook($owner);
@@ -169,7 +167,6 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $claimant = $this->project('claimant');
         $holder = $this->project('holder');
         $this->owned($holder, 503, 'acme/held', ForgeRepositorySource::Installation, 1);
@@ -191,7 +188,6 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $owner = $this->project('mover');
         $stranger = $this->project('bystander');
         $this->owned($owner, 504, 'acme/old');
