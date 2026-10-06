@@ -77,7 +77,7 @@ enum Metric: string
             self::CacheWriteTokens => 'The tokens the model wrote to its prompt cache.', // @translation-check-ignore
             self::Duration => 'The time from the start to the end of a run, in milliseconds.', // @translation-check-ignore
             self::Runs => 'The number of worker runs on a finished card.', // @translation-check-ignore
-            self::StopRate => 'The share of closed runs that blocked, failed, gave no result or gave up.', // @translation-check-ignore
+            self::StopRate => 'The share of runs that reached an outcome and blocked, failed, gave no result or gave up.', // @translation-check-ignore
             self::MergeRate => 'The share of finished cards whose pull request merged.', // @translation-check-ignore
             self::FixRounds => 'The number of fix rounds a finished card needed.', // @translation-check-ignore
             self::HoursToMerge => 'The hours from the first pull request opening to the last merge.', // @translation-check-ignore

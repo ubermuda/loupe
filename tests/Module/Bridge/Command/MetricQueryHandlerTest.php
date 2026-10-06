@@ -103,15 +103,15 @@ final class MetricQueryHandlerTest extends KernelTestCase
         self::assertEquals(new MetricPoint(null, null, 0), $this->query(MetricUnit::Run, Metric::Cost, MetricStatistic::Sum)->series[0]->total);
     }
 
-    public function test_the_stop_rate_counts_a_stop_as_one_and_any_other_closed_run_as_zero(): void
+    public function test_the_stop_rate_counts_a_stop_as_one_and_leaves_out_a_run_with_no_outcome(): void
     {
-        foreach (['blocked', 'failed', 'succeeded', 'stopped'] as $outcome) {
+        foreach (['blocked', 'failed', 'succeeded', 'gave-up', 'stopped', 'not-started'] as $outcome) {
             $this->fact(Uuid::v7(), endedAt: '2026-10-01 09:00:00', outcome: $outcome);
         }
 
         $view = $this->query(MetricUnit::Run, Metric::StopRate, MetricStatistic::Mean);
 
-        self::assertEquals(new MetricPoint(null, 0.5, 4), $view->series[0]->total);
+        self::assertEquals(new MetricPoint(null, 0.6, 5), $view->series[0]->total);
     }
 
     public function test_a_card_query_grouped_by_stage_gives_one_series_per_work_kind(): void

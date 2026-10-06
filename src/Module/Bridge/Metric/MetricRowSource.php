@@ -146,7 +146,7 @@ final readonly class MetricRowSource
             Metric::CacheReadTokens => $fact->tokensCacheRead,
             Metric::CacheWriteTokens => $fact->tokensCacheWrite,
             Metric::Duration => $fact->durationMs,
-            Metric::StopRate => $fact->outcome->isStop() ? 1 : 0,
+            Metric::StopRate => $fact->outcome->isOutcome() ? (int) $fact->outcome->isStop() : null,
             Metric::Runs, Metric::MergeRate, Metric::FixRounds, Metric::HoursToMerge => throw new \LogicException(\sprintf('The metric %s has no run value.', $metric->value)),
         };
     }
