@@ -2538,6 +2538,26 @@
                 <source>project.connect.tool.card_run_close</source>
                 <target>Close the interactive run a session opened on a card. A second call changes nothing.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.column_create">
+                <source>project.connect.tool.column_create</source>
+                <target>Add a column after the last column of the board. Its slug comes from its name, and it is not terminal.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.column_update">
+                <source>project.connect.tool.column_update</source>
+                <target>Rename a column or set whether it is terminal. A rename changes the slug, so the old slug stops working.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.column_reorder">
+                <source>project.connect.tool.column_reorder</source>
+                <target>Put the columns of the board in a new order. Backlog always comes first.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.column_delete">
+                <source>project.connect.tool.column_delete</source>
+                <target>Delete a column of the board. A column that holds cards moves them to another column first.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.automation_settings_update">
+                <source>project.connect.tool.automation_settings_update</source>
+                <target>Turn the automation settings of the board on or off. A setting you leave out keeps its value.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.worker_run_list">
                 <source>project.connect.tool.worker_run_list</source>
                 <target>Read a page of the worker runs, newest first. Filter by state, card, rule, bridge, words or the time a run ended. Each row says why the run ended.</target>

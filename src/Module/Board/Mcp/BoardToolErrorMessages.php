@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace App\Module\Board\Mcp;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Command\ConfigureBoardColumnHandler;
+use App\Module\Board\Command\DeleteBoardColumnHandler;
+use App\Module\Board\Command\ReorderBoardColumnsHandler;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Service\BoardColumns;
 use App\Module\Bridge\Entity\WorkerRun;
 use Mcp\Exception\ToolCallException;
 
@@ -21,12 +26,16 @@ final readonly class BoardToolErrorMessages
 {
     public const string UNMAPPED = 'The request was rejected. The error has been logged.';
 
-    public function forAgent(DomainErrors $errors): ToolCallException
+    /**
+     * @param array<string, string> $argumentNames the tool argument that carries each handler field, where the names differ
+     */
+    public function forAgent(DomainErrors $errors, array $argumentNames = []): ToolCallException
     {
+        // The form names the field parent; the tools name the argument parentCardId.
+        $names = $argumentNames + ['parent' => 'parentCardId'];
         $lines = [];
         foreach ($errors->errors as $argument => $key) {
-            // The form names the field parent; the tools name the argument parentCardId.
-            $lines[] = \sprintf('%s: %s', 'parent' === $argument ? 'parentCardId' : $argument, self::sentence($key));
+            $lines[] = \sprintf('%s: %s', $names[$argument] ?? $argument, self::sentence($key));
         }
 
         return new ToolCallException(implode("\n", $lines), previous: $errors);
@@ -52,6 +61,20 @@ final readonly class BoardToolErrorMessages
             'board.card.error.run_name_blank' => 'Pass the name of the skill that runs the session, such as loupe:product-design.',
             'board.card.error.run_name_too_long' => \sprintf('A run name must be at most %d characters.', WorkerRun::MAX_WORK_KIND_LENGTH),
             'board.card.error.search_query_blank' => 'Pass a query to search for. To read the whole board instead, call card_list.',
+            BoardColumns::SLUG_EMPTY => 'A column label needs at least one letter or digit, because the slug comes from the label.',
+            BoardColumns::SLUG_INVALID => 'The slug that comes from this label is not valid. Use letters, digits and spaces in the label.',
+            BoardColumns::SLUG_TAKEN => 'Another column on this board already has the slug that comes from this label. Choose another label.',
+            BoardColumns::NO_TERMINAL => 'A board needs at least one terminal column. Mark another column terminal with column_update first.',
+            BoardColumns::NO_SINGLE_BACKLOG => 'A board needs exactly one Backlog.',
+            BoardColumns::BACKLOG_TERMINAL => 'The Backlog cannot be terminal.',
+            BoardColumns::BACKLOG_SLUG => 'The Backlog must keep the slug backlog.',
+            BoardColumns::BACKLOG_LOCKED => 'Backlog is not a column. Nobody can rename, change, reorder or delete it.',
+            BoardColumns::LABEL_RESERVED => 'The app uses this text internally. Choose another label.',
+            'board.column.error.label_too_long' => \sprintf('A column label must be at most %d characters.', BoardColumn::MAX_LABEL_LENGTH),
+            ConfigureBoardColumnHandler::GONE => 'That column no longer exists. Call board_columns and try again.',
+            ConfigureBoardColumnHandler::LABEL_STALE, ConfigureBoardColumnHandler::TERMINAL_STALE, ReorderBoardColumnsHandler::ORDER_STALE => 'The columns changed while the call ran. Call board_columns and try again.',
+            DeleteBoardColumnHandler::TARGET_REQUIRED => 'This column holds cards. Pass targetColumn, the slug of the column they move to.',
+            DeleteBoardColumnHandler::TARGET_INVALID => 'targetColumn must name another column of this board. Call board_columns and pass another slug.',
             default => self::UNMAPPED,
         };
     }
