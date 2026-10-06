@@ -35,12 +35,18 @@ final class Version20261005204954 extends AbstractMigration
             $$ LANGUAGE plpgsql
             SQL);
 
-        foreach (self::TABLES as $table) {
-            $this->addSql("ALTER TABLE {$table} ADD subject_type VARCHAR(40) DEFAULT 'card' NOT NULL, ADD subject_id UUID DEFAULT NULL");
-            $this->addSql("UPDATE {$table} SET subject_id = card_id");
-            $this->addSql("ALTER TABLE {$table} ALTER subject_type DROP DEFAULT, ALTER subject_id SET NOT NULL, ALTER card_id DROP NOT NULL");
-            $this->addSql("CREATE TRIGGER {$table}_card_subject BEFORE INSERT ON {$table} FOR EACH ROW EXECUTE FUNCTION work_card_subject()");
-        }
+        $this->addSql("ALTER TABLE work_requests ADD subject_type VARCHAR(40) DEFAULT 'card' NOT NULL, ADD subject_id UUID DEFAULT NULL");
+        $this->addSql('UPDATE work_requests SET subject_id = card_id');
+        $this->addSql('ALTER TABLE work_requests ALTER subject_type DROP DEFAULT, ALTER subject_id SET NOT NULL, ALTER card_id DROP NOT NULL');
+        $this->addSql('CREATE TRIGGER work_requests_card_subject BEFORE INSERT ON work_requests FOR EACH ROW EXECUTE FUNCTION work_card_subject()');
+        $this->addSql("ALTER TABLE bridge_worker_runs ADD subject_type VARCHAR(40) DEFAULT 'card' NOT NULL, ADD subject_id UUID DEFAULT NULL");
+        $this->addSql('UPDATE bridge_worker_runs SET subject_id = card_id');
+        $this->addSql('ALTER TABLE bridge_worker_runs ALTER subject_type DROP DEFAULT, ALTER subject_id SET NOT NULL, ALTER card_id DROP NOT NULL');
+        $this->addSql('CREATE TRIGGER bridge_worker_runs_card_subject BEFORE INSERT ON bridge_worker_runs FOR EACH ROW EXECUTE FUNCTION work_card_subject()');
+        $this->addSql("ALTER TABLE bridge_worker_run_usage ADD subject_type VARCHAR(40) DEFAULT 'card' NOT NULL, ADD subject_id UUID DEFAULT NULL");
+        $this->addSql('UPDATE bridge_worker_run_usage SET subject_id = card_id');
+        $this->addSql('ALTER TABLE bridge_worker_run_usage ALTER subject_type DROP DEFAULT, ALTER subject_id SET NOT NULL, ALTER card_id DROP NOT NULL');
+        $this->addSql('CREATE TRIGGER bridge_worker_run_usage_card_subject BEFORE INSERT ON bridge_worker_run_usage FOR EACH ROW EXECUTE FUNCTION work_card_subject()');
         $this->addSql('ALTER TABLE work_requests ALTER card_number DROP NOT NULL');
         $this->addSql('ALTER TABLE bridge_worker_runs ALTER card_number DROP NOT NULL');
 
