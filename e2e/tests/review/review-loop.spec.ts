@@ -884,6 +884,42 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
 });
 
+test('a standing verdict changes in one step', async ({ page, review }) => {
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page
+        .getByRole('radio', { name: 'Request changes', exact: true })
+        .check();
+    await page
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Clarify the retry policy.');
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Submit review' }),
+        `${review.reviewUrl}/submit`,
+    );
+    await expect(
+        page.locator('.lp-verdict-bar--changes-requested'),
+    ).toBeVisible();
+
+    await page
+        .locator('.lp-verdict-bar')
+        .getByRole('button', { name: 'Change verdict', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', { name: 'Finish review' });
+    await dialog.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await submitRedirectingForm(
+        page,
+        dialog.getByRole('button', { name: 'Submit review' }),
+        `${review.reviewUrl}/submit`,
+    );
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(page.locator('.lp-review-doc__byline')).toContainText(
+        'Approved',
+    );
+});
+
 test('requesting changes asks for a note and keeps it across Cancel', async ({
     page,
 }) => {

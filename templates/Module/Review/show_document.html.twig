@@ -24,7 +24,7 @@
 {% endblock %}
 
 {% block body %}
-{% set finishReviewAvailable = not diffMode and not readOnly and (document.status.value in ['draft', 'in-review'] or submitReviewForm.vars.submitted) %}
+{% set finishReviewAvailable = not diffMode and not readOnly %}
 <div class="lp-review" data-site-review-quotes="off" data-controller="card-drawer{{ finishReviewAvailable ? ' modal' : '' }}"
      {% if finishReviewAvailable %}data-modal-reopen-value="{{ submitReviewForm.vars.submitted ? 'true' : 'false' }}"{% endif %}>
     {# Both controllers pass diffMode explicitly: Twig's `default` filter fires
@@ -566,16 +566,19 @@
             {% if review.note %}<span class="lp-review-verdict-note">{{ review.note }}</span>{% endif %}
             {% endif %}
         </span>
-        {% if review is not null %}
-        {{ form_start(undoVerdictForm, {attr: {class: 'lp-verdict-bar__undo'}}) }}
-            {{ form_widget(undoVerdictForm.reviewId) }}
-            <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.verdict.undo'|trans }}</button>
-        {{ form_end(undoVerdictForm) }}
-        {% endif %}
+        <div class="lp-verdict-bar__actions">
+            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="click->modal#open">{{ 'review.document.verdict.change'|trans }}</button>
+            {% if review is not null %}
+            {{ form_start(undoVerdictForm, {attr: {class: 'lp-verdict-bar__undo'}}) }}
+                {{ form_widget(undoVerdictForm.reviewId) }}
+                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.verdict.undo'|trans }}</button>
+            {{ form_end(undoVerdictForm) }}
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 
-    {% if not finishReviewAvailable and not diffMode and not readOnly %}
+    {% if finishReviewAvailable and document.status.value in ['approved', 'changes-requested'] and not submitReviewForm.vars.submitted %}
     {% include '@Review/_review_draft_recovery.html.twig' with {document: document} only %}
     {% endif %}
     {% if finishReviewAvailable %}

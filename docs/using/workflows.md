@@ -93,10 +93,13 @@ Tech design, and from Next back to the Backlog or on to a design slot.
 
 | Slot | The workflow |
 |---|---|
-| Product design | Asks for an interactive product design session, and asks for a revision when the product document gets changes requested. An approved product document, with the tag `product-design`, moves the card to Tech design |
-| Tech design | Asks for the tech design, and for a revision when it gets changes requested. An approved tech design, with the tag `tech-design`, moves the card to Implementation once the card has no open blocker |
+| Product design | Asks for an interactive product design session when the card has no product document, and asks for a revision when the product document gets changes requested. An approved product document, with the tag `product-design`, moves the card to Tech design |
+| Tech design | Asks for the tech design when the card has no design document, and for a revision when it gets changes requested. An approved tech design, with the tag `tech-design`, moves the card to Implementation once the card has no open blocker |
 | Implementation | Asks for the implementation, or for a breakdown of an epic into children. An epic gets its breakdown when it enters, with or without children. A pull request that is open, not a draft and whose required checks passed moves the card to In review. Failed checks, a conflict or a request for changes ask for a fix, 3 rounds at most |
 | In review | Asks for a fix as in Implementation. A pull request that turns back into a draft moves the card to Implementation. A stacked pull request whose parent merged gets a new base. An approved pull request that is behind gets its branch updated. A ready pull request merges |
+
+A design document in review, a draft and a revision keep the slot from asking
+for a second design. Archive the document to ask for a new one.
 
 An upgrade retags the existing documents. The tag `product` becomes
 `product-design`, and the tag `design` becomes `tech-design`.
