@@ -27,15 +27,22 @@ class RedirectLegacyCostController extends AppController
 {
     public function __invoke(Project $project, Request $request): Response
     {
-        $range = $request->query->getString('range');
+        $rangeValue = $request->query->getString('range');
+        $range = MetricRange::tryFrom('all-time' === $rangeValue ? MetricRange::All->value : $rangeValue);
+        // The old page picked its bucket from the range when the address named none.
+        $bucket = MetricBucket::tryFrom($request->query->getString('group')) ?? match ($range) {
+            MetricRange::ThirtyDays => MetricBucket::Day,
+            MetricRange::All => MetricBucket::Month,
+            default => null,
+        };
 
         return $this->redirectToRoute('app_project_analytics_metrics', array_filter([
             'id' => (string) $project->id,
             'unit' => MetricUnit::Card->value,
             'metric' => Metric::Cost->value,
             'statistic' => MetricStatistic::Mean->value,
-            'range' => MetricRange::tryFrom('all-time' === $range ? MetricRange::All->value : $range)?->value,
-            'bucket' => MetricBucket::tryFrom($request->query->getString('group'))?->value,
+            'range' => $range?->value,
+            'bucket' => $bucket?->value,
         ]), Response::HTTP_MOVED_PERMANENTLY);
     }
 }

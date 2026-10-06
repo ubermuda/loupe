@@ -19,10 +19,10 @@ final class RedirectLegacyCostControllerTest extends WebTestCase
     public static function queries(): iterable
     {
         yield 'no query' => ['', self::METRICS];
-        yield 'thirty days' => ['?range=thirty-days', self::METRICS.'&range=thirty-days'];
+        yield 'thirty days' => ['?range=thirty-days', self::METRICS.'&range=thirty-days&bucket=day'];
         yield 'ninety days' => ['?range=ninety-days', self::METRICS.'&range=ninety-days'];
-        yield 'all time' => ['?range=all-time', self::METRICS.'&range=all'];
-        yield 'all' => ['?range=all', self::METRICS.'&range=all'];
+        yield 'all time' => ['?range=all-time', self::METRICS.'&range=all&bucket=month'];
+        yield 'all' => ['?range=all', self::METRICS.'&range=all&bucket=month'];
         yield 'unknown range' => ['?range=forever', self::METRICS];
         yield 'each group' => ['?group=week', self::METRICS.'&bucket=week'];
         yield 'unknown group' => ['?group=year', self::METRICS];
