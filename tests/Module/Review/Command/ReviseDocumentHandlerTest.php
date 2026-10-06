@@ -639,6 +639,37 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         return $handler;
     }
 
+    public function test_a_revision_keeps_a_draft_a_draft(): void
+    {
+        [$em, , $document] = $this->seedForSeries('revise-draft-'.uniqid());
+        $document->status = DocumentStatus::Draft;
+        $em->flush();
+        $documentId = $document->id;
+
+        ($this->reviseHandler())(new ReviseDocumentCommand($document, '# Five, again', 'Rewrote it.'));
+        $em->clear();
+
+        $fresh = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertSame(2, $fresh->currentVersion()->versionNumber);
+        self::assertSame(DocumentStatus::Draft, $fresh->status);
+    }
+
+    public function test_a_revision_sends_a_document_with_changes_requested_back_to_review(): void
+    {
+        [$em, , $document] = $this->seedForSeries('revise-changes-'.uniqid());
+        $document->status = DocumentStatus::ChangesRequested;
+        $em->flush();
+        $documentId = $document->id;
+
+        ($this->reviseHandler())(new ReviseDocumentCommand($document, '# Five, again', 'Rewrote it.'));
+        $em->clear();
+
+        $fresh = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertSame(DocumentStatus::InReview, $fresh->status);
+    }
+
     public function test_a_revision_announces_the_status_after_the_commit(): void
     {
         [$em, $project, $document] = $this->seedForSeries('revise-status-'.uniqid());
