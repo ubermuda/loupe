@@ -11,18 +11,21 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Events;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Rewrites the fact row of each run a flush inserts or changes, and of each
  * run that gets new usage rows. Inside wrapInTransaction the rewrite joins the
- * caller's transaction.
+ * caller's transaction. A flush that throws never reaches postFlush, so a
+ * clear or a service reset drops the runs it collected.
  */
 #[AsDoctrineListener(event: Events::onFlush)]
 #[AsDoctrineListener(event: Events::postFlush)]
-final class WorkerRunFactListener
+#[AsDoctrineListener(event: Events::onClear)]
+final class WorkerRunFactListener implements ResetInterface
 {
     /** @var array<int, WorkerRun> by object id */
-    private array $runs = [];
+    public private(set) array $runs = [];
 
     private bool $writing = false;
 
@@ -65,5 +68,17 @@ final class WorkerRunFactListener
         } finally {
             $this->writing = false;
         }
+    }
+
+    public function onClear(): void
+    {
+        $this->reset();
+    }
+
+    #[\Override]
+    public function reset(): void
+    {
+        $this->runs = [];
+        $this->writing = false;
     }
 }

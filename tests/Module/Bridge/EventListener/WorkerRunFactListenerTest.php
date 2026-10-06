@@ -12,15 +12,19 @@ use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
 use App\Module\Bridge\Command\TimeOutQuietWorkerRunsCommand;
 use App\Module\Bridge\Command\TimeOutQuietWorkerRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\EventListener\WorkerRunFactListener;
 use App\Module\Bridge\ValueObject\WorkerRunModelUsage;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
+use Doctrine\DBAL\Exception\DriverException;
+use Doctrine\ORM\Event\OnFlushEventArgs;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Service\ResetInterface;
 
 /** Each change goes through a real handler, so the listener sees the flushes production makes. */
 final class WorkerRunFactListenerTest extends KernelTestCase
@@ -113,6 +117,54 @@ final class WorkerRunFactListenerTest extends KernelTestCase
         self::assertNull($fact['started_at']);
         self::assertNull($fact['duration_ms']);
         self::assertNull($fact['cost_micro_usd']);
+    }
+
+    /** Doctrine closes, and so clears, the manager when a flush throws. */
+    public function test_a_flush_that_throws_leaves_no_run_behind(): void
+    {
+        [, $project] = $this->scenario('facts-failed-flush');
+        $em = $this->em();
+        $run = $this->unsavedRun($project);
+        $run->experiment = str_repeat('x', WorkerRun::MAX_EXPERIMENT_NAME_LENGTH + 1);
+        $em->persist($run);
+
+        try {
+            $em->flush();
+            self::fail('The database should refuse the experiment.');
+        } catch (DriverException) {
+        }
+
+        self::assertSame([], $this->listener()->runs);
+    }
+
+    public function test_a_service_reset_drops_the_collected_runs(): void
+    {
+        [, $project] = $this->scenario('facts-reset');
+        $em = $this->em();
+        $em->persist($this->unsavedRun($project));
+        $em->getUnitOfWork()->computeChangeSets();
+        $listener = $this->listener();
+        $listener->onFlush(new OnFlushEventArgs($em));
+        self::assertNotEmpty($listener->runs);
+
+        $resetter = self::getContainer()->get('services_resetter');
+        self::assertInstanceOf(ResetInterface::class, $resetter);
+        $resetter->reset();
+
+        self::assertSame([], $listener->runs);
+    }
+
+    private function unsavedRun(Project $project): WorkerRun
+    {
+        return new WorkerRun($project, Uuid::v7(), Uuid::v7(), 1, 'plan', WorkerRunState::Queued);
+    }
+
+    private function listener(): WorkerRunFactListener
+    {
+        $listener = self::getContainer()->get(WorkerRunFactListener::class);
+        self::assertInstanceOf(WorkerRunFactListener::class, $listener);
+
+        return $listener;
     }
 
     /** @return array{User, Project} */
