@@ -14,11 +14,12 @@ use App\Module\Bridge\Experiment\ExperimentVariant;
 use App\Module\Bridge\Experiment\Interval;
 use App\Module\Bridge\Experiment\LeftOutReason;
 use App\Module\Bridge\Experiment\Stats;
+use App\Module\Bridge\Metric\Metric;
+use App\Module\Bridge\Metric\MetricValueType;
 use App\Module\Bridge\Repository\ExperimentDefinitionRepository;
 use App\Module\Bridge\Repository\ExperimentPinRepository;
+use App\Module\Bridge\Repository\WorkerRunFactRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
-use App\Module\Bridge\Repository\WorkerRunUsageRepository;
-use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\CardTitleSourceInterface;
 use App\Utils\PageList;
 use Symfony\Component\Uid\Uuid;
@@ -27,14 +28,11 @@ final readonly class ShowExperimentHandler
 {
     public const int PER_PAGE = 20;
 
-    /** The outcomes that count as a stop in the stop rate. */
-    private const array STOP_STATES = [WorkerRunState::Blocked, WorkerRunState::Failed, WorkerRunState::NoResult, WorkerRunState::GaveUp];
-
     public function __construct(
         private WorkerRunRepository $workerRuns,
         private ExperimentPinRepository $experimentPins,
         private ExperimentDefinitionRepository $experimentDefinitions,
-        private WorkerRunUsageRepository $workerRunUsages,
+        private WorkerRunFactRepository $workerRunFacts,
         private CardReportSourceInterface $cardReports,
         private CardTitleSourceInterface $cardTitles,
     ) {
@@ -80,7 +78,7 @@ final readonly class ShowExperimentHandler
         $outcomes = $this->cardReports->outcomesFor($project, $ids);
         $columns = $this->cardReports->columnsFor($project, $ids);
         $titles = $this->cardTitles->titlesFor($project, $ids);
-        $usage = $this->workerRunUsages->sumOfExperimentByCard($project, $experiment);
+        $usage = $this->workerRunFacts->sumOfExperimentByCard($project, $experiment);
         $definition = $this->experimentDefinitions->findOneBy(['project' => $project, 'experiment' => $experiment]);
         $weights = null === $definition ? [] : array_column($definition->weights, 'weight', 'name');
 
@@ -254,31 +252,48 @@ final readonly class ShowExperimentHandler
 
             return new ExperimentMetric($key, $byVariant, self::clear($variantNames, $byVariant, $counts), array_values($parts));
         };
-        $bootstrap = static fn (string $key, callable $value): \Closure => static function (string $name) use ($key, $value, $merged, $experiment): array {
+        $bootstrap = static fn (Metric $of, string $key, callable $value): \Closure => static function (string $name) use ($of, $key, $value, $merged, $experiment): array {
             $values = array_values(array_filter(array_map($value, $merged[$name]), static fn (int|float|null $item): bool => null !== $item));
 
-            return [Stats::bootstrapMean($values, $experiment.':'.$key.':'.$name), \count($values)];
+            return [self::interval($of, $experiment.':'.$key.':'.$name, $values), \count($values)];
         };
 
         return [
-            ExperimentMetric::MERGE_RATE => $metric(ExperimentMetric::MERGE_RATE, static fn (string $name): array => [Stats::wilson(\count($merged[$name]), $finished[$name]), $finished[$name]]),
-            ExperimentMetric::STOP_RATE => $metric(ExperimentMetric::STOP_RATE, static function (string $name) use ($kept, $finished): array {
-                $closed = array_filter(array_merge(...array_column($kept[$name] ?? [], 'runs')), static fn (WorkerRun $run): bool => $run->state->isOutcome());
+            ExperimentMetric::MERGE_RATE => $metric(ExperimentMetric::MERGE_RATE, static function (string $name) use ($kept, $finished, $experiment): array {
+                $values = array_map(static fn (array $row): int => $row['outcome']->merged ? 1 : 0, array_values(array_filter($kept[$name] ?? [], static fn (array $row): bool => $row['finished'])));
 
-                return [Stats::wilson(\count(array_filter($closed, static fn (WorkerRun $run): bool => \in_array($run->state, self::STOP_STATES, true))), \count($closed)), $finished[$name]];
+                return [self::interval(Metric::MergeRate, $experiment.':'.ExperimentMetric::MERGE_RATE.':'.$name, $values), $finished[$name]];
+            }),
+            ExperimentMetric::STOP_RATE => $metric(ExperimentMetric::STOP_RATE, static function (string $name) use ($kept, $finished, $experiment): array {
+                $closed = array_filter(array_merge(...array_column($kept[$name] ?? [], 'runs')), static fn (WorkerRun $run): bool => $run->state->isOutcome());
+                $values = array_values(array_map(static fn (WorkerRun $run): int => $run->state->isStop() ? 1 : 0, $closed));
+
+                return [self::interval(Metric::StopRate, $experiment.':'.ExperimentMetric::STOP_RATE.':'.$name, $values), $finished[$name]];
             }),
             ExperimentMetric::FIX_ROUNDS => $metric(
                 ExperimentMetric::FIX_ROUNDS,
-                $bootstrap(ExperimentMetric::FIX_ROUNDS, static fn (array $row): int => $row['outcome']->totalFixRounds()),
+                $bootstrap(Metric::FixRounds, ExperimentMetric::FIX_ROUNDS, static fn (array $row): int => $row['outcome']->totalFixRounds()),
                 array_map(
-                    static fn (string $reason): ExperimentMetric => $metric($reason, $bootstrap(ExperimentMetric::FIX_ROUNDS.':'.$reason, static fn (array $row): int => $row['outcome']->fixRounds[$reason] ?? 0)),
+                    static fn (string $reason): ExperimentMetric => $metric($reason, $bootstrap(Metric::FixRounds, ExperimentMetric::FIX_ROUNDS.':'.$reason, static fn (array $row): int => $row['outcome']->fixRounds[$reason] ?? 0)),
                     $reasons,
                 ),
             ),
-            ExperimentMetric::COST => $metric(ExperimentMetric::COST, $bootstrap(ExperimentMetric::COST, static fn (array $row): ?float => null === $row['costMicros'] ? null : $row['costMicros'] / 1_000_000)),
-            ExperimentMetric::OUTPUT_TOKENS => $metric(ExperimentMetric::OUTPUT_TOKENS, $bootstrap(ExperimentMetric::OUTPUT_TOKENS, static fn (array $row): ?int => $row['outputTokens'])),
-            ExperimentMetric::HOURS_TO_MERGE => $metric(ExperimentMetric::HOURS_TO_MERGE, $bootstrap(ExperimentMetric::HOURS_TO_MERGE, static fn (array $row): ?float => $row['outcome']->hoursToMerge())),
+            ExperimentMetric::COST => $metric(ExperimentMetric::COST, $bootstrap(Metric::Cost, ExperimentMetric::COST, static fn (array $row): ?float => null === $row['costMicros'] ? null : $row['costMicros'] / 1_000_000)),
+            ExperimentMetric::OUTPUT_TOKENS => $metric(ExperimentMetric::OUTPUT_TOKENS, $bootstrap(Metric::OutputTokens, ExperimentMetric::OUTPUT_TOKENS, static fn (array $row): ?int => $row['outputTokens'])),
+            ExperimentMetric::HOURS_TO_MERGE => $metric(ExperimentMetric::HOURS_TO_MERGE, $bootstrap(Metric::HoursToMerge, ExperimentMetric::HOURS_TO_MERGE, static fn (array $row): ?float => $row['outcome']->hoursToMerge())),
         ];
+    }
+
+    /**
+     * A ratio counts successes, so it takes a Wilson range. Any other value takes a bootstrap of its mean.
+     *
+     * @param list<int|float> $values
+     */
+    private static function interval(Metric $metric, string $seed, array $values): ?Interval
+    {
+        return MetricValueType::Ratio === $metric->valueType()
+            ? Stats::wilson((int) array_sum($values), \count($values))
+            : Stats::bootstrapMean($values, $seed);
     }
 
     /**

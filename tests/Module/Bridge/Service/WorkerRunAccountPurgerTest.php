@@ -14,8 +14,11 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunAccountPurger;
 use App\Module\Project\Service\ProjectAccountPurger;
 use App\Tests\Module\Bridge\BridgeScenario;
+use DoctrineMigrations\Version20261006005345;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
+
+require_once __DIR__.'/../../../../migrations/Version20261006005345.php';
 
 final class WorkerRunAccountPurgerTest extends KernelTestCase
 {
@@ -74,6 +77,27 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
 
         self::assertSame(1, $this->countUsage($em));
         self::assertSame((string) $keptUsageId, $em->getConnection()->fetchOne('SELECT id FROM bridge_worker_run_usage'));
+    }
+
+    /** A fact row outlives its run, like a usage row. */
+    public function test_it_takes_the_facts_of_the_departing_account_alone(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'facts-purge-leaving@example.com');
+        $staying = $this->user($em, 'facts-purge-staying@example.com');
+        $orphan = $this->seedRun($em, $this->project($em, $leaving, 'Leaving Facts'));
+        $kept = $this->seedRun($em, $this->project($em, $staying, 'Staying Facts'));
+        $connection = $em->getConnection();
+        $connection->executeStatement(Version20261006005345::BACKFILL_SQL);
+        $connection->executeStatement('DELETE FROM bridge_worker_runs WHERE id = ?', [(string) $orphan->id]);
+
+        $this->purge($leaving);
+
+        self::assertSame(
+            [(string) $kept->id],
+            $connection->fetchFirstColumn('SELECT run_id FROM bridge_worker_run_facts'),
+        );
     }
 
     public function test_it_takes_the_experiment_pins_of_the_departing_account_alone(): void

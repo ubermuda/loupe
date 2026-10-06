@@ -14,6 +14,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\McpTokenScenario;
@@ -52,6 +53,61 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertSame('2026-01-01T10:05:00+00:00', $row['endedAt']);
         self::assertSame('last line', $row['reason']);
         self::assertNull($row['pendingCommand']);
+    }
+
+    public function test_each_row_carries_the_usage_the_experiment_and_the_metrics_of_its_run(): void
+    {
+        [$project] = $this->projects('list-usage');
+        $em = $this->em();
+        $used = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-03 00:00:00'));
+        $used->experiment = 'prompt-length';
+        $used->variant = 'short';
+        $this->seedUsage($em, $used, model: 'claude-opus-5-5', costUsd: '0.500000', inputTokens: 1000);
+        $this->seedUsage($em, $used, model: 'claude-haiku-5', source: WorkerRunUsageSource::Estimated, costUsd: null);
+        $bare = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-02 00:00:00'));
+        $factless = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-01 00:00:00'));
+        $em->getConnection()->executeStatement('DELETE FROM bridge_worker_run_facts WHERE run_id = ?', [(string) $factless->id]);
+        $this->actAsMcpTokenBoundTo($project);
+
+        [$usedRow, $bareRow, $factlessRow] = $this->listTool()()['runs'];
+
+        self::assertSame((string) $used->id, $usedRow['runId']);
+        self::assertSame([
+            ['model' => 'claude-haiku-5', 'source' => 'estimated', 'inputTokens' => 100, 'outputTokens' => 20, 'cacheReadTokens' => 300, 'cacheWriteTokens' => 40, 'costUsd' => null],
+            ['model' => 'claude-opus-5-5', 'source' => 'reported', 'inputTokens' => 1000, 'outputTokens' => 20, 'cacheReadTokens' => 300, 'cacheWriteTokens' => 40, 'costUsd' => '0.500000'],
+        ], $usedRow['usage']);
+        self::assertSame('claude-opus-5-5', $usedRow['model']);
+        self::assertSame('prompt-length', $usedRow['experiment']);
+        self::assertSame('short', $usedRow['variant']);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => 1100, 'tokensOut' => 40, 'tokensCacheRead' => 600, 'tokensCacheWrite' => 80], $usedRow['metrics']);
+
+        self::assertSame([], $bareRow['usage']);
+        self::assertNull($bareRow['model']);
+        self::assertNull($bareRow['experiment']);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => null, 'tokensOut' => null, 'tokensCacheRead' => null, 'tokensCacheWrite' => null], $bareRow['metrics']);
+
+        self::assertSame((string) $factless->id, $factlessRow['runId']);
+        self::assertNull($factlessRow['metrics']);
+        self::assertNull($factlessRow['model']);
+
+        $detail = $this->getTool()((string) $factless->id)['runs'][0];
+        self::assertSame([], $detail['usage']);
+        self::assertNull($detail['metrics']);
+        self::assertSame($usedRow['usage'], $this->getTool()((string) $used->id)['runs'][0]['usage']);
+    }
+
+    public function test_the_metrics_give_the_cost_in_dollars_when_every_usage_row_has_a_price(): void
+    {
+        [$project] = $this->projects('list-cost');
+        $run = $this->seedRun($this->em(), $project);
+        $this->seedUsage($this->em(), $run, costUsd: '1.250000');
+        $this->seedUsage($this->em(), $run, model: 'claude-haiku-5', costUsd: '0.750000');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $row = $this->listTool()()['runs'][0];
+
+        self::assertSame(2.0, $row['metrics']['costUsd'] ?? null);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => 2.0, 'tokensIn' => 200, 'tokensOut' => 40, 'tokensCacheRead' => 600, 'tokensCacheWrite' => 80], $this->getTool()((string) $run->id)['runs'][0]['metrics']);
     }
 
     public function test_the_reason_prefers_the_failure_reason_and_is_cut_to_300_characters(): void

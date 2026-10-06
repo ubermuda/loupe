@@ -118,6 +118,8 @@ final class McpEndpointAuthTest extends WebTestCase
             'document_unarchive',
             'feedback_list',
             'feedback_mark_addressed',
+            'metric_list',
+            'metric_query',
             'project_current',
             'series_list',
             'series_rename',

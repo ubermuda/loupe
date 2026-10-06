@@ -22,8 +22,8 @@ use App\Module\Bridge\Experiment\LeftOutReason;
 use App\Module\Bridge\Experiment\Stats;
 use App\Module\Bridge\Repository\ExperimentDefinitionRepository;
 use App\Module\Bridge\Repository\ExperimentPinRepository;
+use App\Module\Bridge\Repository\WorkerRunFactRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
-use App\Module\Bridge\Repository\WorkerRunUsageRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\View\CardTitleSourceInterface;
@@ -513,6 +513,12 @@ final class ShowExperimentHandlerTest extends KernelTestCase
             }
 
             #[\Override]
+            public function typesFor(Project $project, array $cardIds): array
+            {
+                return [];
+            }
+
+            #[\Override]
             public function historyStartFor(Project $project): ?\DateTimeImmutable
             {
                 return $this->historyStart;
@@ -530,7 +536,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
             $container->get(WorkerRunRepository::class),
             $container->get(ExperimentPinRepository::class),
             $container->get(ExperimentDefinitionRepository::class),
-            $container->get(WorkerRunUsageRepository::class),
+            $container->get(WorkerRunFactRepository::class),
             $reports,
             $titles,
         );

@@ -249,6 +249,27 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The ids of the runs after the id given, in id order. Null starts at the first run.
+     *
+     * @return list<Uuid>
+     */
+    public function findIdsAfter(?Uuid $after, int $limit): array
+    {
+        $query = $this->createQueryBuilder('r')
+            ->select('r.id')
+            ->orderBy('r.id', 'ASC')
+            ->setMaxResults($limit);
+        if (null !== $after) {
+            $query->andWhere('r.id > :after')->setParameter('after', $after, UuidType::NAME);
+        }
+
+        /** @var list<Uuid|string> $ids */
+        $ids = $query->getQuery()->getSingleColumnResult();
+
+        return array_map(static fn (Uuid|string $id): Uuid => $id instanceof Uuid ? $id : Uuid::fromString($id), $ids);
+    }
+
+    /**
      * @param list<string> $ids RFC 4122 strings
      *
      * @return list<WorkerRun>
