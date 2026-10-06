@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Insights\Controller;
 
 use App\Controller\AppController;
-use App\Module\Bridge\Command\MetricQueryCommand;
-use App\Module\Bridge\Command\MetricQueryHandler;
 use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricBucket;
-use App\Module\Bridge\Metric\MetricGroup;
 use App\Module\Bridge\Metric\MetricRange;
-use App\Module\Bridge\Metric\MetricSeries;
-use App\Module\Bridge\Service\BridgeLabels;
+use App\Module\Insights\Command\ShowMetricsCommand;
+use App\Module\Insights\Command\ShowMetricsHandler;
 use App\Module\Insights\View\MetricChart;
 use App\Module\Insights\View\MetricsQuery;
 use App\Module\Project\Entity\Project;
@@ -31,26 +28,23 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ShowMetricsController extends AppController
 {
     public function __construct(
-        private readonly MetricQueryHandler $metricQuery,
-        private readonly BridgeLabels $bridgeLabels,
+        private readonly ShowMetricsHandler $showMetrics,
     ) {
     }
 
     public function __invoke(Project $project, Request $request): Response
     {
-        // The query takes only what its metric allows, so the handler never refuses it.
         $query = MetricsQuery::fromQuery($request->query);
-        $view = ($this->metricQuery)(new MetricQueryCommand($project, $query->unit, $query->metric, $query->statistic, $query->group, $query->range, $query->bucket));
-        $groupLabels = MetricGroup::Bridge === $query->group
-            ? $this->bridgeLabels->forOwner($project->owner, array_values(array_filter(array_map(static fn (MetricSeries $series): ?string => $series->group, $view->series))))
-            : [];
+        $view = ($this->showMetrics)(new ShowMetricsCommand($project, $query));
 
         return $this->render('@Insights/show_metrics.html.twig', [
-            'project' => $project,
+            'project' => $view->project,
             'query' => $query,
-            'view' => $view,
-            'groupLabels' => $groupLabels,
-            'chart' => MetricChart::build($query->metric, $query->statistic, $query->bucket, $view->series),
+            'view' => $view->metrics,
+            'groupLabels' => $view->groupLabels,
+            'keptRunIds' => $view->keptRunIds,
+            'rowLimit' => ShowMetricsHandler::ROW_LIMIT,
+            'chart' => MetricChart::build($query->metric, $query->statistic, $query->bucket, $view->metrics->series),
             'metrics' => Metric::cases(),
             'ranges' => MetricRange::cases(),
             'buckets' => MetricBucket::cases(),

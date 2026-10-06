@@ -148,6 +148,30 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertSame(['0.0%', '100.0%'], $values);
     }
 
+    public function test_a_run_that_the_retention_sweep_deleted_shows_as_text(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'metrics-purged@example.com');
+        $project = $this->project($em, $owner, 'Purged metrics');
+        $kept = $this->seedRun($em, $project, cardNumber: 7, endedAt: new \DateTimeImmutable('2026-09-02 10:05:00'));
+        $purged = $this->seedRun($em, $project, cardNumber: 8, endedAt: new \DateTimeImmutable('2026-09-01 10:05:00'));
+        $projectId = (string) $project->id;
+        $keptId = (string) $kept->id;
+        $em->getConnection()->executeStatement('DELETE FROM bridge_worker_runs WHERE id = :id', ['id' => (string) $purged->id]);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics?unit=run&metric=duration&range=all');
+
+        self::assertResponseIsSuccessful();
+        $rows = $crawler->filter('[data-metrics-table] tbody tr');
+        self::assertCount(2, $rows);
+        self::assertSame('/projects/'.$projectId.'/worker-runs?search='.$keptId, $rows->eq(0)->filter('a')->attr('href'));
+        self::assertCount(0, $rows->eq(1)->filter('a'));
+        self::assertSame('#8', trim($rows->eq(1)->filter('[data-metrics-purged-run]')->text()));
+    }
+
     public function test_a_grouped_query_draws_one_series_per_group_with_a_legend(): void
     {
         $client = static::createClient();
