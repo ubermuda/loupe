@@ -64,18 +64,14 @@ final readonly class FactsBuilder
 
         $pullRequests = $this->cardPullRequests->forCard($card);
         // Once the epic links its pull request, that pull request names the repository of the epic branch.
-        // When each such pull request finished, the epic branch is done, and a late child must not merge into it.
+        // A repository whose epic pull requests all finished has no epic branch any more, so a late child does not merge into it.
         $epicRepositories = [];
-        $epicOpen = false;
         if (null !== $card->parent && null !== $parentEpicBranch) {
             foreach ($this->cardPullRequests->forCard($card->parent) as $epicPullRequest) {
                 if ($parentEpicBranch === $epicPullRequest->headBranch) {
-                    $epicRepositories[] = self::repositoryKey($epicPullRequest);
-                    $epicOpen = $epicOpen || ForgePullRequestState::Open === $epicPullRequest->state;
+                    $key = self::repositoryKey($epicPullRequest);
+                    $epicRepositories[$key] = ($epicRepositories[$key] ?? false) || ForgePullRequestState::Open === $epicPullRequest->state;
                 }
-            }
-            if ([] !== $epicRepositories && !$epicOpen) {
-                $parentEpicBranch = null;
             }
         }
         $pullRequestFacts = array_map(fn (ForgePullRequest $pullRequest): PullRequestFacts => $this->pullRequestFacts($pullRequest, $parentEpicBranch, $epicRepositories), $pullRequests);
@@ -163,14 +159,14 @@ final readonly class FactsBuilder
     }
 
     /**
-     * @param ?string      $epicBranch       the epic branch of the parent of the card, or null
-     * @param list<string> $epicRepositories the repositories of the epic pull requests, empty before one exists
+     * @param ?string             $epicBranch       the epic branch of the parent of the card, or null
+     * @param array<string, bool> $epicRepositories whether each repository of the epic pull requests has one open, empty before one exists
      */
     private function pullRequestFacts(ForgePullRequest $pullRequest, ?string $epicBranch, array $epicRepositories): PullRequestFacts
     {
         $base = $pullRequest->baseBranch;
         $baseIsEpicBranch = null !== $base && $base === $epicBranch
-            && ([] === $epicRepositories || \in_array(self::repositoryKey($pullRequest), $epicRepositories, true));
+            && ([] === $epicRepositories || ($epicRepositories[self::repositoryKey($pullRequest)] ?? false));
 
         $parents = [];
         if (null !== $base && $base !== $pullRequest->defaultBranch && !$baseIsEpicBranch) {

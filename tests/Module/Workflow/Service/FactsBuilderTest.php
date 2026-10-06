@@ -501,6 +501,25 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertFalse($this->facts($other)->pullRequest?->baseIsEpicBranch);
     }
 
+    public function test_an_open_epic_pull_request_in_one_repository_does_not_keep_a_finished_one_alive(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-pr-epic-two-repositories');
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
+        $this->pullRequest($epic, state: ForgePullRequestState::Merged, base: 'main', head: 'epic/'.$epic->number, repository: 'acme/other');
+        $live = $this->card($project, 'in-review');
+        $live->parent = $epic;
+        $this->pullRequest($live, base: 'epic/'.$epic->number, head: 'live');
+        $late = $this->card($project, 'in-review');
+        $late->parent = $epic;
+        $this->pullRequest($late, base: 'epic/'.$epic->number, head: 'late', repository: 'acme/other');
+        $this->em()->flush();
+
+        self::assertTrue($this->facts($live)->pullRequest?->baseIsEpicBranch);
+        self::assertFalse($this->facts($late)->pullRequest?->baseIsEpicBranch);
+    }
+
     public function test_an_empty_epic_branch_pattern_makes_no_epic_branch(): void
     {
         self::bootKernel();
