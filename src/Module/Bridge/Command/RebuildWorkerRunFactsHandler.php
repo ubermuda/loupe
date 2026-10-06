@@ -27,7 +27,7 @@ final readonly class RebuildWorkerRunFactsHandler
             $ids = $this->workerRuns->findIdsAfter($after, $command->batchSize);
             $this->writer->upsert($ids);
             $written += \count($ids);
-            $after = $ids[array_key_last($ids)] ?? null;
+            $after = array_last($ids);
         } while (\count($ids) === $command->batchSize);
 
         return $written;

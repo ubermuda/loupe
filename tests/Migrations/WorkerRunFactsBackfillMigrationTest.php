@@ -174,7 +174,7 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
         $this->seedFactRun(state: WorkerRunState::Queued, startedAt: null, endedAt: null);
         $this->em->flush();
         $runIds = array_map(
-            static fn (string $id): Uuid => Uuid::fromString($id),
+            Uuid::fromString(...),
             $this->connection->fetchFirstColumn('SELECT id FROM bridge_worker_runs'),
         );
         $writer = self::getContainer()->get(WorkerRunFactWriter::class);
