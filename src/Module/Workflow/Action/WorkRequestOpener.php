@@ -13,7 +13,9 @@ use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
+use App\Module\Workflow\Template\AppRules;
 use App\Module\Workflow\Template\Rule;
+use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
 
 /**
@@ -26,6 +28,7 @@ final readonly class WorkRequestOpener
         private OpenWorkRequestHandler $openWorkRequest,
         private CardPullRequests $trackedPullRequests,
         private CardPullRequestRepository $cardPullRequests,
+        private AppRules $appRules,
     ) {
     }
 
@@ -45,6 +48,8 @@ final readonly class WorkRequestOpener
             $documentId = $documents[0]->id;
         }
 
+        $promptName = RuleOrigin::App === $rule->origin ? ActionParams::optionalString($rule, TemplateParser::PROMPT) : null;
+
         try {
             ($this->openWorkRequest)(new OpenWorkRequestCommand(
                 project: $card->project,
@@ -54,6 +59,7 @@ final readonly class WorkRequestOpener
                 capability: $capability,
                 ruleId: $rule->id,
                 context: $this->context($card, $facts, $documentId),
+                prompt: null === $promptName ? null : $this->appRules->prompt($promptName),
             ));
         } catch (DomainErrors $e) {
             return \in_array(OpenWorkRequestHandler::LIVE, $e->errors, true)
