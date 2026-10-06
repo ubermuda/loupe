@@ -17,12 +17,38 @@ type fakeRunClient struct {
 	inventory func() error
 	post      func(run api.WorkerRun) (bool, error)
 	launch    func() (bool, error)
+	toolCalls func(batch api.ToolCallBatch) error
+	sites     func() ([]api.Site, error)
 
 	mu          sync.Mutex
 	puts        []string
 	posts       []api.WorkerRun
 	inventories [][]api.InventoryRun
 	launches    []launchSent
+	batches     []toolCallsSent
+	siteReads   int
+}
+
+func (f *fakeRunClient) ReportToolCalls(_ context.Context, handle, runID string, batch api.ToolCallBatch) error {
+	f.mu.Lock()
+	f.batches = append(f.batches, toolCallsSent{handle: handle, runID: runID, batch: batch})
+	f.mu.Unlock()
+	if f.toolCalls == nil {
+		return nil
+	}
+
+	return f.toolCalls(batch)
+}
+
+func (f *fakeRunClient) Sites(context.Context) ([]api.Site, error) {
+	f.mu.Lock()
+	f.siteReads++
+	f.mu.Unlock()
+	if f.sites == nil {
+		return nil, nil
+	}
+
+	return f.sites()
 }
 
 func (f *fakeRunClient) ReportRunState(_ context.Context, _, _ string, report api.RunStateReport) (bool, error) {
@@ -67,6 +93,14 @@ func (f *fakeRunClient) ReportInteractiveLaunch(_ context.Context, handle, sessi
 	}
 
 	return f.launch()
+}
+
+// toolCallsSent is one batch of tool calls, with the project and the run it
+// named.
+type toolCallsSent struct {
+	handle string
+	runID  string
+	batch  api.ToolCallBatch
 }
 
 // launchSent is one launch report, with the project and the session it named.

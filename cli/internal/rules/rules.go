@@ -110,6 +110,8 @@ type File struct {
 	Work map[string]WorkEntry `yaml:"work"`
 	// Name is the host name when absent, and a blank value opts out.
 	Name *string `yaml:"name"`
+	// Collect is on when the key is absent.
+	Collect *bool `yaml:"collect"`
 }
 
 // WorkerPool is one named share of maxWorkers.
@@ -225,8 +227,10 @@ type Set struct {
 
 	autoUpdate    bool
 	autoUpdateSet bool
-	maxWorkers    int
-	name          string
+	// noCollect is the inverse of collect, so a zero Set collects.
+	noCollect  bool
+	maxWorkers int
+	name       string
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
 	// work has the defaults of each worker entry filled.
@@ -272,7 +276,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
+	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil, noCollect: f.Collect != nil && !*f.Collect}
 	var errs []error
 	for _, err := range []error{
 		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
@@ -661,6 +665,12 @@ func (s *Set) AutoUpdate() bool {
 // AutoUpdateSet reports whether the file holds a value for autoUpdate.
 func (s *Set) AutoUpdateSet() bool {
 	return s.autoUpdateSet
+}
+
+// Collect reports whether the bridge sends the tool calls and the timing of
+// each worker run.
+func (s *Set) Collect() bool {
+	return !s.noCollect
 }
 
 // Name is the bridge name the heartbeat sends. Empty clears the stored name.

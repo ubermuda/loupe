@@ -23,6 +23,11 @@ type Site struct {
 	ID   string `json:"id"`
 	Slug string `json:"slug"`
 	Name string `json:"name"`
+	// CollectFullText says the bridge sends the raw input of each tool call.
+	CollectFullText bool `json:"collectFullText"`
+	// SubcommandPrograms are the programs whose subcommand a signature keeps.
+	// nil means the bridge's default list, and an empty list keeps none.
+	SubcommandPrograms []string `json:"subcommandPrograms"`
 }
 
 // EventsProject is one project of GET /api/events. Its events arrive on the

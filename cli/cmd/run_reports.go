@@ -4,11 +4,21 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
+	"github.com/ubermuda/loupe/cli/internal/stream"
 )
+
+// toolCallBatch is the most calls one tool call report carries.
+const toolCallBatch = 500
+
+// siteTTL is how long the bridge keeps the settings of the projects.
+const siteTTL = 10 * time.Minute
 
 // runReportClient is the part of the API client that carries run reports.
 type runReportClient interface {
@@ -16,6 +26,8 @@ type runReportClient interface {
 	ReportRunInventory(ctx context.Context, bridgeID string, runs []api.InventoryRun) error
 	ReportWorkerRun(ctx context.Context, handle string, run api.WorkerRun) (bool, error)
 	ReportInteractiveLaunch(ctx context.Context, handle, sessionID string, report api.InteractiveLaunchReport) (bool, error)
+	ReportToolCalls(ctx context.Context, handle, runID string, batch api.ToolCallBatch) error
+	Sites(ctx context.Context) ([]api.Site, error)
 }
 
 // runReports builds the reports of worker runs for the ordered queue. A server
@@ -31,6 +43,15 @@ type runReports struct {
 	unsupported atomic.Bool
 	// launchUnsupported is set by the first 404 of the interactive run endpoint.
 	launchUnsupported atomic.Bool
+	// toolCallsUnsupported is set by the first 404 of the tool call endpoint.
+	toolCallsUnsupported atomic.Bool
+
+	// sites caches the projects of the caller, read at sitesAt. now is
+	// time.Now when nil, and tests set it.
+	sitesMu sync.Mutex
+	sites   []api.Site
+	sitesAt time.Time
+	now     func() time.Time
 }
 
 func newRunReports(client runReportClient, log *slog.Logger) *runReports {
@@ -103,6 +124,95 @@ func (s *runReports) launch(handle, sessionID string, report api.InteractiveLaun
 			return true, nil
 		},
 	}
+}
+
+// toolCalls are the reports that carry the tool calls of the run runID, in
+// batches of toolCallBatch. Only the last batch carries the timing, so a run
+// with no call still sends one empty batch.
+func (s *runReports) toolCalls(handle, runID string, card int, rule string, calls []stream.Call, timing stream.Timing) []outbound.Report {
+	n := max(1, (len(calls)+toolCallBatch-1)/toolCallBatch)
+	reports := make([]outbound.Report, 0, n)
+	for i := range n {
+		part := calls[i*toolCallBatch : min((i+1)*toolCallBatch, len(calls))]
+		var last *api.ToolTiming
+		if i == n-1 {
+			last = &api.ToolTiming{ToolTimeMs: timing.ToolTimeMs, IdleGapMs: timing.IdleGapMs}
+		}
+		reports = append(reports, outbound.Report{
+			Card: card,
+			Rule: rule,
+			Send: func(ctx context.Context) (bool, error) {
+				if s.toolCallsUnsupported.Load() {
+					return true, nil
+				}
+				batch := api.ToolCallBatch{Calls: toolCallRows(part, s.site(ctx, handle)), Timing: last}
+				err := s.client.ReportToolCalls(ctx, handle, runID, batch)
+				if !errors.Is(err, api.ErrToolCallsUnsupported) {
+					return err == nil, err
+				}
+				if s.toolCallsUnsupported.CompareAndSwap(false, true) {
+					s.log.Warn("tool_calls_unsupported",
+						"message", "Loupe has no tool call endpoint, so the bridge does not send the tool calls of its runs",
+					)
+				}
+
+				return true, nil
+			},
+		})
+	}
+
+	return reports
+}
+
+// toolCallRows are the calls as the server takes them. A call with no start
+// time has no row the server takes, so it stays out.
+func toolCallRows(calls []stream.Call, site api.Site) []api.ToolCall {
+	rows := make([]api.ToolCall, 0, len(calls))
+	for _, c := range calls {
+		if c.StartedAt.IsZero() {
+			continue
+		}
+		row := api.ToolCall{
+			Seq: c.Seq, Tool: c.Tool, StartedAt: c.StartedAt, DurationMs: c.DurationMs, IsError: c.IsError,
+			InSubagent: c.InSubagent, BackgroundID: c.BackgroundID, WaitsOn: c.WaitsOn,
+			Signatures: stream.Signatures(c, site.SubcommandPrograms),
+		}
+		if site.CollectFullText {
+			text := string(c.Input)
+			row.FullText = &text
+		}
+		rows = append(rows, row)
+	}
+
+	return rows
+}
+
+// site is the project handle names, from a cache of siteTTL. A project the
+// bridge cannot read gets the defaults: no full text and the default programs.
+func (s *runReports) site(ctx context.Context, handle string) api.Site {
+	s.sitesMu.Lock()
+	defer s.sitesMu.Unlock()
+
+	now := time.Now
+	if s.now != nil {
+		now = s.now
+	}
+	if s.sites == nil || now().Sub(s.sitesAt) >= siteTTL {
+		sites, err := s.client.Sites(ctx)
+		if err != nil {
+			s.sites = nil
+
+			return api.Site{}
+		}
+		s.sites, s.sitesAt = append([]api.Site{}, sites...), now()
+	}
+	for _, site := range s.sites {
+		if strings.EqualFold(site.ID, handle) {
+			return site
+		}
+	}
+
+	return api.Site{}
 }
 
 // post sends an outcome as the old report. That report needs a session and a

@@ -462,6 +462,14 @@ and it only logs `update_available`. A reload applies a change to the key.
 autoUpdate: true
 ```
 
+`collect` at the top of the file turns the [tool call report](#tool-calls) on
+or off. It is on when the key is absent. With `collect: false`, the bridge sends
+no tool call and no timing of any run.
+
+```yaml
+collect: false
+```
+
 `name` at the top of the file is the bridge name that Loupe shows. When the key
 is absent, the bridge sends the host name up to the first dot. Set `name: ""`
 to send no name. A name holds at most 40 characters and no control character.
@@ -761,6 +769,30 @@ The key lives in the bridge process. Two bridges that map one project each keep
 their own, so they can both start a worker for the same card when Loupe opens
 two requests for it. Map each project in one bridge only. One rule file also serves one bridge only, because a second
 bridge on the same file refuses to start.
+
+#### Tool calls
+
+When a worker ends, the bridge sends each tool call of the run to Loupe, after
+the run's final state. A call has its tool, its start, its duration, its error
+flag, and whether a subagent made it. A background Bash call names its
+background id, and a later call that names that id waits on it. The last
+batch also holds the run's tool time and its idle time. The tool time is the
+time the main session spent in tool calls. The idle time sums each pause
+longer than 300 seconds.
+
+A call also has signatures, which name what it ran with no argument you typed.
+A Bash call gets one signature for each program its command runs, such as
+`grep` or `git status`. A program keeps its first argument only when it is on
+the project's list of subcommand programs and looks like a subcommand. The
+default list is `git`, `just`, `npm`, `pnpm`, `yarn`, `cargo`, `go`, `docker`,
+`gh`, `composer`, `make`, `pip` and `uv`. Any other call gets its tool name.
+
+The bridge sends the full input of a call only when the project collects full
+text. It reads the project settings from Loupe, and keeps them for 10 minutes.
+When it cannot read them, it sends no full text and uses the default list. A
+Loupe with no tool call endpoint drops the calls, and the bridge logs
+`tool_calls_unsupported` once. Set `collect: false` in the rule file to send
+nothing.
 
 ### The before command
 
@@ -1194,6 +1226,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `reload_applied` | `added`, `removed`, `changed`, `dirs`, `projects`: a reload applied the rule file. `pools` lists each pool the reload added, removed or resized, such as `quick: added 1` or `default: 3 -> 2`, and `max_workers` names a new budget. Each appears only when it changed |
 | `reload_failed` | `stage`, `problems`: a reload changed nothing. Level `ERROR` |
 | `report_failed` | `project`, `project_slug`, `error`, `retry`, `retry_in_ms` when `retry` is true, and `message` when the fix is yours |
+| `tool_calls_unsupported` | `message`: Loupe answered 404 with no error code to a tool call report, so the bridge sends no tool calls until it restarts. Logged once. Level `WARN` |
 | `heartbeat_sent` | `bridge_id`, `interval_seconds`, `failed_before`: the first heartbeat that lands, and the one that ends a run of failures or of 404 answers |
 | `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |

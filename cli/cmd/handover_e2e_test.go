@@ -187,6 +187,8 @@ func (f *e2eLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			_ = json.NewEncoder(w).Encode(map[string]string{"state": body.State})
 		}
+	case r.Method == http.MethodPut && strings.HasSuffix(path, "/tool-calls"):
+		fmt.Fprint(w, `{"stored":0}`)
 	case r.Method == http.MethodPut && strings.Contains(path, "/worker-runs/"):
 		var report api.RunStateReport
 		_ = json.NewDecoder(r.Body).Decode(&report)
