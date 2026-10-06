@@ -87,6 +87,45 @@ class WorkerRunFactRepository extends ServiceEntityRepository
     }
 
     /**
+     * The usage of each card's runs in one experiment, in millionths of a dollar.
+     * A run that started, or that reported usage, with no cost makes the cost of
+     * its card unknown. A run that started and reported no usage makes both sums
+     * of its card unknown.
+     *
+     * @return array<string, array{costMicros: ?int, outputTokens: ?int}> card id => sums
+     */
+    public function sumOfExperimentByCard(Project $project, string $experiment): array
+    {
+        /** @var list<array{subject_id: string, cost_micros: int|string|null, output: int|string|null}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            <<<'SQL'
+                SELECT
+                    subject_id,
+                    CASE WHEN BOOL_OR(cost_micro_usd IS NULL AND (started_at IS NOT NULL OR usage_source IS NOT NULL))
+                        THEN NULL ELSE SUM(cost_micro_usd) END AS cost_micros,
+                    CASE WHEN BOOL_OR(usage_source IS NULL AND started_at IS NOT NULL) THEN NULL ELSE SUM(tokens_out) END AS output
+                FROM bridge_worker_run_facts
+                WHERE project_id = :project AND experiment = :experiment AND subject_type = 'card'
+                GROUP BY subject_id
+                SQL,
+            [
+                'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
+                'experiment' => $experiment,
+            ],
+        );
+
+        $sums = [];
+        foreach ($rows as $row) {
+            $sums[$row['subject_id']] = [
+                'costMicros' => null === $row['cost_micros'] ? null : (int) $row['cost_micros'],
+                'outputTokens' => null === $row['output'] ? null : (int) $row['output'],
+            ];
+        }
+
+        return $sums;
+    }
+
+    /**
      * The writer updates rows with SQL, and a managed row cannot refresh its
      * readonly properties. Array hydration skips the identity map.
      *
