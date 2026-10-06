@@ -308,8 +308,8 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 		s.dirs[slug] = dir
 	}
-	if len(f.Work) == 0 {
-		errs = append(errs, errors.New("the rule file has no work"))
+	if len(f.Work) == 0 && !s.appPrompts {
+		errs = append(errs, errors.New("the rule file has no work, and no appPrompts: true"))
 	}
 	name, err := bridgeName(f.Name)
 	if err != nil {
@@ -359,7 +359,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	s.launch = launch
 	errs = append(errs, checkHooks(f.Hooks)...)
 	s.hooks = f.Hooks
-	if len(f.Work) == 0 {
+	if len(f.Work) == 0 && !s.appPrompts {
 		return nil, withExample(errors.Join(errs...))
 	}
 	if len(errs) > 0 {

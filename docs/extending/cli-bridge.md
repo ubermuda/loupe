@@ -692,8 +692,8 @@ request `teardown` each time a card reaches a terminal column. A `teardown`
 request that no bridge takes expires after the work timeout, and the card does
 not pause.
 
-The file needs `work:`. The bridge reports the `work-requests` capability when
-the map has an entry, and `interactive` too when an entry opens an interactive
+The file needs `work:`, or `appPrompts: true`. The bridge reports the
+`work-requests` capability when the map has an entry or `appPrompts` is on, and `interactive` too when an entry opens an interactive
 session. A request that needs `interactive` reaches only a bridge that reports
 it.
 

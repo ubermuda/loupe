@@ -282,6 +282,7 @@ func TestCapabilities(t *testing.T) {
 	}{
 		"workers only":     {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n", []string{"work-requests"}},
 		"with interactive": {workFile, []string{"work-requests", "interactive"}},
+		"app prompts only": {"projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\n", []string{"work-requests"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := parse(t, tc.body).Capabilities(); !slices.Equal(got, tc.want) {

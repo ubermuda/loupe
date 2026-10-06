@@ -274,9 +274,10 @@ func (s *Set) WorkEntry(kind string) (WorkEntry, bool) {
 	return w, ok
 }
 
-// HasWork reports whether the set has a work map.
+// HasWork reports whether the set claims work requests: it has a work map, or
+// it runs app prompts.
 func (s *Set) HasWork() bool {
-	return len(s.work) > 0
+	return len(s.work) > 0 || s.appPrompts
 }
 
 // WorkDead is the reason the work of a mapped project died, and "" while it
@@ -289,10 +290,10 @@ func (s *Set) WorkDead(slug string) string {
 }
 
 // Capabilities lists what the work map lets the bridge claim: work-requests
-// for any entry, and interactive too for an interactive entry. It is nil for
-// a set with no work.
+// for any entry or for app prompts, and interactive too for an interactive
+// entry. It is nil for a set with no work.
 func (s *Set) Capabilities() []string {
-	if len(s.work) == 0 {
+	if !s.HasWork() {
 		return nil
 	}
 	out := []string{CapabilityWorkRequests}
