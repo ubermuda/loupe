@@ -13,8 +13,8 @@ use App\Module\Bridge\Metric\MetricUnit;
 use Symfony\Component\HttpFoundation\InputBag;
 
 /**
- * The controls of the Metrics page. A control at its default is omitted from
- * routeParams(), so the default view keeps its bare URL.
+ * The controls of the Metrics page. routeParams() leaves out a control at its
+ * default. The GET form still submits every control.
  */
 final readonly class MetricsQuery
 {

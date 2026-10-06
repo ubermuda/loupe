@@ -73,7 +73,9 @@ not counted.
 
 The dollars are the API list price that claude reports. On a subscription, you
 do not pay this amount. A duration shows in milliseconds, seconds, minutes or
-hours. **Hours to merge** shows in hours. A rate shows as a percentage.
+hours. **Hours to merge** shows in hours. A rate shows as a percentage. With
+**Count**, the summary and the chart show a number of rows for every metric.
+The table still shows the value of each row in the type of its metric.
 
 **Stop rate** and **Merge rate** take only **Mean** and **Count**. **Merge
 rate**, **Fix rounds** and **Hours to merge** take only **By variant**, **By
@@ -117,7 +119,7 @@ The chart shows one bar for each bucket of each series. The bars of the series
 in a bucket stand side by side. The time axis shows only the buckets with rows.
 A legend names the series when there is more than one. With more than eight
 series, the first seven keep their colours, and the rest share one grey. The
-value axis of a rate stops at 100%.
+value axis of a rate stops at 100%, except with **Count**.
 
 Point at a bar, or move to it with the Tab key, to see its bucket, its series,
 its value and its number of rows with a known value.
@@ -145,9 +147,9 @@ page, or pick a longer range.
 
 ## Share a view
 
-Each view of the page is an address. The controls go into the query string, and
-a control at its default stays out of it. Copy the address to share or bookmark
-a view.
+Each view of the page has an address that you can share. The form puts every
+control into the query string. Copy the address to share or bookmark a view. An
+address that leaves out a control shows that control at its default.
 
 The old address of the Cost tab, `/projects/{project}/worker-runs/cost`, opens
 this page. It shows the mean cost per finished card. The range and the bucket of
