@@ -6609,7 +6609,19 @@
     .lp-metric-chart__tick {
         @apply fill-fg-dim text-xs tabular-nums;
     }
-    .lp-metric-chart__bar:hover .lp-metric-chart__bar-shape {
+    /* Each bar takes the keyboard focus, so its label reads without a pointer. */
+    .lp-metric-chart__bar {
+        @apply outline-none;
+    }
+    /* As tall as the plot, so a short or zero bar still shows its focus ring. */
+    .lp-metric-chart__hit {
+        @apply fill-transparent;
+    }
+    .lp-metric-chart__bar:focus-visible .lp-metric-chart__hit {
+        @apply stroke-accent-ink stroke-2;
+    }
+    .lp-metric-chart__bar:hover .lp-metric-chart__bar-shape,
+    .lp-metric-chart__bar:focus-visible .lp-metric-chart__bar-shape {
         @apply opacity-80;
     }
     .lp-metric-chart__bar-shape--0,

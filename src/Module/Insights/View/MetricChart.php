@@ -7,6 +7,7 @@ namespace App\Module\Insights\View;
 use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricBucket;
 use App\Module\Bridge\Metric\MetricSeries;
+use App\Module\Bridge\Metric\MetricStatistic;
 use App\Module\Bridge\Metric\MetricValueType;
 
 /**
@@ -42,6 +43,7 @@ final readonly class MetricChart
      */
     public function __construct(
         public Metric $metric,
+        public MetricStatistic $statistic,
         public MetricBucket $bucket,
         public array $buckets,
         public array $series,
@@ -59,7 +61,7 @@ final readonly class MetricChart
      *
      * @param list<MetricSeries> $series
      */
-    public static function build(Metric $metric, MetricBucket $bucket, array $series): ?self
+    public static function build(Metric $metric, MetricStatistic $statistic, MetricBucket $bucket, array $series): ?self
     {
         $starts = [];
         $values = [];
@@ -80,7 +82,7 @@ final readonly class MetricChart
         $starts = array_values($starts);
         $index = array_flip(array_map(static fn (\DateTimeImmutable $start): int => $start->getTimestamp(), $starts));
 
-        [$top, $step] = self::axis($metric, $values);
+        [$top, $step] = self::axis($metric, $statistic, $values);
         $plotHeight = self::BASELINE - self::PLOT_TOP;
         $bucketWidth = (self::PLOT_RIGHT - self::PLOT_LEFT) / \count($starts);
         $seriesCount = \count($series);
@@ -138,6 +140,7 @@ final readonly class MetricChart
 
         return new self(
             metric: $metric,
+            statistic: $statistic,
             bucket: $bucket,
             buckets: $buckets,
             series: $chartSeries,
@@ -155,20 +158,21 @@ final readonly class MetricChart
     }
 
     /**
-     * The top of the value axis and its step. A ratio tops at 100%. Another
-     * metric tops at a floor of its own, so a chart of tiny values still reads.
+     * The top of the value axis and its step. A count scales as a count. A ratio
+     * tops at 100%. Another metric tops at a floor of its own, so tiny values still read.
      *
      * @param list<float> $values
      *
      * @return array{float, float}
      */
-    private static function axis(Metric $metric, array $values): array
+    private static function axis(Metric $metric, MetricStatistic $statistic, array $values): array
     {
-        if (MetricValueType::Ratio === $metric->valueType()) {
+        $type = MetricStatistic::Count === $statistic ? MetricValueType::Count : $metric->valueType();
+        if (MetricValueType::Ratio === $type) {
             return [1.0, 0.25];
         }
 
-        $floor = match ($metric->valueType()) {
+        $floor = match ($type) {
             MetricValueType::Money => 0.04,
             MetricValueType::Duration => Metric::HoursToMerge === $metric ? 1.0 : 1000.0,
             default => (float) self::TARGET_TICKS,

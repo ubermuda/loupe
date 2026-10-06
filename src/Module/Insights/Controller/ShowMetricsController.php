@@ -50,7 +50,7 @@ class ShowMetricsController extends AppController
             'query' => $query,
             'view' => $view,
             'groupLabels' => $groupLabels,
-            'chart' => MetricChart::build($query->metric, $query->bucket, $view->series),
+            'chart' => MetricChart::build($query->metric, $query->statistic, $query->bucket, $view->series),
             'metrics' => Metric::cases(),
             'ranges' => MetricRange::cases(),
             'buckets' => MetricBucket::cases(),

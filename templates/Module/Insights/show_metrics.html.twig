@@ -75,7 +75,7 @@
         <div class="lp-metric-summary__figure" data-metrics-series="{{ series.group ?? 'none' }}">
             {# A group name comes from the bridge, so it is rendered as text. Never add |raw here. #}
             <dt class="lp-metric-summary__label">{{ labels[loop.index0] }}</dt>
-            <dd class="lp-metric-summary__value">{{ series.total.value|metric_value(metric) }}</dd>
+            <dd class="lp-metric-summary__value">{{ series.total.value|metric_value(metric, query.statistic) }}</dd>
             <dd class="lp-metric-summary__rows">{{ rowsKey|trans({'%count%': series.rows|length}) }}</dd>
         </div>
         {% endfor %}
@@ -84,6 +84,7 @@
     {% set dayFormat = chart.longSpan ? 'M j, Y' : 'M j' %}
     {% set plotLeft = constant('App\\Module\\Insights\\View\\MetricChart::PLOT_LEFT') %}
     {% set plotRight = constant('App\\Module\\Insights\\View\\MetricChart::PLOT_RIGHT') %}
+    {% set plotTop = constant('App\\Module\\Insights\\View\\MetricChart::PLOT_TOP') %}
     {% set baseline = constant('App\\Module\\Insights\\View\\MetricChart::BASELINE') %}
     {% set height = constant('App\\Module\\Insights\\View\\MetricChart::HEIGHT') %}
     <figure class="lp-metric-chart" data-metrics-chart>
@@ -98,7 +99,7 @@
         {# twig-cs-fixer-disable-line InlineSvg #}<svg class="lp-metric-chart__svg" viewBox="0 0 {{ constant('App\\Module\\Insights\\View\\MetricChart::WIDTH') }} {{ height }}" role="group" aria-label="{{ 'analytics.metrics.chart.label'|trans({'%statistic%': ('analytics.metrics.statistic.' ~ query.statistic.value)|trans, '%metric%': metricName, '%bucket%': ('analytics.metrics.bucket.' ~ query.bucket.value)|trans}) }}">
             {% for tick in chart.yTicks %}
                 <line class="lp-metric-chart__grid" x1="{{ plotLeft }}" x2="{{ plotRight }}" y1="{{ tick.position }}" y2="{{ tick.position }}" />
-                <text class="lp-metric-chart__tick" x="{{ plotLeft - 8 }}" y="{{ tick.position }}" text-anchor="end" dominant-baseline="middle">{{ tick.value|metric_value(metric, chart.moneyDecimals) }}</text>
+                <text class="lp-metric-chart__tick" x="{{ plotLeft - 8 }}" y="{{ tick.position }}" text-anchor="end" dominant-baseline="middle">{{ tick.value|metric_value(metric, query.statistic, chart.moneyDecimals) }}</text>
             {% endfor %}
             {% for tick in chart.xTicks %}
                 <text class="lp-metric-chart__tick" x="{{ tick.position }}" y="{{ height - 6 }}" text-anchor="middle">{{ tick.start|date(chart.bucket.value == 'month' ? (chart.longSpan ? 'M Y' : 'M') : dayFormat, 'UTC') }}</text>
@@ -106,9 +107,10 @@
             {% for bucket in chart.buckets %}
                 {% set bucketLabel = chart.bucket.value == 'week' ? 'analytics.metrics.chart.week'|trans({'%date%': bucket.start|date(dayFormat, 'UTC')}) : bucket.start|date(chart.bucket.value == 'month' ? 'F Y' : dayFormat, 'UTC') %}
                 {% for bar in bucket.bars %}
-                    {% set barLabel = 'analytics.metrics.chart.bar'|trans({'%bucket%': bucketLabel, '%series%': labels[bar.series.position], '%value%': bar.point.value|metric_value(metric), '%rows%': rowsKey|trans({'%count%': bar.point.rows})}) %}
-                    <g class="lp-metric-chart__bar" role="img" aria-label="{{ barLabel }}" data-metrics-bar="{{ bucket.start|date('Y-m-d', 'UTC') }}">
+                    {% set barLabel = 'analytics.metrics.chart.bar'|trans({'%bucket%': bucketLabel, '%series%': labels[bar.series.position], '%value%': bar.point.value|metric_value(metric, query.statistic), '%rows%': rowsKey|trans({'%count%': bar.point.rows})}) %}
+                    <g class="lp-metric-chart__bar" role="img" tabindex="0" aria-label="{{ barLabel }}" data-metrics-bar="{{ bucket.start|date('Y-m-d', 'UTC') }}">
                         <title>{{ barLabel }}</title>
+                        <rect class="lp-metric-chart__hit" x="{{ bar.x }}" y="{{ plotTop }}" width="{{ bar.width }}" height="{{ baseline - plotTop }}" />
                         {% if bar.path %}<path class="lp-metric-chart__bar-shape lp-metric-chart__bar-shape--{{ bar.series.slot }}" d="{{ bar.path }}" />{% endif %}
                     </g>
                 {% endfor %}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Insights\View;
 
 use App\Module\Bridge\Metric\Metric;
+use App\Module\Bridge\Metric\MetricStatistic;
 use App\Module\Bridge\Metric\MetricValueType;
 
 /** A metric value as a person reads it. Null for an unknown value, which the template translates. */
@@ -15,11 +16,19 @@ final readonly class MetricValueFormatter
     ) {
     }
 
-    /** @param ?int $moneyDecimals the decimals of a dollar amount, two when null */
-    public function format(int|float|null $value, Metric $metric, ?int $moneyDecimals = null): ?string
+    /**
+     * A count of rows reads as a number, whatever the type of its metric.
+     *
+     * @param ?MetricStatistic $statistic     null for the value of one row
+     * @param ?int             $moneyDecimals the decimals of a dollar amount, two when null
+     */
+    public function format(int|float|null $value, Metric $metric, ?MetricStatistic $statistic = null, ?int $moneyDecimals = null): ?string
     {
         if (null === $value) {
             return null;
+        }
+        if (MetricStatistic::Count === $statistic) {
+            return $this->number($value, \NumberFormatter::DECIMAL, 0, 0);
         }
 
         return match ($metric->valueType()) {

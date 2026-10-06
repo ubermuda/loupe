@@ -109,6 +109,8 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertCount(2, $bars);
         self::assertSame('Sep 1: Cost, $1.00, 1 run', $bars->first()->attr('aria-label'));
         self::assertSame('Sep 1: Cost, $1.00, 1 run', trim($bars->first()->filter('title')->text()));
+        self::assertSame(['0', '0'], $bars->each(static fn (Crawler $bar): string => (string) $bar->attr('tabindex')));
+        self::assertCount(2, $bars->filter('rect.lp-metric-chart__hit'));
 
         $table = $crawler->filter('[data-metrics-table] [data-metrics-series="none"]');
         $rows = $table->filter('tbody tr');
@@ -119,6 +121,31 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertSame('$3.00', trim($rows->eq(1)->filter('td')->eq(1)->text()));
         self::assertSame('/projects/'.$projectId.'/worker-runs?search='.$secondId, $rows->eq(1)->filter('a')->attr('href'));
         self::assertCount(0, $table->filter('[data-metrics-hidden-rows]'));
+    }
+
+    public function test_a_count_reads_as_a_number_on_a_ratio_metric(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'metrics-count@example.com');
+        $project = $this->project($em, $owner, 'Count metrics');
+        $this->seedRun($em, $project, exitCode: 0);
+        $this->seedRun($em, $project, exitCode: 1);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics?metric=stop-rate&statistic=count&range=all');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('2', trim($crawler->filter('[data-metrics-summary] .lp-metric-summary__value')->text()));
+        $ticks = $crawler->filter('[data-metrics-chart] .lp-metric-chart__tick[text-anchor="end"]')->each(static fn (Crawler $tick): string => trim($tick->text()));
+        self::assertSame(['0', '1', '2', '3', '4'], $ticks);
+        self::assertStringEndsWith(', 2, 2 runs', (string) $crawler->filter('[data-metrics-bar]')->attr('aria-label'));
+        // A row keeps the value of its own metric, a stop as 100% and a success as 0%.
+        $values = $crawler->filter('[data-metrics-table] tbody tr td.lp-metric-table__number')->each(static fn (Crawler $cell): string => trim($cell->text()));
+        sort($values);
+        self::assertSame(['0.0%', '100.0%'], $values);
     }
 
     public function test_a_grouped_query_draws_one_series_per_group_with_a_legend(): void

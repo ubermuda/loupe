@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Insights\View;
 
 use App\Module\Bridge\Metric\Metric;
+use App\Module\Bridge\Metric\MetricStatistic;
 use App\Module\Insights\View\MetricValueFormatter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -36,6 +37,23 @@ final class MetricValueFormatterTest extends TestCase
         self::assertSame($expected, new MetricValueFormatter('en')->format($value, $metric));
     }
 
+    /** @return iterable<string, array{Metric}> */
+    public static function metricsOfOtherTypes(): iterable
+    {
+        yield 'money' => [Metric::Cost];
+        yield 'duration' => [Metric::Duration];
+        yield 'hours to merge' => [Metric::HoursToMerge];
+        yield 'stop rate' => [Metric::StopRate];
+        yield 'merge rate' => [Metric::MergeRate];
+    }
+
+    #[DataProvider('metricsOfOtherTypes')]
+    public function test_a_count_reads_as_a_count_whatever_the_metric(Metric $metric): void
+    {
+        self::assertSame('2', new MetricValueFormatter('en')->format(2, $metric, MetricStatistic::Count));
+        self::assertSame('1,234', new MetricValueFormatter('en')->format(1234, $metric, MetricStatistic::Count));
+    }
+
     public function test_an_unknown_value_has_no_text(): void
     {
         self::assertNull(new MetricValueFormatter('en')->format(null, Metric::Cost));
@@ -43,7 +61,7 @@ final class MetricValueFormatterTest extends TestCase
 
     public function test_money_takes_more_decimals_for_a_small_axis_step(): void
     {
-        self::assertSame('$0.005', new MetricValueFormatter('en')->format(0.005, Metric::Cost, 3));
-        self::assertSame('$5', new MetricValueFormatter('en')->format(5, Metric::Cost, 0));
+        self::assertSame('$0.005', new MetricValueFormatter('en')->format(0.005, Metric::Cost, moneyDecimals: 3));
+        self::assertSame('$5', new MetricValueFormatter('en')->format(5, Metric::Cost, moneyDecimals: 0));
     }
 }
