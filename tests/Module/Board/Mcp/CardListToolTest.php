@@ -7,12 +7,17 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\ListCardsHandler;
+use App\Module\Board\Command\PauseCardCommand;
+use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPause;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardListTool;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Support\McpTokenScenario;
@@ -394,6 +399,42 @@ final class CardListToolTest extends KernelTestCase
         self::assertSame([], $rows['Second']);
     }
 
+    public function test_full_reads_the_active_pause_of_each_card(): void
+    {
+        $project = $this->boardWith('card-list-full-pause');
+        $pause = $this->pauseCard($project, 'Second');
+
+        $rows = array_column(($this->tool)(full: true)['cards'], 'pause', 'title');
+
+        self::assertSame([
+            'pauseId' => (string) $pause->id,
+            'kind' => 'rule',
+            'reason' => 'on-hold',
+            'ruleId' => 'hold',
+            'since' => $pause->createdAt->format(\DATE_ATOM),
+        ], $rows['Second']);
+        self::assertNull($rows['First']);
+        self::assertNull($rows['Third']);
+    }
+
+    public function test_a_paused_filter_keeps_the_paused_cards_and_counts_them(): void
+    {
+        $project = $this->boardWith('card-list-paused');
+        $this->pauseCard($project, 'Second');
+        $this->pauseCard($project, 'Third')->release('owner-resumed', new \DateTimeImmutable());
+        $this->em->flush();
+
+        $paused = ($this->tool)(paused: true, perPage: 1);
+        $free = ($this->tool)(paused: false);
+
+        self::assertSame(['Second'], array_column($paused['cards'], 'title'));
+        self::assertSame(1, $paused['total']);
+        self::assertFalse($paused['hasMore']);
+        self::assertSame(['First', 'Third'], array_column($free['cards'], 'title'));
+        self::assertSame(2, $free['total']);
+        self::assertSame(3, ($this->tool)()['total']);
+    }
+
     public function test_a_page_is_cut_from_the_board_and_total_counts_the_whole_set(): void
     {
         $this->boardWith('card-list-paging');
@@ -451,6 +492,20 @@ final class CardListToolTest extends KernelTestCase
         ($this->createTool)('Third', 'Body', 'bug');
 
         return $project;
+    }
+
+    private function pauseCard(Project $project, string $title): CardPause
+    {
+        $cards = self::getContainer()->get(CardRepository::class);
+        self::assertInstanceOf(CardRepository::class, $cards);
+        $card = $cards->findOneBy(['project' => $project, 'title' => $title]);
+        self::assertInstanceOf(Card::class, $card);
+        $handler = self::getContainer()->get(PauseCardHandler::class);
+        self::assertInstanceOf(PauseCardHandler::class, $handler);
+        $pause = $handler(new PauseCardCommand($card, 'on-hold', 'hold', CardPauseKind::Rule));
+        self::assertInstanceOf(CardPause::class, $pause);
+
+        return $pause;
     }
 
     private function epicsWithChildren(int $count): void

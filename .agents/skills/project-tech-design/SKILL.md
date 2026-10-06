@@ -53,6 +53,10 @@ Read the five gamache layers before you claim no rule applies. `AGENTS.md` lists
 
 A step that touches live data needs its own entry in the work order. Say what breaks if the migration is wrong.
 
+## Take the example case from this project
+
+Take the case of each worked example from this project, such as a card of the board, a page of the dev seed or a rule of a skill.
+
 ## Common mistakes
 
 | Mistake | Correction |

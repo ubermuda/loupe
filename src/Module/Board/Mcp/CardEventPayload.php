@@ -15,7 +15,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * or malformed key reads null rather than fail the whole page.
  *
  * @phpstan-type CardEventColumnSummary array{id: string, slug: string, label: string}
- * @phpstan-type CardEventSummary array{kind: string, occurredAt: string, actor: array{kind: string, name: ?string}, from: ?CardEventColumnSummary, to: ?CardEventColumnSummary, cause: ?array<mixed>, run: ?array<string, mixed>, reason: ?string, pullRequest: ?int}
+ * @phpstan-type CardEventSummary array{kind: string, occurredAt: string, actor: array{kind: string, name: ?string}, from: ?CardEventColumnSummary, to: ?CardEventColumnSummary, cause: ?array<mixed>, run: ?array<string, mixed>, reason: ?string, pullRequest: ?int, pause: ?array{kind: ?string, ruleId: ?string}}
  */
 final readonly class CardEventPayload
 {
@@ -54,6 +54,10 @@ final readonly class CardEventPayload
             'run' => CardEventKind::RunFinished === $event->kind ? $detail : null,
             'reason' => \is_string($detail['reason'] ?? null) ? $detail['reason'] : null,
             'pullRequest' => \is_int($detail['pullRequest'] ?? null) ? $detail['pullRequest'] : null,
+            'pause' => \in_array($event->kind, [CardEventKind::Paused, CardEventKind::PauseReleased], true) ? [
+                'kind' => \is_string($detail['kind'] ?? null) ? $detail['kind'] : null,
+                'ruleId' => \is_string($detail['ruleId'] ?? null) ? $detail['ruleId'] : null,
+            ] : null,
         ];
     }
 

@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Workflow\Action\ActionParams;
+use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
@@ -70,12 +71,12 @@ final readonly class CardWorkflowPanelBuilder
         }
 
         return new CardWorkflowPanel(
-            null === $pause ? null : $this->pause($pause, $template, $facts),
+            null === $pause ? null : $this->pause($pause, $template, $facts, $managed),
             $progress,
         );
     }
 
-    private function pause(CardPause $pause, ?Template $template, ?Facts $facts): CardWorkflowPause
+    private function pause(CardPause $pause, ?Template $template, ?Facts $facts, bool $managed): CardWorkflowPause
     {
         $release = match ($pause->kind) {
             CardPauseKind::Rule => $this->ruleRelease($template, $facts, $pause->ruleId),
@@ -84,11 +85,13 @@ final readonly class CardWorkflowPanelBuilder
         };
 
         return new CardWorkflowPause(
+            (string) $pause->id,
             $pause->reason,
             $this->translator->trans('workflow.panel.pause_kind.'.str_replace('-', '_', $pause->kind->value)),
             $this->codeText(['workflow.pause.', 'workflow.refusal.'], $pause->reason),
             $release,
             $pause->createdAt,
+            $managed && \in_array($pause->kind, ReleaseWorkflowPauseCommand::RELEASABLE_KINDS, true),
         );
     }
 
