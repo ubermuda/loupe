@@ -25,6 +25,7 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Repository\CardHoldRepository;
@@ -32,6 +33,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestReview;
@@ -88,6 +90,7 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 
 final class EngineTest extends KernelTestCase
@@ -1009,6 +1012,72 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $epic->column->slug);
     }
 
+    public function test_a_lifecycle_child_waits_in_the_backlog_while_the_breakdown_of_its_epic_runs_and_moves_when_it_ends(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-ended');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $breakdown = $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->evaluate($epic);
+        self::assertFalse($this->ruleState($epic, 'breakdown-ended')->truth);
+
+        $child = $this->childOf($epic, 'backlog');
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $breakdown->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $records = \count($this->firedRecords());
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+        self::assertCount($records + 1, $this->firedRecords());
+        self::assertContains('breakdown-ended', $this->firedRules());
+
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_with_an_open_blocker_stays_in_the_backlog_when_the_breakdown_of_its_epic_ends(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-ended-blocked');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $breakdown = $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->evaluate($epic);
+        $child = $this->childOf($epic, 'backlog');
+        $this->block($child);
+
+        $breakdown->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('backlog', $child->column->slug);
+    }
+
+    public function test_a_resumed_breakdown_of_the_epic_still_holds_the_child_in_the_backlog(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-resumed');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->workerRun($epic, 'breakdown', WorkerRunState::Blocked);
+        $resumed = $this->workerRun($epic, 'breakdown', WorkerRunState::Resumed);
+        $this->evaluate($epic);
+        $child = $this->childOf($epic, 'backlog');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $resumed->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
     public function test_a_card_evaluations_call_evaluates_the_card_and_its_provided_fact_fires_the_rule(): void
     {
         $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
@@ -1456,6 +1525,41 @@ final class EngineTest extends KernelTestCase
             $engineEvents,
             $this->logger,
         );
+    }
+
+    private function workerRun(Card $card, string $workKind, WorkerRunState $state): WorkerRun
+    {
+        $run = new WorkerRun(
+            project: $card->project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('A flushed card has an id.'),
+            cardNumber: $card->number,
+            workKind: $workKind,
+            state: $state,
+        );
+        $this->em()->persist($run);
+        $this->em()->flush();
+
+        return $run;
+    }
+
+    /** Runs the queued evaluations of the card, then empties the queue. Answers how many ran. */
+    private function evaluateQueued(Card $card, string $at): int
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+        $cardId = $card->id ?? throw new \LogicException('A flushed card has an id.');
+        $evaluations = 0;
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof EvaluateCard && $message->cardId === $cardId->toRfc4122()) {
+                $this->evaluate($card, $at);
+                ++$evaluations;
+            }
+        }
+        $transport->reset();
+
+        return $evaluations;
     }
 
     private function ruleState(Card $card, string $ruleId): WorkflowRuleState
