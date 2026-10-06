@@ -39,6 +39,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  */
 final readonly class ForgeWrite implements Action
 {
+    public const string OPEN_EPIC_OFF = 'open-epic-off';
+
     public function __construct(
         private CardPullRequests $cardPullRequests,
         private BoardAutomation $boardAutomation,
@@ -131,9 +133,9 @@ final readonly class ForgeWrite implements Action
         if (CardType::Epic !== $card->type || null === $epicBranch) {
             return ActionOutcome::done();
         }
-        // A refusal retries, so the epic opens once the owner turns the write on. A done rule never fires again.
+        // A refusal waits, and turning the write on re-arms it. A done rule never fires again.
         if (!self::optedIn(ForgeWriteKind::OpenEpic, $settings)) {
-            return ActionOutcome::refused('open-epic-off');
+            return ActionOutcome::refused(self::OPEN_EPIC_OFF);
         }
         foreach ($pullRequests as $pullRequest) {
             if (PullRequestState::Open === $pullRequest->state && $epicBranch === $pullRequest->headBranch) {

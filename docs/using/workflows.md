@@ -129,6 +129,9 @@ workflow opens the epic pull request. Such an epic never moves straight to the
 terminal column. It goes through In review with its epic pull request. With
 the open write off, the rule refuses and tries again later. The epic waits in
 Implementation until a person turns the write on or links a pull request.
+Turning the write on opens the pull request of each waiting epic, and ends the
+pause of an epic that ran out of retries. A save that also turns the automation
+on does neither, so turn the write on in a separate save.
 A new open child moves it back to Implementation. With the epic writes on, the
 pull request of an epic is a draft in Implementation, turns ready in In review,
 and closes when the epic returns to the Backlog.
