@@ -37,6 +37,34 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param list<Uuid> $runIds
+     *
+     * @return array<string, list<WorkerRunUsage>> run id => usage rows, by model
+     */
+    public function findByRunIds(array $runIds): array
+    {
+        if ([] === $runIds) {
+            return [];
+        }
+
+        /** @var list<array{0: WorkerRunUsage, runId: string}> $rows */
+        $rows = $this->createQueryBuilder('u')
+            ->select('u', 'IDENTITY(u.run) AS runId')
+            ->andWhere('u.run IN (:runs)')
+            ->setParameter('runs', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $runIds))
+            ->orderBy('u.model', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $byRun = [];
+        foreach ($rows as $row) {
+            $byRun[$row['runId']][] = $row[0];
+        }
+
+        return $byRun;
+    }
+
+    /**
      * The sums of every usage row of a card, by project and card rather than by
      * run, so the rows of a deleted run still count.
      *

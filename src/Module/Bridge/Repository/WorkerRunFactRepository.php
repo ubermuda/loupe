@@ -87,6 +87,29 @@ class WorkerRunFactRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param list<Uuid> $runIds
+     *
+     * @return array<string, WorkerRunFact> run id => fact row
+     */
+    public function findByRunIds(Project $project, array $runIds): array
+    {
+        if ([] === $runIds) {
+            return [];
+        }
+
+        $facts = [];
+        foreach ($this->detached($project, $this->createQueryBuilder('f')
+            ->andWhere('f.project = :project')
+            ->andWhere('f.runId IN (:runs)')
+            ->setParameter('project', $project)
+            ->setParameter('runs', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $runIds))) as $fact) {
+            $facts[$fact->runId->toRfc4122()] = $fact;
+        }
+
+        return $facts;
+    }
+
+    /**
      * The usage of each card's runs in one experiment, in millionths of a dollar.
      * A run that started, or that reported usage, with no cost makes the cost of
      * its card unknown. A run that started and reported no usage makes both sums
