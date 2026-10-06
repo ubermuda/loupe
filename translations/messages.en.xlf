@@ -7371,6 +7371,7 @@
             <trans-unit id="workflow.refusal.no-pull-request"><source>workflow.refusal.no-pull-request</source><target>The card has no pull request.</target></trans-unit>
             <trans-unit id="workflow.refusal.unsupported-write"><source>workflow.refusal.unsupported-write</source><target>The forge cannot do this write.</target></trans-unit>
             <trans-unit id="workflow.refusal.no-parent-base"><source>workflow.refusal.no-parent-base</source><target>The parent pull request has no base branch.</target></trans-unit>
+            <trans-unit id="workflow.refusal.open-epic-off"><source>workflow.refusal.open-epic-off</source><target>The board setting "Open the epic pull request" is off. Turn it on, or open and link the epic pull request by hand.</target></trans-unit>
             <trans-unit id="workflow.refusal.no-merged-child"><source>workflow.refusal.no-merged-child</source><target>No child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.refusal.no-default-branch"><source>workflow.refusal.no-default-branch</source><target>The forge did not give the default branch of the repository.</target></trans-unit>
             <trans-unit id="workflow.refusal.link-refused"><source>workflow.refusal.link-refused</source><target>The board refused the pull request link.</target></trans-unit>

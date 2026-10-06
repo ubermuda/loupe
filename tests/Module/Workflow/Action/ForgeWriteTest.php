@@ -257,11 +257,11 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([], $this->liveKinds($card));
     }
 
-    public function test_an_epic_opening_that_is_off_does_nothing(): void
+    public function test_an_epic_opening_that_is_off_refuses_so_a_retry_opens_it_later(): void
     {
         [$epic] = $this->epicWithMergedChild($this->project());
 
-        self::assertEquals(ActionOutcome::done(), $this->write($epic, 'open-epic', fallback: null));
+        self::assertEquals(ActionOutcome::refused('open-epic-off'), $this->write($epic, 'open-epic', fallback: null));
         self::assertSame([], $this->writer->calls);
         self::assertSame([], $this->liveKinds($epic));
     }

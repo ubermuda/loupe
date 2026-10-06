@@ -127,8 +127,8 @@ It moves on only after its breakdown request ends.
 When a child merges into the epic branch and the epic has no pull request, the
 workflow opens the epic pull request. Such an epic never moves straight to the
 terminal column. It goes through In review with its epic pull request. With
-the open write off, nothing opens the pull request, and the epic waits in
-Implementation until a person links one.
+the open write off, the rule refuses and tries again later. The epic waits in
+Implementation until a person turns the write on or links a pull request.
 A new open child moves it back to Implementation. With the epic writes on, the
 pull request of an epic is a draft in Implementation, turns ready in In review,
 and closes when the epic returns to the Backlog.

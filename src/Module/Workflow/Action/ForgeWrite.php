@@ -128,8 +128,12 @@ final readonly class ForgeWrite implements Action
     {
         $settings = $this->boardAutomation->settingsOf($card->project);
         $epicBranch = $settings->epicBranchOf($card->number);
-        if (CardType::Epic !== $card->type || !self::optedIn(ForgeWriteKind::OpenEpic, $settings) || null === $epicBranch) {
+        if (CardType::Epic !== $card->type || null === $epicBranch) {
             return ActionOutcome::done();
+        }
+        // A refusal retries, so the epic opens once the owner turns the write on. A done rule never fires again.
+        if (!self::optedIn(ForgeWriteKind::OpenEpic, $settings)) {
+            return ActionOutcome::refused('open-epic-off');
         }
         foreach ($pullRequests as $pullRequest) {
             if (PullRequestState::Open === $pullRequest->state && $epicBranch === $pullRequest->headBranch) {
