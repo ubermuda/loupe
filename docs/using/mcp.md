@@ -292,7 +292,7 @@ Roughly in the order an agent uses them:
 | `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended. Each row gives the reason the run ended, its usage per model, its model, its experiment and variant, and its metrics |
 | `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
 | `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes |
-| `metric_query` | Read one metric over time, by run or by card, as a series per group with a total, a point per day, week or month, and the rows behind it |
+| `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it |
 | `bridge_list` | List the bridges that follow the project, with their name, their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
