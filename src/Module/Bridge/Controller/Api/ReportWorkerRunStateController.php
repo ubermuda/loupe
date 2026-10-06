@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\ReportWorkerRunStateCommand;
 use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Outbox\AgentPush;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -54,7 +55,7 @@ final class ReportWorkerRunStateController extends AppController
             bridgeId: $payload->bridgeId(),
             state: $payload->state(),
             at: $payload->at(),
-            cardId: $payload->cardId(),
+            subject: WorkSubject::card($payload->cardId()),
             cardNumber: $payload->cardNumber ?? throw new \LogicException('cardNumber is required after validation.'),
             workRequestId: $payload->workRequestId(),
             workKind: $payload->workKind,

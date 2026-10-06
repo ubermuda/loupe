@@ -17,6 +17,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\MercureCookies;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -96,7 +97,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $em->persist(new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 5,
             workKind: 'waiting rule',
             state: WorkerRunState::Queued,
@@ -607,7 +609,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $running = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 1,
             workKind: 'running rule',
             state: WorkerRunState::Queued,
@@ -617,7 +620,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $queued = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 2,
             workKind: 'queued rule',
             state: WorkerRunState::Queued,

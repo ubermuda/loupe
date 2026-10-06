@@ -12,6 +12,7 @@ use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -266,7 +267,8 @@ final class CardHistoryTabTest extends WebTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: $card->id ?? throw new \LogicException('A stored card has an id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('A stored card has an id.'),
             cardNumber: $card->number,
             workKind: 'implement',
             state: WorkerRunState::Succeeded,

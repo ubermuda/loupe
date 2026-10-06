@@ -62,7 +62,7 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
 
         self::assertCount(1, $changes->events());
         self::assertSame((string) $request->id, (string) $changes->events()[0]->workRequestId);
-        self::assertSame((string) $request->cardId, (string) $changes->events()[0]->cardId);
+        self::assertSame((string) $request->subjectId, (string) $changes->events()[0]->subjectId);
         self::assertSame($to, $changes->events()[0]->state);
     }
 

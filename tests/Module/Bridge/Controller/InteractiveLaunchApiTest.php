@@ -46,7 +46,7 @@ final class InteractiveLaunchApiTest extends WebTestCase
         self::assertSame(WorkerRunState::Running, $run->state);
         self::assertSame($sessionId, (string) $run->sessionId);
         self::assertSame(self::BRIDGE_ID, (string) $run->bridgeId);
-        self::assertSame(self::CARD_ID, (string) $run->cardId);
+        self::assertSame(self::CARD_ID, (string) $run->subjectId);
         self::assertSame(7, $run->cardNumber);
         self::assertSame('Pair on design', $run->workKind);
         self::assertNull($run->workRequestId);

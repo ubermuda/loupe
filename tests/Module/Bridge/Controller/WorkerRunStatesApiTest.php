@@ -42,7 +42,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         $run = $this->onlyRun();
         self::assertSame($this->idOf($client), (string) $run->id);
         self::assertSame($runId, (string) $run->runKey);
-        self::assertSame($cardId, (string) $run->cardId);
+        self::assertSame($cardId, (string) $run->subjectId);
         self::assertSame(7, $run->cardNumber);
         self::assertSame(WorkerRunState::Queued, $run->state);
         self::assertNull($run->startedAt);

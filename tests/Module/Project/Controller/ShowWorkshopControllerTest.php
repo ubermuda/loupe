@@ -13,6 +13,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -367,7 +368,8 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em->persist(new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: $card->id ?? Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? Uuid::v7(),
             cardNumber: $card->number ?? 999,
             workKind: $workKind,
             state: $state,

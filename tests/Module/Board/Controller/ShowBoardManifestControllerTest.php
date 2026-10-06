@@ -14,6 +14,7 @@ use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
@@ -643,7 +644,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $card->number,
             workKind: 'implement',
             state: WorkerRunState::GaveUp,

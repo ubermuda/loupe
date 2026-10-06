@@ -10,6 +10,7 @@ use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -90,7 +91,8 @@ final readonly class InteractiveRuns
             $run = new WorkerRun(
                 project: $project,
                 bridgeId: $bridgeId,
-                cardId: $cardId,
+                subjectType: WorkSubject::CARD,
+                subjectId: $cardId,
                 cardNumber: $cardNumber,
                 workKind: $name,
                 state: WorkerRunState::Running,
@@ -152,7 +154,8 @@ final readonly class InteractiveRuns
             $run = new WorkerRun(
                 project: $project,
                 bridgeId: $bridgeId,
-                cardId: $cardId,
+                subjectType: WorkSubject::CARD,
+                subjectId: $cardId,
                 cardNumber: $cardNumber,
                 workKind: $name,
                 state: WorkerRunState::NotStarted,

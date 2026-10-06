@@ -42,6 +42,7 @@ use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\FeatureFlags;
@@ -475,7 +476,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             bridgeId: Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506180'),
             state: $state,
             at: new \DateTimeImmutable('2026-09-23 10:00:00'),
-            cardId: $cardId ?? Uuid::v7(),
+            subject: WorkSubject::card($cardId ?? Uuid::v7()),
             cardNumber: 1,
             workKind: 'plan',
             endedAt: $state->isOutcome() ? new \DateTimeImmutable('2026-09-23 10:05:00') : null,

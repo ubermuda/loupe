@@ -26,6 +26,7 @@ use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -585,7 +586,8 @@ final readonly class ProjectShowcaseSeeder
         $finished = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: $cardId,
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId,
             cardNumber: $card->number,
             workKind: 'fix',
             state: WorkerRunState::Succeeded,
@@ -601,7 +603,8 @@ final readonly class ProjectShowcaseSeeder
         $open = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: $cardId,
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId,
             cardNumber: $card->number,
             workKind: 'implement',
             state: WorkerRunState::Running,
@@ -668,7 +671,8 @@ final readonly class ProjectShowcaseSeeder
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: $child->id ?? throw new \LogicException('A stored card has an id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $child->id ?? throw new \LogicException('A stored card has an id.'),
             cardNumber: $child->number,
             workKind: 'implement',
             state: WorkerRunState::GaveUp,

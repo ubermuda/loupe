@@ -60,7 +60,8 @@ final readonly class WithdrawWorkRequestHandler
             [
                 'workRequestId' => (string) $withdrawn->id,
                 'projectId' => (string) $withdrawn->project->id,
-                'cardId' => (string) $withdrawn->cardId,
+                'subjectType' => $withdrawn->subjectType,
+                'subjectId' => (string) $withdrawn->subjectId,
                 'kind' => $withdrawn->kind,
                 'state' => $withdrawn->state->value,
             ],

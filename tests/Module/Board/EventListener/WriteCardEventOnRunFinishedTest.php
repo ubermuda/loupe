@@ -15,6 +15,7 @@ use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -85,7 +86,8 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         $run = new WorkerRun(
             project: $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $this->card->id ?? throw new \LogicException('A persisted card has an id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $this->card->id ?? throw new \LogicException('A persisted card has an id.'),
             cardNumber: 1,
             workKind: 'sync',
             state: WorkerRunState::Failed,
@@ -369,7 +371,8 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         $run = new WorkerRun(
             project: $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $cardId ?? throw new \LogicException('A persisted card has an id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId ?? throw new \LogicException('A persisted card has an id.'),
             cardNumber: 1,
             workKind: 'plan',
             state: $state,

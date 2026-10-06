@@ -18,6 +18,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Service\FactsBuilder;
@@ -156,7 +157,8 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $run = new WorkerRun(
             project: $project ?? $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $this->idOf($card),
+            subjectType: WorkSubject::CARD,
+            subjectId: $this->idOf($card),
             cardNumber: $card->number,
             workKind: $rule,
             state: WorkerRunState::Running,

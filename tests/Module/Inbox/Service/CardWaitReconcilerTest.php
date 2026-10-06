@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -1064,7 +1065,8 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $run = new WorkerRun(
             project: $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $this->card->id ?? throw new \LogicException('Card has no id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $this->card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $this->card->number,
             workKind: 'implement',
             state: $state,

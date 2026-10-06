@@ -30,7 +30,7 @@ final class WorkRequestPayload
             'kind' => $request->kind,
             'capability' => $request->capability,
             'state' => $request->state->value,
-            'cardId' => (string) $request->cardId,
+            'cardId' => $request->cardId()?->toRfc4122(),
             'cardNumber' => $request->cardNumber,
             'ruleId' => $request->ruleId,
             'createdAt' => $request->createdAt->format(\DateTimeInterface::ATOM),

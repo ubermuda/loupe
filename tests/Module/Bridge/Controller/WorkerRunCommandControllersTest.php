@@ -32,7 +32,7 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         $client = static::createClient();
         [$owner, $project, $run] = $this->scenario('stop', WorkerRunState::Running);
         $url = $this->url($project, $run, 'stop');
-        $cardId = $run->cardId;
+        $cardId = $run->subjectId;
         $this->em()->clear();
 
         $client->loginUser($owner);
@@ -71,7 +71,7 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         $client = static::createClient();
         [$owner, $project, $run] = $this->scenario('rerun', WorkerRunState::Failed, WorkerRunKind::Command);
         $url = $this->url($project, $run, 'rerun');
-        $cardId = $run->cardId;
+        $cardId = $run->subjectId;
         $this->em()->clear();
 
         $client->loginUser($owner);
@@ -112,7 +112,7 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         $client->loginUser($owner);
         $this->post($client, $url, ['HTTP_TURBO_FRAME' => 'card-worker-runs']);
 
-        self::assertResponseRedirects('/projects/'.$project->id.'/worker-runs/card/'.$run->cardId);
+        self::assertResponseRedirects('/projects/'.$project->id.'/worker-runs/card/'.$run->subjectId);
         self::assertSame(1, $this->countCommands($this->em()));
     }
 
@@ -156,7 +156,7 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         $this->post($client, $url, ['HTTP_TURBO_FRAME' => 'card-worker-runs']);
 
         self::assertResponseStatusCodeSame(303);
-        self::assertResponseRedirects('/projects/'.$project->id.'/worker-runs/card/'.$run->cardId);
+        self::assertResponseRedirects('/projects/'.$project->id.'/worker-runs/card/'.$run->subjectId);
     }
 
     public function test_the_owner_withdraws_a_pending_stop(): void

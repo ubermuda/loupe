@@ -18,6 +18,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\PullRequestSnapshot;
@@ -790,7 +791,8 @@ final class ShowBoardControllerTest extends WebTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $card->number,
             workKind: 'implement',
             state: $state,

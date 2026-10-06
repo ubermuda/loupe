@@ -58,7 +58,7 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertSame((string) $project->id, (string) $run->project->id);
         self::assertSame($bridgeId, (string) $run->bridgeId);
         self::assertSame($sessionId, (string) $run->sessionId);
-        self::assertSame($cardId, (string) $run->cardId);
+        self::assertSame($cardId, (string) $run->subjectId);
         self::assertSame(42, $run->cardNumber);
         self::assertNull($run->workKind);
         self::assertSame(0, $run->exitCode);
@@ -354,7 +354,7 @@ final class WorkerRunsApiTest extends WebTestCase
 
         $byCard = [];
         foreach ($this->allRuns() as $run) {
-            $byCard[$run->cardNumber] = $run->hasResult;
+            $byCard[$run->cardNumber ?? 0] = $run->hasResult;
         }
         ksort($byCard);
         self::assertSame([1 => false, 2 => true, 3 => null], $byCard);

@@ -26,6 +26,7 @@ use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Project\Entity\Project;
@@ -174,7 +175,7 @@ final class EvaluationListenersTest extends KernelTestCase
             $changed[] = $event;
         });
 
-        new EvaluateCardOnWorkRequestChanged($events, $this->trigger())(new WorkRequestChanged($this->projectId(), $cardId, Uuid::v7(), WorkRequestState::Open));
+        new EvaluateCardOnWorkRequestChanged($events, $this->trigger())(new WorkRequestChanged($this->projectId(), WorkSubject::CARD, $cardId, Uuid::v7(), WorkRequestState::Open));
 
         self::assertSame($this->ids($card), $this->sent());
         self::assertCount(1, $changed);

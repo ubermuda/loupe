@@ -11,6 +11,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Bridge\View\WorkerRunListQuery;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -77,9 +78,10 @@ class WorkerRunRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
-            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
             ->setParameter('project', $project)
             ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->orderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults(1)
@@ -136,19 +138,20 @@ class WorkerRunRepository extends ServiceEntityRepository
      * The run a report names, by the natural key a retry repeats. Null when the
      * server has not seen this report before.
      */
-    public function findOneByReportKey(Project $project, Uuid $bridgeId, Uuid $cardId, \DateTimeImmutable $startedAt): ?WorkerRun
+    public function findOneByReportKey(Project $project, Uuid $bridgeId, WorkSubject $subject, \DateTimeImmutable $startedAt): ?WorkerRun
     {
         return $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
             ->andWhere('r.bridgeId = :bridgeId')
-            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.subjectType = :subjectType AND r.subjectId = :subjectId')
             ->andWhere('r.startedAt = :startedAt')
             // The natural key is unique only among runs that carry no run key.
             ->andWhere('r.runKey IS NULL')
             ->andWhere('r.kind = :worker')
             ->setParameter('project', $project)
             ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
-            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('subjectType', $subject->type)
+            ->setParameter('subjectId', $subject->id, UuidType::NAME)
             ->setParameter('startedAt', $startedAt, Types::DATETIME_IMMUTABLE)
             ->setParameter('worker', WorkerRunKind::Worker->value)
             ->getQuery()
@@ -348,9 +351,10 @@ class WorkerRunRepository extends ServiceEntityRepository
     {
         return $this->interactive($project)
             ->addSelect('CASE WHEN r.state = :running THEN 0 ELSE 1 END AS HIDDEN openFirst')
-            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
             ->andWhere('r.sessionId = :sessionId')
             ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->setParameter('sessionId', $sessionId, UuidType::NAME)
             ->setParameter('running', WorkerRunState::Running->value)
             ->orderBy('openFirst', 'ASC')
@@ -388,9 +392,10 @@ class WorkerRunRepository extends ServiceEntityRepository
     public function findOpenInteractiveOfCardsForUpdate(Project $project, array $cardIds): array
     {
         return array_values(self::forUpdate($this->interactive($project)
-            ->andWhere('r.cardId IN (:cardIds)')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId IN (:cardIds)')
             ->andWhere('r.state = :running')
             ->setParameter('cardIds', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->setParameter('running', WorkerRunState::Running->value)
             ->orderBy('r.id', 'ASC'))
             ->getResult());
@@ -410,12 +415,13 @@ class WorkerRunRepository extends ServiceEntityRepository
         }
 
         $ids = $this->createQueryBuilder('r')
-            ->select('DISTINCT r.cardId')
+            ->select('DISTINCT r.subjectId')
             ->andWhere('r.project = :project')
-            ->andWhere('r.cardId IN (:cardIds)')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId IN (:cardIds)')
             ->andWhere('r.state IN (:openStates)')
             ->setParameter('project', $project)
             ->setParameter('cardIds', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
             ->getQuery()
             ->getSingleColumnResult();
@@ -436,10 +442,10 @@ class WorkerRunRepository extends ServiceEntityRepository
         $connection = $this->getEntityManager()->getConnection();
         /** @var list<array{experiment: string, card_id: string, last_run_at: string}> $rows */
         $rows = $connection->fetchAllAssociative(
-            'SELECT experiment, card_id, MAX(received_at) AS last_run_at
+            "SELECT experiment, subject_id AS card_id, MAX(received_at) AS last_run_at
             FROM bridge_worker_runs
-            WHERE project_id = :project AND experiment IS NOT NULL
-            GROUP BY experiment, card_id',
+            WHERE project_id = :project AND experiment IS NOT NULL AND subject_type = 'card'
+            GROUP BY experiment, subject_id",
             ['project' => ($project->id ?? throw new \LogicException('Project has no id.'))->toRfc4122()],
         );
 
@@ -469,14 +475,15 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->andWhere('r.project = :project')
             ->andWhere('r.kind = :worker')
             ->andWhere(\sprintf(
-                'r.cardId IN (SELECT e.cardId FROM %1$s e WHERE e.project = :project AND e.experiment = :experiment)'
-                .' OR r.cardId IN (SELECT pin.cardId FROM %2$s pin WHERE pin.project = :project AND pin.experiment = :experiment)',
+                'r.subjectType = :cardSubject AND (r.subjectId IN (SELECT e.subjectId FROM %1$s e WHERE e.project = :project AND e.experiment = :experiment AND e.subjectType = :cardSubject)'
+                .' OR r.subjectId IN (SELECT pin.cardId FROM %2$s pin WHERE pin.project = :project AND pin.experiment = :experiment))',
                 WorkerRun::class,
                 ExperimentPin::class,
             ))
             ->setParameter('project', $project)
             ->setParameter('worker', WorkerRunKind::Worker->value)
             ->setParameter('experiment', $experiment)
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->orderBy('r.receivedAt', 'ASC')
             ->addOrderBy('r.id', 'ASC')
             ->getQuery()
@@ -515,9 +522,10 @@ class WorkerRunRepository extends ServiceEntityRepository
     {
         return null !== $this->interactive($project)
             ->select('1')
-            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
             ->andWhere('r.state = :running')
             ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->setParameter('running', WorkerRunState::Running->value)
             ->setMaxResults(1)
             ->getQuery()
@@ -527,10 +535,11 @@ class WorkerRunRepository extends ServiceEntityRepository
     private function openInteractiveOfSession(Project $project, Uuid $cardId, Uuid $sessionId): QueryBuilder
     {
         return $this->interactive($project)
-            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
             ->andWhere('r.sessionId = :sessionId')
             ->andWhere('r.state = :running')
             ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->setParameter('sessionId', $sessionId, UuidType::NAME)
             ->setParameter('running', WorkerRunState::Running->value);
     }
@@ -571,10 +580,11 @@ class WorkerRunRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
-            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
             ->andWhere('r.sessionId IS NOT NULL')
             ->setParameter('project', $project)
             ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->orderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults(1)
@@ -589,13 +599,14 @@ class WorkerRunRepository extends ServiceEntityRepository
     public function findLikeliestOfSession(Project $project, Uuid $sessionId, Uuid $cardId): ?WorkerRun
     {
         return $this->createQueryBuilder('r')
-            ->addSelect('CASE WHEN r.cardId = :cardId THEN 0 ELSE 1 END AS HIDDEN onCardFirst')
+            ->addSelect('CASE WHEN r.subjectType = :cardSubject AND r.subjectId = :cardId THEN 0 ELSE 1 END AS HIDDEN onCardFirst')
             ->addSelect('CASE WHEN r.state IN (:openStates) THEN 0 ELSE 1 END AS HIDDEN openFirst')
             ->andWhere('r.project = :project')
             ->andWhere('r.sessionId = :sessionId')
             ->setParameter('project', $project)
             ->setParameter('sessionId', $sessionId, UuidType::NAME)
             ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 WorkerRunState::openStates(),
@@ -614,10 +625,11 @@ class WorkerRunRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
-            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
             ->andWhere('r.state IN (:openStates)')
             ->setParameter('project', $project)
             ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 WorkerRunState::openStates(),
@@ -678,7 +690,9 @@ class WorkerRunRepository extends ServiceEntityRepository
         }
 
         if (null !== $query->cardNumber) {
-            $qb->andWhere('r.cardNumber = :cardNumber')->setParameter('cardNumber', $query->cardNumber);
+            $qb->andWhere('r.subjectType = :cardSubject AND r.cardNumber = :cardNumber')
+                ->setParameter('cardSubject', WorkSubject::CARD)
+                ->setParameter('cardNumber', $query->cardNumber);
         }
 
         if (null !== $query->workKind) {
@@ -796,7 +810,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         $types = [];
         $cardFilter = '';
         if (null !== $cardIds) {
-            $cardFilter = 'AND r.card_id IN (:cards)';
+            $cardFilter = 'AND r.subject_id IN (:cards)';
             $params['cards'] = array_map(static fn (Uuid $id): string => (string) $id, $cardIds);
             $types['cards'] = ArrayParameterType::STRING;
         }
@@ -804,10 +818,10 @@ class WorkerRunRepository extends ServiceEntityRepository
         /** @var list<array{id: string, card_id: string, state: string, output: string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->executeQuery(
             <<<SQL
-                SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output
+                SELECT DISTINCT ON (r.subject_id) r.id, r.subject_id AS card_id, r.state, r.output
                 FROM bridge_worker_runs r
-                WHERE r.project_id = :project {$cardFilter}
-                ORDER BY r.card_id, r.received_at DESC, r.id DESC
+                WHERE r.project_id = :project AND r.subject_type = 'card' {$cardFilter}
+                ORDER BY r.subject_id, r.received_at DESC, r.id DESC
                 SQL,
             $params,
             $types,
@@ -833,7 +847,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         ];
         $cardFilter = '';
         if (null !== $cardId) {
-            $cardFilter = 'AND r.card_id = :card';
+            $cardFilter = 'AND r.subject_id = :card';
             $params['card'] = (string) $cardId;
         }
 
@@ -844,7 +858,7 @@ class WorkerRunRepository extends ServiceEntityRepository
             <<<SQL
                 SELECT latest.id, latest.card_id, latest.state, latest.output
                 FROM (
-                    SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output
+                    SELECT DISTINCT ON (r.subject_id) r.id, r.subject_id AS card_id, r.state, r.output
                     FROM bridge_worker_runs r
                     LEFT JOIN LATERAL (
                         SELECT s.received_at, s.sequence
@@ -853,8 +867,8 @@ class WorkerRunRepository extends ServiceEntityRepository
                         ORDER BY s.sequence DESC
                         LIMIT 1
                     ) closed ON true
-                    WHERE r.project_id = :project AND r.state IN (:outcomes) {$cardFilter}
-                    ORDER BY r.card_id, COALESCE(closed.received_at, r.received_at) DESC, closed.sequence DESC NULLS LAST, r.id DESC
+                    WHERE r.project_id = :project AND r.subject_type = 'card' AND r.state IN (:outcomes) {$cardFilter}
+                    ORDER BY r.subject_id, COALESCE(closed.received_at, r.received_at) DESC, closed.sequence DESC NULLS LAST, r.id DESC
                 ) latest
                 WHERE latest.state IN (:warnings)
                 SQL,
@@ -882,7 +896,7 @@ class WorkerRunRepository extends ServiceEntityRepository
                     ) AS partial,
                     BOOL_OR(usage_source IS NOT NULL) AS reported
                 FROM bridge_worker_runs
-                WHERE project_id = :project AND card_id = :card
+                WHERE project_id = :project AND subject_type = 'card' AND subject_id = :card
                 SQL,
             [
                 'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
@@ -914,9 +928,9 @@ class WorkerRunRepository extends ServiceEntityRepository
         }
 
         $sql = <<<'SQL'
-            SELECT card_id, COUNT(*) AS partial
+            SELECT subject_id, COUNT(*) AS partial
             FROM bridge_worker_runs
-            WHERE project_id = :project AND card_id IN (:cards)
+            WHERE project_id = :project AND subject_type = 'card' AND subject_id IN (:cards)
                 AND started_at IS NOT NULL AND usage_source IS NULL AND kind = :worker AND state NOT IN (:unfinished)
             SQL;
         $parameters = [
@@ -935,7 +949,7 @@ class WorkerRunRepository extends ServiceEntityRepository
 
         /** @var array<string, int|string> $counts */
         $counts = $this->getEntityManager()->getConnection()->executeQuery(
-            $sql.' GROUP BY card_id',
+            $sql.' GROUP BY subject_id',
             $parameters,
             ['cards' => ArrayParameterType::STRING, 'unfinished' => ArrayParameterType::STRING],
         )->fetchAllKeyValue();

@@ -38,7 +38,8 @@ final readonly class WorkerRunUsageRecorder
             $this->em->persist(new WorkerRunUsage(
                 run: $run,
                 project: $run->project,
-                cardId: $run->cardId,
+                subjectType: $run->subjectType,
+                subjectId: $run->subjectId,
                 workKind: $run->workKind,
                 model: $model->model,
                 source: $report->source,

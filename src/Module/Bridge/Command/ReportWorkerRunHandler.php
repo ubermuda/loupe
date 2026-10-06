@@ -11,6 +11,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
@@ -58,7 +59,7 @@ final readonly class ReportWorkerRunHandler
             $existing = $this->workerRuns->findOneByReportKey(
                 $project,
                 $command->bridgeId,
-                $command->cardId,
+                WorkSubject::card($command->cardId),
                 $command->startedAt,
             );
             if (null !== $existing) {
@@ -73,7 +74,8 @@ final readonly class ReportWorkerRunHandler
             $run = new WorkerRun(
                 project: $project,
                 bridgeId: $command->bridgeId,
-                cardId: $command->cardId,
+                subjectType: WorkSubject::CARD,
+                subjectId: $command->cardId,
                 cardNumber: $command->cardNumber,
                 workKind: null,
                 state: $outcome,

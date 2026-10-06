@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
@@ -98,7 +99,8 @@ final class WorkerRunListItemTest extends TestCase
         $command = new WorkerRun(
             project: new Project(new User('Alice A', 'alice@example.com', 'x'), 'My project'),
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'sync',
             state: WorkerRunState::Running,
@@ -120,7 +122,8 @@ final class WorkerRunListItemTest extends TestCase
         return new WorkerRun(
             project: new Project(new User('Alice A', 'alice@example.com', 'x'), 'My project'),
             bridgeId: null,
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'loupe:product-design',
             state: $state,
@@ -134,7 +137,8 @@ final class WorkerRunListItemTest extends TestCase
         return new WorkerRun(
             project: new Project(new User('Alice A', 'alice@example.com', 'x'), 'My project'),
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'plan',
             state: WorkerRunState::Queued,

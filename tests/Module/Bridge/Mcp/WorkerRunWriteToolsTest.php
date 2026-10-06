@@ -18,6 +18,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\McpTokenScenario;
@@ -167,7 +168,7 @@ final class WorkerRunWriteToolsTest extends KernelTestCase
 
     public function test_a_run_with_no_bridge_is_refused(): void
     {
-        $run = new WorkerRun($this->project, null, Uuid::v7(), 1, 'plan', WorkerRunState::Unfinished, runKey: Uuid::v7(), sessionId: Uuid::v4());
+        $run = new WorkerRun($this->project, null, WorkSubject::CARD, Uuid::v7(), 1, 'plan', WorkerRunState::Unfinished, runKey: Uuid::v7(), sessionId: Uuid::v4());
         $this->em()->persist($run);
         $this->em()->flush();
 
@@ -210,7 +211,7 @@ final class WorkerRunWriteToolsTest extends KernelTestCase
         $run = $this->runIn(WorkerRunState::Unfinished);
         $holds = self::getContainer()->get(CardHolds::class);
         self::assertInstanceOf(CardHolds::class, $holds);
-        $holds->hold($run->project, $run->cardId, $run->project->owner);
+        $holds->hold($run->project, $run->subjectId, $run->project->owner);
 
         self::assertSame(['card-held', 'This card is unmanaged. Select Manage again first.'], $this->resumeRefusal($run));
     }

@@ -9,6 +9,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -28,8 +29,8 @@ final readonly class ReportWorkerRunStateCommand
         public Uuid $bridgeId,
         public WorkerRunState $state,
         public \DateTimeImmutable $at,
-        public Uuid $cardId,
-        public int $cardNumber,
+        public WorkSubject $subject,
+        public ?int $cardNumber,
         public ?Uuid $workRequestId = null,
         public ?string $workKind = null,
         public ?string $ruleId = null,

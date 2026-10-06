@@ -71,7 +71,8 @@ final readonly class SettleWorkRequestHandler
                 [
                     'workRequestId' => (string) $settled->id,
                     'projectId' => (string) $settled->project->id,
-                    'cardId' => (string) $settled->cardId,
+                    'subjectType' => $settled->subjectType,
+                    'subjectId' => (string) $settled->subjectId,
                     'kind' => $settled->kind,
                     'bridgeId' => (string) $command->bridgeId,
                     'state' => $settled->state->value,

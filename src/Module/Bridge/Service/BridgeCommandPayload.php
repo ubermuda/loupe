@@ -33,7 +33,7 @@ final class BridgeCommandPayload
             'bridgeId' => (string) $command->bridgeId,
             'runKey' => null === $run->runKey ? null : (string) $run->runKey,
             'sessionId' => null === $run->sessionId ? null : (string) $run->sessionId,
-            'cardId' => (string) $run->cardId,
+            'cardId' => $run->cardId()?->toRfc4122(),
             'cardNumber' => $run->cardNumber,
             'workRequestId' => $run->workRequestId?->toRfc4122(),
             'workKind' => $run->workKind,

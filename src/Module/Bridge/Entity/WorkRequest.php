@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Entity;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -14,23 +15,24 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Work on one card that one bridge claims. The outbox carries it to the
- * bridges, and the heartbeat reply offers it again while it stays open. The
- * card id is a plain value, so this module needs nothing from the board.
+ * Work on one subject, such as a card, that one bridge claims. The outbox
+ * carries it to the bridges, and the heartbeat reply offers it again while it
+ * stays open. The subject id is a plain value, so this module needs nothing
+ * from the board.
  */
 #[ORM\Entity(repositoryClass: WorkRequestRepository::class)]
 // The heartbeat reply reads the open requests of the projects a bridge follows.
 #[ORM\Index(name: 'idx_work_requests_project_state', columns: ['project_id', 'state'])]
 #[ORM\Index(name: 'idx_work_requests_state_lease', columns: ['state', 'lease_until'])]
 // The workflow engine reads the requests of one card in every state.
-#[ORM\Index(name: 'idx_work_requests_card', columns: ['card_id'])]
+#[ORM\Index(name: 'idx_work_requests_subject', columns: ['subject_type', 'subject_id'])]
 #[ORM\Table(name: 'work_requests')]
-// One card holds one live request of a kind. The predicate is written the way
-// Postgres stores it, so migrate-diff stays quiet.
-#[ORM\UniqueConstraint(name: self::LIVE_CARD_KIND_INDEX, columns: ['card_id', 'kind'], options: ['where' => "((state)::text = ANY (ARRAY[('open'::character varying)::text, ('claimed'::character varying)::text]))"])]
+// One subject holds one live request of a kind. The predicate is written the
+// way Postgres stores it, so migrate-diff stays quiet.
+#[ORM\UniqueConstraint(name: self::LIVE_SUBJECT_KIND_INDEX, columns: ['subject_type', 'subject_id', 'kind'], options: ['where' => "((state)::text = ANY (ARRAY[('open'::character varying)::text, ('claimed'::character varying)::text]))"])]
 class WorkRequest
 {
-    public const string LIVE_CARD_KIND_INDEX = 'uniq_work_request_live_card_kind';
+    public const string LIVE_SUBJECT_KIND_INDEX = 'uniq_work_request_live_subject_kind';
 
     public const int MAX_KIND_LENGTH = 40;
 
@@ -102,11 +104,15 @@ class WorkRequest
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public Project $project,
 
-        #[ORM\Column(name: 'card_id', type: UuidType::NAME)]
-        public Uuid $cardId,
+        #[ORM\Column(name: 'subject_type', length: WorkSubject::MAX_TYPE_LENGTH)]
+        public string $subjectType,
 
-        #[ORM\Column(name: 'card_number')]
-        public int $cardNumber,
+        #[ORM\Column(name: 'subject_id', type: UuidType::NAME)]
+        public Uuid $subjectId,
+
+        /** The card number a person sees, for a card subject. A label, never an id. */
+        #[ORM\Column(name: 'card_number', nullable: true)]
+        public ?int $cardNumber,
 
         #[ORM\Column(name: 'kind', length: self::MAX_KIND_LENGTH)]
         public string $kind,
@@ -121,6 +127,17 @@ class WorkRequest
         #[ORM\Column(name: 'created_at')]
         public \DateTimeImmutable $createdAt,
     ) {
+    }
+
+    public function subject(): WorkSubject
+    {
+        return new WorkSubject($this->subjectType, $this->subjectId);
+    }
+
+    /** The card the request is about, or null when its subject is no card. */
+    public function cardId(): ?Uuid
+    {
+        return WorkSubject::CARD === $this->subjectType ? $this->subjectId : null;
     }
 
     /** Moves a claimed request to done or refused. Answers false when the request is not claimed. */
