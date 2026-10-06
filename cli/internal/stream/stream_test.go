@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // call is the expected form of one Call. A nil pointer field expects nil.
@@ -68,8 +69,8 @@ func checkCalls(t *testing.T, got []Call, want []call) {
 		if !reflect.DeepEqual(g.WaitsOn, w.waitsOn) {
 			t.Errorf("call %d: waitsOn %v, want %v", i, show(g.WaitsOn), show(w.waitsOn))
 		}
-		if !json.Valid(g.Input) {
-			t.Errorf("call %d: input %q is no JSON", i, g.Input)
+		if !json.Valid([]byte(g.FullText)) {
+			t.Errorf("call %d: full text %q is no JSON", i, g.FullText)
 		}
 	}
 }
@@ -367,4 +368,38 @@ func TestASynchronousAgentCountsWholeAsToolTime(t *testing.T) {
 		t.Fatalf("durationMs %v", show(d))
 	}
 	checkTiming(t, out.Timing, i64(5000), i64(0))
+}
+
+// A call keeps a bounded part of its input: the Bash command up to
+// maxCommand and the full text up to maxFullText. waitsOn still reads the
+// whole input, so an id past the cut still links.
+func TestACallKeepsABoundedPartOfItsInput(t *testing.T) {
+	big := strings.Repeat("é", 3<<20)
+	write, _ := json.Marshal(map[string]string{"file_path": "/work/run/a", "content": big + " bg1"})
+	bash, _ := json.Marshal(map[string]string{"command": "git status; echo " + big})
+	in := `{"type":"assistant","timestamp":"2026-10-06T10:00:00.000Z","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"sleep 9","run_in_background":true}}]}}` + "\n" +
+		`{"type":"user","timestamp":"2026-10-06T10:00:01.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"Command running in background with ID: bg1."}]}}` + "\n" +
+		`{"type":"assistant","timestamp":"2026-10-06T10:00:02.000Z","message":{"content":[{"type":"tool_use","id":"t2","name":"Write","input":` + string(write) + `}]}}` + "\n" +
+		`{"type":"assistant","timestamp":"2026-10-06T10:00:03.000Z","message":{"content":[{"type":"tool_use","id":"t3","name":"Bash","input":` + string(bash) + `}]}}` + "\n"
+	out, err := Read(strings.NewReader(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w, b := out.Calls[1], out.Calls[2]
+	if len(w.FullText) > maxFullText || !strings.HasPrefix(string(write), w.FullText) || !utf8.ValidString(w.FullText) || w.Command != "" {
+		t.Fatalf("Write keeps %d bytes of full text and command %q", len(w.FullText), w.Command)
+	}
+	if w.WaitsOn == nil || *w.WaitsOn != "bg1" {
+		t.Fatalf("Write waits on %v", show(w.WaitsOn))
+	}
+	if len(b.Command) > maxCommand || !strings.HasPrefix(b.Command, "git status; echo é") || !utf8.ValidString(b.Command) {
+		t.Fatalf("Bash keeps %d bytes of command", len(b.Command))
+	}
+	if len(b.FullText) > maxFullText {
+		t.Fatalf("Bash keeps %d bytes of full text", len(b.FullText))
+	}
+	if got := Signatures(b, nil); !reflect.DeepEqual(got, []string{"git status", "echo"}) {
+		t.Fatalf("signatures %q", got)
+	}
 }

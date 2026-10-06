@@ -28,6 +28,14 @@ const idleGap = 300 * time.Second
 // maxName bounds a tool name and a background id, in bytes.
 const maxName = 64
 
+// maxCommand bounds the Bash command a call keeps for its signatures, and
+// maxFullText the full text it keeps, which is all the server takes. Both are
+// in bytes.
+const (
+	maxCommand  = 64 << 10
+	maxFullText = 20000
+)
+
 // Call is one tool_use block. A nil pointer is a value the stream did not give.
 type Call struct {
 	// Seq numbers the calls from 1, in the order the stream shows them.
@@ -45,7 +53,10 @@ type Call struct {
 	// WaitsOn is the background id of an earlier call that this call's input
 	// names.
 	WaitsOn *string
-	Input   json.RawMessage
+	// Command is the start of a Bash call's command, and FullText the start
+	// of the raw input JSON. A call keeps no more of its input.
+	Command  string
+	FullText string
 }
 
 // Timing sums the time of a run. A nil field is unknown.
@@ -233,14 +244,31 @@ func (rd *reader) use(b block, ts time.Time, inSubagent bool) {
 	if _, seen := rd.byID[b.ID]; !seen && b.ID != "" {
 		rd.byID[b.ID] = len(rd.calls)
 	}
-	rd.ids = append(rd.ids, b.ID)
-	rd.calls = append(rd.calls, Call{
+	c := Call{
 		Seq:        len(rd.calls) + 1,
 		Tool:       cut(b.Name, maxName),
 		StartedAt:  ts,
 		InSubagent: inSubagent,
-		Input:      b.Input,
-	})
+		FullText:   cut(string(b.Input), maxFullText),
+	}
+	if c.Tool == "Bash" {
+		var input struct {
+			Command string `json:"command"`
+		}
+		_ = json.Unmarshal(b.Input, &input)
+		c.Command = cut(input.Command, maxCommand)
+	}
+	// A call can name only an id whose result it has seen, so the ids known
+	// now are all it can wait on.
+	for j := len(rd.calls) - 1; j >= 0; j-- {
+		if id := rd.calls[j].BackgroundID; id != nil && bytes.Contains(b.Input, []byte(*id)) {
+			c.WaitsOn = id
+
+			break
+		}
+	}
+	rd.ids = append(rd.ids, b.ID)
+	rd.calls = append(rd.calls, c)
 }
 
 func (rd *reader) answer(b block, ts time.Time, timed bool, agent string) {
@@ -275,15 +303,6 @@ func (rd *reader) output() Output {
 		}
 		d := max(end.Sub(c.StartedAt).Milliseconds(), 0)
 		c.DurationMs = &d
-	}
-	for i := range rd.calls {
-		for j := i - 1; j >= 0; j-- {
-			if id := rd.calls[j].BackgroundID; id != nil && bytes.Contains(rd.calls[i].Input, []byte(*id)) {
-				rd.calls[i].WaitsOn = id
-
-				break
-			}
-		}
 	}
 
 	out := Output{Result: rd.result, Calls: rd.calls}
@@ -410,15 +429,15 @@ func backgroundID(s string) *string {
 	return &id
 }
 
-// cut keeps at most n bytes of s, and never splits a rune.
+// cut keeps at most n bytes of s as valid UTF-8, and never splits a rune. It
+// copies what it keeps, so the result holds no reference to a long s.
 func cut(s string, n int) string {
-	s = strings.ToValidUTF8(s, "")
-	if len(s) <= n {
-		return s
-	}
-	for n > 0 && !utf8.RuneStart(s[n]) {
-		n--
+	if len(s) > n {
+		for n > 0 && !utf8.RuneStart(s[n]) {
+			n--
+		}
+		s = s[:n]
 	}
 
-	return s[:n]
+	return strings.Clone(strings.ToValidUTF8(s, ""))
 }

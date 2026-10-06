@@ -1,7 +1,6 @@
 package stream
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -79,14 +78,13 @@ func TestSignaturesAreBoundedAndDistinct(t *testing.T) {
 }
 
 func TestSignaturesOfACall(t *testing.T) {
-	bash := json.RawMessage(`{"command":"git status | grep x","description":"secret"}`)
-	if got := Signatures(Call{Tool: "Bash", Input: bash}, nil); !reflect.DeepEqual(got, []string{"git status", "grep"}) {
+	if got := Signatures(Call{Tool: "Bash", Command: "git status | grep x"}, nil); !reflect.DeepEqual(got, []string{"git status", "grep"}) {
 		t.Fatalf("Bash: %q", got)
 	}
-	if got := Signatures(Call{Tool: "Read", Input: json.RawMessage(`{"file_path":"/secret"}`)}, nil); !reflect.DeepEqual(got, []string{"Read"}) {
+	if got := Signatures(Call{Tool: "Read", FullText: `{"file_path":"/secret"}`}, nil); !reflect.DeepEqual(got, []string{"Read"}) {
 		t.Fatalf("Read: %q", got)
 	}
-	if got := Signatures(Call{Tool: "Bash", Input: json.RawMessage(`{}`)}, nil); got == nil || len(got) != 0 {
+	if got := Signatures(Call{Tool: "Bash"}, nil); got == nil || len(got) != 0 {
 		t.Fatalf("Bash with no command: %#v", got)
 	}
 }

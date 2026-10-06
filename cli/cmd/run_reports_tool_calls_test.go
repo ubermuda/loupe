@@ -20,7 +20,7 @@ func bashCalls(n int, command string) []stream.Call {
 	start := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	calls := make([]stream.Call, n)
 	for i := range calls {
-		calls[i] = stream.Call{Seq: i + 1, Tool: "Bash", StartedAt: start.Add(time.Duration(i) * time.Second), Input: input}
+		calls[i] = stream.Call{Seq: i + 1, Tool: "Bash", StartedAt: start.Add(time.Duration(i) * time.Second), Command: command, FullText: string(input)}
 	}
 
 	return calls

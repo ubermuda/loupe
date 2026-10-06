@@ -178,7 +178,7 @@ func toolCallRows(calls []stream.Call, site api.Site) []api.ToolCall {
 			Signatures: stream.Signatures(c, site.SubcommandPrograms),
 		}
 		if site.CollectFullText {
-			text := string(c.Input)
+			text := c.FullText
 			row.FullText = &text
 		}
 		rows = append(rows, row)

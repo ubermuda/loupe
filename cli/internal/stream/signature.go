@@ -1,7 +1,6 @@
 package stream
 
 import (
-	"encoding/json"
 	"regexp"
 	"slices"
 	"strings"
@@ -37,11 +36,7 @@ func Signatures(c Call, programs []string) []string {
 
 		return []string{c.Tool}
 	}
-	var input struct {
-		Command string `json:"command"`
-	}
-	_ = json.Unmarshal(c.Input, &input)
-	sigs := commandSignatures(input.Command, programs)
+	sigs := commandSignatures(c.Command, programs)
 	if sigs == nil {
 		return []string{}
 	}
