@@ -126,7 +126,7 @@ func (r *router) takeCommand(c api.Command, source string) {
 
 // commandAttrs names a command in a log line.
 func commandAttrs(c api.Command, source string) []any {
-	return []any{"command", c.CommandID, "kind", c.Kind, "card", c.CardNumber, "project", c.ProjectID, "rule", commandRule(c), "run_key", c.RunKey, "source", source}
+	return []any{"command", c.CommandID, "kind", c.Kind, "subject_type", c.SubjectType, "card", c.CardNumber, "project", c.ProjectID, "rule", commandRule(c), "run_key", c.RunKey, "source", source}
 }
 
 // commandRule is the rule name of the run a command names. A run of a rules:
@@ -210,7 +210,7 @@ func (r *router) stopRun(c api.Command) (state, reason string) {
 		return api.CommandRefused, noOpenRun
 	}
 	if !r.holdList {
-		r.holdCardLocked(c.CardID)
+		r.holdCardLocked(commandCard(c))
 	}
 	if r.stops == nil {
 		r.stops = map[string]bool{}
@@ -406,13 +406,13 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	if c.SessionID == "" {
 		return api.CommandRefused, noSession
 	}
-	if r.readCard != nil {
+	if r.readCard != nil && c.SubjectType == api.SubjectCard {
 		timeout := r.checkTimeout
 		if timeout <= 0 {
 			timeout = readTimeout
 		}
 		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-		_, err := r.readCard(ctx, c.ProjectID, c.CardID)
+		_, err := r.readCard(ctx, c.ProjectID, c.SubjectID)
 		cancel()
 		if err != nil {
 			return api.CommandRefused, "The bridge could not read the card: " + err.Error()
@@ -422,10 +422,8 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 		return api.CommandRefused, noTranscript
 	}
 
-	e := event.Event{
-		Type: event.CommandType, Subject: event.Subject{Type: "card", ID: c.CardID}, ProjectID: c.ProjectID,
-		CardNumber: c.CardNumber, SessionID: c.SessionID, Actor: event.ActorHuman,
-	}
+	e := commandEvent(c)
+	e.SessionID = c.SessionID
 	r.quiesce.RLock()
 	defer r.quiesce.RUnlock()
 	r.mu.Lock()
@@ -467,7 +465,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	if r.sessions == nil {
 		r.sessions = map[string]sessionCard{}
 	}
-	r.sessions[c.SessionID] = sessionCard{key: p.key, id: c.CardID, number: c.CardNumber}
+	r.sessions[c.SessionID] = sessionCard{key: p.key, id: commandCard(c), number: c.CardNumber}
 	r.seq++
 	p.seq = r.seq
 	r.queue = append(r.queue, p)
@@ -478,7 +476,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()
 	r.logDropped(dropped)
-	r.releaseHold(c.CardID)
+	r.releaseHold(commandCard(c))
 
 	return api.CommandDone, ""
 }
@@ -496,10 +494,7 @@ const (
 // the rerun waits until the hold ends. With an older server the rerun ends the
 // hold.
 func (r *router) rerunCommand(c api.Command) (state, reason string) {
-	e := event.Event{
-		Type: event.CommandType, Subject: event.Subject{Type: "card", ID: c.CardID}, ProjectID: c.ProjectID,
-		CardNumber: c.CardNumber, Actor: event.ActorHuman,
-	}
+	e := commandEvent(c)
 	key := keyFor(e)
 	r.quiesce.RLock()
 	defer r.quiesce.RUnlock()
@@ -537,7 +532,7 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()
 	r.logDropped(dropped)
-	r.releaseHold(c.CardID)
+	r.releaseHold(commandCard(c))
 
 	return api.CommandDone, ""
 }
@@ -559,9 +554,28 @@ func matchCommandWork(set *rules.Set, c api.Command, action string) (rules.Match
 func commandWork(c api.Command) api.WorkRequest {
 	return api.WorkRequest{
 		Type: event.WorkRequestType, ProjectID: c.ProjectID, Subject: api.WorkRequestSubject{Type: "work-request", ID: c.WorkRequestID},
-		WorkRequestID: c.WorkRequestID, Kind: c.WorkKind, CardID: c.CardID, CardNumber: c.CardNumber, RuleID: c.RuleID,
-		Context: c.Context,
+		WorkRequestID: c.WorkRequestID, Kind: c.WorkKind, SubjectType: c.SubjectType, SubjectID: c.SubjectID,
+		CardNumber: c.CardNumber, RuleID: c.RuleID, Context: c.Context,
 	}
+}
+
+// commandEvent is the event a person's resume or rerun runs under. Its
+// subject is the subject of the run, so the run keeps the key it had.
+func commandEvent(c api.Command) event.Event {
+	return event.Event{
+		Type: event.CommandType, Subject: event.Subject{Type: c.SubjectType, ID: c.SubjectID}, ProjectID: c.ProjectID,
+		CardNumber: c.CardNumber, Actor: event.ActorHuman,
+	}
+}
+
+// commandCard is the card of the run a command names, and "" for a run
+// about another subject.
+func commandCard(c api.Command) string {
+	if c.SubjectType != api.SubjectCard {
+		return ""
+	}
+
+	return c.SubjectID
 }
 
 // hasTranscript reports whether this machine holds the transcript of the

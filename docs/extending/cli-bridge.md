@@ -233,8 +233,7 @@ times for the one-hour cache. A model that is not in the table has a null cost,
 and web search requests have no cost.
 
 The bridge drops a usage the server would refuse, such as one with more than 20
-models, and logs `usage_dropped`. The outcome still goes out. The old report of
-a server built before run states carries no usage.
+models, and logs `usage_dropped`. The outcome still goes out.
 
 `loupe usage backfill` sends the usage of worker runs that ended before the
 bridge captured usage. It reads the `worker_started` lines of the bridge log
@@ -284,25 +283,9 @@ The bridge logs `report_folded` when Loupe answers 200 to a report the bridge
 sends for the first time. For a state report, Loupe already held that state of
 the run, so the report changed nothing.
 
-A server built before run states answers 404 with no error code on both PUT
-endpoints. So does a server with agent push switched off. On the first such
-answer, the bridge logs `run_states_unsupported` once. Until it restarts, it
-then sends each outcome to the old `POST /api/projects/{handle}/worker-runs`,
-which takes one report for each finished run. It counts every open state as
-delivered, and it sends no inventory. A report that already waits in the queue
-takes the fallback when it goes out, so none is lost on the switch.
-
-The old report carries no result status. An `unfinished`, `blocked` or
-`waiting-on-forge` run therefore reads as `succeeded` there. Nothing logs this.
-
-The old endpoint keys a run by its project, its bridge, its card and the second
-it started. Two runs of one card that start inside the same second therefore
-count as one report, and the second record is lost. A worker runs for minutes,
-so this needs a run that ends in milliseconds, which a failure to start does.
-The bridge logs `report_folded` when it happens, so the loss is on the record.
-
-A bridge built before run states sends only the old report, and a new server
-still takes it.
+Loupe answers 404 on both PUT endpoints when agent push is switched off. The
+bridge reads a 404 as a refusal, as it reads every 4xx answer other than 408
+and 429. It sends a refused report once, logs `report_failed`, and drops it.
 
 Stopping the bridge with `Ctrl-C` or `SIGTERM` kills its workers, and those runs
 are the ones only the bridge can report. An [update](#updates) kills no worker. So it gives each report one last attempt, in a window of five
@@ -666,8 +649,8 @@ when the bridge updates itself is handed over, and the new image waits for it.
 
 ## Work requests
 
-A work request is one piece of work on one card that the server offers to the
-bridges. One bridge claims it, runs it, and posts the result. The top-level
+A work request is one piece of work on one subject, such as a card, that the
+server offers to the bridges. One bridge claims it, runs it, and posts the result. The top-level
 `work:` map of `rules.yaml` says what the bridge runs for each kind of request.
 [Workflows](../using/workflows.md#kinds-of-work) lists the kinds that the
 shipped templates ask for.
@@ -687,15 +670,29 @@ work:
 The key is the kind of work. A worker entry takes `prompt`, `model`,
 `permissionMode`, `before`, `workerPool` and `variants`. A command entry takes
 `run` and `timeout`. The rule check
-refuses a field that the action does not use. Both shipped workflow templates
+refuses a field that the action does not use.
+
+A work request is about a subject. The `subject` key of an entry names the
+subject type that the entry runs, and it is `card` when you leave it out. An
+entry skips a request about another subject type. An entry about a subject
+that is no card cannot use `{cardId}` or `{cardNumber}`, and cannot open an
+interactive session.
+
+```yaml
+work:
+  analysis:
+    subject: analysis
+    prompt: Run the loupe-analysis skill for analysis {subjectId} of project {project}.
+``` Both shipped workflow templates
 request `teardown` each time a card reaches a terminal column. A `teardown`
 request that no bridge takes expires after the work timeout, and the card does
 not pause.
 
 The file needs `work:`. The bridge reports the `work-requests` capability when
 the map has an entry, and `interactive` too when an entry opens an interactive
-session. A request that needs `interactive` reaches only a bridge that reports
-it.
+session. It also reports `subject-<type>` for each subject type other than
+`card` that an entry names, such as `subject-analysis`. A request that needs a
+capability reaches only a bridge that reports it.
 
 The bridge finds the project of a request in `projects` through the project
 id. A project rename marks the work of that project dead until you fix the file
