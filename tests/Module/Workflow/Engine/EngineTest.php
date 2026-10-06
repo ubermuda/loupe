@@ -591,6 +591,29 @@ final class EngineTest extends KernelTestCase
         self::assertSame(1, $this->ruleState($card, 'fix')->fires);
     }
 
+    public function test_a_rule_pause_reads_its_until_on_the_pull_request_it_paused(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]],
+            'then' => ['pause' => ['reason' => 'red', 'until' => ['pr.checks_passed' => []]]],
+        ]]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertSame(CardPauseKind::Rule, $pause?->kind);
+
+        $base->checks = PullRequestChecks::Passed;
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame('until-met', $pause->releaseReason);
+    }
+
     public function test_a_true_rule_with_no_stored_subject_adopts_its_subject_and_fires_nothing(): void
     {
         $card = $this->boundCard([self::requestRule('fix', ['pr.checks_failed' => []], limit: 3)]);
