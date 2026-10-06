@@ -40,6 +40,11 @@ final readonly class CardPullRequests
         return $pullRequests;
     }
 
+    public function childMergedInto(Card $parent, string $baseBranch): bool
+    {
+        return $this->cardPullRequests->hasChildMergedInto($parent, $baseBranch);
+    }
+
     /**
      * The open pull request opened last, else the pull request opened last. A pull request
      * with no opening time sorts first, and the id breaks a tie.

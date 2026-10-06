@@ -185,6 +185,25 @@ class CardPullRequestRepository extends ServiceEntityRepository
         return array_map(self::cardId(...), $ids);
     }
 
+    /** Whether a child of the card links a pull request that the last forge read found merged into the branch. */
+    public function hasChildMergedInto(Card $parent, string $baseBranch): bool
+    {
+        return false !== $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1
+            FROM board_cards c
+            JOIN board_card_pull_requests link ON link.card_id = c.id
+            JOIN forge_pull_requests pr ON pr.project_id = c.project_id AND pr.forge = link.forge
+                AND pr.repository = LOWER(link.repository) AND pr.number = link.number
+            WHERE c.parent_card_id = :parent AND pr.state = :merged AND pr.base_branch = :base
+            LIMIT 1',
+            [
+                'parent' => ($parent->id ?? throw new \LogicException('A stored card has an id.'))->toRfc4122(),
+                'merged' => PullRequestState::Merged->value,
+                'base' => $baseBranch,
+            ],
+        );
+    }
+
     /**
      * The earliest opening and the latest merge of the pull requests each card links,
      * as the last forge read found them. A card with no read pull request has no key.

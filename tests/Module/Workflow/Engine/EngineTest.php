@@ -1430,6 +1430,7 @@ final class EngineTest extends KernelTestCase
                 $forgePullRequests,
                 $workRequests,
                 $this->providers(),
+                $this->service(BoardAutomation::class),
                 $this->em()->getConnection(),
             ),
             new FactFingerprint(),
