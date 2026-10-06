@@ -17,13 +17,19 @@ final class Version20261006022037 extends AbstractMigration
         return 'Drop card_id from work requests, worker runs and run usage, with the trigger that filled it';
     }
 
+    /**
+     * @contract-phase: the subject replaced card_id a release ago. The deployed image reads and writes
+     * subject_type and subject_id only, and the trigger filled card_id for the image before it.
+     */
     public function up(Schema $schema): void
     {
-        foreach (self::TABLES as $table) {
-            $this->addSql("DROP TRIGGER IF EXISTS {$table}_card_subject ON {$table}");
-            $this->addSql("ALTER TABLE {$table} DROP card_id");
-        }
+        $this->addSql('DROP TRIGGER IF EXISTS work_requests_card_subject ON work_requests');
+        $this->addSql('DROP TRIGGER IF EXISTS bridge_worker_runs_card_subject ON bridge_worker_runs');
+        $this->addSql('DROP TRIGGER IF EXISTS bridge_worker_run_usage_card_subject ON bridge_worker_run_usage');
         $this->addSql('DROP FUNCTION IF EXISTS work_card_subject()');
+        $this->addSql('ALTER TABLE work_requests DROP card_id');
+        $this->addSql('ALTER TABLE bridge_worker_runs DROP card_id');
+        $this->addSql('ALTER TABLE bridge_worker_run_usage DROP card_id');
     }
 
     #[\Override]
