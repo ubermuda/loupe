@@ -1,6 +1,6 @@
 ---
 name: loupe-board
-description: "Use when working a project board in the Loupe app through the loupe MCP, calling board_columns, card_create, card_list, card_get, card_get_history, card_update, card_run_open or card_run_close, writing a card, moving a card between columns, linking a document to a card, or linking a pull request to a card."
+description: "Use when working a project board in the Loupe app through the loupe MCP, calling board_columns, card_create, card_list, card_get, card_get_history, card_update, card_run_open, card_run_close, column_create, column_update, column_reorder, column_delete or automation_settings_update, writing a card, moving a card between columns, changing the columns, linking a document to a card, or linking a pull request to a card."
 ---
 
 # Working a Loupe board
@@ -37,8 +37,13 @@ project owner can add, rename, reorder, flag and delete those columns, so never
 assume them. A rename that changes the slug breaks every outside reference to
 the old slug. A slug you read in an earlier session can be gone.
 
-An unknown slug is refused, and the error lists the slugs the board has. No tool
-writes a column. Ask the owner when the board needs a column it does not have.
+An unknown slug is refused, and the error lists the slugs the board has.
+
+The column tools add, rename, reorder and delete columns. A column change
+reshapes the owner's board, and a rename changes the slug, which breaks every
+outside reference to the old slug. Change a column only when the owner or your
+task asks for it. Otherwise, ask the owner when the board needs a column it does
+not have.
 
 This skill names a column by its role. Match each role to a column of the board
 by its flags and its label:
@@ -66,6 +71,11 @@ When no column fits a role, leave the card where it is and tell the owner.
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
 | `card_run_open` | Record an open interactive run on a card when an interactive skill starts work on it. It can move the card in the same step. |
 | `card_run_close` | Close the interactive run of your session on a card when the session ends. |
+| `column_create` | Add a column at the end of the board. Its slug comes from the label. |
+| `column_update` | Rename a column, or set whether it is terminal. A rename changes the slug. |
+| `column_reorder` | Put the columns in a new order. Pass every slug except `backlog`. |
+| `column_delete` | Delete a column. A column that holds cards needs `targetColumn`, where the cards go. |
+| `automation_settings_update` | Turn the Automation settings of the board on or off. A setting you leave out keeps its value. |
 
 `card_get`, `card_get_history` and `card_update` take a `cardId`, which you
 read from `card_list`, `card_search` or `card_create`. They also take the card
@@ -372,7 +382,7 @@ moves the card.
 |---|---|
 | Assuming the board has `next`, `in-progress` and `done` | Each board has its own columns. Only `backlog` is always there. Call `board_columns` and use its slugs. |
 | Reusing a slug from an earlier session | A rename can change the slug. Read the columns again. |
-| Looking for a tool that adds or renames a column | No tool writes a column. Ask the project owner. |
+| Changing a column because the board lacks one | A column change reshapes the owner's board, and a rename breaks outside references. Use the column tools only when the owner or your task asks. |
 | Looking for a `card_delete` tool | There is none. Move the card to a terminal column. |
 | Carding a lesson so it is not lost | Nobody can finish it. Write it into the skill. |
 | Sending only the new URL in `pullRequestUrls` | The field replaces the whole set, so the older links go. |

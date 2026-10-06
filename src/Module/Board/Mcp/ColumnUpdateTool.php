@@ -46,7 +46,7 @@ final readonly class ColumnUpdateTool
     {
         try {
             $project = $this->subjects->requireProject();
-            $column = $this->subjects->requireColumn($project, $slug);
+            $column = $this->subjects->requireColumn($project, $slug, 'column');
 
             // The handler keeps a seeded label's key only when it gets the translated label back.
             ($this->configureColumn)(new ConfigureBoardColumnCommand(

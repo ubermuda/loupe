@@ -40,8 +40,8 @@ final readonly class ColumnDeleteTool
     {
         try {
             $project = $this->subjects->requireProject();
-            $column = $this->subjects->requireColumn($project, $slug);
-            $target = $this->subjects->optionalColumn($project, $targetColumn);
+            $column = $this->subjects->requireColumn($project, $slug, 'column');
+            $target = $this->subjects->optionalColumn($project, $targetColumn, 'column');
 
             $deleted = ($this->deleteColumn)(new DeleteBoardColumnCommand($column, CardReporter::Agent, $target));
             $view = ($this->listColumns)(new ListBoardColumnsCommand($project));

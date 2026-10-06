@@ -107,7 +107,7 @@ final class ColumnUpdateToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown status "parked"');
+        $this->expectExceptionMessage('Unknown column "parked"');
         ($this->tool)('parked', label: 'Mine now');
     }
 

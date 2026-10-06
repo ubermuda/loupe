@@ -127,8 +127,18 @@ final class ColumnDeleteToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown status "parked"');
+        $this->expectExceptionMessage('Unknown column "parked"');
         ($this->tool)('parked');
+    }
+
+    public function test_an_unknown_target_names_the_column_slugs(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('column-delete-unknown-target'));
+        ($this->createTool)('Ship it', 'Body', 'feature', status: 'next');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown column "review". Use one of: backlog, next, in-progress, done.');
+        ($this->tool)('next', targetColumn: 'review');
     }
 
     public function test_an_unbound_mcp_token_is_rejected(): void

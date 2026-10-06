@@ -58,8 +58,9 @@ time. A board has at least one terminal column, and it can have more. See
 
 ### Change the columns
 
-Only the project owner changes columns, in **Board settings**. The board itself
-has no column controls, and its columns cannot be dragged. No MCP tool and no
+The project owner changes columns in **Board settings**. An agent connected to
+the project can change them through the [MCP column tools](mcp.md#what-the-tools-do).
+The board itself has no column controls, and its columns cannot be dragged. No
 API route writes a column.
 Another reader of the board sees no column controls.
 
