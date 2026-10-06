@@ -151,6 +151,17 @@ final class MetricQueryHandlerTest extends KernelTestCase
         self::assertEquals(new MetricPoint(null, 1.0, 1), $view->series[0]->total);
     }
 
+    public function test_a_command_run_leaves_the_cost_of_its_card_known(): void
+    {
+        $card = $this->finishedCard(1, '2026-10-02 10:00:00');
+        $this->fact($card, endedAt: '2026-10-01 09:00:00', cost: 1_000_000);
+        $this->fact($card, endedAt: '2026-10-01 10:00:00', cost: null, startedAt: '2026-10-01 09:30:00', kind: 'command');
+
+        $view = $this->query(MetricUnit::Card, Metric::Cost, MetricStatistic::Sum);
+
+        self::assertSame([1.0], array_map(static fn (MetricRow $row): int|float|null => $row->value, $view->series[0]->rows));
+    }
+
     public function test_a_card_query_grouped_by_card_type_reads_the_types_from_the_board(): void
     {
         $bug = $this->finishedCard(1, '2026-10-02 10:00:00');
@@ -289,6 +300,7 @@ final class MetricQueryHandlerTest extends KernelTestCase
         ?string $workKind = 'implement',
         string $subjectType = 'card',
         ?int $cardNumber = null,
+        string $kind = 'worker',
     ): Uuid {
         $runId = Uuid::v7();
         $this->em->getConnection()->insert('bridge_worker_run_facts', [
@@ -297,7 +309,7 @@ final class MetricQueryHandlerTest extends KernelTestCase
             'subject_type' => $subjectType,
             'subject_id' => (string) $subjectId,
             'card_number' => $cardNumber,
-            'kind' => 'worker',
+            'kind' => $kind,
             'work_kind' => $workKind,
             'outcome' => $outcome,
             'started_at' => $startedAt,

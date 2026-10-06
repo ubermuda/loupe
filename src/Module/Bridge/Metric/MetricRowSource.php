@@ -10,6 +10,7 @@ use App\Module\Bridge\Entity\WorkerRunFact;
 use App\Module\Bridge\Experiment\CardOutcome;
 use App\Module\Bridge\Experiment\CardReportSourceInterface;
 use App\Module\Bridge\Repository\WorkerRunFactRepository;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Uid\Uuid;
 
@@ -152,7 +153,8 @@ final readonly class MetricRowSource
 
     /**
      * The sum over the runs of a card. A run that started with no value makes
-     * the sum unknown, and so does a run with usage and no cost or tokens.
+     * the sum unknown, and so does a run with usage and no cost or tokens. A
+     * command run has no agent, so its missing cost and tokens count as none.
      * Null when no run gives a value.
      *
      * @param list<WorkerRunFact> $facts
@@ -167,7 +169,9 @@ final readonly class MetricRowSource
         foreach ($facts as $fact) {
             $value = self::rawValue($fact, $metric);
             if (null === $value) {
-                $counts = null !== $fact->startedAt || (Metric::Duration !== $metric && null !== $fact->usageSource);
+                $counts = Metric::Duration === $metric
+                    ? null !== $fact->startedAt
+                    : WorkerRunKind::Command !== $fact->kind && (null !== $fact->startedAt || null !== $fact->usageSource);
                 if ($counts) {
                     return null;
                 }
