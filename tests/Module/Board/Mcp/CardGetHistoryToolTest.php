@@ -99,6 +99,22 @@ final class CardGetHistoryToolTest extends KernelTestCase
         self::assertSame([null, null, null, null], [$event['from'], $event['to'], $event['cause'], $event['run']]);
     }
 
+    public function test_a_pause_row_reads_its_kind_rule_and_reason(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-history-pause'));
+        $created = ($this->createTool)('Ship it', 'Body', 'feature');
+        $this->events()->record($this->card($created['cardId']), CardEventKind::Paused, CardReporter::System, null, ['kind' => 'retries', 'reason' => 'review-failed', 'ruleId' => 'fix-on-review'], new \DateTimeImmutable('+1 minute'));
+        $this->em->flush();
+
+        [$paused, $creation] = ($this->tool)($created['cardId'])['events'];
+
+        self::assertSame('paused', $paused['kind']);
+        self::assertSame('review-failed', $paused['reason']);
+        self::assertSame(['kind' => 'retries', 'ruleId' => 'fix-on-review'], $paused['pause']);
+        self::assertNull($creation['pause']);
+    }
+
     public function test_a_finished_run_passes_its_whole_detail_through(): void
     {
         $this->enableBoard();

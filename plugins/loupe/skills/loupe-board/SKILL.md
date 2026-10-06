@@ -59,7 +59,7 @@ When no column fits a role, leave the card where it is and tell the owner.
 |---|---|
 | `board_columns` | Read the columns of the board, in board order. |
 | `card_create` | Put a new card on the board. It lands in Backlog unless you pass `status`. |
-| `card_list` | Read one page of the board, with its columns. Filter by `status`, `type`, `reporter` or `parentCardId`. A terminal column reads newest completion first, and every other column reads in rank order. |
+| `card_list` | Read one page of the board, with its columns. Filter by `status`, `type`, `reporter`, `parentCardId` or `paused`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
 | `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards, the feedback items that belong to it, and its parent or its children. |
 | `card_get_history` | Read one card's history, newest first: its creation, each move with who made it and why, and each action of the automation. It pages like `card_list`. |
@@ -115,9 +115,14 @@ A row carries eight fields: `cardId`, `number`, `title`, `type`, `status`,
 Pass `parentCardId` to `card_list` to read the children of one epic. It combines
 with the other filters.
 
+Pass `paused` true to `card_list` to read the cards that a workflow pause stops,
+and false to read the others. The full card carries `pause`, which is null or the
+active pause with `pauseId`, `kind`, `reason`, `ruleId` and `since`. The
+`loupe-workers` skill says how to end a pause with `card_pause_release`.
+
 Pass `full` to get the whole card on every row, with its Markdown body, its pull
 request links, its documents, its linked cards, its feedback items, its
-parent, its lane setting, its children and its progress. A
+parent, its lane setting, its children, its progress and its pause. A
 full page is much larger than a summary page, and a whole board of full cards once overran a
 caller's context limit. Read the board as summaries, then call `card_get` for the
 one card you want.

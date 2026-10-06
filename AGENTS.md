@@ -26,7 +26,7 @@ A skill's name prefix says which side of the product you stand on. A `loupe-*` s
 | `loupe-site-review` | Acting on site-review feedback through the `loupe` MCP: `feedback_list` or `card_get`, fixing feedback, `feedback_mark_addressed` |
 | `loupe-board` | Working a project board through the `loupe` MCP: `card_create`, `card_list`, `card_get`, `card_update`, writing a card, linking a pull request |
 | `loupe-inbox` | Asking the project owner through the `loupe` MCP: `inbox_search`, `inbox_join`, `inbox_ask`, `inbox_list`, `inbox_get`, `inbox_withdraw`, ending a turn after a blocking ask |
-| `loupe-workers` | Reading worker runs and bridges, or stopping, resuming and cancelling workers through the `loupe` MCP: `worker_run_list`, `worker_run_get`, `bridge_list`, `worker_run_resume`, `worker_run_stop`, `card_hold`, `card_release`, `bridge_command_cancel`, recovering workers after an outage |
+| `loupe-workers` | Reading worker runs and bridges, or stopping, resuming and cancelling workers through the `loupe` MCP: `worker_run_list`, `worker_run_get`, `bridge_list`, `worker_run_resume`, `worker_run_stop`, `card_hold`, `card_release`, `card_pause_release`, `bridge_command_cancel`, recovering workers after an outage |
 | `product-design` | An interactive product design session with the owner through the `loupe` MCP, from a card or a one-line idea: `/loupe:product-design` |
 | `loupe-stage-product-design` | One review round on a card's product document, or a prompt that names the skill |
 | `loupe-stage-tech-design` | A card entering the Tech design column, or a prompt that names the skill: write or revise the tech design |

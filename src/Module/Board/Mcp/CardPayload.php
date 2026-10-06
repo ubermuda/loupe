@@ -9,10 +9,12 @@ use App\Module\Board\Command\RelatedCard;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardLink;
+use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
+use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
@@ -20,6 +22,7 @@ use App\Module\Board\Service\PullRequestStates;
 use App\Module\Board\Service\PullRequestStateView;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * The one shape every board tool returns a card in, so a card read by card_list
@@ -32,8 +35,9 @@ use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
  * @phpstan-type FeedbackSummary array{id: string, url: string, anchors: list<FeedbackAnchorSummary>, body: string, hasDrawing: bool, status: string, context: ?string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardRelatedCardSummary array{cardId: string, number: int, title: string, status: string, kind: string}
+ * @phpstan-type CardPauseSummary array{pauseId: string, kind: string, reason: string, ruleId: string, since: string}
  * @phpstan-type CardRefSummary array{cardId: string, number: int, title: string, status: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, automation: ?CardAutomationSummary, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, automation: ?CardAutomationSummary, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}, pause: ?CardPauseSummary}
  * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, status: string, reporter: string, parentCardId: ?string, updatedAt: string}
  */
 final readonly class CardPayload
@@ -43,6 +47,7 @@ final readonly class CardPayload
         private CardLinkRepository $cardLinks,
         private CardRepository $cards,
         private CardPullRequestStates $pullRequestStates,
+        private CardPauseRepository $cardPauses,
     ) {
     }
 
@@ -54,14 +59,16 @@ final readonly class CardPayload
      */
     public function forCard(CardView $view): array
     {
-        return $this->render($view->card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates);
+        $card = $view->card;
+
+        return $this->render($card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates, null === $card->id ? null : $this->cardPauses->findActiveForCard($card));
     }
 
     /**
      * Many cards in one read, so a board-sized list costs one comment query,
-     * one card link query, one children query, one parent query and one
-     * query for each map of the pull request states rather than one of each
-     * per card.
+     * one card link query, one children query, one parent query, one pause
+     * query and one query for each map of the pull request states rather
+     * than one of each per card.
      *
      * @param list<Card> $cards
      *
@@ -75,6 +82,7 @@ final readonly class CardPayload
         $childrenByCard = [] === $epics ? [] : $this->cards->findChildrenOfCards($epics);
         $this->cards->loadParentsOf($cards);
         $states = $this->pullRequestStates->forCards($cards);
+        $pausesByCard = $this->cardPauses->findActiveForCardIds(array_values(array_filter(array_map(static fn (Card $card): ?Uuid => $card->id, $cards))));
 
         return array_map(
             fn (Card $card): array => $this->render(
@@ -86,6 +94,7 @@ final readonly class CardPayload
                 ),
                 $childrenByCard[(string) $card->id] ?? [],
                 $states,
+                $pausesByCard[(string) $card->id] ?? null,
             ),
             $cards,
         );
@@ -127,7 +136,7 @@ final readonly class CardPayload
      *
      * @return CardSummary
      */
-    private function render(Card $card, array $links, array $relatedCards, array $children, PullRequestStates $states): array
+    private function render(Card $card, array $links, array $relatedCards, array $children, PullRequestStates $states, ?CardPause $pause): array
     {
         $automation = $states->automationOf($card);
         $progress = CardType::Epic === $card->type
@@ -194,6 +203,13 @@ final readonly class CardPayload
             'laneEnabled' => $card->laneEnabled,
             'children' => array_map(self::reference(...), $children),
             'progress' => $progress,
+            'pause' => null === $pause ? null : [
+                'pauseId' => (string) $pause->id,
+                'kind' => $pause->kind->value,
+                'reason' => $pause->reason,
+                'ruleId' => $pause->ruleId,
+                'since' => $pause->createdAt->format(\DATE_ATOM),
+            ],
         ];
     }
 

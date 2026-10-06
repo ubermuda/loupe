@@ -13,6 +13,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\RecordingAuditor;
@@ -29,7 +30,7 @@ trait CardPauseScenario
 {
     private function pauseHandler(Auditor $auditor, string $now = '2026-10-02 10:00:00'): PauseCardHandler
     {
-        return new PauseCardHandler($this->pauseRepository(), $this->em, new MockClock($now), $auditor, $this->dispatcher());
+        return new PauseCardHandler($this->pauseRepository(), $this->em, new MockClock($now), $auditor, $this->dispatcher(), $this->cardEventRepository());
     }
 
     private function releaseHandler(Auditor $auditor, string $now = '2026-10-02 11:00:00'): ReleaseCardPauseHandler
@@ -41,6 +42,14 @@ trait CardPauseScenario
     {
         $repository = self::getContainer()->get(CardPauseRepository::class);
         self::assertInstanceOf(CardPauseRepository::class, $repository);
+
+        return $repository;
+    }
+
+    private function cardEventRepository(): CardEventRepository
+    {
+        $repository = self::getContainer()->get(CardEventRepository::class);
+        self::assertInstanceOf(CardEventRepository::class, $repository);
 
         return $repository;
     }

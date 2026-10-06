@@ -17,6 +17,7 @@ use App\Module\Bridge\Mcp\WorkerRunListTool;
 use App\Module\Bridge\Mcp\WorkerRunResumeTool;
 use App\Module\Bridge\Mcp\WorkerRunStopTool;
 use App\Module\Project\Mcp\AdvertisedTools;
+use App\Module\Workflow\Mcp\CardPauseReleaseTool;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Registry;
 use Mcp\Server;
@@ -108,8 +109,8 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         self::assertIsInt($start);
 
         self::assertSame(
-            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, CardHoldTool::NAME, CardReleaseTool::NAME, BridgeCommandCancelTool::NAME],
-            \array_slice($names, $start, 8),
+            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, CardHoldTool::NAME, CardReleaseTool::NAME, CardPauseReleaseTool::NAME, BridgeCommandCancelTool::NAME],
+            \array_slice($names, $start, 9),
         );
         $close = array_search(CardRunCloseTool::NAME, $names, true);
         self::assertIsInt($close);

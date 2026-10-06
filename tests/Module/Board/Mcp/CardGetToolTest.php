@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
+use App\Module\Board\Command\PauseCardCommand;
+use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
@@ -77,6 +80,33 @@ final class CardGetToolTest extends KernelTestCase
         self::assertCount(1, $card['pullRequests']);
         self::assertSame('ubermuda/loupe', $card['pullRequests'][0]['repository']);
         self::assertSame(7, $card['pullRequests'][0]['number']);
+    }
+
+    public function test_a_card_reads_its_active_pause_and_null_once_released(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-pause'));
+        $created = ($this->createTool)('Ship it', 'Body', 'feature');
+        self::assertNull(($this->tool)($created['cardId'])['pause']);
+        $card = $this->em->find(Card::class, $created['cardId']);
+        self::assertInstanceOf(Card::class, $card);
+        $handler = self::getContainer()->get(PauseCardHandler::class);
+        self::assertInstanceOf(PauseCardHandler::class, $handler);
+        $pause = $handler(new PauseCardCommand($card, 'review-failed', 'fix-on-review', CardPauseKind::Retries));
+        self::assertNotNull($pause);
+
+        self::assertSame([
+            'pauseId' => (string) $pause->id,
+            'kind' => 'retries',
+            'reason' => 'review-failed',
+            'ruleId' => 'fix-on-review',
+            'since' => $pause->createdAt->format(\DATE_ATOM),
+        ], ($this->tool)($created['cardId'])['pause']);
+
+        $pause->release('owner-resumed', new \DateTimeImmutable());
+        $this->em->flush();
+
+        self::assertNull(($this->tool)($created['cardId'])['pause']);
     }
 
     public function test_a_card_reads_the_stored_pull_request_state_and_its_automation(): void

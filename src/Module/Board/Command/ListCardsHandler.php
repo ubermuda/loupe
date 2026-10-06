@@ -8,7 +8,7 @@ use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 
 /**
- * Reads one page of a project's board, filtered by column, type, reporter and parent.
+ * Reads one page of a project's board, filtered by column, type, reporter, parent and pause.
  *
  * It owns the whole rule, so every entry point gets the same answer: the paging
  * is clamped into range and the repository is read once.
@@ -44,6 +44,7 @@ final readonly class ListCardsHandler
             $command->type,
             $command->reporter,
             $command->parent,
+            $command->paused,
         );
 
         $total = \count($cards);

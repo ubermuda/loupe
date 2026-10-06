@@ -6,6 +6,7 @@ namespace App\Module\Board\View;
 
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\WorkerRunListItem;
@@ -54,6 +55,8 @@ final readonly class CardHistoryEntry
                 ? new self('lucide:git-compare', $event->occurredAt, $actor, new TranslatableMessage('board.card.history.synced', ['%actor%' => $actor, '%pr%' => $detail['pullRequest']]))
                 : null,
             CardEventKind::RunFinished => self::runFinished($event, $actor, $detail, $runExists),
+            CardEventKind::Paused => self::pause($event, $actor, $detail, 'lucide:circle-pause', 'board.card.history.paused'),
+            CardEventKind::PauseReleased => self::pause($event, $actor, $detail, 'lucide:circle-play', 'board.card.history.pause_released'),
         };
 
         return $entry ?? new self('lucide:history', $event->occurredAt, $actor, new TranslatableMessage('board.card.history.changed', ['%actor%' => $actor]));
@@ -124,6 +127,29 @@ final readonly class CardHistoryEntry
             $actor,
             new TranslatableMessage($key, ['%actor%' => $actor, '%pr%' => $pullRequest]),
             null === $reasonKey ? null : new TranslatableMessage('board.card.history.reason', ['%reason%' => new TranslatableMessage($reasonKey)]),
+        );
+    }
+
+    /** @param array<string, mixed> $detail */
+    private static function pause(CardEvent $event, string|TranslatableMessage $actor, array $detail, string $icon, string $key): ?self
+    {
+        $kind = \is_string($detail['kind'] ?? null) ? CardPauseKind::tryFrom($detail['kind']) : null;
+        if (null === $kind) {
+            return null;
+        }
+        $ruleId = $detail['ruleId'] ?? null;
+
+        return new self(
+            $icon,
+            $event->occurredAt,
+            $actor,
+            new TranslatableMessage($key, ['%actor%' => $actor, '%kind%' => new TranslatableMessage(match ($kind) {
+                CardPauseKind::Rule => 'board.card.history.pause_kind.rule',
+                CardPauseKind::Retries => 'board.card.history.pause_kind.retries',
+                CardPauseKind::WorkLimit => 'board.card.history.pause_kind.work_limit',
+                CardPauseKind::WorkTimeout => 'board.card.history.pause_kind.work_timeout',
+            })]),
+            \is_string($ruleId) && '' !== $ruleId ? new TranslatableMessage('board.card.history.cause.workflow_rule', ['%rule%' => $ruleId]) : null,
         );
     }
 
