@@ -121,7 +121,9 @@ func TestReadsAPlainRunWithABackgroundTaskAndAnAsyncSubagent(t *testing.T) {
 		{tool: "Agent", startedAt: "2026-10-06T16:32:35.638Z", durationMs: i64(2837), backgroundID: str("ac413ca3d11aaf481")},
 		{tool: "Bash", startedAt: "2026-10-06T16:32:36.945Z", durationMs: i64(30), isError: no(), inSubagent: true},
 	})
-	checkTiming(t, out.Timing, i64(157+24+2837), i64(0))
+	// The async Agent call holds its 2837 ms on its row, and its own result
+	// 24 ms after the call ends its share of the main session's tool time.
+	checkTiming(t, out.Timing, i64(157+24+24), i64(0))
 }
 
 func TestTheFirstOfTwoResultLinesWins(t *testing.T) {
@@ -349,4 +351,20 @@ func TestAGapThatACallCoversIsNotIdle(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A synchronous Agent call returns after its subagent's lines, so its own
+// result ends both its row and its share of the tool time.
+func TestASynchronousAgentCountsWholeAsToolTime(t *testing.T) {
+	in := `{"type":"assistant","timestamp":"2026-10-06T10:00:00.000Z","message":{"content":[{"type":"tool_use","id":"t1","name":"Agent","input":{}}]}}` + "\n" +
+		`{"type":"assistant","timestamp":"2026-10-06T10:00:02.000Z","parent_tool_use_id":"t1","message":{"content":[{"type":"text","text":"text"}]}}` + "\n" +
+		`{"type":"user","timestamp":"2026-10-06T10:00:05.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"text"}]}}` + "\n"
+	out, err := Read(strings.NewReader(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := out.Calls[0].DurationMs; d == nil || *d != 5000 {
+		t.Fatalf("durationMs %v", show(d))
+	}
+	checkTiming(t, out.Timing, i64(5000), i64(0))
 }

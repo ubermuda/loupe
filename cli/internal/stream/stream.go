@@ -295,7 +295,8 @@ func (rd *reader) output() Output {
 	return out
 }
 
-// toolTime is the length of the union of the main session's timed calls.
+// toolTime is the length of the union of the main session's timed calls,
+// each from its start to its own tool result.
 func (rd *reader) toolTime() int64 {
 	var total time.Duration
 	for _, s := range rd.busy(false) {
@@ -322,13 +323,18 @@ func (rd *reader) idleTime() int64 {
 	return total.Milliseconds()
 }
 
-// busy is the union of the timed calls, sorted and with no overlap. It holds
-// the subagents' calls when withSubagents is true.
-func (rd *reader) busy(withSubagents bool) []span {
+// busy is the union of the timed calls, sorted and with no overlap. With
+// coverage, it holds every call to its extended end. Without, it holds the
+// main session's calls to their own results, so an async agent's work does
+// not count as the main session's.
+func (rd *reader) busy(coverage bool) []span {
 	var spans []span
-	for _, c := range rd.calls {
-		if (withSubagents || !c.InSubagent) && c.DurationMs != nil {
+	for i, c := range rd.calls {
+		switch {
+		case coverage && c.DurationMs != nil:
 			spans = append(spans, span{c.StartedAt, c.StartedAt.Add(time.Duration(*c.DurationMs) * time.Millisecond)})
+		case !coverage && !c.InSubagent && c.DurationMs != nil:
+			spans = append(spans, span{c.StartedAt, later(c.StartedAt, rd.ended[i])})
 		}
 	}
 	slices.SortFunc(spans, func(a, b span) int { return a.from.Compare(b.from) })

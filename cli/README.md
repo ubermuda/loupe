@@ -778,6 +778,9 @@ flag, and whether a subagent made it. A background Bash call names its
 background id, and an async Agent call names its agent id. A later call that
 names that id waits on it. The last batch also holds the run's tool time and
 its idle time. The tool time is the time the main session spent in tool calls.
+An async Agent call counts only until its result, which comes at once, so the
+work of its subagent is not main session time. Its own row still holds the time
+to the subagent's last line.
 The idle time sums each pause longer than 300 seconds between two lines of the
 stream, less the part that a tool call covers.
 
