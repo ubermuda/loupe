@@ -18,6 +18,7 @@ final class Version20261006113020 extends AbstractMigration
     public function up(Schema $schema): void
     {
         $this->addSql('DROP INDEX uniq_bridge_command_pending_run');
+        // @contract-phase: the type only widens from 20 to 32 characters, so every kind the previous image writes still fits.
         $this->addSql('ALTER TABLE bridge_commands ALTER kind TYPE VARCHAR(32)');
         $this->addSql('CREATE UNIQUE INDEX uniq_bridge_command_pending_run ON bridge_commands (worker_run_id, bridge_id) WHERE ((state)::text = \'pending\'::text)');
     }

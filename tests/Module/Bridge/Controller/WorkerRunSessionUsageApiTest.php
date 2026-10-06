@@ -386,7 +386,7 @@ final class WorkerRunSessionUsageApiTest extends WebTestCase
     private function interactiveRun(Project $project, Uuid $session, WorkerRunState $state = WorkerRunState::Closed): WorkerRun
     {
         $em = $this->em();
-        $run = $this->seedRun($em, $project, kind: WorkerRunKind::Interactive, state: $state);
+        $run = $this->seedRun($em, $project, state: $state, kind: WorkerRunKind::Interactive);
         $run->sessionId = $session;
         if (WorkerRunState::Running === $state) {
             $run->endedAt = null;

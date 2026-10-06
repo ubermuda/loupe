@@ -182,7 +182,7 @@ final class RequestSessionUsageCollectionHandlerTest extends KernelTestCase
 
     private function closedRun(Project $project, ?Uuid $bridgeId): WorkerRun
     {
-        return $this->seedRun($this->em(), $project, bridgeId: $bridgeId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive, exitCode: null);
+        return $this->seedRun($this->em(), $project, exitCode: null, bridgeId: $bridgeId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
     }
 
     /** @param list<string> $capabilities */
