@@ -107,9 +107,10 @@ final readonly class WorkerRunFactWriter
         $params = ['ids' => array_map(static fn (Uuid $id): string => (string) $id, $runIds)];
         $types = ['ids' => ArrayParameterType::STRING];
 
-        // The lock waits for a writer that holds a run, and the upsert after it
-        // reads that writer's commit, so an older read never overwrites a newer row.
+        // The locks wait for a writer that holds a run, and the upsert after them
+        // reads that writer's commit. Projects lock first, as every run writer does.
         $this->connection->transactional(function () use ($params, $types): void {
+            $this->connection->executeQuery('SELECT id FROM projects WHERE id IN (SELECT project_id FROM bridge_worker_runs WHERE id IN (:ids)) ORDER BY id FOR KEY SHARE', $params, $types);
             $this->connection->executeQuery('SELECT id FROM bridge_worker_runs WHERE id IN (:ids) ORDER BY id FOR UPDATE', $params, $types);
             $this->connection->executeStatement(self::UPSERT_SQL, $params, $types);
         });
