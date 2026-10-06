@@ -899,7 +899,8 @@ class WorkerRunRepository extends ServiceEntityRepository
 
     /**
      * How many closed worker runs of a card started and reported no usage, and
-     * whether any run of the card reported usage. An interactive run never reports it.
+     * whether any run of the card reported usage. An interactive run with no usage
+     * never counts as partial, because its bridge reports the usage only on request.
      *
      * @return array{partial: int, reported: bool}
      */
