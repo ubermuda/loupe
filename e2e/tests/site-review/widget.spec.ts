@@ -503,36 +503,6 @@ test('epic mode files each note as a card under the epic', async ({ page }) => {
     );
 });
 
-test('with the board off the composer says so and saves nothing', async ({
-    page,
-}) => {
-    await registerUser(page);
-    // Mocked rather than switched off: this file runs in parallel, and the
-    // board flag is global to the instance.
-    await page.route(REVIEW_ROUTE, async (route) => {
-        const response = await route.fetch();
-        await route.fulfill({
-            response,
-            json: { ...(await response.json()), feedbackAvailable: false },
-        });
-    });
-    await page.goto(harnessUrl());
-    await page.getByRole('button', { name: 'Review' }).click();
-    await page
-        .locator('#lp-panel')
-        .getByRole('button', { name: 'Add note' })
-        .click();
-
-    await expect(page.locator('#lp-context')).toHaveText(
-        'Turn on the board to use site review',
-    );
-    // Read-only rather than disabled, so a draft can still be copied out.
-    const textarea = page.getByPlaceholder(/Describe the issue/);
-    await expect(textarea).toBeEnabled();
-    await expect(textarea).not.toBeEditable();
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
-});
-
 test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     page,
 }) => {

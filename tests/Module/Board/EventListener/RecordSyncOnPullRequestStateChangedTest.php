@@ -44,7 +44,6 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $this->enableBoard();
         $this->project = $this->makeProject('record-sync');
         $this->pullRequest = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
         $this->em->persist($this->pullRequest);
@@ -109,16 +108,6 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
         $this->read(from: 'synced1', to: 'synced1', syncedSha: 'synced1');
 
         self::assertCount(1, $this->cardEvents($card));
-    }
-
-    public function test_nothing_records_while_the_board_is_off(): void
-    {
-        $card = $this->linkedCard();
-        $this->disableBoard();
-
-        $this->read(from: 'approved1', to: 'synced1', syncedSha: 'synced1');
-
-        self::assertSame([], $this->cardEvents($card));
     }
 
     /** The row as apply() leaves it, and the event Forge dispatches inside the transaction of the read. */

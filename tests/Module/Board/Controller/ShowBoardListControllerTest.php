@@ -20,7 +20,6 @@ final class ShowBoardListControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'list-anonymous@example.com'));
         $em->clear();
 
@@ -33,7 +32,6 @@ final class ShowBoardListControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'list-owner@example.com'));
         $this->card($em, $project, 'Private card', 'next');
         $outsider = $this->user($em, 'list-outsider@example.com');
@@ -44,21 +42,6 @@ final class ShowBoardListControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(403);
         self::assertStringNotContainsString('Private card', (string) $client->getResponse()->getContent());
-    }
-
-    public function test_the_list_is_not_found_while_the_board_is_off(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $owner = $this->user($em, 'list-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $this->disableBoard();
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $this->listUrl($project));
-
-        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_the_list_route_does_not_write_the_session(): void
@@ -73,7 +56,6 @@ final class ShowBoardListControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'list-rows@example.com');
         $project = $this->project($em, $owner);
         $next = $this->card($em, $project, 'Next card', 'next');
@@ -96,7 +78,6 @@ final class ShowBoardListControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'list-board-page@example.com');
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'On the board', 'next');

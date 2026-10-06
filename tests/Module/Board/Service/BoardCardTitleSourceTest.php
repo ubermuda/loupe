@@ -34,7 +34,6 @@ final class BoardCardTitleSourceTest extends KernelTestCase
 
     public function test_it_returns_the_titles_of_the_projects_cards_only(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-titles');
         $other = $this->makeProject('card-titles-other');
         $first = $this->card($project, 1, 'Fix the login');
@@ -50,19 +49,8 @@ final class BoardCardTitleSourceTest extends KernelTestCase
         self::assertSame($expected, $titles);
     }
 
-    public function test_it_returns_nothing_when_the_board_is_off(): void
-    {
-        $project = $this->makeProject('card-titles-off');
-        $card = $this->card($project, 1, 'Hidden');
-        $this->disableBoard();
-
-        self::assertSame([], $this->source->titlesFor($project, [$card]));
-    }
-
     public function test_it_returns_nothing_for_no_ids(): void
     {
-        $this->enableBoard();
-
         self::assertSame([], $this->source->titlesFor($this->makeProject('card-titles-empty'), []));
     }
 

@@ -19,7 +19,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\BulkMoveBacklogCardsFormType;
 use App\Module\Board\Form\BulkMoveBacklogCardsRequest;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogPageChange;
 use App\Module\Project\Entity\Project;
@@ -53,7 +52,6 @@ final class BulkMoveBacklogCardsController extends AppController
         private readonly ListBacklogCardsHandler $listBacklogCards,
         private readonly ListBacklogPageIdsHandler $listBacklogPageIds,
         private readonly FormFactoryInterface $formFactory,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -63,8 +61,6 @@ final class BulkMoveBacklogCardsController extends AppController
         #[MapEntity(id: 'projectId')] Project $project,
         #[MapEntity(expr: 'repository.findBacklogForProjectId(projectId)')] BoardColumn $backlog,
     ): Response {
-        $this->board->requireEnabled();
-
         $listQuery = BacklogListQuery::fromQuery($request->query);
         $data = new BulkMoveBacklogCardsRequest();
         $stream = TurboBundle::STREAM_FORMAT === $request->getPreferredFormat();

@@ -35,7 +35,6 @@ final class BoardColumnControllersTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-        $this->enableBoard();
     }
 
     public function test_settings_keeps_a_refused_add_and_a_successful_add_on_the_settings_page(): void

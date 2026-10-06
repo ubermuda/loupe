@@ -11,7 +11,6 @@ use App\Module\Board\Command\AddBoardColumnHandler;
 use App\Module\Board\Form\AddBoardColumnFormType;
 use App\Module\Board\Form\AddBoardColumnRequest;
 use App\Module\Board\Security\BoardColumnVoter;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,14 +27,11 @@ final class AddBoardColumnController extends AppController
 {
     public function __construct(
         private readonly AddBoardColumnHandler $addColumn,
-        private readonly BoardAvailability $board,
     ) {
     }
 
     public function __invoke(Request $request, Project $project): Response
     {
-        $this->board->requireEnabled();
-
         $data = new AddBoardColumnRequest();
         $form = $this->createForm(AddBoardColumnFormType::class, $data);
         $form->handleRequest($request);

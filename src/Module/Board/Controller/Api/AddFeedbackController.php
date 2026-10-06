@@ -82,7 +82,7 @@ final class AddFeedbackController extends AppController
             // a translation key the widget cannot name, so it gets a stable one.
             return match ($field) {
                 'target' => $this->json(['error' => $error->errors[$field]], JsonResponse::HTTP_UNPROCESSABLE_ENTITY),
-                'board', 'deliveryId' => $this->json(['error' => $error->errors[$field]], JsonResponse::HTTP_CONFLICT),
+                'deliveryId' => $this->json(['error' => $error->errors[$field]], JsonResponse::HTTP_CONFLICT),
                 default => $this->json(['error' => 'feedback_refused'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY),
             };
         }

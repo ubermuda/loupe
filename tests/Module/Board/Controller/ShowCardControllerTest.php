@@ -29,7 +29,6 @@ final class ShowCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-pull-state@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Ship the state');
@@ -73,7 +72,6 @@ final class ShowCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-pull-outdated@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Approved before a push');
@@ -101,7 +99,6 @@ final class ShowCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-pull-no-state@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'No state yet');
@@ -125,7 +122,6 @@ final class ShowCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-automation-synced@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Stuck in a loop');
@@ -151,7 +147,6 @@ final class ShowCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-automation-cleared@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Moved back by a person');
@@ -173,7 +168,6 @@ final class ShowCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-automation-fix@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Fix requested');
@@ -196,7 +190,6 @@ final class ShowCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-sync-status@example.com');
         $project = $this->project($em, $owner);
         $em->persist(new BoardAutomationSettings($project, syncBehind: true));
@@ -244,7 +237,6 @@ final class ShowCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'card-sync-status-off@example.com');
         $project = $this->project($em, $owner);
         $em->persist(new BoardAutomationSettings($project, syncBehind: false));

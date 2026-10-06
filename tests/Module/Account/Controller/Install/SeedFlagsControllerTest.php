@@ -10,7 +10,6 @@ use App\Module\Account\Controller\Install\SeedFlagsController;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Analytics\Twig\AnalyticsScript;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Bridge\Service\BridgeCommandTtl;
 use App\Module\Bridge\Service\HeartbeatInterval;
 use App\Module\Bridge\Service\StopLadder;
@@ -68,7 +67,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(24, $flags);
+        self::assertCount(23, $flags);
         // Seeded on: the environment prerequisite holds it off until a hub is configured.
         self::assertTrue($flags[LiveUpdates::FLAG]->value);
         // Seeded on: drawing is additive, and a flag that installs off would
@@ -85,8 +84,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         self::assertFalse($flags[UpdateCheck::FLAG]->value);
         self::assertFalse($flags[DocumentHighlightTool::FLAG]->value);
         self::assertFalse($flags[ReviewInstallFlags::FLAG_MERMAID]->value);
-        // Seeded on: site review writes each note to a card on the board.
-        self::assertTrue($flags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value);
+        self::assertArrayNotHasKey('board.enabled', $flags);
         self::assertFalse($flags[InboxInstallFlags::FLAG_INBOX_ENABLED]->value);
         self::assertFalse($flags[SearchInstallFlags::FLAG_TOPBAR_ENABLED]->value);
         // Same reasoning as the update check: an install sends nothing to a

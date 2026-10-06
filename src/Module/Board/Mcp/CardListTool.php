@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Mcp;
 
-use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\ListBoardColumnsCommand;
 use App\Module\Board\Command\ListBoardColumnsHandler;
 use App\Module\Board\Command\ListCardsCommand;
 use App\Module\Board\Command\ListCardsHandler;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -22,30 +20,17 @@ use Mcp\Exception\ToolCallException;
  * @phpstan-import-type BoardColumnSummary from BoardColumnPayload
  */
 #[McpTool(name: self::NAME, description: 'List the cards on the project board. Filter by status, the slug of a column on this board. Each board has its own columns. The response lists them in columns, and board_columns lists them alone. You can also filter by type (feature, bug, security, tooling, docs, idea, epic, site-review), by reporter (human, agent, reviewer), who raised the card, or by parentCardId, which reads the children of one epic. Pass paused true to read only the cards that a workflow pause holds, or false to read only the cards with none; total and paging count the filtered set. A card is never raised by system, which names the app acting on an approval. An open column reads in board order, by position. A terminal column is where finished work goes, and it reads newest completion first, with no time window on it. Each row is a summary: cardId, number, title, type, status, reporter, parentCardId and updatedAt. Each entry of columns has slug, label, terminal and default. Pass full to get the body, the pull request and document links, the feedback items (siteReviewComments), the linked cards (relatedCards), the parent, the lane setting, the children and the progress of an epic, and the active pause as well, which is far larger. pause is null, or holds pauseId, kind (rule, retries, work-limit or work-timeout), reason, ruleId and since. With full, each pull request also carries its stored state and each card its automation object, as card_get describes. Paginated: pass page to walk further, and keep going while hasMore is true. Every card carries a number, the short label that counts from 1 inside this project. Use it to name a card to a person, and use the cardId or the number to read or change it.')]
-final readonly class CardListTool implements FlagGatedToolInterface
+final readonly class CardListTool
 {
     public const string NAME = 'card_list';
 
     public function __construct(
-        private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
         private ListCardsHandler $listCards,
         private CardPayload $payload,
         private ListBoardColumnsHandler $listColumns,
         private BoardColumnPayload $columns,
     ) {
-    }
-
-    #[\Override]
-    public function gatedToolName(): string
-    {
-        return self::NAME;
-    }
-
-    #[\Override]
-    public function requiredFlag(): string
-    {
-        return BoardInstallFlags::FLAG_BOARD_ENABLED;
     }
 
     /**
@@ -65,8 +50,6 @@ final readonly class CardListTool implements FlagGatedToolInterface
      */
     public function __invoke(?string $status = null, ?string $type = null, ?string $reporter = null, int $page = 1, int $perPage = ListCardsHandler::DEFAULT_PER_PAGE, bool $full = false, ?string $parentCardId = null, ?bool $paused = null): array
     {
-        $this->gate->requireEnabled();
-
         try {
             $project = $this->subjects->requireProject();
             $columns = ($this->listColumns)(new ListBoardColumnsCommand($project))->columns;

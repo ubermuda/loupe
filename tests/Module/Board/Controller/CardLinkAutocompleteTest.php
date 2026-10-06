@@ -27,7 +27,6 @@ final class CardLinkAutocompleteTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-search-owner@example.com');
         $project = $this->project($em, $owner);
         $other = $this->project($em, $owner, 'Other project');
@@ -53,7 +52,6 @@ final class CardLinkAutocompleteTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-number-owner@example.com');
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'First');
@@ -71,7 +69,6 @@ final class CardLinkAutocompleteTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-wildcard-owner@example.com');
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'Plain title');
@@ -88,7 +85,6 @@ final class CardLinkAutocompleteTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-page-owner@example.com');
         $project = $this->project($em, $owner);
         for ($i = 1; $i <= 21; ++$i) {
@@ -112,7 +108,6 @@ final class CardLinkAutocompleteTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-refuse-owner@example.com');
         $stranger = $this->user($em, 'link-refuse-stranger@example.com');
         $project = $this->project($em, $owner);
@@ -131,7 +126,6 @@ final class CardLinkAutocompleteTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-bare-owner@example.com');
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'Secret title');
@@ -147,7 +141,6 @@ final class CardLinkAutocompleteTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-anonymous-owner@example.com');
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'Secret title');
@@ -157,23 +150,6 @@ final class CardLinkAutocompleteTest extends WebTestCase
         $client->request(Request::METHOD_GET, $url);
 
         self::assertResponseRedirects('/login');
-    }
-
-    public function test_the_endpoint_is_absent_while_the_board_is_off(): void
-    {
-        $client = static::createClient();
-        $this->disableBoard();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $owner = $this->user($em, 'link-flag-owner@example.com');
-        $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Secret title');
-        $url = $this->url($project);
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $url);
-
-        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_a_submitted_card_must_be_a_candidate(): void

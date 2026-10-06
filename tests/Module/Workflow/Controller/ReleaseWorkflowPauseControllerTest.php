@@ -34,7 +34,6 @@ final class ReleaseWorkflowPauseControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-        $this->enableBoard();
     }
 
     public function test_the_manager_releases_a_retries_pause_and_returns_to_the_card(): void

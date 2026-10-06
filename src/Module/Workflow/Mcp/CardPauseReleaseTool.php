@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Mcp;
 
 use App\Exception\DomainErrors;
-use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Install\BoardInstallFlags;
-use App\Module\Board\Mcp\BoardFlagGate;
 use App\Module\Board\Mcp\BoardSubjectResolver;
 use App\Module\Bridge\Mcp\BridgeCommandRefusals;
 use App\Module\Bridge\Mcp\BridgeSubjectResolver;
@@ -26,29 +23,16 @@ use Symfony\Component\Uid\Uuid;
  * @phpstan-import-type CardRefusal from BridgeCommandRefusals
  */
 #[McpTool(name: self::NAME, description: 'Lift the workflow pause of a card, so the paused rule runs again with a fresh budget. The workflow pauses a card when a rule used up its retries (kind retries) or its work limit (kind work-limit), or when no bridge took its work in time (kind work-timeout). Lift a pause only when its cause is gone, for example after an outage. A pause of kind rule ends only on its own release condition, so it is refused. This tool differs from card_release, which makes a card managed again after card_hold. card_get shows the pause of a card in its pause field, and card_list with paused true lists the paused cards. Pass one of cardId or number to name the card, never both. Pass pauseId to lift that pause only, so a pause that changed since you read it is refused. The result has cardId and outcome. Outcome released also carries the kind, reason and ruleId of the pause that ended. A result with outcome refused also carries code and message. The codes are: not-found (this project has no such card, and cardId is null when number names no card), card-unmanaged (the card is unmanaged, or the workflow is off for the project), not-paused, pause-changed (the active pause is not pauseId) and kind-not-releasable.')]
-final readonly class CardPauseReleaseTool implements FlagGatedToolInterface
+final readonly class CardPauseReleaseTool
 {
     public const string NAME = 'card_pause_release';
 
     public function __construct(
-        private BoardFlagGate $gate,
         private BridgeSubjectResolver $subjects,
         private BoardSubjectResolver $boardSubjects,
         private ReleaseWorkflowPauseHandler $release,
         private BridgeCommandRefusals $refusals,
     ) {
-    }
-
-    #[\Override]
-    public function gatedToolName(): string
-    {
-        return self::NAME;
-    }
-
-    #[\Override]
-    public function requiredFlag(): string
-    {
-        return BoardInstallFlags::FLAG_BOARD_ENABLED;
     }
 
     /**
@@ -60,8 +44,6 @@ final readonly class CardPauseReleaseTool implements FlagGatedToolInterface
      */
     public function __invoke(?string $cardId = null, #[Schema(minimum: 1)] ?int $number = null, ?string $pauseId = null): array
     {
-        $this->gate->requireEnabled();
-
         try {
             $pause = null === $pauseId ? null : $this->parsePauseId($pauseId);
             $id = $this->subjects->findCardId($cardId, $number);

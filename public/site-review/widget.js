@@ -59,10 +59,6 @@
     // the API then refuses would lose the reviewer's gesture. Strokes already
     // saved render whatever this says, so switching the flag off hides no data.
     let drawingEnabled = false;
-    // Every note becomes card feedback, so it needs the board. The boot load
-    // says whether it is on, and a 409 from a save says it went off since.
-    let feedbackAvailable = true;
-    const BOARD_OFF_MESSAGE = 'Turn on the board to use site review';
     // Where notes go, kept per instance and project until the reviewer changes
     // it: `per-note` makes a card for each note, `per-review` adds every note
     // to one card, and `epic` makes a card for each note under one epic.
@@ -199,9 +195,7 @@
         comments: [],
         nextId: 1,
         // A board of its own, because the demo exists to show the flow before
-        // anyone signs up, and refusing the picker would demonstrate the one
-        // thing the page is not selling. board.enabled never reaches here: the
-        // demo swaps the transport out entirely and calls no server.
+        // anyone signs up. The demo swaps the transport out and calls no server.
         cards: [
             {
                 cardId: 'demo-card-1',
@@ -324,7 +318,6 @@
             );
             return {
                 projectId: 'demo',
-                feedbackAvailable: true,
                 context: named ? demoLabel(named) : null,
                 // The demo has no instance behind it, so it shows the whole widget.
                 drawingEnabled: true,
@@ -590,7 +583,6 @@
             if (generation !== refreshGeneration) return;
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
-            feedbackAvailable = false !== payload.feedbackAvailable;
             const named = payload.context || null;
             if (asked && asked === bootMarker()) {
                 if (lock) {
@@ -599,11 +591,9 @@
                     lock.url = named ? named.url : null;
                 } else if (named) {
                     storedTarget = { ...storedTarget, ...named };
-                } else if (feedbackAvailable) {
+                } else {
                     // Deleted, closed, another project's, or not an epic: the
-                    // save would refuse it, so the reviewer chooses again. With
-                    // the board off every card reads as null, and that says
-                    // nothing about the card.
+                    // save would refuse it, so the reviewer chooses again.
                     storedTarget = null;
                     writeStoredTarget(null);
                 }
@@ -2561,7 +2551,6 @@
         if (error && error.code === 'widget_outdated') {
             return 'Reload the page to update the review widget.';
         }
-        if (error && error.code === 'board_disabled') return BOARD_OFF_MESSAGE;
         if (error && /^target_/.test(error.code || '')) {
             return 'That card is closed or gone. Choose where your notes go, then save again.';
         }
@@ -2647,17 +2636,10 @@
         const newNote = state.composing && state.editId == null;
         // No stored mode means the reviewer has not chosen yet, so the modes
         // are on screen before the first note rather than after a failed save.
-        const showPicker =
-            newNote &&
-            feedbackAvailable &&
-            !lock &&
-            (state.picking || !storedTarget);
+        const showPicker = newNote && !lock && (state.picking || !storedTarget);
         contextNode.style.display = newNote ? 'flex' : 'none';
         pickerNode.style.display = showPicker ? 'block' : 'none';
         if (showPicker) renderPickerMode();
-        // Read-only rather than disabled, so a draft typed before the board
-        // went off can still be selected and copied out.
-        textareaNode.readOnly = newNote && !feedbackAvailable;
         // A per-note save makes a card nobody chose, so the panel names it
         // and links to it until the next note starts.
         const lastCard = state.composing ? null : state.lastCard;
@@ -2691,8 +2673,7 @@
                 contextNode.appendChild(line);
             };
             const target = activeTarget();
-            if (!feedbackAvailable) say(BOARD_OFF_MESSAGE, true);
-            else if (lock && lock.state === 'broken') {
+            if (lock && lock.state === 'broken') {
                 say(
                     'This preview’s card is closed or gone, so notes cannot be saved here.',
                     true,
@@ -2733,9 +2714,7 @@
         composerNode.style.opacity = state.composing ? '1' : '0';
         composerNode.style.pointerEvents = state.composing ? 'auto' : 'none';
         // The save is the composer's own action, so its progress belongs on the Save button.
-        saveBtn.disabled =
-            state.saving ||
-            (newNote && (!feedbackAvailable || !activeTarget()));
+        saveBtn.disabled = state.saving || (newNote && !activeTarget());
         saveBtn.innerHTML = state.saving
             ? `<span class="lp-spin"></span>Saving…`
             : 'Save';
@@ -3217,7 +3196,7 @@
     };
     // Where notes go is the first choice of a review, so a start that would
     // pick or draw opens the composer and its mode picker instead.
-    const needsMode = () => !lock && feedbackAvailable && !storedTarget;
+    const needsMode = () => !lock && !storedTarget;
     const askModeFirst = () => {
         if (!needsMode()) return false;
         if (state.composing && state.editId == null) {
@@ -3730,12 +3709,7 @@
             }
             if (!current()) return;
             pickerCards = [];
-            // 404 is the board switched off, which is a configuration answer
-            // rather than a failure, so it reads differently from a broken call.
-            pickerError =
-                error && error.status === 404
-                    ? 'This instance has no board.'
-                    : 'Could not load cards.';
+            pickerError = 'Could not load cards.';
         }
         pickerBusy = false;
         renderPicker();
@@ -3779,10 +3753,7 @@
 
                 return;
             }
-            pickerError =
-                error && error.status === 404
-                    ? 'This instance has no board.'
-                    : 'Could not create the card.';
+            pickerError = 'Could not create the card.';
         }
         pickerCreating = false;
         renderPicker();
@@ -3845,10 +3816,9 @@
         ).join('');
         return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     };
-    // A save refused for its target or for the board says the widget's view
-    // is stale. The draft stays in the composer, so nothing is lost.
+    // A save refused for its target says the widget's view is stale. The
+    // draft stays in the composer, so nothing is lost.
     const forgetRefusedTarget = (error) => {
-        if (error && error.code === 'board_disabled') feedbackAvailable = false;
         if (!error || !/^target_/.test(error.code || '')) return;
         if (lock) {
             lock.state = 'broken';
@@ -3880,10 +3850,8 @@
                 });
                 target.body = body;
             } else {
-                // Read after the boot load, which may have refused the stored
-                // card or found the board switched off.
+                // Read after the boot load, which may have refused the stored card.
                 const destination = activeTarget();
-                if (!feedbackAvailable) throw new Error(BOARD_OFF_MESSAGE);
                 if (!destination) {
                     throw new Error('Choose where your notes go first.');
                 }

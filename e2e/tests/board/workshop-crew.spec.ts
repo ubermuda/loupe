@@ -6,6 +6,9 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
+// Board pages run near the default budget beside three other workers.
+test.slow();
+
 test('Workshop shows reported connections and opens the matching details', async ({
     page,
 }, testInfo) => {

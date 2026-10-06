@@ -7,7 +7,6 @@ namespace App\Tests\Outbox\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
 use App\Session\ReadOnlyAwareSessionHandler;
@@ -17,7 +16,6 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ActivityPageTest extends WebTestCase
 {
@@ -59,7 +57,6 @@ final class ActivityPageTest extends WebTestCase
     {
         $client = static::createClient();
         $em = $this->em();
-        $this->setBoardEnabled(true);
         $owner = $this->user($em, 'activity-links@example.com');
         $project = new Project($owner, 'Activity links');
         $other = new Project($owner, 'Other project');
@@ -97,18 +94,12 @@ final class ActivityPageTest extends WebTestCase
         self::assertStringNotContainsString((string) $foreign->id, $crawler->html());
         $client->click($link->link());
         self::assertResponseIsSuccessful();
-        $this->setBoardEnabled(false);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/activity');
-        self::assertResponseIsSuccessful();
-        self::assertCount(8, $crawler->filter('[data-activity-event-id]'));
-        self::assertCount(0, $crawler->filter('[data-activity-work-link]'));
     }
 
     public function test_a_card_move_names_its_columns_in_the_subject(): void
     {
         $client = static::createClient();
         $em = $this->em();
-        $this->setBoardEnabled(true);
         $owner = $this->user($em, 'activity-move@example.com');
         $project = new Project($owner, 'Moves');
         $from = new BoardColumn($project, 'Tech design', 'tech-design', 0);
@@ -424,12 +415,6 @@ final class ActivityPageTest extends WebTestCase
         $em->persist($user);
 
         return $user;
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
     }
 
     private function chip(Crawler $crawler, OutboxEvent $event): string

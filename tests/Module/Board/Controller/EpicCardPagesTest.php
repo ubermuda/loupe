@@ -23,7 +23,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-page-children@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
@@ -52,7 +51,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-page-order@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Ordered epic'), CardType::Epic);
@@ -83,7 +81,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-page-empty@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Lonely epic'), CardType::Epic);
@@ -102,7 +99,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-page-parent@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Parent epic'), CardType::Epic);
@@ -126,7 +122,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-lane-toggle@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Toggled epic'), CardType::Epic);
@@ -151,7 +146,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-lane-drawer@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Drawer epic'), CardType::Epic);
@@ -169,7 +163,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-lane-board@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Board epic'), CardType::Epic);
@@ -186,7 +179,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-lane-owner@example.com');
         $stranger = $this->user($em, 'epic-lane-stranger@example.com');
         $project = $this->project($em, $owner);
@@ -204,7 +196,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-lane-forged@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Forged epic'), CardType::Epic);
@@ -223,7 +214,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-lane-feature@example.com');
         $project = $this->project($em, $owner);
         $feature = $this->card($em, $project, 'Plain feature');
@@ -242,7 +232,6 @@ final class EpicCardPagesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'epic-list-parent@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Listed epic', 'in-progress'), CardType::Epic);
