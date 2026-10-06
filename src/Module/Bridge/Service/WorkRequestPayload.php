@@ -27,10 +27,12 @@ final class WorkRequestPayload
             'projectId' => (string) $request->project->id,
             'subject' => ['type' => 'work-request', 'id' => (string) $request->id],
             'workRequestId' => (string) $request->id,
+            'subjectType' => $request->subjectType,
+            'subjectId' => $request->subjectId->toRfc4122(),
             'kind' => $request->kind,
             'capability' => $request->capability,
             'state' => $request->state->value,
-            'cardId' => $request->cardId()?->toRfc4122(),
+            // A label a person reads, for a card subject alone. The bridge never reads a card from it.
             'cardNumber' => $request->cardNumber,
             'ruleId' => $request->ruleId,
             'createdAt' => $request->createdAt->format(\DateTimeInterface::ATOM),

@@ -66,10 +66,11 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             'projectId' => (string) $project->id,
             'subject' => ['type' => 'work-request', 'id' => (string) $request->id],
             'workRequestId' => (string) $request->id,
+            'subjectType' => 'card',
+            'subjectId' => (string) $cardId,
             'kind' => 'implement',
             'capability' => 'interactive',
             'state' => 'open',
-            'cardId' => (string) $cardId,
             'cardNumber' => 7,
             'ruleId' => 'implement-on-entry',
             'createdAt' => self::NOW,
@@ -366,8 +367,10 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertNull($request->cardId());
         $payloads = $this->outboxPayloads();
         self::assertCount(2, $payloads);
-        self::assertArrayHasKey('cardId', $payloads[1]);
-        self::assertNull($payloads[1]['cardId']);
+        self::assertSame('analysis', $payloads[1]['subjectType']);
+        self::assertSame((string) $subjectId, $payloads[1]['subjectId']);
+        self::assertNull($payloads[1]['cardNumber']);
+        self::assertArrayNotHasKey('cardId', $payloads[1]);
     }
 
     public function test_a_subject_type_that_no_module_handles_is_refused(): void

@@ -135,30 +135,6 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
-     * The run a report names, by the natural key a retry repeats. Null when the
-     * server has not seen this report before.
-     */
-    public function findOneByReportKey(Project $project, Uuid $bridgeId, WorkSubject $subject, \DateTimeImmutable $startedAt): ?WorkerRun
-    {
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.project = :project')
-            ->andWhere('r.bridgeId = :bridgeId')
-            ->andWhere('r.subjectType = :subjectType AND r.subjectId = :subjectId')
-            ->andWhere('r.startedAt = :startedAt')
-            // The natural key is unique only among runs that carry no run key.
-            ->andWhere('r.runKey IS NULL')
-            ->andWhere('r.kind = :worker')
-            ->setParameter('project', $project)
-            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
-            ->setParameter('subjectType', $subject->type)
-            ->setParameter('subjectId', $subject->id, UuidType::NAME)
-            ->setParameter('startedAt', $startedAt, Types::DATETIME_IMMUTABLE)
-            ->setParameter('worker', WorkerRunKind::Worker->value)
-            ->getQuery()
-            ->getOneOrNullResult();
-    }
-
-    /**
      * The run the bridge gave this key, locked until the transaction ends, so no
      * inventory or timeout sweep writes the state between the read and the write.
      */

@@ -22,6 +22,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -69,7 +70,8 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'bridgeId' => (string) $run->bridgeId,
             'runKey' => (string) $run->runKey,
             'sessionId' => (string) $run->sessionId,
-            'cardId' => (string) $run->subjectId,
+            'subjectType' => 'card',
+            'subjectId' => (string) $run->subjectId,
             'cardNumber' => 7,
             'workRequestId' => null,
             'workKind' => 'plan',
@@ -101,6 +103,20 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         self::assertNull($payload['workRequestId']);
         self::assertNull($payload['ruleId']);
         self::assertSame('stop-run', $payload['kind']);
+    }
+
+    public function test_the_payload_names_a_subject_that_is_no_card_with_no_card_number(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('command-other-subject', subjectType: 'analysis');
+
+        $this->request($run, BridgeCommandKind::StopRun, $owner);
+
+        $payload = $this->outboxPayloads()[0];
+        self::assertSame('analysis', $payload['subjectType']);
+        self::assertSame((string) $run->subjectId, $payload['subjectId']);
+        self::assertNull($payload['cardNumber']);
+        self::assertArrayNotHasKey('cardId', $payload);
     }
 
     public function test_the_lifetime_follows_the_flag(): void
@@ -437,6 +453,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         WorkerRunKind $kind = WorkerRunKind::Worker,
         array $capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND],
         ?WorkRequestContext $context = null,
+        string $subjectType = WorkSubject::CARD,
     ): array {
         $em = $this->em();
         $owner = $this->user($em, $name.'@example.com');
@@ -458,7 +475,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             $em->flush();
             $workRequestId = $request->id;
         }
-        $run = $this->seedRun($em, $project, cardNumber: 7, bridgeId: $bridge->id, cardId: $cardId, state: $state, runKey: $runKey, kind: $kind, workRequestId: $workRequestId);
+        $run = $this->seedRun($em, $project, cardNumber: 7, bridgeId: $bridge->id, cardId: $cardId, state: $state, runKey: $runKey, kind: $kind, workRequestId: $workRequestId, subjectType: $subjectType);
 
         return [$owner, $run];
     }

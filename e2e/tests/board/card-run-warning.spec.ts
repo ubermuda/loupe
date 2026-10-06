@@ -90,7 +90,8 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
                 data: {
                     bridgeId,
                     at: '2026-09-23T10:00:00+00:00',
-                    cardId,
+                    subjectType: 'card',
+                    subjectId: cardId,
                     cardNumber: 1,
                     workKind: 'implement',
                     sessionId: crypto.randomUUID(),

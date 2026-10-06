@@ -49,6 +49,14 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_interactive_open', columns: ['project_id', 'subject_type', 'subject_id', 'session_id'], options: ['where' => "(((kind)::text = 'interactive'::text) AND ((state)::text = 'running'::text))"])]
 class WorkerRun implements ProjectScopedSubject
 {
+    /** A process killed by a signal reports a negative code, so the range is symmetric around the 0 to 255 of a normal exit. */
+    public const int MIN_EXIT_CODE = -255;
+
+    public const int MAX_EXIT_CODE = 255;
+
+    /** The card number column is a 32-bit integer, and Postgres refuses more at the flush. */
+    public const int MAX_CARD_NUMBER = 2147483647;
+
     /** Mirrors the cap the bridge applies to a worker's output before it reports. */
     public const int MAX_OUTPUT_LENGTH = 4000;
 

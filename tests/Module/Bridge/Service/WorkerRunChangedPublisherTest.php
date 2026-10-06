@@ -21,8 +21,6 @@ use App\Module\Bridge\Command\ReportBridgeRunsCommand;
 use App\Module\Bridge\Command\ReportBridgeRunsHandler;
 use App\Module\Bridge\Command\ReportSessionUsageCommand;
 use App\Module\Bridge\Command\ReportSessionUsageHandler;
-use App\Module\Bridge\Command\ReportWorkerRunCommand;
-use App\Module\Bridge\Command\ReportWorkerRunHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateCommand;
 use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateResult;
@@ -119,31 +117,6 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $this->assertPublishedAtTerminate(0);
     }
 
-    public function test_a_finished_run_report_publishes_once(): void
-    {
-        $command = new ReportWorkerRunCommand(
-            owner: $this->owner,
-            handle: (string) $this->project->id,
-            bridgeId: Uuid::v7(),
-            sessionId: Uuid::v4(),
-            cardId: Uuid::v7(),
-            cardNumber: 3,
-            startedAt: new \DateTimeImmutable('2026-09-23 10:00:00'),
-            endedAt: new \DateTimeImmutable('2026-09-23 10:01:00'),
-            exitCode: 0,
-            hasResult: true,
-            failureReason: null,
-            output: '',
-        );
-        $handler = $this->service(ReportWorkerRunHandler::class);
-
-        $handler($command);
-        $this->assertPublishedAtTerminate(1);
-        // A retry of the same report writes nothing.
-        self::assertFalse($handler($command)->created);
-        $this->assertPublishedAtTerminate(1);
-    }
-
     public function test_a_card_warning_change_signals_the_board_with_the_card(): void
     {
         $cardId = Uuid::v7();
@@ -200,29 +173,6 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
 
         $this->assertPublishedAtTerminate(2);
         self::assertSame([(string) $cardId], $this->warnedCards());
-    }
-
-    public function test_a_finished_run_report_after_a_warning_signals_the_card_once(): void
-    {
-        $cardId = Uuid::v7();
-        $this->seedWarning($cardId, WorkerRunState::GaveUp);
-        $command = $this->finishedRun($cardId);
-        $handler = $this->service(ReportWorkerRunHandler::class);
-
-        $handler($command);
-        $this->assertPublishedAtTerminate(2);
-        self::assertSame([(string) $cardId], $this->warnedCards());
-
-        self::assertFalse($handler($command)->created);
-        $this->assertPublishedAtTerminate(2);
-    }
-
-    public function test_a_finished_run_report_with_no_warning_before_signals_no_card(): void
-    {
-        $this->service(ReportWorkerRunHandler::class)($this->finishedRun(Uuid::v7()));
-
-        $this->assertPublishedAtTerminate(1);
-        self::assertSame([], $this->warnedCards());
     }
 
     public function test_a_launch_failure_after_a_warning_signals_the_card_once(): void
@@ -490,24 +440,6 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $this->em()->flush();
 
         return $this->seedRun($this->em(), $this->project, bridgeId: $bridge->id, state: WorkerRunState::Running);
-    }
-
-    private function finishedRun(Uuid $cardId): ReportWorkerRunCommand
-    {
-        return new ReportWorkerRunCommand(
-            owner: $this->owner,
-            handle: (string) $this->project->id,
-            bridgeId: Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506180'),
-            sessionId: Uuid::v4(),
-            cardId: $cardId,
-            cardNumber: 3,
-            startedAt: new \DateTimeImmutable('2026-09-23 11:30:00'),
-            endedAt: new \DateTimeImmutable('2026-09-23 11:31:00'),
-            exitCode: 0,
-            hasResult: true,
-            failureReason: null,
-            output: '',
-        );
     }
 
     /** Received before the clock of the test, so a later report is the latest outcome. */

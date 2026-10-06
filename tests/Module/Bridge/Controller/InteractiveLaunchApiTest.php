@@ -233,8 +233,10 @@ final class InteractiveLaunchApiTest extends WebTestCase
         yield 'a missing moment' => [['at' => null]];
         yield 'a missing bridge id' => [['bridgeId' => null]];
         yield 'a bridge id that is not a uuid' => [['bridgeId' => 'nope']];
-        yield 'a missing card id' => [['cardId' => null]];
-        yield 'a card id that is not a uuid' => [['cardId' => 'nope']];
+        yield 'a missing subject type' => [['subjectType' => null]];
+        yield 'a subject that is no card, because an interactive run is about a card' => [['subjectType' => 'analysis']];
+        yield 'a missing subject id' => [['subjectId' => null]];
+        yield 'a subject id that is not a uuid' => [['subjectId' => 'nope']];
         yield 'a missing card number' => [['cardNumber' => null]];
         yield 'a card number of zero' => [['cardNumber' => 0]];
         yield 'a blank work kind' => [['workKind' => ' ']];
@@ -314,7 +316,8 @@ final class InteractiveLaunchApiTest extends WebTestCase
     {
         return array_merge([
             'bridgeId' => self::BRIDGE_ID,
-            'cardId' => self::CARD_ID,
+            'subjectType' => 'card',
+            'subjectId' => self::CARD_ID,
             'cardNumber' => 1,
             'workKind' => 'design',
             'state' => 'running',
