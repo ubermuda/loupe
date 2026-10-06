@@ -62,9 +62,11 @@ Give each open decision its own section, with a stable ID in the heading.
 
 Keep the reasons in the table. The fence holds only its question and the one-line options (`decision-fences.md`). End the recommended option with its confidence marker, such as `(recommended: moderate)`, so Loupe shows a badge on it.
 
-Each entry of the example shows the input and what the user or the system sees. Prefer a short code block, a before and after, or a list of steps to prose. Keep each entry near ten lines. The order is the table, the example, the How list, then the fence. Put the example and the How list above the fence, because a fence takes only one question paragraph. When a revision answers the decision, keep the example and the How list in its section above the `**Decided:**` line.
+Each entry of the example shows the input and what the user or the system sees. Prefer a short code block, a before and after, or a list of steps to prose. Keep each entry near ten lines. The order is the table, the example, the How list of a tech design, then the fence. Put them above the fence, because a fence takes only one question paragraph. When a revision answers the decision, keep them in the section above the `**Decided:**` line.
 
 A Decisions log entry of a product document stays one line with its reason. A Decided entry of a tech design follows `../../loupe-stage-tech-design/SKILL.md`. Neither gets an example or a How list. Write both in product terms.
+
+The example below is a tech design decision. In a product document, leave out its How list and its "Checked in the code" line.
 
 ```markdown
 ## D1: Who may delete a tag

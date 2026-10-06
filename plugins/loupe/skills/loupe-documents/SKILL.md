@@ -276,7 +276,7 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
   the text it covers (rule 15).
 - Writing a decision in the terms of the code: class names, fields, and
   "(checked, File.php)" on each sentence. The owner decides with no file open.
-  Write the question and the options in product terms, and put the code in the
-  How list (rule 15).
+  Write the question and the options in product terms. A tech design puts the
+  code in the How list (rule 15).
 - Citing a rule ID of a skill, such as C2, with no meaning and no source. The
   reviewer does not have the skill open (rule 16).
