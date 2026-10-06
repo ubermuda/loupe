@@ -47,6 +47,10 @@ class WorkflowRuleState
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $lastRefusalAt = null;
 
+    /** The Forge pull request the rule acted on while it was true. No foreign key, as the row may go. */
+    #[ORM\Column(type: UuidType::NAME, nullable: true)]
+    public ?Uuid $subjectPullRequestId = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Card::class)]
@@ -73,5 +77,6 @@ class WorkflowRuleState
         $this->dueAt = null;
         $this->lastRefusal = null;
         $this->lastRefusalAt = null;
+        $this->subjectPullRequestId = null;
     }
 }

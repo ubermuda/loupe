@@ -16,6 +16,7 @@ use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -322,6 +323,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             $this->service(TranslatorInterface::class),
             new MockClock('2026-10-02 12:00'),
             $logger,
+            new RuleSubject(),
         );
     }
 
