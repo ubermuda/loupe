@@ -6027,6 +6027,14 @@
             <trans-unit id="bridge.worker_runs.details.result_status"><source>bridge.worker_runs.details.result_status</source><target>Result status</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.result_reason"><source>bridge.worker_runs.details.result_reason</source><target>Reason</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.resume_skipped"><source>bridge.worker_runs.details.resume_skipped</source><target>Resume skipped</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.metrics"><source>bridge.worker_runs.details.metrics</source><target>Metrics</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.metric.cost"><source>bridge.worker_runs.details.metric.cost</source><target>Cost</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.metric.unknown"><source>bridge.worker_runs.details.metric.unknown</source><target>unknown</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.metric.input_tokens"><source>bridge.worker_runs.details.metric.input_tokens</source><target>Input tokens</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.metric.output_tokens"><source>bridge.worker_runs.details.metric.output_tokens</source><target>Output tokens</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.metric.cache_read_tokens"><source>bridge.worker_runs.details.metric.cache_read_tokens</source><target>Cache read tokens</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.metric.cache_write_tokens"><source>bridge.worker_runs.details.metric.cache_write_tokens</source><target>Cache write tokens</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.metric.model"><source>bridge.worker_runs.details.metric.model</source><target>Model</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.result_fields"><source>bridge.worker_runs.details.result_fields</source><target>Result fields</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.unreported"><source>bridge.worker_runs.details.unreported</source><target>The bridge does not report the agent identity or the triggering event.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.timeline"><source>bridge.worker_runs.details.timeline</source><target>Reported timeline</target></trans-unit>
