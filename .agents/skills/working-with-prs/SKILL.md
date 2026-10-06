@@ -73,8 +73,9 @@ covered on the body's gate line, so "Codex: clean" never claims more than it did
 
 e2e is not in the local gate. The required checks `e2e-chromium`,
 `e2e-chromium-2` and `e2e-rest` on the PR gate the suite. They run the same
-`just e2e` on disposable runners. Push, then read those checks. Fix every failure it reports, including pre-existing ones. Do not
-run the full suite locally before you open the PR. See "Running the suite
+`just e2e` on disposable runners. Push, then read those checks. Fix every
+failure they report, including pre-existing ones. Do not run the full suite
+locally before you open the PR. See "Running the suite
 locally is debugging, not gating" for the cases that still want a local run.
 
 If `mcp__codex-cli__review` is not available, STOP and tell the owner. A missing
