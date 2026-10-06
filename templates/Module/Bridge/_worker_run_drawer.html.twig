@@ -46,7 +46,7 @@
             {% if run.resumeSkipped is not null %}<div data-worker-run-resume-skipped><dt>{{ 'bridge.worker_runs.details.resume_skipped'|trans }}</dt><dd><code>{{ run.resumeSkipped }}</code></dd></div>{% endif %}
         </dl>
         {% set fact = item.fact %}
-        {% if fact is not null %}
+        {% if fact is not null and not item.command %}
         <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.details.metrics'|trans }}</h3>
         <dl class="lp-run-drawer__metadata" data-worker-run-metrics>
             <div><dt>{{ 'bridge.worker_runs.details.metric.cost'|trans }}</dt><dd>{{ fact.costMicroUsd is null ? 'bridge.worker_runs.details.metric.unknown'|trans : (fact.costMicroUsd / 1000000)|format_currency('USD') }}</dd></div>

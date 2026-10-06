@@ -803,7 +803,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringStartsWith('running for ', trim($openRow->text()));
     }
 
-    /** A command run has no agent, so its row says so and its drawer shows no session. */
+    /** A command run has no agent, so its row says so and its drawer shows no session and no metrics. */
     public function test_a_command_run_shows_the_command_tag_and_no_session(): void
     {
         $client = static::createClient();
@@ -829,6 +829,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringNotContainsString('Session', $row->filter('.lp-run-drawer__metadata')->text());
         self::assertStringNotContainsString('bridge does not report', $row->filter('dialog')->text());
         self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$workerId.'"] [data-worker-run-command]'));
+        self::assertCount(1, $crawler->filter('[data-worker-run-id="'.$workerId.'"] [data-worker-run-metrics]'));
+        self::assertCount(0, $row->filter('[data-worker-run-metrics]'));
     }
 
     public function test_a_failed_command_run_offers_to_run_again(): void
