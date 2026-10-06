@@ -80,6 +80,33 @@ final class ColumnUpdateToolTest extends KernelTestCase
         ($this->tool)('next', label: 'Done');
     }
 
+    public function test_a_label_that_is_a_translation_key_is_refused(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('column-update-reserved'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('label: The app uses this text internally. Choose another label.');
+        ($this->tool)('next', label: 'board.column.error.gone');
+    }
+
+    public function test_a_label_with_no_letter_or_digit_is_refused(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('column-update-slug-empty'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('label: A column label needs at least one letter or digit, because the slug comes from the label.');
+        ($this->tool)('next', label: '!!!');
+    }
+
+    public function test_an_over_long_label_is_refused(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('column-update-long'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage(\sprintf('label: A column label must be at most %d characters.', BoardColumn::MAX_LABEL_LENGTH));
+        ($this->tool)('next', label: str_repeat('a', BoardColumn::MAX_LABEL_LENGTH + 1));
+    }
+
     public function test_the_only_terminal_column_cannot_stop_being_terminal(): void
     {
         $this->actAsMcpTokenBoundTo($this->makeProject('column-update-no-terminal'));
@@ -107,7 +134,7 @@ final class ColumnUpdateToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown column "parked"');
+        $this->expectExceptionMessage('slug: Unknown column "parked"');
         ($this->tool)('parked', label: 'Mine now');
     }
 

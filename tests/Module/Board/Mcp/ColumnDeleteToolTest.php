@@ -127,7 +127,7 @@ final class ColumnDeleteToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown column "parked"');
+        $this->expectExceptionMessage('slug: Unknown column "parked"');
         ($this->tool)('parked');
     }
 
@@ -137,7 +137,7 @@ final class ColumnDeleteToolTest extends KernelTestCase
         ($this->createTool)('Ship it', 'Body', 'feature', status: 'next');
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown column "review". Use one of: backlog, next, in-progress, done.');
+        $this->expectExceptionMessage('targetColumn: Unknown column "review". Use one of: backlog, next, in-progress, done.');
         ($this->tool)('next', targetColumn: 'review');
     }
 

@@ -71,6 +71,24 @@ final class ColumnCreateToolTest extends KernelTestCase
         ($this->tool)(str_repeat('a', BoardColumn::MAX_LABEL_LENGTH + 1));
     }
 
+    public function test_a_label_that_is_a_translation_key_is_refused(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('column-create-reserved'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('label: The app uses this text internally. Choose another label.');
+        ($this->tool)('board.column.error.gone');
+    }
+
+    public function test_a_label_with_no_letter_or_digit_is_refused(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('column-create-slug-empty'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('label: A column label needs at least one letter or digit, because the slug comes from the label.');
+        ($this->tool)('!!!');
+    }
+
     public function test_an_unbound_mcp_token_is_rejected(): void
     {
         $project = $this->makeProject('column-create-unbound');

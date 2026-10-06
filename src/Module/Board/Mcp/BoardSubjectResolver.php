@@ -116,16 +116,17 @@ final readonly class BoardSubjectResolver
     /**
      * The column of the project's board with that slug. The refusal lists the slugs the board has.
      *
-     * @param string $noun what the refusal calls the slug: "status" for a card tool, "column" for a column tool
+     * @param string      $noun     what the refusal calls the slug: "status" for a card tool, "column" for a column tool
+     * @param string|null $argument the tool argument the refusal names first, when the noun does not name it
      */
-    public function requireColumn(Project $project, string $slug, string $noun = 'status'): BoardColumn
+    public function requireColumn(Project $project, string $slug, string $noun = 'status', ?string $argument = null): BoardColumn
     {
-        return $this->columnAmong($this->boardColumns->findForProject($project), $slug, $noun);
+        return $this->columnAmong($this->boardColumns->findForProject($project), $slug, $noun, $argument);
     }
 
-    public function optionalColumn(Project $project, ?string $slug, string $noun = 'status'): ?BoardColumn
+    public function optionalColumn(Project $project, ?string $slug, string $noun = 'status', ?string $argument = null): ?BoardColumn
     {
-        return null === $slug ? null : $this->requireColumn($project, $slug, $noun);
+        return null === $slug ? null : $this->requireColumn($project, $slug, $noun, $argument);
     }
 
     /**
@@ -139,7 +140,7 @@ final readonly class BoardSubjectResolver
     }
 
     /** @param list<BoardColumn> $columns */
-    private function columnAmong(array $columns, string $slug, string $noun = 'status'): BoardColumn
+    private function columnAmong(array $columns, string $slug, string $noun = 'status', ?string $argument = null): BoardColumn
     {
         foreach ($columns as $column) {
             if ($column->slug === $slug) {
@@ -147,7 +148,7 @@ final readonly class BoardSubjectResolver
             }
         }
 
-        throw new ToolCallException(\sprintf('Unknown %s "%s". Use one of: %s.', $noun, $slug, implode(', ', array_map(static fn (BoardColumn $column): string => $column->slug, $columns))));
+        throw new ToolCallException(\sprintf('%sUnknown %s "%s". Use one of: %s.', null === $argument ? '' : $argument.': ', $noun, $slug, implode(', ', array_map(static fn (BoardColumn $column): string => $column->slug, $columns))));
     }
 
     public function requireType(string $type): CardType
