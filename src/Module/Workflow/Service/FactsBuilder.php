@@ -63,7 +63,16 @@ final readonly class FactsBuilder
         $epicBranch = $settings->epicBranchOf($card->number);
 
         $pullRequests = $this->cardPullRequests->forCard($card);
-        $pullRequestFacts = array_map(fn (ForgePullRequest $pullRequest): PullRequestFacts => $this->pullRequestFacts($pullRequest, $parentEpicBranch), $pullRequests);
+        // Once the epic links its pull request, that pull request names the repository of the epic branch.
+        $epicRepositories = [];
+        if (null !== $card->parent && null !== $parentEpicBranch) {
+            foreach ($this->cardPullRequests->forCard($card->parent) as $epicPullRequest) {
+                if ($parentEpicBranch === $epicPullRequest->headBranch) {
+                    $epicRepositories[] = self::repositoryKey($epicPullRequest);
+                }
+            }
+        }
+        $pullRequestFacts = array_map(fn (ForgePullRequest $pullRequest): PullRequestFacts => $this->pullRequestFacts($pullRequest, $parentEpicBranch, $epicRepositories), $pullRequests);
         $primaryIndex = array_search($this->cardPullRequests->primary($pullRequests), $pullRequests, true);
         $settled = $this->workRequests->findLatestSettledForCard($cardId);
 
@@ -147,11 +156,15 @@ final readonly class FactsBuilder
         };
     }
 
-    /** @param ?string $epicBranch the epic branch of the parent of the card, or null */
-    private function pullRequestFacts(ForgePullRequest $pullRequest, ?string $epicBranch): PullRequestFacts
+    /**
+     * @param ?string      $epicBranch       the epic branch of the parent of the card, or null
+     * @param list<string> $epicRepositories the repositories of the epic pull requests, empty before one exists
+     */
+    private function pullRequestFacts(ForgePullRequest $pullRequest, ?string $epicBranch, array $epicRepositories): PullRequestFacts
     {
         $base = $pullRequest->baseBranch;
-        $baseIsEpicBranch = null !== $base && $base === $epicBranch;
+        $baseIsEpicBranch = null !== $base && $base === $epicBranch
+            && ([] === $epicRepositories || \in_array(self::repositoryKey($pullRequest), $epicRepositories, true));
 
         $parents = [];
         if (null !== $base && $base !== $pullRequest->defaultBranch && !$baseIsEpicBranch) {
@@ -189,5 +202,10 @@ final readonly class FactsBuilder
                 ForgePullRequestState::Closed => $pullRequest->refreshedAt,
             },
         );
+    }
+
+    private static function repositoryKey(ForgePullRequest $pullRequest): string
+    {
+        return $pullRequest->forge.' '.mb_strtolower($pullRequest->repository);
     }
 }

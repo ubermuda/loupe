@@ -464,6 +464,24 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertTrue($orphanFacts->parentMerged);
     }
 
+    public function test_once_the_epic_links_its_pull_request_only_its_repository_holds_the_epic_branch(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-pr-epic-repository');
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
+        $same = $this->card($project, 'in-review');
+        $same->parent = $epic;
+        $this->pullRequest($same, base: 'epic/'.$epic->number, head: 'same', repository: strtoupper(self::REPOSITORY));
+        $other = $this->card($project, 'in-review');
+        $other->parent = $epic;
+        $this->pullRequest($other, base: 'epic/'.$epic->number, head: 'other', repository: 'acme/other');
+        $this->em()->flush();
+
+        self::assertTrue($this->facts($same)->pullRequest?->baseIsEpicBranch);
+        self::assertFalse($this->facts($other)->pullRequest?->baseIsEpicBranch);
+    }
+
     public function test_an_empty_epic_branch_pattern_makes_no_epic_branch(): void
     {
         self::bootKernel();
