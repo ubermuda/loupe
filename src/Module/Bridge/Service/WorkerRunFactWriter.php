@@ -104,10 +104,14 @@ final readonly class WorkerRunFactWriter
             return;
         }
 
-        $this->connection->executeStatement(
-            self::UPSERT_SQL,
-            ['ids' => array_map(static fn (Uuid $id): string => (string) $id, $runIds)],
-            ['ids' => ArrayParameterType::STRING],
-        );
+        $params = ['ids' => array_map(static fn (Uuid $id): string => (string) $id, $runIds)];
+        $types = ['ids' => ArrayParameterType::STRING];
+
+        // The lock waits for a writer that holds a run, and the upsert after it
+        // reads that writer's commit, so an older read never overwrites a newer row.
+        $this->connection->transactional(function () use ($params, $types): void {
+            $this->connection->executeQuery('SELECT id FROM bridge_worker_runs WHERE id IN (:ids) ORDER BY id FOR UPDATE', $params, $types);
+            $this->connection->executeStatement(self::UPSERT_SQL, $params, $types);
+        });
     }
 }
