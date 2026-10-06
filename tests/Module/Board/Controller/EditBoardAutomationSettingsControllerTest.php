@@ -135,10 +135,13 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
     {
         yield 'no placeholder' => ['epic/main'];
         yield 'the placeholder twice' => ['epic/{number}/{number}'];
+        yield 'a trailing slash' => ['epic/{number}/'];
+        yield 'two dots' => ['epic/{number}..old'];
+        yield 'a space' => ['epic {number}'];
     }
 
     #[DataProvider('invalidPatterns')]
-    public function test_an_epic_branch_pattern_without_exactly_one_number_is_refused(string $pattern): void
+    public function test_an_epic_branch_pattern_that_is_no_branch_name_with_one_number_is_refused(string $pattern): void
     {
         $project = $this->ownedProject('automation-bad-pattern@example.com');
         $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
@@ -146,7 +149,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $this->client->submit($submit);
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('[data-field-errors="epicBranchPattern"]', 'exactly once');
+        self::assertSelectorTextContains('[data-field-errors="epicBranchPattern"]', 'branch name');
         self::assertNull($this->stored($project));
     }
 
