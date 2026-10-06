@@ -38,7 +38,8 @@ Put each item in its section of the product document.
 - A guess that the owner did not check goes in "Assumptions" (A4).
 - Each question and its answer go in "Decisions log" (A5).
 - A decision that the owner defers goes in "Open questions" (Q8).
-- A deferred decision in "Open questions" gets the worked example of `../loupe-documents/references/design-structure.md` "Decisions". A question in chat gets none.
+- A deferred decision in "Open questions" gets the worked example and the "How each option works" list of `../loupe-documents/references/design-structure.md` "Decisions". A question in chat gets neither.
+- The whole product document follows the reader rule of `../loupe-documents/references/design-structure.md` "Write for a reader who knows the product".
 - The answers of the P7 pre-mortem go in "Risks".
 - The P8 scenarios go in "Scenarios".
 - The Claude Design canvas link and the label of each pick go in "Decisions log", and the `R` entry they shaped cites both. When a Claude Design session ran, the product document also links the recap of the picks (C6).

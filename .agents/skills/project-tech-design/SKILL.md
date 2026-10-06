@@ -9,7 +9,9 @@ A technical design settles an architecture. An implementation plan settles tasks
 
 Send every design to the Loupe app for review. **Invoke `loupe-documents` before you write.** That skill gives the format rules for the review UI. This skill gives the content rules.
 
-Follow `plugins/loupe/skills/loupe-stage-tech-design/SKILL.md` for the design sections, the recommendations and the checked or estimated labels. This skill adds the rules that belong to this project.
+Follow `plugins/loupe/skills/loupe-stage-tech-design/SKILL.md` for the design sections, the recommendations and the estimate marks. This skill adds the rules that belong to this project.
+
+Write the design for a reader who knows the product, as `loupe-documents` `references/design-structure.md` "Write for a reader who knows the product" says.
 
 Write the document in ASD-STE100 Simplified Technical English. The writing rules are in `compressing-skills`.
 
@@ -66,3 +68,4 @@ Take the case of each worked example from this project, such as a card of the bo
 | "All 107 call sites" | Verify the scope; 45 of them were diagnostics |
 | A decision fence with two paragraphs above the options | One paragraph converts, two do not |
 | An implementation plan submitted as a design | Settle the architecture first |
+| A decision written in class names | Write it for a reader who knows the product |
