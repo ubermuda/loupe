@@ -11,6 +11,8 @@ use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardLink;
+use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
@@ -754,7 +756,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-lifecycle');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $this->approvedDocument($card, 'tech-design');
+        $this->document($card, 'tech-design');
 
         $this->evaluate($card);
 
@@ -768,6 +770,76 @@ final class EngineTest extends KernelTestCase
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
     }
 
+    public function test_a_revised_design_document_back_in_review_asks_for_no_new_design(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-design-revision');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'tech-design');
+        $design = $this->document($card, 'tech-design', DocumentStatus::ChangesRequested);
+        $this->evaluate($card);
+        self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
+
+        $this->setStatus($design, DocumentStatus::InReview);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('tech-design', $card->column->slug);
+        self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
+    }
+
+    public function test_an_undone_design_approval_asks_for_no_new_design(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-design-undo');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'tech-design');
+        $this->block($card);
+        $design = $this->document($card, 'tech-design');
+        $this->evaluate($card);
+        self::assertSame('tech-design', $card->column->slug);
+
+        $this->setStatus($design, DocumentStatus::InReview);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('tech-design', $card->column->slug);
+        self::assertSame([], $this->requestRuleIds($card));
+    }
+
+    public function test_a_design_approved_straight_after_a_change_request_only_moves_the_card(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-design-approved-after-changes');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'tech-design');
+        $design = $this->document($card, 'tech-design', DocumentStatus::ChangesRequested);
+        $this->evaluate($card);
+        self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
+
+        $this->setStatus($design, DocumentStatus::Approved);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('in-progress', $card->column->slug);
+        self::assertSame(['tech-design-approved'], $this->firedRules());
+        self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
+    }
+
+    public function test_a_revised_product_document_back_in_review_asks_for_no_new_session(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-product-revision');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'product-design');
+        $product = $this->document($card, 'product-design', DocumentStatus::ChangesRequested);
+        $this->evaluate($card);
+        self::assertSame(['product-design-revise'], $this->requestRuleIds($card));
+
+        $this->setStatus($product, DocumentStatus::InReview);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('product-design', $card->column->slug);
+        self::assertSame(['product-design-revise'], $this->requestRuleIds($card));
+    }
+
     /** The board updates live from CardChanged, so each change the engine makes to a card dispatches one. */
     public function test_an_engine_move_and_its_work_request_reach_the_live_board(): void
     {
@@ -775,7 +847,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-live');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $this->approvedDocument($card, 'tech-design');
+        $this->document($card, 'tech-design');
         $changed = [];
         $dispatcher = self::getContainer()->get('event_dispatcher');
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
@@ -1516,15 +1588,38 @@ final class EngineTest extends KernelTestCase
         $this->em()->flush();
     }
 
-    private function approvedDocument(Card $card, string $tagName): void
+    private function document(Card $card, string $tagName, DocumentStatus $status = DocumentStatus::Approved): Document
     {
         $document = new Document($card->project->owner, $card->project, 'Design');
-        $document->status = DocumentStatus::Approved;
+        $document->status = $status;
         $tag = new Tag($card->project, $tagName);
         $this->em()->persist($tag);
         $document->tags->add($tag);
         $this->em()->persist($document);
         $this->em()->persist(new CardDocument($card, $document));
         $this->em()->flush();
+
+        return $document;
+    }
+
+    private function setStatus(Document $document, DocumentStatus $status): void
+    {
+        $document->status = $status;
+        $this->em()->flush();
+    }
+
+    private function block(Card $card): void
+    {
+        $this->em()->persist(new CardLink($this->card($card->project, 'next'), $card, CardLinkKind::Blocks));
+        $this->em()->flush();
+    }
+
+    /** @return list<string> the rule ids of every work request of the card, live or settled */
+    private function requestRuleIds(Card $card): array
+    {
+        return array_map(
+            static fn (WorkRequest $request): string => $request->ruleId,
+            $this->service(WorkRequestRepository::class)->findBy(['cardId' => $card->id]),
+        );
     }
 }

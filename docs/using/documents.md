@@ -71,6 +71,8 @@ A verdict applies to the version shown when the reviewer opens the page.
 If another verdict or revision arrives first, Loupe rejects the submission and keeps the note visible.
 Reload the page before submitting a fresh verdict.
 
+Select **Change verdict** beside a saved verdict to give another verdict in one step.
+The document goes straight to the new status, so a workflow never sees it in review between the two verdicts.
 Select **Undo** beside a saved verdict to withdraw it and reopen review.
 The history retains the original verdict and its withdrawal.
 If another verdict or revision arrives first, Loupe rejects the old Undo form.
