@@ -227,10 +227,11 @@ final readonly class Engine
                 $state->truth = false;
                 $state->attempts = 0;
                 $state->dueAt = null;
-                $state->subjectPullRequestId = null;
-                // Another pull request gets its own request budget.
+                // The old subject stays, so a request still live for it holds back the new one.
                 if (self::SUBJECT_CHANGED === $code) {
                     $state->fires = 0;
+                } else {
+                    $state->subjectPullRequestId = null;
                 }
             });
         }
