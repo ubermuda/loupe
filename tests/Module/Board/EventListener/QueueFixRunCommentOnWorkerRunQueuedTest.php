@@ -135,6 +135,25 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertSame('upper', $rows[0]->headSha);
     }
 
+    public function test_a_number_that_two_repositories_share_names_no_link_and_falls_back_to_the_first_open_pull_request(): void
+    {
+        $this->commentOnFixQueued(true);
+        $card = $this->card();
+        $this->link($card, Forge::GitHub, 'acme/widgets', 5);
+        $this->link($card, Forge::GitHub, 'acme/gadgets', 5);
+        $closed = $this->tracked('acme/widgets', 5);
+        $closed->state = PullRequestState::Closed;
+        $this->em->flush();
+        $this->tracked('acme/gadgets', 5, headSha: 'gadget');
+
+        $this->listener()($this->event(cardId: $card->id, pullRequestNumber: 5));
+
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame('acme/gadgets', $rows[0]->repository);
+        self::assertSame('gadget', $rows[0]->headSha);
+    }
+
     public function test_an_event_that_names_no_link_of_the_card_falls_back_to_the_first_open_pull_request(): void
     {
         $this->commentOnFixQueued(true);

@@ -26,7 +26,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * The run fixes a pull request of its card: the link the event names, by URL
- * and then by number. An event that names no link of the card falls back to
+ * and then by a number that one link alone holds. An event that names no link of the card falls back to
  * the first open one the forge tracks, else the first one the card links. The
  * forge state gives the head and the reason.
  */
@@ -139,9 +139,14 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
     private static function named(array $keys, WorkerRunQueued $event): ?array
     {
         $url = null === $event->pullRequestUrl ? null : mb_strtolower($event->pullRequestUrl);
+        $byUrl = null === $url ? null : array_find($keys, static fn (array $key): bool => mb_strtolower($key['url']) === $url);
+        if (null !== $byUrl || null === $event->pullRequestNumber) {
+            return $byUrl;
+        }
+        // Two repositories can share a number, so only a single match names the link.
+        $byNumber = array_values(array_filter($keys, static fn (array $key): bool => $key['number'] === $event->pullRequestNumber));
 
-        return (null === $url ? null : array_find($keys, static fn (array $key): bool => mb_strtolower($key['url']) === $url))
-            ?? (null === $event->pullRequestNumber ? null : array_find($keys, static fn (array $key): bool => $key['number'] === $event->pullRequestNumber));
+        return 1 === \count($byNumber) ? $byNumber[0] : null;
     }
 
     /**
