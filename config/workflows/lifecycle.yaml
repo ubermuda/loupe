@@ -203,7 +203,7 @@ rules:
           all:
               - card.type: { type: epic }
               - card.child_merged_into_epic_branch: {}
-              - not: { pr.linked: {} }
+              - not: { pr.open: {} }
       then: { forge-write: { write: open-epic } }
 
     - id: epic-draft

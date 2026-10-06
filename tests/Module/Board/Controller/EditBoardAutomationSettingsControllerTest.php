@@ -138,6 +138,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         yield 'a trailing slash' => ['epic/{number}/'];
         yield 'two dots' => ['epic/{number}..old'];
         yield 'a space' => ['epic {number}'];
+        yield 'a lock suffix' => ['epic/{number}.lock'];
+        yield 'a leading dash' => ['-epic-{number}'];
     }
 
     #[DataProvider('invalidPatterns')]

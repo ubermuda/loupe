@@ -124,7 +124,7 @@ Some rules act from any slot:
 An epic follows its children. An epic whose children all finished moves to In
 review when it has a pull request, and to the terminal column when it has none.
 It moves on only after its breakdown request ends.
-When a child merges into the epic branch and the epic has no pull request, the
+When a child merges into the epic branch and the epic has no open pull request, the
 workflow opens the epic pull request. Such an epic never moves straight to the
 terminal column. It goes through In review with its epic pull request. With
 the open write off, the rule refuses and tries again later. The epic waits in

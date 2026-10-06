@@ -22,7 +22,7 @@ class SaveBoardAutomationSettingsRequest
 
         /** Blank, or a Git branch name that holds the epic number placeholder exactly once. */
         #[Assert\Length(max: 255)]
-        #[Assert\Regex(pattern: '/^\s*$|^\s*(?!.*\{number\}.*\{number\})(?!.*\.\.)(?=.*\{number\})(?:[A-Za-z0-9_-]|\{number\})(?:[A-Za-z0-9._-]|\{number\}|\/(?![\/.]))*(?<![.\/])\s*$/', message: 'board.form.save_board_automation_settings_form.epic_branch_pattern.invalid')]
+        #[Assert\Regex(pattern: '/^\s*$|^\s*(?!.*\{number\}.*\{number\})(?!.*\.\.)(?!.*\.lock(?:\/|\s*$))(?=.*\{number\})(?:[A-Za-z0-9_]|\{number\})(?:[A-Za-z0-9._-]|\{number\}|\/(?![\/.-]))*(?<![.\/])\s*$/', message: 'board.form.save_board_automation_settings_form.epic_branch_pattern.invalid')]
         public ?string $epicBranchPattern = BoardAutomationSettings::DEFAULT_EPIC_BRANCH_PATTERN,
     ) {
     }
