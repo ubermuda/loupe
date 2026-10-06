@@ -49,6 +49,8 @@ final readonly class Engine
 {
     public const string NO_BRIDGE_TOOK_WORK = 'no-bridge-took-work';
 
+    private const string SUBJECT_CHANGED = 'subject-changed';
+
     public function __construct(
         private EntityManagerInterface $em,
         private CardRepository $cards,
@@ -219,13 +221,17 @@ final readonly class Engine
 
         ($this->releaseCardPause)(new ReleaseCardPauseCommand($pause, $code));
         $rule = $run->rule($pause->ruleId);
-        if ('facts-changed' === $code && null !== $rule) {
+        if (\in_array($code, ['facts-changed', self::SUBJECT_CHANGED], true) && null !== $rule) {
             // A false truth makes the rule fire again at once, with a fresh backoff.
-            $this->write($run, $this->state($run, $rule), static function (WorkflowRuleState $state): void {
+            $this->write($run, $this->state($run, $rule), static function (WorkflowRuleState $state) use ($code): void {
                 $state->truth = false;
                 $state->attempts = 0;
                 $state->dueAt = null;
                 $state->subjectPullRequestId = null;
+                // Another pull request gets its own request budget.
+                if (self::SUBJECT_CHANGED === $code) {
+                    $state->fires = 0;
+                }
             });
         }
 
@@ -250,6 +256,11 @@ final readonly class Engine
         }
         $applies = $run->applies($rule);
         $bound = $this->ruleSubject->bind($rule, $run->facts);
+        $stored = ($run->states[$rule->id] ?? null)?->subjectPullRequestId;
+        if (CardPauseKind::Rule !== $pause->kind && $applies && $bound->binds && $bound->truth
+            && null !== $stored && null !== $bound->subject && !$stored->equals($bound->subject)) {
+            return self::SUBJECT_CHANGED;
+        }
 
         return match ($pause->kind) {
             CardPauseKind::Rule => match (true) {
