@@ -108,6 +108,9 @@ type File struct {
 	WorkerPools map[string]WorkerPool `yaml:"workerPools"`
 	// Work maps each work request kind the bridge claims to what it runs.
 	Work map[string]WorkEntry `yaml:"work"`
+	// AppPrompts runs the prompt a request carries for a kind that Work does
+	// not hold. It is off when the key is absent.
+	AppPrompts *bool `yaml:"appPrompts"`
 	// Name is the host name when absent, and a blank value opts out.
 	Name *string `yaml:"name"`
 }
@@ -231,6 +234,10 @@ type Set struct {
 	pools map[string]int
 	// work has the defaults of each worker entry filled.
 	work map[string]WorkEntry
+	// appPrompts runs the app prompt of a kind that work does not hold, with
+	// defaults, the file's defaults over the flags.
+	appPrompts bool
+	defaults   Defaults
 
 	// deadWork maps a project slug to the reason its work died. The bridge
 	// reads and writes it on the stream goroutine alone. mu guards it for any
@@ -288,6 +295,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	if f.Defaults.Model != "" {
 		defaults.Model = f.Defaults.Model
 	}
+	s.appPrompts, s.defaults = f.AppPrompts != nil && *f.AppPrompts, defaults
 	if len(f.Projects) == 0 {
 		errs = append(errs, errors.New("the rule file maps no projects"))
 	}
@@ -337,6 +345,11 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 			}
 		}
 		s.work[kind] = w
+	}
+	if s.appPrompts {
+		if err := checkPool("", f.WorkerPools, pools, known, s.maxWorkers); err != nil {
+			errs = append(errs, fmt.Errorf("appPrompts: %w", err))
+		}
 	}
 	interactive := slices.ContainsFunc(slices.Collect(maps.Values(f.Work)), func(w WorkEntry) bool { return w.Action == ActionInteractive })
 	launch, err := checkLaunch(f.Launch, interactive)
@@ -661,6 +674,12 @@ func (s *Set) AutoUpdate() bool {
 // AutoUpdateSet reports whether the file holds a value for autoUpdate.
 func (s *Set) AutoUpdateSet() bool {
 	return s.autoUpdateSet
+}
+
+// AppPrompts reports whether the bridge runs the app prompt of a kind its work
+// map does not hold.
+func (s *Set) AppPrompts() bool {
+	return s.appPrompts
 }
 
 // Name is the bridge name the heartbeat sends. Empty clears the stored name.
