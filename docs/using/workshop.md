@@ -7,6 +7,7 @@ Open a project to see its Workshop. The summary counts belong to that project.
 It shows open requests, open cards, and completed cards.
 Cards in terminal columns count as completed, regardless of the column's name.
 A disabled inbox shows an explanation instead of a zero count.
+The project owner can also see a [readiness guide](#the-readiness-guide), which can take the place of these sections.
 
 Needs you shows the six oldest open inbox items, oldest first.
 The list includes [automatic items](inbox.md#automatic-items), which Loupe opens for a waiting card.
@@ -41,3 +42,27 @@ Other events link to Activity, which shows the full event details and delivery s
 
 The connection links open the existing agent and bridge setup pages.
 Workshop does not infer running agents from open cards or bridge heartbeats.
+
+## The readiness guide
+
+The readiness guide shows the project owner what the project needs before agents can work on it.
+Other members do not see it.
+The guide is a checklist named Ready for agents. It counts the rows that are done, for example "2 of 6".
+
+- Agent connected is done after an agent first calls the MCP server for this project. Connect opens the Connect page.
+- Workflow is done when the project has a workflow. The row shows the name of the workflow template.
+- Bridge running is done when a bridge that serves the project sends heartbeats. Start opens the Connect page.
+- GitHub App is done when a repository connects to the project through the GitHub App. Install starts the install when the instance has a GitHub App.
+- Agent GitHub account always shows Not set up. A later release adds a guided page for it.
+- Repository always shows Not run. A later release adds the discovery that fills it.
+
+When Needs you is empty and nothing is in motion, the guide is the only content of the Workshop.
+Its heading names the project, for example "Get Acme ready for agents".
+A Run discovery panel comes first and says that discovery has not run yet. The checklist and the Hide this guide control follow it.
+Open cards with no worker run, such as cards in Backlog or Next, do not change this layout.
+
+When an item needs you or a card is in motion, the Workshop shows its normal layout.
+The checklist then sits at the top of the right column. Its × control hides the guide.
+
+A hidden guide stays hidden. To show it again, use the [Agent readiness](projects.md#agent-readiness) tab of Project settings.
+When an instance upgrades, a project that has a card outside Backlog starts with the guide hidden.

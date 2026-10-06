@@ -36,6 +36,15 @@ When the project has no reported connections, Your crew links to connection setu
 Each connection shows its own health. This does not report whether an individual agent is available or running.
 Agent configuration and rules remain read-only in Loupe. Configure them through the CLI and its rule file.
 
+## Agent readiness
+
+Project settings has an Agent readiness tab. Only the project owner can open it.
+The Discovery part says whether discovery has run on the project. Discovery does not run yet, so it always says that it has not run.
+The Workshop guide part has one switch, "Show the readiness checklist on the Workshop".
+Turn it on and select Save to show the [readiness guide](workshop.md#the-readiness-guide) on the Workshop again.
+Turn it off and select Save to hide the guide.
+While the guide is hidden, the tab shows the date it was hidden.
+
 ## Repositories
 
 The Connections tab of a project has a Repositories section. Only the project owner sees it.
