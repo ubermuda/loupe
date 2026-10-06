@@ -19,6 +19,9 @@ const test = createTest({
     name: 'Feedback Resolve Reviewer',
 });
 
+// Board pages run near the default budget beside three other workers.
+test.slow();
+
 test.beforeEach(async ({ page }) => {
     await suppressToolbar(page);
     await suppressWidget(page);

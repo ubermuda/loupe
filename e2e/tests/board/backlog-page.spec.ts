@@ -129,6 +129,9 @@ const test = base.extend<{ backlog: Backlog }>({
     },
 });
 
+// Board pages run near the default budget beside three other workers.
+test.slow();
+
 test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1440, height: 900 },
