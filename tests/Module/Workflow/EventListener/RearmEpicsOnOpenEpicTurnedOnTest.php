@@ -103,6 +103,22 @@ final class RearmEpicsOnOpenEpicTurnedOnTest extends KernelTestCase
         $this->assertUntouched($epic, $state, $pause);
     }
 
+    public function test_a_baseline_still_pending_from_an_earlier_save_leaves_the_pause_for_a_person(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('open-epic-pending-baseline');
+        $epic = $this->card($project, 'next');
+        $state = $this->refusedState($epic, null);
+        $pause = $this->pause($epic, ForgeWrite::OPEN_EPIC_OFF);
+        $this->save($project, false, false);
+        $this->save($project, true, false);
+        $this->transport()->reset();
+
+        $this->save($project, true, true);
+
+        $this->assertUntouched($epic, $state, $pause);
+    }
+
     public function test_a_pause_for_another_refusal_stays(): void
     {
         self::bootKernel();
