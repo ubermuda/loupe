@@ -99,6 +99,7 @@ final class RequestSessionUsageCollectionHandlerTest extends KernelTestCase
         self::assertCount(1, $this->collect($run));
         self::assertSame([], $this->collect($run));
         self::assertSame(1, $this->countCommands($this->em()));
+        self::assertTrue($this->em()->isOpen(), 'the pending check answers, and the unique index never fires');
     }
 
     public function test_a_settled_collection_lets_a_new_one_through(): void
