@@ -9,7 +9,10 @@ use App\Module\Bridge\Command\MetricQueryCommand;
 use App\Module\Bridge\Command\MetricQueryHandler;
 use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricBucket;
+use App\Module\Bridge\Metric\MetricGroup;
 use App\Module\Bridge\Metric\MetricRange;
+use App\Module\Bridge\Metric\MetricSeries;
+use App\Module\Bridge\Service\BridgeLabels;
 use App\Module\Insights\View\MetricChart;
 use App\Module\Insights\View\MetricsQuery;
 use App\Module\Project\Entity\Project;
@@ -29,6 +32,7 @@ class ShowMetricsController extends AppController
 {
     public function __construct(
         private readonly MetricQueryHandler $metricQuery,
+        private readonly BridgeLabels $bridgeLabels,
     ) {
     }
 
@@ -37,11 +41,15 @@ class ShowMetricsController extends AppController
         // The query takes only what its metric allows, so the handler never refuses it.
         $query = MetricsQuery::fromQuery($request->query);
         $view = ($this->metricQuery)(new MetricQueryCommand($project, $query->unit, $query->metric, $query->statistic, $query->group, $query->range, $query->bucket));
+        $groupLabels = MetricGroup::Bridge === $query->group
+            ? $this->bridgeLabels->forOwner($project->owner, array_values(array_filter(array_map(static fn (MetricSeries $series): ?string => $series->group, $view->series))))
+            : [];
 
         return $this->render('@Insights/show_metrics.html.twig', [
             'project' => $project,
             'query' => $query,
             'view' => $view,
+            'groupLabels' => $groupLabels,
             'chart' => MetricChart::build($query->metric, $query->bucket, $view->series),
             'metrics' => Metric::cases(),
             'ranges' => MetricRange::cases(),

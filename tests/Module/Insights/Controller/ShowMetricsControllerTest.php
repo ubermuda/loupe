@@ -142,6 +142,34 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertCount(2, $crawler->filter('[data-metrics-chart] [data-metrics-bar]'));
     }
 
+    public function test_a_bridge_series_shows_the_label_of_its_bridge(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'metrics-bridges@example.com');
+        $project = $this->project($em, $owner, 'Bridge metrics');
+        $named = $this->seedBridge($em, $owner, Uuid::fromString('0199a000-0000-7000-8000-000000000001'));
+        $named->name = 'studio-mac';
+        $em->flush();
+        $unknown = Uuid::fromString('0199a000-0000-7000-8000-0000000000ff');
+        $this->seedRun($em, $project, bridgeId: $named->id);
+        $this->seedRun($em, $project, bridgeId: $unknown);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics?unit=run&metric=duration&group=bridge&range=all');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['0199a000-0000-7000-8000-000000000001', '0199a000-0000-7000-8000-0000000000ff'],
+            $crawler->filter('[data-metrics-summary] [data-metrics-series]')->each(static fn (Crawler $series): string => (string) $series->attr('data-metrics-series')),
+        );
+        self::assertSame(['studio-mac', '0000000000ff'], $crawler->filter('[data-metrics-summary] dt')->each(static fn (Crawler $label): string => trim($label->text())));
+        self::assertSame(['studio-mac', '0000000000ff'], $crawler->filter('[data-metrics-legend] li')->each(static fn (Crawler $item): string => trim($item->text())));
+        self::assertSame(['studio-mac', '0000000000ff'], $crawler->filter('[data-metrics-table] h3')->each(static fn (Crawler $title): string => trim($title->text())));
+    }
+
     public function test_a_long_series_shows_its_newest_hundred_rows_and_says_how_many_it_hides(): void
     {
         $client = static::createClient();

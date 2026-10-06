@@ -67,7 +67,7 @@
     {% else %}
     {% set labels = [] %}
     {% for series in view.series %}
-        {% set labels = labels|merge([series.group ?? (view.series|length > 1 ? 'analytics.metrics.series.none'|trans : metricName)]) %}
+        {% set labels = labels|merge([series.group is null ? (view.series|length > 1 ? 'analytics.metrics.series.none'|trans : metricName) : groupLabels[series.group] ?? series.group]) %}
     {% endfor %}
 
     <dl class="lp-metric-summary" data-metrics-summary>
