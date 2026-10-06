@@ -11,6 +11,7 @@ use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\WorkRequestRefusal;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -33,6 +34,7 @@ final readonly class SettleWorkRequestHandler
         private ClockInterface $clock,
         private Auditor $auditor,
         private WorkRequestAnnouncer $announcer,
+        private WorkSubjectHandlers $subjects,
     ) {
     }
 
@@ -81,6 +83,7 @@ final readonly class SettleWorkRequestHandler
                 new AuditSubject('work_request', (string) $settled->id),
             );
             $this->announcer->announce($settled);
+            $this->subjects->for($settled->subjectType)?->onSettled($settled);
         }
 
         return $result;

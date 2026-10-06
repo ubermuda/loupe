@@ -10,6 +10,7 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -30,6 +31,7 @@ final readonly class WithdrawWorkRequestHandler
         private ClockInterface $clock,
         private Auditor $auditor,
         private WorkRequestAnnouncer $announcer,
+        private WorkSubjectHandlers $subjects,
     ) {
     }
 
@@ -42,7 +44,9 @@ final readonly class WithdrawWorkRequestHandler
         $withdrawn = $this->em->wrapInTransaction(function () use ($command): ?WorkRequest {
             // Locked, so a claim or a settle that races this one waits and then finds the final state.
             $request = $this->workRequests->findOneLocked($command->workRequestId);
-            if (null === $request || !$request->withdraw($command->state, $this->clock->now())) {
+            if (null === $request
+                || ($command->onlyIfOpen && WorkRequestState::Open !== $request->state)
+                || !$request->withdraw($command->state, $this->clock->now())) {
                 return null;
             }
             $this->outbox->write($request->project, BridgeEventType::WORK_REQUEST, WorkRequestPayload::of($request));
@@ -68,6 +72,9 @@ final readonly class WithdrawWorkRequestHandler
             new AuditSubject('work_request', (string) $withdrawn->id),
         );
         $this->announcer->announce($withdrawn);
+        if (WorkRequestState::Expired === $withdrawn->state) {
+            $this->subjects->for($withdrawn->subjectType)?->onExpired($withdrawn);
+        }
 
         return true;
     }

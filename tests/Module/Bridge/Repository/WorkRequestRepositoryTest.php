@@ -293,6 +293,29 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         self::assertNull($this->repository()->findLatestSettledForCard(Uuid::v7()));
     }
 
+    public function test_the_open_requests_of_other_subjects_past_the_deadline_read_oldest_first(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'other-subjects@example.com'), 'Other Subjects');
+        $analysis = static fn (): WorkSubject => new WorkSubject('analysis', Uuid::v7());
+        $deadline = new \DateTimeImmutable('2026-10-01 10:00:00');
+        $atTheEdge = $this->seedWorkRequest($em, $project, createdAt: $deadline, subject: $analysis());
+        $older = $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 09:00:00'), subject: $analysis());
+        $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 10:00:01'), subject: $analysis());
+        $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 08:00:00'), subject: $analysis(), reopenedAt: new \DateTimeImmutable('2026-10-01 10:30:00'));
+        $reopenedLongAgo = $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 07:00:00'), subject: $analysis(), reopenedAt: new \DateTimeImmutable('2026-10-01 09:30:00'));
+        $this->seedWorkRequest($em, $project, state: WorkRequestState::Claimed, createdAt: new \DateTimeImmutable('2026-10-01 08:00:00'), subject: $analysis());
+        $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 08:00:00'));
+
+        $found = $this->repository()->findOpenOfOtherSubjectsBefore($deadline);
+
+        self::assertSame(
+            [(string) $reopenedLongAgo->id, (string) $older->id, (string) $atTheEdge->id],
+            array_map(static fn (WorkRequest $request): string => (string) $request->id, $found),
+        );
+    }
+
     private function repository(): WorkRequestRepository
     {
         $repository = self::getContainer()->get(WorkRequestRepository::class);

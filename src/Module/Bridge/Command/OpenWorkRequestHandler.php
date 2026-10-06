@@ -13,6 +13,7 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,6 +34,7 @@ final readonly class OpenWorkRequestHandler
     public const string INVALID_CAPABILITY = 'bridge.work_request.error.invalid_capability';
     public const string INVALID_RULE = 'bridge.work_request.error.invalid_rule';
     public const string INVALID_CARD_NUMBER = 'bridge.work_request.error.invalid_card_number';
+    public const string UNKNOWN_SUBJECT_TYPE = 'bridge.work_request.error.unknown_subject_type';
     public const string LIVE = 'bridge.work_request.error.live';
 
     /** Longer than the largest retry backoff of the seeded templates, six hours, so a later request starts fresh. */
@@ -46,6 +48,7 @@ final readonly class OpenWorkRequestHandler
         private Auditor $auditor,
         private WorkRequestAnnouncer $announcer,
         private WorkerRunRepository $workerRuns,
+        private WorkSubjectHandlers $subjects,
     ) {
     }
 
@@ -60,6 +63,9 @@ final readonly class OpenWorkRequestHandler
         }
         if (1 !== preg_match(WorkRequest::RULE_ID_PATTERN, $command->ruleId)) {
             $errors['ruleId'] = self::INVALID_RULE;
+        }
+        if (!$this->subjects->has($command->subject->type)) {
+            $errors['subjectType'] = self::UNKNOWN_SUBJECT_TYPE;
         }
         if ($command->subject->isCard() === (null === $command->cardNumber)) {
             $errors['cardNumber'] = self::INVALID_CARD_NUMBER;

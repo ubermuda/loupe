@@ -199,12 +199,15 @@ trait BridgeScenario
         ?Uuid $claimToken = null,
         ?\DateTimeImmutable $leaseUntil = null,
         string $ruleId = 'implement-on-entry',
+        ?WorkSubject $subject = null,
+        ?\DateTimeImmutable $reopenedAt = null,
     ): WorkRequest {
+        $subject ??= WorkSubject::card($cardId ?? Uuid::v7());
         $request = new WorkRequest(
             project: AgentCredential::managed($em, $project, $project->id),
-            subjectType: WorkSubject::CARD,
-            subjectId: $cardId ?? Uuid::v7(),
-            cardNumber: 7,
+            subjectType: $subject->type,
+            subjectId: $subject->id,
+            cardNumber: $subject->isCard() ? 7 : null,
             kind: $kind,
             capability: $capability,
             ruleId: $ruleId,
@@ -214,6 +217,7 @@ trait BridgeScenario
         $request->bridgeId = $bridgeId;
         $request->claimToken = $claimToken;
         $request->leaseUntil = $leaseUntil;
+        $request->reopenedAt = $reopenedAt;
         $em->persist($request);
         $em->flush();
 

@@ -198,6 +198,27 @@ class WorkRequestRepository extends ServiceEntityRepository
     }
 
     /**
+     * The open requests about a subject other than a card that waited for a
+     * bridge since the deadline or longer, oldest first. A reopen restarts the wait.
+     *
+     * @return list<WorkRequest>
+     */
+    public function findOpenOfOtherSubjectsBefore(\DateTimeImmutable $deadline): array
+    {
+        return array_values($this->createQueryBuilder('w')
+            ->andWhere('w.state = :open')
+            ->andWhere('w.subjectType <> :card')
+            ->andWhere('COALESCE(w.reopenedAt, w.createdAt) <= :deadline')
+            ->setParameter('open', WorkRequestState::Open->value)
+            ->setParameter('card', WorkSubject::CARD)
+            ->setParameter('deadline', $deadline, Types::DATETIME_IMMUTABLE)
+            ->orderBy('w.createdAt', 'ASC')
+            ->addOrderBy('w.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * Serialises the opens of one kind on one subject until the transaction
      * ends, so a second open reads the first instead of tripping the unique index.
      */

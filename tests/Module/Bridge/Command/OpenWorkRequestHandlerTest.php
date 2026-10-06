@@ -17,9 +17,11 @@ use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Project\Entity\Project;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Module\Bridge\WorkSubject\RecordingWorkSubjectHandler;
 use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\DriverManager;
@@ -266,7 +268,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $this->open($project, $cardId);
         $blind = $this->createStub(WorkRequestRepository::class);
         $blind->method('hasLive')->willReturn(false);
-        $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(WorkRequestAnnouncer::class), $this->service(WorkerRunRepository::class));
+        $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(WorkRequestAnnouncer::class), $this->service(WorkerRunRepository::class), new WorkSubjectHandlers([]));
 
         try {
             $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, 'implement', null, 'implement-on-entry', new WorkRequestContext()));
@@ -368,6 +370,22 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertNull($payloads[1]['cardId']);
     }
 
+    public function test_a_subject_type_that_no_module_handles_is_refused(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-unknown-subject');
+
+        try {
+            $this->handler()(new OpenWorkRequestCommand($project, new WorkSubject('report', Uuid::v7()), null, 'implement', null, 'insights.analysis', new WorkRequestContext()));
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['subjectType' => OpenWorkRequestHandler::UNKNOWN_SUBJECT_TYPE], $e->errors);
+        }
+
+        self::assertSame(0, $this->countRequests());
+        self::assertSame([], $this->outboxPayloads());
+    }
+
     /** Nothing in production calls the handler yet, so the compiled container holds none. */
     private function handler(): OpenWorkRequestHandler
     {
@@ -379,6 +397,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             $this->service(Auditor::class),
             $this->service(WorkRequestAnnouncer::class),
             $this->service(WorkerRunRepository::class),
+            new WorkSubjectHandlers([new RecordingWorkSubjectHandler()]),
         );
     }
 
