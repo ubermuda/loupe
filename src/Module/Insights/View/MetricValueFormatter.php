@@ -32,7 +32,7 @@ final readonly class MetricValueFormatter
         }
 
         return match ($metric->valueType()) {
-            MetricValueType::Money => $this->money($value, $moneyDecimals ?? self::moneyDecimals($value)),
+            MetricValueType::Money => null !== $moneyDecimals ? $this->money($value, $moneyDecimals, $moneyDecimals) : $this->money($value, 2, self::maxMoneyDecimals($value)),
             MetricValueType::Ratio => $this->number($value, \NumberFormatter::PERCENT, 1, 1),
             MetricValueType::Duration => Metric::HoursToMerge === $metric
                 ? $this->number($value, \NumberFormatter::DECIMAL, 0, 1).' h'
@@ -41,17 +41,17 @@ final readonly class MetricValueFormatter
         };
     }
 
-    /** A cost under half a cent keeps four decimals, so it never reads as free. */
-    private static function moneyDecimals(int|float $value): int
+    /** A cost under half a cent keeps its micro-dollars, so it never reads as free. */
+    private static function maxMoneyDecimals(int|float $value): int
     {
-        return $value > 0 && $value < 0.005 ? 4 : 2;
+        return $value > 0 && $value < 0.005 ? 6 : 2;
     }
 
-    private function money(int|float $value, int $decimals): string
+    private function money(int|float $value, int $minDecimals, int $maxDecimals): string
     {
         $formatter = new \NumberFormatter($this->locale, \NumberFormatter::CURRENCY);
-        $formatter->setAttribute(\NumberFormatter::MIN_FRACTION_DIGITS, $decimals);
-        $formatter->setAttribute(\NumberFormatter::MAX_FRACTION_DIGITS, $decimals);
+        $formatter->setAttribute(\NumberFormatter::MIN_FRACTION_DIGITS, $minDecimals);
+        $formatter->setAttribute(\NumberFormatter::MAX_FRACTION_DIGITS, $maxDecimals);
 
         return (string) $formatter->formatCurrency((float) $value, 'USD');
     }

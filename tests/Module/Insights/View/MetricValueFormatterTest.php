@@ -17,7 +17,8 @@ final class MetricValueFormatterTest extends TestCase
     {
         yield 'money' => [Metric::Cost, 1.5, '$1.50'];
         yield 'money rounds to cents' => [Metric::Cost, 0.123456, '$0.12'];
-        yield 'money under half a cent keeps four decimals' => [Metric::Cost, 0.0012345, '$0.0012'];
+        yield 'money under half a cent keeps its micro-dollars' => [Metric::Cost, 0.0012345, '$0.001234'];
+        yield 'one micro-dollar' => [Metric::Cost, 0.000001, '$0.000001'];
         yield 'zero money' => [Metric::Cost, 0, '$0.00'];
         yield 'tokens' => [Metric::InputTokens, 1234567, '1,234,567'];
         yield 'a mean of tokens keeps one decimal' => [Metric::OutputTokens, 1234.56, '1,234.6'];
