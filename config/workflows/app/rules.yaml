@@ -1,0 +1,3 @@
+# Rules the app adds to the workflow of every project, after the rules of its template.
+# A request may name a prompt, the file prompts/<name>.md, which the work request carries to the bridge.
+rules: []
