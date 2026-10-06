@@ -400,6 +400,11 @@ what the bridge reads from the stream of the worker.
 | `timing.toolTimeMs` | an integer of 0 or more. The time the main session spent in tool calls, with overlaps counted once |
 | `timing.idleGapMs` | an integer of 0 or more. The sum of each pause of more than 300 seconds between two timed lines of the stream |
 
+The `insights.subcommand_programs` feature flag holds the programs that keep a
+subcommand in a signature, as a comma list for the whole instance. You change
+it at **`/admin/feature-flags`**. [Tool calls](../extending/cli-bridge.md#tool-calls)
+gives its default.
+
 `timing` is optional, and a `null` value in it is unknown. The server stores
 `timing` on the run each time a request carries it.
 
@@ -686,8 +691,8 @@ endpoint answers 404 there.
 
 The endpoints on this page share one limit, `agent_worker_runs`, of 240
 requests in one minute for each token. A run sends about four state reports,
-and one tool call report for each 500 calls. A run in an experiment adds one
-pin call. The limit lets a bridge drain a
+and one tool call report for each 500 calls, with a minimum of one. A run in
+an experiment adds one pin call. The limit lets a bridge drain a
 full queue of 256 reports before its retries give up.
 
 ## What a missing record means
