@@ -10,7 +10,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -57,9 +56,6 @@ final class CardPullRequestStatesTest extends KernelTestCase
         $secondLink = $this->link($second, 'ubermuda/loupe', 7);
         $untracked = $this->link($second, 'ubermuda/loupe', 8);
         $unparsed = $this->link($second, null, null);
-        $automations = self::getContainer()->get(CardAutomationRepository::class);
-        self::assertInstanceOf(CardAutomationRepository::class, $automations);
-        $this->em->wrapInTransaction(static fn () => $automations->findOrCreateForUpdate($first));
         $this->em->flush();
 
         $states = $this->states->forCards([$first, $second]);
@@ -68,8 +64,6 @@ final class CardPullRequestStatesTest extends KernelTestCase
         self::assertSame($states->of($firstLink), $states->of($secondLink));
         self::assertNull($states->of($untracked));
         self::assertNull($states->of($unparsed));
-        self::assertNotNull($states->automationOf($first));
-        self::assertNull($states->automationOf($second));
     }
 
     public function test_the_badges_of_a_card_come_from_its_open_read_pull_requests(): void

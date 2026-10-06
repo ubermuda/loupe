@@ -22,9 +22,9 @@ use Symfony\Component\Uid\Uuid;
 final readonly class CardHistoryEntry
 {
     private const array REASONS = [
-        'conflict' => 'board.card.automation.reason.conflict',
-        'checks-failed' => 'board.card.automation.reason.checks_failed',
-        'changes-requested' => 'board.card.automation.reason.changes_requested',
+        'conflict' => 'board.card.history.reason.conflict',
+        'checks-failed' => 'board.card.history.reason.checks_failed',
+        'changes-requested' => 'board.card.history.reason.changes_requested',
     ];
 
     private function __construct(

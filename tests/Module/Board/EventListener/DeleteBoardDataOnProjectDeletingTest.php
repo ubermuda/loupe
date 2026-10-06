@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
@@ -51,7 +50,6 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         self::assertSame(2, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_pull_requests', []));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_links', []));
-        self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_automations', []));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_automation_settings', []));
         self::assertSame(4, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $doomedId]));
 
@@ -61,7 +59,6 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_pull_requests', []));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_links', []));
-        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_automations', []));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_automation_settings', []));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $sparedId]));
@@ -154,7 +151,6 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
             $blocked = new Card(project: $project, column: $backlog, title: 'Then this', body: 'Body', number: 2);
             $em->persist($blocked);
             $em->persist(new CardLink($card, $blocked, CardLinkKind::Blocks));
-            $em->persist(new CardAutomation($card));
             $em->persist(new BoardAutomationSettings($project));
         }
         $em->persist($card);

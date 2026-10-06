@@ -206,7 +206,6 @@ final class WritePullRequestFactEventsHandlerTest extends KernelTestCase
         $this->handler()(new WritePullRequestFactEventsCommand($this->pullRequest, new PullRequestSnapshot(), $current, PullRequestReview::ChangesRequested));
 
         self::assertSame(['pull_request.review_submitted', 'pull_request.checks_concluded', 'pull_request.conflicted'], array_column($this->outbox(), 'type'));
-        self::assertSame(0, $this->countForCard('board_card_automations', $card));
         self::assertSame(0, $this->countForCard('board_card_events', $card));
     }
 
