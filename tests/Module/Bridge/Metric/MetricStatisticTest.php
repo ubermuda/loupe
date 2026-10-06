@@ -38,10 +38,13 @@ final class MetricStatisticTest extends TestCase
         self::assertSame(6, MetricStatistic::Sum->of([1, 2, 3]));
     }
 
-    public function test_every_statistic_of_no_value_is_null(): void
+    public function test_every_statistic_but_count_of_no_value_is_null(): void
     {
+        self::assertSame(0, MetricStatistic::Count->of([]));
         foreach (MetricStatistic::cases() as $statistic) {
-            self::assertNull($statistic->of([]), $statistic->value);
+            if (MetricStatistic::Count !== $statistic) {
+                self::assertNull($statistic->of([]), $statistic->value);
+            }
         }
     }
 }

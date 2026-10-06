@@ -13,14 +13,14 @@ enum MetricStatistic: string
     case Count = 'count';
 
     /**
-     * Null for no value. A percentile interpolates between ranks, as numpy's default does.
+     * Null for no value, but the count of no value is 0. A percentile interpolates between ranks, as numpy's default does.
      *
      * @param list<int|float> $values
      */
     public function of(array $values): int|float|null
     {
         if ([] === $values) {
-            return null;
+            return self::Count === $this ? 0 : null;
         }
 
         return match ($this) {
