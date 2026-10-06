@@ -37,8 +37,9 @@ test('a card moved in one browser moves in another, marked, with the filter and 
     browser,
     request,
 }) => {
-    // Five cards go through the create form, one page visit each.
-    test.slow();
+    // Five cards go through the create form, and two browsers sign in. Beside
+    // three other workers that took more than the 90 s of test.slow().
+    test.setTimeout(test.info().timeout * 6);
 
     const email = `e2e+livecards+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {

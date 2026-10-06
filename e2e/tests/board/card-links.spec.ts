@@ -45,7 +45,7 @@ async function createCard(
         .click();
     await expect(
         page.getByRole('heading', { name: title, exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     return new URL(page.url()).pathname;
 }

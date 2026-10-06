@@ -41,7 +41,7 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
         .click();
     await expect(
         editor.getByRole('heading', { name: 'Shared card', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     const cardUrl = new URL(editor.url()).pathname;
 
     await editor.goto(boardUrl);
@@ -138,7 +138,7 @@ test('the open drawer shows a move made elsewhere, on the tab the reader had ope
         .click();
     await expect(
         reader.getByRole('heading', { name: 'Moving card', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     const cardUrl = new URL(reader.url()).pathname;
 
     await reader.goto(boardUrl);

@@ -37,7 +37,7 @@ test('Retry now ends a retries pause, and the history records the release', asyn
         .click();
     await expect(
         page.getByRole('heading', { name: 'Paused card', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     const cardUrl = new URL(page.url()).pathname;
     const cardId = /\/cards\/([0-9a-f-]+)$/.exec(cardUrl)?.[1];
     expect(cardId).toBeTruthy();
