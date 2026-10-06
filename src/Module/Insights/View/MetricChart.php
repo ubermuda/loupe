@@ -6,7 +6,6 @@ namespace App\Module\Insights\View;
 
 use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricBucket;
-use App\Module\Bridge\Metric\MetricPoint;
 use App\Module\Bridge\Metric\MetricSeries;
 use App\Module\Bridge\Metric\MetricValueType;
 
