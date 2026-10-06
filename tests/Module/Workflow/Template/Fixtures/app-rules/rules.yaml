@@ -1,0 +1,9 @@
+rules:
+    - id: app-groom
+      slot: '@backlog'
+      when: { not: { card.has_open_blocker: {} } }
+      then: { request: { kind: groom, prompt: groom-card } }
+
+    - id: app-tidy
+      when: { all: [] }
+      then: { release: { reason: tidy } }
