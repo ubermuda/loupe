@@ -5,18 +5,16 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 
 /**
- * Reads the stored pull request states and the automation rows of many cards
- * of one project, in one query for each whatever the card count.
+ * Reads the stored pull request states of many cards of one project, in one
+ * query whatever the card count.
  */
 readonly class CardPullRequestStates
 {
     public function __construct(
         private ForgePullRequestRepository $forgePullRequests,
-        private CardAutomationRepository $cardAutomations,
     ) {
     }
 
@@ -33,12 +31,10 @@ readonly class CardPullRequestStates
         $projectId = $cards[0]->project->id ?? throw new \LogicException('A card project is persisted.');
         $keys = [];
         $linksByKey = [];
-        $cardIds = [];
         foreach ($cards as $card) {
             if (!$projectId->equals($card->project->id)) {
                 throw new \LogicException('Every card belongs to the project.');
             }
-            $cardIds[] = $card->id ?? throw new \LogicException('A card is persisted.');
             foreach ($card->pullRequests as $link) {
                 if (null === $link->repository || null === $link->number) {
                     continue;
@@ -57,7 +53,7 @@ readonly class CardPullRequestStates
             }
         }
 
-        return new PullRequestStates($byPullRequest, $this->cardAutomations->findByCardIds($cardIds));
+        return new PullRequestStates($byPullRequest);
     }
 
     private static function key(string $forge, string $repository, int $number): string

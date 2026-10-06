@@ -59,13 +59,13 @@ Write the final reply, its reason code and the structured result as the contract
 
 ## The design sections
 
-Use these `##` sections, in this order. Follow `../loupe-documents/references/design-structure.md` for At a glance, the decisions and the tables. Put each section that the profile instructions add, such as the current state or the project checks, before Decided.
+Use these `##` sections, in this order. Follow `../loupe-documents/references/design-structure.md` for the reader rule, At a glance, the decisions and the tables. The reader rule is its section "Write for a reader who knows the product". Put each section that the profile instructions add, such as the current state or the project checks, before Decided.
 
 1. At a glance.
 2. Priorities. Cite the `P` entries of the product document that the design serves. With no product document, take them from the card body.
 3. Architecture. Name each part that the change adds or changes. Give each part one table row, with its role today and its change. Write "new" as the role of a part that the change adds. Then describe the main flow step by step. A diagram is optional, and `../loupe-documents/references/design-structure.md` "Diagrams" gives the types.
 4. How others do it. Give two or three libraries or systems that solve the same problem. Link each one, and give one takeaway.
-5. One section for each open decision, with a stable ID such as `D1` in its heading. Each decision cites the `R` and `P` IDs it serves. Give each one the worked example of `../loupe-documents/references/design-structure.md` "Decisions".
+5. One section for each open decision, with a stable ID such as `D1` in its heading. Each decision cites the `R` and `P` IDs it serves. Write each one for a reader who knows the product. Give each one the worked example and the "How each option works" list of `../loupe-documents/references/design-structure.md` "Decisions".
 6. Decided. Write each entry in two to four sentences. Give the reason, the option that lost and why it lost, and the cost that the choice accepts. For a reversal, name the answer that lost and the argument that changed it.
 7. The work order. List the steps with stable IDs. Say which open decision blocks which step. Write a Breakdown section instead when "Judge the size" asks for one.
 
@@ -104,7 +104,7 @@ Show a short snippet where it makes a part or a decision concrete. Put the snipp
 ## Facts and recommendations
 
 1. Read the code before you state a fact about it. Run the search, and write the count it gives, never a count from memory.
-2. Mark each entry, and each cost, as checked or estimated. An estimate beside checked entries reads as checked. Say what you could not verify.
+2. A fact with no mark is checked. Mark each estimate, and each estimated cost, "(estimated)". Name the files behind the checked facts in one "Checked in the code" line per section. `../loupe-documents/references/design-structure.md` "Write for a reader who knows the product" gives the format. Say what you could not verify.
 3. Give each recommendation a confidence: high, moderate or low. Give the strongest argument against it.
 4. Never inflate the cost of the option you reject. An overstated argument hides how close the call was.
 5. Name the cost that each decision accepts, in the entry that causes it.

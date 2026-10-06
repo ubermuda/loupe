@@ -191,8 +191,10 @@ reading context, not for a terminal or a README.
 
 15. **A product design or a tech design follows
     `references/design-structure.md`.** It opens with "At a glance", and each
-    open decision gets a pros and cons table. Read that file before you write
-    one.
+    open decision gets a pros and cons table. Write the design for a reader who
+    knows the product and not the code. Keep code names in the parts that this
+    reader can skip, as its section "Write for a reader who knows the product"
+    says. Read that file before you write one.
 
 16. **Give the meaning of each outside ID.** An outside ID is a short ID that
     the document does not define and does not take from a referenced document.
@@ -290,5 +292,9 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
   (rule 8); if it does not fit in a short paragraph, it belongs in the document.
 - Writing a table and then the same content again in prose. The table replaces
   the text it covers (rule 15).
+- Writing a decision in the terms of the code: class names, fields, and
+  "(checked, File.php)" on each sentence. The owner decides with no file open.
+  Write the question and the options in product terms. A tech design puts the
+  code in the How list (rule 15).
 - Citing a rule ID of a skill, such as C2, with no meaning and no source. The
   reviewer does not have the skill open (rule 16).

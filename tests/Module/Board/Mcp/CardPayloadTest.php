@@ -7,8 +7,6 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
-use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
@@ -92,7 +90,7 @@ final class CardPayloadTest extends TestCase
         self::assertSame([], $rows[0]['children']);
     }
 
-    public function test_the_full_shape_renders_the_stored_pull_request_state_and_the_automation(): void
+    public function test_the_full_shape_renders_the_stored_pull_request_state(): void
     {
         $card = $this->card();
         $this->setId($card, Uuid::v7());
@@ -102,9 +100,6 @@ final class CardPayloadTest extends TestCase
         $this->setId($untracked, Uuid::v7());
         $card->pullRequests->add($tracked);
         $card->pullRequests->add($untracked);
-        $automation = new CardAutomation($card);
-        $automation->lastAction = CardAutomationAction::FixRequested;
-        $automation->lastActionAt = new \DateTimeImmutable('2026-09-27T10:00:00+00:00');
         $states = $this->createMock(CardPullRequestStates::class);
         // One read for the whole page, never one per card.
         $states->expects($this->once())->method('forCards')->with([$card])->willReturn(new PullRequestStates(
@@ -118,7 +113,6 @@ final class CardPayloadTest extends TestCase
                 false,
                 new \DateTimeImmutable('2026-09-27T11:00:00+00:00'),
             )],
-            [(string) $card->id => $automation],
         ));
 
         $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class))->forCards([$card]);
@@ -134,18 +128,7 @@ final class CardPayloadTest extends TestCase
             'refreshedAt' => '2026-09-27T11:00:00+00:00',
         ], $rows[0]['pullRequests'][0]['state']);
         self::assertNull($rows[0]['pullRequests'][1]['state']);
-        self::assertSame([
-            'lastAction' => 'fix-requested',
-            'lastActionAt' => '2026-09-27T10:00:00+00:00',
-        ], $rows[0]['automation']);
-    }
-
-    public function test_a_card_with_no_automation_row_reads_a_null_automation(): void
-    {
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $this->createStub(CardPauseRepository::class))->forCards([$this->card()]);
-
-        self::assertArrayHasKey('automation', $rows[0]);
-        self::assertNull($rows[0]['automation']);
+        self::assertArrayNotHasKey('automation', $rows[0]);
     }
 
     public function test_a_pull_request_that_loupe_never_read_reads_a_null_state(): void

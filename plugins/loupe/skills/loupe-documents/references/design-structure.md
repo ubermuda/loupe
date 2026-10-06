@@ -23,6 +23,33 @@ Open decisions:
 2. [D2: What a deleted tag does to its cards](#heading-d2-what-a-deleted-tag-does-to-its-cards)
 ```
 
+## Write for a reader who knows the product
+
+The owner reads a design to make its decisions. The owner knows what the product does, and does not hold the code in mind.
+
+1. Say what happens in product terms first: what a person sees, what the board does, what an agent does. Then name the code, when the reader needs it.
+2. Write At a glance, each decision and each Decided entry for a reader with no file open. Put class names, fields, methods and file paths in Architecture, the work order and the project checks. A reader who knows the product can skip those parts.
+3. Write the question and each option of a decision in plain words. Each option says what changes for a person or an agent. Two options can look the same to a person. Then name their difference in plain words, such as "keep a copy" or "count on each page load", and say what each one costs. In a tech design, put the code that each option changes in the "How each option works" list (see "Decisions").
+4. A name that a person sees in the product is a plain word. Examples are a tool name, a column, a tag and a button label. A class, a field, a method or a file path is not a plain word. Keep it out of the question, the options, the table and the example.
+5. Explain a new idea in one sentence where it first appears. Add a small example when it helps. Rule 16 of `../SKILL.md` covers an ID from another source. This item covers an idea, such as a kind of pause.
+6. A fact with no mark is checked. Mark only an estimate, with "(estimated)". When a section states facts from the code, end it with one "Checked in the code" line that names the files behind them. Never tag each sentence with "(checked, File.php)".
+
+Before, the decision is written in the terms of the code:
+
+```markdown
+**Decision needed:** what `TagDeleteHandler` does with `Card::$tags` when it removes a `Tag` row (checked, TagDeleteHandler.php). I recommend option 1, because `CardRepository::findByTag()` already returns them (checked, CardRepository.php).
+```
+
+After, the same decision is written in product terms:
+
+```markdown
+**Decision needed:** what happens to the cards of a tag that a member deletes. I recommend option 1: the cards lose the tag, and the board shows the change.
+
+(The table, the example, the How list and the fence follow here.)
+
+Checked in the code: `TagDeleteHandler.php`, `CardRepository.php`.
+```
+
 ## Decisions
 
 Give each open decision its own section, with a stable ID in the heading.
@@ -30,13 +57,16 @@ Give each open decision its own section, with a stable ID in the heading.
 1. Write the "**Decision needed:**" paragraph (rule 5). Name your recommendation and your confidence: high, moderate or low. Give the strongest argument against it.
 2. When the decision has two or more real options, add a table with the columns Option, Pros and Cons. Write one row for each option.
 3. Add a worked example under the table. Take one real case from the project, such as a card, a rule or a page. Write one line that states the case, then a numbered list. Start the list with "Today" when the decision changes existing behaviour. Then add one entry for each option, in the order of the table rows. Use the same case in each entry.
-4. Put the decision fence under the example. Use the same options in the same order as the table rows.
+4. In a tech design, add a "How each option works" numbered list under the example. A product document gets none, because the code belongs to the tech design. Write one entry for each option, in the order of the table rows. Each entry names the code that the option changes. This list is the one place in a decision where a class, a field or a file may appear.
+5. Put the decision fence under the How list, or under the example when there is no How list. Use the same options in the same order as the table rows.
 
 Keep the reasons in the table. The fence holds only its question and the one-line options (`decision-fences.md`). End the recommended option with its confidence marker, such as `(recommended: moderate)`, so Loupe shows a badge on it.
 
-Each entry of the example shows the input and what the user or the system sees. Prefer a short code block, a before and after, or a list of steps to prose. Keep each entry near ten lines. Put the example above the fence, because a fence takes only one question paragraph. When a revision answers the decision, keep the example in its section above the `**Decided:**` line.
+Each entry of the example shows the input and what the user or the system sees. Prefer a short code block, a before and after, or a list of steps to prose. Keep each entry near ten lines. The order is the table, the example, the How list of a tech design, then the fence. Put them above the fence, because a fence takes only one question paragraph. When a revision answers the decision, keep them in the section above the `**Decided:**` line.
 
-A Decisions log entry of a product document stays one line with its reason, and gets no example. A Decided entry of a tech design follows `../../loupe-stage-tech-design/SKILL.md`, and gets no example.
+A Decisions log entry of a product document stays one line with its reason. A Decided entry of a tech design follows `../../loupe-stage-tech-design/SKILL.md`. Neither gets an example or a How list. Write both in product terms.
+
+The example below is a tech design decision. In a product document, leave out its How list. Keep the "Checked in the code" line only when the section states a fact from the code.
 
 ```markdown
 ## D1: Who may delete a tag
@@ -53,6 +83,11 @@ A Decisions log entry of a product document stays one line with its reason, and 
 1. Any project member: the member deletes `urgent`. The 12 cards lose it, and the owner sees the change on the board.
 2. The project owner only: the member sees no delete button. The member asks the owner, who deletes the tag.
 
+**How each option works:**
+
+1. Any project member: `TagVoter` grants the `tag.delete` attribute to each member of the project.
+2. The project owner only: `TagVoter` grants `tag.delete` to the project owner alone. The delete button checks the same attribute.
+
 <!-- decision: tag-delete-role -->
 
 Who may delete a tag?
@@ -61,6 +96,8 @@ Who may delete a tag?
 2. The project owner only
 
 <!-- /decision -->
+
+Checked in the code: `TagVoter.php`.
 ```
 
 ## Diagrams

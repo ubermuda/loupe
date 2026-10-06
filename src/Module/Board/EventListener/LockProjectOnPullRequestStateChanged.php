@@ -10,10 +10,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * Takes the project lock before RecordSyncOnPullRequestStateChanged locks an
- * automation row, the order UpdateCardHandler uses. Every read takes it, moving
- * or not, so no two reads lock in opposite orders. Forge has read the forge by
- * now, so no HTTP call runs under the lock.
+ * Takes the project lock before the listeners of PullRequestStateChanged that
+ * write card rows, the order UpdateCardHandler uses. Two reads of one pull
+ * request then cannot record the same event twice in parallel. Forge has read
+ * the forge by now, so no HTTP call runs under the lock.
  */
 #[AsEventListener(priority: 10)]
 final readonly class LockProjectOnPullRequestStateChanged
