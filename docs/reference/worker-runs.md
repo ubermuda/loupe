@@ -641,13 +641,15 @@ whose last resolve is older than the run retention window. The next run of that
 card then picks a variant again. Every resolve refreshes a pin, so the sweep
 takes only the pins of idle cards.
 
-Deleting a project deletes its run records, its usage, its experiment pins,
+Deleting a project deletes its run records, its usage, its run facts, its experiment pins,
 its experiment weights and its card holds with it. Deleting an account deletes
 the same data of every project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
 `requestedModel` and `switchedFrom`, and its `workRequestId`, `workKind` and `ruleId`. It holds every usage
-row in `worker_run_usage.json`. It holds every experiment pin in
+row in `worker_run_usage.json`. It holds the fact row of each run in
+`worker_run_facts.json`, with its outcome, its duration, its cost and its token sums.
+A fact row stays after the retention sweep deletes its run. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of
 each experiment in `experiment_definitions.json`, with its project, its
