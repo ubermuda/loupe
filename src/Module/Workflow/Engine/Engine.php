@@ -328,12 +328,18 @@ final readonly class Engine
             return true;
         }
         // Another pull request gets its own request budget.
+        $firesBefore = $state->fires;
         if ($newSubject) {
             $state->fires = 0;
         }
 
         $type = $rule->then->type;
         $outcome = $this->actions->get($type)->run($rule, $run->card, $bound->facts, $state);
+        // The live request still serves the old subject, so the change waits until it settles.
+        if ($newSubject && $outcome->alreadyLive) {
+            $state->subjectPullRequestId = $stored;
+            $state->fires = $firesBefore;
+        }
         $run->fired[] = ['rule' => $rule->id, 'outcome' => $outcome->kind->value, 'code' => $outcome->code];
         if (null !== $run->holdingPause?->releasedAt) {
             $run->holdingPause = null;
