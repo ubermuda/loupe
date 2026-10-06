@@ -100,12 +100,12 @@ final readonly class ReportSessionUsageHandler
         return $result;
     }
 
-    /** @return list<WorkerRun> the run of the id, or none while it runs or belongs to another session */
+    /** @return list<WorkerRun> the run of the id, or none while it runs, never started or belongs to another session */
     private function endedInteractiveRun(Project $project, ReportSessionUsageCommand $command): array
     {
         $run = $this->workerRuns->findInteractiveOfSessionForUpdate($project, $command->runId ?? throw new \LogicException('A run id is set.'), $command->sessionId);
 
-        return null === $run || WorkerRunState::Running === $run->state || null === $run->endedAt ? [] : [$run];
+        return null === $run || WorkerRunState::Running === $run->state || null === $run->startedAt || null === $run->endedAt ? [] : [$run];
     }
 
     private function lockedProject(ReportSessionUsageCommand $command): ?Project

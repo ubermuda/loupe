@@ -217,6 +217,7 @@ final class WorkerRunSessionUsageApiTest extends WebTestCase
     public static function runsTheRunIdCannotFill(): iterable
     {
         yield 'an open run' => ['open'];
+        yield 'a run that never started' => ['not-started'];
         yield 'a run of another session' => ['other-session'];
         yield 'a worker run' => ['worker'];
         yield 'an unknown run' => ['unknown'];
@@ -232,6 +233,7 @@ final class WorkerRunSessionUsageApiTest extends WebTestCase
         $session = Uuid::v4();
         $runId = match ($case) {
             'open' => $this->interactiveRun($project, $session, WorkerRunState::Running)->id,
+            'not-started' => $this->interactiveRun($project, $session, WorkerRunState::NotStarted)->id,
             'other-session' => $this->interactiveRun($project, Uuid::v4())->id,
             'worker' => $this->sessionRun($project, $session, '2026-09-23 10:00:00')->id,
             default => Uuid::v7(),
@@ -390,6 +392,9 @@ final class WorkerRunSessionUsageApiTest extends WebTestCase
         $run->sessionId = $session;
         if (WorkerRunState::Running === $state) {
             $run->endedAt = null;
+        }
+        if (WorkerRunState::NotStarted === $state) {
+            $run->startedAt = null;
         }
         $em->flush();
 

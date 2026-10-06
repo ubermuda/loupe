@@ -43,7 +43,8 @@ func (u *runUsageRecorder) recorded() []runUsageCall {
 }
 
 // sessionUsageCommand asks for the usage of the run from 00:00:01 to 00:00:02
-// on 2099-01-01, which holds the streamed message m1 alone.
+// on 2099-01-01. Both are whole seconds, so the bridge reads 00:00:02 to
+// 00:00:03, which holds the last line of message m1 alone.
 func sessionUsageCommand() api.Command {
 	c := testCommand(testCommandID, api.CommandCollectSessionUsage, testBridgeID, soon())
 	start := time.Date(2099, 1, 1, 0, 0, 1, 0, time.UTC)
@@ -60,8 +61,9 @@ func withRunUsage(h *harness) *runUsageRecorder {
 	return rec
 }
 
-// The usage holds the messages of the window. The window ends on a whole
-// second, so the message at its end counts, and the next second does not.
+// The usage holds the messages of the window. Each edge on a whole second moves
+// to the end of that second, so the message at the end counts, and the next
+// second does not.
 func TestASessionUsageRequestSendsTheUsageOfTheRun(t *testing.T) {
 	claudeHome(t, testSession, early, streamed1, streamed2, second)
 	h := newHarness(t)
@@ -152,5 +154,18 @@ func TestAnUnknownCommandKindIsRefused(t *testing.T) {
 	h.router.mu.Unlock()
 	if queued != 0 || h.runs() != 0 {
 		t.Fatalf("queued = %d, workers = %d, want none", queued, h.runs())
+	}
+}
+
+// A run that starts in the second the run before it ends reads from the end of
+// that second, so the two windows share no reply.
+func TestTheWindowsOfTwoRunsInOneSecondDoNotOverlap(t *testing.T) {
+	cut := time.Date(2099, 1, 1, 0, 0, 2, 0, time.UTC)
+	if !windowEdge(cut).Equal(cut.Add(time.Second)) {
+		t.Fatalf("edge of a whole second = %s", windowEdge(cut))
+	}
+	exact := cut.Add(250 * time.Millisecond)
+	if !windowEdge(exact).Equal(exact) {
+		t.Fatalf("edge of an exact time = %s", windowEdge(exact))
 	}
 }
