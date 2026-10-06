@@ -179,7 +179,8 @@ before command rules sends no `kind`, and its runs are worker runs.
 ### Usage
 
 An outcome can carry the tokens the worker spent, per model. `claude -p
---output-format json` returns them in `modelUsage`.
+--verbose --output-format stream-json` returns them in `modelUsage`, on its
+`result` line.
 
 ```json
 {
@@ -352,6 +353,96 @@ estimated counts with reported ones. It never replaces reported counts.
 | 422 | `{"error":"invalid_session_id"}` | `sessionId` is not a uuid |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
+
+## Reporting the tool calls of a run
+
+`PUT /api/projects/{handle}/worker-runs/{runId}/tool-calls`
+
+The bridge sends this report when a worker ends, after the final state of the
+run. `runId` is the uuid the bridge generated for the run. One request holds at
+most 500 calls, so a long run sends more than one. The last request also
+carries `timing`. [Tool calls](../extending/cli-bridge.md#tool-calls) says
+what the bridge reads from the stream of the worker.
+
+```json
+{
+  "calls": [
+    {
+      "seq": 1,
+      "tool": "Bash",
+      "startedAt": "2026-10-06T14:12:03.120Z",
+      "durationMs": 840,
+      "isError": false,
+      "inSubagent": false,
+      "backgroundId": null,
+      "waitsOn": null,
+      "signatures": ["git status"],
+      "fullText": null
+    }
+  ],
+  "timing": {"toolTimeMs": 412000, "idleGapMs": 0}
+}
+```
+
+| Field | Rule |
+|---|---|
+| `calls` | required. A list of at most 500 calls, which may be empty |
+| `calls[].seq` | required. The place of the call in the run, from 1 to 2147483647 |
+| `calls[].tool` | required. The tool name, such as `Bash`, `Read` or `Agent`, of 1 to 64 characters |
+| `calls[].startedAt` | required. When the call started, in any offset. The server stores it in UTC |
+| `calls[].durationMs` | an integer of 0 or more. `null` when the stream holds no result of the call |
+| `calls[].isError` | `true` when the tool answered with an error. `null` when the stream holds no result of the call |
+| `calls[].inSubagent` | required. `true` when a subagent made the call |
+| `calls[].backgroundId` | the id of the background task the call started, of at most 64 characters |
+| `calls[].waitsOn` | the `backgroundId` of an earlier call that this call reads, of at most 64 characters |
+| `calls[].signatures` | required. A list of at most 20 strings of at most 120 characters. For a Bash call, the program and its subcommand for each command. For any other call, the tool name |
+| `calls[].fullText` | the full input of the call, of at most 20000 characters. `null` unless the project collects full text |
+| `timing.toolTimeMs` | an integer of 0 or more. The time the main session spent in tool calls, with overlaps counted once |
+| `timing.idleGapMs` | an integer of 0 or more. The sum of each pause of more than 300 seconds between two timed lines of the stream |
+
+`timing` is optional, and a `null` value in it is unknown. The server stores
+`timing` on the run each time a request carries it.
+
+The server finds the run by `runId` among the runs of the project, from any
+bridge. It stores each call whose `seq` the run does not hold yet, and skips
+the others. A retry is therefore safe, and it answers 200 with a lower
+`stored`. Each request then rewrites the metrics row of the run, as
+[Run metrics](#run-metrics) describes.
+
+| Status | Body | When |
+|---|---|---|
+| 200 | `{"stored":12}` | the request is taken. `stored` counts the calls the server stored for the first time |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | `{"error":"run_not_found"}` | the project has no run with that `runId`, or two runs of the project share it |
+| 404 | | agent push is switched off on the instance, or the server has no such endpoint |
+| 422 | `{"error":"invalid_run_id"}` | `runId` is not a uuid |
+| 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
+| 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
+
+The bridge reads a 404 with no error code as a server with no tool call
+endpoint. It then sends no tool calls until it restarts.
+
+### Run metrics
+
+The server keeps a metrics row for each run. Besides the duration, the cost and
+the tokens, the row holds the timing of the run. The MCP tools
+`worker_run_list` and `worker_run_get` show it in `metrics`, and
+`worker_run_tool_calls` reads the calls one by one. A `null` value is unknown.
+
+| Field | Value |
+|---|---|
+| `toolTimeMs` | the `timing.toolTimeMs` the bridge sent |
+| `idleGapMs` | the `timing.idleGapMs` the bridge sent |
+| `modelTimeMs` | the duration of the run less `toolTimeMs` and `idleGapMs`, and never below zero. `null` when one of them is unknown |
+| `toolCalls` | the count of the calls of the run, the calls of subagents included |
+| `failedCalls` | the count of the calls with `isError` true |
+| `longestCallMs` | the longest `durationMs` of the calls |
+| `subagentMs` | the sum of `durationMs` of the `Agent` and `Task` calls of the main session |
+
+`toolCalls`, `failedCalls`, `longestCallMs` and `subagentMs` are `null` for a
+run with no stored call.
 
 ## Resolving an experiment pin
 
@@ -595,7 +686,8 @@ endpoint answers 404 there.
 
 The endpoints on this page share one limit, `agent_worker_runs`, of 240
 requests in one minute for each token. A run sends about four state reports,
-and a run in an experiment adds one pin call. The limit lets a bridge drain a
+and one tool call report for each 500 calls. A run in an experiment adds one
+pin call. The limit lets a bridge drain a
 full queue of 256 reports before its retries give up.
 
 ## What a missing record means
@@ -630,7 +722,8 @@ typed zero cannot take the whole history.
 
 The sweep keeps the usage of a run it deletes. The usage row loses the link to
 its run, and keeps its project, its card, its work kind and its source, so the spend
-of a card outlives the run records.
+of a card outlives the run records. The sweep deletes the tool calls of a run
+with the run. The metrics row of the run keeps their counts and their timing.
 
 The sweep cuts on the server's arrival time rather than on the bridge clock. A
 bridge with a wrong clock would otherwise stamp a run outside the window and
@@ -641,14 +734,17 @@ whose last resolve is older than the run retention window. The next run of that
 card then picks a variant again. Every resolve refreshes a pin, so the sweep
 takes only the pins of idle cards.
 
-Deleting a project deletes its run records, its usage, its run facts, its experiment pins,
+Deleting a project deletes its run records, its tool calls, its usage, its run facts, its experiment pins,
 its experiment weights and its card holds with it. Deleting an account deletes
 the same data of every project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
-`requestedModel` and `switchedFrom`, and its `workRequestId`, `workKind` and `ruleId`. It holds every usage
-row in `worker_run_usage.json`. It holds the fact row of each run in
-`worker_run_facts.json`, with its outcome, its duration, its cost and its token sums.
+`requestedModel` and `switchedFrom`, its `workRequestId`, `workKind` and `ruleId`, and its `toolTimeMs` and `idleGapMs`. It holds every usage
+row in `worker_run_usage.json`. It holds every tool call in
+`worker_run_tool_calls.json`, with its project, the `runKey` of its run, and the
+fields of [the tool call report](#reporting-the-tool-calls-of-a-run). It holds the fact row of each run in
+`worker_run_facts.json`, with its outcome, its duration, its cost, its token sums and the
+[run metrics](#run-metrics) of its timing.
 A fact row stays after the retention sweep deletes its run. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of
