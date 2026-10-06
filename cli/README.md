@@ -775,10 +775,11 @@ bridge on the same file refuses to start.
 When a worker ends, the bridge sends each tool call of the run to Loupe, after
 the run's final state. A call has its tool, its start, its duration, its error
 flag, and whether a subagent made it. A background Bash call names its
-background id, and a later call that names that id waits on it. The last
-batch also holds the run's tool time and its idle time. The tool time is the
-time the main session spent in tool calls. The idle time sums each pause
-longer than 300 seconds.
+background id, and an async Agent call names its agent id. A later call that
+names that id waits on it. The last batch also holds the run's tool time and
+its idle time. The tool time is the time the main session spent in tool calls.
+The idle time sums each pause longer than 300 seconds between two lines of the
+stream, less the part that a tool call covers.
 
 A call also has signatures, which name what it ran with no argument you typed.
 A Bash call gets one signature for each program its command runs, such as

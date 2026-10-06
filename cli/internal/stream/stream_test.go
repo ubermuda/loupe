@@ -118,7 +118,7 @@ func TestReadsAPlainRunWithABackgroundTaskAndAnAsyncSubagent(t *testing.T) {
 		{tool: "Bash", startedAt: "2026-10-06T16:32:32.216Z", durationMs: i64(24), isError: no()},
 		// The tool result comes 24 ms after the call, and the subagent's last
 		// line at 38.475 ends it.
-		{tool: "Agent", startedAt: "2026-10-06T16:32:35.638Z", durationMs: i64(2837)},
+		{tool: "Agent", startedAt: "2026-10-06T16:32:35.638Z", durationMs: i64(2837), backgroundID: str("ac413ca3d11aaf481")},
 		{tool: "Bash", startedAt: "2026-10-06T16:32:36.945Z", durationMs: i64(30), isError: no(), inSubagent: true},
 	})
 	checkTiming(t, out.Timing, i64(157+24+2837), i64(0))
@@ -287,5 +287,66 @@ func TestAResultWithNoTimestampGivesNoDuration(t *testing.T) {
 	}
 	if !out.Calls[0].StartedAt.Equal(time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)) {
 		t.Fatalf("startedAt %s", out.Calls[0].StartedAt)
+	}
+}
+
+// An async Agent call names its agent in tool_use_result.agentId, and a later
+// call that names that id waits on it.
+func TestAnAsyncAgentGivesItsAgentIDAsItsBackgroundID(t *testing.T) {
+	out := readFixture(t, "plain_background_subagent.jsonl")
+	if id := out.Calls[2].BackgroundID; id == nil || *id != "ac413ca3d11aaf481" {
+		t.Fatalf("agent background id %v", show(id))
+	}
+
+	in := `{"type":"assistant","timestamp":"2026-10-06T10:00:00.000Z","message":{"content":[{"type":"tool_use","id":"t1","name":"Agent","input":{}}]}}` + "\n" +
+		`{"type":"user","timestamp":"2026-10-06T10:00:01.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"text"}]},"tool_use_result":{"isAsync":true,"agentId":"a1b2c3"}}` + "\n" +
+		`{"type":"assistant","timestamp":"2026-10-06T10:00:02.000Z","message":{"content":[{"type":"tool_use","id":"t2","name":"SendMessage","input":{"to":"a1b2c3"}}]}}` + "\n"
+	out, err := Read(strings.NewReader(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Calls[0].BackgroundID == nil || *out.Calls[0].BackgroundID != "a1b2c3" {
+		t.Fatalf("background id %v", show(out.Calls[0].BackgroundID))
+	}
+	if out.Calls[1].WaitsOn == nil || *out.Calls[1].WaitsOn != "a1b2c3" {
+		t.Fatalf("waits on %v", show(out.Calls[1].WaitsOn))
+	}
+}
+
+// A gap that a call covers is tool time, not idle time. Only a gap with no
+// call open counts as idle.
+func TestAGapThatACallCoversIsNotIdle(t *testing.T) {
+	use := func(at, id string) string {
+		return `{"type":"assistant","timestamp":"` + at + `","message":{"content":[{"type":"tool_use","id":"` + id + `","name":"Bash","input":{"command":"sleep 600"}}]}}` + "\n"
+	}
+	result := func(at, id string) string {
+		return `{"type":"user","timestamp":"` + at + `","message":{"content":[{"type":"tool_result","tool_use_id":"` + id + `","content":"text"}]}}` + "\n"
+	}
+	text := func(at string) string {
+		return `{"type":"assistant","timestamp":"` + at + `","message":{"content":[{"type":"text","text":"text"}]}}` + "\n"
+	}
+
+	for name, tc := range map[string]struct {
+		in   string
+		idle int64
+	}{
+		"a 600 s call": {use("2026-10-06T10:00:00.000Z", "t1") + result("2026-10-06T10:10:00.000Z", "t1"), 0},
+		"a 600 s gap with no call open": {
+			use("2026-10-06T10:00:00.000Z", "t1") + result("2026-10-06T10:00:01.000Z", "t1") + text("2026-10-06T10:10:01.000Z"), 600_000,
+		},
+		"a gap a call covers in part": {
+			text("2026-10-06T10:00:00.000Z") + use("2026-10-06T10:00:00.000Z", "t1") + text("2026-10-06T10:10:00.000Z") + result("2026-10-06T10:20:00.000Z", "t1") + text("2026-10-06T10:30:00.000Z"),
+			600_000,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			out, err := Read(strings.NewReader(tc.in))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if out.Timing.IdleGapMs == nil || *out.Timing.IdleGapMs != tc.idle {
+				t.Fatalf("idleGapMs %v, want %d", show(out.Timing.IdleGapMs), tc.idle)
+			}
+		})
 	}
 }

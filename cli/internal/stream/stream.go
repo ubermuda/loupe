@@ -114,6 +114,7 @@ type entry struct {
 	Timestamp       string          `json:"timestamp"`
 	ParentToolUseID *string         `json:"parent_tool_use_id"`
 	Message         json.RawMessage `json:"message"`
+	ToolUseResult   json.RawMessage `json:"tool_use_result"`
 }
 
 type block struct {
@@ -142,8 +143,12 @@ type reader struct {
 	lastChild map[string]time.Time
 	timed     int
 	previous  time.Time
-	idle      int64
+	// gaps are the pauses longer than idleGap between two timed lines.
+	gaps []span
 }
+
+// span is the time from one instant to a later one.
+type span struct{ from, to time.Time }
 
 func (rd *reader) line(raw []byte) {
 	raw = bytes.TrimSpace(raw)
@@ -165,7 +170,7 @@ func (rd *reader) line(raw []byte) {
 	ts, timed := stamp(e.Timestamp)
 	if timed {
 		if rd.timed > 0 && ts.Sub(rd.previous) > idleGap {
-			rd.idle += ts.Sub(rd.previous).Milliseconds()
+			rd.gaps = append(rd.gaps, span{rd.previous, ts})
 		}
 		rd.timed++
 		rd.previous = ts
@@ -190,14 +195,35 @@ func (rd *reader) line(raw []byte) {
 	if json.Unmarshal(e.Message, &msg) != nil || json.Unmarshal(msg.Content, &blocks) != nil {
 		return
 	}
+	agent := asyncAgent(e.ToolUseResult, blocks)
 	for _, b := range blocks {
 		switch {
 		case e.Type == "assistant" && b.Type == "tool_use":
 			rd.use(b, ts, parent != "")
 		case e.Type == "user" && b.Type == "tool_result":
-			rd.answer(b, ts, timed)
+			rd.answer(b, ts, timed, agent)
 		}
 	}
+}
+
+// asyncAgent is the id of the async agent a user line launched, and "" when
+// it launched none. The line must hold one tool result, so the id has one owner.
+func asyncAgent(raw json.RawMessage, blocks []block) string {
+	var result struct {
+		IsAsync bool   `json:"isAsync"`
+		AgentID string `json:"agentId"`
+	}
+	results := 0
+	for _, b := range blocks {
+		if b.Type == "tool_result" {
+			results++
+		}
+	}
+	if results != 1 || json.Unmarshal(raw, &result) != nil || !result.IsAsync {
+		return ""
+	}
+
+	return cut(result.AgentID, maxName)
 }
 
 func (rd *reader) use(b block, ts time.Time, inSubagent bool) {
@@ -217,7 +243,7 @@ func (rd *reader) use(b block, ts time.Time, inSubagent bool) {
 	})
 }
 
-func (rd *reader) answer(b block, ts time.Time, timed bool) {
+func (rd *reader) answer(b block, ts time.Time, timed bool, agent string) {
 	i, ok := rd.byID[b.ToolUseID]
 	if !ok || rd.answered[i] {
 		return
@@ -227,6 +253,11 @@ func (rd *reader) answer(b block, ts time.Time, timed bool) {
 		rd.ended[i] = ts
 	}
 	rd.calls[i].IsError = b.IsError
+	if agent != "" {
+		rd.calls[i].BackgroundID = &agent
+
+		return
+	}
 	rd.calls[i].BackgroundID = backgroundID(text(b.Content))
 }
 
@@ -257,7 +288,7 @@ func (rd *reader) output() Output {
 
 	out := Output{Result: rd.result, Calls: rd.calls}
 	if rd.timed > 0 {
-		idle, tool := rd.idle, rd.toolTime()
+		idle, tool := rd.idleTime(), rd.toolTime()
 		out.Timing = Timing{ToolTimeMs: &tool, IdleGapMs: &idle}
 	}
 
@@ -266,27 +297,69 @@ func (rd *reader) output() Output {
 
 // toolTime is the length of the union of the main session's timed calls.
 func (rd *reader) toolTime() int64 {
-	type span struct{ from, to time.Time }
+	var total time.Duration
+	for _, s := range rd.busy(false) {
+		total += s.to.Sub(s.from)
+	}
+
+	return total.Milliseconds()
+}
+
+// idleTime sums the part of each gap that no timed call covers, so a long
+// call with no line inside it counts as tool time and not as idle.
+func (rd *reader) idleTime() int64 {
+	busy := rd.busy(true)
+	var total time.Duration
+	for _, g := range rd.gaps {
+		total += g.to.Sub(g.from)
+		for _, b := range busy {
+			if from, to := later(b.from, g.from), earlier(b.to, g.to); to.After(from) {
+				total -= to.Sub(from)
+			}
+		}
+	}
+
+	return total.Milliseconds()
+}
+
+// busy is the union of the timed calls, sorted and with no overlap. It holds
+// the subagents' calls when withSubagents is true.
+func (rd *reader) busy(withSubagents bool) []span {
 	var spans []span
 	for _, c := range rd.calls {
-		if !c.InSubagent && c.DurationMs != nil {
+		if (withSubagents || !c.InSubagent) && c.DurationMs != nil {
 			spans = append(spans, span{c.StartedAt, c.StartedAt.Add(time.Duration(*c.DurationMs) * time.Millisecond)})
 		}
 	}
 	slices.SortFunc(spans, func(a, b span) int { return a.from.Compare(b.from) })
 
-	var total time.Duration
-	for i := 0; i < len(spans); {
-		from, to := spans[i].from, spans[i].to
-		for i++; i < len(spans) && !spans[i].from.After(to); i++ {
-			if spans[i].to.After(to) {
-				to = spans[i].to
-			}
+	var merged []span
+	for _, s := range spans {
+		if n := len(merged); n > 0 && !s.from.After(merged[n-1].to) {
+			merged[n-1].to = later(merged[n-1].to, s.to)
+
+			continue
 		}
-		total += to.Sub(from)
+		merged = append(merged, s)
 	}
 
-	return total.Milliseconds()
+	return merged
+}
+
+func later(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+
+	return b
+}
+
+func earlier(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+
+	return b
 }
 
 func stamp(s string) (time.Time, bool) {

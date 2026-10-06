@@ -126,7 +126,9 @@ func TestTheProjectSettingsAreCachedForTenMinutes(t *testing.T) {
 	now := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	reports.now = func() time.Time { return now }
 
-	send := func() { sendAll(t, reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", nil, stream.Timing{})) }
+	send := func() {
+		sendAll(t, reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", nil, stream.Timing{}))
+	}
 	send()
 	now = now.Add(9 * time.Minute)
 	send()
