@@ -1621,7 +1621,7 @@ final class EngineTest extends KernelTestCase
     {
         return array_map(
             static fn (WorkRequest $request): string => $request->ruleId,
-            $this->service(WorkRequestRepository::class)->findBy(['cardId' => $card->id]),
+            $this->service(WorkRequestRepository::class)->findBy(['subjectType' => WorkSubject::CARD, 'subjectId' => $card->id]),
         );
     }
 }
