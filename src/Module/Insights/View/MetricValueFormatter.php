@@ -32,13 +32,19 @@ final readonly class MetricValueFormatter
         }
 
         return match ($metric->valueType()) {
-            MetricValueType::Money => $this->money($value, $moneyDecimals ?? 2),
+            MetricValueType::Money => $this->money($value, $moneyDecimals ?? self::moneyDecimals($value)),
             MetricValueType::Ratio => $this->number($value, \NumberFormatter::PERCENT, 1, 1),
             MetricValueType::Duration => Metric::HoursToMerge === $metric
                 ? $this->number($value, \NumberFormatter::DECIMAL, 0, 1).' h'
                 : self::milliseconds((int) round($value)),
             MetricValueType::Tokens, MetricValueType::Count, MetricValueType::Boolean => $this->number($value, \NumberFormatter::DECIMAL, 0, 1),
         };
+    }
+
+    /** A cost under half a cent keeps four decimals, so it never reads as free. */
+    private static function moneyDecimals(int|float $value): int
+    {
+        return $value > 0 && $value < 0.005 ? 4 : 2;
     }
 
     private function money(int|float $value, int $decimals): string
