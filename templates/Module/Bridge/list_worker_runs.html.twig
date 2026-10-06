@@ -109,7 +109,7 @@
         <div class="lp-data-table__row" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if not frameRequest and listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
             <div class="lp-data-table__cell lp-data-table__primary">
                 <button type="button" class="lp-data-table__target" data-action="modal#open">
-                    <span class="lp-data-table__number">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
+                    {% if run.cardNumber is not null %}<span class="lp-data-table__number">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>{% else %}<span class="lp-data-table__number" data-worker-run-subject>{{ run.subjectType }}</span>{% endif %}
                     {% if item.cardTitle is not null %}<span class="lp-data-table__title">{{ item.cardTitle }}</span>{% endif %}
                     <span class="sr-only">{{ 'bridge.worker_runs.details.open'|trans }}</span>
                 </button>

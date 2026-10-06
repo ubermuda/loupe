@@ -56,6 +56,28 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringNotContainsString('othersrule', $body);
     }
 
+    public function test_a_run_about_another_subject_shows_its_subject_type_and_no_card(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'runs-subject@example.com');
+        $project = $this->project($em, $owner, 'Subjects');
+        $subjectId = Uuid::v7();
+        $this->seedRun($em, $project, workKind: 'analysis', cardId: $subjectId, subjectType: 'analysis');
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('analysis', trim($crawler->filter('.lp-data-table__row [data-worker-run-subject]')->text()));
+        self::assertStringContainsString((string) $subjectId, $crawler->filter('div[data-worker-run-subject]')->text());
+        self::assertStringNotContainsString('/board/cards/', (string) $crawler->filter('.lp-run-drawer__metadata')->html());
+    }
+
     /**
      * The output is agent-written text nobody reviewed, and the page shows it to
      * everyone who can view the project.
