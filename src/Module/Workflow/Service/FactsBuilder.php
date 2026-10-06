@@ -64,12 +64,18 @@ final readonly class FactsBuilder
 
         $pullRequests = $this->cardPullRequests->forCard($card);
         // Once the epic links its pull request, that pull request names the repository of the epic branch.
+        // When each such pull request finished, the epic branch is done, and a late child must not merge into it.
         $epicRepositories = [];
+        $epicOpen = false;
         if (null !== $card->parent && null !== $parentEpicBranch) {
             foreach ($this->cardPullRequests->forCard($card->parent) as $epicPullRequest) {
                 if ($parentEpicBranch === $epicPullRequest->headBranch) {
                     $epicRepositories[] = self::repositoryKey($epicPullRequest);
+                    $epicOpen = $epicOpen || ForgePullRequestState::Open === $epicPullRequest->state;
                 }
+            }
+            if ([] !== $epicRepositories && !$epicOpen) {
+                $parentEpicBranch = null;
             }
         }
         $pullRequestFacts = array_map(fn (ForgePullRequest $pullRequest): PullRequestFacts => $this->pullRequestFacts($pullRequest, $parentEpicBranch, $epicRepositories), $pullRequests);

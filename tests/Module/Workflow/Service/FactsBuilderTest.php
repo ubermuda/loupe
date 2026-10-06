@@ -442,7 +442,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-head');
         $epic = $this->card($project, 'in-progress', CardType::Epic);
-        $this->pullRequest($epic, state: ForgePullRequestState::Merged, base: 'main', head: 'epic/'.$epic->number);
+        $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
         $this->pullRequest($child, base: 'epic/'.$epic->number, head: 'child');
@@ -461,7 +461,26 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertFalse($orphanFacts->baseIsEpicBranch);
         self::assertFalse($orphanFacts->baseIsMergeTarget);
         self::assertTrue($orphanFacts->stacked);
-        self::assertTrue($orphanFacts->parentMerged);
+        self::assertFalse($orphanFacts->parentMerged);
+    }
+
+    public function test_a_late_child_of_an_epic_whose_pull_request_merged_reads_as_stacked_on_it(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-pr-epic-finished');
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $this->pullRequest($epic, state: ForgePullRequestState::Merged, base: 'main', head: 'epic/'.$epic->number);
+        $child = $this->card($project, 'in-review');
+        $child->parent = $epic;
+        $this->pullRequest($child, base: 'epic/'.$epic->number, head: 'late');
+        $this->em()->flush();
+
+        $facts = $this->facts($child)->pullRequest;
+        self::assertNotNull($facts);
+        self::assertFalse($facts->baseIsEpicBranch);
+        self::assertFalse($facts->baseIsMergeTarget);
+        self::assertTrue($facts->stacked);
+        self::assertTrue($facts->parentMerged);
     }
 
     public function test_once_the_epic_links_its_pull_request_only_its_repository_holds_the_epic_branch(): void
