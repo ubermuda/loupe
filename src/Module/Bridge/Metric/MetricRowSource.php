@@ -151,8 +151,9 @@ final readonly class MetricRowSource
     }
 
     /**
-     * The sum over the runs of a card. A run that started, or that reported
-     * usage, with no value makes the sum unknown. Null when no run gives a value.
+     * The sum over the runs of a card. A run that started with no value makes
+     * the sum unknown, and so does a run with usage and no cost or tokens.
+     * Null when no run gives a value.
      *
      * @param list<WorkerRunFact> $facts
      */
