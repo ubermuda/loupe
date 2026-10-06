@@ -40,7 +40,7 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
         $stored = $this->rows($run);
         self::assertSame([
             ['seq' => 1, 'tool' => 'Bash', 'started_at' => '2026-01-01 10:00:01.25', 'duration_ms' => 1200, 'is_error' => false, 'in_subagent' => false, 'background_id' => null, 'waits_on' => null, 'signatures' => '["git status"]', 'full_text' => null],
-            ['seq' => 2, 'tool' => 'Read', 'started_at' => '2026-01-01 10:00:02.25', 'duration_ms' => null, 'is_error' => null, 'in_subagent' => false, 'background_id' => 'bg-1', 'waits_on' => 'bg-0', 'signatures' => '["Read"]', 'full_text' => 'cat README.md'],
+            ['seq' => 2, 'tool' => 'Read', 'started_at' => '2026-01-01 10:00:02.25', 'duration_ms' => null, 'is_error' => null, 'in_subagent' => false, 'background_id' => 'bg-1', 'waits_on' => 'bg-0', 'signatures' => '["Read"]', 'full_text' => null],
         ], $stored);
 
         $this->put($client, $project, $run, $raw, ['calls' => [

@@ -21,4 +21,20 @@ final readonly class WorkerRunToolCallReport
         public ?string $fullText,
     ) {
     }
+
+    public function withoutFullText(): self
+    {
+        return new self(
+            $this->seq,
+            $this->tool,
+            $this->startedAt,
+            $this->durationMs,
+            $this->isError,
+            $this->inSubagent,
+            $this->backgroundId,
+            $this->waitsOn,
+            $this->signatures,
+            null,
+        );
+    }
 }

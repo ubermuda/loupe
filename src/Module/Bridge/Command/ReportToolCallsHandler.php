@@ -6,7 +6,9 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
+use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Bridge\Service\WorkerRunFactWriter;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
@@ -25,6 +27,7 @@ final readonly class ReportToolCallsHandler
         private WorkerRunRepository $workerRuns,
         private WorkerRunToolCallRepository $workerRunToolCalls,
         private WorkerRunFactWriter $factWriter,
+        private ToolCallCollectionSettings $collectionSettings,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
     ) {
@@ -45,7 +48,11 @@ final readonly class ReportToolCallsHandler
                 return new ReportToolCallsResult(projectFound: true, runFound: false, stored: 0);
             }
 
-            $stored = $this->workerRunToolCalls->insertNew($run, $command->calls);
+            $calls = $command->calls;
+            if (!$this->collectionSettings->collectFullText($project)) {
+                $calls = array_map(static fn (WorkerRunToolCallReport $call): WorkerRunToolCallReport => $call->withoutFullText(), $calls);
+            }
+            $stored = $this->workerRunToolCalls->insertNew($run, $calls);
             if (null !== $command->timing) {
                 $run->toolTimeMs = $command->timing->toolTimeMs;
                 $run->idleGapMs = $command->timing->idleGapMs;
