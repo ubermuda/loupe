@@ -25,7 +25,6 @@ final class ProjectCardApiTest extends WebTestCase
         $this->card($em, $project, 'First');
         $card = $this->card($em, $project, 'Second', 'in-progress');
         $raw = AgentCredential::agentToken(static::getContainer(), $owner);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/card-app/board/cards/'.$card->id, $raw);
 
@@ -47,7 +46,6 @@ final class ProjectCardApiTest extends WebTestCase
         self::assertInstanceOf(CardHolds::class, $holds);
         $holds->hold($project, $card->id ?? throw new \LogicException('A created card has an id.'), $owner);
         $raw = AgentCredential::agentToken(static::getContainer(), $owner);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/cards/'.$card->id, $raw);
 
@@ -66,7 +64,6 @@ final class ProjectCardApiTest extends WebTestCase
         $project = $this->project($em, $owner, 'Card Home');
         $elsewhere = $this->card($em, $this->project($em, $owner, 'Card Away'), 'Away');
         $raw = AgentCredential::agentToken(static::getContainer(), $owner);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/cards/'.$elsewhere->id, $raw);
 
@@ -81,7 +78,6 @@ final class ProjectCardApiTest extends WebTestCase
         $owner = $this->user($em, 'card-api-unknown@example.com');
         $project = $this->project($em, $owner, 'Card Unknown');
         $raw = AgentCredential::agentToken(static::getContainer(), $owner);
-        $this->enableBoard();
 
         foreach ([(string) Uuid::v7(), 'not-a-uuid'] as $cardId) {
             $this->get($client, '/api/projects/'.$project->id.'/board/cards/'.$cardId, $raw);
@@ -99,28 +95,11 @@ final class ProjectCardApiTest extends WebTestCase
         $other = $this->project($em, $this->user($em, 'card-api-other@example.com'), 'Card Private');
         $card = $this->card($em, $other, 'Private');
         $raw = AgentCredential::agentToken(static::getContainer(), $caller);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$other->id.'/board/cards/'.$card->id, $raw);
 
         self::assertResponseStatusCodeSame(404);
         self::assertJsonStringEqualsJsonString('{"error":"project_not_found"}', (string) $client->getResponse()->getContent());
-    }
-
-    public function test_it_is_absent_while_the_board_is_switched_off(): void
-    {
-        $client = static::createClient();
-        $em = $this->em();
-        $owner = $this->user($em, 'card-api-flag@example.com');
-        $project = $this->project($em, $owner, 'Card Flag');
-        $card = $this->card($em, $project, 'Flagged');
-        $raw = AgentCredential::agentToken(static::getContainer(), $owner);
-        $this->disableBoard();
-
-        $this->get($client, '/api/projects/'.$project->id.'/board/cards/'.$card->id, $raw);
-
-        self::assertResponseStatusCodeSame(404);
-        self::assertJsonStringEqualsJsonString('{"error":"board_disabled"}', (string) $client->getResponse()->getContent());
     }
 
     public function test_a_widget_token_is_refused_by_the_firewall(): void
@@ -131,7 +110,6 @@ final class ProjectCardApiTest extends WebTestCase
         $project = $this->project($em, $owner, 'Card Widget');
         $card = $this->card($em, $project, 'Widget');
         $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
-        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/cards/'.$card->id, $raw);
 
@@ -144,7 +122,6 @@ final class ProjectCardApiTest extends WebTestCase
         $em = $this->em();
         $project = $this->project($em, $this->user($em, 'card-api-anonymous@example.com'), 'Card Anonymous');
         $card = $this->card($em, $project, 'Anonymous');
-        $this->enableBoard();
 
         $client->request(Request::METHOD_GET, '/api/projects/'.$project->id.'/board/cards/'.$card->id);
 

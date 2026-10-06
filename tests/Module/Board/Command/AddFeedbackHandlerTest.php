@@ -11,7 +11,6 @@ use App\Module\Board\Command\AddFeedbackHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\NewAnchor;
 use App\Module\SiteReview\Command\NewStroke;
@@ -21,9 +20,6 @@ use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
-use Symfony\Contracts\Service\ResetInterface;
-use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class AddFeedbackHandlerTest extends KernelTestCase
 {
@@ -46,8 +42,6 @@ final class AddFeedbackHandlerTest extends KernelTestCase
         $handler = self::getContainer()->get(AddFeedbackHandler::class);
         self::assertInstanceOf(AddFeedbackHandler::class, $handler);
         $this->handler = $handler;
-
-        $this->setBoardEnabled(true);
     }
 
     public function test_a_note_creates_its_card_and_the_link_says_so(): void
@@ -130,27 +124,6 @@ final class AddFeedbackHandlerTest extends KernelTestCase
         $epic = $this->card($project, 'done', CardType::Epic);
 
         $this->assertRefused('target', AddFeedbackHandler::TARGET_CLOSED, $project, parentCardId: (string) $epic->id);
-    }
-
-    public function test_a_retry_after_the_board_went_off_returns_the_saved_note(): void
-    {
-        $project = $this->project('feedback-retry-board-off');
-        $command = $this->command($project, 'Saved before the switch', deliveryId: (string) Uuid::v4());
-        $first = ($this->handler)($command);
-        $this->setBoardEnabled(false);
-
-        $retried = ($this->handler)($command);
-
-        self::assertSame((string) $first->id, (string) $retried->id);
-        $this->assertRefused('board', AddFeedbackHandler::BOARD_DISABLED, $project, deliveryId: (string) Uuid::v4());
-    }
-
-    public function test_nothing_is_written_while_the_board_is_off(): void
-    {
-        $project = $this->project('feedback-board-off');
-        $this->setBoardEnabled(false);
-
-        $this->assertRefused('board', AddFeedbackHandler::BOARD_DISABLED, $project);
     }
 
     public function test_a_retried_delivery_returns_the_same_card_and_creates_no_second_one(): void
@@ -339,17 +312,5 @@ final class AddFeedbackHandlerTest extends KernelTestCase
         $this->em->flush();
 
         return $card;
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->em->flush();
-
-        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
-        self::assertInstanceOf(ResetInterface::class, $reader);
-        $reader->reset();
     }
 }

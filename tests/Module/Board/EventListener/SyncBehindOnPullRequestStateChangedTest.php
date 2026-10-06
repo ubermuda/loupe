@@ -35,7 +35,6 @@ final class SyncBehindOnPullRequestStateChangedTest extends KernelTestCase
         self::assertInstanceOf(InMemoryTransport::class, $transport);
         $this->transport = $transport;
 
-        $this->enableBoard();
         $this->project = $this->makeProject('sync-behind-listener');
     }
 
@@ -70,16 +69,6 @@ final class SyncBehindOnPullRequestStateChangedTest extends KernelTestCase
 
     public function test_nothing_queues_for_a_project_that_saved_no_settings(): void
     {
-        $this->dispatchChange();
-
-        self::assertSame([], $this->syncMessages());
-    }
-
-    public function test_nothing_queues_while_the_board_is_off(): void
-    {
-        $this->settings(enabled: true, syncBehind: true);
-        $this->disableBoard();
-
         $this->dispatchChange();
 
         self::assertSame([], $this->syncMessages());

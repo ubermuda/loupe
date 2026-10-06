@@ -5,33 +5,23 @@
  * nudge, so the run needs a Mercure hub the browser can reach.
  */
 
-import {
-    test,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { signedInPage } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardRefresh1!';
 const COLUMN = 'section.lp-board__column';
 
-async function setFlag(
-    request: APIRequestContext,
-    name: string,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name, enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
+// Each test signs in two browsers beside three other workers, which fills the
+// default budget on a loaded runner.
+test.slow();
 
 async function openBoard(page: Page, boardUrl: string): Promise<void> {
     await page.goto(boardUrl);
     // The hub keeps no history, so a change made before this connects is lost.
-    await expect(page.locator('[data-board-live-connected]')).toHaveCount(1);
+    await expect(page.locator('[data-board-live-connected]')).toHaveCount(1, {
+        timeout: 15000,
+    });
 }
 
 /** Collects each later GET of the board page, which would be a whole board reload. */
@@ -49,17 +39,10 @@ function countBoardLoads(page: Page, boardUrl: string): string[] {
     return loads;
 }
 
-test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', true);
-});
-
 test('a column renamed in one browser shows in another without a reload', async ({
     browser,
     request,
 }) => {
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
-
     const email = `e2e+refresh+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Refresh User', email, password: PASSWORD },
@@ -129,7 +112,7 @@ test('a column renamed in one browser shows in another without a reload', async 
     await dialog.getByRole('button', { name: 'Save column' }).click();
     await expect(
         settings.getByRole('heading', { name: 'Up next', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     await expect(
         watcher.locator(`${COLUMN}[data-column-slug="up-next"] h2`),
@@ -173,7 +156,9 @@ async function createCard(
     await page.getByLabel('Title').fill(title);
     await page.getByLabel('Column').selectOption({ label: column });
     await page.getByRole('button', { name: 'Create card' }).click();
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible({
+        timeout: 15_000,
+    });
 }
 
 function slugs(page: Page): Promise<string[]> {
@@ -190,9 +175,6 @@ test('columns added, reordered and deleted in one browser update another in plac
     browser,
     request,
 }) => {
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
-
     const email = `e2e+refresh+columns+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Refresh User', email, password: PASSWORD },

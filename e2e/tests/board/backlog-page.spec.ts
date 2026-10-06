@@ -7,12 +7,7 @@
  * the parent in one call. A card with no status lands in Backlog.
  */
 
-import {
-    test as base,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 import { accessToken, suppressToolbar, suppressWidget } from '../fixtures';
 
 const RUN = Date.now();
@@ -20,16 +15,6 @@ const PASSWORD = 'E2eBacklogPage1!';
 
 // Under a loaded run, the POST and the stream take longer than the 5 s default.
 const ROUND_TRIP = { timeout: process.env.COVERAGE ? 20_000 : 15_000 };
-
-async function setBoardFlag(
-    request: APIRequestContext,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
 
 async function login(page: Page, email: string): Promise<void> {
     await page.goto('/login');
@@ -121,7 +106,6 @@ const test = base.extend<{ backlog: Backlog }>({
     backlog: async ({ page }, use, testInfo) => {
         await suppressToolbar(page);
         await suppressWidget(page);
-        await setBoardFlag(page.request, true);
 
         const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
         const email = `e2e+backlog-page+${tag}+${RUN}@example.com`;
@@ -144,6 +128,9 @@ const test = base.extend<{ backlog: Backlog }>({
         });
     },
 });
+
+// Board pages run near the default budget beside three other workers.
+test.slow();
 
 test.use({
     storageState: { cookies: [], origins: [] },

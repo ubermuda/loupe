@@ -47,16 +47,6 @@ final class CardSearchToolTest extends KernelTestCase
         $this->updateTool = $updateTool;
     }
 
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-search-flag-off'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)('anything');
-    }
-
     public function test_a_blank_query_is_refused_rather_than_read_as_an_empty_board(): void
     {
         $this->boardWith('card-search-blank');
@@ -225,7 +215,6 @@ final class CardSearchToolTest extends KernelTestCase
      */
     public function test_a_card_takes_its_projects_search_language(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-search-language');
         $project->searchLanguage = SearchLanguage::French;
         $this->em->flush();
@@ -248,7 +237,6 @@ final class CardSearchToolTest extends KernelTestCase
 
     private function boardWith(string $label): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject($label));
 
         ($this->createTool)('Give each worktree its own Mailpit', 'Two runs read one inbox.', 'tooling');

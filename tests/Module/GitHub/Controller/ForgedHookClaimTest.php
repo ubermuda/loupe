@@ -22,7 +22,6 @@ final class ForgedHookClaimTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $victim = $this->project('victim');
         $forger = $this->project('forger');
         $victimHook = $this->hook($victim);
@@ -41,7 +40,6 @@ final class ForgedHookClaimTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $victim = $this->project('victim');
         $forger = $this->project('forger');
         $this->installation($victim, 9_000_702, GitHubRepositorySelection::All);

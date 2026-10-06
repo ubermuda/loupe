@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -15,7 +14,6 @@ final readonly class EvaluationTrigger implements CardEvaluations
 {
     public function __construct(
         private MessageBusInterface $bus,
-        private BoardAvailability $board,
     ) {
     }
 
@@ -35,6 +33,6 @@ final readonly class EvaluationTrigger implements CardEvaluations
     #[\Override]
     public function isOn(): bool
     {
-        return $this->board->isEnabled();
+        return true;
     }
 }

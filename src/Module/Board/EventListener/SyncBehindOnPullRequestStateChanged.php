@@ -6,7 +6,6 @@ namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -16,7 +15,6 @@ use Symfony\Component\Messenger\MessageBusInterface;
 final readonly class SyncBehindOnPullRequestStateChanged
 {
     public function __construct(
-        private BoardAvailability $board,
         private BoardAutomation $boardAutomation,
         private MessageBusInterface $bus,
     ) {
@@ -24,10 +22,6 @@ final readonly class SyncBehindOnPullRequestStateChanged
 
     public function __invoke(PullRequestStateChanged $event): void
     {
-        if (!$this->board->isEnabled()) {
-            return;
-        }
-
         $project = $event->pullRequest->project;
         $settings = $this->boardAutomation->settingsOf($project);
         if (!$settings->enabled || !$settings->syncBehind) {

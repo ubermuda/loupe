@@ -17,7 +17,7 @@
             </footer>
         </a>
         {% else %}
-        <p class="lp-workspace-desc">{{ is_feature_enabled('board.enabled') ? 'project.workshop.cards.empty'|trans : 'project.workshop.cards.disabled'|trans }}</p>
+        <p class="lp-workspace-desc">{{ 'project.workshop.cards.empty'|trans }}</p>
         {% endfor %}
     </div>
     {% if inMotion.more > 0 %}

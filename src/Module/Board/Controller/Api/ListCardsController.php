@@ -9,7 +9,6 @@ use App\Module\Board\Command\SearchCardsCommand;
 use App\Module\Board\Command\SearchCardsHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -36,7 +35,6 @@ final class ListCardsController extends AppController
     public function __construct(
         private readonly SearchCardsHandler $handler,
         private readonly AuthenticatedProjectResolver $projectResolver,
-        private readonly BoardAvailability $board,
     ) {
     }
 
@@ -46,8 +44,6 @@ final class ListCardsController extends AppController
         if (null === $project) {
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
-
-        $this->board->requireEnabled();
 
         $query = $request->query->get('q');
         $type = $request->query->get('type');

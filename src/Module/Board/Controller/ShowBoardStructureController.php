@@ -7,7 +7,6 @@ namespace App\Module\Board\Controller;
 use App\Controller\AppController;
 use App\Module\Board\Command\ShowBoardStructureCommand;
 use App\Module\Board\Command\ShowBoardStructureHandler;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use App\Session\ReadOnlyAwareSessionHandler;
@@ -30,15 +29,12 @@ use Symfony\UX\Turbo\TurboBundle;
 final class ShowBoardStructureController extends AppController
 {
     public function __construct(
-        private readonly BoardAvailability $board,
         private readonly ShowBoardStructureHandler $handler,
     ) {
     }
 
     public function __invoke(#[MapEntity(id: 'projectId')] Project $project): Response
     {
-        $this->board->requireEnabled();
-
         return new Response(
             $this->renderView('@Board/_board_structure.stream.html.twig', [
                 'board' => ($this->handler)(new ShowBoardStructureCommand($project)),

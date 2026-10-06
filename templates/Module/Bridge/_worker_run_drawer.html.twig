@@ -3,7 +3,6 @@
     run: run,
     item: item,
     project: project,
-    boardEnabled: boardEnabled,
     bridgeLabels: bridgeLabels,
     class: 'lp-run-drawer',
     attributes: {
@@ -30,7 +29,7 @@
     <div class="lp-run-drawer__body">
         <dl class="lp-run-drawer__metadata">
             <div><dt>{{ 'bridge.worker_runs.details.card'|trans }}</dt><dd>
-                {% if boardEnabled %}<a href="{{ path('app_board_card', {projectId: project.id, cardId: run.cardId}) }}">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</a>{% else %}{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}{% endif %}
+                <a href="{{ path('app_board_card', {projectId: project.id, cardId: run.cardId}) }}">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</a>
                 <span class="lp-run-drawer__identifier">{{ run.cardId }}</span>
             </dd></div>
             <div><dt>{{ 'bridge.worker_runs.column.work_kind'|trans }}</dt><dd data-worker-run-work-kind>{{ run.workKind ?? 'bridge.worker_runs.no_work_kind'|trans }}</dd></div>
