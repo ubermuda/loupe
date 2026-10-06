@@ -15,6 +15,7 @@ final class AppRules
 
     public function __construct(
         private readonly TemplateParser $parser,
+
         #[Autowire('%kernel.project_dir%/config/workflows/app')]
         private readonly string $directory,
     ) {
