@@ -19,6 +19,7 @@
          data-controller="worker-run-refresh"
          data-worker-run-refresh-target="frame"
          data-worker-run-refresh-whole-value="true"
+         data-worker-run-refresh-project-value="{{ workshop.project.id }}"
          data-worker-run-refresh-events-value="{{ ['worker_run.changed', 'board.card_changed', 'inbox.open_count_changed']|json_encode }}">
         <header class="lp-page-header">
             <div>

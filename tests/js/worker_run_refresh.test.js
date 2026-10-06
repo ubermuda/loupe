@@ -193,6 +193,50 @@ it('reloads the whole page when its own element is the target', async () => {
     delete window.Turbo;
 });
 
+async function mountForProject(project) {
+    window.Turbo = { visit: vi.fn() };
+    const projectValue =
+        project === undefined
+            ? ''
+            : ` data-worker-run-refresh-project-value="${project}"`;
+    document.body.innerHTML = `<div data-controller="worker-run-refresh" data-worker-run-refresh-target="frame" data-worker-run-refresh-whole-value="true"${projectValue}></div>`;
+    await vi.advanceTimersByTimeAsync(0);
+}
+
+async function changeOf(projectId) {
+    subscription().handler({ type: 'inbox.open_count_changed', projectId });
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+}
+
+it('reloads for a change that names its project', async () => {
+    await mountForProject('project-1');
+    await changeOf('project-1');
+    expect(window.Turbo.visit).toHaveBeenCalledOnce();
+    delete window.Turbo;
+});
+
+it('ignores a change that names another project', async () => {
+    await mountForProject('project-1');
+    await changeOf('project-2');
+    expect(window.Turbo.visit).not.toHaveBeenCalled();
+    delete window.Turbo;
+});
+
+it('reloads for a change that names no project', async () => {
+    await mountForProject('project-1');
+    await signal();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+    expect(window.Turbo.visit).toHaveBeenCalledOnce();
+    delete window.Turbo;
+});
+
+it('reloads for any project when it has no project value', async () => {
+    await mountForProject(undefined);
+    await changeOf('project-2');
+    expect(window.Turbo.visit).toHaveBeenCalledOnce();
+    delete window.Turbo;
+});
+
 it('stops listening and drops a pending reload on disconnect', async () => {
     const frame = await mount({ src: '/projects/1/worker-runs' });
     const listening = subscription();

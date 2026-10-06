@@ -347,6 +347,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $live = $crawler->filter('[data-readiness-guide][data-controller="worker-run-refresh"][data-worker-run-refresh-target="frame"]');
         self::assertCount(1, $live);
         self::assertSame('true', $live->attr('data-worker-run-refresh-whole-value'));
+        self::assertSame((string) $project->id, $live->attr('data-worker-run-refresh-project-value'));
         self::assertSame(['worker_run.changed', 'board.card_changed', 'inbox.open_count_changed'], json_decode((string) $live->attr('data-worker-run-refresh-events-value'), true));
         self::assertSame('Get Guide project ready for agents', trim($crawler->filter('[data-workshop] h1')->text()));
         self::assertSelectorTextContains('[data-readiness-guide]', 'Run discovery');
