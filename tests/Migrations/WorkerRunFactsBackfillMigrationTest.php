@@ -70,6 +70,13 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
             'tokens_cache_write' => 80,
             'usage_source' => 'reported',
             'project_id' => (string) $this->project->id,
+            'tool_time_ms' => null,
+            'model_time_ms' => null,
+            'tool_calls' => null,
+            'failed_calls' => null,
+            'longest_call_ms' => null,
+            'idle_gap_ms' => null,
+            'subagent_ms' => null,
         ], $this->fact($run));
     }
 

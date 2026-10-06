@@ -128,6 +128,14 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_MCP']));
     }
 
+    public function test_the_tool_call_rule_grants_the_agent_scope_one_route(): void
+    {
+        self::assertTrue($this->decide('/api/projects/loupe/worker-runs/1/tool-calls', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/1/tool-calls', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/1/tool-calls/2', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/1/2/tool-calls', self::ALL_ROLES));
+    }
+
     /**
      * The agent grant names each route, so a new route under
      * /api/projects starts denied rather than inheriting the agent scope.
