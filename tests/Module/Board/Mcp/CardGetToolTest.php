@@ -7,8 +7,6 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
-use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Mcp\CardCreateTool;
@@ -97,7 +95,7 @@ final class CardGetToolTest extends KernelTestCase
         self::assertNull(($this->tool)($created['cardId'])['pause']);
     }
 
-    public function test_a_card_reads_the_stored_pull_request_state_and_its_automation(): void
+    public function test_a_card_reads_the_stored_pull_request_state(): void
     {
         $project = $this->makeProject('card-get-state');
         $this->actAsMcpTokenBoundTo($project);
@@ -111,10 +109,6 @@ final class CardGetToolTest extends KernelTestCase
         $row->failedChecks = ['phpunit'];
         $row->mergeability = PullRequestMergeability::Conflicting;
         $row->refreshedAt = new \DateTimeImmutable('2026-09-27T11:00:00+00:00');
-        $card = $this->em->find(Card::class, $created['cardId']) ?? throw new \LogicException('The card exists.');
-        $automation = new CardAutomation($card);
-        $automation->lastAction = CardAutomationAction::FixRequested;
-        $this->em->persist($automation);
         $this->em->flush();
 
         $read = ($this->tool)($created['cardId']);
@@ -127,7 +121,7 @@ final class CardGetToolTest extends KernelTestCase
         self::assertSame('conflicting', $state['mergeability']);
         self::assertSame('2026-09-27T11:00:00+00:00', $state['refreshedAt']);
         self::assertNull($read['pullRequests'][1]['state']);
-        self::assertSame(['lastAction' => 'fix-requested', 'lastActionAt' => null], $read['automation']);
+        self::assertArrayNotHasKey('automation', $read);
     }
 
     public function test_an_approval_of_an_older_head_reads_outdated(): void
@@ -149,14 +143,6 @@ final class CardGetToolTest extends KernelTestCase
         self::assertNotNull($state);
         self::assertSame('approval-outdated', $state['review']);
         self::assertFalse($state['readyToMerge']);
-    }
-
-    public function test_a_card_with_no_automation_row_reads_a_null_automation(): void
-    {
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-no-automation'));
-        $created = ($this->createTool)('Ship it', 'Body', 'tooling');
-
-        self::assertNull(($this->tool)($created['cardId'])['automation']);
     }
 
     public function test_each_card_reads_its_links_from_its_own_side(): void
