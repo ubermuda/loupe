@@ -40,8 +40,7 @@ use Symfony\Component\Uid\Uuid;
 // The board and the workflow engine read the runs of one card.
 #[ORM\Index(name: 'idx_bridge_worker_runs_subject', columns: ['project_id', 'subject_type', 'subject_id'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
-// A bridge that sends no run key reports a finished worker run once, and
-// retries it when it never saw the response. The start then identifies the run.
+// Guards the worker runs with no run key, which only the removed finished-run report wrote.
 // The predicate is written the way Postgres stores it, so migrate-diff stays quiet.
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'subject_type', 'subject_id', 'started_at'], options: ['where' => "((run_key IS NULL) AND ((kind)::text = 'worker'::text))"])]
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_key', columns: ['project_id', 'bridge_id', 'run_key'])]
