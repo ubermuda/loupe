@@ -6,6 +6,7 @@ namespace App\Tests\Migrations;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunUsage;
+use App\Module\Bridge\Service\WorkerRunFactWriter;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
@@ -155,6 +156,38 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
 
         self::assertSame('timed-out', $this->fact($run)['outcome']);
         self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_facts'));
+    }
+
+    public function test_the_backfill_writes_the_same_rows_as_the_writer(): void
+    {
+        $priced = $this->seedFactRun(ruleId: 'implement-on-entry');
+        $priced->experiment = 'impl-model';
+        $priced->variant = 'opus';
+        $this->usage($priced, 'claude-haiku', '0.012345', outputTokens: 900);
+        $this->usage($priced, 'claude-opus', '0.5', outputTokens: 10);
+        $unpriced = $this->seedFactRun();
+        $this->usage($unpriced, 'unpriced-model', null, source: WorkerRunUsageSource::Estimated);
+        $this->usage($unpriced, 'claude-sonnet', '0.000001', source: WorkerRunUsageSource::Estimated);
+        $this->seedFactRun();
+        $sourceWithoutRows = $this->seedFactRun();
+        $sourceWithoutRows->usageSource = WorkerRunUsageSource::Reported;
+        $this->seedFactRun(state: WorkerRunState::Queued, startedAt: null, endedAt: null);
+        $this->em->flush();
+        $runIds = array_map(
+            static fn (string $id): Uuid => Uuid::fromString($id),
+            $this->connection->fetchFirstColumn('SELECT id FROM bridge_worker_runs'),
+        );
+        $writer = self::getContainer()->get(WorkerRunFactWriter::class);
+        self::assertInstanceOf(WorkerRunFactWriter::class, $writer);
+
+        $this->connection->executeStatement('DELETE FROM bridge_worker_run_facts');
+        $writer->upsert($runIds);
+        $written = $this->connection->fetchAllAssociative('SELECT * FROM bridge_worker_run_facts ORDER BY run_id');
+        $this->connection->executeStatement('DELETE FROM bridge_worker_run_facts');
+        $this->connection->executeStatement(Version20261006005345::BACKFILL_SQL);
+
+        self::assertCount(5, $written);
+        self::assertSame($written, $this->connection->fetchAllAssociative('SELECT * FROM bridge_worker_run_facts ORDER BY run_id'));
     }
 
     private function seedFactRun(
