@@ -724,7 +724,7 @@ that project dead, and the bridge logs `work_dead`. Fix the file and run
 ### Workers
 
 A claimed work request starts one worker. The bridge runs
-`claude --output-format json --json-schema <schema> -p --session-id <uuid> -- <prompt>`
+`claude --verbose --output-format stream-json --json-schema <schema> -p --session-id <uuid> -- <prompt>`
 in the project's `dir`, with `--permission-mode` and `--model` in front when
 the work entry has them. [The structured result](#the-structured-result) describes
 the schema. The bridge
@@ -739,8 +739,10 @@ worker starts and a line when it ends, carrying the exit code and how long it
 took. It owns the worker's streams, so it reports what the worker said as well,
 on a clean exit and on a failure alike. The output is the first text that is
 not empty of these: the result's `summary`, claude's `result` text, stderr, and
-a stdout that is not valid JSON. Output past 4 KB is dropped and the report
-says so.
+the start of a stdout that holds no result line. Output past 4 KB is dropped and
+the report says so. Claude prints one JSON line for each step, and the bridge
+reads the first line of type `result`. It reads each tool call from the other
+lines.
 
 The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` in each worker's
 environment. Without it, `claude -p` ends a worker 600 seconds after its main
