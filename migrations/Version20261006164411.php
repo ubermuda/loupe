@@ -17,7 +17,7 @@ final class Version20261006164411 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE bridge_worker_run_tool_calls (id UUID NOT NULL, seq INT NOT NULL, tool VARCHAR(64) NOT NULL, started_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, duration_ms BIGINT DEFAULT NULL, is_error BOOLEAN DEFAULT NULL, in_subagent BOOLEAN NOT NULL, background_id VARCHAR(64) DEFAULT NULL, waits_on VARCHAR(64) DEFAULT NULL, signatures JSON NOT NULL, full_text TEXT DEFAULT NULL, run_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE bridge_worker_run_tool_calls (id UUID NOT NULL, seq INT NOT NULL, tool VARCHAR(64) NOT NULL, started_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL, duration_ms BIGINT DEFAULT NULL, is_error BOOLEAN DEFAULT NULL, in_subagent BOOLEAN NOT NULL, background_id VARCHAR(64) DEFAULT NULL, waits_on VARCHAR(64) DEFAULT NULL, signatures JSON NOT NULL, full_text TEXT DEFAULT NULL, run_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_D9017C8884E3FEC4 ON bridge_worker_run_tool_calls (run_id)');
         $this->addSql('CREATE UNIQUE INDEX uniq_bridge_worker_run_tool_call_seq ON bridge_worker_run_tool_calls (run_id, seq)');
         $this->addSql('ALTER TABLE bridge_worker_run_tool_calls ADD CONSTRAINT FK_D9017C8884E3FEC4 FOREIGN KEY (run_id) REFERENCES bridge_worker_runs (id) ON DELETE CASCADE NOT DEFERRABLE');

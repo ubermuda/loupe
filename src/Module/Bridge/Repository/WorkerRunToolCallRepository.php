@@ -58,7 +58,7 @@ class WorkerRunToolCallRepository extends ServiceEntityRepository
             'run_id' => $runId,
             'seq' => $call->seq,
             'tool' => $call->tool,
-            'started_at' => $call->startedAt->format('Y-m-d H:i:s'),
+            'started_at' => $call->startedAt->format('Y-m-d H:i:s.u'),
             'duration_ms' => $call->durationMs,
             'is_error' => $call->isError,
             'in_subagent' => $call->inSubagent,

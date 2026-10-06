@@ -42,7 +42,7 @@ final class WorkerRunToolCallsToolTest extends KernelTestCase
         self::assertSame([
             'seq' => 1,
             'tool' => 'Tool1',
-            'startedAt' => '2026-01-01T10:00:01+00:00',
+            'startedAt' => '2026-01-01T10:00:01.000+00:00',
             'durationMs' => 1500,
             'isError' => false,
             'inSubagent' => false,
@@ -60,7 +60,7 @@ final class WorkerRunToolCallsToolTest extends KernelTestCase
         $this->repository()->insertNew($run, [new WorkerRunToolCallReport(
             seq: 1,
             tool: 'Bash',
-            startedAt: new \DateTimeImmutable('2026-01-01 10:00:02'),
+            startedAt: new \DateTimeImmutable('2026-01-01 10:00:02.345'),
             durationMs: null,
             isError: null,
             inSubagent: true,
@@ -74,7 +74,7 @@ final class WorkerRunToolCallsToolTest extends KernelTestCase
         self::assertSame([
             'seq' => 1,
             'tool' => 'Bash',
-            'startedAt' => '2026-01-01T10:00:02+00:00',
+            'startedAt' => '2026-01-01T10:00:02.345+00:00',
             'durationMs' => null,
             'isError' => null,
             'inSubagent' => true,

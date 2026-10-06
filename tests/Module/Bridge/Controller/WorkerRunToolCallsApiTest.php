@@ -39,8 +39,8 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
         self::assertJsonStringEqualsJsonString('{"stored":2}', (string) $client->getResponse()->getContent());
         $stored = $this->rows($run);
         self::assertSame([
-            ['seq' => 1, 'tool' => 'Bash', 'started_at' => '2026-01-01 10:00:01', 'duration_ms' => 1200, 'is_error' => false, 'in_subagent' => false, 'background_id' => null, 'waits_on' => null, 'signatures' => '["git status"]', 'full_text' => null],
-            ['seq' => 2, 'tool' => 'Read', 'started_at' => '2026-01-01 10:00:02', 'duration_ms' => null, 'is_error' => null, 'in_subagent' => false, 'background_id' => 'bg-1', 'waits_on' => 'bg-0', 'signatures' => '["Read"]', 'full_text' => 'cat README.md'],
+            ['seq' => 1, 'tool' => 'Bash', 'started_at' => '2026-01-01 10:00:01.25', 'duration_ms' => 1200, 'is_error' => false, 'in_subagent' => false, 'background_id' => null, 'waits_on' => null, 'signatures' => '["git status"]', 'full_text' => null],
+            ['seq' => 2, 'tool' => 'Read', 'started_at' => '2026-01-01 10:00:02.25', 'duration_ms' => null, 'is_error' => null, 'in_subagent' => false, 'background_id' => 'bg-1', 'waits_on' => 'bg-0', 'signatures' => '["Read"]', 'full_text' => 'cat README.md'],
         ], $stored);
 
         $this->put($client, $project, $run, $raw, ['calls' => [
@@ -51,6 +51,23 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(200);
         self::assertJsonStringEqualsJsonString('{"stored":0}', (string) $client->getResponse()->getContent());
         self::assertSame($stored, $this->rows($run));
+    }
+
+    public function test_two_calls_in_one_second_keep_distinct_times(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'tool-calls-millis@example.com');
+        $project = $this->project($em, $owner, 'Tool Calls Millis');
+        $run = $this->keyedRun($project);
+
+        $this->put($client, $project, $run, $this->agentToken($client, $owner), ['calls' => [
+            ['startedAt' => '2026-01-01T11:00:05.120+01:00'] + self::call(1, 'Bash'),
+            ['startedAt' => '2026-01-01T11:00:05.870+01:00'] + self::call(2, 'Read'),
+        ], 'timing' => null]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['2026-01-01 10:00:05.12', '2026-01-01 10:00:05.87'], array_column($this->rows($run), 'started_at'));
     }
 
     public function test_a_seq_the_batch_repeats_is_stored_once(): void

@@ -30,7 +30,7 @@ final readonly class WorkerRunToolCallExporter implements UserDataExporterInterf
                 'runKey' => $call->run->runKey?->toRfc4122(),
                 'seq' => $call->seq,
                 'tool' => $call->tool,
-                'startedAt' => $call->startedAt->format(\DateTimeInterface::ATOM),
+                'startedAt' => $call->startedAt->format(\DateTimeInterface::RFC3339_EXTENDED),
                 'durationMs' => $call->durationMs,
                 'isError' => $call->isError,
                 'inSubagent' => $call->inSubagent,

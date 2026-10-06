@@ -34,7 +34,7 @@ final class WorkerRunToolCallExporterTest extends KernelTestCase
             'runKey' => $runKey->toRfc4122(),
             'seq' => 1,
             'tool' => 'Bash',
-            'startedAt' => '2026-01-01T10:00:01+00:00',
+            'startedAt' => '2026-01-01T10:00:01.000+00:00',
             'durationMs' => 1500,
             'isError' => false,
             'inSubagent' => false,

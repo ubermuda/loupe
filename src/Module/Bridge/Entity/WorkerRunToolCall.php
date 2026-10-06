@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\Entity;
 
+use App\Doctrine\Type\MicrosecondDateTimeImmutableType;
 use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -46,7 +47,7 @@ class WorkerRunToolCall
         #[ORM\Column(name: 'tool', length: self::MAX_TOOL_LENGTH)]
         public readonly string $tool,
 
-        #[ORM\Column(name: 'started_at')]
+        #[ORM\Column(name: 'started_at', type: MicrosecondDateTimeImmutableType::NAME, columnDefinition: 'TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL')]
         public readonly \DateTimeImmutable $startedAt,
 
         /** Null when the stream holds no result of the call. */
