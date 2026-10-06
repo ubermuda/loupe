@@ -240,7 +240,9 @@ test('A revised draft stays a draft until Publish sends it to review', async ({
     await reviseDialog
         .getByLabel('Revision note', { exact: true })
         .fill('Second pass.');
-    await reviseDialog.getByRole('button', { name: 'Save new version' }).click();
+    await reviseDialog
+        .getByRole('button', { name: 'Save new version' })
+        .click();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
         timeout: 20000,
     });
