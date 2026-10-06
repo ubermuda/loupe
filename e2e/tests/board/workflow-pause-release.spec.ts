@@ -17,18 +17,6 @@ const ROUND_TRIP = { timeout: process.env.COVERAGE ? 20_000 : 15_000 };
 test.beforeEach(async ({ page }) => {
     await suppressToolbar(page);
     await suppressWidget(page);
-    const flag = await page.request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(flag.ok()).toBeTruthy();
-});
-
-// The flag is global, so it goes back to its shipped value, on, for later specs.
-test.afterAll(async ({ request }) => {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(response.ok()).toBeTruthy();
 });
 
 test('Retry now ends a retries pause, and the history records the release', async ({
