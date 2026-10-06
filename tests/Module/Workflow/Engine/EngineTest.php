@@ -38,10 +38,12 @@ use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Action\MoveCard;
 use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
@@ -941,6 +943,91 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $card->column->slug);
     }
 
+    public function test_a_later_rule_reads_the_work_request_an_earlier_rule_opened_in_the_same_pass(): void
+    {
+        $card = $this->boundCard([
+            self::requestRule('work', self::ALWAYS),
+            self::requestRule('follow', ['run.work_active' => ['kind' => 'work']]),
+        ]);
+
+        $this->evaluate($card);
+
+        self::assertSame(['work', 'follow'], array_map(static fn (WorkRequest $request): string => $request->kind, $this->liveRequests($card)));
+    }
+
+    public function test_a_lifecycle_epic_with_an_open_child_gets_one_breakdown_per_arrival_in_implementation(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->childOf($epic, 'next');
+
+        $this->evaluate($epic);
+        $first = $this->liveRequests($epic);
+        self::assertSame([['breakdown', 'breakdown']], array_map(static fn (WorkRequest $request): array => [$request->kind, $request->ruleId], $first));
+
+        $this->childOf($epic, 'next');
+        $this->evaluate($epic, '2026-10-02 12:01:00');
+        self::assertSame($first, $this->liveRequests($epic));
+
+        $this->moveTo($epic, 'next');
+        $this->evaluate($epic, '2026-10-02 12:02:00');
+        self::assertSame(WorkRequestState::Cancelled, $first[0]->state);
+        $this->moveTo($epic, 'in-progress');
+        $this->evaluate($epic, '2026-10-02 12:03:00');
+
+        $second = $this->liveRequests($epic);
+        self::assertCount(1, $second);
+        self::assertSame('breakdown', $second[0]->kind);
+        self::assertNotSame($first[0], $second[0]);
+    }
+
+    public function test_a_lifecycle_epic_whose_children_are_finished_waits_for_its_breakdown_before_it_moves_to_done(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-done');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->childOf($epic, 'done');
+
+        $this->evaluate($epic);
+        $breakdown = $this->liveRequests($epic);
+        self::assertCount(1, $breakdown);
+        self::assertSame('in-progress', $epic->column->slug);
+
+        $breakdown[0]->state = WorkRequestState::Claimed;
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:05:00');
+        self::assertSame('in-progress', $epic->column->slug);
+
+        $this->finish($breakdown[0]);
+        $this->evaluate($epic, '2026-10-02 12:25:00');
+        self::assertSame('done', $epic->column->slug);
+    }
+
+    public function test_a_lifecycle_epic_whose_breakdown_stopped_to_ask_the_owner_moves_to_done_and_a_new_child_brings_it_back(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-blocked');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->childOf($epic, 'done');
+        $this->evaluate($epic);
+        $breakdown = $this->liveRequests($epic);
+        self::assertCount(1, $breakdown);
+
+        $breakdown[0]->state = WorkRequestState::Claimed;
+        $breakdown[0]->settle(WorkRequestState::Refused, 'needs-person', new \DateTimeImmutable('2026-10-02 12:20:00'));
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:25:00');
+        self::assertSame('done', $epic->column->slug);
+
+        $this->childOf($epic, 'next');
+        $this->evaluate($epic, '2026-10-02 12:30:00');
+        self::assertSame('in-progress', $epic->column->slug);
+    }
+
     public function test_a_card_evaluations_call_evaluates_the_card_and_its_provided_fact_fires_the_rule(): void
     {
         $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
@@ -1381,6 +1468,7 @@ final class EngineTest extends KernelTestCase
                 new RequestWork($opener, $this->service(CardPullRequests::class), $this->service(\App\Module\Board\Repository\CardEventRepository::class)),
                 new PauseCard(),
                 new ReleasePause($cardPauses, $releaseCardPause),
+                $this->service(ForgeWrite::class),
             ]),
             $engineEvents,
             $this->logger,
@@ -1469,6 +1557,23 @@ final class EngineTest extends KernelTestCase
         $request->state = WorkRequestState::Claimed;
         $request->settle(WorkRequestState::Done, null, new \DateTimeImmutable('2026-10-02 12:20:00'));
         $this->em()->flush();
+    }
+
+    private function epic(Project $project): Card
+    {
+        $epic = $this->card($project, 'in-progress');
+        $this->setType($epic, CardType::Epic);
+
+        return $epic;
+    }
+
+    private function childOf(Card $epic, string $column): Card
+    {
+        $child = $this->card($epic->project, $column);
+        $child->parent = $epic;
+        $this->em()->flush();
+
+        return $child;
     }
 
     private function setType(Card $card, CardType $type): void

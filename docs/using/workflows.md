@@ -95,7 +95,7 @@ Tech design, and from Next back to the Backlog or on to a design slot.
 |---|---|
 | Product design | Asks for an interactive product design session when the card has no product document, and asks for a revision when the product document gets changes requested. An approved product document, with the tag `product-design`, moves the card to Tech design |
 | Tech design | Asks for the tech design when the card has no design document, and for a revision when it gets changes requested. An approved tech design, with the tag `tech-design`, moves the card to Implementation once the card has no open blocker |
-| Implementation | Asks for the implementation, or for a breakdown of an epic into children. A pull request that is open, not a draft and whose required checks passed moves the card to In review. Failed checks, a conflict or a request for changes ask for a fix, 3 rounds at most |
+| Implementation | Asks for the implementation, or for a breakdown of an epic into children. An epic gets its breakdown when it enters, with or without children. A pull request that is open, not a draft and whose required checks passed moves the card to In review. Failed checks, a conflict or a request for changes ask for a fix, 3 rounds at most |
 | In review | Asks for a fix as in Implementation. A pull request that turns back into a draft moves the card to Implementation. A stacked pull request whose parent merged gets a new base. An approved pull request that is behind gets its branch updated. A ready pull request merges |
 
 A design document in review, a draft and a revision keep the slot from asking
@@ -120,6 +120,7 @@ Some rules act from any slot:
 
 An epic follows its children. An epic whose children all finished moves to In
 review when it has a pull request, and to the terminal column when it has none.
+It moves on only after its breakdown request ends.
 A new open child moves it back to Implementation. With the epic writes on, the
 pull request of an epic is a draft in Implementation, turns ready in In review,
 and closes when the epic returns to the Backlog.
