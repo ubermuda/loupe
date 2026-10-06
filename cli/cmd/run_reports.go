@@ -128,12 +128,14 @@ func (s *runReports) launch(handle, sessionID string, report api.InteractiveLaun
 
 // toolCalls are the reports that carry the tool calls of the run runID, in
 // batches of toolCallBatch. Only the last batch carries the timing, so a run
-// with no call still sends one empty batch.
-func (s *runReports) toolCalls(handle, runID string, card int, rule string, calls []stream.Call, timing stream.Timing) []outbound.Report {
-	n := max(1, (len(calls)+toolCallBatch-1)/toolCallBatch)
+// with no call still sends one empty batch. The rows are built now, with the
+// project settings read now, so a queued batch holds no unsent raw input.
+func (s *runReports) toolCalls(ctx context.Context, handle, runID string, card int, rule string, calls []stream.Call, timing stream.Timing) []outbound.Report {
+	rows := toolCallRows(calls, s.site(ctx, handle))
+	n := max(1, (len(rows)+toolCallBatch-1)/toolCallBatch)
 	reports := make([]outbound.Report, 0, n)
 	for i := range n {
-		part := calls[i*toolCallBatch : min((i+1)*toolCallBatch, len(calls))]
+		part := rows[i*toolCallBatch : min((i+1)*toolCallBatch, len(rows))]
 		var last *api.ToolTiming
 		if i == n-1 {
 			last = &api.ToolTiming{ToolTimeMs: timing.ToolTimeMs, IdleGapMs: timing.IdleGapMs}
@@ -145,7 +147,7 @@ func (s *runReports) toolCalls(handle, runID string, card int, rule string, call
 				if s.toolCallsUnsupported.Load() {
 					return true, nil
 				}
-				batch := api.ToolCallBatch{Calls: toolCallRows(part, s.site(ctx, handle)), Timing: last}
+				batch := api.ToolCallBatch{Calls: part, Timing: last}
 				err := s.client.ReportToolCalls(ctx, handle, runID, batch)
 				if !errors.Is(err, api.ErrToolCallsUnsupported) {
 					return err == nil, err

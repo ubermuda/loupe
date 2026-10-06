@@ -1194,7 +1194,14 @@ func (r *router) sendToolCalls(p pending, res workerResult) {
 	if !res.streamed || !r.reporting() || !r.rules().Collect() || cardNumber < 1 || (p.isWork() && p.claimToken == "") {
 		return
 	}
-	for _, report := range r.runs.toolCalls(p.event.ProjectID, p.runID, cardNumber, p.rule, res.calls, res.timing) {
+	timeout := r.checkTimeout
+	if timeout <= 0 {
+		timeout = readTimeout
+	}
+	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+	reports := r.runs.toolCalls(ctx, p.event.ProjectID, p.runID, cardNumber, p.rule, res.calls, res.timing)
+	cancel()
+	for _, report := range reports {
 		r.reports.Enqueue(report)
 	}
 }

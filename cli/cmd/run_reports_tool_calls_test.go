@@ -43,7 +43,7 @@ func TestToolCallsGoOutInBatchesWithTheTimingLast(t *testing.T) {
 	client := &fakeRunClient{}
 	reports, _ := newTestRunReports(client)
 
-	batches := reports.toolCalls(testProject, "run-1", 87, "plan", bashCalls(1201, "git status"), stream.Timing{ToolTimeMs: ms(5), IdleGapMs: ms(0)})
+	batches := reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", bashCalls(1201, "git status"), stream.Timing{ToolTimeMs: ms(5), IdleGapMs: ms(0)})
 	if len(batches) != 3 {
 		t.Fatalf("got %d reports, want 3", len(batches))
 	}
@@ -82,7 +82,7 @@ func TestARunWithNoCallSendsOneEmptyBatch(t *testing.T) {
 	client := &fakeRunClient{}
 	reports, _ := newTestRunReports(client)
 
-	sendAll(t, reports.toolCalls(testProject, "run-1", 87, "plan", nil, stream.Timing{}))
+	sendAll(t, reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", nil, stream.Timing{}))
 	if len(client.batches) != 1 || client.batches[0].batch.Calls == nil || len(client.batches[0].batch.Calls) != 0 || client.batches[0].batch.Timing == nil {
 		t.Fatalf("batches = %+v", client.batches)
 	}
@@ -95,7 +95,7 @@ func TestTheProjectSettingsShapeEachCall(t *testing.T) {
 	client := &fakeRunClient{sites: func() ([]api.Site, error) { return sites, nil }}
 	reports, _ := newTestRunReports(client)
 
-	sendAll(t, reports.toolCalls(testProject, "run-1", 87, "plan", bashCalls(1, "kubectl get pods; git status"), stream.Timing{}))
+	sendAll(t, reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", bashCalls(1, "kubectl get pods; git status"), stream.Timing{}))
 	got := client.batches[0].batch.Calls[0]
 	if !slices.Equal(got.Signatures, []string{"kubectl get", "git"}) {
 		t.Fatalf("signatures = %q", got.Signatures)
@@ -104,7 +104,7 @@ func TestTheProjectSettingsShapeEachCall(t *testing.T) {
 		t.Fatalf("full text = %v", got.FullText)
 	}
 
-	sendAll(t, reports.toolCalls("other-project", "run-2", 87, "plan", bashCalls(1, "git status"), stream.Timing{}))
+	sendAll(t, reports.toolCalls(context.Background(), "other-project", "run-2", 87, "plan", bashCalls(1, "git status"), stream.Timing{}))
 	got = client.batches[1].batch.Calls[0]
 	if got.FullText != nil || !slices.Equal(got.Signatures, []string{"git status"}) {
 		t.Fatalf("other project call = %+v", got)
@@ -112,7 +112,7 @@ func TestTheProjectSettingsShapeEachCall(t *testing.T) {
 
 	failing := &fakeRunClient{sites: func() ([]api.Site, error) { return nil, errors.New("down") }}
 	reports, _ = newTestRunReports(failing)
-	sendAll(t, reports.toolCalls(testProject, "run-3", 87, "plan", bashCalls(1, "git status"), stream.Timing{}))
+	sendAll(t, reports.toolCalls(context.Background(), testProject, "run-3", 87, "plan", bashCalls(1, "git status"), stream.Timing{}))
 	got = failing.batches[0].batch.Calls[0]
 	if got.FullText != nil || !slices.Equal(got.Signatures, []string{"git status"}) {
 		t.Fatalf("call after a failed read = %+v", got)
@@ -126,7 +126,7 @@ func TestTheProjectSettingsAreCachedForTenMinutes(t *testing.T) {
 	now := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	reports.now = func() time.Time { return now }
 
-	send := func() { sendAll(t, reports.toolCalls(testProject, "run-1", 87, "plan", nil, stream.Timing{})) }
+	send := func() { sendAll(t, reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", nil, stream.Timing{})) }
 	send()
 	now = now.Add(9 * time.Minute)
 	send()
@@ -146,8 +146,8 @@ func TestAServerWithNoToolCallEndpointDropsTheBatches(t *testing.T) {
 	client := &fakeRunClient{toolCalls: func(api.ToolCallBatch) error { return api.ErrToolCallsUnsupported }}
 	reports, log := newTestRunReports(client)
 
-	sendAll(t, reports.toolCalls(testProject, "run-1", 87, "plan", bashCalls(600, "ls"), stream.Timing{}))
-	sendAll(t, reports.toolCalls(testProject, "run-2", 87, "plan", bashCalls(1, "ls"), stream.Timing{}))
+	sendAll(t, reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", bashCalls(600, "ls"), stream.Timing{}))
+	sendAll(t, reports.toolCalls(context.Background(), testProject, "run-2", 87, "plan", bashCalls(1, "ls"), stream.Timing{}))
 
 	if len(client.batches) != 1 {
 		t.Fatalf("sent %d batches, want only the first", len(client.batches))
@@ -163,7 +163,7 @@ func TestAFailedBatchReturnsItsError(t *testing.T) {
 	client := &fakeRunClient{toolCalls: func(api.ToolCallBatch) error { return refused }}
 	reports, _ := newTestRunReports(client)
 
-	_, err := reports.toolCalls(testProject, "run-1", 87, "plan", nil, stream.Timing{})[0].Send(context.Background())
+	_, err := reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", nil, stream.Timing{})[0].Send(context.Background())
 	if !errors.Is(err, api.ErrReportRefused) {
 		t.Fatalf("err = %v", err)
 	}
@@ -176,7 +176,7 @@ func TestACallWithNoStartStaysOut(t *testing.T) {
 	calls := bashCalls(2, "ls")
 	calls[0].StartedAt = time.Time{}
 
-	sendAll(t, reports.toolCalls(testProject, "run-1", 87, "plan", calls, stream.Timing{}))
+	sendAll(t, reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", calls, stream.Timing{}))
 	if got := client.batches[0].batch.Calls; len(got) != 1 || got[0].Seq != 2 {
 		t.Fatalf("calls = %+v", got)
 	}
@@ -233,5 +233,26 @@ func TestARunWithNoStreamSendsNoToolCall(t *testing.T) {
 
 	if len(rec.toolCalls()) != 0 {
 		t.Fatalf("sent %v", rec.names())
+	}
+}
+
+// The bridge builds each row when it queues the batch, so a queued batch holds
+// no raw input. The project settings are those it read at that time.
+func TestABatchIsBuiltWhenItIsQueued(t *testing.T) {
+	sites := []api.Site{{ID: testProject, CollectFullText: true}}
+	client := &fakeRunClient{sites: func() ([]api.Site, error) { return sites, nil }}
+	reports, _ := newTestRunReports(client)
+
+	batches := reports.toolCalls(context.Background(), testProject, "run-1", 87, "plan", bashCalls(1, "git status"), stream.Timing{})
+	if client.siteReads != 1 {
+		t.Fatalf("read the projects %d times before the send, want once", client.siteReads)
+	}
+	sites = []api.Site{{ID: testProject}}
+	reports.now = func() time.Time { return time.Now().Add(time.Hour) }
+	sendAll(t, batches)
+
+	got := client.batches[0].batch.Calls[0]
+	if client.siteReads != 1 || got.FullText == nil || *got.FullText != `{"command":"git status"}` {
+		t.Fatalf("reads = %d, call = %+v", client.siteReads, got)
 	}
 }
