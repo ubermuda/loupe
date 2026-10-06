@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Bridge\Controller;
+namespace App\Tests\Module\Insights\Controller;
 
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Bridge\Entity\ExperimentDefinition;
@@ -42,10 +42,10 @@ final class ShowExperimentControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/model-test');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments/model-test');
 
         self::assertResponseIsSuccessful();
-        self::assertSame('Experiments', trim($crawler->filter('.lp-activity-tabs [aria-current="page"]')->text()));
+        self::assertSame('Experiments', trim($crawler->filter('.lp-analytics-tabs [aria-current="page"]')->text()));
         self::assertSame('Comparison', trim($crawler->filter('.lp-experiment-tabs [aria-current="page"]')->text()));
         self::assertSame(['a', 'model-a', '3', '5', '5', '5', '$10.00'], $this->cells($crawler->filter('[data-experiment-variant="a"]')));
         self::assertSame(['b', 'model-b', '1', '5', '5', '5', '$5.00'], $this->cells($crawler->filter('[data-experiment-variant="b"]')));
@@ -69,7 +69,7 @@ final class ShowExperimentControllerTest extends WebTestCase
 
         $leftOut = $crawler->filter('[data-experiment-left-out]');
         self::assertStringContainsString('1 card is left out', $leftOut->text());
-        self::assertSame('/projects/'.$projectId.'/worker-runs/experiments/model-test/cards?left-out=1', $leftOut->filter('a')->attr('href'));
+        self::assertSame('/projects/'.$projectId.'/analytics/experiments/model-test/cards?left-out=1', $leftOut->filter('a')->attr('href'));
     }
 
     public function test_a_variant_with_no_usage_shows_no_cost(): void
@@ -84,7 +84,7 @@ final class ShowExperimentControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/model-test');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments/model-test');
 
         self::assertResponseIsSuccessful();
         self::assertSame('$1.00', $this->cells($crawler->filter('[data-experiment-variant="a"]'))[6]);
@@ -102,7 +102,7 @@ final class ShowExperimentControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/another-test');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments/another-test');
 
         self::assertResponseStatusCodeSame(404);
     }
@@ -119,7 +119,7 @@ final class ShowExperimentControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($stranger);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/model-test');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments/model-test');
 
         self::assertResponseStatusCodeSame(403);
     }

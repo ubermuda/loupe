@@ -1,16 +1,16 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'activity.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+{% block title %}{{ 'analytics.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block topbar_crumbs %}
-    {% include 'activity/_crumbs.html.twig' with {project: project} only %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
 {% endblock %}
 
 {% block body %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
-    {% include 'activity/_header.html.twig' with {} only %}
+    {% include '@Insights/_header.html.twig' with {} only %}
 
-    {% include 'activity/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
 
     {% if experiments is not empty %}
     <twig:DataTable modifier="experiments" :columns="[
@@ -21,7 +21,7 @@
         {% for experiment in experiments %}
         <div class="lp-data-table__row" data-experiment="{{ experiment.name }}">
             <div class="lp-data-table__cell lp-data-table__primary">
-                <a class="lp-data-table__target" href="{{ path('app_project_experiment', {id: project.id, experiment: experiment.name}) }}">
+                <a class="lp-data-table__target" href="{{ path('app_project_analytics_experiment', {id: project.id, experiment: experiment.name}) }}">
                     <span class="lp-data-table__title" data-experiment-name>{{ experiment.name }}</span>
                 </a>
             </div>

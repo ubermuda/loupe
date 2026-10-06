@@ -3,31 +3,31 @@
 {% block title %}{{ report.experiment }} — {{ 'bridge.experiments.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block topbar_crumbs %}
-    {% include 'activity/_crumbs.html.twig' with {project: project} only %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
 {% endblock %}
 
 {% block body %}
 {% set boardEnabled = is_feature_enabled('board.enabled') %}
 {% set routeParams = {id: project.id, experiment: report.experiment} %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
-    {% include 'activity/_header.html.twig' with {} only %}
+    {% include '@Insights/_header.html.twig' with {} only %}
 
-    {% include 'activity/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
 
-    {% include '@Bridge/_experiment_tabs.html.twig' with {project: project, experiment: report.experiment, active: 'cards'} only %}
+    {% include '@Insights/_experiment_tabs.html.twig' with {project: project, experiment: report.experiment, active: 'cards'} only %}
 
     <div class="lp-list-filters lp-cost-controls">
         <nav class="lp-cost-toggle" aria-label="{{ 'bridge.experiments.cards.filter_label'|trans }}" data-experiment-filter>
             <a class="lp-cost-toggle__option"
-               href="{{ path('app_project_experiment_cards', routeParams) }}"
+               href="{{ path('app_project_analytics_experiment_cards', routeParams) }}"
                {% if query.variant is null and not query.leftOutOnly %}aria-current="true"{% endif %}>{{ 'bridge.experiments.cards.all'|trans }}</a>
             {% for variant in report.variants %}
                 <a class="lp-cost-toggle__option"
-                   href="{{ path('app_project_experiment_cards', routeParams|merge({variant: variant.name})) }}"
+                   href="{{ path('app_project_analytics_experiment_cards', routeParams|merge({variant: variant.name})) }}"
                    {% if query.variant == variant.name %}aria-current="true"{% endif %}>{{ variant.name }}</a>
             {% endfor %}
             <a class="lp-cost-toggle__option"
-               href="{{ path('app_project_experiment_cards', routeParams|merge({'left-out': 1})) }}"
+               href="{{ path('app_project_analytics_experiment_cards', routeParams|merge({'left-out': 1})) }}"
                {% if query.leftOutOnly %}aria-current="true"{% endif %}>{{ 'bridge.experiments.cards.left_out'|trans }}</a>
         </nav>
         <span class="lp-filter-count">{{ 'bridge.experiments.card_count'|trans({'%count%': report.filteredTotal}) }}</span>
@@ -63,7 +63,7 @@
         {% endfor %}
     </twig:DataTable>
 
-    <twig:Pagination route="app_project_experiment_cards" :page="report.page" :totalPages="report.totalPages" :pageList="report.pageList" :routeParams="routeParams|merge(query.routeParams)" />
+    <twig:Pagination route="app_project_analytics_experiment_cards" :page="report.page" :totalPages="report.totalPages" :pageList="report.pageList" :routeParams="routeParams|merge(query.routeParams)" />
     {% else %}
     <div class="lp-empty-state" data-experiment-cards-empty>
         <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon w-12 h-12" />

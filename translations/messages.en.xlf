@@ -6900,6 +6900,7 @@
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
             <trans-unit id="nav.link.workflow"><source>nav.link.workflow</source><target>Workflow</target></trans-unit>
             <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>
+            <trans-unit id="nav.link.analytics"><source>nav.link.analytics</source><target>Analytics</target></trans-unit>
             <trans-unit id="bridge.agents.page.title"><source>bridge.agents.page.title</source><target>Agents</target></trans-unit>
             <trans-unit id="bridge.agents.heading"><source>bridge.agents.heading</source><target>Your crew</target></trans-unit>
             <trans-unit id="bridge.agents.page_heading"><source>bridge.agents.page_heading</source><target>Meet your crew</target></trans-unit>
@@ -6975,10 +6976,15 @@
             <trans-unit id="activity.tabs.label"><source>activity.tabs.label</source><target>Activity views</target></trans-unit>
             <trans-unit id="activity.tabs.runs"><source>activity.tabs.runs</source><target>Runs</target></trans-unit>
             <trans-unit id="activity.tabs.events"><source>activity.tabs.events</source><target>Events</target></trans-unit>
-            <trans-unit id="activity.tabs.cost"><source>activity.tabs.cost</source><target>Cost</target></trans-unit>
-            <trans-unit id="activity.tabs.experiments"><source>activity.tabs.experiments</source><target>Experiments</target></trans-unit>
             <trans-unit id="search.page.activity_runs"><source>search.page.activity_runs</source><target>Activity · Runs</target></trans-unit>
             <trans-unit id="search.page.activity_events"><source>search.page.activity_events</source><target>Activity · Events</target></trans-unit>
+            <trans-unit id="search.page.analytics_metrics"><source>search.page.analytics_metrics</source><target>Analytics · Metrics</target></trans-unit>
+            <trans-unit id="search.page.analytics_experiments"><source>search.page.analytics_experiments</source><target>Analytics · Experiments</target></trans-unit>
+            <trans-unit id="analytics.page.title"><source>analytics.page.title</source><target>Analytics</target></trans-unit>
+            <trans-unit id="analytics.description"><source>analytics.description</source><target>How the agents perform over time, and how the variants of each experiment compare.</target></trans-unit>
+            <trans-unit id="analytics.tabs.label"><source>analytics.tabs.label</source><target>Analytics views</target></trans-unit>
+            <trans-unit id="analytics.tabs.metrics"><source>analytics.tabs.metrics</source><target>Metrics</target></trans-unit>
+            <trans-unit id="analytics.tabs.experiments"><source>analytics.tabs.experiments</source><target>Experiments</target></trans-unit>
             <trans-unit id="activity.count"><source>activity.count</source><target>{0} No events|{1} 1 event|]1,Inf[ %count% events</target></trans-unit>
             <trans-unit id="search.title"><source>search.title</source><target>Search project</target></trans-unit>
             <trans-unit id="search.shortcut"><source>search.shortcut</source><target>⌘K</target></trans-unit>

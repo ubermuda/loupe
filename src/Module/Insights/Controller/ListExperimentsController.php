@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Bridge\Controller;
+namespace App\Module\Insights\Controller;
 
 use App\Controller\AppController;
 use App\Module\Bridge\Command\ListExperimentsCommand;
@@ -15,8 +15,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted(ProjectVoter::VIEW, subject: 'project')]
 #[Route(
-    '/projects/{id:project}/worker-runs/experiments',
-    name: 'app_project_experiments',
+    '/projects/{id:project}/analytics/experiments',
+    name: 'app_project_analytics_experiments',
     methods: ['GET'],
 )]
 class ListExperimentsController extends AppController
@@ -28,7 +28,7 @@ class ListExperimentsController extends AppController
 
     public function __invoke(Project $project): Response
     {
-        return $this->render('@Bridge/list_experiments.html.twig', [
+        return $this->render('@Insights/list_experiments.html.twig', [
             'project' => $project,
             'experiments' => ($this->listExperiments)(new ListExperimentsCommand($project))->experiments,
         ]);

@@ -30,6 +30,8 @@ final readonly class PageSearchProvider implements SearchProviderInterface
             'app_project_agents' => 'nav.link.agents',
             'app_project_worker_runs' => 'search.page.activity_runs',
             'app_project_activity' => 'search.page.activity_events',
+            'app_project_analytics_metrics' => 'search.page.analytics_metrics',
+            'app_project_analytics_experiments' => 'search.page.analytics_experiments',
             'app_project_outbox' => 'nav.link.outbox',
             'app_project_edit' => 'nav.link.project_settings',
             'app_projects' => 'nav.switcher.all_projects',

@@ -387,7 +387,7 @@ their rules. A live run keeps its variant through an [update](#updates).
 
 A card keeps its variant only in the kind that has the variants. Another kind
 with its own `model:` runs that model on the card. The
-[Experiments](../using/experiments.md) tab of the project's **Activity** page
+[Experiments](../using/experiments.md) tab of the project's **Analytics** page
 compares the variants of each experiment. To end an experiment, give the entry a
 plain `model:` again, and remove its `variants:`. Then run `loupe bridge reload`.
 

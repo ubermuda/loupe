@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Bridge\Controller;
+namespace App\Tests\Module\Insights\Controller;
 
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Tests\Module\Bridge\ExperimentScenario;
@@ -28,7 +28,7 @@ final class ListExperimentCardsControllerTest extends WebTestCase
         $this->experimentRun($em, $project, $b, 'b', at: '-1 hour');
         $this->experimentRun($em, $project, $switched, 'b', switchedFrom: 'a', at: '-30 minutes');
         $projectId = (string) $project->id;
-        $base = '/projects/'.$projectId.'/worker-runs/experiments/model-test/cards';
+        $base = '/projects/'.$projectId.'/analytics/experiments/model-test/cards';
         $em->clear();
 
         $client->loginUser($owner);
@@ -79,7 +79,7 @@ final class ListExperimentCardsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/model-test/cards?left-out=1');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments/model-test/cards?left-out=1');
 
         self::assertResponseIsSuccessful();
         self::assertSame('Left out', trim($crawler->filter('[data-experiment-filter] [aria-current="true"]')->text()));
@@ -101,7 +101,7 @@ final class ListExperimentCardsControllerTest extends WebTestCase
             $this->experimentRun($em, $project, $this->experimentCard($em, $project, $i), 'a', at: \sprintf('-%d minutes', 100 - $i));
         }
         $projectId = (string) $project->id;
-        $base = '/projects/'.$projectId.'/worker-runs/experiments/model-test/cards';
+        $base = '/projects/'.$projectId.'/analytics/experiments/model-test/cards';
         $em->clear();
 
         $client->loginUser($owner);
@@ -130,7 +130,7 @@ final class ListExperimentCardsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/model-test/cards');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments/model-test/cards');
 
         self::assertResponseStatusCodeSame(404);
     }
@@ -147,7 +147,7 @@ final class ListExperimentCardsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($stranger);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/model-test/cards');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments/model-test/cards');
 
         self::assertResponseStatusCodeSame(403);
     }

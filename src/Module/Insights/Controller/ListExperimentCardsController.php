@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Bridge\Controller;
+namespace App\Module\Insights\Controller;
 
 use App\Controller\AppController;
 use App\Module\Bridge\Command\ShowExperimentCommand;
@@ -19,8 +19,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted(ProjectVoter::VIEW, subject: 'project')]
 #[Route(
-    '/projects/{id:project}/worker-runs/experiments/{experiment}/cards',
-    name: 'app_project_experiment_cards',
+    '/projects/{id:project}/analytics/experiments/{experiment}/cards',
+    name: 'app_project_analytics_experiment_cards',
     requirements: ['experiment' => WorkerRun::EXPERIMENT_NAME],
     methods: ['GET'],
 )]
@@ -39,21 +39,21 @@ class ListExperimentCardsController extends AppController
             ?? throw $this->createNotFoundException('No run and no pin name this experiment.');
 
         if (null !== $report->clampedPage) {
-            $this->logger->info('bridge.experiment_cards_page_clamped', [
+            $this->logger->info('insights.experiment_cards_page_clamped', [
                 'project' => (string) $project->id,
                 'experiment' => $experiment,
                 'requestedPage' => $query->page,
                 'clampedPage' => $report->clampedPage,
             ]);
 
-            return $this->redirectToRoute('app_project_experiment_cards', [
+            return $this->redirectToRoute('app_project_analytics_experiment_cards', [
                 'id' => (string) $project->id,
                 'experiment' => $experiment,
                 ...$query->withPage($report->clampedPage)->routeParams(),
             ]);
         }
 
-        return $this->render('@Bridge/list_experiment_cards.html.twig', [
+        return $this->render('@Insights/list_experiment_cards.html.twig', [
             'project' => $project,
             'report' => $report,
             'query' => $query,

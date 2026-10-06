@@ -34,7 +34,7 @@
 {% block title %}{{ report.experiment }} — {{ 'bridge.experiments.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block topbar_crumbs %}
-    {% include 'activity/_crumbs.html.twig' with {project: project} only %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
 {% endblock %}
 
 {% block body %}
@@ -42,11 +42,11 @@
 {% set knownReasons = ['conflict', 'checks-failed', 'changes-requested'] %}
 {% set headline = report.headline %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
-    {% include 'activity/_header.html.twig' with {} only %}
+    {% include '@Insights/_header.html.twig' with {} only %}
 
-    {% include 'activity/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
 
-    {% include '@Bridge/_experiment_tabs.html.twig' with {project: project, experiment: report.experiment, active: 'comparison'} only %}
+    {% include '@Insights/_experiment_tabs.html.twig' with {project: project, experiment: report.experiment, active: 'comparison'} only %}
 
     <p class="lp-experiment-headline" data-experiment-headline>
         {% if headline.cheaperVariant is null %}
@@ -119,7 +119,7 @@
     <p class="lp-experiment-note" data-experiment-left-out>
         {{ 'bridge.experiments.left_out'|trans({'%count%': report.leftOutCards}) }}
         {% if report.leftOutCards > 0 %}
-            <a href="{{ path('app_project_experiment_cards', {id: project.id, experiment: report.experiment, 'left-out': 1}) }}">{{ 'bridge.experiments.left_out_link'|trans }}</a>
+            <a href="{{ path('app_project_analytics_experiment_cards', {id: project.id, experiment: report.experiment, 'left-out': 1}) }}">{{ 'bridge.experiments.left_out_link'|trans }}</a>
         {% endif %}
     </p>
 </div>

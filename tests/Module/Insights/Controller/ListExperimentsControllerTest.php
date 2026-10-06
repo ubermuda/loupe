@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Bridge\Controller;
+namespace App\Tests\Module\Insights\Controller;
 
 use App\Tests\Module\Bridge\ExperimentScenario;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -27,12 +27,12 @@ final class ListExperimentsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments');
 
         self::assertResponseIsSuccessful();
         self::assertSame('Experiments', trim($crawler->filter('.lp-tabs__tab[aria-current="page"]')->text()));
         self::assertSame(['prompt-test', 'model-test'], $crawler->filter('[data-experiment] [data-experiment-name]')->each(static fn ($name): string => trim($name->text())));
-        self::assertSame('/projects/'.$projectId.'/worker-runs/experiments/model-test', $crawler->filter('[data-experiment="model-test"] a')->attr('href'));
+        self::assertSame('/projects/'.$projectId.'/analytics/experiments/model-test', $crawler->filter('[data-experiment="model-test"] a')->attr('href'));
         self::assertSame('2 cards', trim($crawler->filter('[data-experiment="model-test"] [data-experiment-cards]')->text()));
         self::assertSame('1 card', trim($crawler->filter('[data-experiment="prompt-test"] [data-experiment-cards]')->text()));
         self::assertCount(2, $crawler->filter('[data-experiment] time'));
@@ -49,7 +49,7 @@ final class ListExperimentsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments');
 
         self::assertResponseIsSuccessful();
         $empty = $crawler->filter('[data-experiments-empty]');
@@ -70,7 +70,7 @@ final class ListExperimentsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($stranger);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments');
 
         self::assertResponseStatusCodeSame(403);
     }

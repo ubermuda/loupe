@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'analytics.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    {% include '@Insights/_header.html.twig' with {} only %}
+
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'metrics'} only %}
+</div>
+{% endblock %}

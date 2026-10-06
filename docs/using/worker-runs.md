@@ -13,10 +13,9 @@ Open **Activity** in the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
 The open runs also show on the [Workshop](workshop.md), under In motion.
 
-The Activity page has three tabs. **Runs** lists the runs, and the rest of this
+The Activity page has two tabs. **Runs** lists the runs, and the rest of this
 page describes it. **Events** lists the [project events](activity.md).
-**Cost** charts what a finished card costs on average, as
-[The cost of finished cards](#the-cost-of-finished-cards) says.
+The [Analytics](analytics.md) page charts what the runs cost.
 
 ## What a row shows
 
