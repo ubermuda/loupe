@@ -564,7 +564,8 @@ Loupe moves an epic on its own:
 
 - When the last open child moves to a terminal column, the epic moves to the
   first terminal column of the board. If the epic links an open pull request,
-  it moves to the `in-review` column instead and waits there.
+  it moves to the `in-review` column instead and waits there. While the
+  breakdown of the epic runs, the epic stays in the `implementation` column.
 - When a child of a done epic or of an epic in `in-review` leaves the terminal
   column, or an open card joins such an epic, the epic moves back to the
   `implementation` column.
@@ -614,7 +615,8 @@ where it is, as for any card.
 
 A repository profile can give each epic its own branch. Its `.loupe/lifecycle.md`
 file then holds an `Epics` section. Under that profile, the breakdown of epic
-number n pushes a branch `epic/<n>` from `main`.
+number n pushes a branch `epic/<n>` from `main`. It pushes the branch only when
+no child of the epic links a pull request yet.
 
 Each child of the epic starts from `epic/<n>`, and its pull request targets
 `epic/<n>`. A child that waits on blockers starts when they are done, so its
@@ -650,7 +652,9 @@ An epic with one child can close before the stage links its pull request. The
 merge stage then records a block on the epic card.
 
 An epic whose breakdown ran before its profile had an `Epics` section has no
-`epic/<n>` branch. Its children keep their pull requests to `main`.
+`epic/<n>` branch. The same applies to an epic with no `epic/<n>` branch and a
+child that already links a pull request. Its children keep their pull requests
+to `main`.
 
 ## What a card holds
 

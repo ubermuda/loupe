@@ -318,7 +318,11 @@ final readonly class TemplateParser
             $param = $value[$parameter->name];
             $error = match ($parameter->type) {
                 ParameterType::Int => \is_int($param) && $param >= 1 ? null : \sprintf('parameter "%s" must be a positive integer', $parameter->name),
-                ParameterType::String => \is_string($param) && '' !== $param ? null : \sprintf('parameter "%s" must be a non-empty string', $parameter->name),
+                ParameterType::String => match (true) {
+                    !\is_string($param) || '' === $param => \sprintf('parameter "%s" must be a non-empty string', $parameter->name),
+                    null !== $parameter->choices && !\in_array($param, $parameter->choices, true) => \sprintf('parameter "%s" must be one of: %s', $parameter->name, implode(', ', $parameter->choices)),
+                    default => null,
+                },
                 ParameterType::Slot => match (true) {
                     !\is_string($param) => \sprintf('parameter "%s" must be a non-empty string', $parameter->name),
                     !self::isColumn($param, $slotKeys, false) => \sprintf('unknown slot "%s"', $param),

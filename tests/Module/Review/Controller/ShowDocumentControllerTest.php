@@ -570,7 +570,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSame('2h ago', trim($ages->text()));
     }
 
-    public function test_approved_document_shows_locked_confirmation(): void
+    public function test_an_approved_document_offers_to_change_its_verdict(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -592,11 +592,15 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        // Once a verdict exists it replaces the buttons that produced it.
         self::assertSelectorExists('.lp-verdict-bar--approved');
         self::assertSelectorTextContains('.lp-verdict-bar__title', 'Approved');
         self::assertSelectorNotExists('input[name="undo_verdict_form[reviewId]"]');
-        self::assertSelectorNotExists('input[name="submit_review_form[verdict]"]');
+        self::assertSelectorTextSame('.lp-verdict-bar button[data-action="click->modal#open"]', 'Change verdict');
+        self::assertSelectorExists('.lp-review[data-controller~="modal"] dialog[data-modal-target="dialog"]');
+        self::assertSelectorExists('dialog input[name="submit_review_form[verdict]"][value="approved"]');
+        // The verdict bar is the one entry point once a verdict stands.
+        self::assertSelectorNotExists('.lp-review-menu__verdict');
+        self::assertSelectorNotExists('.lp-review-doc__actions button.lp-btn--primary[data-action="click->modal#open"]');
     }
 
     public function test_non_owner_gets_403(): void

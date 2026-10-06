@@ -69,6 +69,12 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         self::assertEquals(new WorkflowRuleView('rebase-stacked', 'workflow.slot.in_review', 'workflow.settings.action.forge_write', null, 'change-base', [new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.open', false, ''), new WorkflowConditionView('pr.stacked', false, ''), new WorkflowConditionView('pr.parent_merged', false, '')])], [], []), $rules['rebase-stacked']);
         self::assertSame('product-design-session', $template->rules[0]->id);
         self::assertEquals([
+            new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.document', true, 'tag: product-design')]),
+        ], $rules['product-design-session']->whenGroups);
+        self::assertEquals([
+            new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.document', true, 'tag: tech-design')]),
+        ], $rules['tech-design-write']->whenGroups);
+        self::assertEquals([
             new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.in_slot', true, 'slot: @terminal'), new WorkflowConditionView('card.children_finished', false, '')]),
             new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.all_finished_one_merged', false, '')]),
         ], $rules['merged']->whenGroups);

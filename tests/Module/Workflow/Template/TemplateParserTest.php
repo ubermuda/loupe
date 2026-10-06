@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
+use App\Module\Workflow\Condition\CardDocument;
 use App\Module\Workflow\Condition\CardDocumentApproved;
 use App\Module\Workflow\Condition\CardHasOpenBlocker;
 use App\Module\Workflow\Condition\CardHasType;
@@ -30,6 +31,7 @@ final class TemplateParserTest extends TestCase
     protected function setUp(): void
     {
         $this->parser = new TemplateParser(new Conditions([
+            new CardDocument(),
             new CardDocumentApproved(),
             new CardHasOpenBlocker(),
             new CardHasType(),
@@ -161,6 +163,27 @@ final class TemplateParserTest extends TestCase
             ['kind' => 'tech-design-revise', 'document.tag' => 'design', 'document.status' => 'changes-requested'],
             $this->parser->parse($template)->rulesFor('build')[0]->then->params,
         );
+    }
+
+    public function test_a_document_condition_takes_a_tag_and_an_optional_status(): void
+    {
+        $template = self::valid();
+        $template['rules'][2]['when'] = ['all' => [
+            ['card.document' => ['tag' => 'design']],
+            ['card.document' => ['tag' => 'design', 'status' => 'in-review']],
+        ]];
+
+        $leaves = $this->parser->parse($template)->rules[2]->when->leaves();
+
+        self::assertSame([['tag' => 'design'], ['tag' => 'design', 'status' => 'in-review']], array_map(static fn (ConditionLeaf $leaf): array => $leaf->params, $leaves));
+    }
+
+    public function test_a_slot_reads_the_tag_of_a_document_condition(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['not' => ['card.document' => ['tag' => 'plan']]];
+
+        self::assertSame(['plan'], $this->parser->parse($template)->documentTagsFor('build'));
     }
 
     public function test_a_valid_template_round_trips_through_json(): void
@@ -392,6 +415,11 @@ final class TemplateParserTest extends TestCase
             return $t;
         }, 'rules[4] (done) then.release: unknown parameter "until"'];
 
+        yield 'document status outside the statuses' => [static function (array $t): array {
+            $t['rules'][2]['when'] = ['card.document' => ['tag' => 'design', 'status' => 'rejected']];
+
+            return $t;
+        }, 'rules[2] (merge) when: card.document: parameter "status" must be one of: in-review, approved, changes-requested, draft'];
         yield 'pause with no until' => [static function (array $t): array {
             unset($t['rules'][3]['then']['pause']['until']);
 

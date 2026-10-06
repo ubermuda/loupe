@@ -236,13 +236,18 @@ final class MarkdownRendererTest extends TestCase
         self::assertLessThan(8.0, $fullElapsed / $quarterElapsed);
     }
 
-    /** @return array{float, string} */
+    /** @return array{float, string} the fastest of three renders, so one load spike does not set the time */
     private static function timeRender(MarkdownRenderer $renderer, int $headings): array
     {
-        $start = microtime(true);
-        $html = $renderer->render(str_repeat("## Same\n\n", $headings));
+        $fastest = \INF;
+        $html = '';
+        for ($run = 0; $run < 3; ++$run) {
+            $start = microtime(true);
+            $html = $renderer->render(str_repeat("## Same\n\n", $headings));
+            $fastest = min($fastest, microtime(true) - $start);
+        }
 
-        return [microtime(true) - $start, $html];
+        return [$fastest, $html];
     }
 
     public function test_an_element_it_does_not_render_still_contributes_its_text(): void

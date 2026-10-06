@@ -18,10 +18,7 @@ workTimeoutMinutes: 120
 rules:
     - id: product-design-session
       slot: product-design
-      when:
-          all:
-              - not: { card.document_approved: { tag: product-design } }
-              - not: { card.document_changes_requested: { tag: product-design } }
+      when: { not: { card.document: { tag: product-design } } }
       then: { request: { kind: product-design, capability: interactive } }
 
     - id: product-design-revise
@@ -39,10 +36,7 @@ rules:
 
     - id: tech-design-write
       slot: tech-design
-      when:
-          all:
-              - not: { card.document_approved: { tag: tech-design } }
-              - not: { card.document_changes_requested: { tag: tech-design } }
+      when: { not: { card.document: { tag: tech-design } } }
       then: { request: { kind: tech-design } }
 
     - id: tech-design-revise
@@ -69,10 +63,7 @@ rules:
 
     - id: breakdown
       slot: implementation
-      when:
-          all:
-              - card.type: { type: epic }
-              - not: { card.has_children: {} }
+      when: { card.type: { type: epic } }
       then: { request: { kind: breakdown } }
 
     - id: reviewable
@@ -175,6 +166,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - pr.open: {}
+              - not: { run.work_active: { kind: breakdown } }
       then: { move: { to: in-review } }
 
     - id: epic-to-done
@@ -185,6 +177,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - not: { pr.linked: {} }
+              - not: { run.work_active: { kind: breakdown } }
       then: { move: { to: '@terminal' } }
 
     - id: epic-reopened-from-review
