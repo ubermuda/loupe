@@ -134,6 +134,18 @@ and a card that reaches a terminal column asks for a teardown.
 In both templates, a card whose pull requests all closed with none merged stays
 in its column. A person or an agent moves it.
 
+## Rules the app adds
+
+Loupe adds its own rules to the rules of every template. The **Workflow** page
+lists them in their own group, **Rules the app adds**, below the rules of the
+template. The group shows only when the app adds at least one rule. An app rule
+watches the Backlog, a terminal column, or every column, because each template
+names its own slots. No template rule can take the id of an app rule.
+
+A request of an app rule can carry a prompt that ships with Loupe. A bridge that
+sets `appPrompts: true` runs it for a kind that its `work:` map does not hold.
+See [Command-line bridge](../extending/cli-bridge.md#work-requests).
+
 ## Kinds of work
 
 A rule that asks for work names its kind. A bridge runs a kind only when its

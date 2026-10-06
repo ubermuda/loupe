@@ -697,6 +697,12 @@ the map has an entry, and `interactive` too when an entry opens an interactive
 session. A request that needs `interactive` reaches only a bridge that reports
 it.
 
+A rule that Loupe ships can send a prompt with its request. Set
+`appPrompts: true` at the top of `rules.yaml` to run that prompt for a kind that
+`work:` does not map. The prompt runs as a worker in the `default` pool, with
+the `defaults` of the file. An entry under `work:` always wins. A bridge without
+the key skips such a request, and the request expires after the work timeout.
+
 The bridge finds the project of a request in `projects` through the project
 id. A project rename marks the work of that project dead until you fix the file
 and run `loupe bridge reload`.

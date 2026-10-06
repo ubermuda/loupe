@@ -622,7 +622,8 @@ finds the project of a request in `projects` through the project id. It
 ignores a request for a project the file does not map, and logs one
 `project_unmapped` line. It skips a request of a kind the map does not hold.
 
-A request can carry an app prompt, which the project sets in Loupe. Set
+A request can carry an app prompt, which ships with Loupe and which no
+project can change. Set
 `appPrompts: true` at the top of the file to run it for a kind that the map
 does not hold. An entry of the kind always wins over the app prompt. The app
 prompt takes the placeholders below and gets the
