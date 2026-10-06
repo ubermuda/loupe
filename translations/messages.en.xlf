@@ -7288,6 +7288,8 @@
             <trans-unit id="workflow.settings.rules.not"><source>workflow.settings.rules.not</source><target>not</target></trans-unit>
             <trans-unit id="workflow.settings.rules.until"><source>workflow.settings.rules.until</source><target>Until:</target></trans-unit>
             <trans-unit id="workflow.settings.rules.missing_condition"><source>workflow.settings.rules.missing_condition</source><target>Condition no longer exists: %condition%</target></trans-unit>
+            <trans-unit id="workflow.settings.app_rules.heading"><source>workflow.settings.app_rules.heading</source><target>Rules the app adds</target></trans-unit>
+            <trans-unit id="workflow.settings.app_rules.description"><source>workflow.settings.app_rules.description</source><target>The app adds these rules to the workflow of every project, after the rules of its template.</target></trans-unit>
             <trans-unit id="workflow.settings.where.backlog"><source>workflow.settings.where.backlog</source><target>the Backlog</target></trans-unit>
             <trans-unit id="workflow.settings.where.any_terminal"><source>workflow.settings.where.any_terminal</source><target>a terminal column</target></trans-unit>
             <trans-unit id="workflow.settings.where.any"><source>workflow.settings.where.any</source><target>any column</target></trans-unit>
