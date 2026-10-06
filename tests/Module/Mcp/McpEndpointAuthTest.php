@@ -128,6 +128,7 @@ final class McpEndpointAuthTest extends WebTestCase
             'worker_run_list',
             'worker_run_resume',
             'worker_run_stop',
+            'worker_run_tool_calls',
         ], $this->listToolNames($client, $raw));
     }
 

@@ -61,6 +61,7 @@ final class AdvertisedTools
         'card_run_close',
         'worker_run_list',
         'worker_run_get',
+        'worker_run_tool_calls',
         'metric_list',
         'metric_query',
         'bridge_list',
