@@ -29,7 +29,7 @@ The owner reads a design to make its decisions. The owner knows what the product
 
 1. Say what happens in product terms first: what a person sees, what the board does, what an agent does. Then name the code, when the reader needs it.
 2. Write At a glance, each decision and each Decided entry for a reader with no file open. Put class names, fields, methods and file paths in Architecture, the work order and the project checks. A reader who knows the product can skip those parts.
-3. Write the question and each option of a decision in plain words. Each option says what changes for a person or an agent. Put the code that each option changes in the "How each option works" list (see "Decisions").
+3. Write the question and each option of a decision in plain words. Each option says what changes for a person or an agent. In a tech design, put the code that each option changes in the "How each option works" list (see "Decisions").
 4. A name that a person sees in the product is a plain word. Examples are a tool name, a column, a tag and a button label. A class, a field, a method or a file path is not a plain word. Keep it out of the question, the options, the table and the example.
 5. Explain a new idea in one sentence where it first appears. Add a small example when it helps. Rule 16 of `../SKILL.md` covers an ID from another source. This item covers an idea, such as a kind of pause.
 6. A fact with no mark is checked. Mark only an estimate, with "(estimated)". End a section with one "Checked in the code" line that names the files behind its facts. Never tag each sentence with "(checked, File.php)".
@@ -57,8 +57,8 @@ Give each open decision its own section, with a stable ID in the heading.
 1. Write the "**Decision needed:**" paragraph (rule 5). Name your recommendation and your confidence: high, moderate or low. Give the strongest argument against it.
 2. When the decision has two or more real options, add a table with the columns Option, Pros and Cons. Write one row for each option.
 3. Add a worked example under the table. Take one real case from the project, such as a card, a rule or a page. Write one line that states the case, then a numbered list. Start the list with "Today" when the decision changes existing behaviour. Then add one entry for each option, in the order of the table rows. Use the same case in each entry.
-4. Add a "How each option works" numbered list under the example. Write one entry for each option, in the order of the table rows. Each entry names the code that the option changes. This list is the one place in a decision where a class, a field or a file may appear.
-5. Put the decision fence under the How list. Use the same options in the same order as the table rows.
+4. In a tech design, add a "How each option works" numbered list under the example. A product document gets none, because the code belongs to the tech design. Write one entry for each option, in the order of the table rows. Each entry names the code that the option changes. This list is the one place in a decision where a class, a field or a file may appear.
+5. Put the decision fence under the How list, or under the example when there is no How list. Use the same options in the same order as the table rows.
 
 Keep the reasons in the table. The fence holds only its question and the one-line options (`decision-fences.md`). End the recommended option with its confidence marker, such as `(recommended: moderate)`, so Loupe shows a badge on it.
 

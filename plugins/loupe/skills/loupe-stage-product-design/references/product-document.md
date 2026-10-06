@@ -67,7 +67,7 @@ The writer decides the use of this section. The interactive session writes a fen
 Put each open choice in its own decision fence (rule 12). Read `loupe-documents` `references/decision-fences.md` before you write one. Give each choice a `###` heading with a stable ID, such as `### D1: Export format`, so At a glance can link to it.
 
 1. Put the "**Decision needed:**" lead-in, the context and your recommendation above the fence (rule 5). Give the recommendation a confidence: high, moderate or low.
-2. When the choice has two or more real options, put the pros and cons table, the worked example and the "How each option works" list of `design-structure.md` above the fence.
+2. When the choice has two or more real options, put the pros and cons table and the worked example of `design-structure.md` above the fence. A product document gets no "How each option works" list, because the code belongs to the tech design.
 3. Give the fence one short question paragraph, then flat one-line options.
 4. Choose a fence id from the subject, such as `export-format`. Never change an id after the document is published, because a changed id discards the answer.
 
