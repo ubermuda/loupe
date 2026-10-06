@@ -241,6 +241,49 @@ final class CardHistoryEntryTest extends TestCase
         self::assertNull(CardHistoryEntry::runIdOf($this->event(CardEventKind::Created, CardReporter::Human, null, ['column' => self::BACKLOG])));
     }
 
+    /** @return iterable<string, array{string, string}> */
+    public static function pauseKinds(): iterable
+    {
+        yield 'a rule' => ['rule', 'board.card.history.pause_kind.rule'];
+        yield 'retries' => ['retries', 'board.card.history.pause_kind.retries'];
+        yield 'a work limit' => ['work-limit', 'board.card.history.pause_kind.work_limit'];
+        yield 'a work timeout' => ['work-timeout', 'board.card.history.pause_kind.work_timeout'];
+    }
+
+    #[DataProvider('pauseKinds')]
+    public function test_a_pause_names_its_kind_and_its_rule(string $kind, string $kindKey): void
+    {
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Paused, CardReporter::System, null, ['kind' => $kind, 'reason' => 'review-failed', 'ruleId' => 'fix-on-review']));
+
+        self::assertSame('lucide:circle-pause', $entry->icon);
+        self::assertEquals(new TranslatableMessage('board.card.history.paused', [
+            '%actor%' => new TranslatableMessage('board.card.history.actor.system'),
+            '%kind%' => new TranslatableMessage($kindKey),
+        ]), $entry->sentence);
+        self::assertEquals(new TranslatableMessage('board.card.history.cause.workflow_rule', ['%rule%' => 'fix-on-review']), $entry->cause);
+        self::assertNull($entry->run);
+    }
+
+    public function test_a_release_names_the_person_and_the_kind_of_the_pause(): void
+    {
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::PauseReleased, CardReporter::Human, $this->user, ['kind' => 'retries', 'reason' => 'review-failed', 'ruleId' => 'fix-on-review']));
+
+        self::assertSame('lucide:circle-play', $entry->icon);
+        self::assertEquals(new TranslatableMessage('board.card.history.pause_released', [
+            '%actor%' => 'Riley Chen',
+            '%kind%' => new TranslatableMessage('board.card.history.pause_kind.retries'),
+        ]), $entry->sentence);
+        self::assertEquals(new TranslatableMessage('board.card.history.cause.workflow_rule', ['%rule%' => 'fix-on-review']), $entry->cause);
+    }
+
+    public function test_a_pause_with_no_rule_has_no_cause_line(): void
+    {
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Paused, CardReporter::System, null, ['kind' => 'rule']));
+
+        self::assertSame('board.card.history.paused', $entry->sentence->getMessage());
+        self::assertNull($entry->cause);
+    }
+
     /** @param array<string, mixed> $detail */
     #[DataProvider('malformedDetails')]
     public function test_a_row_with_unreadable_detail_falls_back_to_a_plain_sentence(CardEventKind $kind, array $detail): void
@@ -262,6 +305,8 @@ final class CardHistoryEntryTest extends TestCase
         yield 'a fix request with no pull request' => [CardEventKind::FixRequested, ['reason' => 'conflict']];
         yield 'a stop with no pull request' => [CardEventKind::Stopped, []];
         yield 'a ready pull request with a text number' => [CardEventKind::ReadyToMerge, ['pullRequest' => 'twelve']];
+        yield 'a pause with no kind' => [CardEventKind::Paused, ['ruleId' => 'fix-on-review']];
+        yield 'a release with an unknown kind' => [CardEventKind::PauseReleased, ['kind' => 'gremlins', 'ruleId' => 'fix-on-review']];
     }
 
     /** @return iterable<string, array{CardReporter, bool, string|TranslatableMessage}> */

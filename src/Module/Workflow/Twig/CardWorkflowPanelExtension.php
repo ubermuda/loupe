@@ -37,6 +37,6 @@ final class CardWorkflowPanelExtension extends AbstractExtension
 
         $panel = $this->panels->build($card);
 
-        return $panel->isEmpty() ? '' : $twig->render('@Workflow/_card_workflow_panel.html.twig', ['panel' => $panel]);
+        return $panel->isEmpty() ? '' : $twig->render('@Workflow/_card_workflow_panel.html.twig', ['panel' => $panel, 'card' => $card]);
     }
 }

@@ -14,4 +14,6 @@ enum CardEventKind: string
     case ReadyToMerge = 'ready-to-merge';
     case Synced = 'synced';
     case RunFinished = 'run-finished';
+    case Paused = 'paused';
+    case PauseReleased = 'pause-released';
 }

@@ -68,6 +68,15 @@ A work request that no bridge takes within 2 hours pauses the card with "no
 bridge took the work". A teardown request is the exception: it expires with no
 pause.
 
+A person ends a pause with **Retry now** in the Workflow panel of the card. The
+button shows for a pause after too many retries, after the work limit, or after
+no bridge took the work. It needs the permission to manage the project. A
+release is refused on an unmanaged card. It is also refused on a pause that a
+rule made, because that pause ends only on its own release condition. After a
+release the paused rule runs again with a fresh budget of retries and work. The
+card history records the pause and the release, with the person who released
+it. An agent ends a pause with the `card_pause_release` MCP tool.
+
 ## Writes to GitHub
 
 A rule can write to a pull request: merge it, update its branch, change its

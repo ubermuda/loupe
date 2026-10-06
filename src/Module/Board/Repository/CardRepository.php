@@ -8,6 +8,7 @@ use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\View\BacklogListQuery;
@@ -1343,11 +1344,11 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function findForBoard(array $columns, ?CardType $type = null, ?CardReporter $reporter = null, ?Card $parent = null): array
+    public function findForBoard(array $columns, ?CardType $type = null, ?CardReporter $reporter = null, ?Card $parent = null, ?bool $paused = null): array
     {
         $cards = [];
         foreach ($columns as $column) {
-            $cards = [...$cards, ...$this->findColumn($column, $type, $reporter, $parent)];
+            $cards = [...$cards, ...$this->findColumn($column, $type, $reporter, $parent, $paused)];
         }
 
         return $cards;
@@ -1410,7 +1411,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(BoardColumn $column, ?CardType $type, ?CardReporter $reporter, ?Card $parent): array
+    private function findColumn(BoardColumn $column, ?CardType $type, ?CardReporter $reporter, ?Card $parent, ?bool $paused): array
     {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.column = :column')
@@ -1421,6 +1422,9 @@ class CardRepository extends ServiceEntityRepository
         }
         if (null !== $parent) {
             $qb->andWhere('c.parent = :parent')->setParameter('parent', $parent);
+        }
+        if (null !== $paused) {
+            $qb->andWhere(\sprintf('%sEXISTS (SELECT pause.id FROM %s pause WHERE pause.card = c AND pause.releasedAt IS NULL)', $paused ? '' : 'NOT ', CardPause::class));
         }
         if (null !== $reporter) {
             // COALESCE, not c.reporter: a row an older image wrote after this

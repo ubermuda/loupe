@@ -16,7 +16,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardRefusal from BridgeCommandRefusals
  */
-#[McpTool(name: self::NAME, description: 'Manage a card again that card_hold made unmanaged. The queued runs on the card then start. The workflow takes the card as it is now, so a condition that is already true does not fire. Pass one of cardId or number to name the card, never both. The result has cardId and outcome. Outcome released means that the card is managed again. A result with outcome refused also carries code and message. The codes are: not-found (this project has no such card, and cardId is null when number names no card) and not-paused.')]
+#[McpTool(name: self::NAME, description: 'Manage a card again that card_hold made unmanaged. The queued runs on the card then start. The workflow takes the card as it is now, so a condition that is already true does not fire. This tool does not lift a workflow pause, which the workflow makes when a rule runs out of retries or work budget. Call card_pause_release for that. Pass one of cardId or number to name the card, never both. The result has cardId and outcome. Outcome released means that the card is managed again. A result with outcome refused also carries code and message. The codes are: not-found (this project has no such card, and cardId is null when number names no card) and not-paused.')]
 final readonly class CardReleaseTool
 {
     public const string NAME = 'card_release';
