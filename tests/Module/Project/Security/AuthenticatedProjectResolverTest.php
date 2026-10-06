@@ -246,7 +246,7 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         self::assertSame([], $unitOfWork->getEntityChangeSet($project), 'the stamp must not leave the project dirty for a later flush');
     }
 
-    public function test_a_later_mcp_resolution_keeps_the_first_stamp(): void
+    public function test_a_project_whose_stamp_is_already_loaded_is_not_stamped_again(): void
     {
         $project = $this->project('agent-seen-twice');
         $this->em->flush();

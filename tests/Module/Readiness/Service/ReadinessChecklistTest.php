@@ -75,7 +75,7 @@ final class ReadinessChecklistTest extends KernelTestCase
         $em->persist(new WorkflowBinding($project, 'simple', 1, []));
         $this->seedBridge($em, $project->owner, projects: [(string) $project->id]);
         $em->persist(new GitHubInstallation($project, ++self::$installationId, 'acme', GitHubRepositorySelection::Selected));
-        $em->persist(new ForgeRepository($project, 'github', 'ext-ready', 'acme/app', ForgeRepositorySource::Installation));
+        $em->persist(new ForgeRepository($project, 'github', 'ext-ready', 'acme/app', ForgeRepositorySource::Installation, (string) self::$installationId));
         $em->flush();
 
         $readiness = $this->readiness($this->checklist(configured: true), $project);
@@ -116,18 +116,32 @@ final class ReadinessChecklistTest extends KernelTestCase
         $installation = new GitHubInstallation($suspended, ++self::$installationId, 'acme', GitHubRepositorySelection::All);
         $installation->suspendedAt = new \DateTimeImmutable();
         $em->persist($installation);
-        $em->persist(new ForgeRepository($suspended, 'github', 'ext-suspended', 'acme/suspended', ForgeRepositorySource::Installation));
+        $em->persist(new ForgeRepository($suspended, 'github', 'ext-suspended', 'acme/suspended', ForgeRepositorySource::Installation, (string) $installation->installationId));
         $removed = $this->newProject('readiness-removed@example.com');
         $installation = new GitHubInstallation($removed, ++self::$installationId, 'acme', GitHubRepositorySelection::All);
         $installation->removedAt = new \DateTimeImmutable();
         $em->persist($installation);
-        $em->persist(new ForgeRepository($removed, 'github', 'ext-removed', 'acme/removed', ForgeRepositorySource::Installation));
+        $em->persist(new ForgeRepository($removed, 'github', 'ext-removed', 'acme/removed', ForgeRepositorySource::Installation, (string) $installation->installationId));
         $em->flush();
 
         $checklist = $this->checklist();
         foreach ([$hookOnly, $suspended, $removed] as $project) {
             self::assertFalse($this->row($this->readiness($checklist, $project), 'github')->done, $project->name);
         }
+    }
+
+    public function test_a_repository_of_a_suspended_installation_does_not_count_for_a_live_one(): void
+    {
+        $em = $this->em();
+        $project = $this->newProject('readiness-split@example.com');
+        $suspended = new GitHubInstallation($project, ++self::$installationId, 'acme', GitHubRepositorySelection::Selected);
+        $suspended->suspendedAt = new \DateTimeImmutable();
+        $em->persist($suspended);
+        $em->persist(new GitHubInstallation($project, ++self::$installationId, 'other', GitHubRepositorySelection::Selected));
+        $em->persist(new ForgeRepository($project, 'github', 'ext-split', 'acme/app', ForgeRepositorySource::Installation, (string) $suspended->installationId));
+        $em->flush();
+
+        self::assertFalse($this->row($this->readiness($this->checklist(), $project), 'github')->done);
     }
 
     /** @param non-empty-string $email */

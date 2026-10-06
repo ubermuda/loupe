@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Readiness\Service;
 
-use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
-use App\Module\GitHub\Entity\GitHubInstallation;
 use App\Module\GitHub\Repository\GitHubInstallationRepository;
 use App\Module\GitHub\Service\GitHubAppConfiguration;
 use App\Module\Project\Entity\Project;
@@ -88,20 +86,17 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
         ]);
     }
 
+    /** A live installation must hold the repository, as a pull request write needs. */
     private function gitHubReady(Project $project): bool
     {
-        $live = array_filter(
-            $this->gitHubInstallations->findByProject($project),
-            static fn (GitHubInstallation $installation): bool => null === $installation->removedAt && null === $installation->suspendedAt,
-        );
-        if ([] === $live) {
-            return false;
+        $live = [];
+        foreach ($this->gitHubInstallations->findByProject($project) as $installation) {
+            if (null === $installation->removedAt && null === $installation->suspendedAt) {
+                $live[(string) $installation->installationId] = true;
+            }
         }
 
-        return [] !== array_filter(
-            $this->forgeRepositories->findByProject($project),
-            static fn (ForgeRepository $repository): bool => ForgeRepositorySource::Installation === $repository->source,
-        );
+        return array_any($this->forgeRepositories->findByProject($project), fn ($repository) => ForgeRepositorySource::Installation === $repository->source && isset($live[$repository->sourceRef ?? '']));
     }
 
     /** A translation key for a shipped template, or the bare key of any other. */
