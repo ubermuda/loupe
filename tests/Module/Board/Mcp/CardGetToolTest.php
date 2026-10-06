@@ -73,7 +73,6 @@ final class CardGetToolTest extends KernelTestCase
 
     public function test_a_card_reads_its_active_pause_and_null_once_released(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-pause'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
         self::assertNull(($this->tool)($created['cardId'])['pause']);

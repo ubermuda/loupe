@@ -90,7 +90,6 @@ final class CardWorkflowPanelPageTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'panel-retry@example.com');
         $project = $this->project($em, $owner);
         $this->bindSimple($project);
@@ -116,7 +115,6 @@ final class CardWorkflowPanelPageTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'panel-rule@example.com');
         $project = $this->project($em, $owner);
         $this->bindSimple($project);

@@ -89,7 +89,6 @@ final class CardGetHistoryToolTest extends KernelTestCase
 
     public function test_a_pause_row_reads_its_kind_rule_and_reason(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-pause'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
         $this->events()->record($this->card($created['cardId']), CardEventKind::Paused, CardReporter::System, null, ['kind' => 'retries', 'reason' => 'review-failed', 'ruleId' => 'fix-on-review'], new \DateTimeImmutable('+1 minute'));
