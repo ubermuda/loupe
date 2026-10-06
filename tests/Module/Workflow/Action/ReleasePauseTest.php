@@ -10,6 +10,7 @@ use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ReleasePause;
@@ -69,7 +70,7 @@ final class ReleasePauseTest extends KernelTestCase
     /** Built by hand, so each pause and release takes a fixed time. */
     private function pauseHandler(): PauseCardHandler
     {
-        return new PauseCardHandler($this->service(CardPauseRepository::class), $this->em(), new MockClock('2026-10-02 10:00:00'), $this->service(Auditor::class), $this->service(EventDispatcherInterface::class));
+        return new PauseCardHandler($this->service(CardPauseRepository::class), $this->em(), new MockClock('2026-10-02 10:00:00'), $this->service(Auditor::class), $this->service(EventDispatcherInterface::class), $this->service(CardEventRepository::class));
     }
 
     private function releaseHandler(): ReleaseCardPauseHandler

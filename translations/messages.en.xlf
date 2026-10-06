@@ -2566,6 +2566,10 @@
                 <source>project.connect.tool.card_release</source>
                 <target>Manage an unmanaged card again. The queued runs on the card then start.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.card_pause_release">
+                <source>project.connect.tool.card_pause_release</source>
+                <target>Lift the workflow pause of a card, so the paused rule runs again with a fresh budget. card_release lifts a hold of card_hold instead.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.bridge_command_cancel">
                 <source>project.connect.tool.bridge_command_cancel</source>
                 <target>Withdraw the resume or stop command that waits on a worker run, before its bridge reads it.</target>
@@ -6318,6 +6322,12 @@
             <trans-unit id="board.card.history.run_finished_no_kind"><source>board.card.history.run_finished_no_kind</source><target>%actor% ran a worker.</target></trans-unit>
             <trans-unit id="board.card.history.run_not_started"><source>board.card.history.run_not_started</source><target>The %kind% work did not run.</target></trans-unit>
             <trans-unit id="board.card.history.run_not_started_no_kind"><source>board.card.history.run_not_started_no_kind</source><target>A worker did not run.</target></trans-unit>
+            <trans-unit id="board.card.history.paused"><source>board.card.history.paused</source><target>%actor% paused the card because %kind%.</target></trans-unit>
+            <trans-unit id="board.card.history.pause_released"><source>board.card.history.pause_released</source><target>%actor% released a pause set because %kind%.</target></trans-unit>
+            <trans-unit id="board.card.history.pause_kind.rule"><source>board.card.history.pause_kind.rule</source><target>a workflow rule asked for it</target></trans-unit>
+            <trans-unit id="board.card.history.pause_kind.retries"><source>board.card.history.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
+            <trans-unit id="board.card.history.pause_kind.work_limit"><source>board.card.history.pause_kind.work_limit</source><target>a rule reached its work limit</target></trans-unit>
+            <trans-unit id="board.card.history.pause_kind.work_timeout"><source>board.card.history.pause_kind.work_timeout</source><target>no bridge took the work in time</target></trans-unit>
             <trans-unit id="board.card.history.changed"><source>board.card.history.changed</source><target>%actor% changed the card.</target></trans-unit>
             <trans-unit id="board.card.history.reason"><source>board.card.history.reason</source><target>Because %reason%.</target></trans-unit>
             <trans-unit id="board.card.history.run_state_unknown"><source>board.card.history.run_state_unknown</source><target>Unknown</target></trans-unit>
@@ -7315,6 +7325,12 @@
             <trans-unit id="workflow.panel.release.facts_changed"><source>workflow.panel.release.facts_changed</source><target>The pause ends when the facts that the rule reads change.</target></trans-unit>
             <trans-unit id="workflow.panel.release.next_evaluation"><source>workflow.panel.release.next_evaluation</source><target>The workflow ends the pause when it next evaluates the card.</target></trans-unit>
             <trans-unit id="workflow.panel.release.met"><source>workflow.panel.release.met</source><target>The release condition is met. The workflow ends the pause when it next evaluates the card.</target></trans-unit>
+            <trans-unit id="workflow.panel.retry"><source>workflow.panel.retry</source><target>Retry now</target></trans-unit>
+            <trans-unit id="workflow.pause_release.flash.released"><source>workflow.pause_release.flash.released</source><target>The pause ended. The workflow runs the rule again.</target></trans-unit>
+            <trans-unit id="workflow.pause_release.error.card_unmanaged"><source>workflow.pause_release.error.card_unmanaged</source><target>The workflow does not manage this card.</target></trans-unit>
+            <trans-unit id="workflow.pause_release.error.not_paused"><source>workflow.pause_release.error.not_paused</source><target>The card is not paused.</target></trans-unit>
+            <trans-unit id="workflow.pause_release.error.pause_changed"><source>workflow.pause_release.error.pause_changed</source><target>The pause on the card changed. Read the new pause before you retry.</target></trans-unit>
+            <trans-unit id="workflow.pause_release.error.kind_not_releasable"><source>workflow.pause_release.error.kind_not_releasable</source><target>A pause that a rule made ends only when its release condition is met.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.failed"><source>workflow.panel.unreadable.failed</source><target>Waiting: could not read %source%.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.off"><source>workflow.panel.unreadable.off</source><target>Waiting: %source% is off on this instance.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.missing_condition"><source>workflow.panel.unreadable.missing_condition</source><target>Waiting: the condition %condition% no longer exists.</target></trans-unit>

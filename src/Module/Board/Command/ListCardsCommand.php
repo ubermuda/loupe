@@ -28,6 +28,8 @@ final readonly class ListCardsCommand
         public int $perPage = ListCardsHandler::DEFAULT_PER_PAGE,
         /** A card of this project. Null reads every card, with or without a parent. */
         public ?Card $parent = null,
+        /** True reads the cards with an active pause, false those with none. Null reads both. */
+        public ?bool $paused = null,
     ) {
     }
 }

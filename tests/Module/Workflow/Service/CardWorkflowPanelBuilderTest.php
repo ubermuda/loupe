@@ -133,6 +133,34 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame('The pause ends when the facts that the rule reads change.', $shown->release);
     }
 
+    public function test_a_retries_pause_of_a_managed_card_is_releasable_and_names_its_id(): void
+    {
+        $card = $this->card('tech-design');
+        $pause = $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+
+        $shown = $this->builder()->build($card)->pause ?? self::fail('The card is paused.');
+
+        self::assertSame((string) $pause?->id, $shown->id);
+        self::assertTrue($shown->releasable);
+    }
+
+    public function test_a_rule_pause_is_not_releasable(): void
+    {
+        $card = $this->card('tech-design');
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'tech-design-approved', CardPauseKind::Rule));
+
+        self::assertFalse(($this->builder()->build($card)->pause ?? self::fail('The card is paused.'))->releasable);
+    }
+
+    public function test_a_pause_of_a_held_card_is_not_releasable(): void
+    {
+        $card = $this->card('tech-design');
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $this->service(CardHolds::class)->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null);
+
+        self::assertFalse(($this->builder()->build($card)->pause ?? self::fail('The card is paused.'))->releasable);
+    }
+
     public function test_a_template_that_cannot_be_read_still_shows_the_pause(): void
     {
         $card = $this->card('tech-design');

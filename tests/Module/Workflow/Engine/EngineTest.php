@@ -15,6 +15,7 @@ use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Install\BoardInstallFlags;
@@ -47,6 +48,8 @@ use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\EvaluateWorkflowCardHandler;
+use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
+use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Entity\WorkflowBinding;
@@ -243,6 +246,43 @@ final class EngineTest extends KernelTestCase
         $this->moveTo($card, 'in-progress');
         $this->evaluate($card);
         self::assertSame('left-slot', $pause->releaseReason);
+    }
+
+    public function test_a_retries_pause_that_a_person_releases_fires_the_rule_again_with_a_fresh_budget(): void
+    {
+        $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)], backoffMinutes: []);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+
+        $this->releaseByPerson($card);
+        $this->evaluate($card, '2026-10-02 13:00:00');
+
+        self::assertSame(['stuck'], $this->firedRules());
+        $next = $this->activePause($card);
+        self::assertNotNull($next, 'The rule fired again and its first refusal paused the card again.');
+        self::assertNotSame((string) $pause->id, (string) $next->id);
+        self::assertSame(1, $this->ruleState($card, 'stuck')->attempts);
+    }
+
+    public function test_a_work_limit_pause_that_a_person_releases_lets_the_rule_request_work_again(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 1)]);
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $this->setType($card, CardType::Feature);
+        $this->evaluate($card);
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card);
+        self::assertSame(CardPauseKind::WorkLimit, $this->activePause($card)?->kind);
+
+        $this->releaseByPerson($card);
+        $this->evaluate($card, '2026-10-02 13:00:00');
+
+        self::assertNull($this->activePause($card));
+        self::assertCount(1, $this->liveRequests($card));
+        self::assertSame(1, $this->ruleState($card, 'fix')->fires);
     }
 
     public function test_a_paused_card_runs_only_its_release_rules(): void
@@ -1334,7 +1374,7 @@ final class EngineTest extends KernelTestCase
             $workRequests,
             new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class)),
             $cardPauses,
-            new PauseCardHandler($cardPauses, $this->em(), $clock, $auditor, $dispatcher),
+            new PauseCardHandler($cardPauses, $this->em(), $clock, $auditor, $dispatcher, $this->service(\App\Module\Board\Repository\CardEventRepository::class)),
             $releaseCardPause,
             new Actions([
                 new MoveCard($this->service(BoardColumnRepository::class), $this->service(WorkflowSlotLinkRepository::class), $this->service(UpdateCardHandler::class)),
@@ -1417,6 +1457,11 @@ final class EngineTest extends KernelTestCase
         $pullRequest->review = PullRequestReview::ChangesRequested;
         $pullRequest->changesRequestedSha = $pullRequest->headSha;
         $this->em()->flush();
+    }
+
+    private function releaseByPerson(Card $card): void
+    {
+        $this->service(ReleaseWorkflowPauseHandler::class)(new ReleaseWorkflowPauseCommand($card, $card->project->owner, CardReporter::Human, null));
     }
 
     private function finish(WorkRequest $request): void

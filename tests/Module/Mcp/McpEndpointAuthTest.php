@@ -97,6 +97,7 @@ final class McpEndpointAuthTest extends WebTestCase
             'card_get_history',
             'card_hold',
             'card_list',
+            'card_pause_release',
             'card_release',
             'card_run_close',
             'card_run_open',

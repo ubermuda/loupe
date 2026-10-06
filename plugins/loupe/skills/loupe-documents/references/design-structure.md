@@ -29,9 +29,14 @@ Give each open decision its own section, with a stable ID in the heading.
 
 1. Write the "**Decision needed:**" paragraph (rule 5). Name your recommendation and your confidence: high, moderate or low. Give the strongest argument against it.
 2. When the decision has two or more real options, add a table with the columns Option, Pros and Cons. Write one row for each option.
-3. Put the decision fence under the table. Use the same options in the same order as the table rows.
+3. Add a worked example under the table. Take one real case from the project, such as a card, a rule or a page. Write one line that states the case, then a numbered list. Start the list with "Today" when the decision changes existing behaviour. Then add one entry for each option, in the order of the table rows. Use the same case in each entry.
+4. Put the decision fence under the example. Use the same options in the same order as the table rows.
 
-Keep the reasons in the table. The fence holds only its question and the one-line options (`decision-fences.md`). End the recommended option with its confidence marker, such as `(recommended: moderate)`, so Loupe shows a badge on it. A Decisions log entry of a product document stays one line with its reason. A Decided entry of a tech design follows `../../loupe-stage-tech-design/SKILL.md`.
+Keep the reasons in the table. The fence holds only its question and the one-line options (`decision-fences.md`). End the recommended option with its confidence marker, such as `(recommended: moderate)`, so Loupe shows a badge on it.
+
+Each entry of the example shows the input and what the user or the system sees. Prefer a short code block, a before and after, or a list of steps to prose. Keep each entry near ten lines. Put the example above the fence, because a fence takes only one question paragraph. When a revision answers the decision, keep the example in its section above the `**Decided:**` line.
+
+A Decisions log entry of a product document stays one line with its reason, and gets no example. A Decided entry of a tech design follows `../../loupe-stage-tech-design/SKILL.md`, and gets no example.
 
 ```markdown
 ## D1: Who may delete a tag
@@ -42,6 +47,11 @@ Keep the reasons in the table. The fence holds only its question and the one-lin
 |---|---|---|
 | 1. Any project member | Matches who may create a tag | A member can remove a tag in use |
 | 2. The project owner only | No surprise removals | The owner must do every clean-up |
+
+**Example:** a project has the tag `urgent` on 12 cards. A member deletes it.
+
+1. Any project member: the member deletes `urgent`. The 12 cards lose it, and the owner sees the change on the board.
+2. The project owner only: the member sees no delete button. The member asks the owner, who deletes the tag.
 
 <!-- decision: tag-delete-role -->
 

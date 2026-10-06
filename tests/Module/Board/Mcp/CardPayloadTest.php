@@ -9,12 +9,15 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
+use App\Module\Board\Entity\CardPause;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Repository\CardLinkRepository;
+use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
@@ -40,8 +43,10 @@ final class CardPayloadTest extends TestCase
         $cards->expects($this->never())->method('findChildrenOfCards');
         $states = $this->createMock(CardPullRequestStates::class);
         $states->expects($this->never())->method('forCards');
+        $pauses = $this->createMock(CardPauseRepository::class);
+        $pauses->expects($this->never())->method('findActiveForCardIds');
 
-        $rows = new CardPayload($comments, $links, $cards, $states)->forCardList([$this->card()]);
+        $rows = new CardPayload($comments, $links, $cards, $states, $pauses)->forCardList([$this->card()]);
 
         self::assertCount(1, $rows);
         self::assertSame(
@@ -65,8 +70,10 @@ final class CardPayloadTest extends TestCase
         $cards = $this->createMock(CardRepository::class);
         // One call for the whole page, with the epics alone.
         $cards->expects($this->once())->method('findChildrenOfCards')->with([$epic, $otherEpic])->willReturn([]);
+        $pauses = $this->createMock(CardPauseRepository::class);
+        $pauses->expects($this->once())->method('findActiveForCardIds')->willReturn([]);
 
-        $rows = new CardPayload($comments, $links, $cards, $this->states())->forCards([$feature, $epic, $otherEpic]);
+        $rows = new CardPayload($comments, $links, $cards, $this->states(), $pauses)->forCards([$feature, $epic, $otherEpic]);
 
         self::assertArrayHasKey('body', $rows[0]);
         self::assertSame([], $rows[0]['siteReviewComments']);
@@ -80,7 +87,7 @@ final class CardPayloadTest extends TestCase
         $cards = $this->createMock(CardRepository::class);
         $cards->expects($this->never())->method('findChildrenOfCards');
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states())->forCards([$this->card()]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states(), $this->createStub(CardPauseRepository::class))->forCards([$this->card()]);
 
         self::assertSame([], $rows[0]['children']);
     }
@@ -114,7 +121,7 @@ final class CardPayloadTest extends TestCase
             [(string) $card->id => $automation],
         ));
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states)->forCards([$card]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class))->forCards([$card]);
 
         self::assertSame([
             'state' => 'open',
@@ -135,7 +142,7 @@ final class CardPayloadTest extends TestCase
 
     public function test_a_card_with_no_automation_row_reads_a_null_automation(): void
     {
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states())->forCards([$this->card()]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $this->createStub(CardPauseRepository::class))->forCards([$this->card()]);
 
         self::assertArrayHasKey('automation', $rows[0]);
         self::assertNull($rows[0]['automation']);
@@ -159,9 +166,34 @@ final class CardPayloadTest extends TestCase
             null,
         )]));
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states)->forCards([$card]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class))->forCards([$card]);
 
         self::assertNull($rows[0]['pullRequests'][0]['state']);
+    }
+
+    public function test_the_full_shape_renders_the_active_pause_of_each_card(): void
+    {
+        $paused = $this->card();
+        $this->setId($paused, Uuid::v7());
+        $free = $this->card();
+        $this->setId($free, Uuid::v7());
+        $pause = new CardPause($paused, $paused->project, 'review-failed', 'fix-on-review', CardPauseKind::Retries, new \DateTimeImmutable('2026-10-02T10:00:00+00:00'));
+        $this->setId($pause, Uuid::v7());
+        $pauses = $this->createMock(CardPauseRepository::class);
+        // One read for the whole page, never one per card.
+        $pauses->expects($this->once())->method('findActiveForCardIds')->with([$paused->id, $free->id])->willReturn([(string) $paused->id => $pause]);
+
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $pauses)->forCards([$paused, $free]);
+
+        self::assertSame([
+            'pauseId' => (string) $pause->id,
+            'kind' => 'retries',
+            'reason' => 'review-failed',
+            'ruleId' => 'fix-on-review',
+            'since' => '2026-10-02T10:00:00+00:00',
+        ], $rows[0]['pause']);
+        self::assertArrayHasKey('pause', $rows[1]);
+        self::assertNull($rows[1]['pause']);
     }
 
     private function states(): CardPullRequestStates
