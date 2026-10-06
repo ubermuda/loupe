@@ -364,7 +364,6 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertSame('analysis', $request->subjectType);
         self::assertSame($subjectId, $request->subjectId);
         self::assertNull($request->cardNumber);
-        self::assertNull($request->cardId());
         $payloads = $this->outboxPayloads();
         self::assertCount(2, $payloads);
         self::assertSame('analysis', $payloads[1]['subjectType']);

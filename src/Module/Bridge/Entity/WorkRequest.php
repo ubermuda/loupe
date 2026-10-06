@@ -134,12 +134,6 @@ class WorkRequest
         return new WorkSubject($this->subjectType, $this->subjectId);
     }
 
-    /** The card the request is about, or null when its subject is no card. */
-    public function cardId(): ?Uuid
-    {
-        return WorkSubject::CARD === $this->subjectType ? $this->subjectId : null;
-    }
-
     /** Moves a claimed request to done or refused. Answers false when the request is not claimed. */
     public function settle(WorkRequestState $state, ?string $reason, \DateTimeImmutable $now): bool
     {
