@@ -109,6 +109,9 @@ type router struct {
 	// findTranscript fails when this machine holds no transcript of the
 	// session. A nil one looks in the Claude Code config directory.
 	findTranscript func(sessionID string) error
+	// reportRunUsage sends the usage of one run of a session. A nil one
+	// refuses each usage request.
+	reportRunUsage func(ctx context.Context, handle, sessionID, runID string, usage api.Usage) error
 	// startDir is the folder a session started in, and "" when this machine
 	// holds no transcript of it. A nil one is transcriptStartDir.
 	startDir func(sessionID string) (string, error)
