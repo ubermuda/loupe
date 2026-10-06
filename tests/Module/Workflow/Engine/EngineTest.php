@@ -1007,6 +1007,42 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $epic->column->slug);
     }
 
+    public function test_a_lifecycle_epic_whose_last_child_merged_into_the_epic_branch_asks_for_its_pull_request_and_stays_out_of_done(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-epic-open');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $child = $this->childOf($epic, 'done');
+        $this->pullRequest($child, PullRequestState::Merged, base: 'epic/'.$epic->number);
+        $this->evaluate($epic);
+        $this->finish($this->liveRequests($epic)[0]);
+
+        $this->evaluate($epic, '2026-10-02 12:25:00');
+
+        self::assertSame('in-progress', $epic->column->slug);
+        self::assertSame(1, $this->ruleState($epic, 'epic-open-pull-request')->fires);
+    }
+
+    public function test_a_lifecycle_child_merged_into_the_epic_branch_asks_for_an_epic_preview_and_one_merged_into_main_does_not(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-epic-preview');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $intoEpic = $this->childOf($epic, 'done');
+        $this->pullRequest($intoEpic, PullRequestState::Merged, base: 'epic/'.$epic->number);
+        $intoMain = $this->childOf($epic, 'done');
+        $this->pullRequest($intoMain, PullRequestState::Merged);
+
+        $this->evaluate($intoEpic);
+        $this->evaluate($intoMain);
+
+        $kinds = fn (Card $card): array => array_map(static fn (WorkRequest $request): string => $request->kind, $this->liveRequests($card));
+        self::assertEqualsCanonicalizing(['epic-preview', 'teardown'], $kinds($intoEpic));
+        self::assertSame(['teardown'], $kinds($intoMain));
+    }
+
     public function test_a_card_evaluations_call_evaluates_the_card_and_its_provided_fact_fires_the_rule(): void
     {
         $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
