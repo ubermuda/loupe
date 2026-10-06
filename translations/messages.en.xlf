@@ -1297,6 +1297,18 @@
                 <source>review.archive.flash.unarchived</source>
                 <target>“%title%” is back in the list.</target>
             </trans-unit>
+            <trans-unit id="review.publish.submit">
+                <source>review.publish.submit</source>
+                <target>Publish</target>
+            </trans-unit>
+            <trans-unit id="review.publish.flash.published">
+                <source>review.publish.flash.published</source>
+                <target>“%title%” is now in review.</target>
+            </trans-unit>
+            <trans-unit id="review.publish.error.archived">
+                <source>review.publish.error.archived</source>
+                <target>An archived document cannot be sent to review. Restore it first.</target>
+            </trans-unit>
             <trans-unit id="review.archive.flash.rejected">
                 <source>review.archive.flash.rejected</source>
                 <target>That did not go through — the page had gone stale. Try again.</target>
@@ -2441,6 +2453,10 @@
             <trans-unit id="project.connect.tool.document_revise">
                 <source>project.connect.tool.document_revise</source>
                 <target>Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_publish">
+                <source>project.connect.tool.document_publish</source>
+                <target>Send a draft document to review, so it reaches the reviewer's inbox. A document that is not a draft stays as it is.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.document_rename">
                 <source>project.connect.tool.document_rename</source>
