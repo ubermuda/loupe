@@ -12,7 +12,14 @@
 <div class="lp-workspace lp-workshop" data-workshop data-controller="card-drawer">
     {% set readiness = is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), workshop.project) ? workshop.readiness : null %}
     {% if readiness is not null and workshop.quiet %}
-    <div class="lp-readiness-guide" data-readiness-guide data-readiness-layout="full">
+    {% do mercure_subscribe(worker_runs_topic(workshop.project)) %}
+    {% do mercure_subscribe(board_topic(workshop.project)) %}
+    {#- A run, a card change or an inbox item can end the quiet state, so the whole page reloads. -#}
+    <div class="lp-readiness-guide" data-readiness-guide data-readiness-layout="full"
+         data-controller="worker-run-refresh"
+         data-worker-run-refresh-target="frame"
+         data-worker-run-refresh-whole-value="true"
+         data-worker-run-refresh-events-value="{{ ['worker_run.changed', 'board.card_changed', 'inbox.open_count_changed']|json_encode }}">
         <header class="lp-page-header">
             <div>
                 <h1 class="lp-workshop-title">{{ 'readiness.guide.heading'|trans({'%project%': workshop.project.name}) }}</h1>

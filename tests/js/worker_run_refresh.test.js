@@ -173,6 +173,26 @@ it('reloads the whole page when it has no filters to keep', async () => {
     delete window.Turbo;
 });
 
+it('reloads the whole page when its own element is the target', async () => {
+    window.Turbo = { visit: vi.fn() };
+    document.body.innerHTML = `<div data-controller="worker-run-refresh" data-worker-run-refresh-target="frame" data-worker-run-refresh-whole-value="true"
+        data-worker-run-refresh-events-value='["worker_run.changed","board.card_changed","inbox.open_count_changed"]'></div>`;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(subscription().types).toEqual([
+        'worker_run.changed',
+        'board.card_changed',
+        'inbox.open_count_changed',
+    ]);
+
+    await signal();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+
+    expect(window.Turbo.visit).toHaveBeenCalledWith(window.location.href, {
+        action: 'replace',
+    });
+    delete window.Turbo;
+});
+
 it('stops listening and drops a pending reload on disconnect', async () => {
     const frame = await mount({ src: '/projects/1/worker-runs' });
     const listening = subscription();
