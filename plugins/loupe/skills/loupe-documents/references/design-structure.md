@@ -32,7 +32,7 @@ The owner reads a design to make its decisions. The owner knows what the product
 3. Write the question and each option of a decision in plain words. Each option says what changes for a person or an agent. In a tech design, put the code that each option changes in the "How each option works" list (see "Decisions").
 4. A name that a person sees in the product is a plain word. Examples are a tool name, a column, a tag and a button label. A class, a field, a method or a file path is not a plain word. Keep it out of the question, the options, the table and the example.
 5. Explain a new idea in one sentence where it first appears. Add a small example when it helps. Rule 16 of `../SKILL.md` covers an ID from another source. This item covers an idea, such as a kind of pause.
-6. A fact with no mark is checked. Mark only an estimate, with "(estimated)". End a section with one "Checked in the code" line that names the files behind its facts. Never tag each sentence with "(checked, File.php)".
+6. A fact with no mark is checked. Mark only an estimate, with "(estimated)". When a section states facts from the code, end it with one "Checked in the code" line that names the files behind them. Never tag each sentence with "(checked, File.php)".
 
 Before, the decision is written in the terms of the code:
 
@@ -66,7 +66,7 @@ Each entry of the example shows the input and what the user or the system sees. 
 
 A Decisions log entry of a product document stays one line with its reason. A Decided entry of a tech design follows `../../loupe-stage-tech-design/SKILL.md`. Neither gets an example or a How list. Write both in product terms.
 
-The example below is a tech design decision. In a product document, leave out its How list and its "Checked in the code" line.
+The example below is a tech design decision. In a product document, leave out its How list. Keep the "Checked in the code" line only when the section states a fact from the code.
 
 ```markdown
 ## D1: Who may delete a tag
