@@ -568,6 +568,29 @@ final class EngineTest extends KernelTestCase
         self::assertNull($this->activePause($card));
     }
 
+    public function test_a_rule_that_turns_false_before_it_moves_to_another_pull_request_starts_a_fresh_budget(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1)]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+
+        $base->checks = PullRequestChecks::Passed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+
+        self::assertNull($this->activePause($card));
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame($upper->number, $live[0]->context->pullRequestNumber);
+        self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+    }
+
     public function test_a_true_rule_with_no_stored_subject_adopts_its_subject_and_fires_nothing(): void
     {
         $card = $this->boundCard([self::requestRule('fix', ['pr.checks_failed' => []], limit: 3)]);

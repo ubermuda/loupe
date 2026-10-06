@@ -164,7 +164,9 @@ final readonly class Engine
                 $bound = $this->ruleSubject->bind($rule, $run->facts);
                 $state->truth = $bound->truth;
                 $state->fingerprint = $this->fingerprint->of($bound->facts, $rule->when->reads());
-                $state->subjectPullRequestId = $bound->truth ? $bound->subject : null;
+                if ($bound->truth) {
+                    $state->subjectPullRequestId = $bound->subject;
+                }
                 $state->attempts = 0;
                 $state->dueAt = null;
                 $state->lastRefusal = null;
@@ -230,8 +232,6 @@ final readonly class Engine
                 // The old subject stays, so a request still live for it holds back the new one.
                 if (self::SUBJECT_CHANGED === $code) {
                     $state->fires = 0;
-                } else {
-                    $state->subjectPullRequestId = null;
                 }
             });
         }
@@ -319,8 +319,8 @@ final readonly class Engine
             $state->dueAt = null;
             $state->lastRefusal = null;
             $state->lastRefusalAt = null;
+            // The subject stays, so a later true pass on another pull request starts a fresh budget.
             $state->fingerprint = $fingerprint;
-            $state->subjectPullRequestId = null;
 
             return true;
         }
