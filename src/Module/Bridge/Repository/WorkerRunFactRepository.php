@@ -156,7 +156,7 @@ class WorkerRunFactRepository extends ServiceEntityRepository
      */
     private function detached(Project $project, QueryBuilder $query): array
     {
-        /** @var list<array{runId: Uuid, subjectType: string, subjectId: Uuid, cardNumber: ?int, kind: WorkerRunKind, workKind: ?string, ruleId: ?string, experiment: ?string, variant: ?string, model: ?string, bridgeId: ?Uuid, outcome: WorkerRunState, startedAt: ?\DateTimeImmutable, endedAt: ?\DateTimeImmutable, receivedAt: \DateTimeImmutable, durationMs: int|string|null, costMicroUsd: int|string|null, tokensIn: int|string|null, tokensOut: int|string|null, tokensCacheRead: int|string|null, tokensCacheWrite: int|string|null, usageSource: ?WorkerRunUsageSource}> $rows */
+        /** @var list<array{runId: Uuid, subjectType: string, subjectId: Uuid, cardNumber: ?int, kind: WorkerRunKind, workKind: ?string, ruleId: ?string, experiment: ?string, variant: ?string, model: ?string, bridgeId: ?Uuid, outcome: WorkerRunState, startedAt: ?\DateTimeImmutable, endedAt: ?\DateTimeImmutable, receivedAt: \DateTimeImmutable, durationMs: int|string|null, costMicroUsd: int|string|null, tokensIn: int|string|null, tokensOut: int|string|null, tokensCacheRead: int|string|null, tokensCacheWrite: int|string|null, usageSource: ?WorkerRunUsageSource, toolTimeMs: int|string|null, modelTimeMs: int|string|null, toolCalls: ?int, failedCalls: ?int, longestCallMs: int|string|null, idleGapMs: int|string|null, subagentMs: int|string|null}> $rows */
         $rows = $query->getQuery()->getArrayResult();
 
         return array_map(static fn (array $row): WorkerRunFact => new WorkerRunFact(
@@ -183,6 +183,13 @@ class WorkerRunFactRepository extends ServiceEntityRepository
             tokensCacheRead: null === $row['tokensCacheRead'] ? null : (int) $row['tokensCacheRead'],
             tokensCacheWrite: null === $row['tokensCacheWrite'] ? null : (int) $row['tokensCacheWrite'],
             usageSource: $row['usageSource'],
+            toolTimeMs: null === $row['toolTimeMs'] ? null : (int) $row['toolTimeMs'],
+            modelTimeMs: null === $row['modelTimeMs'] ? null : (int) $row['modelTimeMs'],
+            toolCalls: $row['toolCalls'],
+            failedCalls: $row['failedCalls'],
+            longestCallMs: null === $row['longestCallMs'] ? null : (int) $row['longestCallMs'],
+            idleGapMs: null === $row['idleGapMs'] ? null : (int) $row['idleGapMs'],
+            subagentMs: null === $row['subagentMs'] ? null : (int) $row['subagentMs'],
         ), $rows);
     }
 }

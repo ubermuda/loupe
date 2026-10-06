@@ -57,6 +57,20 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
         self::assertSame([(string) $kept->id], $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_commands'));
     }
 
+    public function test_it_takes_the_tool_calls_of_a_deleted_run(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'tool-calls-sweep@example.com'), 'Swept Tool Calls');
+        $this->seedToolCall($this->seedRun($em, $project, new \DateTimeImmutable('2026-01-01 00:00:00')));
+        $kept = $this->seedRun($em, $project, new \DateTimeImmutable('2026-09-01 00:00:00'), cardNumber: 2);
+        $this->seedToolCall($kept);
+
+        self::assertSame(1, ($this->handler())(new PurgeExpiredWorkerRunsCommand()));
+
+        self::assertSame([(string) $kept->id], $em->getConnection()->fetchFirstColumn('SELECT run_id FROM bridge_worker_run_tool_calls'));
+    }
+
     /** A pin that no run refreshed within the window goes, and the count still names the runs alone. */
     public function test_it_deletes_a_pin_past_the_window_and_keeps_one_inside_it(): void
     {

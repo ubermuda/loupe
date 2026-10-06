@@ -139,6 +139,14 @@ class WorkerRun implements ProjectScopedSubject
     #[ORM\Column(name: 'switched_from', length: self::MAX_EXPERIMENT_NAME_LENGTH, nullable: true)]
     public ?string $switchedFrom = null;
 
+    /** The union of the main-session tool call intervals, as the bridge measured it. Null when unknown. */
+    #[ORM\Column(name: 'tool_time_ms', type: Types::BIGINT, nullable: true)]
+    public ?int $toolTimeMs = null;
+
+    /** The sum of the gaps of more than five minutes between two timed lines of the stream. Null when unknown. */
+    #[ORM\Column(name: 'idle_gap_ms', type: Types::BIGINT, nullable: true)]
+    public ?int $idleGapMs = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]

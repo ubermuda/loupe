@@ -9,7 +9,8 @@ use Doctrine\DBAL\Connection;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Writes the fact row of each run from the run and its usage rows. The
+ * Writes the fact row of each run from the run, its usage rows and its tool
+ * call rows. The four tool call columns stay null for a run with no rows. The
  * migration that made the table holds a frozen copy of this select.
  */
 final readonly class WorkerRunFactWriter
@@ -19,7 +20,8 @@ final readonly class WorkerRunFactWriter
             run_id, project_id, subject_type, subject_id, card_number, kind, work_kind, rule_id,
             experiment, variant, model, bridge_id, outcome, started_at, ended_at, received_at,
             duration_ms, cost_micro_usd, tokens_in, tokens_out, tokens_cache_read, tokens_cache_write,
-            usage_source
+            usage_source, tool_time_ms, model_time_ms, tool_calls, failed_calls, longest_call_ms,
+            idle_gap_ms, subagent_ms
         )
         SELECT
             r.id,
@@ -44,7 +46,15 @@ final readonly class WorkerRunFactWriter
             CASE WHEN r.usage_source IS NULL THEN NULL ELSE COALESCE(u.tokens_out, 0) END,
             CASE WHEN r.usage_source IS NULL THEN NULL ELSE COALESCE(u.tokens_cache_read, 0) END,
             CASE WHEN r.usage_source IS NULL THEN NULL ELSE COALESCE(u.tokens_cache_write, 0) END,
-            r.usage_source
+            r.usage_source,
+            r.tool_time_ms,
+            CASE WHEN r.started_at IS NULL OR r.ended_at IS NULL OR r.tool_time_ms IS NULL OR r.idle_gap_ms IS NULL THEN NULL
+                ELSE GREATEST(0, (EXTRACT(EPOCH FROM (r.ended_at - r.started_at)) * 1000)::bigint - r.tool_time_ms - r.idle_gap_ms) END,
+            tc.tool_calls,
+            tc.failed_calls,
+            tc.longest_call_ms,
+            r.idle_gap_ms,
+            tc.subagent_ms
         FROM bridge_worker_runs r
         LEFT JOIN (
             SELECT
@@ -66,6 +76,17 @@ final readonly class WorkerRunFactWriter
             ORDER BY m.cost_usd DESC NULLS LAST, m.output_tokens DESC, m.model ASC
             LIMIT 1
         ) top ON true
+        LEFT JOIN (
+            SELECT
+                run_id,
+                COUNT(*) AS tool_calls,
+                COUNT(*) FILTER (WHERE is_error) AS failed_calls,
+                MAX(duration_ms) AS longest_call_ms,
+                COALESCE(SUM(duration_ms) FILTER (WHERE tool IN ('Agent', 'Task') AND NOT in_subagent), 0)::bigint AS subagent_ms
+            FROM bridge_worker_run_tool_calls
+            WHERE run_id IN (:ids)
+            GROUP BY run_id
+        ) tc ON tc.run_id = r.id
         WHERE r.id IN (:ids)
         ON CONFLICT (run_id) DO UPDATE SET
             project_id = EXCLUDED.project_id,
@@ -89,7 +110,14 @@ final readonly class WorkerRunFactWriter
             tokens_out = EXCLUDED.tokens_out,
             tokens_cache_read = EXCLUDED.tokens_cache_read,
             tokens_cache_write = EXCLUDED.tokens_cache_write,
-            usage_source = EXCLUDED.usage_source
+            usage_source = EXCLUDED.usage_source,
+            tool_time_ms = EXCLUDED.tool_time_ms,
+            model_time_ms = EXCLUDED.model_time_ms,
+            tool_calls = EXCLUDED.tool_calls,
+            failed_calls = EXCLUDED.failed_calls,
+            longest_call_ms = EXCLUDED.longest_call_ms,
+            idle_gap_ms = EXCLUDED.idle_gap_ms,
+            subagent_ms = EXCLUDED.subagent_ms
         SQL;
 
     public function __construct(
