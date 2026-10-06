@@ -45,6 +45,30 @@ final readonly class CardPullRequests
         return $this->cardPullRequests->hasChildMergedInto($parent, $baseBranch);
     }
 
+    /** Whether the card links the pull request, whatever case its link spells the repository in. */
+    public function links(Card $card, string $forge, string $repository, int $number): bool
+    {
+        return null !== $this->cardPullRequests->findUrlOfPullRequest($card, $forge, $repository, $number);
+    }
+
+    /** @return list<string> every link URL of the card, read past the identity map */
+    public function currentUrls(Card $card): array
+    {
+        return $this->cardPullRequests->findCurrentUrls($card);
+    }
+
+    /** The pull request of a child of the card that merged into the branch last, as Forge tracks it. */
+    public function lastChildMergedInto(Card $parent, string $baseBranch): ?ForgePullRequest
+    {
+        $key = $this->cardPullRequests->findLastChildMergedInto($parent, $baseBranch);
+        if (null === $key) {
+            return null;
+        }
+        $projectId = $parent->project->id ?? throw new \LogicException('A stored card has a project id.');
+
+        return $this->forgePullRequests->findByKeys($projectId, [$key])[0] ?? null;
+    }
+
     /**
      * The open pull request opened last, else the pull request opened last. A pull request
      * with no opening time sorts first, and the id breaks a tie.
