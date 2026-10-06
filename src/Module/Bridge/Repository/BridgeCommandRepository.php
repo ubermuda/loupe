@@ -103,6 +103,22 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** Reads the state alone, like hasPendingForRun. */
+    public function hasPendingCollectionForRun(WorkerRun $run): bool
+    {
+        return null !== $this->createQueryBuilder('c')
+            ->select('1')
+            ->andWhere('c.workerRun = :run')
+            ->andWhere('c.state = :pending')
+            ->andWhere('c.kind = :collect')
+            ->setParameter('run', $run)
+            ->setParameter('pending', BridgeCommandState::Pending->value)
+            ->setParameter('collect', BridgeCommandKind::CollectSessionUsage->value)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** Whether anyone asked to resume the run at or after the time. */
     public function hasResumeOfRunSince(WorkerRun $run, \DateTimeImmutable $since): bool
     {

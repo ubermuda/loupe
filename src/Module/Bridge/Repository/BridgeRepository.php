@@ -92,6 +92,21 @@ class BridgeRepository extends ServiceEntityRepository
         return $this->findBy(['owner' => $owner, 'id' => $ids]);
     }
 
+    /**
+     * The bridges of the project owner that follow the project.
+     *
+     * @return list<Bridge>
+     */
+    public function findFollowingProject(Project $project): array
+    {
+        $projectId = ($project->id ?? throw new \LogicException('A persisted project has an id.'))->toRfc4122();
+
+        return array_values(array_filter(
+            $this->findBy(['owner' => $project->owner]),
+            static fn (Bridge $bridge): bool => \in_array($projectId, $bridge->projects, true),
+        ));
+    }
+
     /** @return list<Bridge> */
     public function findByOwner(User $owner): array
     {
