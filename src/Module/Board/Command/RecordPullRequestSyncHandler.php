@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\CardChanged;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,7 +24,6 @@ final readonly class RecordPullRequestSyncHandler
 {
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
-        private CardAutomationRepository $cardAutomations,
         private CardEventRepository $cardEvents,
         private EntityManagerInterface $em,
         private EventDispatcherInterface $events,
@@ -66,9 +63,6 @@ final readonly class RecordPullRequestSyncHandler
         $now = $this->clock->now();
         $this->em->wrapInTransaction(function () use ($cards, $pullRequest, $now): void {
             foreach ($cards as $card) {
-                $automation = $this->cardAutomations->findOrCreateForUpdate($card);
-                $automation->lastAction = CardAutomationAction::Synced;
-                $automation->lastActionAt = $now;
                 $this->cardEvents->record($card, CardEventKind::Synced, CardReporter::System, null, ['pullRequest' => $pullRequest->number], $now);
                 $this->em->flush();
             }

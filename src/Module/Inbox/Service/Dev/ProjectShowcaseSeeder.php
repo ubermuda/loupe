@@ -8,8 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
-use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
@@ -285,10 +283,6 @@ final readonly class ProjectShowcaseSeeder
         $this->linkPullRequest($columnRules, 445, PullRequestChecks::Failed, PullRequestMergeability::Mergeable, PullRequestReview::ChangesRequested, ['lint']);
         $this->linkPullRequest($onboarding, 447, PullRequestChecks::Passed, PullRequestMergeability::Mergeable, PullRequestReview::Approved);
 
-        $automation = new CardAutomation($columnRules);
-        $automation->lastAction = CardAutomationAction::Synced;
-        $automation->lastActionAt = new \DateTimeImmutable('-20 minutes');
-        $this->em->persist($automation);
         $this->em->flush();
 
         return ['checkout' => $checkout, 'history' => $history, 'columns' => $columnRules, 'onboarding' => $onboarding, 'pullRequest' => $pullRequest];
