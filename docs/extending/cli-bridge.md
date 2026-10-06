@@ -80,14 +80,13 @@ device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
 `GET /api/projects/{handle}/board/cards/{cardId}`,
 `PUT /api/projects/{handle}/worker-runs/{runId}`,
-`POST /api/projects/{handle}/worker-runs`,
 `PUT /api/projects/{handle}/interactive-runs/{sessionId}`,
 `PUT /api/bridges/{bridgeId}/runs`,
 `PUT /api/bridges/{bridgeId}/heartbeat`,
 `POST /api/bridges/{bridgeId}/work-requests/{workRequestId}/claim` and
 `PUT /api/bridges/{bridgeId}/work-requests/{workRequestId}/result`, and no
 other endpoint.
-The three worker runs endpoints record the states of each worker run, and the
+The two run endpoints record the states of each worker run and each interactive session, and the
 [Worker run API](../reference/worker-runs.md) page covers them. The heartbeat
 endpoint records that the bridge runs, and the
 [Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
@@ -974,8 +973,11 @@ A launch uses no worker slot, and does not wait for a worker on the same card.
 A paused bridge leaves an interactive request to another bridge.
 
 The bridge reports each launch to
-`PUT /api/projects/{handle}/interactive-runs/{sessionId}`. A good launch opens
-an interactive run in the state `running`, with the work kind and the bridge id.
+`PUT /api/projects/{handle}/interactive-runs/{sessionId}`. The report names the
+card as the subject, with `subjectType` `card`, `subjectId` and `cardNumber`. An
+interactive run is about a card, so the server answers 422 to any other subject
+type. A good launch opens an interactive run in the state `running`, with the
+work kind and the bridge id.
 The session's `/loupe:product-design` skill calls `card_run_open` with the same
 session id, and takes over that run. So the
 [Runs tab](../using/worker-runs.md#interactive-sessions) of the Activity page
