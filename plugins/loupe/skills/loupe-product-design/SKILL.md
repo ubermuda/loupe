@@ -23,8 +23,8 @@ P0 opens an interactive run on the card with `card_run_open`. Close the run with
 4. Read `references/session-flow.md`, `references/question-rules.md` and `references/claude-design.md`. Follow them for the whole session.
 5. With a card, call `card_get`. Read the tags of each linked document with `document_get`, before any move. The product document has the tag `product-design`, or a title that starts `Product design`.
    - An approved product document: stop, and tell the owner.
-   - An unapproved product document: it is the draft that P1 reads.
-   - No linked product document: search `document_list` for the title `Product design: <card title>`. Keep only a row whose title is exactly that title. Show each such row to the owner, and ask whether it belongs to this card. When the owner says yes, link the row to the card with `card_update`, and send the existing `documentIds` plus its id. Then apply the two rules above. An approved row does not move the card, so tell the owner to move it by hand. When the owner says no for every row, go on with no draft.
+   - An unapproved product document: it is the existing document that P1 reads.
+   - No linked product document: search `document_list` for the title `Product design: <card title>`. Keep only a row whose title is exactly that title. Show each such row to the owner, and ask whether it belongs to this card. When the owner says yes, link the row to the card with `card_update`, and send the existing `documentIds` plus its id. Then apply the two rules above. An approved row does not move the card, so tell the owner to move it by hand. When the owner says no for every row, go on with no existing document.
 6. Run P0 to get the card into the Product design column and open the run, as `session-flow.md` says.
 7. Run the phases of the level that P2 sets. Ask each question as `question-rules.md` says. Use AskUserQuestion when the answer has clear options, and plain chat when the tool is missing.
 8. Read `../loupe-stage-product-design/references/product-document.md` before P10. It is the template, and it lists the sections a Light document keeps.
@@ -46,9 +46,9 @@ Put each item in its section of the product document.
 ## P10: write and link
 
 1. When a Claude Design session ran, add the recap of the picks to its project (C6).
-2. With no draft, call `document_create` with the title `Product design: <card title>`.
+2. With no existing document, call `document_create` with the title `Product design: <card title>`.
 3. Use the tag `product-design`, or the spelling `tag_list` already has for it. Without it, an approval moves nothing and shows no error.
-4. With a draft, call `document_revise` on it instead. When the draft lacks the tag `product-design`, or has one of the tags `design`, `product`, `tech-design` and `decisions`, call `document_set_tags`. Send its current tags without those four, plus `product-design`. A document with both `product-design` and `tech-design` moves no card on approval. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the draft has open review comments, answer them as "Answer every open comment" in that file says.
+4. With an existing document, call `document_revise` on it instead. When the document lacks the tag `product-design`, or has one of the tags `design`, `product`, `tech-design` and `decisions`, call `document_set_tags`. Send its current tags without those four, plus `product-design`. A document with both `product-design` and `tech-design` moves no card on approval. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the document has open review comments, answer them as "Answer every open comment" in that file says.
 5. Call `card_get` again. When the card does not link the document yet, call `card_update` with the existing `documentIds` plus the new id. The field replaces the whole set.
 6. Call `card_run_close` with the card and the `sessionId` of P0.
 7. Never move the card after P0. Give the owner the review URL, and stop. The owner reviews the `R` entries and the scenarios there.
