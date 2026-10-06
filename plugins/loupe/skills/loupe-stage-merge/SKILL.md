@@ -1,11 +1,11 @@
 ---
 name: loupe-stage-merge
-description: "Use when a card's pull request is ready to merge or behind its base, from a merge or sync work request of the workflow, or when a prompt names loupe-stage-merge."
+description: "Use when a card's pull request is ready to merge or behind its base, from a merge, sync or epic preview work request of the workflow, or when a prompt names loupe-stage-merge."
 ---
 
 # Merge stage
 
-Merge one card's pull request when it is ready, or bring a branch that is behind its base up to date.
+Merge one card's pull request when it is ready, or bring a branch that is behind its base up to date. After a child merge into an epic branch, refresh the epic preview.
 
 ## Contract
 

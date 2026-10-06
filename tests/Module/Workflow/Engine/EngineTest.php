@@ -1007,7 +1007,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $epic->column->slug);
     }
 
-    public function test_a_lifecycle_epic_whose_last_child_merged_into_the_epic_branch_asks_for_its_pull_request_and_stays_out_of_done(): void
+    public function test_a_lifecycle_epic_whose_last_child_merged_into_the_epic_branch_fires_the_open_rule_and_stays_out_of_done(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-epic-open');

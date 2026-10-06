@@ -777,7 +777,7 @@ as its template says.
 | **Open the epic pull request** | off | When on, Loupe opens a draft pull request from the epic branch to the default branch after the first child merges into the epic branch, and links it to the epic. The GitHub App needs "Pull requests: read and write" |
 | **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
 
-The two epic writes were on for each board whose automation was on before the
+The draft and ready switch and the close write were on for each board whose automation was on before the
 workflow engine, so the epic flow kept working.
 
 The comment gives the reason for the fix and the failed checks. It also gives

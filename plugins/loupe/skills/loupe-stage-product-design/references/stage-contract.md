@@ -68,7 +68,7 @@ Set the reason code from the `STAGE RESULT:` form. A form takes the code of the 
 | `not-behind` | `not ready: not behind` |
 | `no-design` | `no approved tech design`, `blocked: needs its own tech design`, `no product document`, `no linked <document>`, `blocked: no breakdown item` |
 | `open-pull-request` | `open pull request exists` |
-| `no-pull-request` | `no open pull request`, `blocked: pull request not linked to the card`, `blocked: no merge request in the prompt` |
+| `no-pull-request` | `no open pull request`, `blocked: pull request not linked to the card`, `blocked: no merge request in the prompt`, `blocked: no merged epic child` |
 | `tool-unavailable` | `loupe MCP unavailable`, `blocked: codex MCP unavailable`, `blocked: no forge adapter`, `blocked: no <section> in .loupe/lifecycle.md` |
 | `worktree-failed` | `blocked: worktree binding failed`, `blocked: worktree is not on the PR branch`, `blocked: local branch diverged from origin` |
 | `merge-refused` | `blocked: merge refused` |
