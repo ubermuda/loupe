@@ -49,7 +49,7 @@
         {% if fact is not null and not item.command %}
         <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.details.metrics'|trans }}</h3>
         <dl class="lp-run-drawer__metadata" data-worker-run-metrics>
-            <div><dt>{{ 'bridge.worker_runs.details.metric.cost'|trans }}</dt><dd>{{ fact.costMicroUsd is null ? 'bridge.worker_runs.details.metric.unknown'|trans : (fact.costMicroUsd / 1000000)|format_currency('USD') }}</dd></div>
+            <div><dt>{{ 'bridge.worker_runs.details.metric.cost'|trans }}</dt><dd>{{ fact.costMicroUsd is null ? 'bridge.worker_runs.details.metric.unknown'|trans : (fact.costMicroUsd / 1000000)|format_currency('USD', fact.costMicroUsd > 0 and fact.costMicroUsd < 5000 ? {max_fraction_digit: 6} : {}) }}</dd></div>
             {% if fact.tokensIn is not null %}<div><dt>{{ 'bridge.worker_runs.details.metric.input_tokens'|trans }}</dt><dd>{{ fact.tokensIn|format_number }}</dd></div>{% endif %}
             {% if fact.tokensOut is not null %}<div><dt>{{ 'bridge.worker_runs.details.metric.output_tokens'|trans }}</dt><dd>{{ fact.tokensOut|format_number }}</dd></div>{% endif %}
             {% if fact.tokensCacheRead is not null %}<div><dt>{{ 'bridge.worker_runs.details.metric.cache_read_tokens'|trans }}</dt><dd>{{ fact.tokensCacheRead|format_number }}</dd></div>{% endif %}

@@ -150,6 +150,9 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $priced = $this->seedRun($em, $project, cardNumber: 1);
         $this->seedUsage($em, $priced, model: 'claude-opus-5-5', costUsd: '1.5', inputTokens: 12345);
         $unpriced = (string) $this->seedRun($em, $project, cardNumber: 2)->id;
+        $cheap = $this->seedRun($em, $project, cardNumber: 4);
+        $this->seedUsage($em, $cheap, costUsd: '0.000042');
+        $cheapId = (string) $cheap->id;
         $noFact = (string) $this->seedRun($em, $project, cardNumber: 3)->id;
         $em->getConnection()->executeStatement('DELETE FROM bridge_worker_run_facts WHERE run_id = :id', ['id' => $noFact]);
 
@@ -170,6 +173,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
                 $metrics->filter('dd')->each(static fn (Crawler $value): string => trim($value->text())),
             ),
         );
+
+        self::assertSame('$0.000042', trim($crawler->filter('[data-worker-run-id="'.$cheapId.'"] [data-worker-run-metrics] dd')->first()->text()));
 
         $unpricedMetrics = $crawler->filter('[data-worker-run-id="'.$unpriced.'"] [data-worker-run-metrics]');
         self::assertSame(['Cost', 'Duration'], $unpricedMetrics->filter('dt')->each(static fn (Crawler $term): string => trim($term->text())));
