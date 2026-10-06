@@ -53,6 +53,7 @@ final readonly class ToolCallErrorMessages
             'review.create.error.too_long', 'review.rename.error.too_long' => \sprintf('A document title must be at most %d characters.', Document::MAX_TITLE_LENGTH),
             'review.revise.error.description_blank' => 'A description of what changed in this version is required.',
             'review.archive.error.reason_blank' => 'A reason for archiving the document is required.',
+            'review.publish.error.archived' => 'An archived document cannot be published. Restore it with document_unarchive first.',
             'review.tags.error.too_long' => \sprintf('A tag name must be at most %d characters.', Tag::MAX_NAME_LENGTH),
             'review.series.error.name_required' => 'A series ordinal needs a series name beside it.',
             'review.series.error.too_long' => \sprintf('A series name must be at most %d characters.', Series::MAX_NAME_LENGTH),

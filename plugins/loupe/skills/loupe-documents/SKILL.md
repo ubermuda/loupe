@@ -220,6 +220,24 @@ reading context, not for a terminal or a README.
        lead with a bold ID, such as `**R3: Title.**`. Keep the reference, and keep
        the bold lead in the source document.
 
+17. **Create a document as a draft when you can still change it before your
+    run ends.** A new document goes to the reviewer's inbox at once. A
+    revision in the same run then changes the version that the reviewer
+    reads. A draft stays out of review and out of the inbox, and a
+    `document_revise` keeps it a draft.
+
+    1. Pass `draft: true` to `document_create`.
+    2. Revise the draft as often as you need.
+    3. Call `document_publish` for each draft of the run, as your last
+       document step. The document then enters review on its final version.
+    4. When `document_publish` is not among your tools, the instance does not
+       have drafts yet, and `document_create` refuses the `draft` argument.
+       Create the document without `draft`, as before.
+
+    A review round on a document that is already in review revises it once,
+    and needs no draft step. A person in the session with you can read the
+    document at once, so an interactive session needs no draft either.
+
 ## Example
 
 Entry shape, lead sentence first and detail after:
