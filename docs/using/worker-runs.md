@@ -171,6 +171,13 @@ withdraw requests. `card_hold` makes a card unmanaged, as **Make unmanaged**
 does, and `card_release` makes it managed again. The connection acts as the project
 owner, on its own project only.
 
+Each run row also carries `usage`, `model`, `experiment`, `variant` and
+`metrics`. The server keeps a metrics row for each run, with its cost, its
+tokens, its model, its duration and its outcome. The metrics row stays after the
+[retention](../reference/worker-runs.md#retention) sweep deletes the run.
+`metric_query` reads the metrics rows over time, by run or by finished card, and
+`metric_list` lists the metrics it takes.
+
 The tools apply the same checks as the controls on this page. A resume needs a
 session and an ended run in a state that can resume. A run with a request that still waits refuses a second
 one, and so does a bridge that does not take commands. A refused run gives a

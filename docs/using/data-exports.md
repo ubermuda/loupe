@@ -46,6 +46,12 @@ strokes are the full vector points. The archive has no separate site-review file
 invite. It is empty for a user who redeemed none. The admin's note on the invite
 stays out of the export.
 
+`worker_run_facts.json` holds the metrics row of each worker run of the projects
+the user owns, with its outcome, its duration, its cost and its token sums. It
+includes the rows whose run the retention sweep deleted.
+[Retention](../reference/worker-runs.md#retention) lists the other worker run
+files.
+
 The archive holds one file per kind of data. `audit_log.json` is one of them. It
 holds the audit records the user is the actor of, and the records that name the
 user as the subject. What was done to the account is the account's data too.
