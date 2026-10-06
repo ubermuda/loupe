@@ -28,7 +28,6 @@ final readonly class PullRequestStates
 
     /**
      * An open pull request counts only once it was read, like the card page that shows it as not reported before.
-     * A finished card gets no automation, so its block shows nothing.
      *
      * @return list<CardBadge>
      */

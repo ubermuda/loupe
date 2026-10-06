@@ -134,7 +134,7 @@ final class CardGetToolTest extends KernelTestCase
         self::assertSame('conflicting', $state['mergeability']);
         self::assertSame('2026-09-27T11:00:00+00:00', $state['refreshedAt']);
         self::assertNull($read['pullRequests'][1]['state']);
-        self::assertNotContains('automation', array_keys($read));
+        self::assertArrayNotHasKey('automation', $read);
     }
 
     public function test_an_approval_of_an_older_head_reads_outdated(): void
