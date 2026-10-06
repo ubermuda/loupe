@@ -175,6 +175,9 @@ Each run row also carries `usage`, `model`, `experiment`, `variant` and
 `metrics`. The server keeps a metrics row for each run, with its cost, its
 tokens, its model, its duration and its outcome. The metrics row stays after the
 [retention](../reference/worker-runs.md#retention) sweep deletes the run.
+The metrics rows start with the oldest run that the server held when it was
+upgraded to this release. A run that the sweep deleted before then has no
+metrics row, and the card cost total on the board still counts its usage.
 `metric_query` reads the metrics rows over time, by run or by finished card, and
 `metric_list` lists the metrics it takes.
 
