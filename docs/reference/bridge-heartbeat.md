@@ -35,6 +35,17 @@ The path holds no project, because one bridge follows several projects.
   "workerPools": [
     {"name": "default", "size": 3, "inUse": 2, "queued": 0},
     {"name": "quick", "size": 1, "inUse": 1, "queued": 4}
+  ],
+  "hostSamples": [
+    {
+      "sampledAt": "2026-10-07T09:15:00Z",
+      "cpuPct": [42.5, 18.0, 77.1, 9.3],
+      "memUsed": 12884901888,
+      "memTotal": 17179869184,
+      "swapUsed": 0,
+      "batteryPct": 81,
+      "onAc": false
+    }
   ]
 }
 ```
@@ -54,6 +65,7 @@ The path holds no project, because one bridge follows several projects.
 | `paused` | optional. `true` when the bridge takes no new work now. A missing or `null` value keeps the state the server holds. See [Pause and commands](#pause-and-commands) |
 | `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. `session-usage` says that the bridge takes a command of the kind `collect-session-usage`. `work-requests` says that the bridge claims [work requests](#work-requests), and `interactive` says that it runs an interactive session. A missing or `null` value keeps the list the server holds |
 | `workClaims` | optional. A list of at most 200 rows, one for each work request the bridge holds. Each row has an `id` and a `claimToken`, both uuids. The server renews the lease of each claim the bridge still holds, as [Work requests](#work-requests) says. A missing or `null` value renews nothing |
+| `hostSamples` | optional. A list of at most 720 [host samples](#host-samples), oldest first. A missing, `null` or empty value stores nothing |
 
 Each row of `hooks` holds these fields:
 
@@ -81,6 +93,42 @@ the bridge, with the time of the heartbeat that carried them. The server
 stamps that time from its own clock when a heartbeat carries a `workerPools`
 list, an empty list included. A heartbeat with no list keeps the rows and their
 time. A bridge that never sent a `workerPools` list shows no pools.
+
+### Host samples
+
+A host sample is one reading of the machine the bridge runs on. The bridge
+takes samples only while the `bridge.host_sampling_enabled` flag is on, as
+[Host samples](../extending/cli-bridge.md#host-samples) describes. Each row of
+`hostSamples` holds these fields:
+
+| Field | Rule |
+|---|---|
+| `sampledAt` | required. The time of the sample, as an RFC 3339 date. The server stores it in UTC, to the second |
+| `cpuPct` | required. A list of at most 1024 numbers from 0 to 100, the use of each core in percent |
+| `memUsed` | required. The memory in use, in bytes, an integer of 0 or more |
+| `memTotal` | required. The total memory, in bytes, an integer of 0 or more |
+| `swapUsed` | required. The swap in use, in bytes, an integer of 0 or more |
+| `batteryPct` | optional. The charge of the battery, a number from 0 to 100. `null` on a machine with no battery, or when the bridge cannot read it |
+| `onAc` | optional. `true` when the machine runs on mains power, and `false` when it runs on battery. `null` when the bridge cannot tell |
+
+The bridge keeps each sample until a heartbeat that carries it is accepted. A
+failed or replaced heartbeat loses no sample, because the next one carries it
+again. The bridge keeps at most 720 samples, and drops the oldest past that
+limit. A heartbeat carries at most 60 samples, oldest first, so a backlog
+goes out over several heartbeats. A sample waits for the next heartbeat, so
+the samples arrive at the heartbeat interval.
+
+The server stores the samples only while `bridge.host_sampling_enabled` is on.
+While the flag is off, it drops them and answers the heartbeat as usual. A
+bridge keeps the flag value it read at its last connect, so it can still send
+samples for a short time after the flag goes off. The server keeps one sample
+for each account, bridge and second, and skips a sample it already holds.
+It also drops a sample older than the `bridge.run_retention_days` window, or
+more than five minutes ahead of the server clock.
+
+A sample can arrive after the run it covers has ended. The server then updates
+the [host metrics](worker-runs.md#run-metrics) of each ended run of that bridge
+whose time holds the sample.
 
 ### The bridge name
 
@@ -194,6 +242,11 @@ reach the limit sooner.
 The project inbox page reads the interval too. It warns on an open ask when its
 bridge sent no heartbeat in the last three intervals. See
 [When a bridge goes quiet](../using/inbox.md#when-a-bridge-goes-quiet).
+
+The [host samples](#host-samples) have a timer of their own. The
+`bridge.host_sample_interval_seconds` flag sets it, and its default is 60
+seconds. A value below 5 reads as the default. A shorter sample interval sends
+more samples in each heartbeat, and no more heartbeats.
 
 ## Open runs of a quiet bridge
 
@@ -500,7 +553,12 @@ data export holds the bridges in `bridges.json`, with the stored update state,
 version and install method, the hook rows, the worker pool rows with their
 report time, the pause state, the capabilities, the name the bridge holds,
 the name it asked for and the push login. It holds the commands in
-`bridge_commands.json`.
+`bridge_commands.json`. Deleting an account also deletes the host samples of
+its bridges. The data export holds them in `bridge_host_samples.json`, with the
+bridge id and the fields of [Host samples](#host-samples).
+
+The [retention](worker-runs.md#retention) sweep deletes each host sample older
+than the `bridge.run_retention_days` window.
 
 Deleting a project deletes its work requests. The data export holds the work
 requests of the projects the account owns in `bridge_work_requests.json`. Each

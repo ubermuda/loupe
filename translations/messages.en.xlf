@@ -2666,6 +2666,10 @@
                 <source>project.connect.tool.worker_run_tool_calls</source>
                 <target>Read the tool calls of one worker run in order, with the duration, the result and the signatures of each call.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.bridge_host_samples">
+                <source>project.connect.tool.bridge_host_samples</source>
+                <target>Read the CPU, memory, swap and battery samples of the machine that ran one worker run, during that run.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.metric_list">
                 <source>project.connect.tool.metric_list</source>
                 <target>List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes.</target>
@@ -7224,6 +7228,7 @@
             <trans-unit id="insights.form.start_analysis_form.topic.experiment"><source>insights.form.start_analysis_form.topic.experiment</source><target>Experiment</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.experiment.label"><source>insights.form.start_analysis_form.experiment.label</source><target>Experiment</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.experiment.placeholder"><source>insights.form.start_analysis_form.experiment.placeholder</source><target>Choose an experiment</target></trans-unit>
+            <trans-unit id="insights.form.start_analysis_form.topic.host"><source>insights.form.start_analysis_form.topic.host</source><target>Host</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.label"><source>insights.form.start_analysis_form.range.label</source><target>Range</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.thirty-days"><source>insights.form.start_analysis_form.range.thirty-days</source><target>30 days</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.ninety-days"><source>insights.form.start_analysis_form.range.ninety-days</source><target>90 days</target></trans-unit>

@@ -1000,4 +1000,32 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getQuery()
             ->execute();
     }
+
+    /**
+     * The ended runs of one bridge, in projects of its owner, whose window
+     * overlaps $from to $to.
+     *
+     * @return list<Uuid>
+     */
+    public function findEndedIdsOnBridgeBetween(Uuid $ownerId, Uuid $bridgeId, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            <<<'SQL'
+                SELECT r.id
+                FROM bridge_worker_runs r
+                JOIN projects p ON p.id = r.project_id
+                WHERE r.bridge_id = :bridge AND p.owner_id = :owner
+                    AND r.started_at <= :to AND r.ended_at >= :from
+                SQL,
+            [
+                'bridge' => $bridgeId->toRfc4122(),
+                'owner' => $ownerId->toRfc4122(),
+                'from' => $from->setTimezone(new \DateTimeZone('UTC')),
+                'to' => $to->setTimezone(new \DateTimeZone('UTC')),
+            ],
+            ['from' => Types::DATETIME_IMMUTABLE, 'to' => Types::DATETIME_IMMUTABLE],
+        );
+
+        return array_map(static fn (mixed $id): Uuid => Uuid::fromString((string) $id), $ids);
+    }
 }

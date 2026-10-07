@@ -18,7 +18,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 final class StartAnalysisFormType extends AbstractType
 {
     /** The topics that have an agent skill. */
-    public const array TOPICS = [AnalysisTopic::Cost, AnalysisTopic::Experiment];
+    public const array TOPICS = [AnalysisTopic::Cost, AnalysisTopic::Experiment, AnalysisTopic::Host];
 
     #[\Override]
     public function buildForm(FormBuilderInterface $builder, array $options): void

@@ -197,6 +197,16 @@ of the subagents of the main session. `toolCalls`, `failedCalls` and
 `peakContextTokens` is the largest context the main session held during the
 run, in tokens. It shows how close a worker came to its context limit. A run
 whose bridge sent no value holds `null`.
+
+The metrics row also holds the host of the run, from the samples a bridge takes
+of its machine. `meanCpuPct` is the mean CPU use during the run, in percent.
+`peakMemBytes` and `peakSwapBytes` are the largest memory and swap use, in
+bytes. `onBattery` says whether the machine ran on battery during the run.
+`concurrentRuns` counts the runs of the same bridge that overlapped the run,
+the run itself included. The samples are off by default, so the CPU, memory,
+swap and battery values are `null` until an admin turns them on.
+[Host samples](../extending/cli-bridge.md#host-samples) says how.
+`bridge_host_samples` reads the samples of one run.
 [Run metrics](../reference/worker-runs.md#run-metrics) defines each value.
 
 A tool call holds its tool, its start, its duration, its error flag, and
@@ -207,7 +217,7 @@ reaches Loupe. A call holds its full input text only when its project collects
 full text, and no setting turns that on yet.
 [Tool calls](../extending/cli-bridge.md#tool-calls) gives the rules. Set
 `collect: false` in the `rules.yaml` of a bridge, and that bridge sends no tool
-call and no timing.
+call, no timing and no host sample.
 
 The tools apply the same checks as the controls on this page. A resume needs a
 session and an ended run in a state that can resume. A run with a request that still waits refuses a second

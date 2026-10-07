@@ -6,6 +6,7 @@ namespace App\Tests\Module\Insights\Controller;
 
 use App\Module\Insights\Entity\Analysis;
 use App\Module\Insights\Entity\AnalysisState;
+use App\Module\Insights\Entity\AnalysisTopic;
 use App\Module\Insights\Repository\AnalysisRepository;
 use App\Tests\Module\Insights\InsightsScenario;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -41,6 +42,27 @@ final class StartAnalysisControllerTest extends WebTestCase
         self::assertSame('ninety-days', $analyses[0]->scope->range->value);
         self::assertSame(AnalysisState::Waiting, $analyses[0]->state);
         self::assertNotNull($analyses[0]->workRequestId);
+    }
+
+    public function test_the_form_starts_a_host_analysis(): void
+    {
+        $client = static::createClient();
+        $project = $this->scenarioProject('start-analysis-host');
+        $projectId = (string) $project->id;
+        $this->em()->clear();
+
+        $client->loginUser($project->owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports');
+        $client->submitForm('Analyse', [
+            'start_analysis_form[topic]' => 'host',
+            'start_analysis_form[range]' => 'thirty-days',
+        ]);
+
+        self::assertResponseRedirects('/projects/'.$projectId.'/analytics/reports');
+        $analyses = $this->analyses($projectId);
+        self::assertCount(1, $analyses);
+        self::assertSame(AnalysisTopic::Host, $analyses[0]->topic);
+        self::assertSame(AnalysisState::Waiting, $analyses[0]->state);
     }
 
     public function test_an_empty_model_and_effort_take_the_project_defaults(): void

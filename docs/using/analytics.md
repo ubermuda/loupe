@@ -182,8 +182,8 @@ Fill the **Analyse** form, and press **Analyse**.
 
 | Field | Values |
 |---|---|
-| Topic | **Cost**, where the cost of the workers goes, or **Experiment**, what the comparison of one experiment shows |
-| Experiment | an experiment of the project. The **Experiment** topic needs it, and the **Cost** topic ignores it |
+| Topic | **Cost**, where the cost of the workers goes, **Experiment**, what the comparison of one experiment shows, or **Host**, how the machines of the bridges behaved |
+| Experiment | an experiment of the project. The **Experiment** topic needs it, and the other topics ignore it |
 | Range | **30 days**, **90 days** or **All time**: the runs the agent reads. The **Experiment** topic ignores it, and reads every card of the experiment |
 | Model | the model of the agent, such as `sonnet` or `opus` |
 | Effort | **Low**, **Medium**, **High**, **Extra high** or **Maximum** |
@@ -191,6 +191,14 @@ Fill the **Analyse** form, and press **Analyse**.
 An empty model or effort takes the project default. The analysis opens a work
 request, and a bridge that reports the `subject-analysis` capability claims it.
 The request model and effort replace the model of the work entry.
+
+A **Host** analysis reads the host metrics of each run. It looks for runs that
+suffer when too many run on one bridge at the same time, and for runs on a
+machine on battery or one that slept. It also looks for CPU and memory
+pressure. The analysis needs host samples, which are off by default.
+[Host samples](../extending/cli-bridge.md#host-samples) says how to turn them
+on. With no samples, the report says so, and compares only the runs that
+shared a bridge, because Loupe counts those from the run times.
 
 ### States and reasons
 
