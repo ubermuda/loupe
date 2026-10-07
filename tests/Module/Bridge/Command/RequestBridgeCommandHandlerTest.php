@@ -67,6 +67,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'commandId' => (string) $command->id,
             'kind' => 'resume-run',
             'bridgeId' => (string) $run->bridgeId,
+            'runId' => (string) $run->id,
             'runKey' => (string) $run->runKey,
             'sessionId' => (string) $run->sessionId,
             'cardId' => (string) $run->cardId,
@@ -74,6 +75,8 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'workRequestId' => null,
             'workKind' => 'plan',
             'ruleId' => null,
+            'startedAt' => '2026-01-01T10:00:00+00:00',
+            'endedAt' => '2026-01-01T10:05:00+00:00',
             'expiresAt' => '2026-09-29T12:15:00+00:00',
             'cause' => 'person',
             'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
@@ -91,11 +94,15 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         $this->boot();
         [$owner, $run] = $this->scenario('command-nulls', runKey: null);
         $run->sessionId = null;
+        $run->startedAt = null;
+        $run->endedAt = null;
         $this->em()->flush();
 
         $this->request($run, BridgeCommandKind::StopRun, $owner);
 
         $payload = $this->outboxPayloads()[0];
+        self::assertNull($payload['startedAt']);
+        self::assertNull($payload['endedAt']);
         self::assertNull($payload['runKey']);
         self::assertNull($payload['sessionId']);
         self::assertNull($payload['workRequestId']);

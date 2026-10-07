@@ -1026,7 +1026,7 @@ or another server holds no pause for this bridge. The first reply that carries
 missing cache heals. When the bridge cannot find its config directory, it runs
 with no cache. An update hands the pause to the new version directly. Each
 heartbeat sends `paused` with the state the bridge applies, and
-`capabilities: ["commands", "rerun-command"]`.
+`capabilities: ["commands", "rerun-command", "session-usage"]`.
 
 The project owner sends a stop, a resume, a rerun or a pause from the web UI.
 Stop, Resume and Run again are in the runs section of a card page and in the
@@ -1036,8 +1036,9 @@ of version 1.5.0 or later, which reports the `commands` capability. Run again
 also needs the `rerun-command` capability. The page disables a control for a
 bridge that does not report its capability.
 
-The server can also ask the bridge to stop or resume one run, or to run the
-command of a failed command run again. The command comes
+The server can also ask the bridge to stop or resume one run, to run the
+command of a failed command run again, or to send the usage of an interactive
+run. The command comes
 as a `bridge.command` event and again in each heartbeat reply, until the bridge
 answers it. The bridge acts on a command once, by its `commandId`, whichever
 channel brings it first. It keeps the ids in memory, so this holds for one
@@ -1117,6 +1118,23 @@ of the run. It also refuses when the card has a run that is open on this
 bridge, and during a handover or a shutdown. A held card passes, and the rerun
 waits in the queue until the hold ends. With an older server, the rerun ends
 the hold. The rerun logs `command_rerun_asked`.
+
+A usage request, of the kind `collect-session-usage`, asks for the token usage
+of one interactive Claude Code run. The run has no worker process, so the
+bridge reads the usage from the transcript of the session on this machine. The
+command names the session in `sessionId`, the run in `runId`, and the window of
+the run in `startedAt` and `endedAt`. The bridge drops a usage request that
+lacks one of them, or whose window ends before it starts. It sums the messages
+of the session and its subagents from `startedAt` up to `endedAt`, and prices
+them as an `estimated` usage. An end on a whole second includes the rest of
+that second, because the server cuts the times to the second. The bridge sends
+the usage to the
+[session usage endpoint](../docs/reference/worker-runs.md#reporting-the-usage-of-a-session)
+with the `runId`, then answers `done` and logs `session_usage_sent`. It refuses
+the request when this machine holds no transcript of the session, and when it
+cannot read the transcript or send the usage. The server sends the kind only to
+a bridge that reports the `session-usage` capability. The bridge refuses a
+command of a kind it does not know.
 
 ### Updates
 
@@ -1207,6 +1225,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `command_acked` | `command`, `kind`, `state`, and `answer`: `command_not_found` when the server no longer held the command |
 | `command_ack_state` | `command`, `kind`, `state`, `stored`: the server kept another state, for example for a command that expired first. Level `WARN` |
 | `command_rerun_asked` | `card`, `project`, `rule`, `continues`: a person's rerun queued the command of a command entry again, as a run that continues the run `continues` names |
+| `session_usage_sent` | `command`, `session_id`, `run`: the bridge sent the usage of an interactive run that a usage request named |
 | `worker_resume_asked` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `continues`: a person's resume queued a run on the session of the run `continues` names |
 | `worker_stopping` | `card`, `project`, `rule`, `pid`: a person stopped a live worker, or the live command of a command entry |
 | `stop_signal_sent` | `card`, `project`, `rule`, `pid`, `signal`: `SIGINT`, `SIGTERM` or `SIGKILL` |

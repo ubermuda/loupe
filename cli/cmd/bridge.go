@@ -413,6 +413,13 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.ackCommand == nil {
 		r.ackCommand = apiClient(cfg).AckCommand
 	}
+	if r.reportRunUsage == nil {
+		r.reportRunUsage = func(ctx context.Context, handle, sessionID, runID string, usage api.Usage) error {
+			_, err := apiClient(cfg).ReportRunUsage(ctx, handle, sessionID, runID, usage)
+
+			return err
+		}
+	}
 	if r.workAPI == nil {
 		r.workAPI = apiClient(cfg)
 	}

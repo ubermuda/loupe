@@ -127,6 +127,54 @@ func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 	}
 }
 
+// sessionUsagePayload asks for the usage of one interactive run.
+var sessionUsagePayload = strings.Replace(commandPayload, `"kind":"stop-run"`,
+	`"kind":"collect-session-usage","runId":"0199A0E2-4444-7C5E-9F2A-3B1C6D7E8F90",`+
+		`"startedAt":"2026-09-29T10:00:00+00:00","endedAt":"2026-09-29T10:05:00+00:00"`, 1)
+
+func TestParseCommandTakesASessionUsageRequest(t *testing.T) {
+	c, err := ParseCommand([]byte(sessionUsagePayload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Kind != api.CommandCollectSessionUsage || c.RunID != "0199a0e2-4444-7c5e-9f2a-3b1c6d7e8f90" ||
+		c.SessionID != "0199a0e2-2222-7c5e-9f2a-3b1c6d7e8f90" {
+		t.Fatalf("command = %+v", c)
+	}
+	if c.StartedAt == nil || !c.StartedAt.Equal(time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)) ||
+		c.EndedAt == nil || !c.EndedAt.Equal(time.Date(2026, 9, 29, 10, 5, 0, 0, time.UTC)) {
+		t.Fatalf("window = %v to %v", c.StartedAt, c.EndedAt)
+	}
+}
+
+// A request for the usage of a run needs the session, the run and a window
+// that does not end before it starts. Another kind needs none of them.
+func TestParseCommandRejectsASessionUsageRequestWithNoWindow(t *testing.T) {
+	for name, pair := range map[string][2]string{
+		"no session":      {`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90"`, `"sessionId":null`},
+		"no run":          {`"runId":"0199A0E2-4444-7C5E-9F2A-3B1C6D7E8F90"`, `"runId":null`},
+		"a run not uuid":  {`"runId":"0199A0E2-4444-7C5E-9F2A-3B1C6D7E8F90"`, `"runId":"r"`},
+		"no start":        {`"startedAt":"2026-09-29T10:00:00+00:00"`, `"startedAt":null`},
+		"no end":          {`"endedAt":"2026-09-29T10:05:00+00:00"`, `"endedAt":null`},
+		"an end too soon": {`"endedAt":"2026-09-29T10:05:00+00:00"`, `"endedAt":"2026-09-29T09:59:59+00:00"`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			payload := strings.Replace(sessionUsagePayload, pair[0], pair[1], 1)
+			if payload == sessionUsagePayload {
+				t.Fatalf("%s: the replacement changed nothing", name)
+			}
+			if _, err := ParseCommand([]byte(payload)); err == nil {
+				t.Fatalf("expected %s to be rejected", payload)
+			}
+		})
+	}
+
+	stop := strings.Replace(commandPayload, `"kind":"stop-run"`, `"kind":"stop-run","runId":null,"startedAt":null,"endedAt":null`, 1)
+	if _, err := ParseCommand([]byte(stop)); err != nil {
+		t.Fatalf("a stop with no window: %v", err)
+	}
+}
+
 // A command has its own parser, so Parse drops it as an unknown type.
 // A command carries the context of the work request of its run. An older
 // server sends none, and a malformed value rejects the command.

@@ -326,6 +326,7 @@ after their runs closed, such as from the session transcript.
 |---|---|
 | `processes` | required. A list of 1 to 100 usage objects, one for each worker process of the session, in the order the processes started |
 | `processes[]` | a usage object, with the rules of [Usage](#usage) |
+| `runId` | optional. The id of one interactive run of the session. With it, `processes` holds exactly one usage object, the usage of that run |
 
 The server finds the worker runs of that session in the project that have a
 start time, and orders them by `startedAt`. An interactive run, and a run that
@@ -340,6 +341,17 @@ Otherwise each run takes the process at the same place in the list, with the
 rule of [Usage](#usage). The report fills a run with unknown usage, and replaces
 estimated counts with reported ones. It never replaces reported counts.
 
+An interactive run has no worker process, so a report without `runId` never
+reaches it. When `card_run_close` closes such a run, the server sends a
+`collect-session-usage` command to the bridges that can hold its transcript. See
+[Pause and commands](bridge-heartbeat.md#pause-and-commands). The bridge that
+holds it sends this report with the `runId` of the command and one usage object.
+The server then gives that object to the interactive run of that id, in the
+project and the session of the path, with the same rule. The run must have
+ended. A run that still runs, a run of another session, a worker run and an
+unknown id count as no run, so the server writes nothing and answers 409 with
+`process_count_mismatch`. So does a list of more than one object.
+
 | Status | Body | When |
 |---|---|---|
 | 200 | `{"runs":2,"updated":1}` | the counts match. `updated` counts the runs whose usage changed |
@@ -347,9 +359,10 @@ estimated counts with reported ones. It never replaces reported counts.
 | 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | | agent push is switched off on the instance, or the server has no such endpoint |
-| 409 | `{"error":"process_count_mismatch"}` | the session has another count of started worker runs, and the server wrote nothing |
+| 409 | `{"error":"process_count_mismatch"}` | the session has another count of started worker runs, or `runId` names no ended interactive run of the session, and the server wrote nothing |
 | 409 | `{"error":"ambiguous_start_order"}` | two started worker runs of the session start in the same second, and the server wrote nothing |
 | 422 | `{"error":"invalid_session_id"}` | `sessionId` is not a uuid |
+| 422 | `{"error":"invalid_run_id"}` | `runId` is not a uuid |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
 

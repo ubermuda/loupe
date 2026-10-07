@@ -18,6 +18,7 @@ use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditOutcome;
 
 final class CancelBridgeCommandHandlerTest extends KernelTestCase
@@ -70,6 +71,24 @@ final class CancelBridgeCommandHandlerTest extends KernelTestCase
             self::assertSame(['run' => 'bridge.command.error.nothing_pending'], $e->errors);
         }
         self::assertSame([], $audit->records('bridge.command_cancelled'));
+    }
+
+    /** A usage collection waits on several bridges at once, and a person has nothing to cancel there. */
+    public function test_usage_collections_are_not_cancelled(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('cancel-collections');
+        $this->seedCommand($this->em(), $run, kind: BridgeCommandKind::CollectSessionUsage);
+        $this->em()->persist(new BridgeCommand($owner, Uuid::v4(), $run->project, $run, BridgeCommandKind::CollectSessionUsage, null, new \DateTimeImmutable(self::NOW), new \DateTimeImmutable('2026-09-29T12:18:00+00:00')));
+        $this->em()->flush();
+
+        try {
+            $this->cancel($run, $owner);
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['run' => 'bridge.command.error.nothing_pending'], $e->errors);
+        }
+        self::assertSame(2, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM bridge_commands WHERE state = 'pending'"));
     }
 
     /** The bulk expiry sweep can settle the command after the page read it. */
