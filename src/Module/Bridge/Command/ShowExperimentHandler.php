@@ -187,6 +187,7 @@ final readonly class ShowExperimentHandler
             headline: [] === $computed ? null : self::headline($variantNames, $computed[ExperimentMetric::COST], $computed[ExperimentMetric::MERGE_RATE], $computed[ExperimentMetric::FIX_ROUNDS]),
             variants: $variants,
             metrics: $metrics,
+            declaredMetrics: $declared,
             unknownMetrics: $unknownMetrics,
             includedCards: $included,
             leftOutCards: \count($cards) - $included,

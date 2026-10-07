@@ -6,6 +6,7 @@ namespace App\Tests\Module\Insights\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Bridge\Mcp\BridgeListTool;
+use App\Module\Bridge\Mcp\ExperimentGetTool;
 use App\Module\Bridge\Mcp\MetricQueryTool;
 use App\Module\Insights\Command\ReportAnalysisHandler;
 use App\Module\Insights\Mcp\AnalysisGetTool;
@@ -74,8 +75,8 @@ final class InsightsToolRegistrationTest extends KernelTestCase
         self::assertIsInt($start);
 
         self::assertSame(
-            [MetricQueryTool::NAME, AnalysisGetTool::NAME, AnalysisReportTool::NAME, AnalyticsSettingsGetTool::NAME, AnalyticsSettingsUpdateTool::NAME, BridgeListTool::NAME],
-            \array_slice($names, $start, 6),
+            [MetricQueryTool::NAME, ExperimentGetTool::NAME, AnalysisGetTool::NAME, AnalysisReportTool::NAME, AnalyticsSettingsGetTool::NAME, AnalyticsSettingsUpdateTool::NAME, BridgeListTool::NAME],
+            \array_slice($names, $start, 7),
         );
     }
 

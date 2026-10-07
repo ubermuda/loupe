@@ -12,6 +12,7 @@ use App\Module\Bridge\Mcp\BridgeCommandCancelTool;
 use App\Module\Bridge\Mcp\BridgeListTool;
 use App\Module\Bridge\Mcp\CardHoldTool;
 use App\Module\Bridge\Mcp\CardReleaseTool;
+use App\Module\Bridge\Mcp\ExperimentGetTool;
 use App\Module\Bridge\Mcp\MetricListTool;
 use App\Module\Bridge\Mcp\MetricQueryTool;
 use App\Module\Bridge\Mcp\WorkerRunGetTool;
@@ -55,6 +56,7 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         yield 'worker_run_tool_calls' => [WorkerRunToolCallsTool::NAME, WorkerRunToolCallsTool::class];
         yield 'metric_list' => [MetricListTool::NAME, MetricListTool::class];
         yield 'metric_query' => [MetricQueryTool::NAME, MetricQueryTool::class];
+        yield 'experiment_get' => [ExperimentGetTool::NAME, ExperimentGetTool::class];
         yield 'bridge_list' => [BridgeListTool::NAME, BridgeListTool::class];
         yield 'worker_run_resume' => [WorkerRunResumeTool::NAME, WorkerRunResumeTool::class];
         yield 'worker_run_stop' => [WorkerRunStopTool::NAME, WorkerRunStopTool::class];
@@ -106,8 +108,8 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         self::assertIsInt($start);
 
         self::assertSame(
-            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, WorkerRunToolCallsTool::NAME, MetricListTool::NAME, MetricQueryTool::NAME],
-            \array_slice($names, $start, 5),
+            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, WorkerRunToolCallsTool::NAME, MetricListTool::NAME, MetricQueryTool::NAME, ExperimentGetTool::NAME],
+            \array_slice($names, $start, 6),
         );
         $bridgeList = array_search(BridgeListTool::NAME, $names, true);
         self::assertIsInt($bridgeList);

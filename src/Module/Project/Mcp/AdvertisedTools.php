@@ -65,6 +65,7 @@ final class AdvertisedTools
         'worker_run_tool_calls',
         'metric_list',
         'metric_query',
+        'experiment_get',
         'analysis_get',
         'analysis_report',
         'analytics_settings_get',

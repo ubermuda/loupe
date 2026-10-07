@@ -2574,6 +2574,10 @@
                 <source>project.connect.tool.metric_query</source>
                 <target>Read one metric, such as cost, tokens, duration or merge rate, over time, by run or by card, with the rows behind it.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.experiment_get">
+                <source>project.connect.tool.experiment_get</source>
+                <target>Read the comparison of one experiment: each variant, each metric with its likely range, and the cards it keeps or leaves out.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.analysis_get">
                 <source>project.connect.tool.analysis_get</source>
                 <target>Read one analysis, with its state, its cost so far and the changes it proposes.</target>
