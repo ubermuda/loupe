@@ -4,32 +4,25 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
-use App\Module\Board\Command\CloseCardRunHandler;
-use App\Module\Board\Mcp\BoardSubjectResolver;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Mcp\CardRunCloseTool;
 use App\Module\Board\Mcp\CardRunOpenTool;
-use App\Module\Bridge\Command\RequestSessionUsageCollectionHandler;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
-use App\Module\Bridge\Repository\BridgeCommandRepository;
-use App\Module\Bridge\Repository\BridgeRepository;
-use App\Module\Bridge\Service\BridgeCommandTtl;
+use App\Module\Bridge\Messenger\CollectSessionUsage;
+use App\Module\Bridge\Messenger\CollectSessionUsageHandler;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
-use App\Outbox\OutboxWriter;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Psr\Clock\ClockInterface;
-use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
-use Ubermuda\AuditBundle\Auditor;
 
 /**
  * @phpstan-import-type CardSummary from CardPayload
@@ -125,7 +118,7 @@ final class CardRunToolsTest extends KernelTestCase
         self::assertFalse($this->runs()->hasOpenRun($this->project, Uuid::fromString($created['cardId'])));
     }
 
-    public function test_close_asks_each_capable_bridge_for_the_usage_of_the_run(): void
+    public function test_close_queues_a_usage_request_that_asks_each_capable_bridge(): void
     {
         $created = $this->card('card-run-usage');
         $bridge = new Bridge($this->project->owner, Uuid::v4(), [($this->project->id ?? throw new \LogicException('A persisted project has an id.'))->toRfc4122()], 'b4e39aa7', new \DateTimeImmutable());
@@ -137,39 +130,27 @@ final class CardRunToolsTest extends KernelTestCase
 
         ($this->close)($sessionId, $created['cardId']);
 
+        $requests = $this->usageRequests();
+        self::assertSame([[(string) $this->project->id, $runId]], array_map(static fn (CollectSessionUsage $m): array => [$m->projectId, $m->runId], $requests));
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_commands'));
+
+        $this->service(CollectSessionUsageHandler::class)($requests[0]);
+
         $rows = $this->em->getConnection()->fetchAllAssociative('SELECT bridge_id, kind, worker_run_id FROM bridge_commands');
         self::assertSame([['bridge_id' => $bridge->id->toRfc4122(), 'kind' => 'collect-session-usage', 'worker_run_id' => $runId]], $rows);
     }
 
-    public function test_close_reports_the_closed_run_when_the_usage_request_fails(): void
+    public function test_each_close_of_a_closed_run_asks_again_for_its_usage(): void
     {
-        $created = $this->card('card-run-usage-fails');
+        $created = $this->card('card-run-usage-again');
         $sessionId = (string) Uuid::v4();
         $runId = ($this->open)($sessionId, self::SKILL, $created['cardId'])['run']['runId'];
-        $bridges = $this->createStub(BridgeRepository::class);
-        $bridges->method('findFollowingProject')->willThrowException(new \RuntimeException('The database went away.'));
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->once())->method('warning')->with('board.run_usage_request_failed', self::callback(
-            static fn (array $context): bool => $runId === $context['runId'] && $context['exception'] instanceof \RuntimeException,
-        ));
-        $close = new CardRunCloseTool(
-            $this->service(BoardSubjectResolver::class),
-            new CloseCardRunHandler($this->runs(), new RequestSessionUsageCollectionHandler(
-                $bridges,
-                $this->service(BridgeCommandRepository::class),
-                $this->service(BridgeCommandTtl::class),
-                $this->service(OutboxWriter::class),
-                $this->em,
-                $this->service(ClockInterface::class),
-                $this->service(Auditor::class),
-                new NullLogger(),
-            ), $logger),
-        );
 
-        $result = $close($sessionId, $created['cardId']);
+        ($this->close)($sessionId, $created['cardId']);
+        ($this->close)($sessionId, $created['cardId']);
+        ($this->close)((string) Uuid::v4(), $created['cardId']);
 
-        self::assertSame(['runId' => $runId, 'state' => 'closed'], $result['run']);
-        self::assertFalse($this->runs()->hasOpenRun($this->project, Uuid::fromString($created['cardId'])));
+        self::assertSame([$runId, $runId], array_map(static fn (CollectSessionUsage $m): string => $m->runId, $this->usageRequests()));
     }
 
     public function test_close_without_a_run_returns_no_run(): void
@@ -243,6 +224,18 @@ final class CardRunToolsTest extends KernelTestCase
         self::assertInstanceOf($class, $service);
 
         return $service;
+    }
+
+    /** @return list<CollectSessionUsage> */
+    private function usageRequests(): array
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        return array_values(array_filter(
+            array_map(static fn (Envelope $envelope): object => $envelope->getMessage(), $transport->getSent()),
+            static fn (object $message): bool => $message instanceof CollectSessionUsage,
+        ));
     }
 
     private function runs(): InteractiveRuns

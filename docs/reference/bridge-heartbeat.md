@@ -245,8 +245,9 @@ a new run that continues that run. The server sends a rerun only to a bridge
 that reports both the `commands` and the `rerun-command` capabilities. A rerun
 holds no card, because the bridge starts a new run.
 
-A `collect-session-usage` command names an interactive run that
-`card_run_close` closed, while the run has no usage. The server sends it to
+A `collect-session-usage` command names an interactive run that closed,
+while the run has no usage. Each close asks: a `card_run_close` call, a person
+on the worker run page, a card move and a card delete. The server sends it to
 each bridge that reports both the `commands` and the `session-usage`
 capabilities. A run that a bridge launched goes to that bridge alone. Any
 other run goes to each such bridge of the owner that follows the project,
@@ -258,8 +259,8 @@ window from `startedAt` to `endedAt`. It sends that usage to
 [the session usage endpoint](worker-runs.md#reporting-the-usage-of-a-session)
 with the `runId` of the command, then answers `done`. A bridge that holds no
 transcript answers `refused`. So does a bridge whose report the server refused,
-such as with a 409. A close of a run that has no usage while no such command
-waits sends the commands again.
+such as with a 409. A `card_run_close` call on a closed run that has no usage
+sends the commands again, when no such command waits.
 
 ### Stop timings
 
