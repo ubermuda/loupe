@@ -105,37 +105,76 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
-    public function test_a_breakdown_worker_run_of_the_epic_may_move_its_child(): void
+    /** @return iterable<string, array{string}> */
+    public static function parentRunKinds(): iterable
     {
-        $this->bindLifecycle($this->project);
-        $epic = $this->card('in-progress', CardType::Epic);
-        $child = $this->card('next', parent: $epic);
-        $guard = $this->guard();
-        $target = $this->column($this->project, 'in-progress');
-
-        self::assertTrue($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown')));
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:implement')));
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::workflowRule('breakdown')));
+        yield 'breakdown' => ['breakdown'];
+        yield 'implement' => ['implement'];
     }
 
-    public function test_a_run_that_only_carries_the_breakdown_name_is_refused(): void
+    #[DataProvider('parentRunKinds')]
+    public function test_a_worker_run_of_the_parent_epic_may_move_its_child_from_the_backlog_to_implementation(string $workKind): void
     {
         $this->bindLifecycle($this->project);
         $epic = $this->card('in-progress', CardType::Epic);
-        $child = $this->card('next', parent: $epic);
-        $orphan = $this->card('next');
+        $child = $this->card('backlog', parent: $epic);
+
+        self::assertTrue($this->guard()->allows($child, $this->column($this->project, 'in-progress'), CardReporter::Agent, $this->runCause($epic, $workKind)));
+    }
+
+    public function test_a_run_of_the_parent_epic_may_make_only_the_move_the_template_names(): void
+    {
+        $this->bindLifecycle($this->project);
+        $epic = $this->card('in-progress', CardType::Epic);
+        $guard = $this->guard();
+        $cause = $this->runCause($epic, 'breakdown');
+
+        self::assertFalse($guard->allows($this->card('backlog', parent: $epic), $this->column($this->project, 'in-review'), CardReporter::Agent, $cause), 'a column the entry does not name');
+        self::assertFalse($guard->allows($this->card('next', parent: $epic), $this->column($this->project, 'in-progress'), CardReporter::Agent, $cause), 'a source the entry does not name');
+    }
+
+    public function test_only_a_stored_worker_run_of_the_parent_matches_a_parent_run_move(): void
+    {
+        $this->bindLifecycle($this->project);
+        $epic = $this->card('in-progress', CardType::Epic);
+        $child = $this->card('backlog', parent: $epic);
+        $orphan = $this->card('backlog');
         $guard = $this->guard();
         $target = $this->column($this->project, 'in-progress');
         $elsewhere = $this->workflowProject('move-guard-elsewhere');
 
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', WorkerRunKind::Interactive)), 'an interactive run takes any name');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Human, null), 'a person');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::workflowRule('breakdown')), 'a rule');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', WorkerRunKind::Interactive)), 'an interactive run');
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', project: $elsewhere)), 'a run of another project');
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'breakdown')), 'no stored run');
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a run of a card that is not the parent');
         self::assertFalse($guard->allows($orphan, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a card with no parent');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', state: WorkerRunState::Succeeded)), 'a run that ended');
     }
 
-    private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null): CardEventCause
+    public function test_a_resumed_session_whose_cause_is_an_older_child_run_still_moves_the_child_for_its_open_parent_run(): void
+    {
+        $this->bindLifecycle($this->project);
+        $epic = $this->card('in-progress', CardType::Epic);
+        $child = $this->card('backlog', parent: $epic);
+        $target = $this->column($this->project, 'in-progress');
+        $session = Uuid::v7();
+        $childRun = $this->runCause($child, 'implement', state: WorkerRunState::Succeeded, sessionId: $session);
+
+        self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'no parent run in the session');
+
+        $this->runCause($epic, 'implement', sessionId: $session);
+        $this->runCause($epic, 'implement', kind: WorkerRunKind::Interactive, sessionId: $session);
+        self::assertTrue($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'an open parent worker run behind a newer interactive one');
+
+        $other = Uuid::v7();
+        $otherChildRun = $this->runCause($child, 'implement', state: WorkerRunState::Succeeded, sessionId: $other);
+        $this->runCause($epic, 'implement', kind: WorkerRunKind::Interactive, sessionId: $other);
+        self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $otherChildRun), 'an interactive parent run alone');
+    }
+
+    private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null, WorkerRunState $state = WorkerRunState::Running, ?Uuid $sessionId = null): CardEventCause
     {
         $run = new WorkerRun(
             project: $project ?? $this->project,
@@ -144,7 +183,8 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
             subjectId: $this->idOf($card),
             cardNumber: $card->number,
             workKind: $rule,
-            state: WorkerRunState::Running,
+            state: $state,
+            sessionId: $sessionId,
             kind: $kind,
         );
         $this->em()->persist($run);

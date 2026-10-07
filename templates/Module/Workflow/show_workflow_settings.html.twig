@@ -93,11 +93,13 @@
         <twig:DataTable :columns="[
             {label: 'workflow.settings.moves.from'|trans},
             {label: 'workflow.settings.moves.to'|trans},
+            {label: 'workflow.settings.moves.by'|trans},
         ]">
             {% for move in template.manualMoves %}
             <div class="lp-data-table__row" data-manual-move>
                 <span class="lp-data-table__cell">{{ move.fromKey|trans }}</span>
                 <span class="lp-data-table__cell">{{ move.toKey|trans }}</span>
+                <span class="lp-data-table__cell" data-manual-move-by>{{ move.byKey|trans }}</span>
             </div>
             {% endfor %}
         </twig:DataTable>

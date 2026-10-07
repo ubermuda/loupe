@@ -7338,9 +7338,12 @@
             <trans-unit id="workflow.settings.action.release"><source>workflow.settings.action.release</source><target>Release the pause</target></trans-unit>
             <trans-unit id="workflow.settings.action.evaluate"><source>workflow.settings.action.evaluate</source><target>Evaluate the children again</target></trans-unit>
             <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
-            <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A person may move a managed card along these paths.</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A managed card may move along these paths outside the rules.</target></trans-unit>
             <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
             <trans-unit id="workflow.settings.moves.to"><source>workflow.settings.moves.to</source><target>To</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.by"><source>workflow.settings.moves.by</source><target>Who</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.by.anyone"><source>workflow.settings.moves.by.anyone</source><target>Anyone</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.by.parent_run"><source>workflow.settings.moves.by.parent_run</source><target>A run of the parent epic</target></trans-unit>
             <trans-unit id="workflow.settings.moves.none"><source>workflow.settings.moves.none</source><target>This template allows no manual moves.</target></trans-unit>
             <trans-unit id="workflow.settings.timings.heading"><source>workflow.settings.timings.heading</source><target>Retry timings</target></trans-unit>
             <trans-unit id="workflow.settings.timings.backoff"><source>workflow.settings.timings.backoff</source><target>Retry delays: %minutes% minutes</target></trans-unit>
