@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Board\Mcp;
 
 use App\Exception\DomainErrors;
-use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Install\BoardInstallFlags;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
@@ -22,30 +20,17 @@ use Mcp\Exception\ToolCallException;
  * @phpstan-import-type CardSummary from CardPayload
  */
 #[McpTool(name: self::NAME, description: 'Add a card to the project board. Give it a title, a Markdown body and a type (feature, bug, security, tooling, docs, idea, epic, site-review). An epic groups the child cards that together build one feature. Pass parentCardId to put the new card under an epic of this project. Only an epic can be a parent, and an epic cannot have a parent. laneEnabled says whether the board draws a lane for an epic, and it defaults to true. With no status, the card lands in Backlog, whose slug is backlog. The board does not draw Backlog as a column, and Backlog has its own page. To place the card elsewhere, pass status, the slug of a column. Each board has its own columns, and board_columns lists them. A terminal column is where finished work goes, and a card created in one gets a completion time. Pass pullRequestUrls to link the pull requests that carry the work; a URL from an unrecognised forge is kept as given rather than rejected. Pass documentIds to link the documents the work is written up in; unlike a pull request URL, an id naming no document of this project is refused rather than kept. The card records reporter agent unless you pass human, which says a person raised it and you are only writing it down. Passing reviewer is refused: the site-review widget writes that value, and it means somebody the app could not name raised the card. origin is the old name for reporter and still works for one release, so move to reporter; when you send both, reporter wins. Pass relatedCards to link other cards of this project. Each entry takes a cardId and a kind: relates-to (the default), blocks or blocked-by. A link to the card itself, to a card outside this project, or to one card twice is refused. The response carries a number, the short label that counts from 1 inside this project. Say "card 42" and name a branch after it. It is not the cardId, and another project has its own card 42. card_get and card_update accept it, so use the cardId or the number to read or change it.')]
-final readonly class CardCreateTool implements FlagGatedToolInterface
+final readonly class CardCreateTool
 {
     public const string NAME = 'card_create';
 
     public function __construct(
-        private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
         private CreateCardHandler $createCard,
         private ShowCardHandler $showCard,
         private CardPayload $payload,
         private BoardToolErrorMessages $errorMessages,
     ) {
-    }
-
-    #[\Override]
-    public function gatedToolName(): string
-    {
-        return self::NAME;
-    }
-
-    #[\Override]
-    public function requiredFlag(): string
-    {
-        return BoardInstallFlags::FLAG_BOARD_ENABLED;
     }
 
     /**
@@ -69,8 +54,6 @@ final readonly class CardCreateTool implements FlagGatedToolInterface
      */
     public function __invoke(string $title, string $body, string $type, ?string $status = null, ?string $reporter = null, array $pullRequestUrls = [], array $documentIds = [], ?string $origin = null, #[Schema(items: BoardSubjectResolver::RELATED_CARD_ITEM)] array $relatedCards = [], ?string $parentCardId = null, ?bool $laneEnabled = null): array
     {
-        $this->gate->requireEnabled();
-
         $reporter ??= $origin;
 
         try {

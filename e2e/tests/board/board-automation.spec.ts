@@ -4,12 +4,7 @@
  * a reload, because the server is what decides.
  */
 
-import {
-    test,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
 const RUN = Date.now();
@@ -17,16 +12,6 @@ const PASSWORD = 'E2eBoardAutomation1!';
 
 // Under a loaded run, the POST and the redirected GET take longer than the 5 s default.
 const ROUND_TRIP = { timeout: process.env.COVERAGE ? 20_000 : 15_000 };
-
-async function setBoardFlag(
-    request: APIRequestContext,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
 
 async function registerAndLogin(page: Page, email: string): Promise<void> {
     const response = await page.request.post('/dev/register-and-verify', {
@@ -52,10 +37,6 @@ async function seedProject(page: Page): Promise<string> {
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test.afterAll(async ({ request }) => {
-    await setBoardFlag(request, true);
-});
-
 test('the owner changes the automation settings and reads them back', async ({
     page,
 }) => {
@@ -63,7 +44,6 @@ test('the owner changes the automation settings and reads them back', async ({
     test.slow();
     await suppressToolbar(page);
     await suppressWidget(page);
-    await setBoardFlag(page.request, true);
     await registerAndLogin(page, `e2e+automation+${RUN}@example.com`);
     const projectId = await seedProject(page);
 

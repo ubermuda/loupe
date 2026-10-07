@@ -10,7 +10,6 @@ use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Form\SaveBoardAutomationSettingsFormType;
 use App\Module\Board\Form\SaveBoardAutomationSettingsRequest;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,15 +29,12 @@ final class EditBoardAutomationSettingsController extends AppController
     public function __construct(
         private readonly BoardAutomation $automation,
         private readonly SaveBoardAutomationSettingsHandler $saveSettings,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
 
     public function __invoke(Request $request, Project $project): Response
     {
-        $this->board->requireEnabled();
-
         $data = SaveBoardAutomationSettingsRequest::fromSettings($this->automation->settingsOf($project));
         $form = $this->createForm(SaveBoardAutomationSettingsFormType::class, $data);
         $form->handleRequest($request);
@@ -54,6 +50,8 @@ final class EditBoardAutomationSettingsController extends AppController
                 changeBase: $data->changeBase,
                 epicDraftSwitch: $data->epicDraftSwitch,
                 closeEpicPullRequests: $data->closeEpicPullRequests,
+                openEpicPullRequests: $data->openEpicPullRequests,
+                epicBranchPattern: $data->epicBranchPattern,
             ));
             $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 

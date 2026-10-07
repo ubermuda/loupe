@@ -572,9 +572,8 @@ A resume prompt ends with a different footer, described in
 
 Before it subscribes, the bridge reads each mapped project from the columns
 endpoint. An unknown project slug stops the bridge. The error lists the valid
-slugs. The error also says when the board is switched off on the instance, and
-when the server is too old for this bridge version because it has no such
-endpoint. Upgrade Loupe before you upgrade the bridge.
+slugs. The error also says when the server is too old for this bridge version
+because it has no such endpoint. Upgrade Loupe before you upgrade the bridge.
 
 `loupe bridge reload` runs the same checks. A check that fails there keeps the
 old file, and the bridge runs on.

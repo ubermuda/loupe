@@ -9,7 +9,6 @@ use App\Module\Board\Command\ListBacklogCardsCommand;
 use App\Module\Board\Command\ListBacklogCardsHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
@@ -32,7 +31,6 @@ final class ListBacklogCardsController extends AppController
 {
     public function __construct(
         private readonly ListBacklogCardsHandler $listBacklogCards,
-        private readonly BoardAvailability $board,
     ) {
     }
 
@@ -41,8 +39,6 @@ final class ListBacklogCardsController extends AppController
         #[MapEntity(id: 'projectId')] Project $project,
         #[MapEntity(expr: 'repository.findBacklogForProjectId(projectId)')] BoardColumn $backlog,
     ): Response {
-        $this->board->requireEnabled();
-
         $listQuery = BacklogListQuery::fromQuery($request->query);
         $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));
 

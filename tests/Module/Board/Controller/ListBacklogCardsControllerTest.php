@@ -21,7 +21,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-page@example.com');
         $project = $this->project($em, $owner);
@@ -47,7 +46,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-headers@example.com');
         $project = $this->project($em, $owner);
@@ -89,7 +87,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-old-sort@example.com');
         $project = $this->project($em, $owner);
@@ -110,7 +107,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-paging@example.com');
         $project = $this->project($em, $owner);
@@ -137,7 +133,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-empty@example.com');
         $project = $this->project($em, $owner);
@@ -157,7 +152,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-filters@example.com');
         $project = $this->project($em, $owner);
@@ -187,7 +181,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-no-match@example.com');
         $project = $this->project($em, $owner);
@@ -207,7 +200,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-clamp-filters@example.com');
         $project = $this->project($em, $owner);
@@ -225,7 +217,6 @@ final class ListBacklogCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-live@example.com');
         $project = $this->project($em, $owner);
@@ -249,28 +240,10 @@ final class ListBacklogCardsControllerTest extends WebTestCase
         self::assertSame($url.'?type=bug', $notice->filter('a')->attr('href'));
     }
 
-    public function test_the_backlog_is_not_found_while_the_flag_is_off(): void
-    {
-        $client = static::createClient();
-        $this->disableBoard();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'backlog-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $url = $this->backlogUrl($project);
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $url);
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
     public function test_a_stranger_is_forbidden(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-owner@example.com');
         $stranger = $this->user($em, 'backlog-stranger@example.com');

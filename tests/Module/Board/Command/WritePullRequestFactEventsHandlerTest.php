@@ -44,7 +44,6 @@ final class WritePullRequestFactEventsHandlerTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $this->enableBoard();
         $this->project = $this->makeProject('pull-request-events');
         $this->pullRequest = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
         $this->em->persist($this->pullRequest);
@@ -206,7 +205,6 @@ final class WritePullRequestFactEventsHandlerTest extends KernelTestCase
         $this->handler()(new WritePullRequestFactEventsCommand($this->pullRequest, new PullRequestSnapshot(), $current, PullRequestReview::ChangesRequested));
 
         self::assertSame(['pull_request.review_submitted', 'pull_request.checks_concluded', 'pull_request.conflicted'], array_column($this->outbox(), 'type'));
-        self::assertSame(0, $this->countForCard('board_card_automations', $card));
         self::assertSame(0, $this->countForCard('board_card_events', $card));
     }
 
@@ -298,16 +296,6 @@ final class WritePullRequestFactEventsHandlerTest extends KernelTestCase
         $this->dispatch(new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA), PullRequestReview::Approved));
 
         self::assertSame(['pull_request.review_submitted', 'pull_request.checks_concluded'], array_column($this->outbox(), 'type'));
-    }
-
-    public function test_the_listener_does_nothing_while_the_board_is_off(): void
-    {
-        $this->disableBoard();
-        $this->linkedCard();
-
-        $this->dispatch(new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA), PullRequestReview::Approved));
-
-        self::assertSame([], $this->outbox());
     }
 
     private function handle(PullRequestSnapshot $previous, PullRequestSnapshot $current): void

@@ -7,7 +7,6 @@ namespace App\Module\Board\EventListener;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardDocumentRepository;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Review\ReviewEventType;
 use App\Outbox\OutboxWriter;
@@ -29,17 +28,12 @@ final readonly class WriteOutboxEventOnReviewSubmitted
 {
     public function __construct(
         private CardDocumentRepository $cardDocuments,
-        private BoardAvailability $board,
         private OutboxWriter $outbox,
     ) {
     }
 
     public function __invoke(ReviewSubmitted $event): void
     {
-        if (!$this->board->isEnabled()) {
-            return;
-        }
-
         $document = $event->review->version->document;
         $cardIds = array_map(static fn (CardDocument $link): string => (string) $link->card->id, $this->cardDocuments->findForDocument($document));
 

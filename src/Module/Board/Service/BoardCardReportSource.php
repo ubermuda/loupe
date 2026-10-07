@@ -21,14 +21,13 @@ final readonly class BoardCardReportSource implements CardReportSourceInterface
         private CardRepository $cards,
         private CardEventRepository $cardEvents,
         private CardPullRequestRepository $cardPullRequests,
-        private BoardAvailability $board,
     ) {
     }
 
     #[\Override]
     public function columnsFor(Project $project, array $cardIds): array
     {
-        if ([] === $cardIds || !$this->board->isEnabled()) {
+        if ([] === $cardIds) {
             return [];
         }
 
@@ -43,7 +42,7 @@ final readonly class BoardCardReportSource implements CardReportSourceInterface
     #[\Override]
     public function outcomesFor(Project $project, array $cardIds): array
     {
-        if ([] === $cardIds || !$this->board->isEnabled()) {
+        if ([] === $cardIds) {
             return [];
         }
 
@@ -87,10 +86,6 @@ final readonly class BoardCardReportSource implements CardReportSourceInterface
     #[\Override]
     public function historyStartFor(Project $project): ?\DateTimeImmutable
     {
-        if (!$this->board->isEnabled()) {
-            return null;
-        }
-
         return $this->cardEvents->findFirstOccurredAt($project);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Condition;
 
+use App\Module\Workflow\Condition\CardChildMergedIntoEpicBranch;
 use App\Module\Workflow\Condition\CardChildrenFinished;
 use App\Module\Workflow\Condition\CardDocument;
 use App\Module\Workflow\Condition\CardDocumentApproved;
@@ -54,6 +55,9 @@ final class CardConditionsTest extends TestCase
         yield 'a child open' => [new CardChildrenFinished(), [], self::card(childCount: 2, openChildCount: 1), false];
         yield 'no child counts as finished' => [new CardChildrenFinished(), [], self::card(childCount: 0, openChildCount: 0), true];
 
+        yield 'a child merged into the epic branch' => [new CardChildMergedIntoEpicBranch(), [], self::card(childCount: 1, childMergedIntoEpicBranch: true), true];
+        yield 'no child merged into the epic branch' => [new CardChildMergedIntoEpicBranch(), [], self::card(childCount: 1), false];
+
         $approvedDesign = new DocumentFacts(tags: ['design'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
         $changesOnDesign = new DocumentFacts(tags: ['plan', 'design'], status: 'changes-requested', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
         $approvedProduct = new DocumentFacts(tags: ['product'], status: 'approved', id: '01a10beb-ba65-736b-8626-a6e3fa59dfc5');
@@ -103,6 +107,7 @@ final class CardConditionsTest extends TestCase
         yield 'card.is_child' => [new CardIsChild(), [], 'workflow.waiting.card_is_child', []];
         yield 'card.has_children' => [new CardHasChildren(), [], 'workflow.waiting.card_has_children', []];
         yield 'card.children_finished' => [new CardChildrenFinished(), [], 'workflow.waiting.card_children_finished', []];
+        yield 'card.child_merged_into_epic_branch' => [new CardChildMergedIntoEpicBranch(), [], 'workflow.waiting.card_child_merged_into_epic_branch', []];
         yield 'card.document' => [new CardDocument(), ['tag' => 'design'], 'workflow.waiting.card_document', ['%tag%' => 'design']];
         yield 'card.document_approved' => [new CardDocumentApproved(), ['tag' => 'design'], 'workflow.waiting.card_document_approved', ['%tag%' => 'design']];
         yield 'card.document_changes_requested' => [new CardDocumentChangesRequested(), ['tag' => 'design'], 'workflow.waiting.card_document_changes_requested', ['%tag%' => 'design']];
@@ -139,6 +144,7 @@ final class CardConditionsTest extends TestCase
         yield 'card.is_child' => [new CardIsChild(), [], [FactKey::Parent]];
         yield 'card.has_children' => [new CardHasChildren(), [], [FactKey::Children]];
         yield 'card.children_finished' => [new CardChildrenFinished(), [], [FactKey::Children]];
+        yield 'card.child_merged_into_epic_branch' => [new CardChildMergedIntoEpicBranch(), [], [FactKey::Children]];
         yield 'card.document' => [new CardDocument(), ['tag' => 'design'], [FactKey::Documents]];
         yield 'card.document with a status' => [new CardDocument(), ['tag' => 'design', 'status' => 'approved'], [FactKey::Documents]];
         yield 'card.document_approved' => [new CardDocumentApproved(), ['tag' => 'design'], [FactKey::Documents]];
@@ -154,6 +160,7 @@ final class CardConditionsTest extends TestCase
         int $childCount = 0,
         int $openChildCount = 0,
         array $documents = [],
+        bool $childMergedIntoEpicBranch = false,
     ): Facts {
         return FactsMother::facts(card: FactsMother::card(
             slot: $slot,
@@ -163,6 +170,7 @@ final class CardConditionsTest extends TestCase
             childCount: $childCount,
             openChildCount: $openChildCount,
             documents: $documents,
+            childMergedIntoEpicBranch: $childMergedIntoEpicBranch,
         ));
     }
 }

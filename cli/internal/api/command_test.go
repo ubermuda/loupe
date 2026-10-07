@@ -156,7 +156,7 @@ func TestAckCommandNamesEachFailure(t *testing.T) {
 	}{
 		"command gone": {http.StatusNotFound, `{"error":"command_not_found"}`, true, ""},
 		"old server":   {http.StatusNotFound, ``, false, "HTTP 404"},
-		"other code":   {http.StatusNotFound, `{"error":"board_disabled"}`, false, "HTTP 404"},
+		"other code":   {http.StatusNotFound, `{"error":"project_not_found"}`, false, "HTTP 404"},
 		"invalid":      {http.StatusUnprocessableEntity, `{"error":"invalid_state"}`, false, "invalid_state"},
 		"server error": {http.StatusInternalServerError, `boom`, false, "HTTP 500"},
 	} {

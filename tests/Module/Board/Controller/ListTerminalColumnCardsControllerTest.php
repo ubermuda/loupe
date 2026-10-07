@@ -20,7 +20,6 @@ final class ListTerminalColumnCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'done-history@example.com');
         $project = $this->project($em, $owner);
@@ -46,7 +45,6 @@ final class ListTerminalColumnCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'done-paging@example.com');
         $project = $this->project($em, $owner);
@@ -76,7 +74,6 @@ final class ListTerminalColumnCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'done-open-column@example.com');
         $project = $this->project($em, $owner);
@@ -97,7 +94,6 @@ final class ListTerminalColumnCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'done-cross-board@example.com');
         $mine = $this->project($em, $owner, 'mine');
@@ -111,28 +107,10 @@ final class ListTerminalColumnCardsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function test_the_history_is_not_found_while_the_flag_is_off(): void
-    {
-        $client = static::createClient();
-        $this->disableBoard();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'done-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $url = $this->historyUrl($project, 'done');
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $url);
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
     public function test_a_stranger_is_forbidden(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'done-owner@example.com');
         $stranger = $this->user($em, 'done-stranger@example.com');
@@ -150,7 +128,6 @@ final class ListTerminalColumnCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'done-redirect@example.com');
         $project = $this->project($em, $owner);
@@ -172,7 +149,6 @@ final class ListTerminalColumnCardsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'done-redirect-owner@example.com');
         $stranger = $this->user($em, 'done-redirect-stranger@example.com');

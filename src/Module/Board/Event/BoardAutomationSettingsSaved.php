@@ -13,6 +13,8 @@ final readonly class BoardAutomationSettingsSaved
         public Project $project,
         /** True when this save switched the automation on. */
         public bool $turnedOn = false,
+        /** True when this save switched the opening of epic pull requests on. */
+        public bool $openEpicTurnedOn = false,
     ) {
     }
 }

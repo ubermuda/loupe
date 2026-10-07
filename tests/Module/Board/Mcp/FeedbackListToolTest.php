@@ -43,19 +43,8 @@ final class FeedbackListToolTest extends KernelTestCase
         $this->createTool = $createTool;
     }
 
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('feedback-list-flag-off'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)();
-    }
-
     public function test_the_default_lists_the_pending_feedback_with_its_card(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('feedback-list');
         $this->actAsMcpTokenBoundTo($project);
         $card = $this->card(($this->createTool)('Fix the header', 'Body', 'site-review')['cardId']);
@@ -108,7 +97,6 @@ final class FeedbackListToolTest extends KernelTestCase
 
     public function test_a_status_filter_narrows_the_list(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('feedback-list-status');
         $this->actAsMcpTokenBoundTo($project);
         $card = $this->card(($this->createTool)('Card', 'Body', 'site-review')['cardId']);
@@ -126,7 +114,6 @@ final class FeedbackListToolTest extends KernelTestCase
 
     public function test_an_unknown_status_is_refused(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('feedback-list-unknown'));
 
         $this->expectException(ToolCallException::class);
@@ -136,7 +123,6 @@ final class FeedbackListToolTest extends KernelTestCase
 
     public function test_another_projects_feedback_is_not_listed(): void
     {
-        $this->enableBoard();
         $theirs = $this->makeProject('feedback-list-theirs');
         $this->actAsMcpTokenBoundTo($theirs);
         $theirCard = $this->card(($this->createTool)('Theirs', 'Body', 'site-review')['cardId']);
@@ -153,7 +139,6 @@ final class FeedbackListToolTest extends KernelTestCase
 
     public function test_an_unbound_token_is_refused(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('feedback-list-unbound');
         $this->feedback($project, 0, 'Not reachable', null);
         $this->em->flush();

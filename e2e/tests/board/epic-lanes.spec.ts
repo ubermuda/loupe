@@ -10,7 +10,6 @@
 import {
     test as base,
     expect,
-    type APIRequestContext,
     type Browser,
     type Page,
 } from '@playwright/test';
@@ -29,17 +28,6 @@ const READY = '#board[data-board-drag-ready="true"]';
 // Stamped on the board on screen, so a test can prove the board changed in
 // place and was not replaced.
 const MARK = 'data-e2e-board-generation';
-
-async function setFlag(
-    request: APIRequestContext,
-    name: string,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name, enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
 
 async function login(page: Page, email: string): Promise<void> {
     await page.goto('/login');
@@ -247,7 +235,6 @@ const test = base.extend<{ board: Board; livePage: Page }>({
     board: async ({ page }, use, testInfo) => {
         await suppressToolbar(page);
         await suppressWidget(page);
-        await setFlag(page.request, 'board.enabled', true);
 
         const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
         const email = `e2e+epic-lanes+${tag}+${RUN}@example.com`;
@@ -271,22 +258,19 @@ const test = base.extend<{ board: Board; livePage: Page }>({
         });
     },
     // The default page sends the test headers to the hub too, and the hub refuses the preflight they cause.
-    livePage: async ({ browser, board, request }, use) => {
-        await setFlag(request, 'live_updates.enabled', true);
+    livePage: async ({ browser, board }, use) => {
         const page = await signedInPage(browser, board.email, PASSWORD);
         await use(page);
         await page.context().close();
     },
 });
 
+// Board pages run near the default budget beside three other workers.
+test.slow();
+
 test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1440, height: 900 },
-});
-
-// The flag is global, so it goes back to its shipped value, on, for later specs.
-test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', true);
 });
 
 test('each lane cell scrolls its own cards and the page stays still', async ({

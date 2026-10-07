@@ -46,7 +46,6 @@ final class MoveManagedCardControllerTest extends WebTestCase
         if (!$canManage) {
             $this->denyManage();
         }
-        $this->enableBoard();
 
         $em = $this->em();
         $owner = $this->user($em, 'managed-move-'.uniqid().'@example.com');

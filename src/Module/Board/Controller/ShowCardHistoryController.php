@@ -9,7 +9,6 @@ use App\Module\Board\Command\ShowCardHistoryCommand;
 use App\Module\Board\Command\ShowCardHistoryHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Security\CardVoter;
-use App\Module\Board\Service\BoardAvailability;
 use App\Session\ReadOnlyAwareSessionHandler;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,7 +30,6 @@ use Symfony\Component\Uid\Uuid;
 final class ShowCardHistoryController extends AppController
 {
     public function __construct(
-        private readonly BoardAvailability $board,
         private readonly ShowCardHistoryHandler $handler,
     ) {
     }
@@ -41,8 +39,6 @@ final class ShowCardHistoryController extends AppController
         #[MapQueryParameter] ?string $before = null,
         #[MapQueryParameter] ?string $beforeId = null,
     ): Response {
-        $this->board->requireEnabled();
-
         // createFromFormat() throws on a null byte instead of returning false.
         $beforeAt = null === $before || str_contains($before, "\0") ? false : \DateTimeImmutable::createFromFormat(ShowCardHistoryCommand::CURSOR_FORMAT, $before);
         if (false === $beforeAt || $beforeAt->format(ShowCardHistoryCommand::CURSOR_FORMAT) !== $before || null === $beforeId || !Uuid::isValid($beforeId)) {

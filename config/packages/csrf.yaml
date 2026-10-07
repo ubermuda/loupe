@@ -13,6 +13,7 @@ framework:
             - accept-terms
             - revoke-connected-app
             - submit-review
+            - document-publish
             - section-approval
             - comment-action
             - toggle-project-widget-forwarding

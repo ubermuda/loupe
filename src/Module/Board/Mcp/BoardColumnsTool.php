@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Mcp;
 
-use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\ListBoardColumnsCommand;
 use App\Module\Board\Command\ListBoardColumnsHandler;
-use App\Module\Board\Install\BoardInstallFlags;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -18,28 +16,15 @@ use Mcp\Exception\ToolCallException;
  * @phpstan-import-type BoardColumnSummary from BoardColumnPayload
  */
 #[McpTool(name: self::NAME, description: 'List the columns of the project board, in board order. Each board has its own columns, so read them here before you pass a status to card_create, card_update or card_list. Each column has a slug, a label, a terminal flag, a default flag and a backlog flag. The slug is the value you pass as status. The label is the name a person sees on the board. A terminal column is where finished work goes: a card that enters one gets a completion time. The row with backlog true is Backlog, slug backlog, where a new card lands when you pass no status. Its default flag is also true. The board does not draw Backlog as a column, and nobody can rename, reorder or delete it. Renaming a column changes its slug.')]
-final readonly class BoardColumnsTool implements FlagGatedToolInterface
+final readonly class BoardColumnsTool
 {
     public const string NAME = 'board_columns';
 
     public function __construct(
-        private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
         private ListBoardColumnsHandler $listColumns,
         private BoardColumnPayload $columns,
     ) {
-    }
-
-    #[\Override]
-    public function gatedToolName(): string
-    {
-        return self::NAME;
-    }
-
-    #[\Override]
-    public function requiredFlag(): string
-    {
-        return BoardInstallFlags::FLAG_BOARD_ENABLED;
     }
 
     /**
@@ -50,8 +35,6 @@ final readonly class BoardColumnsTool implements FlagGatedToolInterface
      */
     public function __invoke(): array
     {
-        $this->gate->requireEnabled();
-
         try {
             $view = ($this->listColumns)(new ListBoardColumnsCommand($this->subjects->requireProject()));
 

@@ -18,14 +18,12 @@ use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
@@ -93,8 +91,6 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Ubermuda\AuditBundle\Auditor;
-use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class EngineTest extends KernelTestCase
 {
@@ -940,23 +936,6 @@ final class EngineTest extends KernelTestCase
         self::assertSame(['fix'], $this->firedRules());
     }
 
-    public function test_a_card_evaluated_while_the_board_is_off_for_the_instance_gets_a_baseline_for_when_it_is_on(): void
-    {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
-        $this->setBoardEnabled(false);
-
-        $this->evaluate($card);
-
-        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
-
-        $this->setBoardEnabled(true);
-        $this->evaluate($card, '2026-10-02 12:01:00');
-
-        self::assertSame([], $this->liveRequests($card));
-        self::assertSame([], $this->firedRecords());
-        self::assertTrue($this->ruleState($card, 'work')->truth);
-    }
-
     public function test_a_project_with_no_workflow_is_left_alone(): void
     {
         self::bootKernel();
@@ -1244,6 +1223,44 @@ final class EngineTest extends KernelTestCase
         $this->childOf($epic, 'next');
         $this->evaluate($epic, '2026-10-02 12:30:00');
         self::assertSame('in-progress', $epic->column->slug);
+    }
+
+    public function test_a_lifecycle_epic_whose_last_child_merged_into_the_epic_branch_fires_the_open_rule_and_stays_out_of_done(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-epic-open');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $child = $this->childOf($epic, 'done');
+        $this->pullRequest($child, PullRequestState::Merged, base: 'epic/'.$epic->number);
+        $this->evaluate($epic);
+        $this->finish($this->liveRequests($epic)[0]);
+
+        $this->evaluate($epic, '2026-10-02 12:25:00');
+
+        self::assertSame('in-progress', $epic->column->slug);
+        $state = $this->ruleState($epic, 'epic-open-pull-request');
+        self::assertSame('open-epic-off', $state->lastRefusal);
+        self::assertNotNull($state->dueAt);
+    }
+
+    public function test_a_lifecycle_child_merged_into_the_epic_branch_asks_for_an_epic_preview_and_one_merged_into_main_does_not(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-epic-preview');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $intoEpic = $this->childOf($epic, 'done');
+        $this->pullRequest($intoEpic, PullRequestState::Merged, base: 'epic/'.$epic->number);
+        $intoMain = $this->childOf($epic, 'done');
+        $this->pullRequest($intoMain, PullRequestState::Merged);
+
+        $this->evaluate($intoEpic);
+        $this->evaluate($intoMain);
+
+        $kinds = fn (Card $card): array => array_map(static fn (WorkRequest $request): string => $request->kind, $this->liveRequests($card));
+        self::assertEqualsCanonicalizing(['epic-preview', 'teardown'], $kinds($intoEpic));
+        self::assertSame(['teardown'], $kinds($intoMain));
     }
 
     public function test_a_card_evaluations_call_evaluates_the_card_and_its_provided_fact_fires_the_rule(): void
@@ -1669,6 +1686,7 @@ final class EngineTest extends KernelTestCase
                 $forgePullRequests,
                 $workRequests,
                 $this->providers(),
+                $this->service(BoardAutomation::class),
                 $this->em()->getConnection(),
             ),
             new FactFingerprint(),
@@ -1726,7 +1744,7 @@ final class EngineTest extends KernelTestCase
         $events = new EventDispatcher();
         $events->addListener(CardHoldsReleased::class, new BaselineCardsOnCardHoldsReleased(
             $this->service(WorkflowPendingBaselineRepository::class),
-            new EvaluationTrigger($this->service(MessageBusInterface::class), $this->service(BoardAvailability::class)),
+            new EvaluationTrigger($this->service(MessageBusInterface::class)),
         ));
         $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), new MockClock(self::NOON), $events);
 
@@ -1751,12 +1769,6 @@ final class EngineTest extends KernelTestCase
             $settings->mergePullRequests,
             $settings->changeBase,
         ));
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $this->service(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->service(DoctrineFeatureFlagReader::class)->reset();
     }
 
     private function requestChangesOnHead(ForgePullRequest $pullRequest): void

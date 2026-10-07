@@ -118,6 +118,7 @@ final readonly class CreateDocumentHandler
                 'referenceCount' => \count($references),
                 'inSeries' => null !== $document->series,
                 'workLinkCount' => null === $command->workLinkIds ? null : \count($command->workLinkIds),
+                'draft' => $command->draft,
             ],
             new AuditSubject('document', (string) $document->id),
         );

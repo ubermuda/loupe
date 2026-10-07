@@ -13,4 +13,5 @@ enum ForgeWriteKind: string
     case Draft = 'draft';
     case Ready = 'ready';
     case Close = 'close';
+    case OpenEpic = 'open-epic';
 }

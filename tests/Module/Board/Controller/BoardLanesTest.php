@@ -25,7 +25,6 @@ final class BoardLanesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'lanes-none@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -47,7 +46,6 @@ final class BoardLanesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'lanes-draw@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -116,7 +114,6 @@ final class BoardLanesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'lanes-off@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -158,7 +155,6 @@ final class BoardLanesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'lanes-stream@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -191,7 +187,6 @@ final class BoardLanesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'lanes-refused@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -219,7 +214,6 @@ final class BoardLanesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'lanes-done@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -248,7 +242,6 @@ final class BoardLanesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'lanes-deck@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -296,7 +289,6 @@ final class BoardLanesTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'lanes-queries@example.com');
         $plain = $this->project($em, $owner, 'plain');
         $this->addTriageColumn($plain);

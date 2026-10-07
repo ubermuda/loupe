@@ -98,7 +98,7 @@ final class CardHistoryEntryTest extends TestCase
             '%pr%' => 42,
         ]), $entry->sentence);
         self::assertEquals(new TranslatableMessage('board.card.history.reason', [
-            '%reason%' => new TranslatableMessage('board.card.automation.reason.checks_failed'),
+            '%reason%' => new TranslatableMessage('board.card.history.reason.checks_failed'),
         ]), $entry->cause);
     }
 
@@ -112,7 +112,7 @@ final class CardHistoryEntryTest extends TestCase
             '%pr%' => 42,
         ]), $entry->sentence);
         self::assertEquals(new TranslatableMessage('board.card.history.reason', [
-            '%reason%' => new TranslatableMessage('board.card.automation.reason.conflict'),
+            '%reason%' => new TranslatableMessage('board.card.history.reason.conflict'),
         ]), $entry->cause);
     }
 
@@ -121,7 +121,7 @@ final class CardHistoryEntryTest extends TestCase
         $entry = CardHistoryEntry::of($this->event(CardEventKind::Stopped, CardReporter::System, null, ['reason' => 'changes-requested', 'pullRequest' => 42]));
 
         self::assertEquals(new TranslatableMessage('board.card.history.reason', [
-            '%reason%' => new TranslatableMessage('board.card.automation.reason.changes_requested'),
+            '%reason%' => new TranslatableMessage('board.card.history.reason.changes_requested'),
         ]), $entry->cause);
     }
 

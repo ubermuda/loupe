@@ -22,20 +22,18 @@
             {% if is_feature_enabled('inbox.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.openInboxItemCount }}</span>{% endif %}
             <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.requests'|trans }}</strong>{{ is_feature_enabled('inbox.enabled') ? 'project.workshop.summary.requests_detail'|trans : 'project.workshop.needs_you.disabled'|trans }}</span>
         {% if is_feature_enabled('inbox.enabled') %}</a>{% else %}</div>{% endif %}
-        {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="open-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="open-cards">{% endif %}
-            {% if is_feature_enabled('board.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.openCardCount }}</span>{% endif %}
-            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.cards'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.summary.cards_detail'|trans : 'project.workshop.cards.disabled'|trans }}</span>
-        {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
-        {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="completed-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="completed-cards">{% endif %}
-            {% if is_feature_enabled('board.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.completedCardCount }}</span>{% endif %}
-            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.completed'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.summary.completed_detail'|trans : 'project.workshop.cards.disabled'|trans }}</span>
-        {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
-        {% if is_feature_enabled('board.enabled') %}
+        <a class="lp-workshop-stat" data-workshop-stat="open-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
+            <span class="lp-workshop-stat__value">{{ workshop.stats.openCardCount }}</span>
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.cards'|trans }}</strong>{{ 'project.workshop.summary.cards_detail'|trans }}</span>
+        </a>
+        <a class="lp-workshop-stat" data-workshop-stat="completed-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
+            <span class="lp-workshop-stat__value">{{ workshop.stats.completedCardCount }}</span>
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.completed'|trans }}</strong>{{ 'project.workshop.summary.completed_detail'|trans }}</span>
+        </a>
         <a class="lp-btn lp-workshop-summary__action" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
             <twig:ux:icon name="lucide:square-kanban" />
             {{ 'project.workshop.in_motion.action'|trans }}
         </a>
-        {% endif %}
     </div>
 
     <div class="lp-workshop-layout">
@@ -64,9 +62,9 @@
         <section class="lp-workshop-section">
             <div class="lp-section-heading">
                 <h2 class="lp-workshop-section__title">{{ 'project.workshop.in_motion.title'|trans }}</h2>
-                {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-text-link" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{{ 'project.workshop.in_motion.action'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>{% endif %}
+                <a class="lp-workshop-text-link" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{{ 'project.workshop.in_motion.action'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>
             </div>
-            {% if is_feature_enabled('board.enabled') %}{% do mercure_subscribe(board_topic(workshop.project)) %}{% endif %}
+            {% do mercure_subscribe(board_topic(workshop.project)) %}
             <div class="lp-live-frame"
                  data-controller="worker-run-refresh"
                  data-worker-run-refresh-url-value="{{ path('app_project_workshop_in_motion', {id: workshop.project.id}) }}"
