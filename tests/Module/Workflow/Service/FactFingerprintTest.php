@@ -21,6 +21,10 @@ use PHPUnit\Framework\TestCase;
 
 final class FactFingerprintTest extends TestCase
 {
+    private const array WORKER_KINDS = ['implement', 'fix'];
+
+    private const array PARENT_KINDS = ['breakdown', 'plan'];
+
     public function test_the_same_facts_give_the_same_sha256(): void
     {
         $keys = FactKey::cases();
@@ -41,7 +45,7 @@ final class FactFingerprintTest extends TestCase
             ]),
             pullRequest: FactsMother::pullRequest(checks: ChecksState::Passed),
             pullRequests: [FactsMother::pullRequest(state: PullRequestState::Closed), FactsMother::pullRequest(checks: ChecksState::Passed)],
-            run: FactsMother::run(['review', 'implement'], 'no-capacity'),
+            run: FactsMother::run(['review', 'implement'], 'no-capacity', ['fix', 'implement'], ['plan', 'breakdown']),
             now: new \DateTimeImmutable('2030-01-01'),
         );
 
@@ -72,8 +76,10 @@ final class FactFingerprintTest extends TestCase
         yield 'documents' => [FactKey::Documents, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: [new DocumentFacts(['product'], 'approved', '01a10beb-ba65-736b-8626-a6e3fa59dfc5')]), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'pull request' => [FactKey::PullRequest, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed), pullRequests: self::all(), run: self::workRun())];
         yield 'pull requests' => [FactKey::PullRequests, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: [self::primary()], run: self::workRun())];
-        yield 'work requests' => [FactKey::WorkRequests, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement'], 'no-capacity'))];
-        yield 'refusal' => [FactKey::Refusal, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-bridge'))];
+        yield 'work requests' => [FactKey::WorkRequests, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement'], 'no-capacity', self::WORKER_KINDS, self::PARENT_KINDS))];
+        yield 'refusal' => [FactKey::Refusal, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-bridge', self::WORKER_KINDS, self::PARENT_KINDS))];
+        yield 'worker runs' => [FactKey::WorkerRuns, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-capacity', ['implement'], self::PARENT_KINDS))];
+        yield 'parent work' => [FactKey::ParentWork, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-capacity', self::WORKER_KINDS, ['plan']))];
     }
 
     #[DataProvider('changes')]
@@ -168,6 +174,6 @@ final class FactFingerprintTest extends TestCase
 
     private static function workRun(): RunFacts
     {
-        return FactsMother::run(['implement', 'review'], 'no-capacity');
+        return FactsMother::run(['implement', 'review'], 'no-capacity', self::WORKER_KINDS, self::PARENT_KINDS);
     }
 }

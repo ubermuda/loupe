@@ -163,6 +163,7 @@ final readonly class CardWorkflowPanelBuilder
             ActionType::ForgeWrite => $this->translator->trans('workflow.panel.action.forge_write', ['%write%' => ActionParams::string($rule, 'write')]),
             ActionType::Pause => $this->translator->trans('workflow.panel.action.pause'),
             ActionType::Release => $this->translator->trans('workflow.panel.action.release'),
+            ActionType::Evaluate => $this->translator->trans('workflow.panel.action.evaluate'),
         };
     }
 

@@ -269,6 +269,27 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals($toImplementation, $this->actions($inBacklog));
     }
 
+    public function test_a_child_in_the_backlog_waits_while_the_breakdown_of_its_epic_runs(): void
+    {
+        $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
+        $child = FactsMother::card(slot: '@backlog', isChild: true);
+
+        self::assertNotContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['breakdown']))));
+        self::assertContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['implement']))));
+        self::assertContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child)));
+    }
+
+    public function test_an_epic_in_implementation_evaluates_its_children_once_no_breakdown_runs(): void
+    {
+        $evaluate = new ActionCall(ActionType::Evaluate, ['cards' => 'children']);
+        $epic = FactsMother::card(slot: 'implementation', type: 'epic', childCount: 2, openChildCount: 2);
+
+        self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic, run: FactsMother::run(activeWorkerKinds: ['breakdown']))));
+        self::assertContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic, run: FactsMother::run(activeWorkerKinds: ['fix']))));
+        self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: FactsMother::card(slot: 'implementation'))));
+        self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: FactsMother::card(slot: 'in-review', type: 'epic', childCount: 2, openChildCount: 2))));
+    }
+
     /** @param list<string> $pair */
     #[DataProvider('overlaps')]
     public function test_only_one_rule_of_an_overlapping_pair_fires(Facts $facts, array $pair, ?string $fires): void

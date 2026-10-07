@@ -17,4 +17,6 @@ enum FactKey: string
     case PullRequests = 'pull-requests';
     case WorkRequests = 'work-requests';
     case Refusal = 'refusal';
+    case WorkerRuns = 'worker-runs';
+    case ParentWork = 'parent-work';
 }
