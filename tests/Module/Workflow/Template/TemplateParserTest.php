@@ -440,6 +440,19 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'two sibling any lists, one naming the type and one reading the children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [
+                ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]],
+                ['any' => [['card.children_finished' => []], ['pr.open' => []]]],
+            ]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'negated child read beside a type without children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['not' => ['card.children_finished' => []]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'evaluate of the children of a type without children' => [static function (array $t): array {
             $t['rules'][4]['when'] = ['card.type' => ['type' => 'bug']];
             $t['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];

@@ -222,16 +222,15 @@ final readonly class TemplateParser
     {
         $evaluatesChildren = ActionType::Evaluate === $rule->then->type && 'children' === ($rule->then->params['cards'] ?? null);
         $found = [];
-        foreach (self::allLists($rule->when) as $list) {
-            $leaves = array_filter($list, static fn (Expression $child): bool => $child instanceof ConditionLeaf);
-            if (!$evaluatesChildren && !array_any($leaves, static fn (ConditionLeaf $leaf): bool => \in_array(FactKey::Children, $leaf->reads(), true))) {
+        foreach (self::conjunctions($rule->when) as $members) {
+            if (!$evaluatesChildren && !array_any($members, static fn (Expression $member): bool => \in_array(FactKey::Children, $member->reads(), true))) {
                 continue;
             }
             $named = array_values(array_unique(array_map(
                 static fn (ConditionLeaf $leaf): string => ParameterValue::string($leaf->params, 'type'),
-                array_filter($leaves, static fn (ConditionLeaf $leaf): bool => $leaf->condition instanceof CardHasType),
+                array_filter($members, static fn (Expression $member): bool => $member instanceof ConditionLeaf && $member->condition instanceof CardHasType),
             )));
-            // A card has one type, so a list that names two can never hold.
+            // A card has one type, so a conjunction that names two can never hold.
             $type = 1 === \count($named) ? ($types[$named[0]] ?? null) : null;
             if (null !== $type && !$type->children) {
                 $found[$type->key] = true;
@@ -242,37 +241,30 @@ final readonly class TemplateParser
     }
 
     /**
-     * Each branch of an `any` also holds the members of the lists around it. A `not` turns the type leaves under it around, so its lists are not walked.
+     * The expression as the `any` of these conjunctions. A `not` stays one member, because it turns the type leaves under it around.
      *
-     * @param list<Expression> $around the members of the enclosing lists
-     *
-     * @return list<list<Expression>> the members of every conjunction that can hold for a card
+     * @return list<list<Expression>>
      */
-    private static function allLists(Expression $expression, array $around = []): array
+    private static function conjunctions(Expression $expression): array
     {
         if ($expression instanceof AnyOf) {
-            return array_merge(...array_map(static fn (Expression $branch): array => self::allLists($branch, $around), $expression->children));
+            return array_merge(...array_map(self::conjunctions(...), $expression->children));
         }
         if (!$expression instanceof AllOf) {
-            return [[...$around, $expression]];
+            return [[$expression]];
         }
-        $members = $around;
-        $branches = [];
-        foreach (self::conjuncts($expression) as $child) {
-            if ($child instanceof AnyOf) {
-                $branches[] = $child;
-            } else {
-                $members[] = $child;
+        $result = [[]];
+        foreach ($expression->children as $child) {
+            $next = [];
+            foreach ($result as $members) {
+                foreach (self::conjunctions($child) as $more) {
+                    $next[] = [...$members, ...$more];
+                }
             }
+            $result = $next;
         }
 
-        return [$members, ...array_merge(...array_map(static fn (AnyOf $any): array => self::allLists($any, $members), $branches))];
-    }
-
-    /** @return list<Expression> the members of the `all`, with each `all` inside it joined in */
-    private static function conjuncts(AllOf $all): array
-    {
-        return array_merge(...array_map(static fn (Expression $child): array => $child instanceof AllOf ? self::conjuncts($child) : [$child], $all->children));
+        return $result;
     }
 
     /**
