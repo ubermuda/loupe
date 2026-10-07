@@ -38,13 +38,14 @@ class ListReportsController extends AppController
 
     public function __invoke(Project $project, Request $request): Response
     {
-        $view = ($this->listReports)(new ListReportsCommand($project));
+        $view = ($this->listReports)(new ListReportsCommand($project, $request->query->getInt('page', 1)));
 
         return $this->render('@Insights/list_reports.html.twig', [
             'project' => $view->project,
             'analyses' => $view->analyses,
-            'moreAnalyses' => $view->more,
-            'analysisLimit' => ListReportsHandler::LIMIT,
+            'page' => $view->page,
+            'totalPages' => $view->totalPages,
+            'pageList' => $view->pageList,
             'settings' => $view->settings,
             'costMetric' => Metric::Cost,
             'startForm' => $this->getInjectedFormView($request, self::START_FORM)

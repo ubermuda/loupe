@@ -46,8 +46,18 @@ class AnalysisRepository extends ServiceEntityRepository
         return $this->findOneBy(['id' => Uuid::fromString($id), 'project' => $project]);
     }
 
+    public function countByProject(Project $project): int
+    {
+        return (int) $this->createQueryBuilder('a')
+            ->select('COUNT(a.id)')
+            ->andWhere('a.project = :project')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     /** @return list<Analysis> newest first */
-    public function findByProject(Project $project, ?int $limit = null): array
+    public function findByProject(Project $project, ?int $limit = null, int $offset = 0): array
     {
         return array_values($this->createQueryBuilder('a')
             ->andWhere('a.project = :project')
@@ -55,6 +65,7 @@ class AnalysisRepository extends ServiceEntityRepository
             ->orderBy('a.createdAt', 'DESC')
             ->addOrderBy('a.id', 'DESC')
             ->setMaxResults($limit)
+            ->setFirstResult($offset)
             ->getQuery()
             ->getResult());
     }

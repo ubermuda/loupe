@@ -7,6 +7,7 @@ namespace App\Module\Insights\Command;
 use App\Module\Insights\Entity\Analysis;
 use App\Module\Insights\Repository\AnalysisRepository;
 use App\Module\Insights\Repository\ProposalRepository;
+use App\Utils\PageList;
 
 final readonly class ListReportsHandler
 {
@@ -21,9 +22,9 @@ final readonly class ListReportsHandler
 
     public function __invoke(ListReportsCommand $command): ListReportsView
     {
-        $analyses = $this->analyses->findByProject($command->project, self::LIMIT + 1);
-        $more = \count($analyses) > self::LIMIT;
-        $analyses = \array_slice($analyses, 0, self::LIMIT);
+        $totalPages = max(1, (int) ceil($this->analyses->countByProject($command->project) / self::LIMIT));
+        $page = min(max(1, $command->page), $totalPages);
+        $analyses = $this->analyses->findByProject($command->project, self::LIMIT, ($page - 1) * self::LIMIT);
         $costs = $this->analyses->costsOf($command->project, $analyses);
         $proposals = $this->proposals->findByAnalyses($analyses);
 
@@ -34,7 +35,9 @@ final readonly class ListReportsHandler
                 $analyses,
             ),
             settings: ($this->showSettings)(new ShowAnalyticsSettingsCommand($command->project)),
-            more: $more,
+            page: $page,
+            totalPages: $totalPages,
+            pageList: PageList::build($page, $totalPages),
         );
     }
 }

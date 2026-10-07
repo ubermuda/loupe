@@ -13,8 +13,10 @@ final readonly class ListReportsView
         public Project $project,
         public array $analyses,
         public AnalyticsSettingsView $settings,
-        /** The project holds older analyses that the page leaves out. */
-        public bool $more = false,
+        public int $page = 1,
+        public int $totalPages = 1,
+        /** @var list<int|null> */
+        public array $pageList = [1],
     ) {
     }
 }

@@ -10,6 +10,7 @@ final readonly class ListReportsCommand
 {
     public function __construct(
         public Project $project,
+        public int $page = 1,
     ) {
     }
 }

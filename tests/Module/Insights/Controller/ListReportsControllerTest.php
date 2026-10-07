@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Insights\Controller;
 
+use App\Module\Insights\Command\ListReportsHandler;
 use App\Module\Insights\Entity\Analysis;
 use App\Module\Insights\Entity\AnalysisState;
 use App\Module\Insights\Entity\ProposalKind;
@@ -163,6 +164,29 @@ final class ListReportsControllerTest extends WebTestCase
         self::assertSame(['cost'], $crawler->filter('select[name="start_analysis_form[topic]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertSame(['', 'low', 'medium', 'high', 'xhigh', 'max'], $crawler->filter('select[name="start_analysis_form[effort]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertCount(1, $crawler->filter('[data-analytics-settings-form] input[name="analytics_settings_form[collectFullText]"]'));
+    }
+
+    public function test_older_analyses_move_to_a_second_page(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('reports-pages');
+        $projectId = (string) $project->id;
+        $oldest = $this->seedAnalysis($em, $project);
+        for ($i = 1; $i < ListReportsHandler::LIMIT + 1; ++$i) {
+            $this->seedAnalysis($em, $project);
+        }
+        $oldestId = (string) $oldest->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $first = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports');
+        self::assertCount(ListReportsHandler::LIMIT, $first->filter('[data-analysis]'));
+        self::assertCount(0, $first->filter('[data-analysis="'.$oldestId.'"]'));
+        self::assertNotCount(0, $first->filter('.lp-pagination a[href$="page=2"]'));
+
+        $second = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?page=2');
+        self::assertSame([$oldestId], $second->filter('[data-analysis]')->each(static fn ($row): string => (string) $row->attr('data-analysis')));
     }
 
     public function test_another_users_project_is_refused(): void
