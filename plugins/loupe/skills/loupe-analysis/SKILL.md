@@ -43,7 +43,7 @@ Pass `scope.range` as the `range` of each `metric_query`. Call `metric_list` fir
 
 ## Compare the variants of an experiment
 
-`scope.experiment` names the experiment. An experiment runs one kind of work with two or more variants, such as two models, and compares the cards each variant worked.
+`scope.experiment` names the experiment. The comparison reads every card of the experiment, so `scope.range` is `all`. An experiment runs one kind of work with two or more variants, such as two models, and compares the cards each variant worked.
 
 ### Read the comparison
 

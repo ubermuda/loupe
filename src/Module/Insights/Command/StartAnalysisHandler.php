@@ -10,6 +10,7 @@ use App\Module\Bridge\Command\ListExperimentsHandler;
 use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Insights\Entity\Analysis;
@@ -86,7 +87,8 @@ final readonly class StartAnalysisHandler
         $analysis = new Analysis(
             project: $command->project,
             topic: $command->topic,
-            scope: new AnalysisScope($command->range, $experiment),
+            // The comparison of an experiment reads all its cards, as the Comparison tab does.
+            scope: new AnalysisScope(null === $experiment ? $command->range : MetricRange::All, $experiment),
             question: $question,
             model: $command->model ?? $this->settings->modelFor($command->project),
             effort: $command->effort ?? $this->settings->effortFor($command->project),
@@ -131,7 +133,7 @@ final readonly class StartAnalysisHandler
                 'projectId' => (string) $command->project->id,
                 'workRequestId' => (string) $request->id,
                 'topic' => $analysis->topic->value,
-                'range' => $command->range->value,
+                'range' => $analysis->scope->range->value,
                 'experiment' => $experiment,
                 'model' => $analysis->model,
                 'effort' => $analysis->effort,

@@ -98,13 +98,13 @@ final class StartAnalysisHandlerTest extends KernelTestCase
         self::assertNull($blank->question);
     }
 
-    public function test_an_experiment_analysis_stores_the_experiment_in_its_scope(): void
+    public function test_an_experiment_analysis_stores_the_experiment_and_reads_all_its_cards(): void
     {
         $audit = RecordingAuditor::installedIn(self::getContainer());
         $project = $this->scenarioProject('start-analysis-experiment');
         $this->seedExperiment($project, 'model-test');
 
-        $analysis = $this->handler()(new StartAnalysisCommand($project, AnalysisTopic::Experiment, MetricRange::All, experiment: 'model-test'));
+        $analysis = $this->handler()(new StartAnalysisCommand($project, AnalysisTopic::Experiment, MetricRange::ThirtyDays, experiment: 'model-test'));
 
         $this->em()->clear();
         $stored = $this->analyses()->find($analysis->id);
@@ -112,6 +112,7 @@ final class StartAnalysisHandlerTest extends KernelTestCase
         self::assertSame('model-test', $stored->scope->experiment);
         self::assertSame(['range' => 'all', 'experiment' => 'model-test'], $stored->scope->toArray());
         self::assertSame('model-test', $audit->record('insights.analysis_started')->context['experiment']);
+        self::assertSame('all', $audit->record('insights.analysis_started')->context['range']);
     }
 
     public function test_another_topic_ignores_the_experiment(): void
