@@ -161,7 +161,7 @@ final class ListReportsControllerTest extends WebTestCase
         self::assertStringEndsWith('/extending/cli-bridge/#work-requests', (string) $empty->filter('a')->attr('href'));
         self::assertCount(1, $crawler->filter('[data-start-analysis-form]'));
         self::assertSame('sonnet', $crawler->filter('[data-start-analysis-form] input[name="start_analysis_form[model]"]')->attr('placeholder'));
-        self::assertSame(['cost'], $crawler->filter('select[name="start_analysis_form[topic]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
+        self::assertSame(['cost', 'host'], $crawler->filter('select[name="start_analysis_form[topic]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertSame(['', 'low', 'medium', 'high', 'xhigh', 'max'], $crawler->filter('select[name="start_analysis_form[effort]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertCount(1, $crawler->filter('[data-analytics-settings-form] input[name="analytics_settings_form[collectFullText]"]'));
     }
