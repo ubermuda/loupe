@@ -435,8 +435,10 @@ final readonly class Engine
         if (!$bound->truth) {
             // The reset forgets the repair, so its live request ends with it.
             $tracked = $state->repaired && null !== $state->workRequestId ? $this->workRequests->find($state->workRequestId) : null;
-            if (null !== $tracked && $tracked->kind === $run->template->onWorkFailed?->repairKind) {
-                ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($state->workRequestId, WorkRequestState::Cancelled));
+            if (null !== $tracked && $tracked->kind === $run->template->onWorkFailed?->repairKind
+                && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($state->workRequestId, WorkRequestState::Cancelled))) {
+                // The rules after this one read the cancelled request.
+                $run->facts = $this->facts($run->card, $run->now, $run->facts);
             }
             $state->truth = false;
             $state->attempts = 0;
