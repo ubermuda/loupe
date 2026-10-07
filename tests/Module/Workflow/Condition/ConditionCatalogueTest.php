@@ -29,6 +29,7 @@ final class ConditionCatalogueTest extends KernelTestCase
             'card.in_slot',
             'card.is_child',
             'card.type',
+            'parent.document_approved',
             'parent.work_active',
             'pr.all_finished_one_merged',
             'pr.approval_covers_head',
@@ -72,7 +73,7 @@ final class ConditionCatalogueTest extends KernelTestCase
         self::assertInstanceOf(TranslatorBagInterface::class, $translator);
         $catalogue = $translator->getCatalogue('en');
         $sources = ['card' => 'workflow.source.board', 'pr' => 'workflow.source.forge', 'run' => 'workflow.source.bridge', 'parent' => 'workflow.source.bridge'];
-        $sourceOfKey = ['card.discovery_requested' => 'workflow.source.readiness'];
+        $sourceOfKey = ['card.discovery_requested' => 'workflow.source.readiness', 'parent.document_approved' => 'workflow.source.board'];
 
         foreach (self::catalogueKeys($conditions) as $key) {
             $source = $conditions->get($key)::source();

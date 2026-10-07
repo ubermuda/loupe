@@ -207,6 +207,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertSame(0, $facts->card->childCount);
         self::assertSame(0, $facts->card->openChildCount);
         self::assertSame([], $facts->card->documents);
+        self::assertSame([], $facts->card->parentDocuments);
         self::assertFalse($facts->card->childMergedIntoEpicBranch);
         self::assertNull($facts->pullRequest);
         self::assertSame([], $facts->pullRequests);
@@ -258,6 +259,23 @@ final class FactsBuilderTest extends KernelTestCase
             new DocumentFacts(['design', 'tech'], 'changes-requested', $design),
             new DocumentFacts([], 'in-review', $untagged),
         ], $this->facts($card)->card->documents);
+    }
+
+    public function test_the_parent_documents_are_the_linked_documents_of_the_parent_and_not_of_the_card(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-parent-documents');
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $child = $this->card($project, 'backlog');
+        $child->parent = $epic;
+        $this->em()->flush();
+        $design = $this->document($epic, DocumentStatus::Approved, ['tech-design']);
+        $own = $this->document($child, DocumentStatus::InReview, ['notes']);
+
+        $childFacts = $this->facts($child)->card;
+        self::assertEquals([new DocumentFacts(['tech-design'], 'approved', $design)], $childFacts->parentDocuments);
+        self::assertEquals([new DocumentFacts(['notes'], 'in-review', $own)], $childFacts->documents);
+        self::assertSame([], $this->facts($epic)->card->parentDocuments);
     }
 
     public function test_the_run_facts_give_the_live_kinds_and_a_refusal_that_settled_last(): void
