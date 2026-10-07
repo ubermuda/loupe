@@ -228,7 +228,8 @@ final class EvaluationListenersTest extends KernelTestCase
         $state->dueAt = new \DateTimeImmutable('2026-10-02 13:00:00');
         $state->lastRefusal = 'refused';
         $state->lastRefusalAt = new \DateTimeImmutable('2026-10-02 11:00:00');
-        $state->subjectPullRequestId = Uuid::v7();
+        $subject = Uuid::v7();
+        $state->subjectPullRequestId = $subject;
         $untouched = new WorkflowRuleState($other, $this->project, 'work', new \DateTimeImmutable('2026-10-02 09:00:00'));
         $untouched->truth = true;
         $open = $this->workRequest($one, 'open');
@@ -247,8 +248,8 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->refresh($claimed);
         $this->em()->refresh($otherOpen);
         self::assertSame(
-            [false, 0, 0, 'facts', null, null, null, null, self::RELEASED_AT],
-            [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt, $state->lastRefusal, $state->lastRefusalAt, $state->subjectPullRequestId, $state->updatedAt->format('Y-m-d H:i:s')],
+            [false, 0, 0, 'facts', null, null, null, $subject->toRfc4122(), self::RELEASED_AT],
+            [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt, $state->lastRefusal, $state->lastRefusalAt, $state->subjectPullRequestId?->toRfc4122(), $state->updatedAt->format('Y-m-d H:i:s')],
         );
         self::assertTrue($untouched->truth);
         self::assertSame(self::RELEASED_AT, $open->reopenedAt?->format('Y-m-d H:i:s'));

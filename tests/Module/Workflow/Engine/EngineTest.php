@@ -570,7 +570,7 @@ final class EngineTest extends KernelTestCase
         self::assertNull($this->activePause($card));
     }
 
-    public function test_a_release_keeps_a_work_limit_pause_and_gives_the_rule_a_fresh_budget(): void
+    public function test_a_work_limit_pause_released_from_a_hold_ends_when_the_rule_moves_to_another_pull_request(): void
     {
         $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1)]);
         [$base, $upper] = $this->stack($card);
@@ -595,16 +595,35 @@ final class EngineTest extends KernelTestCase
         $this->releaseHold($card, '2026-10-02 12:25:00');
         $this->evaluate($card, '2026-10-02 12:30:00');
 
-        self::assertNull($pause->releasedAt, 'The release forgets the subject, so the pause cannot release for a new one.');
-        self::assertSame(0, $this->ruleState($card, 'fix')->fires);
-
-        $this->releaseByPerson($card);
-        $this->evaluate($card, '2026-10-02 12:40:00');
-
+        self::assertSame('subject-changed', $pause->releaseReason);
         $live = $this->liveRequests($card);
         self::assertCount(1, $live);
         self::assertSame($upper->number, $live[0]->context->pullRequestNumber);
-        self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+        $state = $this->ruleState($card, 'fix');
+        self::assertTrue($upper->id?->equals($state->subjectPullRequestId));
+        self::assertSame(1, $state->fires);
+    }
+
+    public function test_a_work_limit_pause_released_from_a_hold_stays_on_the_same_pull_request(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 1)]);
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $this->setType($card, CardType::Feature);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card, '2026-10-02 12:31:00');
+        $pause = $this->activePause($card);
+        self::assertSame(CardPauseKind::WorkLimit, $pause?->kind);
+        $this->hold($card);
+
+        $this->releaseHold($card, '2026-10-02 12:40:00');
+        $this->evaluate($card, '2026-10-02 12:41:00');
+
+        self::assertNull($pause->releasedAt);
+        self::assertSame([], $this->liveRequests($card));
+        self::assertSame(0, $this->ruleState($card, 'fix')->fires);
     }
 
     public function test_a_rule_that_turns_false_before_it_moves_to_another_pull_request_starts_a_fresh_budget(): void

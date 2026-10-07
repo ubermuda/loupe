@@ -31,8 +31,8 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     }
 
     /**
-     * Resets the rules of the cards as WorkflowRuleState::reset() does, in one statement, so it joins a caller's transaction.
-     * A managed state is stale after it.
+     * Forgets the truth, the retries and the work count of the rules of the cards, in one statement, so it joins a caller's transaction.
+     * The fingerprint and the subject pull request stay, for the pauses that compare against them. A managed state is stale after it.
      *
      * @param non-empty-list<Uuid> $cardIds
      */
@@ -40,7 +40,7 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     {
         $this->getEntityManager()->getConnection()->executeStatement(
             'UPDATE workflow_rule_states SET truth = false, attempts = 0, fires = 0, due_at = NULL, last_refusal = NULL,
-             last_refusal_at = NULL, subject_pull_request_id = NULL, updated_at = :now
+             last_refusal_at = NULL, updated_at = :now
              WHERE card_id IN (:cardIds)',
             [
                 'now' => $now,
