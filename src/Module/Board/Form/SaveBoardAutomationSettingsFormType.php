@@ -6,6 +6,7 @@ namespace App\Module\Board\Form;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -56,6 +57,16 @@ final class SaveBoardAutomationSettingsFormType extends AbstractType
             'required' => false,
             'label' => 'board.form.save_board_automation_settings_form.close_epic_pull_requests.label',
             'help' => 'board.form.save_board_automation_settings_form.close_epic_pull_requests.help',
+        ]);
+        $builder->add('openEpicPullRequests', CheckboxType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.open_epic_pull_requests.label',
+            'help' => 'board.form.save_board_automation_settings_form.open_epic_pull_requests.help',
+        ]);
+        $builder->add('epicBranchPattern', TextType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.epic_branch_pattern.label',
+            'help' => 'board.form.save_board_automation_settings_form.epic_branch_pattern.help',
         ]);
     }
 

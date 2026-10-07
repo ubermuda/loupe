@@ -185,6 +185,64 @@ class CardPullRequestRepository extends ServiceEntityRepository
         return array_map(self::cardId(...), $ids);
     }
 
+    /** Whether a child of the card links a pull request that the last forge read found merged into the branch. */
+    public function hasChildMergedInto(Card $parent, string $baseBranch): bool
+    {
+        return false !== $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1
+            FROM board_cards c
+            JOIN board_card_pull_requests link ON link.card_id = c.id
+            JOIN forge_pull_requests pr ON pr.project_id = c.project_id AND pr.forge = link.forge
+                AND pr.repository = LOWER(link.repository) AND pr.number = link.number
+            WHERE c.parent_card_id = :parent AND pr.state = :merged AND pr.base_branch = :base
+            LIMIT 1',
+            [
+                'parent' => ($parent->id ?? throw new \LogicException('A stored card has an id.'))->toRfc4122(),
+                'merged' => PullRequestState::Merged->value,
+                'base' => $baseBranch,
+            ],
+        );
+    }
+
+    /**
+     * The pull request that a child of the card links and that the last forge read found merged into the branch last.
+     *
+     * @return ?array{forge: string, repository: string, number: int}
+     */
+    public function findLastChildMergedInto(Card $parent, string $baseBranch): ?array
+    {
+        $row = $this->getEntityManager()->getConnection()->fetchAssociative(
+            'SELECT pr.forge, pr.repository, pr.number
+            FROM board_cards c
+            JOIN board_card_pull_requests link ON link.card_id = c.id
+            JOIN forge_pull_requests pr ON pr.project_id = c.project_id AND pr.forge = link.forge
+                AND pr.repository = LOWER(link.repository) AND pr.number = link.number
+            WHERE c.parent_card_id = :parent AND pr.state = :merged AND pr.base_branch = :base
+            ORDER BY pr.merged_at DESC NULLS LAST, pr.id
+            LIMIT 1',
+            [
+                'parent' => ($parent->id ?? throw new \LogicException('A stored card has an id.'))->toRfc4122(),
+                'merged' => PullRequestState::Merged->value,
+                'base' => $baseBranch,
+            ],
+        );
+
+        return false === $row ? null : ['forge' => (string) $row['forge'], 'repository' => (string) $row['repository'], 'number' => (int) $row['number']];
+    }
+
+    /**
+     * Every pull request link URL of one card as the database holds it now, read past the identity map.
+     *
+     * @return list<string>
+     */
+    public function findCurrentUrls(Card $card): array
+    {
+        return array_map(static fn (mixed $url): string => (string) $url, $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT url FROM board_card_pull_requests WHERE card_id = :card ORDER BY id',
+            ['card' => (string) $card->id],
+        ));
+    }
+
     /**
      * The earliest opening and the latest merge of the pull requests each card links,
      * as the last forge read found them. A card with no read pull request has no key.
