@@ -14,7 +14,6 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\SetCardLaneFormType;
 use App\Module\Board\Form\SetCardLaneRequest;
 use App\Module\Board\Security\CardVoter;
-use App\Module\Board\Service\BoardAvailability;
 use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -37,7 +36,6 @@ final class SetCardLaneController extends AppController
 {
     public function __construct(
         private readonly UpdateCardHandler $updateCard,
-        private readonly BoardAvailability $board,
         private readonly FormFactoryInterface $formFactory,
         private readonly TranslatorInterface $translator,
         private readonly LoggerInterface $logger,
@@ -48,8 +46,6 @@ final class SetCardLaneController extends AppController
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
     ): Response {
-        $this->board->requireEnabled();
-
         $data = new SetCardLaneRequest();
         $form = $this->formFactory->createNamed(SetCardLaneFormType::nameFor($card), SetCardLaneFormType::class, $data);
         $form->handleRequest($request);

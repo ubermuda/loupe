@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
-use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\CardChanged;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Event\PullRequestStateChanged;
@@ -44,7 +41,6 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $this->enableBoard();
         $this->project = $this->makeProject('record-sync');
         $this->pullRequest = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
         $this->em->persist($this->pullRequest);
@@ -60,17 +56,13 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
 
         $this->read(from: 'approved1', to: 'synced1', syncedSha: 'synced1');
 
-        $automation = $this->automationOf($card);
-        self::assertNotNull($automation);
-        self::assertSame(CardAutomationAction::Synced, $automation->lastAction);
-        self::assertEquals($this->clock->now(), $automation->lastActionAt);
         $events = $this->cardEvents($card);
         self::assertCount(1, $events);
         self::assertSame(CardEventKind::Synced, $events[0]->kind);
         self::assertSame(['pullRequest' => 5], $events[0]->detail);
+        self::assertEquals($this->clock->now(), $events[0]->occurredAt);
         self::assertContains([(string) $card->id, CardChanged::UPDATED], $changes->getArrayCopy());
 
-        self::assertNull($this->automationOf($doneCard));
         self::assertSame([], $this->cardEvents($doneCard));
     }
 
@@ -111,16 +103,6 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
         self::assertCount(1, $this->cardEvents($card));
     }
 
-    public function test_nothing_records_while_the_board_is_off(): void
-    {
-        $card = $this->linkedCard();
-        $this->disableBoard();
-
-        $this->read(from: 'approved1', to: 'synced1', syncedSha: 'synced1');
-
-        self::assertSame([], $this->cardEvents($card));
-    }
-
     /** The row as apply() leaves it, and the event Forge dispatches inside the transaction of the read. */
     private function read(string $from, string $to, ?string $syncedSha): void
     {
@@ -142,18 +124,6 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
         $this->em->flush();
 
         return $card;
-    }
-
-    private function automationOf(Card $card): ?CardAutomation
-    {
-        $automations = self::getContainer()->get(CardAutomationRepository::class);
-        self::assertInstanceOf(CardAutomationRepository::class, $automations);
-        $automation = $automations->findOneBy(['card' => $card]);
-        if (null !== $automation) {
-            $this->em->refresh($automation);
-        }
-
-        return $automation;
     }
 
     /** @return list<CardEvent> */

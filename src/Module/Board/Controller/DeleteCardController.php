@@ -11,7 +11,6 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Security\CardVoter;
-use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -32,7 +31,6 @@ final class DeleteCardController extends AppController
 {
     public function __construct(
         private readonly DeleteCardHandler $deleteCard,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -40,8 +38,6 @@ final class DeleteCardController extends AppController
     public function __invoke(
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
     ): Response {
-        $this->board->requireEnabled();
-
         $projectId = (string) $card->project->id;
         $title = $card->title;
 

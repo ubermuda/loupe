@@ -35,6 +35,7 @@ final class AdvertisedTools
         'document_list',
         'document_get',
         'document_revise',
+        'document_publish',
         'document_rename',
         'document_archive',
         'document_unarchive',

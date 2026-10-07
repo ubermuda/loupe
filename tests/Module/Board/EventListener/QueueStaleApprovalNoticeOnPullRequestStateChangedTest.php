@@ -11,7 +11,6 @@ use App\Module\Board\EventListener\QueueStaleApprovalNoticeOnPullRequestStateCha
 use App\Module\Board\Messenger\PostPullRequestNotice;
 use App\Module\Board\Repository\PullRequestNoticeRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Event\PullRequestStateChanged;
@@ -51,7 +50,6 @@ final class QueueStaleApprovalNoticeOnPullRequestStateChangedTest extends Kernel
         self::assertInstanceOf(InMemoryTransport::class, $transport);
         $this->transport = $transport;
 
-        $this->enableBoard();
         $this->project = $this->makeProject('stale-approval-notice');
         $this->pullRequest = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
         $this->pullRequest->headSha = self::HEAD;
@@ -136,16 +134,6 @@ final class QueueStaleApprovalNoticeOnPullRequestStateChangedTest extends Kernel
     public function test_nothing_queues_while_the_automation_is_off(): void
     {
         $this->settings(enabled: false, commentOnStaleApproval: true);
-
-        $this->dispatchChange();
-
-        self::assertSame([], $this->notices());
-    }
-
-    public function test_nothing_queues_while_the_board_is_off(): void
-    {
-        $this->settings(enabled: true, commentOnStaleApproval: true);
-        $this->disableBoard();
 
         $this->dispatchChange();
 
@@ -237,8 +225,6 @@ final class QueueStaleApprovalNoticeOnPullRequestStateChangedTest extends Kernel
     private function listener(PullRequestNoticeRepository $notices, RecordingLogger $logger): QueueStaleApprovalNoticeOnPullRequestStateChanged
     {
         $container = self::getContainer();
-        $board = $container->get(BoardAvailability::class);
-        self::assertInstanceOf(BoardAvailability::class, $board);
         $automation = $container->get(BoardAutomation::class);
         self::assertInstanceOf(BoardAutomation::class, $automation);
         $bus = $container->get(MessageBusInterface::class);
@@ -247,7 +233,6 @@ final class QueueStaleApprovalNoticeOnPullRequestStateChangedTest extends Kernel
         self::assertInstanceOf(ClockInterface::class, $clock);
 
         return new QueueStaleApprovalNoticeOnPullRequestStateChanged(
-            $board,
             $automation,
             new PullRequestCommenters([new FakePullRequestCommenter()]),
             $notices,

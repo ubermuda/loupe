@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -17,7 +16,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class DeleteFeedbackApiTest extends WebTestCase
 {
@@ -78,20 +76,6 @@ final class DeleteFeedbackApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(404);
         self::assertSame(['error' => 'not_found'], $data);
-    }
-
-    public function test_the_board_switched_off_is_a_conflict(): void
-    {
-        $client = static::createClient();
-        [$raw] = $this->projectWithToken($client, 'delete-feedback-api-off@example.com');
-        $commentId = $this->addNote($client, $raw);
-        $this->setBoardEnabled(false);
-
-        $data = $this->delete($client, $raw, $commentId);
-
-        self::assertResponseStatusCodeSame(409);
-        self::assertSame(['error' => 'board_disabled'], $data);
-        self::assertNotNull($this->service(SiteReviewCommentRepository::class)->find($commentId));
     }
 
     public function test_the_widget_can_call_it_from_another_origin(): void
@@ -173,7 +157,6 @@ final class DeleteFeedbackApiTest extends WebTestCase
         $this->seedColumns($project);
         $this->em()->flush();
         $raw = $scenario->accessTokenFor($client, $user, 'site-review', $project);
-        $this->setBoardEnabled(true);
 
         return [$raw, AgentCredential::managed($this->em(), $project, $project->id)];
     }
@@ -196,12 +179,5 @@ final class DeleteFeedbackApiTest extends WebTestCase
     private function em(): EntityManagerInterface
     {
         return $this->service(EntityManagerInterface::class);
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $flags = $this->service(FeatureFlagRepository::class);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->em()->flush();
     }
 }

@@ -33,19 +33,8 @@ final class BoardColumnsToolTest extends KernelTestCase
         $this->tool = $tool;
     }
 
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('board-columns-flag-off'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)();
-    }
-
     public function test_the_seeded_columns_read_in_board_order_with_their_english_labels(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('board-columns-seeded'));
 
         self::assertSame(['columns' => [
@@ -58,7 +47,6 @@ final class BoardColumnsToolTest extends KernelTestCase
 
     public function test_a_literal_label_reads_as_written_and_position_sets_the_order(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('board-columns-literal');
         $this->em->persist(new BoardColumn(project: $project, label: 'Won’t do', slug: 'won-t-do', position: -1, terminal: true));
         $this->em->flush();
@@ -72,7 +60,6 @@ final class BoardColumnsToolTest extends KernelTestCase
 
     public function test_default_and_backlog_mark_the_backlog(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('board-columns-default');
         $this->actAsMcpTokenBoundTo($project);
 
@@ -85,7 +72,6 @@ final class BoardColumnsToolTest extends KernelTestCase
 
     public function test_another_projects_columns_are_not_listed(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('board-columns-mine');
         $elsewhere = $this->makeProject('board-columns-theirs');
         $this->em->persist(new BoardColumn(project: $elsewhere, label: 'Parked', slug: 'parked', position: 4));
@@ -97,7 +83,6 @@ final class BoardColumnsToolTest extends KernelTestCase
 
     public function test_an_unbound_mcp_token_is_rejected(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('board-columns-unbound');
         $this->actAsUnboundMcpToken($project->owner);
 

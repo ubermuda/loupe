@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\ListCardsHandler;
 use App\Module\Board\Command\SearchBoardHandler;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\BoardColumnsTool;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetHistoryTool;
@@ -78,31 +77,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertInstanceOf($toolClass, self::getContainer()->get($toolClass));
     }
 
-    public function test_the_board_tools_are_hidden_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $advertised = self::getContainer()->get(AdvertisedTools::class);
-        self::assertInstanceOf(AdvertisedTools::class, $advertised);
-
-        $names = array_column($advertised->enabled(), 'name');
-
-        // Guard: an empty roster would satisfy the absence assertions below.
-        self::assertContains('document_create', $names);
-        self::assertNotContains(CardCreateTool::NAME, $names);
-        self::assertNotContains(BoardColumnsTool::NAME, $names);
-        self::assertNotContains(CardSearchTool::NAME, $names);
-        self::assertNotContains(CardGetHistoryTool::NAME, $names);
-        self::assertNotContains(CardUpdateTool::NAME, $names);
-        self::assertNotContains(FeedbackListTool::NAME, $names);
-        self::assertNotContains(FeedbackMarkAddressedTool::NAME, $names);
-        self::assertNotContains(CardRunOpenTool::NAME, $names);
-        self::assertNotContains(CardRunCloseTool::NAME, $names);
-    }
-
     public function test_the_board_tools_are_advertised_once_the_flag_is_on(): void
     {
-        $this->enableBoard();
-
         $advertised = self::getContainer()->get(AdvertisedTools::class);
         self::assertInstanceOf(AdvertisedTools::class, $advertised);
 
@@ -134,13 +110,9 @@ final class BoardToolRegistrationTest extends KernelTestCase
 
     /** @param class-string $toolClass */
     #[DataProvider('boardTools')]
-    public function test_every_board_tool_names_the_board_flag_as_its_gate(string $toolName, string $toolClass): void
+    public function test_no_board_tool_is_gated_by_a_flag(string $toolName, string $toolClass): void
     {
-        $tool = self::getContainer()->get($toolClass);
-
-        self::assertInstanceOf(FlagGatedToolInterface::class, $tool);
-        self::assertSame($toolName, $tool->gatedToolName());
-        self::assertSame(BoardInstallFlags::FLAG_BOARD_ENABLED, $tool->requiredFlag());
+        self::assertNotInstanceOf(FlagGatedToolInterface::class, self::getContainer()->get($toolClass), $toolName);
     }
 
     /**

@@ -8,9 +8,8 @@ piece of work: what it asks for, how urgent it is, and which column it sits in.
 A person works the board on its own screen. An agent reads and writes the same
 board through the MCP endpoint.
 
-The board is behind the `board.enabled` feature flag, and the flag ships on.
-[Site review](site-review.md) writes each note to a card, so it needs the board.
-See [Turning the board off](#turning-the-board-off).
+Every instance has the board. [Site review](site-review.md) writes each note to
+a card.
 
 ## Columns
 
@@ -339,15 +338,6 @@ request whose base is the default branch also shows one line about its sync. It 
 #N**, **Synced, checks running** or **Sync failed** with the cause. A pull
 request with nothing to wait for shows no line. See [Automation](#automation).
 
-When the automation acted on the card, a line under the links says what it did
-last, and when. It asked for a fix round, it stopped, it marked the pull
-request ready to merge, or it synced the branch with its base. See [Automation](#automation). When the automation is
-blocked, a notice gives the reason: the checks fail, the pull request has a
-merge conflict, or a reviewer requested changes. Loupe clears the block and
-resets the fix count when a person moves the card to another column, when the
-checks pass, or when a reviewer approves or requests changes. A card in a
-terminal column shows no block.
-
 When an approval did not move the card because a blocker is open, the Workflow
 panel says what the card waits for.
 
@@ -668,7 +658,6 @@ to `main`.
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
 | Pull requests | Any number of links, each with the last state Loupe read. See below. |
-| Automation | What the board automation did last on the card, and why it is blocked, if it is. See [Automation](#automation). |
 | Linked cards | Other cards of the project, each with a kind. See [Cards linked to a card](#cards-linked-to-a-card). |
 
 A card also carries the moment it was created and the moment it last changed. A
@@ -918,12 +907,9 @@ Each entry of `pullRequests` carries `state`, the last state Loupe read:
 `state`, `draft`, `checks`, `failedChecks`, `mergeability`, `review`,
 `readyToMerge` and `refreshedAt`. It is null when Loupe holds no reading, such
 as for a link it cannot parse or a pull request it never read. The card page
-shows a pull request that Loupe never read as **Not reported**. The card also
-carries `automation`, with
-`lastAction` and `lastActionAt`. It is null when
-the automation never acted on the card. `card_update`, `card_create`,
-`card_run_open` and `card_list` with `full` return the same two keys. A
-`card_list` row without `full` carries neither.
+shows a pull request that Loupe never read as **Not reported**. `card_update`,
+`card_create`, `card_run_open` and `card_list` with `full` return the same
+`state` key. A `card_list` row without `full` does not carry it.
 
 `review` is `approved`, `approval-outdated`, `changes-requested`, `required` or
 `none`. `approval-outdated` means that the approval does not cover the newest
@@ -970,10 +956,6 @@ epic has the type `epic`.
 Such a card always lands in Backlog, and carries no pull request
 link. The widget offers neither, so a page visitor cannot file work straight
 into a column. The widget refuses a card or an epic in a terminal column.
-
-All of this needs `board.enabled`. While the flag is off, the feedback endpoints
-answer 409 `board_disabled`, and the widget says "Turn on the board to use site
-review".
 
 ## Documents on a card
 
@@ -1094,27 +1076,6 @@ the widget deletes the note's card too when all of these are true:
 - The card keeps the site review type and the title that the note gave it.
 - The card body is empty.
 - The card has no pull request, no document and no link to or from another card.
-
-## Turning the board off
-
-`board.enabled` ships on, because site review writes each note to a card. The
-install wizard sets it on for a fresh install. On an instance that upgrades, a
-database migration sets it on, and writes the row when it is missing. Run the
-migrations as part of the upgrade.
-
-An operator can switch it off at **`/admin/feature-flags`**. The change needs no
-restart. See [The admin area](admin.md). While the flag is off:
-
-- The `card_*` tools, `board_columns`, `feedback_list` and
-  `feedback_mark_addressed` are absent from `tools/list` and from the project's
-  Connect page. A client that holds an older tool list and calls one anyway gets
-  a plain refusal.
-- The widget refuses notes and says "Turn on the board to use site review".
-
-A missing row reads as off. If the flags page does not list the flag, the
-migration has not run. **`/admin/feature-flags/scan`** lists every flag the code
-references that the database does not define, and it creates those rows on
-request.
 
 ## Deleting a project
 

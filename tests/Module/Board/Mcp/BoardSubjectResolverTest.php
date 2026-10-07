@@ -96,7 +96,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
 
     public function test_a_card_of_the_bound_project_resolves(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('resolver-mine');
         $this->actAsMcpTokenBoundTo($project);
         $card = $this->cardIn($project);
@@ -106,7 +105,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
 
     public function test_a_card_in_another_project_is_refused_and_recorded(): void
     {
-        $this->enableBoard();
         $theirs = $this->makeProject('resolver-theirs');
         $card = $this->cardIn($theirs);
 
@@ -134,7 +132,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
 
     public function test_a_card_that_does_not_exist_is_refused_without_a_record(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('resolver-missing'));
         $this->audit->forget();
 
@@ -153,7 +150,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
 
     public function test_a_card_resolves_by_its_number_inside_the_bound_project(): void
     {
-        $this->enableBoard();
         $theirs = $this->makeProject('resolver-number-theirs');
         $theirCard = $this->cardIn($theirs);
         $mine = $this->makeProject('resolver-number-mine');
@@ -167,7 +163,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
 
     public function test_a_card_id_still_resolves_through_the_new_entry_point(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('resolver-by-id');
         $this->actAsMcpTokenBoundTo($project);
         $card = $this->cardIn($project);
@@ -188,7 +183,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
     #[DataProvider('refusedHandles')]
     public function test_a_bad_handle_is_refused(?string $cardId, ?int $number, string $message): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('resolver-refused'));
 
         $this->expectException(ToolCallException::class);
@@ -198,7 +192,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
 
     public function test_a_number_passed_as_a_card_id_is_refused_with_a_hint(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('resolver-digits'));
 
         $this->expectException(ToolCallException::class);
@@ -208,7 +201,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
 
     public function test_a_malformed_id_that_is_not_digits_gets_no_hint(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('resolver-no-hint'));
 
         try {
@@ -221,7 +213,6 @@ final class BoardSubjectResolverTest extends KernelTestCase
 
     public function test_a_refused_number_vote_is_reported_as_not_accessible(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('resolver-number-refused');
         $this->actAsMcpTokenBoundTo($project);
         $card = $this->cardIn($project);

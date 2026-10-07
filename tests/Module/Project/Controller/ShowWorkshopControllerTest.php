@@ -63,7 +63,6 @@ final class ShowWorkshopControllerTest extends WebTestCase
     {
         $client = self::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard(true);
         $owner = $this->user($em, 'workshop-cards@example.com');
         [$project, $foreign] = $this->projects($em, $owner, 'Card workshop', 'Other cards');
         $create = self::getContainer()->get(CreateCardHandler::class);
@@ -116,21 +115,12 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $client->click($queuedTile->link());
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'Queued work');
-
-        $this->enableBoard(false);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id);
-        self::assertResponseIsSuccessful();
-        self::assertSelectorNotExists('[data-workshop-card]');
-        self::assertSelectorNotExists('[data-workshop-stat="open-cards"] .lp-workshop-stat__value');
-        self::assertSelectorNotExists('[data-workshop-stat="completed-cards"] .lp-workshop-stat__value');
-        self::assertSelectorTextContains('#workshop-in-motion', 'The board is disabled on this instance.');
     }
 
     public function test_in_motion_shows_six_tiles_and_links_the_rest_to_the_open_runs(): void
     {
         $client = self::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard(true);
         $owner = $this->user($em, 'workshop-more@example.com');
         [$project] = $this->projects($em, $owner, 'Busy workshop');
         $create = self::getContainer()->get(CreateCardHandler::class);
@@ -156,7 +146,6 @@ final class ShowWorkshopControllerTest extends WebTestCase
     {
         $client = self::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard(true);
         $owner = $this->user($em, 'workshop-idle@example.com');
         [$project] = $this->projects($em, $owner, 'Idle workshop');
         self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Idle work', '', CardType::Feature));
@@ -175,7 +164,6 @@ final class ShowWorkshopControllerTest extends WebTestCase
     {
         $client = self::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard(true);
         $owner = $this->user($em, 'workshop-frame@example.com');
         [$project] = $this->projects($em, $owner, 'Framed workshop');
         $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Framed work', '', CardType::Feature));
@@ -222,7 +210,6 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em->persist($project);
         $em->persist(new Document($owner, $project, 'First document'));
         $em->persist(new Document($owner, $project, 'Second document'));
-        self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()['board.enabled']->value = false;
         $em->flush();
 
         $client->loginUser($owner);
@@ -230,10 +217,10 @@ final class ShowWorkshopControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Your workshop', trim($crawler->filter('[data-workshop] h1')->text()));
-        self::assertSelectorNotExists('.lp-workshop-stat__value');
+        self::assertSelectorNotExists('[data-workshop-stat="requests"] .lp-workshop-stat__value');
         self::assertSelectorTextContains('[data-workshop-stat="requests"]', 'The inbox is disabled');
-        self::assertSelectorTextContains('[data-workshop-stat="open-cards"]', 'The board is disabled');
-        self::assertSelectorTextContains('[data-workshop-stat="completed-cards"]', 'The board is disabled');
+        self::assertSelectorTextSame('[data-workshop-stat="open-cards"] .lp-workshop-stat__value', '0');
+        self::assertSelectorTextSame('[data-workshop-stat="completed-cards"] .lp-workshop-stat__value', '0');
         self::assertSelectorExists('a[href="/projects/'.$project->id.'/documents"]');
     }
 
@@ -259,7 +246,6 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $flags = self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed();
         $flags['inbox.enabled']->value = true;
-        $flags['board.enabled']->value = true;
         $owner = $this->user($em, 'workshop-attention-subject@example.com');
         $project = new Project($owner, 'Subject project');
         $em->persist($project);
@@ -338,12 +324,6 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('[data-workshop-attention]');
         self::assertSelectorTextContains('[data-workshop]', 'The inbox is disabled on this instance.');
-    }
-
-    private function enableBoard(bool $enabled): void
-    {
-        self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()['board.enabled']->value = $enabled;
-        self::getContainer()->get(EntityManagerInterface::class)->flush();
     }
 
     /** @return non-empty-list<Project> */

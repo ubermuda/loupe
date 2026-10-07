@@ -6,15 +6,11 @@ namespace App\Tests\Module\Board\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Service\CardContextLabelResolver;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Contracts\Service\ResetInterface;
-use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class CardContextLabelResolverTest extends KernelTestCase
 {
@@ -34,8 +30,6 @@ final class CardContextLabelResolverTest extends KernelTestCase
         $resolver = self::getContainer()->get(CardContextLabelResolver::class);
         self::assertInstanceOf(CardContextLabelResolver::class, $resolver);
         $this->resolver = $resolver;
-
-        $this->setBoardEnabled(true);
     }
 
     public function test_it_names_a_card_of_the_asking_project_and_links_to_it(): void
@@ -73,30 +67,6 @@ final class CardContextLabelResolverTest extends KernelTestCase
         self::assertNull($this->resolver->resolve('branch:feat/x', $project));
         self::assertNull($this->resolver->resolve('card:not-a-uuid', $project));
         self::assertNull($this->resolver->resolve('card:0199c0de-0000-7000-8000-0000000000ff', $project));
-    }
-
-    public function test_it_says_nothing_while_the_board_is_switched_off(): void
-    {
-        [$project, $card] = $this->projectWithCard('ctx-flag-off');
-        self::assertNotNull($this->resolver->resolve('card:'.$card->id, $project));
-
-        $this->setBoardEnabled(false);
-
-        self::assertNull($this->resolver->resolve('card:'.$card->id, $project));
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->em->flush();
-
-        // The reader caches for the life of a request and this test starts no
-        // second one, so without the reset the resolver reads the old value.
-        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
-        self::assertInstanceOf(ResetInterface::class, $reader);
-        $reader->reset();
     }
 
     /** @return array{Project, Card} */

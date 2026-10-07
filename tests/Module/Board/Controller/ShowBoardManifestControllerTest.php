@@ -36,7 +36,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'manifest-anonymous@example.com'));
         $this->addTriageColumn($project);
         $em->flush();
@@ -51,7 +50,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'manifest-owner@example.com'));
         $this->addTriageColumn($project);
         $em->flush();
@@ -66,23 +64,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertStringNotContainsString('Private', (string) $client->getResponse()->getContent());
     }
 
-    public function test_the_manifest_is_not_found_while_the_board_is_off(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $owner = $this->user($em, 'manifest-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $this->addTriageColumn($project);
-        $em->flush();
-        $this->disableBoard();
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $this->manifestUrl($project));
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
     public function test_the_manifest_route_does_not_write_the_session(): void
     {
         $route = static::getContainer()->get(RouterInterface::class)->getRouteCollection()->get('app_board_manifest');
@@ -95,7 +76,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-empty@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -113,7 +93,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-order@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -150,7 +129,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -180,7 +158,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-backlog-lane@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -212,7 +189,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-history@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -237,7 +213,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-backlog-count@example.com');
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'Waiting');
@@ -258,7 +233,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-parent@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -282,7 +256,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-progress@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -308,7 +281,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-warning@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -331,7 +303,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-badge@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Failing', 'next');
@@ -358,7 +329,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-structure@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -387,7 +357,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-on@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -413,7 +382,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-swap@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -440,7 +408,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-body@example.com');
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
@@ -468,7 +435,6 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'manifest-queries@example.com');
         $projects = [];
         foreach (['three-cards' => 3, 'twelve-cards' => 12] as $name => $size) {

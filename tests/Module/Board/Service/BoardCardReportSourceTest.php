@@ -43,7 +43,6 @@ final class BoardCardReportSourceTest extends KernelTestCase
 
     public function test_it_returns_the_columns_of_the_projects_cards_only(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-report');
         $other = $this->makeProject('card-report-other');
         $open = $this->card($project, 1, 'in-progress');
@@ -62,25 +61,13 @@ final class BoardCardReportSourceTest extends KernelTestCase
         self::assertEquals($expected, $columns);
     }
 
-    public function test_it_returns_nothing_when_the_board_is_off(): void
-    {
-        $project = $this->makeProject('card-report-off');
-        $card = $this->card($project, 1, 'done');
-        $this->disableBoard();
-
-        self::assertSame([], $this->source->columnsFor($project, [$card]));
-    }
-
     public function test_it_returns_nothing_for_no_ids(): void
     {
-        $this->enableBoard();
-
         self::assertSame([], $this->source->columnsFor($this->makeProject('card-report-empty'), []));
     }
 
     public function test_it_reads_the_outcome_of_each_card_from_its_history_and_pull_requests(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-outcome');
         $other = $this->makeProject('card-outcome-other');
         $merged = $this->card($project, 1, 'done');
@@ -131,7 +118,6 @@ final class BoardCardReportSourceTest extends KernelTestCase
 
     public function test_the_history_starts_at_the_first_event_of_the_project(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('history-start');
         $other = $this->makeProject('history-start-other');
         self::assertNull($this->source->historyStartFor($project));
@@ -143,17 +129,6 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $this->em->clear();
 
         self::assertEquals(new \DateTimeImmutable('2026-09-02 08:00:00'), $this->source->historyStartFor($project));
-    }
-
-    public function test_it_reads_no_outcome_and_no_history_when_the_board_is_off(): void
-    {
-        $project = $this->makeProject('card-outcome-off');
-        $card = $this->card($project, 1, 'done');
-        $this->event($card, CardEventKind::Created, [], new \DateTimeImmutable('2026-09-02 08:00:00'));
-        $this->disableBoard();
-
-        self::assertSame([], $this->source->outcomesFor($project, [$card]));
-        self::assertNull($this->source->historyStartFor($project));
     }
 
     /** @param array<string, mixed> $detail */

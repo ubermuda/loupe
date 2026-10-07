@@ -17,7 +17,6 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\CreateCardFormType;
 use App\Module\Board\Form\CreateCardRequest;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -39,7 +38,6 @@ final class CreateCardController extends AppController
     public function __construct(
         private readonly CreateCardHandler $createCard,
         private readonly FindBoardColumnHandler $findBoardColumn,
-        private readonly BoardAvailability $board,
         private readonly ShowCardPlacementHandler $showPlacement,
     ) {
     }
@@ -50,8 +48,6 @@ final class CreateCardController extends AppController
         // `project` holds the raw id here, because the route aliases `id` to it.
         #[MapEntity(expr: 'repository.findBacklogForProjectId(project)')] BoardColumn $backlog,
     ): Response {
-        $this->board->requireEnabled();
-
         $column = $this->column($request->query->getString('column'), $project, $backlog);
 
         $data = new CreateCardRequest(column: $column);

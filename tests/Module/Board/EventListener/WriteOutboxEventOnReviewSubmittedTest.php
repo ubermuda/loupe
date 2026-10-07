@@ -10,7 +10,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -23,7 +22,6 @@ use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
 {
@@ -40,10 +38,6 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
 
         $this->reviewer = new User(fullName: 'Riley', email: 'review-outbox-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($this->reviewer);

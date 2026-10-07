@@ -56,25 +56,6 @@ final class CardRunToolsTest extends KernelTestCase
         $this->createTool = $createTool;
     }
 
-    public function test_both_tools_refuse_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-run-flag-off'));
-        $sessionId = (string) Uuid::v4();
-
-        foreach ([
-            fn (): array => ($this->open)($sessionId, self::SKILL, number: 1),
-            fn (): array => ($this->close)($sessionId, number: 1),
-        ] as $call) {
-            try {
-                $call();
-                self::fail('the tool must refuse');
-            } catch (ToolCallException $e) {
-                self::assertSame('The board is switched off on this instance.', $e->getMessage());
-            }
-        }
-    }
-
     public function test_open_records_a_running_run_and_returns_the_card(): void
     {
         $created = $this->card('card-run-open');
@@ -201,7 +182,6 @@ final class CardRunToolsTest extends KernelTestCase
     /** @return CardSummary */
     private function card(string $label): array
     {
-        $this->enableBoard();
         $this->project = $this->makeProject($label);
         $this->actAsMcpTokenBoundTo($this->project);
 

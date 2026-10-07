@@ -7,8 +7,6 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
-use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Mcp\CardCreateTool;
@@ -51,19 +49,8 @@ final class CardGetToolTest extends KernelTestCase
         $this->createTool = $createTool;
     }
 
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-flag-off'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)('01920000-0000-7000-8000-000000000000');
-    }
-
     public function test_a_card_reads_back_with_its_pull_request_links(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get'));
         $created = ($this->createTool)('Ship it', '## Body', 'tooling', pullRequestUrls: [
             'https://github.com/ubermuda/loupe/pull/7',
@@ -84,7 +71,6 @@ final class CardGetToolTest extends KernelTestCase
 
     public function test_a_card_reads_its_active_pause_and_null_once_released(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-pause'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
         self::assertNull(($this->tool)($created['cardId'])['pause']);
@@ -109,9 +95,8 @@ final class CardGetToolTest extends KernelTestCase
         self::assertNull(($this->tool)($created['cardId'])['pause']);
     }
 
-    public function test_a_card_reads_the_stored_pull_request_state_and_its_automation(): void
+    public function test_a_card_reads_the_stored_pull_request_state(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-get-state');
         $this->actAsMcpTokenBoundTo($project);
         $created = ($this->createTool)('Ship it', 'Body', 'tooling', pullRequestUrls: [
@@ -124,10 +109,6 @@ final class CardGetToolTest extends KernelTestCase
         $row->failedChecks = ['phpunit'];
         $row->mergeability = PullRequestMergeability::Conflicting;
         $row->refreshedAt = new \DateTimeImmutable('2026-09-27T11:00:00+00:00');
-        $card = $this->em->find(Card::class, $created['cardId']) ?? throw new \LogicException('The card exists.');
-        $automation = new CardAutomation($card);
-        $automation->lastAction = CardAutomationAction::FixRequested;
-        $this->em->persist($automation);
         $this->em->flush();
 
         $read = ($this->tool)($created['cardId']);
@@ -140,12 +121,11 @@ final class CardGetToolTest extends KernelTestCase
         self::assertSame('conflicting', $state['mergeability']);
         self::assertSame('2026-09-27T11:00:00+00:00', $state['refreshedAt']);
         self::assertNull($read['pullRequests'][1]['state']);
-        self::assertSame(['lastAction' => 'fix-requested', 'lastActionAt' => null], $read['automation']);
+        self::assertArrayNotHasKey('automation', $read);
     }
 
     public function test_an_approval_of_an_older_head_reads_outdated(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-get-outdated');
         $this->actAsMcpTokenBoundTo($project);
         $created = ($this->createTool)('Ship it', 'Body', 'tooling', pullRequestUrls: ['https://github.com/ubermuda/loupe/pull/7']);
@@ -165,18 +145,8 @@ final class CardGetToolTest extends KernelTestCase
         self::assertFalse($state['readyToMerge']);
     }
 
-    public function test_a_card_with_no_automation_row_reads_a_null_automation(): void
-    {
-        $this->enableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-no-automation'));
-        $created = ($this->createTool)('Ship it', 'Body', 'tooling');
-
-        self::assertNull(($this->tool)($created['cardId'])['automation']);
-    }
-
     public function test_each_card_reads_its_links_from_its_own_side(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-links'));
         $blocker = ($this->createTool)('Blocker', 'Body', 'feature');
         $blocked = ($this->createTool)('Blocked', 'Body', 'feature', relatedCards: [['cardId' => $blocker['cardId'], 'kind' => 'blocked-by']]);
@@ -193,7 +163,6 @@ final class CardGetToolTest extends KernelTestCase
 
     public function test_a_card_in_another_project_is_not_reachable(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-theirs'));
         $theirs = ($this->createTool)('Not yours', 'Body', 'feature');
 
@@ -206,7 +175,6 @@ final class CardGetToolTest extends KernelTestCase
 
     public function test_a_malformed_id_is_reported_rather_than_fatal(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-malformed'));
 
         $this->expectException(ToolCallException::class);
@@ -216,7 +184,6 @@ final class CardGetToolTest extends KernelTestCase
 
     public function test_a_card_reads_back_by_its_number(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-number'));
         ($this->createTool)('First', 'Body', 'feature');
         $second = ($this->createTool)('Second', 'Body', 'feature');
@@ -229,7 +196,6 @@ final class CardGetToolTest extends KernelTestCase
 
     public function test_a_number_reads_the_card_of_the_bound_project(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-number-theirs'));
         $theirs = ($this->createTool)('Theirs', 'Body', 'feature');
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-number-mine'));
@@ -243,7 +209,6 @@ final class CardGetToolTest extends KernelTestCase
 
     public function test_an_unknown_number_is_refused_with_the_number(): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-number-unknown'));
 
         $this->expectException(ToolCallException::class);
@@ -263,7 +228,6 @@ final class CardGetToolTest extends KernelTestCase
     #[DataProvider('refusedHandles')]
     public function test_a_bad_handle_is_refused(?string $cardId, ?int $number, string $message): void
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-refused'));
 
         $this->expectException(ToolCallException::class);
@@ -273,7 +237,6 @@ final class CardGetToolTest extends KernelTestCase
 
     public function test_a_card_reads_back_each_linked_feedback_item_in_full(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-get-feedback');
         $this->actAsMcpTokenBoundTo($project);
         $created = ($this->createTool)('Fix the header', 'Body', 'site-review');

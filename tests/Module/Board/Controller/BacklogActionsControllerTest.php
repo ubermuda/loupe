@@ -26,7 +26,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-forms@example.com');
         $project = $this->project($em, $owner);
@@ -58,7 +57,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move@example.com');
         $project = $this->project($em, $owner);
@@ -83,7 +81,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-last@example.com');
         $project = $this->project($em, $owner);
@@ -104,7 +101,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-bulk-page@example.com');
         $project = $this->project($em, $owner);
@@ -132,7 +128,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-page-two@example.com');
         $project = $this->project($em, $owner);
@@ -156,7 +151,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-cascade@example.com');
         $project = $this->project($em, $owner);
@@ -182,7 +176,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-page-one@example.com');
         $project = $this->project($em, $owner);
@@ -207,7 +200,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-newest@example.com');
         $project = $this->project($em, $owner);
@@ -233,7 +225,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-reason@example.com');
         $project = $this->project($em, $owner);
@@ -257,7 +248,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-plain@example.com');
         $project = $this->project($em, $owner);
@@ -276,7 +266,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-refused@example.com');
         $project = $this->project($em, $owner);
@@ -298,7 +287,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-move-into@example.com');
         $project = $this->project($em, $owner);
@@ -318,7 +306,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-bulk@example.com');
         $project = $this->project($em, $owner);
@@ -344,7 +331,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-bulk-foreign@example.com');
         $project = $this->project($em, $owner);
@@ -366,7 +352,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-bulk-refused@example.com');
         $project = $this->project($em, $owner);
@@ -388,7 +373,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-bulk-many@example.com');
         $project = $this->project($em, $owner);
@@ -410,7 +394,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-actions-owner@example.com');
         $stranger = $this->user($em, 'backlog-actions-stranger@example.com');
@@ -432,7 +415,6 @@ final class BacklogActionsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'backlog-actions-csrf@example.com');
         $project = $this->project($em, $owner);
@@ -448,25 +430,6 @@ final class BacklogActionsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
 
         self::assertSame(['First', 'Second'], $this->titlesIn($project, 'backlog'));
-    }
-
-    public function test_each_action_is_not_found_while_the_board_is_off(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->disableBoard();
-
-        $owner = $this->user($em, 'backlog-actions-off@example.com');
-        $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Waiting');
-        $next = (string) $this->column($project, 'next')->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $this->post($client, $this->cardUrl($card, 'move'), MoveBacklogCardFormType::nameFor($card), ['column' => $next], stream: true);
-        self::assertResponseStatusCodeSame(404);
-        $this->post($client, $this->bulkUrl($project), BulkMoveBacklogCardsFormType::NAME, ['ids' => [(string) $card->id], 'column' => $next], stream: true);
-        self::assertResponseStatusCodeSame(404);
     }
 
     /** @param array<string, string|list<string>> $fields */

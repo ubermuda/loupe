@@ -24,7 +24,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-rank@example.com');
         $project = $this->project($em, $owner);
@@ -55,7 +54,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-across@example.com');
         $project = $this->project($em, $owner);
@@ -80,7 +78,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-face@example.com');
         $project = $this->project($em, $owner);
@@ -125,7 +122,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-done@example.com');
         $project = $this->project($em, $owner);
@@ -155,7 +151,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-actor@example.com');
         $project = $this->project($em, $owner);
@@ -174,7 +169,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-owner@example.com');
         $stranger = $this->user($em, 'move-stranger@example.com');
@@ -188,28 +182,10 @@ final class MoveCardControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    public function test_moving_is_not_found_while_the_flag_is_off(): void
-    {
-        $client = static::createClient();
-        $this->disableBoard();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'move-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Hidden');
-        $em->clear();
-
-        $client->loginUser($owner);
-        $this->move($client, $card, 'next', null);
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
     public function test_a_column_of_another_board_is_refused(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-cross-board@example.com');
         $project = $this->project($em, $owner);
@@ -234,7 +210,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-refused-stream@example.com');
         $project = $this->project($em, $owner);
@@ -260,7 +235,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-epic-open@example.com');
         $project = $this->project($em, $owner);
@@ -290,7 +264,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-parent-set@example.com');
         $project = $this->project($em, $owner);
@@ -316,7 +289,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-parent-clear@example.com');
         $project = $this->project($em, $owner);
@@ -339,7 +311,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-parent-keep@example.com');
         $project = $this->project($em, $owner);
@@ -364,7 +335,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-parent-refused@example.com');
         $project = $this->project($em, $owner);
@@ -396,7 +366,6 @@ final class MoveCardControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'move-neighbour@example.com');
         $project = $this->project($em, $owner);

@@ -1297,6 +1297,18 @@
                 <source>review.archive.flash.unarchived</source>
                 <target>“%title%” is back in the list.</target>
             </trans-unit>
+            <trans-unit id="review.publish.submit">
+                <source>review.publish.submit</source>
+                <target>Publish</target>
+            </trans-unit>
+            <trans-unit id="review.publish.flash.published">
+                <source>review.publish.flash.published</source>
+                <target>“%title%” is now in review.</target>
+            </trans-unit>
+            <trans-unit id="review.publish.error.archived">
+                <source>review.publish.error.archived</source>
+                <target>An archived document cannot be sent to review. Restore it first.</target>
+            </trans-unit>
             <trans-unit id="review.archive.flash.rejected">
                 <source>review.archive.flash.rejected</source>
                 <target>That did not go through — the page had gone stale. Try again.</target>
@@ -2441,6 +2453,10 @@
             <trans-unit id="project.connect.tool.document_revise">
                 <source>project.connect.tool.document_revise</source>
                 <target>Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_publish">
+                <source>project.connect.tool.document_publish</source>
+                <target>Send a draft document to review, so it reaches the reviewer's inbox. A document that is not a draft stays as it is.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.document_rename">
                 <source>project.connect.tool.document_rename</source>
@@ -6395,12 +6411,9 @@
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
             <trans-unit id="board.card.badge.paused"><source>board.card.badge.paused</source><target>Paused</target></trans-unit>
             <trans-unit id="board.card.badge.unmanaged"><source>board.card.badge.unmanaged</source><target>Unmanaged</target></trans-unit>
-            <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for a fix.</target></trans-unit>
-            <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>
-            <trans-unit id="board.card.automation.synced"><source>board.card.automation.synced</source><target>The automation updated the pull request branch with its base.</target></trans-unit>
-            <trans-unit id="board.card.automation.reason.conflict"><source>board.card.automation.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
-            <trans-unit id="board.card.automation.reason.checks_failed"><source>board.card.automation.reason.checks_failed</source><target>the checks fail</target></trans-unit>
-            <trans-unit id="board.card.automation.reason.changes_requested"><source>board.card.automation.reason.changes_requested</source><target>a reviewer requested changes</target></trans-unit>
+            <trans-unit id="board.card.history.reason.conflict"><source>board.card.history.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
+            <trans-unit id="board.card.history.reason.checks_failed"><source>board.card.history.reason.checks_failed</source><target>the checks fail</target></trans-unit>
+            <trans-unit id="board.card.history.reason.changes_requested"><source>board.card.history.reason.changes_requested</source><target>a reviewer requested changes</target></trans-unit>
             <trans-unit id="board.card.linked_work.title"><source>board.card.linked_work.title</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
             <trans-unit id="board.card.linked_cards.title"><source>board.card.linked_cards.title</source><target>Linked cards</target></trans-unit>
@@ -6544,7 +6557,6 @@
             <trans-unit id="activity.event_type.document.review_submitted"><source>activity.event_type.document.review_submitted</source><target>Document review submitted</target></trans-unit>
             <trans-unit id="project.workshop.activity.empty"><source>project.workshop.activity.empty</source><target>No recorded activity yet.</target></trans-unit>
             <trans-unit id="project.workshop.cards.empty"><source>project.workshop.cards.empty</source><target>Nothing in motion. A card shows here when a bridge queues it or a session works on it.</target></trans-unit>
-            <trans-unit id="project.workshop.cards.disabled"><source>project.workshop.cards.disabled</source><target>The board is disabled on this instance.</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.disabled"><source>project.workshop.needs_you.disabled</source><target>The inbox is disabled on this instance.</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.clear">
                 <source>project.workshop.needs_you.clear</source>

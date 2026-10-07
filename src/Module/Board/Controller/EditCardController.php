@@ -17,7 +17,6 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\CreateCardFormType;
 use App\Module\Board\Form\UpdateCardRequest;
 use App\Module\Board\Security\CardVoter;
-use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\ClickableInterface;
 use Symfony\Component\Form\FormError;
@@ -40,7 +39,6 @@ final class EditCardController extends AppController
     public function __construct(
         private readonly UpdateCardHandler $updateCard,
         private readonly ShowCardHandler $showCard,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -49,8 +47,6 @@ final class EditCardController extends AppController
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
     ): Response {
-        $this->board->requireEnabled();
-
         // The edit form reuses the create form; UpdateCardRequest only adds the
         // factory that pre-fills it from the card.
         $view = ($this->showCard)(new ShowCardCommand($card));

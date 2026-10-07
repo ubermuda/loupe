@@ -8,7 +8,6 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\ShowProjectCardCommand;
 use App\Module\Board\Command\ShowProjectCardHandler;
-use App\Module\Board\Service\BoardAvailability;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -27,7 +26,6 @@ final class ShowProjectCardController extends AppController
 {
     public function __construct(
         private readonly ShowProjectCardHandler $showCard,
-        private readonly BoardAvailability $board,
     ) {
     }
 
@@ -36,10 +34,6 @@ final class ShowProjectCardController extends AppController
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('Card endpoint reached without an authenticated User.');
-        }
-
-        if (!$this->board->isEnabled()) {
-            return $this->json(['error' => 'board_disabled'], JsonResponse::HTTP_NOT_FOUND);
         }
 
         $view = ($this->showCard)(new ShowProjectCardCommand($user, $handle, $cardId));

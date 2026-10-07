@@ -21,7 +21,6 @@ If a request fails, press **Search** to retry. Without JavaScript, the topbar li
 Card and document searches match titles and text with the existing full-text indexes.
 Enter a card number, such as `#12`, to find that card directly.
 Results include completed cards and archived documents.
-A disabled board contributes no cards and no Board page.
 
 Each results page contains up to ten cards and ten documents.
 Use **Next results** or **Previous results** to read more matches.

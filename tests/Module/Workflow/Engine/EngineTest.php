@@ -18,14 +18,12 @@ use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
@@ -91,8 +89,6 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Ubermuda\AuditBundle\Auditor;
-use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class EngineTest extends KernelTestCase
 {
@@ -722,23 +718,6 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card, '2026-10-02 12:02:00');
 
         self::assertSame(['fix'], $this->firedRules());
-    }
-
-    public function test_a_card_evaluated_while_the_board_is_off_for_the_instance_gets_a_baseline_for_when_it_is_on(): void
-    {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
-        $this->setBoardEnabled(false);
-
-        $this->evaluate($card);
-
-        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
-
-        $this->setBoardEnabled(true);
-        $this->evaluate($card, '2026-10-02 12:01:00');
-
-        self::assertSame([], $this->liveRequests($card));
-        self::assertSame([], $this->firedRecords());
-        self::assertTrue($this->ruleState($card, 'work')->truth);
     }
 
     public function test_a_project_with_no_workflow_is_left_alone(): void
@@ -1509,7 +1488,7 @@ final class EngineTest extends KernelTestCase
         $events = new EventDispatcher();
         $events->addListener(CardHoldsReleased::class, new BaselineCardsOnCardHoldsReleased(
             $this->service(WorkflowPendingBaselineRepository::class),
-            new EvaluationTrigger($this->service(MessageBusInterface::class), $this->service(BoardAvailability::class)),
+            new EvaluationTrigger($this->service(MessageBusInterface::class)),
         ));
         $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), new MockClock(self::NOON), $events);
 
@@ -1534,12 +1513,6 @@ final class EngineTest extends KernelTestCase
             $settings->mergePullRequests,
             $settings->changeBase,
         ));
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $this->service(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->service(DoctrineFeatureFlagReader::class)->reset();
     }
 
     private function requestChangesOnHead(ForgePullRequest $pullRequest): void

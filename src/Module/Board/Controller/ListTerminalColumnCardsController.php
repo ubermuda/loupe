@@ -8,7 +8,6 @@ use App\Controller\AppController;
 use App\Module\Board\Command\ListTerminalColumnCardsCommand;
 use App\Module\Board\Command\ListTerminalColumnCardsHandler;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -30,7 +29,6 @@ final class ListTerminalColumnCardsController extends AppController
 {
     public function __construct(
         private readonly ListTerminalColumnCardsHandler $listTerminalColumnCards,
-        private readonly BoardAvailability $board,
     ) {
     }
 
@@ -39,8 +37,6 @@ final class ListTerminalColumnCardsController extends AppController
         #[MapEntity(id: 'projectId')] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(columnId, projectId)')] BoardColumn $column,
     ): Response {
-        $this->board->requireEnabled();
-
         if (!$column->terminal) {
             throw $this->createNotFoundException();
         }
