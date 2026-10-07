@@ -34,6 +34,12 @@ The **Workflow** page of the project shows the template of the board, its slots
 and the column each slot links to, and its rules. The page is read-only. A later
 release adds a way to change the template.
 
+The template also declares the card types of the board. Each type has a key, a
+label and a colour. A type can have children, and it can get a lane on the
+board. Both shipped templates declare the same seven types, and only Epic has
+children and a lane. Feature is the default type. The **Workflow** page lists
+the types.
+
 The page lists the conditions of each rule. It groups them by the module whose
 data they read: Board, Forge or Bridge. A rule whose condition no longer exists
 on this instance gets an amber tag that names the condition.
