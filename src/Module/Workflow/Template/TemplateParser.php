@@ -220,7 +220,8 @@ final readonly class TemplateParser
      */
     private static function childlessTypesReadingChildren(Rule $rule, array $types): array
     {
-        $evaluatesChildren = ActionType::Evaluate === $rule->then->type && 'children' === ($rule->then->params['cards'] ?? null);
+        $evaluatesChildren = (ActionType::Evaluate === $rule->then->type && 'children' === ($rule->then->params['cards'] ?? null))
+            || array_any(array_filter([$rule->then->until, $rule->then->refill]), static fn (Expression $expression): bool => \in_array(FactKey::Children, $expression->reads(), true));
         $found = [];
         foreach (self::typeReads($rule->when) as [$key, $readsChildren]) {
             $type = null === $key ? null : ($types[$key] ?? null);
