@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Repository;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -169,10 +170,10 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         $claimed = $this->seedWorkRequest($em, $project, state: WorkRequestState::Claimed);
         $done = $this->seedWorkRequest($em, $project, state: WorkRequestState::Done);
 
-        self::assertTrue($this->repository()->hasLive($open->cardId, 'implement'));
-        self::assertFalse($this->repository()->hasLive($open->cardId, 'design'));
-        self::assertTrue($this->repository()->hasLive($claimed->cardId, 'implement'));
-        self::assertFalse($this->repository()->hasLive($done->cardId, 'implement'));
+        self::assertTrue($this->repository()->hasLive($open->subject(), 'implement'));
+        self::assertFalse($this->repository()->hasLive($open->subject(), 'design'));
+        self::assertTrue($this->repository()->hasLive($claimed->subject(), 'implement'));
+        self::assertFalse($this->repository()->hasLive($done->subject(), 'implement'));
     }
 
     /**
@@ -190,7 +191,8 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         $insert = static fn (string $kind) => $connection->insert('work_requests', [
             'id' => (string) Uuid::v7(),
             'project_id' => (string) $project->id,
-            'card_id' => (string) $first->cardId,
+            'subject_type' => 'card',
+            'subject_id' => (string) $first->subjectId,
             'card_number' => 7,
             'kind' => $kind,
             'rule_id' => 'implement-on-entry',
@@ -203,7 +205,7 @@ final class WorkRequestRepositoryTest extends KernelTestCase
             $insert('implement');
             self::fail('Expected the unique index to refuse a second live request.');
         } catch (UniqueConstraintViolationException $e) {
-            self::assertStringContainsString(WorkRequest::LIVE_CARD_KIND_INDEX, $e->getMessage());
+            self::assertStringContainsString(WorkRequest::LIVE_SUBJECT_KIND_INDEX, $e->getMessage());
         } finally {
             $connection->rollBack();
         }
@@ -249,6 +251,22 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         self::assertSame([], $this->repository()->findLiveForCard(Uuid::v7()));
     }
 
+    public function test_the_card_reads_skip_a_request_about_another_subject_with_the_same_id(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'other-subject@example.com'), 'Other Subject');
+        $sharedId = Uuid::v7();
+        $card = $this->seedWorkRequest($em, $project, cardId: $sharedId);
+        $analysis = new WorkRequest($project, 'analysis', $sharedId, null, 'implement', null, 'insights.analysis', new \DateTimeImmutable('2026-10-01 11:00:00'));
+        $em->persist($analysis);
+        $em->flush();
+
+        self::assertSame([$card], $this->repository()->findLiveForCard($sharedId));
+        self::assertTrue($this->repository()->hasLive($analysis->subject(), 'implement'));
+        self::assertFalse($this->repository()->hasLive(new WorkSubject('analysis', $sharedId), 'design'));
+    }
+
     public function test_the_latest_settled_request_of_a_card_is_done_or_refused(): void
     {
         self::bootKernel();
@@ -273,6 +291,29 @@ final class WorkRequestRepositoryTest extends KernelTestCase
 
         self::assertSame($latest, $this->repository()->findLatestSettledForCard($cardId));
         self::assertNull($this->repository()->findLatestSettledForCard(Uuid::v7()));
+    }
+
+    public function test_the_open_requests_of_other_subjects_past_the_deadline_read_oldest_first(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'other-subjects@example.com'), 'Other Subjects');
+        $analysis = static fn (): WorkSubject => new WorkSubject('analysis', Uuid::v7());
+        $deadline = new \DateTimeImmutable('2026-10-01 10:00:00');
+        $atTheEdge = $this->seedWorkRequest($em, $project, createdAt: $deadline, subject: $analysis());
+        $older = $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 09:00:00'), subject: $analysis());
+        $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 10:00:01'), subject: $analysis());
+        $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 08:00:00'), subject: $analysis(), reopenedAt: new \DateTimeImmutable('2026-10-01 10:30:00'));
+        $reopenedLongAgo = $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 07:00:00'), subject: $analysis(), reopenedAt: new \DateTimeImmutable('2026-10-01 09:30:00'));
+        $this->seedWorkRequest($em, $project, state: WorkRequestState::Claimed, createdAt: new \DateTimeImmutable('2026-10-01 08:00:00'), subject: $analysis());
+        $this->seedWorkRequest($em, $project, createdAt: new \DateTimeImmutable('2026-10-01 08:00:00'));
+
+        $found = $this->repository()->findOpenOfOtherSubjectsBefore($deadline);
+
+        self::assertSame(
+            [(string) $reopenedLongAgo->id, (string) $older->id, (string) $atTheEdge->id],
+            array_map(static fn (WorkRequest $request): string => (string) $request->id, $found),
+        );
     }
 
     private function repository(): WorkRequestRepository

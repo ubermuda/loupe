@@ -41,7 +41,7 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertSame(WorkerRunState::Running, $run->state);
         self::assertNull($run->bridgeId);
         self::assertNull($run->runKey);
-        self::assertSame($cardId->toRfc4122(), $run->cardId->toRfc4122());
+        self::assertSame($cardId->toRfc4122(), $run->subjectId->toRfc4122());
         self::assertSame(17, $run->cardNumber);
         self::assertSame($sessionId->toRfc4122(), $run->sessionId?->toRfc4122());
         self::assertSame('Pairing on the design', $run->workKind);

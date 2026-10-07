@@ -106,7 +106,7 @@ func TestAnInteractiveMatchLaunchesASession(t *testing.T) {
 		t.Fatalf("launch = %+v", got)
 	}
 	r := got.report
-	if r.State != api.RunRunning || r.FailureReason != "" || r.BridgeID != testBridgeID || r.CardID != cardUUID(87) || r.CardNumber != 87 || r.WorkKind != "plan" || r.At.IsZero() {
+	if r.State != api.RunRunning || r.FailureReason != "" || r.BridgeID != testBridgeID || r.SubjectType != api.SubjectCard || r.SubjectID != cardUUID(87) || r.CardNumber != 87 || r.WorkKind != "plan" || r.At.IsZero() {
 		t.Fatalf("report = %+v", r)
 	}
 

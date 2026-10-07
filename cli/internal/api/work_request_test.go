@@ -22,7 +22,7 @@ const (
 func workRequestJSON(state string) string {
 	return fmt.Sprintf(`{"type":"bridge.work_request","projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",`+
 		`"subject":{"type":"work-request","id":%[1]q},"workRequestId":%[1]q,"kind":"implement","capability":null,`+
-		`"state":%[2]q,"cardId":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7","cardNumber":42,"ruleId":"impl.rule",`+
+		`"state":%[2]q,"subjectType":"card","subjectId":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7","cardNumber":42,"ruleId":"impl.rule",`+
 		`"createdAt":"2026-10-01T12:30:00+00:00"}`, workRequestID, state)
 }
 
@@ -61,7 +61,7 @@ func TestClaimWorkRequestPostsAndReadsTheClaim(t *testing.T) {
 	}
 	w := claim.WorkRequest
 	if w.WorkRequestID != workRequestID || w.Kind != "implement" || w.Capability != "" || w.State != WorkRequestClaimed ||
-		w.CardNumber != 42 || w.RuleID != "impl.rule" || !w.CreatedAt.Equal(time.Date(2026, 10, 1, 12, 30, 0, 0, time.UTC)) {
+		w.SubjectType != SubjectCard || w.SubjectID != "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7" || w.CardNumber != 42 || w.RuleID != "impl.rule" || !w.CreatedAt.Equal(time.Date(2026, 10, 1, 12, 30, 0, 0, time.UTC)) {
 		t.Fatalf("work request = %+v", w)
 	}
 }

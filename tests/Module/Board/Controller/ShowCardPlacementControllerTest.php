@@ -9,6 +9,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -621,7 +622,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $run = new WorkerRun(
             project: $card->project,
             bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $card->number,
             workKind: 'implement',
             state: WorkerRunState::GaveUp,

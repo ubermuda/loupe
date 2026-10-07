@@ -47,7 +47,8 @@ type Command struct {
 	BridgeID      string         `json:"bridgeId"`
 	RunKey        string         `json:"runKey"`
 	SessionID     string         `json:"sessionId"`
-	CardID        string         `json:"cardId"`
+	SubjectType   string         `json:"subjectType"`
+	SubjectID     string         `json:"subjectId"`
 	CardNumber    int            `json:"cardNumber"`
 	WorkRequestID string         `json:"workRequestId"`
 	WorkKind      string         `json:"workKind"`

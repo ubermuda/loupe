@@ -28,10 +28,14 @@
     </header>
     <div class="lp-run-drawer__body">
         <dl class="lp-run-drawer__metadata">
+            {% if run.cardId() is not null %}
             <div><dt>{{ 'bridge.worker_runs.details.card'|trans }}</dt><dd>
-                <a href="{{ path('app_board_card', {projectId: project.id, cardId: run.cardId}) }}">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</a>
-                <span class="lp-run-drawer__identifier">{{ run.cardId }}</span>
+                <a href="{{ path('app_board_card', {projectId: project.id, cardId: run.cardId()}) }}">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</a>
+                <span class="lp-run-drawer__identifier">{{ run.cardId() }}</span>
             </dd></div>
+            {% else %}
+            <div data-worker-run-subject><dt>{{ 'bridge.worker_runs.details.subject'|trans }}</dt><dd>{{ run.subjectType }} <span class="lp-run-drawer__identifier">{{ run.subjectId }}</span></dd></div>
+            {% endif %}
             <div><dt>{{ 'bridge.worker_runs.column.work_kind'|trans }}</dt><dd data-worker-run-work-kind>{{ run.workKind ?? 'bridge.worker_runs.no_work_kind'|trans }}</dd></div>
             {# The bridge writes these names, so they are rendered as text. Never add |raw here. #}
             {% if run.experiment is not null %}<div data-worker-run-experiment><dt>{{ 'bridge.worker_runs.details.experiment'|trans }}</dt><dd>{{ run.experiment }} / {{ run.variant }}{% if run.requestedModel is not null %} ({{ run.requestedModel }}){% endif %}{% if run.switchedFrom is not null %}, {{ 'bridge.worker_runs.details.switched_from'|trans({'%variant%': run.switchedFrom}) }}{% endif %}</dd></div>{% endif %}

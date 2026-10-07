@@ -99,7 +99,7 @@ final readonly class RequestBridgeCommandHandler
                 // Always after the bridge lock: no holder of a project lock takes a bridge lock.
                 if (BridgeCommandKind::ResumeRun === $command->kind) {
                     $this->em->lock($run->project, LockMode::PESSIMISTIC_WRITE);
-                    if ($this->cardHolds->isHeld($run->project, $run->cardId)) {
+                    if ($this->isCardHeld($run)) {
                         return self::CARD_HELD;
                     }
                 }
@@ -118,7 +118,7 @@ final readonly class RequestBridgeCommandHandler
                     cause: $command->cause,
                 );
                 if (null !== $run->workRequestId) {
-                    $bridgeCommand->context = $this->workRequests->findOneOfCard($run->workRequestId, $run->project, $run->cardId)->context ?? $bridgeCommand->context;
+                    $bridgeCommand->context = $this->workRequests->findOneOfSubject($run->workRequestId, $run->project, $run->subject())->context ?? $bridgeCommand->context;
                 }
                 $this->em->persist($bridgeCommand);
                 // The payload names the command, so the row needs its id first.
@@ -158,6 +158,14 @@ final readonly class RequestBridgeCommandHandler
         return $result;
     }
 
+    /** A hold is about a card, so a run about any other subject is never held. */
+    private function isCardHeld(WorkerRun $run): bool
+    {
+        $cardId = $run->cardId();
+
+        return null !== $cardId && $this->cardHolds->isHeld($run->project, $cardId);
+    }
+
     private function refusalOf(WorkerRun $run, BridgeCommandKind $kind): ?string
     {
         if (WorkerRunKind::Interactive === $run->kind) {
@@ -169,7 +177,7 @@ final readonly class RequestBridgeCommandHandler
             BridgeCommandKind::ResumeRun => match (true) {
                 null === $run->sessionId => self::NO_SESSION,
                 !$run->state->isResumable() => self::NOT_RESUMABLE,
-                $this->cardHolds->isHeld($run->project, $run->cardId) => self::CARD_HELD,
+                $this->isCardHeld($run) => self::CARD_HELD,
                 default => null,
             },
             BridgeCommandKind::RerunCommand => match (true) {

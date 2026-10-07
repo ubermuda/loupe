@@ -22,7 +22,11 @@ final readonly class EvaluateCardOnWorkRequestChanged
 
     public function __invoke(WorkRequestChanged $event): void
     {
-        $this->events->dispatch(new CardChanged($event->projectId, $event->cardId, CardChanged::UPDATED, false));
-        $this->trigger->forCards([$event->cardId]);
+        $cardId = $event->cardId();
+        if (null === $cardId) {
+            return;
+        }
+        $this->events->dispatch(new CardChanged($event->projectId, $cardId, CardChanged::UPDATED, false));
+        $this->trigger->forCards([$cardId]);
     }
 }

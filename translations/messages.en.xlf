@@ -6031,6 +6031,7 @@
             <trans-unit id="bridge.worker_runs.details.title"><source>bridge.worker_runs.details.title</source><target>Run attempt</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.close"><source>bridge.worker_runs.details.close</source><target>Close</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.card"><source>bridge.worker_runs.details.card</source><target>Card</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.subject"><source>bridge.worker_runs.details.subject</source><target>Subject</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.continues"><source>bridge.worker_runs.details.continues</source><target>Resumes run</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.worker_pool"><source>bridge.worker_runs.details.worker_pool</source><target>Worker pool</target></trans-unit>

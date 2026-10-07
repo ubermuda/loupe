@@ -36,7 +36,8 @@ final class WorkerRunUsageExporterTest extends KernelTestCase
         self::assertCount(2, $rows);
         self::assertSame([
             'project' => 'Usage Export',
-            'cardId' => (string) $swept->cardId,
+            'subjectType' => 'card',
+            'subjectId' => (string) $swept->subjectId,
             'workKind' => 'plan',
             'runKey' => null,
             'model' => 'claude-haiku',

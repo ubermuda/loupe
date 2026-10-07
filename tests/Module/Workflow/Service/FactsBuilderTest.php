@@ -18,6 +18,7 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -728,7 +729,7 @@ final class FactsBuilderTest extends KernelTestCase
 
     private function workRequest(Card $card, string $kind, WorkRequestState $state, ?string $reason = null, ?string $settledAt = null): void
     {
-        $request = new WorkRequest($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, $kind, null, 'rule', new \DateTimeImmutable('2026-10-02 09:00:00'));
+        $request = new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, $kind, null, 'rule', new \DateTimeImmutable('2026-10-02 09:00:00'));
         $request->state = $state;
         $request->reason = $reason;
         $request->settledAt = null === $settledAt ? null : new \DateTimeImmutable($settledAt);
