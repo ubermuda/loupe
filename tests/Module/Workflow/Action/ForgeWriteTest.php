@@ -96,6 +96,20 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([], $this->liveKinds($card));
     }
 
+    public function test_it_merges_the_pull_request_the_facts_read_and_not_the_newest_one(): void
+    {
+        $card = $this->card($this->project(mergePullRequests: true), 'in-review');
+        $base = $this->pullRequest($card, head: 'base-branch', headSha: 'aaa111');
+        $base->openedAt = new \DateTimeImmutable('2026-10-01 09:00:00');
+        $upper = $this->pullRequest($card, base: 'base-branch', headSha: 'bbb222');
+        $upper->openedAt = new \DateTimeImmutable('2026-10-01 10:00:00');
+        $this->em()->flush();
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'merge', facts: FactsMother::facts(pullRequest: FactsMother::pullRequest(id: $base->id))));
+
+        self::assertSame([['merge', $base->number, 'squash', 'aaa111']], $this->writer->calls);
+    }
+
     public function test_a_forge_with_no_merger_opens_the_fallback_work(): void
     {
         $card = $this->card($this->project(mergePullRequests: true, changeBase: true), 'in-review');

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Module\Workflow\Action;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkerRunRepository;
@@ -121,5 +123,13 @@ trait ActionScenario
         $this->em()->flush();
 
         return $pullRequest;
+    }
+
+    /** @return list<array<mixed>> the detail of each fix-requested event of the card */
+    private function fixEvents(Card $card): array
+    {
+        $rows = $this->service(CardEventRepository::class)->findKindsOfCards($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')], [CardEventKind::FixRequested]);
+
+        return array_values(array_map(static fn (array $row): array => $row['detail'], array_filter($rows, static fn (array $row): bool => CardEventKind::FixRequested === $row['kind'])));
     }
 }

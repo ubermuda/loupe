@@ -53,7 +53,7 @@ final readonly class RequestWork implements Action
     private function recordFixRequested(Card $card, Facts $facts): void
     {
         $detail = ['reason' => $facts->pullRequest?->fixReason() ?? 'unknown'];
-        $number = $this->cardPullRequests->primary($this->cardPullRequests->forCard($card))?->number;
+        $number = $this->cardPullRequests->subjectOf($this->cardPullRequests->forCard($card), $facts->pullRequest)?->number;
         if (null !== $number) {
             $detail['pullRequest'] = $number;
         }

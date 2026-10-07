@@ -116,6 +116,10 @@ Some rules act from any slot:
    terminal column once no child is open.
 2. A card in the Backlog whose pull request reopens moves to Implementation.
 3. A child in the Backlog whose last blocker finished moves to Implementation.
+   It waits while a breakdown of its epic runs. When that breakdown ends, the
+   epic evaluates its children again. The wait reads the open worker runs of
+   the epic. An older bridge that sends no run key reports a run only after it
+   ends, so its breakdown does not hold the children.
 4. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
 5. A child that reaches a terminal column with a pull request merged into its
@@ -184,9 +188,14 @@ Simple asks for `teardown` alone.
 A request for work carries the context of its card, as the card was when the
 request opened. The bridge can fill a prompt or a command with each value.
 
+A rule that reads a pull request tries the open pull requests of the card from
+the bottom of a stack first, then the oldest opened. It acts on the first one
+that makes its condition true. The fix limit counts per pull request: when the
+rule moves to another pull request, its count starts again.
+
 | Value | What it holds |
 |---|---|
-| Pull request number | the number of the primary pull request of the card |
+| Pull request number | the number of the pull request that the rule acts on |
 | Pull request link | the link to that pull request, as the card holds it |
 | Head commit | the head commit of that pull request. A later push leaves it behind |
 | Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |

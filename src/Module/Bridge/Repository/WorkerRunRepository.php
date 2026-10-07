@@ -596,6 +596,27 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** @return list<string> the distinct work kinds of the card's open worker runs, sorted */
+    public function findOpenWorkKindsOfCard(Uuid $cardId): array
+    {
+        /** @var list<string> $kinds */
+        $kinds = $this->createQueryBuilder('r')
+            ->select('DISTINCT r.workKind')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
+            ->andWhere('r.kind = :kind')
+            ->andWhere('r.workKind IS NOT NULL')
+            ->andWhere('r.state IN (:openStates)')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
+            ->orderBy('r.workKind')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return $kinds;
+    }
+
     /** @return list<WorkerRun> the card's open runs, newest first */
     public function findOpenForCard(Project $project, Uuid $cardId, int $limit): array
     {
