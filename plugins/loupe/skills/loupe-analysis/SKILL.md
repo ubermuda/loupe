@@ -42,11 +42,11 @@ Pass `scope.range` as the `range` of each `metric_query`. Call `metric_list` fir
 
 ## Find what the host did
 
-The host metrics come from samples that a bridge takes of its machine. Read them in `metrics` of `worker_run_list` and `worker_run_get`: `meanCpuPct`, `peakMemBytes`, `peakSwapBytes`, `concurrentRuns` and `onBattery`. `concurrentRuns` counts the runs on the same bridge whose times overlap, the run itself included. A null value means that no sample is known.
+The host metrics come from samples that a bridge takes of its machine. Read them in `metrics` of `worker_run_list` and `worker_run_get`: `meanCpuPct`, `peakMemBytes`, `peakSwapBytes`, `concurrentRuns` and `onBattery`. `concurrentRuns` counts the runs on the same bridge whose times overlap, the run itself included. Loupe computes it from the start and end times of the runs, so an ended run has a value with no sample. The other four metrics come from samples. A null value in them means that no sample is known.
 
 1. Call `worker_run_list` with `endedAfter` set to the start of `scope.range`, such as 30 or 90 days before today. Pass no `endedAfter` for `all`. Walk every page while `hasMore` is true, with `perPage` 100.
-2. Count the runs whose host metrics are null. Say in the report that sampling can be off. The instance flag `bridge.host_sampling_enabled` is off by default, and the `collect` key in the bridge `rules.yaml` can be `false`. A run that is shorter than the sample interval also has no sample.
-3. When every run has null host metrics, skip steps 4 to 8. The report then says only that, and the proposals list is empty.
+2. Count the runs whose `meanCpuPct`, `peakMemBytes`, `peakSwapBytes` and `onBattery` are all null. These runs have no sample. Say in the report that sampling can be off. The instance flag `bridge.host_sampling_enabled` is off by default, and the `collect` key in the bridge `rules.yaml` can be `false`. A run that is shorter than the sample interval also has no sample.
+3. When no run has a sample, skip steps 5 to 7. Do step 4, because `concurrentRuns` stays available with no sample. The report then says that no sample is known, and gives only the concurrency findings.
 4. For each `workKind` and each `bridgeId`, compare runs with `concurrentRuns` 1 against runs with a higher count. Compare `metrics.durationMs`, and the share of runs whose `state` is `failed`, `timed-out` or `lost`.
 5. Find the runs with `onBattery` true. Also find the runs that ended `stopped`, `failed` or `lost` on a bridge that was on battery near that time.
 6. Call `bridge_host_samples` with the `runId` of each of those runs. A falling `batteryPct` with `onAc` false shows a drain. A gap in `sampledAt` before the end of the run shows that the machine slept or lost power.
