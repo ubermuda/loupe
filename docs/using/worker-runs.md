@@ -24,7 +24,7 @@ page describes it. **Events** lists the [project events](activity.md).
 |---|---|
 | Work | the number of the card the worker was started for, then its title. A card that is gone, or a board that is off, shows the number alone. An interactive run adds the tag **Interactive session**, and a command run adds the tag **Command** |
 | Outcome | the state of the run, from the list below. A run with a failure reason shows a help icon, and the reason shows when you hover over or focus the outcome |
-| Work kind | the kind of the work request the run ran, such as `implement` or `fix`, or the name of an interactive session. A run from before the work map shows **None**. A long name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool** |
+| Work kind | the kind of the work request the run ran, such as `implement` or `fix`, or the name of an interactive session. A run from before the work map shows **None**. A long name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool**. The harness, the account and the model each add a tag when the bridge reported them, such as `codex`, `work` and `gpt-5` |
 | Duration | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
 | Started | how long ago the worker started, on the bridge clock. Hover over it to see the exact time. A run that has not started shows when its first report arrived |
 
@@ -43,6 +43,13 @@ a run shows an **Experiment** line after the work kind, such as `impl-model / so
 the variant asked for. When the entry no longer offers the variant of the card,
 the card moves to a new variant. The line then adds a note, such as `, switched
 from opus`. A run with no experiment shows no line.
+
+A bridge can run its workers on more than one harness, such as Claude Code
+(`claude-code`) or Codex (`codex`), and on named accounts. Each report of a run
+can name the harness, the account, the model and the id the harness gave the
+session. A value can arrive in a later report, so the row and the drawer show
+it from that report on. A run from before this release shows the harness
+`claude-code`. A command run runs no harness and shows none of these.
 
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary, or a terminal launcher that failed.
@@ -176,7 +183,7 @@ session and an ended run in a state that can resume. A run with a request that s
 one, and so does a bridge that does not take commands. A refused run gives a
 code and a message, and `worker_run_resume` takes up to 50 runs in one call.
 There is no tool that pauses a bridge, and no tool that runs a command again.
-Each run row carries its `kind`: `worker`, `interactive` or `command`.
+Each run row carries its `kind`: `worker`, `interactive` or `command`. `worker_run_list` also filters by `harness`, `account` and `model`, and each row carries them with `harnessSessionId`.
 
 ## A warning on the card
 
@@ -358,7 +365,7 @@ pause, and the menu says to update it to 1.5.0 or later.
 ## The output
 
 Select a row to open a read-only drawer without leaving the list.
-It shows the attempt ID, card, work kind, experiment, worker pool, bridge, session and duration. A run with no worker pool shows no pool row. An interactive run shows a bridge only when a bridge launched it.
+It shows the attempt ID, card, work kind, experiment, worker pool, bridge, session, harness, account, model, harness session and duration. A run with no worker pool shows no pool row, and the harness, account and model rows show only when the bridge reported a value. The **Harness session** row shows the id the harness gave the session, such as a Codex thread id. It shows only when that id differs from the session, so a Claude Code run shows none. An interactive run shows a bridge only when a bridge launched it.
 A resume also shows a link to the run it resumes.
 The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.
@@ -395,12 +402,13 @@ An open drawer holds the reload. The list reloads when you close the drawer.
 The search box covers the card number, the work kind and the output text.
 It matches whole words and accepts quoted phrases and a leading `-` to exclude a word.
 Paste a complete run ID to find that attempt in the current project.
-Run IDs match without regard to letter case, and the outcome and bridge filters still apply.
+Run IDs match without regard to letter case, and the other filters still apply.
 
-Two filters narrow the list further:
+These filters narrow the list further:
 
 - **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works. `outcome=closed` keeps the closed interactive runs. **Open runs** (`outcome=open`) keeps every queued, resumed, running and stopping run, of both kinds.
 - **Bridge** keeps one bridge, and lists each bridge by its name. It appears once a second bridge has reported.
+- **Harness**, **Account** and **Model** each keep the runs with one value, such as `harness=codex`. Each one appears once the runs of the project hold a second value. A filter that is set stays visible, so you can clear it.
 
 Every control lands in the URL, so a filtered view is a link you can share.
 Select **Clear** to go back to the whole list.

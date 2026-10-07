@@ -6035,6 +6035,10 @@
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.continues"><source>bridge.worker_runs.details.continues</source><target>Resumes run</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.worker_pool"><source>bridge.worker_runs.details.worker_pool</source><target>Worker pool</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.harness"><source>bridge.worker_runs.details.harness</source><target>Harness</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.account"><source>bridge.worker_runs.details.account</source><target>Account</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.model"><source>bridge.worker_runs.details.model</source><target>Model</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.harness_session"><source>bridge.worker_runs.details.harness_session</source><target>Harness session</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.experiment"><source>bridge.worker_runs.details.experiment</source><target>Experiment</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.switched_from"><source>bridge.worker_runs.details.switched_from</source><target>switched from %variant%</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.result_status"><source>bridge.worker_runs.details.result_status</source><target>Result status</target></trans-unit>
@@ -6096,6 +6100,30 @@
             <trans-unit id="bridge.worker_runs.filter.all_bridges">
                 <source>bridge.worker_runs.filter.all_bridges</source>
                 <target>All bridges</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.harness_label">
+                <source>bridge.worker_runs.filter.harness_label</source>
+                <target>Harness</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.all_harnesses">
+                <source>bridge.worker_runs.filter.all_harnesses</source>
+                <target>All harnesses</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.account_label">
+                <source>bridge.worker_runs.filter.account_label</source>
+                <target>Account</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.all_accounts">
+                <source>bridge.worker_runs.filter.all_accounts</source>
+                <target>All accounts</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.model_label">
+                <source>bridge.worker_runs.filter.model_label</source>
+                <target>Model</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.all_models">
+                <source>bridge.worker_runs.filter.all_models</source>
+                <target>All models</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.filter.clear">
                 <source>bridge.worker_runs.filter.clear</source>

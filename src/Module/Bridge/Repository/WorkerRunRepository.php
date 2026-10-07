@@ -735,6 +735,18 @@ class WorkerRunRepository extends ServiceEntityRepository
                 ->setParameter('bridgeId', $query->bridgeId, UuidType::NAME);
         }
 
+        if (null !== $query->harness) {
+            $qb->andWhere('r.harness = :harness')->setParameter('harness', $query->harness);
+        }
+
+        if (null !== $query->account) {
+            $qb->andWhere('r.account = :account')->setParameter('account', $query->account);
+        }
+
+        if (null !== $query->model) {
+            $qb->andWhere('r.model = :model')->setParameter('model', $query->model);
+        }
+
         // Nothing is fetch-joined, so the page LIMIT already counts runs.
         return new Paginator($qb->getQuery(), fetchJoinCollection: false);
     }
@@ -782,6 +794,32 @@ class WorkerRunRepository extends ServiceEntityRepository
             static fn (Uuid|string $row): Uuid => $row instanceof Uuid ? $row : Uuid::fromString($row),
             $rows,
         );
+    }
+
+    /**
+     * The values the project's runs hold in one of these columns, sorted, for a page filter.
+     *
+     * @param 'harness'|'account'|'model' $field
+     *
+     * @return list<string>
+     */
+    public function distinctValuesOf(Project $project, string $field): array
+    {
+        if (!\in_array($field, ['harness', 'account', 'model'], true)) {
+            throw new \InvalidArgumentException(\sprintf('No page filter reads the field "%s".', $field));
+        }
+
+        /** @var list<string> $values */
+        $values = $this->createQueryBuilder('r')
+            ->select('DISTINCT r.'.$field)
+            ->andWhere('r.project = :project')
+            ->andWhere('r.'.$field.' IS NOT NULL')
+            ->setParameter('project', $project)
+            ->orderBy('r.'.$field, 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return $values;
     }
 
     /**

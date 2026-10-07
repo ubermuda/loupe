@@ -13,8 +13,8 @@ use App\Module\Bridge\ValueObject\BridgeCommandState;
  * Shapes worker runs and bridge commands for an MCP tool result.
  *
  * @phpstan-type PendingCommand array{commandId: string, kind: string, state: string}
- * @phpstan-type WorkerRunRow array{runId: string, runKey: ?string, kind: string, subjectType: string, subjectId: string, cardNumber: ?int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string}
- * @phpstan-type WorkerRunDetail array{runId: string, runKey: ?string, kind: string, subjectType: string, subjectId: string, cardNumber: ?int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string, continuesRunId: ?string, receivedAt: string, failureReason: ?string, output: string, stateChanges: list<array{state: string, at: string}>}
+ * @phpstan-type WorkerRunRow array{runId: string, runKey: ?string, kind: string, subjectType: string, subjectId: string, cardNumber: ?int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, harness: ?string, account: ?string, model: ?string, harnessSessionId: ?string, pendingCommand: PendingCommand|null, reason: ?string}
+ * @phpstan-type WorkerRunDetail array{runId: string, runKey: ?string, kind: string, subjectType: string, subjectId: string, cardNumber: ?int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, harness: ?string, account: ?string, model: ?string, harnessSessionId: ?string, pendingCommand: PendingCommand|null, reason: ?string, continuesRunId: ?string, receivedAt: string, failureReason: ?string, output: string, stateChanges: list<array{state: string, at: string}>}
  * @phpstan-type BridgeCommandRow array{commandId: string, runId: string, kind: string, state: string, reason: ?string, requestedAt: string, expiresAt: string, settledAt: ?string}
  */
 final readonly class WorkerRunPayload
@@ -40,6 +40,10 @@ final readonly class WorkerRunPayload
             'endedAt' => $run->endedAt?->format(\DATE_ATOM),
             'exitCode' => $run->exitCode,
             'bridgeId' => $run->bridgeId?->toRfc4122(),
+            'harness' => $run->harness,
+            'account' => $run->account,
+            'model' => $run->model,
+            'harnessSessionId' => $run->harnessSessionId,
             'pendingCommand' => null !== $pending && BridgeCommandState::Pending === $pending->state
                 ? ['commandId' => (string) $pending->id, 'kind' => $pending->kind->value, 'state' => $pending->state->value]
                 : null,

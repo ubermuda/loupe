@@ -110,7 +110,7 @@ order.
 | `workKind` | the kind of the work request, such as `implement` or `fix`. It matches `^[a-z][a-z0-9-]{0,39}$` |
 | `ruleId` | the id of the workflow rule that opened the work request. It matches `^[a-z0-9][a-z0-9._-]{0,99}$` |
 | `kind` | `worker` or `command`. A missing or `null` value means `worker`. See [Command runs](#command-runs) |
-| `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running`, except on a command run |
+| `sessionId` | the uuid of the session the worker runs as. Required for `running`, except on a command run. A harness that names its session with its own id sends that id in `harnessSessionId` |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
 | `endedAt` | when the worker ended, on the bridge clock. Required for an outcome. A `stopped` report may leave it out, and the server then uses `at`. The end, or `at` in its place, cannot be before the `startedAt` of the same report |
 | `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished`, `blocked` and `waiting-on-forge` need 0, `failed` needs any other code, and `not-started` needs `null` |
@@ -132,6 +132,10 @@ order.
 | `variant` | the variant of the experiment that the card runs with, such as `sonnet`. It matches the same pattern |
 | `requestedModel` | the model the variant asked for, such as `claude-sonnet-5-5`, at most 100 characters with no control characters |
 | `switchedFrom` | the variant the card was pinned to before this run, when the rule no longer offers it. It matches the same pattern |
+| `harness` | the harness that runs the worker, such as `claude-code` or `codex`. It starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens |
+| `account` | the named harness account the worker uses. It holds 1 to 64 letters, digits, dots, underscores and hyphens, and starts with a letter or a digit. It is a short name, never a path or a key |
+| `model` | the model the harness runs, at most 100 characters with no control characters |
+| `harnessSessionId` | the id the harness gives the session, such as a Codex thread id. It holds 1 to 100 letters, digits, dots, colons, underscores and hyphens, and starts with a letter or a digit. Loupe keeps its own session id in `sessionId` |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
 outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
@@ -151,6 +155,17 @@ with no `workerPool` keeps the stored pool. A bridge built before worker pools
 sends none, and its runs have no pool. The bridge can move a queued run to
 another pool before the run starts. Until the next report arrives, a queued run
 can show the pool it had before the move.
+
+The server stores `harness`, `account`, `model` and `harnessSessionId` from
+every report that carries them, a repeat of a state included. A report with no
+value for a field keeps the stored value. So a value can arrive late: Codex
+names its thread only after it starts, and the model can come with the outcome.
+A blank value, or a value that breaks its rule, gets a 422. A bridge built
+before harnesses sends none of the four fields. The runs from before this
+release show the harness `claude-code`, because each bridge then ran Claude
+Code. A command run runs no harness, so it has none of the four. The
+[interactive launch report](../extending/cli-bridge.md#interactive-action)
+takes the same four fields with the same rules.
 
 The bridge sends `experiment`, `variant`, `requestedModel` and `switchedFrom`
 on `running` and on the outcome, never on `queued`. A run with no experiment
@@ -558,7 +573,7 @@ its experiment weights and its card holds with it. Deleting an account deletes
 the same data of every project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
-`requestedModel` and `switchedFrom`, and its `workRequestId`, `workKind` and `ruleId`. It holds every usage
+`requestedModel` and `switchedFrom`, its `harness`, `account`, `model` and `harnessSessionId`, and its `workRequestId`, `workKind` and `ruleId`. It holds every usage
 row in `worker_run_usage.json`. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of
