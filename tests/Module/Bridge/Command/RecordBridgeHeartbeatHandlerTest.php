@@ -11,7 +11,9 @@ use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\CliCompatibility;
+use App\Module\Bridge\Service\HostSampling;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -423,6 +425,53 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
             'outcome' => 'ok',
             'error' => null,
         ];
+    }
+
+    public function test_the_first_heartbeat_stores_its_samples_under_the_owner(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $this->storeHostSampling('true');
+        $owner = $this->user($em, 'heartbeat-samples-owner@example.com');
+        $other = $this->user($em, 'heartbeat-samples-other@example.com');
+        $bridgeId = Uuid::v4();
+        $this->seedBridge($em, $other, $bridgeId);
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hostSamples: [self::sample('2026-10-07 12:00:00')]));
+
+        self::assertSame(
+            [['owner_id' => (string) $owner->id, 'bridge_id' => (string) $bridgeId, 'sampled_at' => '2026-10-07 12:00:00']],
+            $em->getConnection()->fetchAllAssociative('SELECT owner_id, bridge_id, sampled_at FROM bridge_host_samples'),
+        );
+    }
+
+    public function test_samples_are_dropped_while_sampling_is_off(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $this->storeHostSampling('false');
+        $owner = $this->user($em, 'heartbeat-samples-dropped@example.com');
+        $bridgeId = Uuid::v4();
+
+        $result = $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hostSamples: [self::sample('2026-10-07 12:00:00')]));
+
+        self::assertSame('b4e39aa7', $result->bridge->cliVersion);
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_host_samples'));
+    }
+
+    private static function sample(string $at): BridgeHostSampleReport
+    {
+        return new BridgeHostSampleReport(new \DateTimeImmutable($at, new \DateTimeZone('UTC')), [10.0, 30.0], 1000, 4000, 0, null, true);
+    }
+
+    private function storeHostSampling(string $value): void
+    {
+        $connection = $this->em()->getConnection();
+        $connection->executeStatement('DELETE FROM feature_flag WHERE name = ?', [HostSampling::ENABLED_FLAG]);
+        $connection->executeStatement(
+            "INSERT INTO feature_flag (name, type, value, tags, options) VALUES (?, 'bool', ?, '[]', NULL)",
+            [HostSampling::ENABLED_FLAG, $value],
+        );
     }
 
     private function reload(User $owner, Uuid $bridgeId): Bridge

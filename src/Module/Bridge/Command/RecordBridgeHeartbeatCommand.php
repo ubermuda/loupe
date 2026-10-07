@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use Symfony\Component\Uid\Uuid;
@@ -24,6 +25,7 @@ final readonly class RecordBridgeHeartbeatCommand
      * @param list<string>|null            $capabilities null keeps the stored names, because a bridge that predates capabilities sends none
      * @param list<array{Uuid, Uuid}>|null $workClaims   pairs of a request id and its claim token. Null from a bridge that predates work requests, which renews nothing
      * @param string|null                  $name         null keeps the stored names, because a bridge that predates names sends none; '' clears both; any other value claims the name
+     * @param list<BridgeHostSampleReport> $hostSamples  stored only while host sampling is on
      */
     public function __construct(
         public User $owner,
@@ -39,6 +41,7 @@ final readonly class RecordBridgeHeartbeatCommand
         public ?CliInstallMethod $installMethod = null,
         public ?array $workClaims = null,
         public ?string $name = null,
+        public array $hostSamples = [],
     ) {
     }
 }

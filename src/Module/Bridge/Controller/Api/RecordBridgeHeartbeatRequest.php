@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -31,6 +32,9 @@ final class RecordBridgeHeartbeatRequest
     /** Far above the work one bridge runs at a time, and small enough to bound the renewal statement. */
     public const int MAX_WORK_CLAIMS = 200;
 
+    /** Twelve hours of one sample a minute, which a bridge holds while the server is away. */
+    public const int MAX_HOST_SAMPLES = 720;
+
     /**
      * @param list<string>|null                $projects
      * @param list<BridgeHookInput>|null       $hooks        null from a bridge that predates hooks
@@ -39,6 +43,7 @@ final class RecordBridgeHeartbeatRequest
      * @param list<string>|null                $capabilities null from a bridge that predates capabilities
      * @param list<BridgeWorkClaimInput>|null  $workClaims   null from a bridge that predates work requests
      * @param string|null                      $name         null from a bridge that predates names; blank clears the name
+     * @param list<BridgeHostSampleInput>|null $hostSamples  null from a bridge that predates host samples
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -81,6 +86,12 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Length(max: Bridge::MAX_NAME_LENGTH, normalizer: 'trim')]
         #[Assert\Regex(pattern: Bridge::NAME_PATTERN, normalizer: 'trim')]
         public ?string $name = null,
+
+        #[Assert\All([new Assert\Type(BridgeHostSampleInput::class)])]
+        #[Assert\Count(max: self::MAX_HOST_SAMPLES)]
+        #[Assert\Type('list')]
+        #[Assert\Valid]
+        public ?array $hostSamples = null,
     ) {
     }
 
@@ -104,6 +115,12 @@ final class RecordBridgeHeartbeatRequest
         }
 
         return array_values($claims);
+    }
+
+    /** @return list<BridgeHostSampleReport> */
+    public function hostSamples(): array
+    {
+        return array_map(static fn (BridgeHostSampleInput $sample): BridgeHostSampleReport => $sample->report(), array_values($this->hostSamples ?? []));
     }
 
     /**

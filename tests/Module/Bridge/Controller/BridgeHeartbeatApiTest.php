@@ -6,11 +6,13 @@ namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Controller\Api\BridgeHookInput;
+use App\Module\Bridge\Controller\Api\BridgeHostSampleInput;
 use App\Module\Bridge\Controller\Api\RecordBridgeHeartbeatRequest;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeCommandPayload;
+use App\Module\Bridge\Service\HostSampling;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
@@ -586,6 +588,86 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertSame('2026-10-01 12:31:00', $this->leaseUntil($held));
     }
 
+    public function test_the_host_samples_are_stored_while_sampling_is_on(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->storeHostSampling('true');
+        $owner = $this->user($em, 'heartbeat-samples-on@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, [
+            'projects' => [],
+            'cliVersion' => '1.2.0',
+            'hostSamples' => [
+                self::sample(),
+                self::sample(['sampledAt' => '2026-10-07T14:01:00+02:00', 'cpuPct' => [0, 100], 'batteryPct' => null, 'onAc' => null]),
+            ],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([
+            [
+                'bridge_id' => $bridgeId,
+                'sampled_at' => '2026-10-07 12:00:00',
+                'cpu_pct' => '[12.5, 40.0]',
+                'mem_used' => 8_000_000_000,
+                'mem_total' => 17_179_869_184,
+                'swap_used' => 1_000_000,
+                'battery_pct' => 80.0,
+                'on_ac' => false,
+            ],
+            [
+                'bridge_id' => $bridgeId,
+                'sampled_at' => '2026-10-07 12:01:00',
+                'cpu_pct' => '[0.0, 100.0]',
+                'mem_used' => 8_000_000_000,
+                'mem_total' => 17_179_869_184,
+                'swap_used' => 1_000_000,
+                'battery_pct' => null,
+                'on_ac' => null,
+            ],
+        ], $this->samples());
+    }
+
+    /** A bridge that still holds the old flag value until it reconnects must not fail its heartbeat. */
+    public function test_the_host_samples_are_dropped_while_sampling_is_off(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->storeHostSampling('false');
+        $owner = $this->user($em, 'heartbeat-samples-off@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => '1.2.0', 'hostSamples' => [self::sample()]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame('1.2.0', $this->bridge($owner, $bridgeId)->cliVersion);
+        self::assertSame([], $this->samples());
+    }
+
+    public function test_a_repeated_sample_is_stored_once(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->storeHostSampling('true');
+        $owner = $this->user($em, 'heartbeat-samples-repeat@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+        $payload = ['projects' => [], 'cliVersion' => '1.2.0', 'hostSamples' => [self::sample(), self::sample(['cpuPct' => [99]])]];
+
+        $this->put($client, $bridgeId, $raw, $payload);
+        self::assertResponseStatusCodeSame(200);
+        $this->put($client, $bridgeId, $raw, $payload);
+        self::assertResponseStatusCodeSame(200);
+
+        $samples = $this->samples();
+        self::assertCount(1, $samples);
+        self::assertSame('[12.5, 40.0]', $samples[0]['cpu_pct']);
+    }
+
     /**
      * @param array<string, mixed> $overrides
      *
@@ -620,6 +702,24 @@ final class BridgeHeartbeatApiTest extends WebTestCase
             'lastRunAt' => '2026-09-14T16:00:00.000Z',
             'outcome' => 'ok',
             'error' => null,
+        ], $overrides);
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     *
+     * @return array<string, mixed>
+     */
+    private static function sample(array $overrides = []): array
+    {
+        return array_merge([
+            'sampledAt' => '2026-10-07T12:00:00Z',
+            'cpuPct' => [12.5, 40],
+            'memUsed' => 8_000_000_000,
+            'memTotal' => 17_179_869_184,
+            'swapUsed' => 1_000_000,
+            'batteryPct' => 80,
+            'onAc' => false,
         ], $overrides);
     }
 
@@ -669,6 +769,24 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'a work claim id that is not a uuid' => [['workClaims' => [self::workClaim(['id' => 'loupe'])]]];
         yield 'a work claim with no token' => [['workClaims' => [self::workClaim(['claimToken' => null])]]];
         yield 'a work claim token that is not a uuid' => [['workClaims' => [self::workClaim(['claimToken' => 'secret'])]]];
+        yield 'host samples that are not a list' => [['hostSamples' => 'samples']];
+        yield 'host samples keyed by time' => [['hostSamples' => ['now' => self::sample()]]];
+        yield 'too many host samples' => [['hostSamples' => array_fill(0, RecordBridgeHeartbeatRequest::MAX_HOST_SAMPLES + 1, self::sample())]];
+        yield 'a host sample that is not an object' => [['hostSamples' => ['sample']]];
+        yield 'a host sample with no time' => [['hostSamples' => [self::sample(['sampledAt' => null])]]];
+        yield 'a host sample time that is not a date' => [['hostSamples' => [self::sample(['sampledAt' => 'yesterday-ish'])]]];
+        yield 'a host sample with no cpu list' => [['hostSamples' => [self::sample(['cpuPct' => null])]]];
+        yield 'a host sample cpu list keyed by core' => [['hostSamples' => [self::sample(['cpuPct' => ['a' => 5]])]]];
+        yield 'a host sample with too many cores' => [['hostSamples' => [self::sample(['cpuPct' => array_fill(0, BridgeHostSampleInput::MAX_CORES + 1, 1)])]]];
+        yield 'a host sample cpu use above 100' => [['hostSamples' => [self::sample(['cpuPct' => [100.5]])]]];
+        yield 'a host sample cpu use below 0' => [['hostSamples' => [self::sample(['cpuPct' => [-1]])]]];
+        yield 'a host sample cpu use as text' => [['hostSamples' => [self::sample(['cpuPct' => ['12']])]]];
+        yield 'a host sample with no memory use' => [['hostSamples' => [self::sample(['memUsed' => null])]]];
+        yield 'a host sample with a negative memory total' => [['hostSamples' => [self::sample(['memTotal' => -1])]]];
+        yield 'a host sample with no swap use' => [['hostSamples' => [self::sample(['swapUsed' => null])]]];
+        yield 'a host sample memory use as text' => [['hostSamples' => [self::sample(['memUsed' => 'lots'])]]];
+        yield 'a host sample battery above 100' => [['hostSamples' => [self::sample(['batteryPct' => 101])]]];
+        yield 'a host sample power state as text' => [['hostSamples' => [self::sample(['onAc' => 'yes'])]]];
         yield 'no projects' => [['projects' => null]];
         yield 'projects that are not a list' => [['projects' => 'loupe']];
         yield 'a project that is not a uuid' => [['projects' => ['loupe']]];
@@ -986,5 +1104,23 @@ final class BridgeHeartbeatApiTest extends WebTestCase
     private function countBridges(): int
     {
         return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM bridges');
+    }
+
+    private function storeHostSampling(string $value): void
+    {
+        $connection = $this->em()->getConnection();
+        $connection->executeStatement('DELETE FROM feature_flag WHERE name = ?', [HostSampling::ENABLED_FLAG]);
+        $connection->executeStatement(
+            "INSERT INTO feature_flag (name, type, value, tags, options) VALUES (?, 'bool', ?, '[]', NULL)",
+            [HostSampling::ENABLED_FLAG, $value],
+        );
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function samples(): array
+    {
+        return $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT bridge_id, sampled_at, cpu_pct::text AS cpu_pct, mem_used, mem_total, swap_used, battery_pct, on_ac FROM bridge_host_samples ORDER BY sampled_at',
+        );
     }
 }

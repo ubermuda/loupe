@@ -7,9 +7,11 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Event\BridgeNameChanged;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
+use App\Module\Bridge\Repository\BridgeHostSampleRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CliCompatibility;
+use App\Module\Bridge\Service\HostSampling;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkRequestLease;
 use App\Module\Project\Repository\ProjectRepository;
@@ -33,6 +35,8 @@ final readonly class RecordBridgeHeartbeatHandler
         private BridgeRepository $bridges,
         private BridgeCommandRepository $bridgeCommands,
         private WorkRequestRepository $workRequests,
+        private BridgeHostSampleRepository $bridgeHostSamples,
+        private HostSampling $hostSampling,
         private WorkRequestLease $lease,
         private ProjectRepository $projects,
         private WorkerRunChangedPublisher $runsChanged,
@@ -48,10 +52,12 @@ final readonly class RecordBridgeHeartbeatHandler
         $ownerId = (string) ($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'));
         $owned = $this->projects->findIdsOwnedBy($command->owner, $command->projects);
         $projects = array_values(array_filter($command->projects, static fn (string $id): bool => \in_array($id, $owned, true)));
+        // A bridge keeps the flag value it read at connect, so it can still send samples after sampling went off.
+        $samples = $this->hostSampling->enabled() ? $command->hostSamples : [];
 
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
-        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims, $renamedIn] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
+        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims, $renamedIn] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects, $samples): array {
             $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
@@ -101,6 +107,12 @@ final readonly class RecordBridgeHeartbeatHandler
                     $this->bridges->lockNamesForWrite($ownerId);
                     $bridge->name = $this->bridges->isNameHeldByOther($command->owner, $command->bridgeId, $command->name) ? null : $command->name;
                 }
+            }
+
+            if ([] !== $samples) {
+                // The sample rows point at the bridge row, so a new bridge must reach the table first.
+                $this->em->flush();
+                $this->bridgeHostSamples->insertNew($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'), $command->bridgeId, $samples);
             }
 
             $lostClaims = [];
