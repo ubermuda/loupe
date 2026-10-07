@@ -8,7 +8,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Entity\DiscoveryRun;
-use App\Module\Readiness\EventListener\FailDiscoveryOnRequestExpired;
+use App\Module\Readiness\EventListener\FailDiscoveryOnRequestWithdrawn;
 use App\Module\Readiness\Mcp\DiscoveryStartTool;
 use App\Module\Readiness\Mcp\ReadinessGetTool;
 use App\Tests\Module\Readiness\DiscoveryScenario;
@@ -48,7 +48,7 @@ final class ReadinessToolsTest extends KernelTestCase
     {
         $project = $this->workflowProject('readiness-get-failed');
         $run = $this->discoveryRun($this->discoveryCard($project));
-        $run->fail(FailDiscoveryOnRequestExpired::REASON, new \DateTimeImmutable());
+        $run->fail(FailDiscoveryOnRequestWithdrawn::NO_TAKER, new \DateTimeImmutable());
         $this->em()->flush();
         $this->actAsMcpTokenBoundTo($project);
 
@@ -60,7 +60,7 @@ final class ReadinessToolsTest extends KernelTestCase
             'state' => 'failed',
             'cardId' => (string) $run->card->id,
             'cardNumber' => $run->card->number,
-            'reason' => FailDiscoveryOnRequestExpired::REASON,
+            'reason' => FailDiscoveryOnRequestWithdrawn::NO_TAKER,
             'createdAt' => $run->createdAt->format(\DATE_ATOM),
         ], $answer['discovery']);
     }

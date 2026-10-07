@@ -15,8 +15,6 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 #[AsEventListener]
 final readonly class FailDiscoveryOnRunEnded
 {
-    public const string WORK_KIND = 'discovery';
-
     /** The work goes on in another run: a newer event took the place, or the bridge dropped its claim so the request opens again. */
     private const array CONTINUING = [WorkerRunState::Replaced, WorkerRunState::Skipped, WorkerRunState::Dropped];
 
@@ -31,7 +29,7 @@ final readonly class FailDiscoveryOnRunEnded
         foreach ($event->runIds as $runId) {
             $run = $this->workerRuns->find($runId);
             $cardId = $run?->cardId();
-            if (null === $run || null === $cardId || self::WORK_KIND !== $run->workKind
+            if (null === $run || null === $cardId || FailDiscoveryRunHandler::RULE_ID !== $run->ruleId
                 || $run->state->isOpen() || \in_array($run->state, self::CONTINUING, true)) {
                 continue;
             }

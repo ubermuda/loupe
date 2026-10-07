@@ -90,6 +90,6 @@ The Repository row shows the state of the latest run:
 | Not run | Discovery never ran on this project | Run discovery |
 | Discovery waits for a running bridge | Discovery never ran, and no bridge serves the project now | None. The Bridge running row links to the setup |
 | Running on card #N | A run is open. A second start is refused until it ends | Open card |
-| Discovery failed: reason | The run ended with no report. "No bridge took the work." means that no bridge claimed the request in time | Run again, when a bridge is running |
+| Discovery failed: reason | The run ended with no report. "No bridge took the work." means that no bridge claimed the request in time. "The discovery card left Backlog before the work ended." means that the work stopped because the card moved | Run again, when a bridge is running |
 | The report waits for your review | The worker reported | None |
 | Reviewed | The owner reviewed the report. The row is done | None |

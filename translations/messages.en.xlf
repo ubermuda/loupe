@@ -7509,6 +7509,7 @@
             <trans-unit id="readiness.form.update_agent_account_form.login.label"><source>readiness.form.update_agent_account_form.login.label</source><target>GitHub login of the agent account</target></trans-unit>
             <trans-unit id="readiness.form.update_agent_account_form.login.help"><source>readiness.form.update_agent_account_form.login.help</source><target>Leave it empty to clear the recorded login.</target></trans-unit>
             <trans-unit id="readiness.discovery.reason.no_taker"><source>readiness.discovery.reason.no_taker</source><target>No bridge took the work.</target></trans-unit>
+            <trans-unit id="readiness.discovery.reason.card_moved"><source>readiness.discovery.reason.card_moved</source><target>The discovery card left Backlog before the work ended.</target></trans-unit>
         </body>
     </file>
 </xliff>

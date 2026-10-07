@@ -17,7 +17,7 @@ use App\Module\Project\Workshop\WorkshopReadinessProviderInterface;
 use App\Module\Project\Workshop\WorkshopReadinessRow;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
-use App\Module\Readiness\EventListener\FailDiscoveryOnRequestExpired;
+use App\Module\Readiness\EventListener\FailDiscoveryOnRequestWithdrawn;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
@@ -146,7 +146,11 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
     {
         $reason = $run->failureReason ?? $run->state->value;
 
-        return FailDiscoveryOnRequestExpired::REASON === $reason ? $this->translator->trans('readiness.discovery.reason.no_taker') : $reason;
+        return match ($reason) {
+            FailDiscoveryOnRequestWithdrawn::NO_TAKER => $this->translator->trans('readiness.discovery.reason.no_taker'),
+            FailDiscoveryOnRequestWithdrawn::CARD_MOVED => $this->translator->trans('readiness.discovery.reason.card_moved'),
+            default => $reason,
+        };
     }
 
     /** The agent account check alone, which its own page shows while the guide is hidden too. */

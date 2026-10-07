@@ -20,13 +20,14 @@ use App\Module\Project\Workshop\WorkshopReadiness;
 use App\Module\Project\Workshop\WorkshopReadinessRow;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
-use App\Module\Readiness\EventListener\FailDiscoveryOnRequestExpired;
+use App\Module\Readiness\EventListener\FailDiscoveryOnRequestWithdrawn;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
 use App\Module\Readiness\Service\ReadinessChecklist;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Bridge\BridgeScenario;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -94,18 +95,26 @@ final class ReadinessChecklistTest extends KernelTestCase
         self::assertSame($run->card->number, $readiness->discoveryCardNumber);
     }
 
-    public function test_a_failed_run_with_a_known_code_shows_its_text_and_offers_a_new_run(): void
+    #[DataProvider('knownReasons')]
+    public function test_a_failed_run_with_a_known_code_shows_its_text_and_offers_a_new_run(string $code, string $text): void
     {
         $project = $this->newProject('readiness-discovery-failed@example.com');
         $this->seedBridge($this->em(), $project->owner, projects: [(string) $project->id]);
-        $this->discoveryRun($project, DiscoveryRunState::Failed, FailDiscoveryOnRequestExpired::REASON);
+        $this->discoveryRun($project, DiscoveryRunState::Failed, $code);
 
         $row = $this->row($this->readiness($this->checklist(), $project), 'repository');
 
         self::assertSame(['readiness.row.repository.failed', 'failed', 'readiness.row.repository.retry'], [$row->status, $row->discoveryState, $row->actionLabel]);
-        self::assertSame(['%reason%' => 'No bridge took the work.'], $row->statusParameters);
+        self::assertSame(['%reason%' => $text], $row->statusParameters);
         self::assertSame('/projects/'.$project->id.'/readiness/discovery/start', $row->actionUrl);
         self::assertSame(ReadinessChecklist::START_TOKEN, $row->actionCsrfTokenId);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function knownReasons(): iterable
+    {
+        yield 'no taker' => [FailDiscoveryOnRequestWithdrawn::NO_TAKER, 'No bridge took the work.'];
+        yield 'card moved' => [FailDiscoveryOnRequestWithdrawn::CARD_MOVED, 'The discovery card left Backlog before the work ended.'];
     }
 
     public function test_a_failed_run_with_no_live_bridge_shows_the_raw_reason_and_no_action(): void
