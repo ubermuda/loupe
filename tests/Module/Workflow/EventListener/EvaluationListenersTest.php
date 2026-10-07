@@ -16,6 +16,7 @@ use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardDocumentRepository;
@@ -38,6 +39,7 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Workflow\Entity\WorkflowRuleState;
+use App\Module\Workflow\EventListener\EvaluateCardOnCardDocumentsChanged;
 use App\Module\Workflow\EventListener\EvaluateCardOnWorkRequestChanged;
 use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnDeleted;
 use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnTerminalChanged;
@@ -102,6 +104,15 @@ final class EvaluationListenersTest extends KernelTestCase
         new EvaluateCardsOnCardParentChanged($this->trigger())(new CardParentChanged($card, null, $new, CardReporter::Human));
 
         self::assertSame([...$this->ids($card, $old, $new), ...$this->ids($card, $new)], $this->sent());
+    }
+
+    public function test_a_document_link_change_asks_for_its_card(): void
+    {
+        [$card] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
+
+        new EvaluateCardOnCardDocumentsChanged($this->trigger())(new CardDocumentsChanged($this->projectId(), $card->id ?? throw new \LogicException('A flushed card has an id.')));
+
+        self::assertSame($this->ids($card), $this->sent());
     }
 
     public function test_a_blocker_removal_asks_for_the_cards_that_lost_it(): void

@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
@@ -145,6 +146,12 @@ final readonly class CreateCardHandler
             $this->searchIndexer->index($card);
             $this->pullRequestTracking->apply($command->project, [], $this->pullRequestTracking->referencesOf($card));
 
+            if ([] !== $documents) {
+                $this->events->dispatch(new CardDocumentsChanged(
+                    $command->project->id ?? throw new \LogicException('Project has no id.'),
+                    $card->id ?? throw new \LogicException('Card has no id.'),
+                ));
+            }
             if (null !== $parent) {
                 $this->events->dispatch(new CardParentChanged($card, null, $parent, $command->reporter));
             }
