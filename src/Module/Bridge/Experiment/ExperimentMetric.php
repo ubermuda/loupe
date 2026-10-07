@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Experiment;
 
 use App\Module\Bridge\Metric\Metric;
+use App\Module\Bridge\Metric\MetricValueType;
 
 /** One row of the comparison: a range per variant, and whether the first two variants give a clear answer. */
 final readonly class ExperimentMetric
@@ -36,5 +37,22 @@ final readonly class ExperimentMetric
     public function for(string $variant): ?Interval
     {
         return $this->byVariant[$variant] ?? null;
+    }
+
+    /** How the template shows a value of this row. A part row, such as a fix reason, has no metric key and shows a decimal. */
+    public function format(): string
+    {
+        $metric = Metric::tryFrom($this->key);
+
+        return match (true) {
+            null === $metric => 'decimal',
+            Metric::Duration === $metric => 'minutes',
+            default => match ($metric->valueType()) {
+                MetricValueType::Money => 'currency',
+                MetricValueType::Ratio, MetricValueType::Boolean => 'percent',
+                MetricValueType::Tokens => 'integer',
+                MetricValueType::Count, MetricValueType::Duration => 'decimal',
+            },
+        };
     }
 }

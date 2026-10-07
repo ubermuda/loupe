@@ -168,11 +168,6 @@ final readonly class MetricRowSource
     }
 
     /**
-     * The sum over the runs of a card. A run that started with no value makes
-     * the sum unknown, and so does a run with usage and no cost or tokens. A
-     * command run has no agent, so its missing cost and tokens count as none.
-     * Null when no run gives a value.
-     *
      * A bucket-time sum counts the runs that have bucket data, and a run with
      * none adds nothing, because a command run or an old run never has any.
      *
@@ -190,6 +185,23 @@ final readonly class MetricRowSource
             return [] === $known ? null : array_sum($known);
         }
 
+        return self::inDollars(self::cardSum($facts, $metric), $metric);
+    }
+
+    /**
+     * The sum over the runs of a card, with cost in micro-dollars. A run that
+     * started with no value makes the sum unknown, and so does a run with usage
+     * and no cost or tokens. A command run has no agent, so its missing cost and
+     * tokens count as none. Null when no run gives a value.
+     *
+     * @param list<WorkerRunFact> $facts
+     */
+    public static function cardSum(array $facts, Metric $metric): ?int
+    {
+        if (!$metric->isAdditive() || Metric::Runs === $metric) {
+            throw new \LogicException(\sprintf('The metric %s has no sum over runs.', $metric->value));
+        }
+
         $sum = null;
         foreach ($facts as $fact) {
             $value = self::rawValue($fact, $metric);
@@ -205,7 +217,7 @@ final readonly class MetricRowSource
             $sum = ($sum ?? 0) + $value;
         }
 
-        return self::inDollars($sum, $metric);
+        return $sum;
     }
 
     private static function inDollars(?int $value, Metric $metric): int|float|null

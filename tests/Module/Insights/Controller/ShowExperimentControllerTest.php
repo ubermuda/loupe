@@ -70,6 +70,37 @@ final class ShowExperimentControllerTest extends WebTestCase
         $leftOut = $crawler->filter('[data-experiment-left-out]');
         self::assertStringContainsString('1 card is left out', $leftOut->text());
         self::assertSame('/projects/'.$projectId.'/analytics/experiments/model-test/cards?left-out=1', $leftOut->filter('a')->attr('href'));
+
+        $analyse = $crawler->filter('[data-experiment-analyse]');
+        self::assertSame('Analyse this experiment', trim($analyse->text()));
+        self::assertSame('/projects/'.$projectId.'/analytics/reports?topic=experiment&experiment=model-test', $analyse->attr('href'));
+    }
+
+    public function test_the_table_shows_the_declared_metrics_and_names_the_unknown_ones(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'experiment-declared@example.com');
+        $project = $this->boardProject($em, $owner);
+        $definition = new ExperimentDefinition($project, 'model-test', [['name' => 'a', 'weight' => 1]]);
+        $definition->metrics = ['duration', 'foo', 'input-tokens', 'bar'];
+        $em->persist($definition);
+        $this->seedUsage($em, $this->experimentRun($em, $project, $this->experimentCard($em, $project, 1, merged: true), 'a'), costUsd: '1.000000', inputTokens: 1234);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/experiments/model-test');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['duration', 'input-tokens'], $crawler->filter('[data-metric]')->each(static fn (Crawler $row): ?string => $row->attr('data-metric')));
+        $duration = $this->cells($crawler->filter('[data-metric="duration"]'));
+        self::assertStringStartsWith('Run time per merged card (minutes)', $duration[0]);
+        self::assertSame(['5.0', '5.0–5.0'], \array_slice($duration, 1));
+        $inputTokens = $this->cells($crawler->filter('[data-metric="input-tokens"]'));
+        self::assertStringStartsWith('Input tokens per merged card', $inputTokens[0]);
+        self::assertSame(['1,234', '1,234–1,234'], \array_slice($inputTokens, 1));
+        self::assertSame('The bridge rule declares metrics that this server does not know: foo, bar.', trim($crawler->filter('[data-experiment-unknown-metrics]')->text()));
     }
 
     public function test_a_variant_with_no_usage_shows_no_cost(): void

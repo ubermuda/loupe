@@ -2678,6 +2678,10 @@
                 <source>project.connect.tool.metric_query</source>
                 <target>Read one metric, such as cost, tokens, duration or merge rate, over time, by run or by card, with the rows behind it.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.experiment_get">
+                <source>project.connect.tool.experiment_get</source>
+                <target>Read the comparison of one experiment: each variant, each metric with its likely range, and the cards it keeps or leaves out.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.analysis_get">
                 <source>project.connect.tool.analysis_get</source>
                 <target>Read one analysis, with its state, its cost so far and the changes it proposes.</target>
@@ -4435,11 +4439,11 @@
             </trans-unit>
             <trans-unit id="landing.feature.cost_analysis.title">
                 <source>landing.feature.cost_analysis.title</source>
-                <target>Cost analysis</target>
+                <target>Cost and experiment analysis</target>
             </trans-unit>
             <trans-unit id="landing.feature.cost_analysis.text">
                 <source>landing.feature.cost_analysis.text</source>
-                <target>An agent reads the worker runs and explains where the cost goes. It proposes cards that cut the cost, and you create or dismiss each one.</target>
+                <target>An agent reads the worker runs and explains where the cost goes. It compares the variants of an experiment and recommends one. It proposes cards, and you create or dismiss each one.</target>
             </trans-unit>
             <trans-unit id="landing.tech.title">
                 <source>landing.tech.title</source>
@@ -6095,6 +6099,12 @@
             <trans-unit id="bridge.experiments.metric.cost"><source>bridge.experiments.metric.cost</source><target>Cost per merged card</target></trans-unit>
             <trans-unit id="bridge.experiments.metric.output-tokens"><source>bridge.experiments.metric.output-tokens</source><target>Output tokens per merged card</target></trans-unit>
             <trans-unit id="bridge.experiments.metric.hours-to-merge"><source>bridge.experiments.metric.hours-to-merge</source><target>Hours from open to merge</target></trans-unit>
+            <trans-unit id="bridge.experiments.metrics.unknown"><source>bridge.experiments.metrics.unknown</source><target>The bridge rule declares metrics that this server does not know: %metrics%.</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.input-tokens"><source>bridge.experiments.metric.input-tokens</source><target>Input tokens per merged card</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.cache-read-tokens"><source>bridge.experiments.metric.cache-read-tokens</source><target>Cache read tokens per merged card</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.cache-write-tokens"><source>bridge.experiments.metric.cache-write-tokens</source><target>Cache write tokens per merged card</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.duration"><source>bridge.experiments.metric.duration</source><target>Run time per merged card (minutes)</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.runs"><source>bridge.experiments.metric.runs</source><target>Runs per merged card</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.conflict"><source>bridge.experiments.fix_reason.conflict</source><target>Conflict</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.checks-failed"><source>bridge.experiments.fix_reason.checks-failed</source><target>Checks failed</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.changes-requested"><source>bridge.experiments.fix_reason.changes-requested</source><target>Changes requested</target></trans-unit>
@@ -6103,6 +6113,7 @@
             <trans-unit id="bridge.experiments.range"><source>bridge.experiments.range</source><target>%low%–%high%</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out"><source>bridge.experiments.left_out</source><target>{0} No card is left out of the figures.|{1} 1 card is left out of the figures.|]1,Inf[ %count% cards are left out of the figures.</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_link"><source>bridge.experiments.left_out_link</source><target>Show the cards that are left out</target></trans-unit>
+            <trans-unit id="bridge.experiments.analyse"><source>bridge.experiments.analyse</source><target>Analyse this experiment</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_reason.switched"><source>bridge.experiments.left_out_reason.switched</source><target>Switched variant</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_reason.mixed"><source>bridge.experiments.left_out_reason.mixed</source><target>Mixed variants</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_reason.before-test"><source>bridge.experiments.left_out_reason.before-test</source><target>Implemented before the test</target></trans-unit>
@@ -7221,6 +7232,9 @@
             <trans-unit id="insights.form.start_analysis_form.topic.label"><source>insights.form.start_analysis_form.topic.label</source><target>Topic</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.topic.cost"><source>insights.form.start_analysis_form.topic.cost</source><target>Cost</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.topic.time"><source>insights.form.start_analysis_form.topic.time</source><target>Time</target></trans-unit>
+            <trans-unit id="insights.form.start_analysis_form.topic.experiment"><source>insights.form.start_analysis_form.topic.experiment</source><target>Experiment</target></trans-unit>
+            <trans-unit id="insights.form.start_analysis_form.experiment.label"><source>insights.form.start_analysis_form.experiment.label</source><target>Experiment</target></trans-unit>
+            <trans-unit id="insights.form.start_analysis_form.experiment.placeholder"><source>insights.form.start_analysis_form.experiment.placeholder</source><target>Choose an experiment</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.topic.host"><source>insights.form.start_analysis_form.topic.host</source><target>Host</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.label"><source>insights.form.start_analysis_form.range.label</source><target>Range</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.thirty-days"><source>insights.form.start_analysis_form.range.thirty-days</source><target>30 days</target></trans-unit>
@@ -7255,6 +7269,8 @@
             <trans-unit id="insights.analysis.error.invalid_effort"><source>insights.analysis.error.invalid_effort</source><target>Use one of: low, medium, high, xhigh, max.</target></trans-unit>
             <trans-unit id="insights.analysis.error.question_too_long"><source>insights.analysis.error.question_too_long</source><target>The question must be at most 2000 characters.</target></trans-unit>
             <trans-unit id="insights.analysis.error.question_required"><source>insights.analysis.error.question_required</source><target>A question analysis needs a question.</target></trans-unit>
+            <trans-unit id="insights.analysis.error.experiment_required"><source>insights.analysis.error.experiment_required</source><target>An experiment analysis needs an experiment.</target></trans-unit>
+            <trans-unit id="insights.analysis.error.experiment_unknown"><source>insights.analysis.error.experiment_unknown</source><target>This project has no experiment of that name.</target></trans-unit>
             <trans-unit id="insights.settings.error.invalid_model"><source>insights.settings.error.invalid_model</source><target>A model is one word of at most 64 characters, such as sonnet or opus.</target></trans-unit>
             <trans-unit id="insights.settings.error.invalid_effort"><source>insights.settings.error.invalid_effort</source><target>Use one of: low, medium, high, xhigh, max.</target></trans-unit>
             <trans-unit id="insights.settings.error.invalid_subcommand_programs"><source>insights.settings.error.invalid_subcommand_programs</source><target>A program name is 1 to 40 characters of letters, digits and . _ + -.</target></trans-unit>

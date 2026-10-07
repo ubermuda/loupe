@@ -23,24 +23,27 @@ final class DevAnalysesSeederTest extends KernelTestCase
 {
     use InsightsScenario;
 
+    private const string EXPERIMENT = 'model-test';
+
     protected function setUp(): void
     {
         self::bootKernel();
     }
 
-    public function test_it_seeds_the_cost_and_time_analyses_with_rules_and_bucket_times(): void
+    public function test_it_seeds_the_cost_time_and_experiment_analyses_with_rules_and_bucket_times(): void
     {
         $project = $this->scenarioProject('dev-seed');
 
-        self::assertTrue($this->seeder()->seed($project));
+        self::assertTrue($this->seeder()->seed($project, self::EXPERIMENT));
 
         $this->em()->clear();
         $analyses = $this->service(AnalysisRepository::class)->findByProject($project);
-        self::assertCount(3, $analyses);
+        self::assertCount(4, $analyses);
         $time = array_values(array_filter($analyses, static fn ($analysis): bool => AnalysisTopic::Time === $analysis->topic));
         self::assertCount(1, $time);
         self::assertSame(AnalysisState::Done, $time[0]->state);
         self::assertNotNull($time[0]->documentId);
+        self::assertCount(1, array_filter($analyses, static fn ($analysis): bool => AnalysisTopic::Experiment === $analysis->topic && self::EXPERIMENT === $analysis->scope->experiment));
 
         $proposals = $this->service(ProposalRepository::class)->findByAnalysis($time[0]);
         self::assertCount(1, $proposals);
@@ -59,12 +62,12 @@ final class DevAnalysesSeederTest extends KernelTestCase
     public function test_a_second_run_adds_nothing(): void
     {
         $project = $this->scenarioProject('dev-seed-twice');
-        $this->seeder()->seed($project);
+        $this->seeder()->seed($project, self::EXPERIMENT);
 
-        self::assertFalse($this->seeder()->seed($project));
+        self::assertFalse($this->seeder()->seed($project, self::EXPERIMENT));
 
         $this->em()->clear();
-        self::assertCount(3, $this->service(AnalysisRepository::class)->findByProject($project));
+        self::assertCount(4, $this->service(AnalysisRepository::class)->findByProject($project));
         self::assertCount(3, $this->service(InsightsBucketRuleRepository::class)->findOrdered($project));
     }
 

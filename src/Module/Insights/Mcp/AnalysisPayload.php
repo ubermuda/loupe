@@ -11,7 +11,7 @@ use App\Module\Insights\Entity\Proposal;
  * The shape analysis_get and analysis_report answer with.
  *
  * @phpstan-type ProposalPayload array{id: string, kind: string, title: string, body: string, payload: array<mixed>|null, estimatedSaving: ?string, state: string, dismissReason: ?string, cardId: ?string}
- * @phpstan-type AnalysisPayloadShape array{id: string, topic: string, scope: array{range: string}, question: ?string, model: string, effort: string, state: string, reason: ?string, createdAt: string, finishedAt: ?string, documentId: ?string, costUsd: ?float, proposals: list<ProposalPayload>}
+ * @phpstan-type AnalysisPayloadShape array{id: string, topic: string, scope: array{range: string, experiment?: string}, question: ?string, model: string, effort: string, state: string, reason: ?string, createdAt: string, finishedAt: ?string, documentId: ?string, costUsd: ?float, proposals: list<ProposalPayload>}
  */
 final readonly class AnalysisPayload
 {

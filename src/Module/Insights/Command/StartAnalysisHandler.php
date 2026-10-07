@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Insights\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Bridge\Command\ListExperimentsCommand;
+use App\Module\Bridge\Command\ListExperimentsHandler;
 use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Insights\Entity\Analysis;
@@ -30,6 +33,8 @@ final readonly class StartAnalysisHandler
     public const string QUESTION_REQUIRED = 'insights.analysis.error.question_required';
     public const string INVALID_MODEL = 'insights.analysis.error.invalid_model';
     public const string INVALID_EFFORT = 'insights.analysis.error.invalid_effort';
+    public const string EXPERIMENT_REQUIRED = 'insights.analysis.error.experiment_required';
+    public const string EXPERIMENT_UNKNOWN = 'insights.analysis.error.experiment_unknown';
 
     public const string WORK_KIND = 'analysis';
     public const string CAPABILITY = 'subject-analysis';
@@ -43,6 +48,7 @@ final readonly class StartAnalysisHandler
         private AnalysisSettings $settings,
         private ClockInterface $clock,
         private Auditor $auditor,
+        private ListExperimentsHandler $listExperiments,
     ) {
     }
 
@@ -66,6 +72,14 @@ final readonly class StartAnalysisHandler
         if (null !== $command->effort && !\in_array($command->effort, WorkRequest::EFFORTS, true)) {
             $errors['effort'] = self::INVALID_EFFORT;
         }
+        $experiment = AnalysisTopic::Experiment === $command->topic ? $command->experiment : null;
+        if (AnalysisTopic::Experiment === $command->topic) {
+            if (null === $experiment || '' === $experiment) {
+                $errors['experiment'] = self::EXPERIMENT_REQUIRED;
+            } elseif (!\in_array($experiment, array_column(($this->listExperiments)(new ListExperimentsCommand($command->project))->experiments, 'name'), true)) {
+                $errors['experiment'] = self::EXPERIMENT_UNKNOWN;
+            }
+        }
         if ([] !== $errors) {
             throw new DomainErrors($errors);
         }
@@ -73,7 +87,8 @@ final readonly class StartAnalysisHandler
         $analysis = new Analysis(
             project: $command->project,
             topic: $command->topic,
-            scope: new AnalysisScope($command->range),
+            // The comparison of an experiment reads all its cards, as the Comparison tab does.
+            scope: new AnalysisScope(null === $experiment ? $command->range : MetricRange::All, $experiment),
             question: $question,
             model: $command->model ?? $this->settings->modelFor($command->project),
             effort: $command->effort ?? $this->settings->effortFor($command->project),
@@ -118,7 +133,8 @@ final readonly class StartAnalysisHandler
                 'projectId' => (string) $command->project->id,
                 'workRequestId' => (string) $request->id,
                 'topic' => $analysis->topic->value,
-                'range' => $command->range->value,
+                'range' => $analysis->scope->range->value,
+                'experiment' => $experiment,
                 'model' => $analysis->model,
                 'effort' => $analysis->effort,
             ],

@@ -172,7 +172,9 @@ can open it.
 
 An analysis needs a bridge with a work entry for the `analysis` subject.
 [Work requests](../extending/cli-bridge.md#work-requests) shows the entry. The
-`loupe-analysis` skill of the Loupe plugin does the work.
+`loupe-analysis` skill of the Loupe plugin does the work. For the **Experiment**
+topic, the agent reads the comparison, looks for causes other than the variant,
+and recommends a variant or more runs.
 
 ### Start an analysis
 
@@ -180,8 +182,9 @@ Fill the **Analyse** form, and press **Analyse**.
 
 | Field | Values |
 |---|---|
-| Topic | **Cost**, where the cost of the workers goes, **Time**, where the time of the workers goes, or **Host**, how the machines of the bridges behaved |
-| Range | **30 days**, **90 days** or **All time**: the runs the agent reads |
+| Topic | **Cost**, where the cost of the workers goes, **Time**, where the time of the workers goes, **Experiment**, what the comparison of one experiment shows, or **Host**, how the machines of the bridges behaved |
+| Experiment | an experiment of the project. The **Experiment** topic needs it, and the other topics ignore it |
+| Range | **30 days**, **90 days** or **All time**: the runs the agent reads. The **Experiment** topic ignores it, and reads every card of the experiment |
 | Model | the model of the agent, such as `sonnet` or `opus` |
 | Effort | **Low**, **Medium**, **High**, **Extra high** or **Maximum** |
 
