@@ -10,6 +10,36 @@
 
 {% block body %}
 <div class="lp-workspace lp-workshop" data-workshop data-controller="card-drawer">
+    {% set readiness = is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), workshop.project) ? workshop.readiness : null %}
+    {% if readiness is not null and workshop.quiet %}
+    {% do mercure_subscribe(worker_runs_topic(workshop.project)) %}
+    {% do mercure_subscribe(board_topic(workshop.project)) %}
+    {#- A run, a card change or an inbox item can end the quiet state, so the whole page reloads. -#}
+    <div class="lp-readiness-guide" data-readiness-guide data-readiness-layout="full"
+         data-controller="worker-run-refresh"
+         data-worker-run-refresh-target="frame"
+         data-worker-run-refresh-whole-value="true"
+         data-worker-run-refresh-project-value="{{ workshop.project.id }}"
+         data-worker-run-refresh-events-value="{{ ['worker_run.changed', 'board.card_changed', 'inbox.open_count_changed']|json_encode }}">
+        <header class="lp-page-header">
+            <div>
+                <h1 class="lp-workshop-title">{{ 'readiness.guide.heading'|trans({'%project%': workshop.project.name}) }}</h1>
+                <p class="lp-workspace-desc">{{ 'readiness.guide.description'|trans }}</p>
+            </div>
+        </header>
+        <section class="lp-readiness-discovery" aria-labelledby="readiness-discovery-title">
+            <h2 class="lp-workshop-section__title" id="readiness-discovery-title">{{ 'readiness.discovery.title'|trans }}</h2>
+            <p>{{ 'readiness.discovery.body'|trans }}</p>
+            {% set discovery = readiness.row('repository') %}
+            {% if discovery is not null %}<span class="lp-readiness-discovery__status">{{ discovery.status|trans(discovery.statusParameters) }}</span>{% endif %}
+        </section>
+        {% include '@Project/_readiness_checklist.html.twig' with {project: workshop.project, readiness: readiness, layout: 'full'} only %}
+        <form class="lp-readiness-guide__hide" method="post" action="{{ path('app_readiness_guide_hide', {id: workshop.project.id}) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('readiness-guide-hide') }}">
+            <button type="submit" class="lp-btn lp-btn--ghost" data-readiness-hide>{{ 'readiness.guide.hide'|trans }}</button>
+        </form>
+    </div>
+    {% else %}
     <header class="lp-page-header">
         <div>
             <h1 class="lp-workshop-title">{{ 'project.workshop.page.heading'|trans }}</h1>
@@ -75,6 +105,9 @@
         </div>
 
         <aside class="lp-workshop-supporting">
+            {% if readiness is not null %}
+            {% include '@Project/_readiness_checklist.html.twig' with {project: workshop.project, readiness: readiness, layout: 'sidebar'} only %}
+            {% endif %}
             <section class="lp-workshop-crew">
                 <div class="lp-section-heading">
                     <h2 class="lp-workshop-section__title">{{ 'bridge.agents.heading'|trans }}</h2>
@@ -120,6 +153,7 @@
             </section>
         </aside>
     </div>
+    {% endif %}
     {% include '@Board/_card_drawer.html.twig' with {project: workshop.project} only %}
 </div>
 {% endblock %}

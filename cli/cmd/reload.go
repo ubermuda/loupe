@@ -227,7 +227,7 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	r.logDropped(dropped, "reason", "reload")
 	r.logDropped(shutDropped)
 	if r.heartbeat != nil {
-		r.heartbeat.setBody(heartbeatBody(set))
+		r.heartbeat.setBody(heartbeatBody(set, r.pushLogin))
 	}
 	r.syncHostSampler()
 

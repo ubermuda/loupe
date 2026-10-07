@@ -16,6 +16,12 @@ use App\Module\Workflow\Command\WorkflowRuleView;
 use App\Module\Workflow\Command\WorkflowSettingsView;
 use App\Module\Workflow\Command\WorkflowSlotView;
 use App\Module\Workflow\Entity\WorkflowBinding;
+use App\Module\Workflow\Repository\WorkflowBindingRepository;
+use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
+use App\Module\Workflow\Template\AppRules;
+use App\Module\Workflow\Template\ProjectTemplateCopy;
+use App\Module\Workflow\Template\TemplateParser;
+use App\Tests\Module\Workflow\Template\AppRulesTest;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -64,9 +70,9 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         foreach ($template->rules as $rule) {
             $rules[$rule->id] = $rule;
         }
-        self::assertEquals(new WorkflowRuleView('product-design-approved', 'workflow.slot.product_design', 'workflow.settings.action.move', 'workflow.slot.tech_design', null, [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.document_approved', false, 'tag: product-design'), new WorkflowConditionView('card.document_changes_requested', true, 'tag: product-design')])], [], []), $rules['product-design-approved']);
-        self::assertEquals(new WorkflowRuleView('implement', 'workflow.slot.implementation', 'workflow.settings.action.request', null, 'implement', [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.type', true, 'type: epic')]), new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.linked', true, '')])], [], []), $rules['implement']);
-        self::assertEquals(new WorkflowRuleView('rebase-stacked', 'workflow.slot.in_review', 'workflow.settings.action.forge_write', null, 'change-base', [new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.open', false, ''), new WorkflowConditionView('pr.stacked', false, ''), new WorkflowConditionView('pr.parent_merged', false, '')])], [], []), $rules['rebase-stacked']);
+        self::assertEquals(new WorkflowRuleView('product-design-approved', 'workflow.slot.product_design', 'workflow.settings.action.move', 'workflow.slot.tech_design', null, [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.document_approved', false, 'tag: product-design'), new WorkflowConditionView('card.document_changes_requested', true, 'tag: product-design')])], [], [], []), $rules['product-design-approved']);
+        self::assertEquals(new WorkflowRuleView('implement', 'workflow.slot.implementation', 'workflow.settings.action.request', null, 'implement', [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.type', true, 'type: epic')]), new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.linked', true, '')])], [], [], []), $rules['implement']);
+        self::assertEquals(new WorkflowRuleView('rebase-stacked', 'workflow.slot.in_review', 'workflow.settings.action.forge_write', null, 'change-base', [new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.open', false, ''), new WorkflowConditionView('pr.stacked', false, ''), new WorkflowConditionView('pr.parent_merged', false, '')])], [], [], []), $rules['rebase-stacked']);
         self::assertSame('product-design-session', $template->rules[0]->id);
         self::assertEquals([
             new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.document', true, 'tag: product-design')]),
@@ -86,11 +92,37 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.document_approved', false, 'tag: tech-design'), new WorkflowConditionView('card.document_changes_requested', true, 'tag: tech-design'), new WorkflowConditionView('card.has_open_blocker', true, '')]),
         ], $rules['tech-design-approved']->whenGroups);
 
+        self::assertEquals([
+            new WorkflowRuleView('discovery', 'workflow.settings.where.backlog', 'workflow.settings.action.request', null, 'discovery', [new WorkflowConditionGroupView('workflow.source.readiness', [new WorkflowConditionView('card.discovery_requested', false, '')])], [], [], []),
+        ], $template->appRules);
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.next', 'workflow.settings.moves.by.anyone'), $template->manualMoves[0]);
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.implementation', 'workflow.settings.moves.by.parent_run'), $template->manualMoves[7]);
         self::assertSame([10, 60, 360], $template->backoffMinutes);
         self::assertSame(120, $template->workTimeoutMinutes);
         self::assertSame([2, 3, 5], $template->workFailedBackoffMinutes);
+    }
+
+    public function test_the_rules_the_app_adds_are_listed_apart_from_the_template_rules(): void
+    {
+        $project = $this->workflowProject('workflow-settings-app-rules');
+        $this->bindHandler()(new BindWorkflowTemplateCommand($project, 'simple', []));
+        $this->em()->clear();
+        $parser = $this->service(TemplateParser::class);
+        $bindings = $this->service(WorkflowBindingRepository::class);
+        $handler = new ShowWorkflowSettingsHandler(
+            $bindings,
+            $this->service(WorkflowSlotLinkRepository::class),
+            new ProjectTemplateCopy($bindings, $parser, new AppRules($parser, AppRulesTest::FIXTURE)),
+        );
+
+        $template = $handler(new ShowWorkflowSettingsCommand($this->em()->find(Project::class, $project->id) ?? throw new \LogicException('The project is gone.')))->template;
+
+        self::assertInstanceOf(BoundWorkflowView::class, $template);
+        self::assertSame(['merged', 'teardown'], array_map(static fn (WorkflowRuleView $rule): string => $rule->id, $template->rules));
+        self::assertEquals([
+            new WorkflowRuleView('app-groom', 'workflow.settings.where.backlog', 'workflow.settings.action.request', null, 'groom', [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.has_open_blocker', true, '')])], [], [], []),
+            new WorkflowRuleView('app-tidy', 'workflow.settings.where.any', 'workflow.settings.action.release', null, null, [], [], [], []),
+        ], $template->appRules);
     }
 
     public function test_a_slot_whose_column_was_deleted_has_no_column(): void
@@ -122,8 +154,8 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         self::assertInstanceOf(BoundWorkflowView::class, $template);
         self::assertSame([], $template->slots);
         self::assertEquals([
-            new WorkflowRuleView('merged', 'workflow.settings.where.any', 'workflow.settings.action.move', 'workflow.settings.where.any_terminal', null, [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.in_slot', true, 'slot: @terminal'), new WorkflowConditionView('card.children_finished', false, '')]), new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.all_finished_one_merged', false, '')])], [], []),
-            new WorkflowRuleView('teardown', 'workflow.settings.where.any_terminal', 'workflow.settings.action.request', null, 'teardown', [], [], []),
+            new WorkflowRuleView('merged', 'workflow.settings.where.any', 'workflow.settings.action.move', 'workflow.settings.where.any_terminal', null, [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.in_slot', true, 'slot: @terminal'), new WorkflowConditionView('card.children_finished', false, '')]), new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.all_finished_one_merged', false, '')])], [], [], []),
+            new WorkflowRuleView('teardown', 'workflow.settings.where.any_terminal', 'workflow.settings.action.request', null, 'teardown', [], [], [], []),
         ], $template->rules);
         self::assertEquals([new WorkflowManualMoveView('workflow.settings.where.any', 'workflow.settings.where.any', 'workflow.settings.moves.by.anyone')], $template->manualMoves);
     }
@@ -162,7 +194,23 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.open', false, '')]),
         ], $template->rules[2]->untilGroups);
         self::assertSame([], $template->rules[0]->untilGroups);
+        self::assertSame([], $template->rules[0]->refillGroups);
         self::assertNull($template->workFailedBackoffMinutes);
+    }
+
+    /**
+     * @template T of object
+     *
+     * @param class-string<T> $class
+     *
+     * @return T
+     */
+    private function service(string $class): object
+    {
+        $service = self::getContainer()->get($class);
+        self::assertInstanceOf($class, $service);
+
+        return $service;
     }
 
     private function show(Project $project): WorkflowSettingsView

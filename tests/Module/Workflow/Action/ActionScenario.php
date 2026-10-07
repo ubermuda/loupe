@@ -26,8 +26,12 @@ use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Template\AppRules;
 use App\Module\Workflow\Template\Rule;
+use App\Module\Workflow\Template\RuleOrigin;
+use App\Module\Workflow\Template\TemplateParser;
 use App\Outbox\OutboxWriter;
+use App\Tests\Module\Workflow\Template\AppRulesTest;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Symfony\Component\Clock\MockClock;
 use Ubermuda\AuditBundle\Auditor;
@@ -81,7 +85,12 @@ trait ActionScenario
 
     private function opener(): WorkRequestOpener
     {
-        return new WorkRequestOpener($this->openWorkRequestHandler(), $this->service(CardPullRequests::class), $this->service(CardPullRequestRepository::class));
+        return new WorkRequestOpener(
+            $this->openWorkRequestHandler(),
+            $this->service(CardPullRequests::class),
+            $this->service(CardPullRequestRepository::class),
+            new AppRules($this->service(TemplateParser::class), AppRulesTest::FIXTURE),
+        );
     }
 
     private function card(Project $project, string $column): Card
@@ -94,9 +103,9 @@ trait ActionScenario
     }
 
     /** @param array<string, int|string> $params */
-    private function rule(ActionType $type, array $params, string $id = 'test-rule'): Rule
+    private function rule(ActionType $type, array $params, string $id = 'test-rule', RuleOrigin $origin = RuleOrigin::Template): Rule
     {
-        return new Rule($id, null, new AllOf([]), new ActionCall($type, $params));
+        return new Rule($id, null, new AllOf([]), new ActionCall($type, $params), $origin);
     }
 
     private function state(Card $card, string $ruleId = 'test-rule'): WorkflowRuleState

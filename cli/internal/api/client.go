@@ -532,6 +532,9 @@ type Heartbeat struct {
 	// HostSamples sends no key when empty. The client sends the oldest
 	// HostSamplesPerHeartbeat of them.
 	HostSamples []HostSample `json:"hostSamples,omitempty"`
+	// PushLogin is the GitHub login that workers push as. It follows Name:
+	// nil keeps the stored login, and "" clears it.
+	PushLogin *string `json:"pushLogin,omitempty"`
 }
 
 // MaxHostSamples caps the samples the bridge keeps. HostSamplesPerHeartbeat

@@ -31,6 +31,13 @@ final class AdvertisedTools
      */
     private const array ORDER = [
         'project_current',
+        'project_update',
+        'project_origins_set',
+        'readiness_guide_set',
+        'readiness_get',
+        'discovery_start',
+        'readiness_report_submit',
+        'workflow_get',
         'document_create',
         'document_list',
         'document_get',
@@ -60,6 +67,11 @@ final class AdvertisedTools
         'card_update',
         'card_run_open',
         'card_run_close',
+        'column_create',
+        'column_update',
+        'column_reorder',
+        'column_delete',
+        'automation_settings_update',
         'worker_run_list',
         'worker_run_get',
         'worker_run_tool_calls',
@@ -83,6 +95,7 @@ final class AdvertisedTools
         'inbox_list',
         'inbox_get',
         'inbox_withdraw',
+        'inbox_settings_update',
     ];
 
     /** @var list<array{name: string, descriptionKey: string}>|null */

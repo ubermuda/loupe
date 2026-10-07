@@ -103,6 +103,7 @@ final readonly class OpenWorkRequestHandler
                 $request->context = $command->context;
                 $request->model = $command->model;
                 $request->effort = $command->effort;
+                $request->prompt = $command->prompt;
                 $this->em->persist($request);
                 // The payload names the request, so the row needs its id first.
                 $this->em->flush();

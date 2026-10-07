@@ -103,6 +103,10 @@ class WorkRequest
     #[ORM\Column(name: 'effort', length: 16, nullable: true)]
     public ?string $effort = null;
 
+    /** The text of the app prompt the bridge gives the worker, or null when the rule names none. */
+    #[ORM\Column(name: 'prompt', type: Types::TEXT, nullable: true)]
+    public ?string $prompt = null;
+
     /** What the card held when the request opened. A row from before the column reads as an empty context. */
     public WorkRequestContext $context {
         get => WorkRequestContext::fromArray($this->contextData);

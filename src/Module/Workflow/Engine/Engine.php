@@ -53,6 +53,7 @@ final readonly class Engine
     public const string REPAIR_FAILED = 'repair-failed';
 
     private const string SUBJECT_CHANGED = 'subject-changed';
+    private const string REFILLED = 'refilled';
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -170,6 +171,9 @@ final readonly class Engine
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
                 $bound = $this->ruleSubject->bind($rule, $run->facts);
+                if ($this->refills($run, $rule, $state->subjectPullRequestId)) {
+                    $state->fires = 0;
+                }
                 $state->truth = $bound->truth;
                 $state->fingerprint = $this->fingerprint->of($bound->facts, $rule->when->reads());
                 if ($bound->truth) {
@@ -343,6 +347,11 @@ final readonly class Engine
 
         ($this->releaseCardPause)(new ReleaseCardPauseCommand($pause, $code));
         $rule = $run->rule($pause->ruleId);
+        if (self::REFILLED === $code && null !== $rule) {
+            $this->write($run, $this->state($run, $rule), static function (WorkflowRuleState $state): void {
+                $state->fires = 0;
+            });
+        }
         if (\in_array($code, ['facts-changed', self::SUBJECT_CHANGED], true) && null !== $rule) {
             // A false truth makes the rule fire again at once, with a fresh backoff.
             // The subject and its count stay, so runRule() resets the count only when the new subject gets its request.
@@ -389,7 +398,11 @@ final readonly class Engine
                 $rule->then->until->evaluate($this->ruleSubject->paused($rule, $run->facts, $stored)) => 'until-met',
                 default => null,
             },
-            CardPauseKind::WorkLimit => $applies ? null : 'left-slot',
+            CardPauseKind::WorkLimit => match (true) {
+                !$applies => 'left-slot',
+                $this->refills($run, $rule, $stored) => self::REFILLED,
+                default => null,
+            },
             CardPauseKind::Retries, CardPauseKind::WorkTimeout, CardPauseKind::WorkStopped => match (true) {
                 !$applies => 'facts-changed',
                 null !== $rule->when->unreadable($run->facts) => null,
@@ -432,6 +445,9 @@ final readonly class Engine
         // The bound facts stay local to this rule: the rules after it read the facts as built.
         $bound = $this->ruleSubject->bind($rule, $run->facts);
         $fingerprint = $this->fingerprint->of($bound->facts, $rule->when->reads());
+        if ($this->refills($run, $rule, $state->subjectPullRequestId)) {
+            $state->fires = 0;
+        }
         if (!$bound->truth) {
             // The reset forgets the repair, so its live request ends with it.
             $tracked = $state->repaired && null !== $state->workRequestId ? $this->workRequests->find($state->workRequestId) : null;
@@ -564,6 +580,18 @@ final readonly class Engine
         return $facts;
     }
 
+    /** Answers whether the refill of the rule holds on its stored subject. A rule with no refill, or no readable subject, never refills. */
+    private function refills(Evaluation $run, Rule $rule, ?Uuid $stored): bool
+    {
+        $refill = $rule->then->refill;
+        if (null === $refill || null !== $refill->unreadable($run->facts)) {
+            return false;
+        }
+        $subject = $this->ruleSubject->stored($run->facts, $stored);
+
+        return null !== $subject && $refill->evaluate($subject);
+    }
+
     /** Logs once per evaluation each facts class that a rule of the card reads and no provider gives. */
     private function logMissingProviders(Evaluation $run): void
     {
@@ -572,7 +600,7 @@ final readonly class Engine
             if (!$run->applies($rule)) {
                 continue;
             }
-            foreach ([...$rule->when->reads(), ...($rule->then->until?->reads() ?? [])] as $key) {
+            foreach ([...$rule->when->reads(), ...($rule->then->until?->reads() ?? []), ...($rule->then->refill?->reads() ?? [])] as $key) {
                 if (\is_string($key) && !\array_key_exists($key, $run->facts->provided)) {
                     $missing[$key] = true;
                 }
@@ -586,10 +614,12 @@ final readonly class Engine
     /**
      * A rule waits when it cannot read its facts. A pause whose until cannot be read could never release,
      * so its rule waits while it is true. A false one still records its edge.
+     * A refill that cannot be read makes the rule wait too, like a when that cannot be read.
      */
     private function waits(Evaluation $run, Rule $rule): bool
     {
         return null !== $rule->when->unreadable($run->facts)
+            || null !== $rule->then->refill?->unreadable($run->facts)
             || (null !== $rule->then->until?->unreadable($run->facts) && $this->ruleSubject->bind($rule, $run->facts)->truth);
     }
 

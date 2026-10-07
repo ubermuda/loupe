@@ -26,6 +26,7 @@ final readonly class RecordBridgeHeartbeatCommand
      * @param list<array{Uuid, Uuid}>|null $workClaims   pairs of a request id and its claim token. Null from a bridge that predates work requests, which renews nothing
      * @param string|null                  $name         null keeps the stored names, because a bridge that predates names sends none; '' clears both; any other value claims the name
      * @param list<BridgeHostSampleReport> $hostSamples  stored only while host sampling is on
+     * @param string|null                  $pushLogin    null keeps the stored login, because a bridge that predates push logins sends none; '' clears it
      */
     public function __construct(
         public User $owner,
@@ -42,6 +43,7 @@ final readonly class RecordBridgeHeartbeatCommand
         public ?array $workClaims = null,
         public ?string $name = null,
         public array $hostSamples = [],
+        public ?string $pushLogin = null,
     ) {
     }
 }

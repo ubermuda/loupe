@@ -37,11 +37,13 @@ var ErrNotLoggedIn = errors.New("not logged in: run `loupe login` first")
 
 // Config is the persisted credential set. OAuth is a device login. BridgeID
 // names this machine's bridge to the server, and EnsureBridgeID rather than
-// Load is what guarantees a value.
+// Load is what guarantees a value. AgentAccount is the GitHub user that bridge
+// workers push as, or nil.
 type Config struct {
-	BaseURL  string       `json:"baseUrl"`
-	OAuth    *OAuthTokens `json:"oauth,omitempty"`
-	BridgeID string       `json:"bridgeId,omitempty"`
+	BaseURL      string        `json:"baseUrl"`
+	OAuth        *OAuthTokens  `json:"oauth,omitempty"`
+	BridgeID     string        `json:"bridgeId,omitempty"`
+	AgentAccount *AgentAccount `json:"agentAccount,omitempty"`
 }
 
 // OAuthTokens is what the device flow and each refresh give.
@@ -119,6 +121,12 @@ func Save(c Config) error {
 			// repairs such a file, so the read error stops nothing.
 			if previous, err := readStoredConfig(d); err == nil && isUUID(previous.BridgeID) {
 				stored.BridgeID = previous.BridgeID
+			}
+		}
+		// The same goes for the agent account. SetAgentAccount clears it.
+		if stored.AgentAccount == nil {
+			if previous, err := readStoredConfig(d); err == nil {
+				stored.AgentAccount = previous.AgentAccount
 			}
 		}
 

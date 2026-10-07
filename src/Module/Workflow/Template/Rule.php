@@ -14,6 +14,7 @@ final readonly class Rule
         public ?string $slot,
         public Expression $when,
         public ActionCall $then,
+        public RuleOrigin $origin = RuleOrigin::Template,
     ) {
     }
 }

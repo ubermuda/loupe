@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Exception\DomainErrors;
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Service\BoardAutomation;
@@ -24,8 +26,17 @@ final readonly class SaveBoardAutomationSettingsHandler
     ) {
     }
 
+    public const string EPIC_BRANCH_PATTERN_INVALID = 'board.automation.error.epic_branch_pattern_invalid';
+
     public function __invoke(SaveBoardAutomationSettingsCommand $command): void
     {
+        $epicBranchPattern = trim($command->epicBranchPattern ?? '');
+        if ('' !== $epicBranchPattern
+            && (mb_strlen($epicBranchPattern) > BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH
+                || 1 !== preg_match(BoardAutomationSettings::EPIC_BRANCH_PATTERN_RULE, $epicBranchPattern))) {
+            throw new DomainErrors(['epicBranchPattern' => self::EPIC_BRANCH_PATTERN_INVALID]);
+        }
+
         $settings = $this->automation->settingsForUpdate($command->project);
         $wasEnabled = $settings->enabled;
         $wasSyncing = $settings->enabled && $settings->syncBehind;
@@ -39,7 +50,6 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->epicDraftSwitch = $command->epicDraftSwitch;
         $settings->closeEpicPullRequests = $command->closeEpicPullRequests;
         $settings->openEpicPullRequests = $command->openEpicPullRequests;
-        $epicBranchPattern = trim($command->epicBranchPattern ?? '');
         $settings->epicBranchPattern = '' === $epicBranchPattern ? null : $epicBranchPattern;
         $this->em->flush();
         $this->events->dispatch(new BoardAutomationSettingsSaved(

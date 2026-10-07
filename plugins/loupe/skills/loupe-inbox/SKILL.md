@@ -1,6 +1,6 @@
 ---
 name: loupe-inbox
-description: "Use when an agent needs a decision, an answer or a review from the project owner through the loupe MCP, when calling inbox_search, inbox_join, inbox_ask, inbox_list, inbox_get or inbox_withdraw, when handing a question or a to-do to a person, when the bridge resumed you after an ask closed, or when you need $CLAUDE_CODE_SESSION_ID or readerSessionId."
+description: "Use when an agent needs a decision, an answer or a review from the project owner through the loupe MCP, when calling inbox_search, inbox_join, inbox_ask, inbox_list, inbox_get, inbox_withdraw or inbox_settings_update, when handing a question or a to-do to a person, when the bridge resumed you after an ask closed, or when you need $CLAUDE_CODE_SESSION_ID or readerSessionId."
 ---
 
 # Asking the owner through the Loupe inbox
@@ -48,3 +48,7 @@ Nothing resumes an interactive session. It reads its answers the same way, with 
 ## Withdraw what you no longer need
 
 Call `inbox_withdraw` with the `itemId` and a `reason`, which the owner reads, when your own open item stops mattering. Only an open item can be withdrawn. A withdraw closes the item for every ask that holds it, so never withdraw an item you joined.
+
+## Change the inbox switches
+
+Call `inbox_settings_update` only when the owner or your task asks for it. It changes which waits open an item for the owner, as the inbox settings page does. A switch you leave out keeps its value.

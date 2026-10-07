@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
+use App\Utils\GitHubLogin;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -44,6 +45,7 @@ final class RecordBridgeHeartbeatRequest
      * @param list<BridgeWorkClaimInput>|null  $workClaims   null from a bridge that predates work requests
      * @param string|null                      $name         null from a bridge that predates names; blank clears the name
      * @param list<BridgeHostSampleInput>|null $hostSamples  null from a bridge that predates host samples
+     * @param string|null                      $pushLogin    null from a bridge that predates push logins; empty clears the login
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -92,6 +94,10 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Type('list')]
         #[Assert\Valid]
         public ?array $hostSamples = null,
+
+        #[Assert\Length(max: GitHubLogin::MAX_LENGTH)]
+        #[Assert\Regex(pattern: GitHubLogin::PATTERN)]
+        public ?string $pushLogin = null,
     ) {
     }
 

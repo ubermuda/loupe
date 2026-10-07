@@ -7530,6 +7530,64 @@
     .lp-workshop-recent__row small {
         @apply text-xs text-fg-dim;
     }
+    /* Readiness guide: the whole Workshop body on a quiet project, or the top card of the support rail. */
+    .lp-readiness-guide {
+        @apply flex flex-col gap-6 max-w-3xl;
+    }
+    .lp-readiness-guide .lp-page-header {
+        @apply mb-0;
+    }
+    .lp-readiness-guide__hide {
+        @apply flex;
+    }
+    .lp-readiness-discovery {
+        @apply flex flex-col items-start gap-2 rounded-xl border border-accent-border bg-accent-faint p-5;
+    }
+    .lp-readiness-discovery p {
+        @apply m-0 text-sm leading-relaxed text-fg-dim;
+    }
+    .lp-readiness-discovery__status {
+        @apply rounded-md bg-surface-3 px-2 py-1 text-xs font-semibold text-fg-dim;
+    }
+    .lp-readiness-checklist {
+        @apply min-w-0 rounded-xl border border-line bg-white p-5;
+    }
+    .lp-workshop-supporting > .lp-readiness-checklist {
+        @apply mb-4;
+    }
+    .lp-readiness-checklist__count {
+        @apply m-0 mt-1 text-xs text-fg-dim;
+    }
+    .lp-readiness-checklist__list {
+        @apply m-0 mt-3 p-0 list-none;
+    }
+    .lp-readiness-row {
+        @apply flex flex-wrap items-center gap-2.5 py-3 border-t border-line-faint;
+    }
+    .lp-readiness-row__mark {
+        @apply inline-grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-3 text-fg-dim;
+    }
+    .lp-readiness-row[data-readiness-done='1'] .lp-readiness-row__mark {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-readiness-row__mark svg {
+        @apply w-3.5 h-3.5;
+    }
+    .lp-readiness-row__text {
+        @apply flex flex-1 flex-col min-w-0 wrap-anywhere;
+    }
+    .lp-readiness-row__text strong {
+        @apply text-xs font-semibold text-ink;
+    }
+    .lp-readiness-row__text small {
+        @apply text-xs text-fg-dim;
+    }
+    .lp-readiness-row__action {
+        @apply ml-auto;
+    }
+    .lp-readiness-row__action > button {
+        @apply cursor-pointer;
+    }
 
     /* Responsive section navigation for project and account settings. */
     .lp-settings-layout {

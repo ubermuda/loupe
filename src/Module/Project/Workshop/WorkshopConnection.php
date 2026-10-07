@@ -13,6 +13,8 @@ final readonly class WorkshopConnection
         public string $url,
         /** What a page calls the bridge: its name, or the tail of its id. */
         public string $label,
+        /** The GitHub user the bridge pushes as, or null when it reported none. */
+        public ?string $pushLogin = null,
     ) {
     }
 }
