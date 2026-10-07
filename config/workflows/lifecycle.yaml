@@ -94,7 +94,15 @@ rules:
                     - pr.checks_failed: {}
                     - pr.conflicting: {}
                     - pr.changes_requested: {}
-      then: { request: { kind: fix, limit: 3 } }
+      then:
+          request:
+              kind: fix
+              limit: 3
+              refill:
+                  all:
+                      - pr.checks_passed: {}
+                      - not: { pr.conflicting: {} }
+                      - not: { pr.changes_requested: {} }
 
     - id: fix-in-review
       slot: in-review
@@ -105,7 +113,15 @@ rules:
                     - pr.checks_failed: {}
                     - pr.conflicting: {}
                     - pr.changes_requested: {}
-      then: { request: { kind: fix, limit: 3 } }
+      then:
+          request:
+              kind: fix
+              limit: 3
+              refill:
+                  all:
+                      - pr.checks_passed: {}
+                      - not: { pr.conflicting: {} }
+                      - not: { pr.changes_requested: {} }
 
     - id: back-to-draft
       slot: in-review
