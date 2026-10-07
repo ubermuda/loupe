@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\Entity;
 
+use App\Doctrine\Type\MicrosecondDateTimeImmutableType;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
@@ -199,10 +200,10 @@ class WorkerRun implements ProjectScopedSubject
         #[ORM\Column(name: 'session_id', type: UuidType::NAME, nullable: true)]
         public ?Uuid $sessionId = null,
 
-        #[ORM\Column(name: 'started_at', nullable: true)]
+        #[ORM\Column(name: 'started_at', type: MicrosecondDateTimeImmutableType::NAME, nullable: true, columnDefinition: 'TIMESTAMP(6) WITHOUT TIME ZONE DEFAULT NULL')]
         public ?\DateTimeImmutable $startedAt = null,
 
-        #[ORM\Column(name: 'ended_at', nullable: true)]
+        #[ORM\Column(name: 'ended_at', type: MicrosecondDateTimeImmutableType::NAME, nullable: true, columnDefinition: 'TIMESTAMP(6) WITHOUT TIME ZONE DEFAULT NULL')]
         public ?\DateTimeImmutable $endedAt = null,
 
         /** Null means the process never ran, and $failureReason then says why. */

@@ -157,15 +157,15 @@ func TestAnUnknownCommandKindIsRefused(t *testing.T) {
 	}
 }
 
-// A run that starts in the second the run before it ends reads from the end of
-// that second, so the two windows share no reply.
-func TestTheWindowsOfTwoRunsInOneSecondDoNotOverlap(t *testing.T) {
+// An exact end stays as it is. A whole-second end, from an older server, moves
+// to the end of that second.
+func TestAnExactEndStaysAndAWholeSecondEndMovesOn(t *testing.T) {
 	cut := time.Date(2099, 1, 1, 0, 0, 2, 0, time.UTC)
-	if !windowEdge(cut).Equal(cut.Add(time.Second)) {
-		t.Fatalf("edge of a whole second = %s", windowEdge(cut))
+	if !windowEnd(cut).Equal(cut.Add(time.Second)) {
+		t.Fatalf("end of a whole second = %s", windowEnd(cut))
 	}
 	exact := cut.Add(250 * time.Millisecond)
-	if !windowEdge(exact).Equal(exact) {
-		t.Fatalf("edge of an exact time = %s", windowEdge(exact))
+	if !windowEnd(exact).Equal(exact) {
+		t.Fatalf("end of an exact time = %s", windowEnd(exact))
 	}
 }
