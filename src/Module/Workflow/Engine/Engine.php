@@ -49,6 +49,8 @@ final readonly class Engine
 {
     public const string NO_BRIDGE_TOOK_WORK = 'no-bridge-took-work';
 
+    private const string SUBJECT_CHANGED = 'subject-changed';
+
     public function __construct(
         private EntityManagerInterface $em,
         private CardRepository $cards,
@@ -65,6 +67,7 @@ final readonly class Engine
         private PauseCardHandler $pauseCard,
         private ReleaseCardPauseHandler $releaseCardPause,
         private Actions $actions,
+        private RuleSubject $ruleSubject,
         private EventDispatcherInterface $events,
         private LoggerInterface $logger,
     ) {
@@ -154,12 +157,20 @@ final readonly class Engine
                 }
                 continue;
             }
-            if (self::waits($run, $rule)) {
+            if ($this->waits($run, $rule)) {
                 continue;
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
-                $state->truth = $rule->when->evaluate($run->facts);
-                $state->fingerprint = $this->fingerprint->of($run->facts, $rule->when->reads());
+                $bound = $this->ruleSubject->bind($rule, $run->facts);
+                $state->truth = $bound->truth;
+                $state->fingerprint = $this->fingerprint->of($bound->facts, $rule->when->reads());
+                if ($bound->truth) {
+                    // Another pull request gets its own request budget.
+                    if ($bound->binds && null !== $state->subjectPullRequestId && null !== $bound->subject && !$state->subjectPullRequestId->equals($bound->subject)) {
+                        $state->fires = 0;
+                    }
+                    $state->subjectPullRequestId = $bound->subject;
+                }
                 $state->attempts = 0;
                 $state->dueAt = null;
                 $state->lastRefusal = null;
@@ -216,8 +227,9 @@ final readonly class Engine
 
         ($this->releaseCardPause)(new ReleaseCardPauseCommand($pause, $code));
         $rule = $run->rule($pause->ruleId);
-        if ('facts-changed' === $code && null !== $rule) {
+        if (\in_array($code, ['facts-changed', self::SUBJECT_CHANGED], true) && null !== $rule) {
             // A false truth makes the rule fire again at once, with a fresh backoff.
+            // The subject and its count stay, so runRule() resets the count only when the new subject gets its request.
             $this->write($run, $this->state($run, $rule), static function (WorkflowRuleState $state): void {
                 $state->truth = false;
                 $state->attempts = 0;
@@ -245,20 +257,26 @@ final readonly class Engine
             return 'rule-removed';
         }
         $applies = $run->applies($rule);
+        $bound = $this->ruleSubject->bind($rule, $run->facts);
+        $stored = ($run->states[$rule->id] ?? null)?->subjectPullRequestId;
+        if (CardPauseKind::Rule !== $pause->kind && $applies && $bound->binds && $bound->truth
+            && null !== $stored && null !== $bound->subject && !$stored->equals($bound->subject)) {
+            return self::SUBJECT_CHANGED;
+        }
 
         return match ($pause->kind) {
             CardPauseKind::Rule => match (true) {
                 null === $rule->then->until => 'rule-removed',
                 null !== $rule->then->until->unreadable($run->facts) => null,
-                $rule->then->until->evaluate($run->facts) => 'until-met',
+                $rule->then->until->evaluate($this->ruleSubject->paused($rule, $run->facts, $stored)) => 'until-met',
                 default => null,
             },
             CardPauseKind::WorkLimit => $applies ? null : 'left-slot',
             CardPauseKind::Retries, CardPauseKind::WorkTimeout => match (true) {
                 !$applies => 'facts-changed',
                 null !== $rule->when->unreadable($run->facts) => null,
-                !$rule->when->evaluate($run->facts),
-                $this->fingerprint->of($run->facts, $rule->when->reads()) !== ($run->states[$rule->id] ?? null)?->fingerprint => 'facts-changed',
+                !$bound->truth,
+                $this->fingerprint->of($bound->facts, $rule->when->reads()) !== ($run->states[$rule->id] ?? null)?->fingerprint => 'facts-changed',
                 default => null,
             },
         };
@@ -276,7 +294,7 @@ final readonly class Engine
                 continue;
             }
             // Before state(), which persists a new state: a rule that waits writes none.
-            if (self::waits($run, $rule)) {
+            if ($this->waits($run, $rule)) {
                 continue;
             }
 
@@ -293,32 +311,48 @@ final readonly class Engine
     /** Answers whether the rules after this one still run. */
     private function runRule(Evaluation $run, Rule $rule, WorkflowRuleState $state): bool
     {
-        $truth = $rule->when->evaluate($run->facts);
-        $fingerprint = $this->fingerprint->of($run->facts, $rule->when->reads());
-        if (!$truth) {
+        // The bound facts stay local to this rule: the rules after it read the facts as built.
+        $bound = $this->ruleSubject->bind($rule, $run->facts);
+        $fingerprint = $this->fingerprint->of($bound->facts, $rule->when->reads());
+        if (!$bound->truth) {
             $state->truth = false;
             $state->attempts = 0;
             $state->dueAt = null;
             $state->lastRefusal = null;
             $state->lastRefusalAt = null;
+            // The subject stays, so a later true pass on another pull request starts a fresh budget.
             $state->fingerprint = $fingerprint;
 
             return true;
         }
 
-        $fire = !$state->truth || ($state->attempts > 0 && ((null !== $state->dueAt && $state->dueAt <= $run->now) || $state->fingerprint !== $fingerprint));
+        // A state with no subject adopts the bound one with no edge.
+        $stored = $state->subjectPullRequestId;
+        $newSubject = $bound->binds && null !== $stored && null !== $bound->subject && !$stored->equals($bound->subject);
+        $fire = $newSubject || !$state->truth || ($state->attempts > 0 && ((null !== $state->dueAt && $state->dueAt <= $run->now) || $state->fingerprint !== $fingerprint));
         // A release rule that turned true before its pause existed would otherwise wait for a new edge.
         if (!$fire && ActionType::Release === $rule->then->type) {
             $fire = null !== $run->holdingPause && $run->holdingPause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));
         }
         $state->truth = true;
         $state->fingerprint = $fingerprint;
+        $state->subjectPullRequestId = $bound->subject;
         if (!$fire) {
             return true;
         }
+        // Another pull request gets its own request budget.
+        $firesBefore = $state->fires;
+        if ($newSubject) {
+            $state->fires = 0;
+        }
 
         $type = $rule->then->type;
-        $outcome = $this->actions->get($type)->run($rule, $run->card, $run->facts, $state);
+        $outcome = $this->actions->get($type)->run($rule, $run->card, $bound->facts, $state);
+        // The live request still serves the old subject, so the change waits until it settles.
+        if ($newSubject && $outcome->alreadyLive) {
+            $state->subjectPullRequestId = $stored;
+            $state->fires = $firesBefore;
+        }
         $run->fired[] = ['rule' => $rule->id, 'outcome' => $outcome->kind->value, 'code' => $outcome->code];
         if (null !== $run->holdingPause?->releasedAt) {
             $run->holdingPause = null;
@@ -408,10 +442,10 @@ final readonly class Engine
      * A rule waits when it cannot read its facts. A pause whose until cannot be read could never release,
      * so its rule waits while it is true. A false one still records its edge.
      */
-    private static function waits(Evaluation $run, Rule $rule): bool
+    private function waits(Evaluation $run, Rule $rule): bool
     {
         return null !== $rule->when->unreadable($run->facts)
-            || (null !== $rule->then->until?->unreadable($run->facts) && $rule->when->evaluate($run->facts));
+            || (null !== $rule->then->until?->unreadable($run->facts) && $this->ruleSubject->bind($rule, $run->facts)->truth);
     }
 
     private function state(Evaluation $run, Rule $rule): WorkflowRuleState
@@ -438,7 +472,7 @@ final readonly class Engine
     /** @return list<mixed> */
     private static function snapshot(WorkflowRuleState $state): array
     {
-        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u')];
+        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122()];
     }
 
     private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void

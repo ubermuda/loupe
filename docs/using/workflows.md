@@ -172,9 +172,14 @@ Simple asks for `teardown` alone.
 A request for work carries the context of its card, as the card was when the
 request opened. The bridge can fill a prompt or a command with each value.
 
+A rule that reads a pull request tries the open pull requests of the card from
+the bottom of a stack first, then the oldest opened. It acts on the first one
+that makes its condition true. The fix limit counts per pull request: when the
+rule moves to another pull request, its count starts again.
+
 | Value | What it holds |
 |---|---|
-| Pull request number | the number of the primary pull request of the card |
+| Pull request number | the number of the pull request that the rule acts on |
 | Pull request link | the link to that pull request, as the card holds it |
 | Head commit | the head commit of that pull request. A later push leaves it behind |
 | Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |

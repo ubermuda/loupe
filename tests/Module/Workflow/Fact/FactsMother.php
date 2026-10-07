@@ -12,6 +12,7 @@ use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Contract\RunFacts;
 use App\Module\Workflow\Contract\Unreadable;
+use Symfony\Component\Uid\Uuid;
 
 /** Builds facts for a neutral card. Each named argument overrides one default. */
 final class FactsMother
@@ -77,6 +78,7 @@ final class FactsMother
         bool $stacked = false,
         bool $parentMerged = false,
         ?\DateTimeImmutable $closedAt = null,
+        ?Uuid $id = null,
     ): PullRequestFacts {
         return new PullRequestFacts(
             state: $state,
@@ -91,6 +93,7 @@ final class FactsMother
             stacked: $stacked,
             parentMerged: $parentMerged,
             closedAt: $closedAt,
+            id: $id,
         );
     }
 

@@ -300,6 +300,7 @@ final class FactsBuilderTest extends KernelTestCase
             stacked: false,
             parentMerged: false,
             closedAt: null,
+            id: $pullRequest->id,
         ), $this->facts($card)->pullRequest);
 
         $pullRequest->checks = PullRequestChecks::Pending;
@@ -401,6 +402,26 @@ final class FactsBuilderTest extends KernelTestCase
         $this->em()->flush();
         $pullRequests = $this->cardPullRequests();
         self::assertSame($newest, $pullRequests->primary($pullRequests->forCard($card)));
+    }
+
+    public function test_the_pull_requests_list_the_unstacked_ones_first_and_then_the_oldest_opened(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-pr-order');
+        $card = $this->card($project, 'in-review');
+        $upper = $this->pullRequest($card, base: 'base-branch', head: 'upper-branch', openedAt: '2026-09-01');
+        $newerBase = $this->pullRequest($card, head: 'base-branch', openedAt: '2026-09-03');
+        $olderBase = $this->pullRequest($card, openedAt: '2026-09-02');
+        $unknownOpening = $this->pullRequest($card);
+
+        $facts = $this->facts($card);
+
+        self::assertSame(
+            [$unknownOpening->id, $olderBase->id, $newerBase->id, $upper->id],
+            array_map(static fn (PullRequestFacts $pullRequest) => $pullRequest->id, $facts->pullRequests),
+        );
+        self::assertTrue($facts->pullRequests[3]->stacked);
+        self::assertSame($newerBase->id, $facts->pullRequest?->id, 'The primary stays the open pull request opened last.');
     }
 
     public function test_an_untracked_or_foreign_link_gives_no_pull_request(): void

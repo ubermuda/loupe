@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Workflow\Action;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Bridge\Entity\WorkRequest;
@@ -137,6 +136,41 @@ final class RequestWorkTest extends KernelTestCase
         );
     }
 
+    public function test_a_fix_request_names_the_pull_request_the_facts_read_and_not_the_newest_one(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-subject'), 'in-progress');
+        $base = $this->pullRequest($card, head: 'base-branch', headSha: 'aaa1111');
+        $base->openedAt = new \DateTimeImmutable('2026-10-01 09:00:00');
+        $upper = $this->pullRequest($card, base: 'base-branch', headSha: 'bbb2222');
+        $upper->openedAt = new \DateTimeImmutable('2026-10-01 10:00:00');
+        $this->em()->flush();
+        $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(conflicting: true, id: $base->id));
+
+        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'fix']), $card, $facts, $this->state($card));
+        $this->em()->flush();
+
+        self::assertEquals(
+            new WorkRequestContext($base->number, 'https://github.com/acme/widgets/pull/'.$base->number, 'aaa1111', 'conflict'),
+            $this->liveRequest($card)->context,
+        );
+        self::assertSame([['reason' => 'conflict', 'pullRequest' => $base->number]], $this->fixEvents($card));
+    }
+
+    public function test_facts_that_name_a_pull_request_the_card_does_not_track_put_no_pull_request_in_the_context(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-subject-gone'), 'in-progress');
+        $this->pullRequest($card);
+        $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed, id: Uuid::v7()));
+
+        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'fix']), $card, $facts, $this->state($card));
+        $this->em()->flush();
+
+        self::assertEquals(new WorkRequestContext(reason: 'checks-failed'), $this->liveRequest($card)->context);
+        self::assertSame([['reason' => 'checks-failed']], $this->fixEvents($card));
+    }
+
     public function test_a_card_with_no_pull_request_opens_a_request_with_an_empty_context(): void
     {
         self::bootKernel();
@@ -217,14 +251,6 @@ final class RequestWorkTest extends KernelTestCase
         self::assertCount(1, $live);
 
         return $live[0];
-    }
-
-    /** @return list<array<mixed>> the detail of each fix-requested event of the card */
-    private function fixEvents(Card $card): array
-    {
-        $rows = $this->service(CardEventRepository::class)->findKindsOfCards($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')], [CardEventKind::FixRequested]);
-
-        return array_values(array_map(static fn (array $row): array => $row['detail'], array_filter($rows, static fn (array $row): bool => CardEventKind::FixRequested === $row['kind'])));
     }
 
     private function action(): RequestWork
