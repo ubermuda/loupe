@@ -7478,7 +7478,6 @@
             <trans-unit id="readiness.settings.title"><source>readiness.settings.title</source><target>Agent readiness</target></trans-unit>
             <trans-unit id="readiness.settings.description"><source>readiness.settings.description</source><target>Check what this project needs before agents can work on it.</target></trans-unit>
             <trans-unit id="readiness.settings.discovery.title"><source>readiness.settings.discovery.title</source><target>Discovery</target></trans-unit>
-            <trans-unit id="readiness.settings.discovery.empty"><source>readiness.settings.discovery.empty</source><target>Discovery has not run on this project.</target></trans-unit>
             <trans-unit id="readiness.settings.guide.title"><source>readiness.settings.guide.title</source><target>Workshop guide</target></trans-unit>
             <trans-unit id="readiness.settings.guide.hidden_at"><source>readiness.settings.guide.hidden_at</source><target>Hidden on %date%</target></trans-unit>
             <trans-unit id="readiness.settings.submit"><source>readiness.settings.submit</source><target>Save</target></trans-unit>

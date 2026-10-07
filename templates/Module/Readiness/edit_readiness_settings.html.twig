@@ -23,7 +23,7 @@
             <p class="lp-connect-hint">{{ 'readiness.settings.description'|trans }}</p>
 
             <h3 class="lp-workshop-section__title">{{ 'readiness.settings.discovery.title'|trans }}</h3>
-            <p class="lp-connect-hint">{{ 'readiness.settings.discovery.empty'|trans }}</p>
+            {% if discovery is not null %}<p class="lp-connect-hint" data-readiness-discovery-state="{{ discovery.discoveryState }}">{{ discovery.status|trans(discovery.statusParameters) }}</p>{% endif %}
 
             <h3 class="lp-workshop-section__title">{{ 'readiness.settings.agent_account.title'|trans }}</h3>
             <p class="lp-connect-hint">{{ 'readiness.settings.agent_account.description'|trans }}</p>

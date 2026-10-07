@@ -39,7 +39,7 @@ Agent configuration and rules remain read-only in Loupe. Configure them through 
 ## Agent readiness
 
 Project settings has an Agent readiness tab. Only the project owner can open it.
-The Discovery part says whether discovery has run on the project. Discovery does not run yet, so it always says that it has not run.
+The Discovery part shows the state of the latest discovery run, with the same status as the Repository row of the [readiness guide](workshop.md#run-discovery).
 The Agent GitHub account part links to the page that sets up a [GitHub user for the agents](../getting-started/agent-github-account.md).
 The Workshop guide part has one switch, "Show the readiness checklist on the Workshop".
 Turn it on and select Save to show the [readiness guide](workshop.md#the-readiness-guide) on the Workshop again.
