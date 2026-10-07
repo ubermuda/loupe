@@ -6585,6 +6585,9 @@
     .lp-reports-analysis {
         @apply rounded-xl border border-line bg-surface-1 p-4;
     }
+    .lp-reports-more {
+        @apply mt-3 text-sm text-fg-mute;
+    }
     .lp-reports-analysis__head {
         @apply flex items-start gap-3;
     }

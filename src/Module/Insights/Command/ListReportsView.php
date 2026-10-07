@@ -13,6 +13,8 @@ final readonly class ListReportsView
         public Project $project,
         public array $analyses,
         public AnalyticsSettingsView $settings,
+        /** The project holds older analyses that the page leaves out. */
+        public bool $more = false,
     ) {
     }
 }

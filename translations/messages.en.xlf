@@ -7058,6 +7058,7 @@
             <trans-unit id="insights.reports.start.title"><source>insights.reports.start.title</source><target>Analyse</target></trans-unit>
             <trans-unit id="insights.reports.start.submit"><source>insights.reports.start.submit</source><target>Analyse</target></trans-unit>
             <trans-unit id="insights.reports.start.defaults"><source>insights.reports.start.defaults</source><target>An empty model or effort takes the project default: %model%, %effort%.</target></trans-unit>
+            <trans-unit id="insights.reports.more"><source>insights.reports.more</source><target>The page shows the newest %count% analyses.</target></trans-unit>
             <trans-unit id="insights.reports.settings.title"><source>insights.reports.settings.title</source><target>Analysis settings</target></trans-unit>
             <trans-unit id="insights.reports.settings.submit"><source>insights.reports.settings.submit</source><target>Save the settings</target></trans-unit>
             <trans-unit id="insights.reports.settings.instance_default"><source>insights.reports.settings.instance_default</source><target>Instance default</target></trans-unit>

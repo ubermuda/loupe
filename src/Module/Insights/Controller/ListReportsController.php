@@ -43,6 +43,8 @@ class ListReportsController extends AppController
         return $this->render('@Insights/list_reports.html.twig', [
             'project' => $view->project,
             'analyses' => $view->analyses,
+            'moreAnalyses' => $view->more,
+            'analysisLimit' => ListReportsHandler::LIMIT,
             'settings' => $view->settings,
             'costMetric' => Metric::Cost,
             'startForm' => $this->getInjectedFormView($request, self::START_FORM)

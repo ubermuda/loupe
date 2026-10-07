@@ -10,6 +10,8 @@ use App\Module\Insights\Repository\ProposalRepository;
 
 final readonly class ListReportsHandler
 {
+    public const int LIMIT = 50;
+
     public function __construct(
         private AnalysisRepository $analyses,
         private ProposalRepository $proposals,
@@ -19,13 +21,20 @@ final readonly class ListReportsHandler
 
     public function __invoke(ListReportsCommand $command): ListReportsView
     {
+        $analyses = $this->analyses->findByProject($command->project, self::LIMIT + 1);
+        $more = \count($analyses) > self::LIMIT;
+        $analyses = \array_slice($analyses, 0, self::LIMIT);
+        $costs = $this->analyses->costsOf($command->project, $analyses);
+        $proposals = $this->proposals->findByAnalyses($analyses);
+
         return new ListReportsView(
             project: $command->project,
             analyses: array_map(
-                fn (Analysis $analysis): AnalysisDetailView => new AnalysisDetailView($analysis, $this->analyses->costOf($analysis), $this->proposals->findByAnalysis($analysis)),
-                $this->analyses->findByProject($command->project),
+                static fn (Analysis $analysis): AnalysisDetailView => new AnalysisDetailView($analysis, $costs[(string) $analysis->id] ?? null, $proposals[(string) $analysis->id] ?? []),
+                $analyses,
             ),
             settings: ($this->showSettings)(new ShowAnalyticsSettingsCommand($command->project)),
+            more: $more,
         );
     }
 }

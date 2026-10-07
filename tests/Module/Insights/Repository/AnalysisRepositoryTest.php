@@ -47,6 +47,40 @@ final class AnalysisRepositoryTest extends KernelTestCase
         self::assertSame(300000, $this->repository()->costOf($analysis));
     }
 
+    public function test_the_costs_of_several_analyses_come_from_one_read_keyed_by_analysis(): void
+    {
+        $em = $this->em();
+        $project = $this->scenarioProject('analysis-costs');
+        $first = $this->seedAnalysis($em, $project);
+        $second = $this->seedAnalysis($em, $project);
+        $unpriced = $this->seedAnalysis($em, $project);
+        $this->seedCostedRun($project, $first->id, '0.250000');
+        $this->seedCostedRun($project, $first->id, '0.125000');
+        $this->seedCostedRun($project, $second->id, '1.000000');
+        $this->seedCostedRun($project, $unpriced->id, '7.000000', 'card');
+
+        self::assertEquals(
+            [(string) $first->id => 375000, (string) $second->id => 1000000],
+            $this->repository()->costsOf($project, [$first, $second, $unpriced]),
+        );
+        self::assertSame([], $this->repository()->costsOf($project, []));
+    }
+
+    public function test_the_project_list_takes_a_limit_and_reads_newest_first(): void
+    {
+        $em = $this->em();
+        $project = $this->scenarioProject('analysis-limit');
+        $this->seedAnalysis($em, $project);
+        $this->seedAnalysis($em, $project);
+        $newest = $this->seedAnalysis($em, $project);
+
+        $limited = $this->repository()->findByProject($project, 2);
+
+        self::assertCount(2, $limited);
+        self::assertSame($newest, $limited[0]);
+        self::assertCount(3, $this->repository()->findByProject($project));
+    }
+
     public function test_an_analysis_with_no_runs_has_no_cost(): void
     {
         $analysis = $this->seedAnalysis($this->em(), $this->scenarioProject('analysis-cost-none'));

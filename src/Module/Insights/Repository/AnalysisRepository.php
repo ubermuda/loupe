@@ -9,6 +9,7 @@ use App\Module\Bridge\Entity\WorkerRunFact;
 use App\Module\Insights\Entity\Analysis;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
@@ -46,13 +47,14 @@ class AnalysisRepository extends ServiceEntityRepository
     }
 
     /** @return list<Analysis> newest first */
-    public function findByProject(Project $project): array
+    public function findByProject(Project $project, ?int $limit = null): array
     {
         return array_values($this->createQueryBuilder('a')
             ->andWhere('a.project = :project')
             ->setParameter('project', $project)
             ->orderBy('a.createdAt', 'DESC')
             ->addOrderBy('a.id', 'DESC')
+            ->setMaxResults($limit)
             ->getQuery()
             ->getResult());
     }
@@ -62,6 +64,35 @@ class AnalysisRepository extends ServiceEntityRepository
      * call because a fact row can change after the analysis ends. Null when no
      * run has a known cost.
      */
+    /**
+     * The cost of each analysis in one query, keyed by analysis id. An analysis with no known run cost is missing.
+     *
+     * @param list<Analysis> $analyses
+     *
+     * @return array<string, int>
+     */
+    public function costsOf(Project $project, array $analyses): array
+    {
+        if ([] === $analyses) {
+            return [];
+        }
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT subject_id, SUM(cost_micro_usd) AS cost FROM bridge_worker_run_facts WHERE project_id = :project AND subject_type = :type AND subject_id IN (:ids) GROUP BY subject_id HAVING SUM(cost_micro_usd) IS NOT NULL',
+            [
+                'project' => (string) ($project->id ?? throw new \LogicException('A stored project has an id.')),
+                'type' => Analysis::SUBJECT_TYPE,
+                'ids' => array_map(static fn (Analysis $analysis): string => (string) ($analysis->id ?? throw new \LogicException('A stored analysis has an id.')), $analyses),
+            ],
+            ['ids' => ArrayParameterType::STRING],
+        );
+        $costs = [];
+        foreach ($rows as $row) {
+            $costs[(string) $row['subject_id']] = (int) $row['cost'];
+        }
+
+        return $costs;
+    }
+
     public function costOf(Analysis $analysis): ?int
     {
         $sum = $this->getEntityManager()->createQueryBuilder()

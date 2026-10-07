@@ -28,6 +28,33 @@ class ProposalRepository extends ServiceEntityRepository
     }
 
     /** Null for a malformed id and for a proposal of another project alike. */
+    /**
+     * The proposals of each analysis in one query, keyed by analysis id, each list in position order.
+     *
+     * @param list<Analysis> $analyses
+     *
+     * @return array<string, list<Proposal>>
+     */
+    public function findByAnalyses(array $analyses): array
+    {
+        if ([] === $analyses) {
+            return [];
+        }
+        /** @var list<Proposal> $proposals */
+        $proposals = $this->createQueryBuilder('p')
+            ->andWhere('p.analysis IN (:analyses)')
+            ->setParameter('analyses', $analyses)
+            ->orderBy('p.position', 'ASC')
+            ->getQuery()
+            ->getResult();
+        $grouped = [];
+        foreach ($proposals as $proposal) {
+            $grouped[(string) $proposal->analysis->id][] = $proposal;
+        }
+
+        return $grouped;
+    }
+
     public function findOneByIdAndProjectId(string $proposalId, string $projectId): ?Proposal
     {
         if (!Uuid::isValid($proposalId) || !Uuid::isValid($projectId)) {
