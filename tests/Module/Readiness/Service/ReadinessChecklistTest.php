@@ -52,7 +52,7 @@ final class ReadinessChecklistTest extends KernelTestCase
         self::assertNull($this->row($readiness, 'workflow')->actionUrl);
         self::assertNull($this->row($readiness, 'workflow')->detail);
         self::assertNull($this->row($readiness, 'github')->actionUrl);
-        self::assertNull($this->row($readiness, 'agent_account')->actionUrl);
+        self::assertSame('/projects/'.$project->id.'/readiness/agent-account', $this->row($readiness, 'agent_account')->actionUrl);
         self::assertNull($this->row($readiness, 'repository')->actionUrl);
     }
 
@@ -83,9 +83,70 @@ final class ReadinessChecklistTest extends KernelTestCase
         self::assertSame([true, true, true, true, false, false], array_map(static fn (WorkshopReadinessRow $row): bool => $row->done, $readiness->rows));
         self::assertSame(4, $readiness->doneCount());
         self::assertSame('workflow.template.simple.label', $this->row($readiness, 'workflow')->detail);
-        foreach ($readiness->rows as $row) {
+        foreach (array_slice($readiness->rows, 0, 4) as $row) {
             self::assertNull($row->actionUrl, $row->key);
         }
+    }
+
+    public function test_the_agent_account_check_asks_for_a_login_first(): void
+    {
+        $project = $this->newProject('readiness-account-none@example.com');
+        $this->seedPushingBridge($project, 'acme-agent');
+
+        $row = $this->row($this->readiness($this->checklist(), $project), 'agent_account');
+
+        self::assertFalse($row->done);
+        self::assertSame('readiness.row.agent_account.no_login', $row->status);
+        self::assertSame('readiness.row.agent_account.action', $row->actionLabel);
+        self::assertSame('/projects/'.$project->id.'/readiness/agent-account', $row->actionUrl);
+    }
+
+    public function test_the_agent_account_check_waits_for_a_bridge_that_pushes_as_the_login(): void
+    {
+        $project = $this->newProject('readiness-account-no-bridge@example.com');
+        $project->agentGitHubLogin = 'acme-agent';
+
+        $row = $this->row($this->readiness($this->checklist(), $project), 'agent_account');
+
+        self::assertFalse($row->done);
+        self::assertSame('readiness.row.agent_account.no_push', $row->status);
+        self::assertSame(['%login%' => 'acme-agent'], $row->statusParameters);
+        self::assertSame('/projects/'.$project->id.'/readiness/agent-account', $row->actionUrl);
+    }
+
+    public function test_a_bridge_that_pushes_as_another_login_does_not_count(): void
+    {
+        $project = $this->newProject('readiness-account-other@example.com');
+        $project->agentGitHubLogin = 'acme-agent';
+        $this->seedPushingBridge($project, 'acme-bot');
+
+        self::assertFalse($this->row($this->readiness($this->checklist(), $project), 'agent_account')->done);
+    }
+
+    public function test_a_quiet_bridge_that_pushes_as_the_login_does_not_count(): void
+    {
+        $project = $this->newProject('readiness-account-quiet@example.com');
+        $project->agentGitHubLogin = 'acme-agent';
+        $this->seedPushingBridge($project, 'acme-agent', new \DateTimeImmutable('-1 day'));
+
+        $row = $this->row($this->readiness($this->checklist(), $project), 'agent_account');
+
+        self::assertFalse($row->done);
+        self::assertSame('readiness.row.agent_account.no_push', $row->status);
+    }
+
+    public function test_a_running_bridge_that_pushes_as_the_login_in_another_case_marks_the_check_done(): void
+    {
+        $project = $this->newProject('readiness-account-done@example.com');
+        $project->agentGitHubLogin = 'Acme-Agent';
+        $this->seedPushingBridge($project, 'acme-agent');
+
+        $row = $this->row($this->readiness($this->checklist(), $project), 'agent_account');
+
+        self::assertTrue($row->done);
+        self::assertSame('readiness.row.agent_account.done', $row->status);
+        self::assertSame(['%login%' => 'Acme-Agent'], $row->statusParameters);
+        self::assertNull($row->actionUrl);
     }
 
     public function test_a_template_with_no_label_shows_its_key(): void
@@ -142,6 +203,13 @@ final class ReadinessChecklistTest extends KernelTestCase
         $em->flush();
 
         self::assertFalse($this->row($this->readiness($this->checklist(), $project), 'github')->done);
+    }
+
+    private function seedPushingBridge(Project $project, string $login, \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable()): void
+    {
+        $bridge = $this->seedBridge($this->em(), $project->owner, projects: [(string) $project->id], lastSeenAt: $lastSeenAt);
+        $bridge->pushLogin = $login;
+        $this->em()->flush();
     }
 
     /** @param non-empty-string $email */

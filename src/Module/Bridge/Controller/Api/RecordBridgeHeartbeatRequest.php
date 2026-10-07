@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\Bridge;
+use App\Utils\GitHubLogin;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -39,6 +40,7 @@ final class RecordBridgeHeartbeatRequest
      * @param list<string>|null                $capabilities null from a bridge that predates capabilities
      * @param list<BridgeWorkClaimInput>|null  $workClaims   null from a bridge that predates work requests
      * @param string|null                      $name         null from a bridge that predates names; blank clears the name
+     * @param string|null                      $pushLogin    null from a bridge that predates push logins; empty clears the login
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -81,6 +83,10 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Length(max: Bridge::MAX_NAME_LENGTH, normalizer: 'trim')]
         #[Assert\Regex(pattern: Bridge::NAME_PATTERN, normalizer: 'trim')]
         public ?string $name = null,
+
+        #[Assert\Length(max: GitHubLogin::MAX_LENGTH)]
+        #[Assert\Regex(pattern: GitHubLogin::PATTERN)]
+        public ?string $pushLogin = null,
     ) {
     }
 

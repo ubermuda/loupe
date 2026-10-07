@@ -25,6 +25,10 @@
             <h3 class="lp-workshop-section__title">{{ 'readiness.settings.discovery.title'|trans }}</h3>
             <p class="lp-connect-hint">{{ 'readiness.settings.discovery.empty'|trans }}</p>
 
+            <h3 class="lp-workshop-section__title">{{ 'readiness.settings.agent_account.title'|trans }}</h3>
+            <p class="lp-connect-hint">{{ 'readiness.settings.agent_account.description'|trans }}</p>
+            <a class="lp-workshop-text-link" href="{{ path('app_project_readiness_agent_account', {id: project.id}) }}" data-agent-account-link>{{ 'readiness.settings.agent_account.link'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>
+
             <h3 class="lp-workshop-section__title">{{ 'readiness.settings.guide.title'|trans }}</h3>
             {{ form_start(form, {attr: {class: 'lp-form'}}) }}
                 <div class="lp-form-field">

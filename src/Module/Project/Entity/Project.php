@@ -8,6 +8,7 @@ use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Security\ProjectScopedSubject;
+use App\Utils\GitHubLogin;
 use App\Utils\Slug;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -67,6 +68,10 @@ class Project implements ProjectScopedSubject
     /** The first time an MCP request resolved this project. ProjectRepository::markAgentSeen() writes it. */
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $agentFirstSeenAt = null;
+
+    /** The GitHub user the agents of this project push as. The owner records it on the agent account page. */
+    #[ORM\Column(name: 'agent_github_login', length: GitHubLogin::MAX_LENGTH, nullable: true)]
+    public ?string $agentGitHubLogin = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]

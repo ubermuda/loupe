@@ -45,7 +45,8 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
 
         $agent = null !== $project->agentFirstSeenAt;
         $binding = $this->workflowBindings->findOneByProjectId($projectId);
-        $bridge = [] !== array_filter($this->connections->forProject($project), static fn (WorkshopConnection $connection): bool => !$connection->quiet);
+        $running = $this->runningConnections($project);
+        $bridge = [] !== $running;
         $github = $this->gitHubReady($project);
         $installUrl = $github || !$this->gitHubApp->isConfigured() ? null : $this->urls->generate('app_github_app_install', ['id' => (string) $projectId]);
 
@@ -81,9 +82,44 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
                 actionLabel: null === $installUrl ? null : 'readiness.row.github.action',
                 actionUrl: $installUrl,
             ),
-            new WorkshopReadinessRow('agent_account', 'readiness.row.agent_account.label', false, 'readiness.row.agent_account.open'),
+            $this->agentAccountRow($project, $running),
             new WorkshopReadinessRow('repository', 'readiness.row.repository.label', false, 'readiness.row.repository.open'),
         ]);
+    }
+
+    /** The agent account check alone, which its own page shows while the guide is hidden too. */
+    public function agentAccount(Project $project): WorkshopReadinessRow
+    {
+        return $this->agentAccountRow($project, $this->runningConnections($project));
+    }
+
+    /** @param list<WorkshopConnection> $running */
+    private function agentAccountRow(Project $project, array $running): WorkshopReadinessRow
+    {
+        $login = $project->agentGitHubLogin;
+        if (null === $login) {
+            $status = 'readiness.row.agent_account.no_login';
+            $done = false;
+        } else {
+            $done = array_any($running, static fn (WorkshopConnection $connection): bool => null !== $connection->pushLogin && 0 === strcasecmp($connection->pushLogin, $login));
+            $status = $done ? 'readiness.row.agent_account.done' : 'readiness.row.agent_account.no_push';
+        }
+
+        return new WorkshopReadinessRow(
+            'agent_account',
+            'readiness.row.agent_account.label',
+            $done,
+            $status,
+            actionLabel: $done ? null : 'readiness.row.agent_account.action',
+            actionUrl: $done ? null : $this->urls->generate('app_project_readiness_agent_account', ['id' => (string) $project->id]),
+            statusParameters: null === $login ? [] : ['%login%' => $login],
+        );
+    }
+
+    /** @return list<WorkshopConnection> */
+    private function runningConnections(Project $project): array
+    {
+        return array_values(array_filter($this->connections->forProject($project), static fn (WorkshopConnection $connection): bool => !$connection->quiet));
     }
 
     /** A live installation must hold the repository, as a pull request write needs. */
