@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Insights\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Bridge\Command\ListExperimentsHandler;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
@@ -97,23 +98,67 @@ final class StartAnalysisHandlerTest extends KernelTestCase
         self::assertNull($blank->question);
     }
 
-    /** @return iterable<string, array{AnalysisTopic, ?string, ?string, ?string, array<string, string>}> */
+    public function test_an_experiment_analysis_stores_the_experiment_in_its_scope(): void
+    {
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $project = $this->scenarioProject('start-analysis-experiment');
+        $this->seedExperiment($project, 'model-test');
+
+        $analysis = $this->handler()(new StartAnalysisCommand($project, AnalysisTopic::Experiment, MetricRange::All, experiment: 'model-test'));
+
+        $this->em()->clear();
+        $stored = $this->analyses()->find($analysis->id);
+        self::assertInstanceOf(Analysis::class, $stored);
+        self::assertSame('model-test', $stored->scope->experiment);
+        self::assertSame(['range' => 'all', 'experiment' => 'model-test'], $stored->scope->toArray());
+        self::assertSame('model-test', $audit->record('insights.analysis_started')->context['experiment']);
+    }
+
+    public function test_another_topic_ignores_the_experiment(): void
+    {
+        $project = $this->scenarioProject('start-analysis-cost-experiment');
+
+        $analysis = $this->handler()(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All, experiment: 'no-such-experiment'));
+
+        $this->em()->clear();
+        $stored = $this->analyses()->find($analysis->id);
+        self::assertInstanceOf(Analysis::class, $stored);
+        self::assertNull($stored->scope->experiment);
+        self::assertSame(['range' => 'all'], $stored->scope->toArray());
+    }
+
+    public function test_an_experiment_of_another_project_is_unknown(): void
+    {
+        $project = $this->scenarioProject('start-analysis-experiment-other');
+        $this->seedExperiment($this->scenarioProject('start-analysis-experiment-owner'), 'model-test');
+
+        try {
+            $this->handler()(new StartAnalysisCommand($project, AnalysisTopic::Experiment, MetricRange::All, experiment: 'model-test'));
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['experiment' => StartAnalysisHandler::EXPERIMENT_UNKNOWN], $e->errors);
+        }
+    }
+
+    /** @return iterable<string, array{0: AnalysisTopic, 1: ?string, 2: ?string, 3: ?string, 4: array<string, string>, 5?: string}> */
     public static function refused(): iterable
     {
         yield 'a question that is too long' => [AnalysisTopic::Cost, str_repeat('a', 2001), null, null, ['question' => StartAnalysisHandler::QUESTION_TOO_LONG]];
         yield 'a question topic with no question' => [AnalysisTopic::Question, ' ', null, null, ['question' => StartAnalysisHandler::QUESTION_REQUIRED]];
         yield 'a malformed model' => [AnalysisTopic::Cost, null, 'two words', null, ['model' => StartAnalysisHandler::INVALID_MODEL]];
         yield 'an unknown effort' => [AnalysisTopic::Cost, null, null, 'extreme', ['effort' => StartAnalysisHandler::INVALID_EFFORT]];
+        yield 'an experiment topic with no experiment' => [AnalysisTopic::Experiment, null, null, null, ['experiment' => StartAnalysisHandler::EXPERIMENT_REQUIRED]];
+        yield 'an experiment topic with an unknown experiment' => [AnalysisTopic::Experiment, null, null, null, ['experiment' => StartAnalysisHandler::EXPERIMENT_UNKNOWN], 'no-such-experiment'];
     }
 
     /** @param array<string, string> $errors */
     #[DataProvider('refused')]
-    public function test_a_malformed_command_is_refused_and_stores_nothing(AnalysisTopic $topic, ?string $question, ?string $model, ?string $effort, array $errors): void
+    public function test_a_malformed_command_is_refused_and_stores_nothing(AnalysisTopic $topic, ?string $question, ?string $model, ?string $effort, array $errors, ?string $experiment = null): void
     {
         $project = $this->scenarioProject('start-analysis-refused');
 
         try {
-            $this->handler()(new StartAnalysisCommand($project, $topic, MetricRange::All, $question, $model, $effort));
+            $this->handler()(new StartAnalysisCommand($project, $topic, MetricRange::All, $question, $model, $effort, $experiment));
             self::fail('Expected a refusal.');
         } catch (DomainErrors $e) {
             self::assertSame($errors, $e->errors);
@@ -135,7 +180,7 @@ final class StartAnalysisHandlerTest extends KernelTestCase
             $this->service(WorkerRunRepository::class),
             new WorkSubjectHandlers([]),
         );
-        $handler = new StartAnalysisHandler($this->em(), $blind, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class));
+        $handler = new StartAnalysisHandler($this->em(), $blind, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class));
 
         try {
             $handler(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All));
@@ -167,7 +212,7 @@ final class StartAnalysisHandlerTest extends KernelTestCase
             $this->service(WorkerRunRepository::class),
             $this->service(WorkSubjectHandlers::class),
         );
-        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class));
+        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class));
 
         try {
             $handler(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All));
@@ -205,7 +250,7 @@ final class StartAnalysisHandlerTest extends KernelTestCase
             $this->service(WorkerRunRepository::class),
             $this->service(WorkSubjectHandlers::class),
         );
-        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class));
+        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class));
 
         try {
             $handler(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All));

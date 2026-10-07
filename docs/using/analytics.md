@@ -180,7 +180,8 @@ Fill the **Analyse** form, and press **Analyse**.
 
 | Field | Values |
 |---|---|
-| Topic | **Cost**, where the cost of the workers goes |
+| Topic | **Cost**, where the cost of the workers goes, or **Experiment**, what the comparison of one experiment shows |
+| Experiment | an experiment of the project. The **Experiment** topic needs it, and the **Cost** topic ignores it |
 | Range | **30 days**, **90 days** or **All time**: the runs the agent reads |
 | Model | the model of the agent, such as `sonnet` or `opus` |
 | Effort | **Low**, **Medium**, **High**, **Extra high** or **Maximum** |

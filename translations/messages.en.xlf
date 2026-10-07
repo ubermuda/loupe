@@ -6001,6 +6001,7 @@
             <trans-unit id="bridge.experiments.range"><source>bridge.experiments.range</source><target>%low%–%high%</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out"><source>bridge.experiments.left_out</source><target>{0} No card is left out of the figures.|{1} 1 card is left out of the figures.|]1,Inf[ %count% cards are left out of the figures.</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_link"><source>bridge.experiments.left_out_link</source><target>Show the cards that are left out</target></trans-unit>
+            <trans-unit id="bridge.experiments.analyse"><source>bridge.experiments.analyse</source><target>Analyse this experiment</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_reason.switched"><source>bridge.experiments.left_out_reason.switched</source><target>Switched variant</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_reason.mixed"><source>bridge.experiments.left_out_reason.mixed</source><target>Mixed variants</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_reason.before-test"><source>bridge.experiments.left_out_reason.before-test</source><target>Implemented before the test</target></trans-unit>
@@ -7107,6 +7108,9 @@
             <trans-unit id="insights.reports.flash.dismissed"><source>insights.reports.flash.dismissed</source><target>The proposal is dismissed.</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.topic.label"><source>insights.form.start_analysis_form.topic.label</source><target>Topic</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.topic.cost"><source>insights.form.start_analysis_form.topic.cost</source><target>Cost</target></trans-unit>
+            <trans-unit id="insights.form.start_analysis_form.topic.experiment"><source>insights.form.start_analysis_form.topic.experiment</source><target>Experiment</target></trans-unit>
+            <trans-unit id="insights.form.start_analysis_form.experiment.label"><source>insights.form.start_analysis_form.experiment.label</source><target>Experiment</target></trans-unit>
+            <trans-unit id="insights.form.start_analysis_form.experiment.placeholder"><source>insights.form.start_analysis_form.experiment.placeholder</source><target>Choose an experiment</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.label"><source>insights.form.start_analysis_form.range.label</source><target>Range</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.thirty-days"><source>insights.form.start_analysis_form.range.thirty-days</source><target>30 days</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.ninety-days"><source>insights.form.start_analysis_form.range.ninety-days</source><target>90 days</target></trans-unit>
@@ -7134,6 +7138,8 @@
             <trans-unit id="insights.analysis.error.invalid_effort"><source>insights.analysis.error.invalid_effort</source><target>Use one of: low, medium, high, xhigh, max.</target></trans-unit>
             <trans-unit id="insights.analysis.error.question_too_long"><source>insights.analysis.error.question_too_long</source><target>The question must be at most 2000 characters.</target></trans-unit>
             <trans-unit id="insights.analysis.error.question_required"><source>insights.analysis.error.question_required</source><target>A question analysis needs a question.</target></trans-unit>
+            <trans-unit id="insights.analysis.error.experiment_required"><source>insights.analysis.error.experiment_required</source><target>An experiment analysis needs an experiment.</target></trans-unit>
+            <trans-unit id="insights.analysis.error.experiment_unknown"><source>insights.analysis.error.experiment_unknown</source><target>This project has no experiment of that name.</target></trans-unit>
             <trans-unit id="insights.settings.error.invalid_model"><source>insights.settings.error.invalid_model</source><target>A model is one word of at most 64 characters, such as sonnet or opus.</target></trans-unit>
             <trans-unit id="insights.settings.error.invalid_effort"><source>insights.settings.error.invalid_effort</source><target>Use one of: low, medium, high, xhigh, max.</target></trans-unit>
             <trans-unit id="insights.proposal.error.not_proposed"><source>insights.proposal.error.not_proposed</source><target>This proposal is no longer open.</target></trans-unit>

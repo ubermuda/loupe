@@ -70,6 +70,10 @@ final class ShowExperimentControllerTest extends WebTestCase
         $leftOut = $crawler->filter('[data-experiment-left-out]');
         self::assertStringContainsString('1 card is left out', $leftOut->text());
         self::assertSame('/projects/'.$projectId.'/analytics/experiments/model-test/cards?left-out=1', $leftOut->filter('a')->attr('href'));
+
+        $analyse = $crawler->filter('[data-experiment-analyse]');
+        self::assertSame('Analyse this experiment', trim($analyse->text()));
+        self::assertSame('/projects/'.$projectId.'/analytics/reports?topic=experiment&experiment=model-test', $analyse->attr('href'));
     }
 
     public function test_the_table_shows_the_declared_metrics_and_names_the_unknown_ones(): void

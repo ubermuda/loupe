@@ -296,7 +296,7 @@ Roughly in the order an agent uses them:
 | `worker_run_tool_calls` | Read a page of the tool calls of one worker run, in the order the worker made them. Each call gives its tool, its start, its duration, its error flag, whether a subagent made it, and its signatures. `perPage` defaults to 20, with a maximum of 100 |
 | `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes |
 | `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it |
-| `analysis_get` | Read one analysis, with its topic, its range, its model and effort, its state and reason, its cost so far and its proposals |
+| `analysis_get` | Read one analysis, with its topic, its range, the experiment that an experiment analysis compares, its model and effort, its state and reason, its cost so far and its proposals |
 | `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
 | `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, and whether the bridge sends the full text of each tool call |
 | `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort clears the project value, so the instance default applies |

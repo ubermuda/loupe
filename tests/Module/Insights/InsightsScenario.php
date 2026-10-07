@@ -28,6 +28,15 @@ trait InsightsScenario
         return $this->project($em, $this->user($em, $name.'-'.uniqid().'@example.com'), 'Project '.$name);
     }
 
+    /** A card run that names the experiment, so the project lists it. */
+    private function seedExperiment(Project $project, string $experiment): void
+    {
+        $em = $this->em();
+        $run = $this->seedRun($em, $project);
+        $run->experiment = $experiment;
+        $em->flush();
+    }
+
     private function seedAnalysis(EntityManagerInterface $em, Project $project, AnalysisState $state = AnalysisState::Waiting): Analysis
     {
         $analysis = new Analysis($project, AnalysisTopic::Cost, new AnalysisScope(MetricRange::NinetyDays), null, 'sonnet', 'medium', new \DateTimeImmutable('2026-10-07 09:00:00'));

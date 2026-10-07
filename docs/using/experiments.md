@@ -79,6 +79,10 @@ merged cards that have the value, such as a cost or the two times of a merge.
 A metric with no clear answer shows a **Too few cards** chip. An experiment
 with one variant never gives a clear answer.
 
+Press **Analyse this experiment** below the metrics to ask an agent to explain
+the comparison. The link opens the [Reports](analytics.md#reports) tab, with
+the topic **Experiment** and this experiment already chosen.
+
 ## Cards that are left out
 
 The figures leave out a card that does not give a fair comparison. The line
