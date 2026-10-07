@@ -83,12 +83,18 @@ func (p pending) workOrOrigin() api.WorkRequest {
 	return p.origin
 }
 
-// workEvent is the event a run of the work request reports and logs with.
+// workEvent is the event a run of the work request reports and logs with. It
+// names the card of a card subject only.
 func workEvent(w api.WorkRequest) event.Event {
-	return event.Event{
+	e := event.Event{
 		Type: event.WorkRequestType, Subject: event.Subject{Type: "work-request", ID: w.WorkRequestID},
-		ProjectID: w.ProjectID, CardID: w.CardID, CardNumber: w.CardNumber,
+		ProjectID: w.ProjectID,
 	}
+	if w.OnCard() {
+		e.CardID, e.CardNumber = w.SubjectID, w.CardNumber
+	}
+
+	return e
 }
 
 // matchPending matches a queued run again on set: a work request against the
@@ -184,7 +190,7 @@ func (r *router) offerWork(w api.WorkRequest, source string) {
 
 		return
 	}
-	p := pending{key: w.CardID, event: workEvent(w), work: w, set: set}
+	p := pending{key: w.SubjectID, event: workEvent(w), work: w, set: set}
 	// A session that is not on this machine cannot resume, so the work starts fresh.
 	if w.ResumeSessionID != "" && m.Action == "" && r.hasTranscript(w.ResumeSessionID) {
 		p.event.SessionID = w.ResumeSessionID
@@ -195,7 +201,7 @@ func (r *router) offerWork(w api.WorkRequest, source string) {
 
 // workAttrs names a work request in a log line.
 func workAttrs(w api.WorkRequest, source string) []any {
-	return []any{"work_request", w.WorkRequestID, "kind", w.Kind, "card", w.CardNumber, "project", w.ProjectID, "source", source}
+	return []any{"work_request", w.WorkRequestID, "kind", w.Kind, "subject_type", w.SubjectType, "card", w.CardNumber, "project", w.ProjectID, "source", source}
 }
 
 // knownWorkLocked reports whether the bridge queues, claims or holds the work
@@ -368,7 +374,8 @@ func checkClaim(claim api.Claim, offer api.WorkRequest) error {
 	if err := event.CheckWorkRequest(&w); err != nil {
 		return err
 	}
-	if w.WorkRequestID != offer.WorkRequestID || w.Kind != offer.Kind || w.ProjectID != offer.ProjectID || w.CardID != offer.CardID {
+	if w.WorkRequestID != offer.WorkRequestID || w.Kind != offer.Kind || w.ProjectID != offer.ProjectID ||
+		w.SubjectType != offer.SubjectType || w.SubjectID != offer.SubjectID {
 		return errors.New("the claim answers with another request than the offer")
 	}
 

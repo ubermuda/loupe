@@ -50,8 +50,7 @@ const (
 	DropReload   = "reload"
 )
 
-// IsOutcome reports whether state is how a worker ended. Only an outcome maps
-// onto the old report.
+// IsOutcome reports whether state is how a worker ended.
 func IsOutcome(state string) bool {
 	switch state {
 	case RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunWaitingOnForge:
@@ -63,21 +62,25 @@ func IsOutcome(state string) bool {
 
 // RunStateReport is one state of a run, as PUT
 // /api/projects/{handle}/worker-runs/{runId} takes it. Every report carries the
-// card and the work request, so the first one the server reads can create the
-// run. A run of a rules: entry names no work request. A field that the state
+// subject and the work request, so the first one the server reads can create
+// the run. A run of a rules: entry names no work request. A field that the state
 // does not use stays zero and is not sent.
 type RunStateReport struct {
-	BridgeID   string    `json:"bridgeId"`
-	State      string    `json:"state"`
-	At         time.Time `json:"at"`
-	CardID     string    `json:"cardId"`
-	CardNumber int       `json:"cardNumber"`
+	BridgeID string    `json:"bridgeId"`
+	State    string    `json:"state"`
+	At       time.Time `json:"at"`
+	// SubjectType and SubjectID come from the work request of the run, and
+	// name the card for the run of a rules: entry.
+	SubjectType string `json:"subjectType"`
+	SubjectID   string `json:"subjectId"`
+	// CardNumber is the label of a card subject, and 0 for any other subject.
+	CardNumber int `json:"cardNumber,omitempty"`
 	// WorkRequestID, WorkKind and RuleID come from the work request of the run.
 	WorkRequestID string `json:"workRequestId,omitempty"`
 	WorkKind      string `json:"workKind,omitempty"`
 	RuleID        string `json:"ruleId,omitempty"`
-	// Rule names the run in the bridge log and in the old report. The run
-	// state endpoint does not take it.
+	// Rule names the run in the bridge log. The run state endpoint does not
+	// take it.
 	Rule string `json:"-"`
 	// Kind is RunKindCommand for the run of a command rule, and empty for a
 	// worker run.
@@ -88,8 +91,7 @@ type RunStateReport struct {
 
 	EndedAt  time.Time `json:"endedAt,omitzero"`
 	ExitCode *int      `json:"exitCode,omitzero"`
-	// HasResult says whether the output held a result line. It pairs with
-	// ExitCode, as in the old report.
+	// HasResult says whether the output held a result line, and pairs with ExitCode.
 	HasResult     *bool   `json:"hasResult,omitzero"`
 	FailureReason *string `json:"failureReason,omitzero"`
 	Output        string  `json:"output,omitzero"`
@@ -119,9 +121,9 @@ type RunStateReport struct {
 	SwitchedFrom   string `json:"switchedFrom,omitempty"`
 }
 
-// MarshalJSON sends every field of an outcome, as the old report does, so an
-// empty output, a null result flag and the null half of the exit code and
-// failure reason pair still reach the server.
+// MarshalJSON sends every field of an outcome, so an empty output, a null
+// result flag and the null half of the exit code and failure reason pair still
+// reach the server.
 func (r RunStateReport) MarshalJSON() ([]byte, error) {
 	type plain RunStateReport
 	if !IsOutcome(r.State) {
@@ -145,11 +147,6 @@ type InventoryRun struct {
 	ProjectID string `json:"projectId"`
 	State     string `json:"state"`
 }
-
-// ErrRunStatesUnsupported marks a 404 with no error code, which is the answer
-// of a server older than the run state endpoints, or with agent push switched
-// off. The caller falls back on ReportWorkerRun.
-var ErrRunStatesUnsupported = errors.New("the server has no run state endpoint, or agent push is switched off")
 
 // ReportRunState records one state of a run against one of the caller's
 // projects. It answers whether the state is new for the run: the server answers
@@ -177,8 +174,6 @@ func (c *Client) ReportRunState(ctx context.Context, handle, runID string, repor
 		return true, nil
 	case status == http.StatusOK:
 		return false, nil
-	case status == http.StatusNotFound && !namesTheProject(detail):
-		return false, ErrRunStatesUnsupported
 	}
 
 	return false, reportFailure("run state report", status, detail)
@@ -205,8 +200,6 @@ func (c *Client) ReportRunInventory(ctx context.Context, bridgeID string, runs [
 	switch status {
 	case http.StatusOK, http.StatusNoContent:
 		return nil
-	case http.StatusNotFound:
-		return ErrRunStatesUnsupported
 	}
 
 	return reportFailure("run inventory", status, detail)
@@ -249,7 +242,7 @@ func reportFailure(what string, status int, detail []byte) error {
 }
 
 // namesTheProject reports whether a 404 says the caller has no such project.
-// That run is refused for good, and the old endpoint would refuse it too.
+// That report is refused for good.
 func namesTheProject(detail []byte) bool {
 	return errors.Is(notFound(bytes.NewReader(detail)), ErrProjectNotFound)
 }

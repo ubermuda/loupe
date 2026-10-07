@@ -72,6 +72,7 @@ final class FactFingerprintTest extends TestCase
         yield 'blockers' => [FactKey::Blockers, FactsMother::facts(card: FactsMother::card(slot: 'implementation', hasOpenBlocker: true, documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'parent' => [FactKey::Parent, FactsMother::facts(card: FactsMother::card(slot: 'implementation', isChild: true, documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'children' => [FactKey::Children, FactsMother::facts(card: FactsMother::card(slot: 'implementation', childCount: 2, openChildCount: 1, documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
+        yield 'a child merged into the epic branch' => [FactKey::Children, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents(), childMergedIntoEpicBranch: true), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'documents' => [FactKey::Documents, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: [new DocumentFacts(['product'], 'approved', '01a10beb-ba65-736b-8626-a6e3fa59dfc5')]), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'pull request' => [FactKey::PullRequest, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed), pullRequests: self::all(), run: self::workRun())];
         yield 'pull requests' => [FactKey::PullRequests, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: [self::primary()], run: self::workRun())];
@@ -115,6 +116,7 @@ final class FactFingerprintTest extends TestCase
         $fingerprint = new FactFingerprint();
 
         self::assertSame(hash('sha256', '{"slot":"implementation"}'), $fingerprint->of($this->facts(), [FactKey::Slot]));
+        self::assertSame(hash('sha256', '{"children":[0,0]}'), $fingerprint->of($this->facts(), [FactKey::Children]));
     }
 
     public function test_a_facts_class_counts_through_the_fingerprint_its_provider_gave(): void

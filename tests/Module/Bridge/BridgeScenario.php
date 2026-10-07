@@ -17,6 +17,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
@@ -79,12 +80,14 @@ trait BridgeScenario
         ?string $workerPool = null,
         ?Uuid $workRequestId = null,
         \DateTimeImmutable $endedAt = new \DateTimeImmutable('2026-01-01 10:05:00'),
+        string $subjectType = WorkSubject::CARD,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
             bridgeId: WorkerRunKind::Interactive === $kind ? $bridgeId : $bridgeId ?? Uuid::v7(),
-            cardId: $cardId ?? Uuid::v7(),
-            cardNumber: $cardNumber,
+            subjectType: $subjectType,
+            subjectId: $cardId ?? Uuid::v7(),
+            cardNumber: WorkSubject::CARD === $subjectType ? $cardNumber : null,
             workKind: $workKind,
             state: $state ?? WorkerRunState::fromOutcome($exitCode, $hasResult),
             runKey: $runKey,
@@ -117,7 +120,7 @@ trait BridgeScenario
         ?string $costUsd = '0.012345',
         int $inputTokens = 100,
     ): WorkerRunUsage {
-        $usage = new WorkerRunUsage($run, $run->project, $run->cardId, $run->workKind, $model, $source, $inputTokens, 20, 300, 40, $costUsd);
+        $usage = new WorkerRunUsage($run, $run->project, $run->subjectType, $run->subjectId, $run->workKind, $model, $source, $inputTokens, 20, 300, 40, $costUsd);
         $run->usageSource = $source;
         $em->persist($usage);
         $em->flush();
@@ -196,11 +199,15 @@ trait BridgeScenario
         ?Uuid $claimToken = null,
         ?\DateTimeImmutable $leaseUntil = null,
         string $ruleId = 'implement-on-entry',
+        ?WorkSubject $subject = null,
+        ?\DateTimeImmutable $reopenedAt = null,
     ): WorkRequest {
+        $subject ??= WorkSubject::card($cardId ?? Uuid::v7());
         $request = new WorkRequest(
             project: AgentCredential::managed($em, $project, $project->id),
-            cardId: $cardId ?? Uuid::v7(),
-            cardNumber: 7,
+            subjectType: $subject->type,
+            subjectId: $subject->id,
+            cardNumber: $subject->isCard() ? 7 : null,
             kind: $kind,
             capability: $capability,
             ruleId: $ruleId,
@@ -210,6 +217,7 @@ trait BridgeScenario
         $request->bridgeId = $bridgeId;
         $request->claimToken = $claimToken;
         $request->leaseUntil = $leaseUntil;
+        $request->reopenedAt = $reopenedAt;
         $em->persist($request);
         $em->flush();
 

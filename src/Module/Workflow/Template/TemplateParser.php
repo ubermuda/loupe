@@ -23,7 +23,7 @@ final readonly class TemplateParser
     private const array COLUMN_FLAGS = ['@backlog', '@terminal'];
     private const string ANY_COLUMN = '*';
     private const array RULE_KEYS = ['id', 'slot', 'when', 'then'];
-    private const array STATE_WRITES = ['draft', 'ready', 'close'];
+    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic'];
     private const array ON_TIMEOUT = ['pause', 'expire'];
     private const array EVALUATED_CARDS = ['children'];
 
@@ -378,7 +378,7 @@ final readonly class TemplateParser
             if (!\array_key_exists($param, $value)) {
                 if (ActionType::Pause === $type && 'until' === $param) {
                     $errors[] = $where.': a pause must carry an "until" expression';
-                } elseif ($required && !('fallback' === $param && \in_array($value['write'] ?? null, self::STATE_WRITES, true))) {
+                } elseif ($required && !('fallback' === $param && \in_array($value['write'] ?? null, self::WRITES_WITHOUT_FALLBACK, true))) {
                     $errors[] = \sprintf('%s: missing parameter "%s"', $where, $param);
                 }
                 continue;
@@ -419,7 +419,7 @@ final readonly class TemplateParser
         return \count($errors) === $errorCount ? new ActionCall($type, $params, $until) : null;
     }
 
-    /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write needs no fallback. */
+    /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write and the epic opening need no fallback. */
     private static function actionParameters(ActionType $type): array
     {
         return match ($type) {

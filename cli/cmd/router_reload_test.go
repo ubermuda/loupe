@@ -343,7 +343,7 @@ func stale(old *rules.Set, project string, number int, kind, _ string) pending {
 	n := int(offerSeq.Add(1))
 	w := api.WorkRequest{
 		Type: event.WorkRequestType, ProjectID: project, Subject: api.WorkRequestSubject{Type: "work-request", ID: offerID(n)},
-		WorkRequestID: offerID(n), Kind: kind, State: api.WorkRequestOpen, CardID: cardUUID(number), CardNumber: number, RuleID: kind + "-rule",
+		WorkRequestID: offerID(n), Kind: kind, State: api.WorkRequestOpen, SubjectType: api.SubjectCard, SubjectID: cardUUID(number), CardNumber: number, RuleID: kind + "-rule",
 		CreatedAt: time.Date(2026, 10, 2, 8, 0, 0, 0, time.UTC),
 	}
 	offered.Store(w.WorkRequestID, w)

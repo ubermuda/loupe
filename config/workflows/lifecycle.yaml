@@ -177,6 +177,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - not: { pr.linked: {} }
+              - not: { card.child_merged_into_epic_branch: {} }
               - not: { run.work_active: { kind: breakdown } }
       then: { move: { to: '@terminal' } }
 
@@ -204,6 +205,15 @@ rules:
               - not: { card.children_finished: {} }
       then: { move: { to: implementation } }
 
+    - id: epic-open-pull-request
+      slot: implementation
+      when:
+          all:
+              - card.type: { type: epic }
+              - card.child_merged_into_epic_branch: {}
+              - not: { pr.open: {} }
+      then: { forge-write: { write: open-epic } }
+
     - id: epic-draft
       slot: implementation
       when: { card.type: { type: epic } }
@@ -223,6 +233,15 @@ rules:
       slot: '@terminal'
       when: { all: [] }
       then: { request: { kind: teardown, onTimeout: expire } }
+
+    - id: epic-preview
+      slot: '@terminal'
+      when:
+          all:
+              - card.is_child: {}
+              - pr.base_is_epic_branch: {}
+              - pr.all_finished_one_merged: {}
+      then: { request: { kind: epic-preview, onTimeout: expire } }
 
     - id: child-unblocked
       slot: '@backlog'

@@ -60,9 +60,9 @@ final readonly class ShowExperimentHandler
         /** @var array<string, ?string> $models variant => model of its latest run */
         $models = [];
         foreach ($this->workerRuns->findWorkerRunsOfExperimentCards($project, $experiment) as $run) {
-            $id = (string) $run->cardId;
+            $id = (string) $run->subjectId;
             if ($experiment === $run->experiment) {
-                $cardIds[$id] = $run->cardId;
+                $cardIds[$id] = $run->subjectId;
                 $experimentRuns[$id][] = $run;
                 if (null !== $run->variant) {
                     $models[$run->variant] = $run->requestedModel;

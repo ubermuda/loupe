@@ -23,6 +23,10 @@ class BoardAutomationSettings
 
     public const int MAX_TERMINAL_WINDOW_DAYS = 30;
 
+    public const string EPIC_BRANCH_NUMBER = '{number}';
+
+    public const string DEFAULT_EPIC_BRANCH_PATTERN = 'epic/'.self::EPIC_BRANCH_NUMBER;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -75,9 +79,26 @@ class BoardAutomationSettings
         #[ORM\Column(options: ['default' => false])]
         public bool $closeEpicPullRequests = false,
 
+        /** Opens the pull request of an epic when the workflow asks. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $openEpicPullRequests = false,
+
+        /** The branch the breakdown pushes for an epic, with the card number as the placeholder. Null means no epic branches. */
+        #[ORM\Column(length: 255, nullable: true, options: ['default' => self::DEFAULT_EPIC_BRANCH_PATTERN])]
+        public ?string $epicBranchPattern = self::DEFAULT_EPIC_BRANCH_PATTERN,
+
         /** How many days back a terminal column of the board reads. The history page shows the rest. */
         #[ORM\Column(options: ['default' => 3])]
         public int $terminalWindowDays = 3,
     ) {
+    }
+
+    public function epicBranchOf(int $number): ?string
+    {
+        if (null === $this->epicBranchPattern || '' === $this->epicBranchPattern) {
+            return null;
+        }
+
+        return str_replace(self::EPIC_BRANCH_NUMBER, (string) $number, $this->epicBranchPattern);
     }
 }

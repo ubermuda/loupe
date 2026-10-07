@@ -82,7 +82,8 @@ final readonly class ClaimWorkRequestHandler
             [
                 'workRequestId' => (string) $claimed->id,
                 'projectId' => (string) $claimed->project->id,
-                'cardId' => (string) $claimed->cardId,
+                'subjectType' => $claimed->subjectType,
+                'subjectId' => (string) $claimed->subjectId,
                 'kind' => $claimed->kind,
                 'bridgeId' => (string) $command->bridgeId,
                 'claims' => $claimed->claims,

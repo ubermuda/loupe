@@ -15,6 +15,7 @@ use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
@@ -170,7 +171,7 @@ final class ResumeAskingSessionOnResumableWorkerRunEndedTest extends KernelTestC
             bridgeId: $run->bridgeId ?? throw new \LogicException('The run has a bridge.'),
             state: $state,
             at: $at,
-            cardId: $run->cardId,
+            subject: WorkSubject::card($run->subjectId),
             cardNumber: $run->cardNumber,
             workKind: $run->workKind,
             sessionId: $run->sessionId,

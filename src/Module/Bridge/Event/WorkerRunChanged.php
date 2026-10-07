@@ -8,7 +8,8 @@ use App\Module\Bridge\Entity\WorkerRun;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * The runs of these cards changed. Dispatched after the commit, with ids only.
+ * These runs changed, and with them the runs of these cards. A run whose
+ * subject is no card adds no card id. Dispatched after the commit, with ids only.
  */
 final readonly class WorkerRunChanged
 {
@@ -24,7 +25,7 @@ final readonly class WorkerRunChanged
     }
 
     /**
-     * One event per project, each with its runs and their distinct cards.
+     * One event per project, each with its runs and the distinct cards they are about.
      *
      * @param iterable<WorkerRun> $runs
      *
@@ -39,7 +40,11 @@ final readonly class WorkerRunChanged
             $projectId = $run->project->id ?? throw new \LogicException('A persisted project has an id.');
             $key = $projectId->toRfc4122();
             $projects[$key] = $projectId;
-            $cards[$key][$run->cardId->toRfc4122()] = true;
+            $cards[$key] ??= [];
+            $cardId = $run->cardId();
+            if (null !== $cardId) {
+                $cards[$key][$cardId->toRfc4122()] = true;
+            }
             $runIds[$key][($run->id ?? throw new \LogicException('A persisted run has an id.'))->toRfc4122()] = true;
         }
 

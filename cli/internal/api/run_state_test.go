@@ -16,15 +16,29 @@ import (
 
 const testRunID = "0199a0e2-d3e4-7f66-9b33-405162738495"
 
+// exitCode returns a pointer to code, which is how a run that started reports.
+func exitCode(code int) *int {
+	return &code
+}
+
+func reason(text string) *string {
+	return &text
+}
+
+func hasResult(v bool) *bool {
+	return &v
+}
+
 // stateReport is a report of state, with the fields every state carries.
 func stateReport(state string) RunStateReport {
 	return RunStateReport{
-		BridgeID:   "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
-		State:      state,
-		At:         time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC),
-		CardID:     "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
-		CardNumber: 42,
-		Rule:       "plan",
+		BridgeID:    "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
+		State:       state,
+		At:          time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC),
+		SubjectType: SubjectCard,
+		SubjectID:   "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
+		CardNumber:  42,
+		Rule:        "plan",
 	}
 }
 
@@ -65,7 +79,7 @@ func keys(body map[string]any) string {
 // withBase lists the fields every report carries, plus extra, in the order
 // keys gives them.
 func withBase(extra ...string) string {
-	all := append([]string{"at", "bridgeId", "cardId", "cardNumber", "state"}, extra...)
+	all := append([]string{"at", "bridgeId", "cardNumber", "state", "subjectId", "subjectType"}, extra...)
 	slices.Sort(all)
 
 	return strings.Join(all, ",")
@@ -85,8 +99,24 @@ func TestReportRunStatePutsTheReportOnTheRun(t *testing.T) {
 	if keys(body) != withBase() {
 		t.Fatalf("keys = %s, want %s", keys(body), withBase())
 	}
-	if body["state"] != "queued" || body["at"] != "2026-09-13T10:00:00Z" || body["cardNumber"] != float64(42) {
+	if body["state"] != "queued" || body["at"] != "2026-09-13T10:00:00Z" || body["cardNumber"] != float64(42) ||
+		body["subjectType"] != "card" || body["subjectId"] != "0199a0e2-b1f3-7a44-9c11-2d3e4f506172" {
 		t.Fatalf("body = %v", body)
+	}
+}
+
+// A run about a subject that is no card names the subject and sends no card
+// number.
+func TestReportRunStateSendsASubjectThatIsNoCard(t *testing.T) {
+	report := stateReport(RunQueued)
+	report.SubjectType, report.SubjectID, report.CardNumber = "analysis", "0199a0e2-0000-7a44-9c11-2d3e4f506172", 0
+	_, body, _, err := putState(t, report, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "at,bridgeId,state,subjectId,subjectType"
+	if keys(body) != want || body["subjectType"] != "analysis" || body["subjectId"] != "0199a0e2-0000-7a44-9c11-2d3e4f506172" {
+		t.Fatalf("keys = %s, body = %v, want %s", keys(body), body, want)
 	}
 }
 
@@ -165,9 +195,9 @@ func TestReportRunStateSendsTheExperimentFields(t *testing.T) {
 	}
 }
 
-// A closed outcome keeps the pairing of the old report: an exit code, or a
-// failure reason, with the other one sent as null.
-func TestReportRunStateSendsAnOutcomeWithTheOldPairing(t *testing.T) {
+// A closed outcome sends an exit code, or a failure reason, with the other one
+// sent as null.
+func TestReportRunStateSendsAnOutcomeWithItsPairing(t *testing.T) {
 	ended := time.Date(2026, 9, 13, 10, 0, 26, 0, time.UTC)
 
 	noResult := false
@@ -255,22 +285,20 @@ func TestReportRunStateEscapesTheHandleAndTheRunID(t *testing.T) {
 	}
 }
 
-// A 200 is a state the run already held. A 404 with no error code is a server
-// older than the endpoint, and the bridge falls back on the old report. A 404
-// that names the project is a project the caller lost, which no fallback fixes.
+// A 200 is a state the run already held. Every 404 is refused, because no
+// retry of the same body finds the endpoint or the project.
 func TestReportRunStateReadsEachAnswer(t *testing.T) {
 	for _, tc := range []struct {
-		status      int
-		body        string
-		created     bool
-		ok          bool
-		refused     bool
-		unsupported bool
+		status  int
+		body    string
+		created bool
+		ok      bool
+		refused bool
 	}{
 		{status: http.StatusCreated, created: true, ok: true},
 		{status: http.StatusOK, ok: true},
-		{status: http.StatusNotFound, unsupported: true},
-		{status: http.StatusNotFound, body: `<html>Not Found</html>`, unsupported: true},
+		{status: http.StatusNotFound, refused: true},
+		{status: http.StatusNotFound, body: `<html>Not Found</html>`, refused: true},
 		{status: http.StatusNotFound, body: `{"error":"project_not_found"}`, refused: true},
 		{status: http.StatusUnauthorized, refused: true},
 		{status: http.StatusForbidden, refused: true},
@@ -293,7 +321,7 @@ func TestReportRunStateReadsEachAnswer(t *testing.T) {
 		if created != tc.created || (err == nil) != tc.ok {
 			t.Fatalf("HTTP %d %s: created = %v, err = %v", tc.status, tc.body, created, err)
 		}
-		if errors.Is(err, ErrReportRefused) != tc.refused || errors.Is(err, ErrRunStatesUnsupported) != tc.unsupported {
+		if errors.Is(err, ErrReportRefused) != tc.refused {
 			t.Fatalf("HTTP %d %s: err = %v", tc.status, tc.body, err)
 		}
 	}
@@ -421,14 +449,13 @@ func TestReportRunInventorySendsAnEmptyListAsAList(t *testing.T) {
 
 func TestReportRunInventoryReadsEachAnswer(t *testing.T) {
 	for _, tc := range []struct {
-		status      int
-		ok          bool
-		refused     bool
-		unsupported bool
+		status  int
+		ok      bool
+		refused bool
 	}{
 		{status: http.StatusOK, ok: true},
 		{status: http.StatusNoContent, ok: true},
-		{status: http.StatusNotFound, unsupported: true},
+		{status: http.StatusNotFound, refused: true},
 		{status: http.StatusForbidden, refused: true},
 		{status: http.StatusUnprocessableEntity, refused: true},
 		{status: http.StatusTooManyRequests},
@@ -445,7 +472,7 @@ func TestReportRunInventoryReadsEachAnswer(t *testing.T) {
 		if (err == nil) != tc.ok {
 			t.Fatalf("HTTP %d: err = %v", tc.status, err)
 		}
-		if errors.Is(err, ErrReportRefused) != tc.refused || errors.Is(err, ErrRunStatesUnsupported) != tc.unsupported {
+		if errors.Is(err, ErrReportRefused) != tc.refused {
 			t.Fatalf("HTTP %d: err = %v", tc.status, err)
 		}
 	}

@@ -11,6 +11,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -89,7 +90,7 @@ final class BridgeCommandTest extends TestCase
     {
         $owner = new User('Riley Chen', 'riley@example.com', 'x');
         $project = $this->createStub(Project::class);
-        $run = new WorkerRun($project, Uuid::v4(), Uuid::v7(), 1, 'plan', WorkerRunState::Running);
+        $run = new WorkerRun($project, Uuid::v4(), WorkSubject::CARD, Uuid::v7(), 1, 'plan', WorkerRunState::Running);
 
         return new BridgeCommand(
             owner: $owner,

@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
@@ -25,6 +26,7 @@ use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Project\Entity\Project;
@@ -146,12 +148,36 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist($pullRequest);
         $this->em()->persist($unknown);
         $this->em()->flush();
-        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->trigger());
+        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->service(CardRepository::class), $this->trigger());
 
         $listener(new PullRequestStateChanged($pullRequest, $pullRequest->snapshot(), $pullRequest->snapshot()));
         $listener(new PullRequestStateChanged($unknown, $unknown->snapshot(), $unknown->snapshot()));
 
         self::assertEqualsCanonicalizing($this->ids($one, $two), $this->sent());
+    }
+
+    public function test_a_pull_request_change_asks_for_the_epic_of_a_child_and_the_children_of_an_epic(): void
+    {
+        $epic = $this->card($this->project, 'next');
+        $epic->type = CardType::Epic;
+        [$child, $sibling] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
+        $child->parent = $epic;
+        $sibling->parent = $epic;
+        $this->em()->persist(new CardPullRequest($child, 'https://github.com/acme/widgets/pull/7', Forge::GitHub, 'acme/widgets', 7));
+        $this->em()->persist(new CardPullRequest($epic, 'https://github.com/acme/widgets/pull/8', Forge::GitHub, 'acme/widgets', 8));
+        $childPullRequest = new ForgePullRequest($this->project, 'github', 'acme/widgets', 7);
+        $epicPullRequest = new ForgePullRequest($this->project, 'github', 'acme/widgets', 8);
+        $this->em()->persist($childPullRequest);
+        $this->em()->persist($epicPullRequest);
+        $this->em()->flush();
+        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->service(CardRepository::class), $this->trigger());
+
+        $listener(new PullRequestStateChanged($childPullRequest, $childPullRequest->snapshot(), $childPullRequest->snapshot()));
+        self::assertEqualsCanonicalizing($this->ids($child, $epic), $this->sent());
+
+        $this->transport()->reset();
+        $listener(new PullRequestStateChanged($epicPullRequest, $epicPullRequest->snapshot(), $epicPullRequest->snapshot()));
+        self::assertEqualsCanonicalizing($this->ids($epic, $child, $sibling), $this->sent());
     }
 
     public function test_a_run_change_asks_for_its_cards(): void
@@ -173,7 +199,7 @@ final class EvaluationListenersTest extends KernelTestCase
             $changed[] = $event;
         });
 
-        new EvaluateCardOnWorkRequestChanged($events, $this->trigger())(new WorkRequestChanged($this->projectId(), $cardId, Uuid::v7(), WorkRequestState::Open));
+        new EvaluateCardOnWorkRequestChanged($events, $this->trigger())(new WorkRequestChanged($this->projectId(), WorkSubject::CARD, $cardId, Uuid::v7(), WorkRequestState::Open));
 
         self::assertSame($this->ids($card), $this->sent());
         self::assertCount(1, $changed);

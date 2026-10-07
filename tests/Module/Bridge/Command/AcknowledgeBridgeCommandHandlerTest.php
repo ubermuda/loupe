@@ -106,7 +106,7 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
         $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), $state, null));
 
         self::assertTrue($result->settled);
-        self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
+        self::assertTrue($this->holds()->isHeld($run->project, $run->subjectId));
     }
 
     /** The bridge took the resume, and its ack arrived after a person cancelled the request. */
@@ -122,7 +122,7 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
         $live->publish();
 
         self::assertFalse($result->settled);
-        self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
+        self::assertTrue($this->holds()->isHeld($run->project, $run->subjectId));
         self::assertSame([], $published);
     }
 
@@ -144,7 +144,7 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
         $owner = $this->user($em, $name.'@example.com');
         $run = $this->seedRun($em, $this->project($em, $owner, 'Ack Handler Hold'));
         $command = $this->seedCommand($em, $run, kind: $kind);
-        $this->holds()->hold($run->project, $run->cardId, $owner);
+        $this->holds()->hold($run->project, $run->subjectId, $owner);
         // The hold redraws the tile of the card. Only what the ack publishes counts.
         $live = self::getContainer()->get(LiveUpdatePublisher::class);
         self::assertInstanceOf(LiveUpdatePublisher::class, $live);

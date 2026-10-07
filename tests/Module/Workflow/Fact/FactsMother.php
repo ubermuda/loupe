@@ -50,6 +50,7 @@ final class FactsMother
         int $childCount = 0,
         int $openChildCount = 0,
         array $documents = [],
+        bool $childMergedIntoEpicBranch = false,
     ): CardFacts {
         return new CardFacts(
             slot: $slot,
@@ -59,6 +60,7 @@ final class FactsMother
             childCount: $childCount,
             openChildCount: $openChildCount,
             documents: $documents,
+            childMergedIntoEpicBranch: $childMergedIntoEpicBranch,
         );
     }
 

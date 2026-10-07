@@ -93,11 +93,11 @@ final class CancelBridgeCommandHandlerTest extends KernelTestCase
         $this->boot();
         [$owner, $run] = $this->scenario('cancel-stop-keep');
         $this->seedCommand($this->em(), $run);
-        $this->holds()->hold($run->project, $run->cardId, $owner);
+        $this->holds()->hold($run->project, $run->subjectId, $owner);
 
         $this->cancel($run, $owner);
 
-        self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
+        self::assertTrue($this->holds()->isHeld($run->project, $run->subjectId));
     }
 
     public function test_a_cancelled_resume_keeps_the_hold_of_the_card(): void
@@ -105,11 +105,11 @@ final class CancelBridgeCommandHandlerTest extends KernelTestCase
         $this->boot();
         [$owner, $run] = $this->scenario('cancel-resume-keep');
         $this->seedCommand($this->em(), $run, kind: BridgeCommandKind::ResumeRun);
-        $this->holds()->hold($run->project, $run->cardId, $owner);
+        $this->holds()->hold($run->project, $run->subjectId, $owner);
 
         $this->cancel($run, $owner);
 
-        self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
+        self::assertTrue($this->holds()->isHeld($run->project, $run->subjectId));
     }
 
     /** The clock goes in before any service reads it. */
