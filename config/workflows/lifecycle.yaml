@@ -20,6 +20,7 @@ onWorkFailed:
     retryOn: [failed, timeout]
     retries: 3
     backoffMinutes: [2, 3, 5]
+    repair: { kind: repair }
 rules:
     - id: product-design-session
       slot: product-design

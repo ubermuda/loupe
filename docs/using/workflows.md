@@ -68,11 +68,41 @@ A bridge can settle a work request as refused, for example when its worker run
 fails. In Lifecycle, the workflow then retries the work up to three times,
 after 2, 3 and 5 minutes, when the refusal code is `failed` or `timeout`. A
 retry never counts toward the work limit of a fix rule. When the third retry
-also fails, the card pauses with "too many attempts were refused". Any other
+also fails, the workflow starts a repair, as the next paragraphs say. Any other
 refusal code, such as `unfinished` or `work-remains`, pauses the card at once
 with "the worker stopped and needs a person". The board marks a card whose
 latest worker run failed or ended with no result, until a later run ends in
 another state.
+
+When the retries run out, the workflow opens one `repair` work request for the
+card. The request names the failed rule in `{ruleId}`, and the last refusal
+code in `{reason}`. A repair worker reads the failed run, fixes the cause, and
+reports. When the repair ends done, the failed rule gets one last try. When the
+repair fails, or the last try fails too, the card pauses with "too many
+attempts were refused". A failed repair records the code `repair-failed`.
+
+Each escalation starts one repair at most. A repair request is never retried
+and never repaired. A release of the pause starts a new escalation, so the
+next failure can start one more repair. A bridge with no `repair` entry lets
+the request expire after the work timeout, and the card then pauses with "no
+bridge took the work". [The development
+lifecycle](../contributing/lifecycle.md) shows a `repair` entry.
+
+The template sets this behaviour in its `onWorkFailed` block:
+
+```yaml
+onWorkFailed:
+    retryOn: [failed, timeout]
+    retries: 3
+    backoffMinutes: [2, 3, 5]
+    repair: { kind: repair }
+```
+
+`retryOn` lists the refusal codes that retry, and `retries` counts the retries
+before the repair. `backoffMinutes` gives the wait before each retry. `repair`
+names the kind of the repair request. A template with no `repair` key pauses
+the card when the retries run out. A template with no `onWorkFailed` block
+neither retries nor pauses after a refused request.
 
 A work request that no bridge takes within 2 hours pauses the card with "no
 bridge took the work". A teardown request is the exception: it expires with no
@@ -181,6 +211,7 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 | `merge` | A merge, with the merge write off |
 | `teardown` | The removal of the card's worktree |
 | `epic-preview` | A refresh of the epic preview after a child merges into the epic branch |
+| `repair` | A repair of the cause after the work of a rule failed and its retries ran out |
 
 Simple asks for `teardown` alone.
 
@@ -199,7 +230,7 @@ rule moves to another pull request, its count starts again.
 | Pull request number | the number of the pull request that the rule acts on |
 | Pull request link | the link to that pull request, as the card holds it |
 | Head commit | the head commit of that pull request. A later push leaves it behind |
-| Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |
+| Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request. A `repair` request holds the refusal code of the failed work |
 | Document | the id of the document that a revision works on |
 
 A request rule names its document with the optional `document` parameter. It is

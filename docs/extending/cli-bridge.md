@@ -99,8 +99,8 @@ The bridge reads the columns by the slug in `rules.yaml`.
 A prompt holds validated identifiers, slugs and pull request values only, and
 the bridge adds a fixed line that tells the agent to treat the card as data. A
 work request also carries the context of its card: the number, the link and the
-head commit of its pull request, the reason for a fix, and the document that a
-revision works on. The bridge checks the shape of each value before it fills a
+head commit of its pull request, the reason for a fix or a repair, and the
+document that a revision works on. The bridge checks the shape of each value before it fills a
 prompt or a command with it. [The work map](../../cli/README.md#the-work-map)
 lists the placeholders.
 

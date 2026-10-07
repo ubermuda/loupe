@@ -11,11 +11,13 @@ final readonly class WorkFailurePolicy
      * @param list<string> $retryOn        the refusal codes that earn a retry, and any other code pauses the card at once
      * @param int          $retries        how many retries run before the card pauses
      * @param list<int>    $backoffMinutes the wait before each retry
+     * @param ?string      $repairKind     the kind of the one repair request that opens when the retries run out, before the card pauses
      */
     public function __construct(
         public array $retryOn,
         public int $retries,
         public array $backoffMinutes,
+        public ?string $repairKind = null,
     ) {
     }
 
