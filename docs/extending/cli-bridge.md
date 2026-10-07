@@ -310,6 +310,42 @@ across runs.
 
 The bridge needs a Mercure hub to have anything to subscribe to.
 
+## Agent account
+
+`loupe agent-account set` stores the token of a separate GitHub user for
+agents in `config.json`. Each claude worker then pushes as that user. The token
+stays on the machine, and Loupe never receives it. `show` prints the login and
+the id, and `clear` removes the account.
+
+When the bridge starts, it calls `GET /user` on the GitHub API with the stored
+token. It sends the login that GitHub gives as `pushLogin` in each heartbeat.
+With no account, the bridge sends `""`. When the call fails, the bridge logs
+`agent_account_check_failed` and sends `""`, so a revoked token never shows as
+set up. The bridge does not check again until it restarts.
+
+Each claude worker gets these variables when an account is stored. The bridge
+first removes the inherited `GH_TOKEN`, `GITHUB_TOKEN`, `GIT_AUTHOR_NAME`,
+`GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL`.
+
+| Variable | Value |
+|---|---|
+| `GH_TOKEN` | The stored token, which `gh` reads |
+| `GIT_AUTHOR_NAME`, `GIT_COMMITTER_NAME` | The login |
+| `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_EMAIL` | `<id>+<login>@users.noreply.github.com` |
+| `GIT_CONFIG_KEY_n`, `GIT_CONFIG_VALUE_n` | Two `credential.https://github.com.helper` entries and two `url.https://github.com/.insteadOf` entries |
+| `GIT_CONFIG_COUNT` | The inherited count plus four |
+
+The first helper entry is empty, which removes every helper that your git
+configuration names for `github.com`. The second helper answers with the login
+and `$GH_TOKEN`. The two `insteadOf` entries change a GitHub SSH remote,
+`git@github.com:` or `ssh://git@github.com/`, to HTTPS. A worker then pushes
+with the token, never with the SSH key of the machine. A rule in your own git
+configuration that changes `https://github.com/` to SSH, with `insteadOf` or
+`pushInsteadOf`, still wins over these entries. Remove such a rule on the
+machine of the bridge. An inherited `GIT_CONFIG_COUNT` keeps its entries, and the
+bridge numbers its own entries after them. A before command and a command
+action keep the bridge's own environment, so they push as you.
+
 ## Experiments
 
 An experiment splits the cards of a kind of work between models. A worker entry
@@ -687,11 +723,18 @@ request `teardown` each time a card reaches a terminal column. A `teardown`
 request that no bridge takes expires after the work timeout, and the card does
 not pause.
 
-The file needs `work:`. The bridge reports the `work-requests` capability when
-the map has an entry, and `interactive` too when an entry opens an interactive
-session. It also reports `subject-<type>` for each subject type other than
-`card` that an entry names, such as `subject-analysis`. A request that needs a
-capability reaches only a bridge that reports it.
+The file needs `work:`, or `appPrompts: true`. The bridge reports the
+`work-requests` capability when the map has an entry or `appPrompts` is on,
+and `interactive` too when an entry opens an interactive session. It also
+reports `subject-<type>` for each subject type other than `card` that an entry
+names, such as `subject-analysis`. A request that needs a capability reaches
+only a bridge that reports it.
+
+A rule that Loupe ships can send a prompt with its request. Set
+`appPrompts: true` at the top of `rules.yaml` to run that prompt for a kind that
+`work:` does not map. The prompt runs as a worker in the `default` pool, with
+the `defaults` of the file. An entry under `work:` always wins. A bridge without
+the key skips such a request, and the request expires after the work timeout.
 
 The bridge finds the project of a request in `projects` through the project
 id. A project rename marks the work of that project dead until you fix the file

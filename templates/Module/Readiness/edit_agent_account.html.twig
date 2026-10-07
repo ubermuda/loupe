@@ -1,0 +1,57 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'readiness.agent_account.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <span class="lp-topbar__crumb">{{ project.name }}</span>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'nav.link.project_settings'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-settings">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.edit.page.description'|trans }}</p>
+        </div>
+    </header>
+    <div class="lp-settings-layout">
+        {% include '@Project/_settings_nav.html.twig' with {project: project, active: 'readiness'} only %}
+        <section class="lp-settings-content lp-settings-panel-card" data-agent-account>
+            <h2 class="lp-section-title">{{ 'readiness.agent_account.title'|trans }}</h2>
+            <p class="lp-connect-hint">{{ 'readiness.agent_account.description'|trans }}</p>
+
+            <p class="lp-connect-hint" data-agent-account-state="{{ check.done ? 'done' : 'open' }}">
+                {% if check.done %}<twig:ux:icon name="lucide:circle-check" />{% else %}<twig:ux:icon name="lucide:circle" />{% endif %}
+                {{ check.status|trans(check.statusParameters) }}
+            </p>
+
+            <h3 class="lp-workshop-section__title">{{ 'readiness.agent_account.steps.title'|trans }}</h3>
+            <div class="prose lp-prose">
+                <ol>
+                    <li>{{ 'readiness.agent_account.steps.create'|trans }}</li>
+                    <li>{{ 'readiness.agent_account.steps.invite'|trans }}</li>
+                    <li>{{ 'readiness.agent_account.steps.token'|trans }}</li>
+                    <li>{{ 'readiness.agent_account.steps.bridge'|trans }} <code>{{ 'loupe agent-account set' }}</code></li>
+                    <li>{{ 'readiness.agent_account.steps.record'|trans }}</li>
+                </ol>
+                <p>{{ 'readiness.agent_account.steps.privacy'|trans }}</p>
+            </div>
+
+            <h3 class="lp-workshop-section__title">{{ 'readiness.agent_account.login.title'|trans }}</h3>
+            {{ form_start(form, {attr: {class: 'lp-form'}}) }}
+                <div class="lp-form-field">
+                    {{ form_label(form.login, null, {label_attr: {class: 'lp-label'}}) }}
+                    {{ form_widget(form.login, {attr: {class: 'lp-input', autocomplete: 'off', spellcheck: 'false'}}) }}
+                    {{ form_help(form.login, {help_attr: {class: 'lp-form-hint'}}) }}
+                    <div class="lp-field-errors">{{ form_errors(form.login) }}</div>
+                </div>
+                <div class="lp-settings-form-actions">
+                    <button class="lp-btn lp-btn--primary" type="submit">{{ 'readiness.agent_account.submit'|trans }}</button>
+                </div>
+            {{ form_end(form) }}
+        </section>
+    </div>
+</div>
+{% endblock %}

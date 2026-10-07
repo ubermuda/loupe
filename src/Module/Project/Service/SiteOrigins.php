@@ -18,6 +18,9 @@ final class SiteOrigins
 {
     public const int MAX = 20;
 
+    /** The longest list the settings form takes, as one origin per line. */
+    public const int MAX_TEXT_LENGTH = 4000;
+
     private const string WILDCARD = '*.';
 
     private const string HOST = '/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$|^\[[0-9a-f:.]+\]$/';

@@ -37,6 +37,7 @@ final class BridgeExporterTest extends TestCase
         $bridge->capabilities = ['commands'];
         $bridge->name = 'laptop';
         $bridge->requestedName = 'laptop';
+        $bridge->pushLogin = 'acme-agent';
 
         $rows = iterator_to_array(new BridgeExporter($this->repositoryReturning($bridge))->export($owner));
 
@@ -57,6 +58,7 @@ final class BridgeExporterTest extends TestCase
             'capabilities' => ['commands'],
             'name' => 'laptop',
             'requestedName' => 'laptop',
+            'pushLogin' => 'acme-agent',
         ]], $rows);
     }
 

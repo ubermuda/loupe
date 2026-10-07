@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
 use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
+use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Project\Entity\Project;
@@ -15,6 +17,7 @@ use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
@@ -103,6 +106,62 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         $this->save(enabled: true, syncBehind: false, epicBranchPattern: $pattern);
 
         self::assertNull($this->stored()->epicBranchPattern);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function refusedPatterns(): iterable
+    {
+        yield 'no placeholder' => ['epic/'];
+        yield 'the placeholder twice' => ['epic/{number}/{number}'];
+        yield 'two dots' => ['epic/../{number}'];
+        yield 'a lock suffix' => ['epic/{number}.lock'];
+        yield 'too long' => ['epic/{number}'.str_repeat('a', BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH - 12)];
+    }
+
+    #[DataProvider('refusedPatterns')]
+    public function test_a_pattern_that_is_no_branch_name_with_one_number_is_refused_and_nothing_is_saved(string $pattern): void
+    {
+        $this->em->persist(new BoardAutomationSettings($this->project, syncBehind: false, epicBranchPattern: 'feature/{number}'));
+        $this->em->flush();
+        $saved = [];
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(BoardAutomationSettingsSaved::class, static function (BoardAutomationSettingsSaved $event) use (&$saved): void {
+            $saved[] = $event;
+        });
+
+        try {
+            $this->save(enabled: true, syncBehind: true, openEpicPullRequests: true, epicBranchPattern: $pattern);
+            self::fail('The handler accepted '.$pattern);
+        } catch (DomainErrors $e) {
+            self::assertSame(['epicBranchPattern' => 'board.automation.error.epic_branch_pattern_invalid'], $e->errors);
+        }
+
+        $settings = $this->stored();
+        self::assertSame('feature/{number}', $settings->epicBranchPattern);
+        self::assertFalse($settings->syncBehind);
+        self::assertFalse($settings->openEpicPullRequests);
+        self::assertSame([], $saved);
+        self::assertSame([], $this->audit->records('board.automation_settings_saved'));
+        self::assertSame([], $this->transport->getSent());
+    }
+
+    /** @return iterable<string, array{string, ?string}> */
+    public static function acceptedPatterns(): iterable
+    {
+        yield 'the default' => ['epic/{number}', 'epic/{number}'];
+        yield 'a prefix and a dash' => ['feature/epic-{number}', 'feature/epic-{number}'];
+        yield 'surrounding spaces' => ['  epic/{number}  ', 'epic/{number}'];
+        yield 'empty' => ['', null];
+        yield 'the longest' => ['epic/{number}'.str_repeat('a', BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH - 13), 'epic/{number}'.str_repeat('a', BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH - 13)];
+    }
+
+    #[DataProvider('acceptedPatterns')]
+    public function test_a_valid_or_empty_pattern_is_stored(string $pattern, ?string $expected): void
+    {
+        $this->save(enabled: true, syncBehind: false, epicBranchPattern: $pattern);
+
+        self::assertSame($expected, $this->stored()->epicBranchPattern);
     }
 
     public function test_every_write_opt_in_is_off_by_default(): void

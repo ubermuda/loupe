@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\SiteOrigins;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
@@ -20,6 +21,22 @@ class ProjectRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Project::class);
+    }
+
+    /**
+     * Stamps the first time an agent reached the project. A direct UPDATE, so
+     * it flushes no other pending change, and a stamp already stored wins.
+     */
+    public function markAgentSeen(Project $project): void
+    {
+        $now = new \DateTimeImmutable();
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE projects SET agent_first_seen_at = :now WHERE id = :id AND agent_first_seen_at IS NULL',
+            ['now' => $now, 'id' => (string) $project->id],
+            ['now' => Types::DATETIME_IMMUTABLE],
+        );
+        $project->agentFirstSeenAt = $now;
+        $this->getEntityManager()->getUnitOfWork()->setOriginalEntityProperty(spl_object_id($project), 'agentFirstSeenAt', $now);
     }
 
     /** @return list<Project> */

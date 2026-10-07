@@ -34,6 +34,9 @@ final readonly class ProjectExporter implements UserDataExporterInterface
                 'forwardsToAgent' => $project->forwardsToAgent,
                 'allowedOrigins' => $project->allowedOrigins,
                 'createdAt' => $project->createdAt->format(\DateTimeInterface::ATOM),
+                'readinessGuideHiddenAt' => $project->readinessGuideHiddenAt?->format(\DateTimeInterface::ATOM),
+                'agentFirstSeenAt' => $project->agentFirstSeenAt?->format(\DateTimeInterface::ATOM),
+                'agentGitHubLogin' => $project->agentGitHubLogin,
             ];
         }
     }

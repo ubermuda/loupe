@@ -93,6 +93,7 @@ final readonly class OpenWorkRequestHandler
                 );
                 $request->resumeSessionId = $this->sessionToResume($command);
                 $request->context = $command->context;
+                $request->prompt = $command->prompt;
                 $this->em->persist($request);
                 // The payload names the request, so the row needs its id first.
                 $this->em->flush();

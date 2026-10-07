@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'readiness.settings.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <span class="lp-topbar__crumb">{{ project.name }}</span>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'nav.link.project_settings'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-settings">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.edit.page.description'|trans }}</p>
+        </div>
+    </header>
+    <div class="lp-settings-layout">
+        {% include '@Project/_settings_nav.html.twig' with {project: project, active: 'readiness'} only %}
+        <section class="lp-settings-content lp-settings-panel-card" data-readiness-settings>
+            <h2 class="lp-section-title">{{ 'readiness.settings.title'|trans }}</h2>
+            <p class="lp-connect-hint">{{ 'readiness.settings.description'|trans }}</p>
+
+            <h3 class="lp-workshop-section__title">{{ 'readiness.settings.discovery.title'|trans }}</h3>
+            {% if discovery is not null %}<p class="lp-connect-hint" data-readiness-discovery-state="{{ discovery.discoveryState }}">{{ discovery.status|trans(discovery.statusParameters) }}</p>{% endif %}
+
+            <h3 class="lp-workshop-section__title">{{ 'readiness.settings.agent_account.title'|trans }}</h3>
+            <p class="lp-connect-hint">{{ 'readiness.settings.agent_account.description'|trans }}</p>
+            <a class="lp-workshop-text-link" href="{{ path('app_project_readiness_agent_account', {id: project.id}) }}" data-agent-account-link>{{ 'readiness.settings.agent_account.link'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>
+
+            <h3 class="lp-workshop-section__title">{{ 'readiness.settings.guide.title'|trans }}</h3>
+            {{ form_start(form, {attr: {class: 'lp-form'}}) }}
+                <div class="lp-form-field">
+                    <label class="lp-choice">
+                        {{ form_widget(form.showGuide) }}
+                        {{ form.showGuide.vars.label|trans }}
+                    </label>
+                    {% if project.readinessGuideHiddenAt is not null %}
+                    <p class="lp-form-hint" data-readiness-hidden-at>{{ 'readiness.settings.guide.hidden_at'|trans({'%date%': project.readinessGuideHiddenAt|date('Y-m-d')}) }}</p>
+                    {% endif %}
+                    <div class="lp-field-errors">{{ form_errors(form.showGuide) }}</div>
+                </div>
+                <div class="lp-settings-form-actions">
+                    <button class="lp-btn lp-btn--primary" type="submit">{{ 'readiness.settings.submit'|trans }}</button>
+                </div>
+            {{ form_end(form) }}
+        </section>
+    </div>
+</div>
+{% endblock %}
