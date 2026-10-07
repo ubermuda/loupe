@@ -84,7 +84,8 @@ test('first-install wizard creates an unverified admin who is gated until they f
         /https?:\/\/[^\s"<]+\/register\/verify[^\s"<]*/,
     );
     await page.goto(verificationUrl);
-    await page.goto('/admin/feature-flags');
+    // Filtered by name, because the flag list is paged.
+    await page.goto('/admin/feature-flags?q=registration.cap');
     // Scoped to the list row, not a bare getByText: the page also has a
     // (hidden) delete-confirmation dialog whose title repeats the flag name,
     // which trips Playwright's strict-mode duplicate-match check. Asserting

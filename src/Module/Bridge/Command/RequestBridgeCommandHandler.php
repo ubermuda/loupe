@@ -117,8 +117,11 @@ final readonly class RequestBridgeCommandHandler
                     reason: $reason,
                     cause: $command->cause,
                 );
-                if (null !== $run->workRequestId) {
-                    $bridgeCommand->context = $this->workRequests->findOneOfSubject($run->workRequestId, $run->project, $run->subject())->context ?? $bridgeCommand->context;
+                $request = null === $run->workRequestId ? null : $this->workRequests->findOneOfSubject($run->workRequestId, $run->project, $run->subject());
+                if (null !== $request) {
+                    $bridgeCommand->context = $request->context;
+                    $bridgeCommand->model = $request->model;
+                    $bridgeCommand->effort = $request->effort;
                 }
                 $this->em->persist($bridgeCommand);
                 // The payload names the command, so the row needs its id first.

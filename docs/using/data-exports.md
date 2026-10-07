@@ -54,6 +54,11 @@ its timing and its signatures.
 [Retention](../reference/worker-runs.md#retention) lists the other worker run
 files.
 
+`insights_analyses.json` holds the analyses of the projects the user owns, each
+with its proposals. `insights_project_settings.json` holds the analysis settings
+of those projects: the default model, the default effort, and whether the bridge
+collects the full text of each tool call.
+
 The archive holds one file per kind of data. `audit_log.json` is one of them. It
 holds the audit records the user is the actor of, and the records that name the
 user as the subject. What was done to the account is the account's data too.

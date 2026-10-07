@@ -76,6 +76,8 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             'createdAt' => self::NOW,
             'resumeSessionId' => null,
             'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
+            'model' => null,
+            'effort' => null,
         ]], $this->outboxPayloads());
 
         $record = $audit->record('bridge.work_request_opened');
@@ -102,6 +104,54 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertInstanceOf(WorkRequest::class, $stored);
         self::assertEquals($context, $stored->context);
         self::assertSame($context->toArray(), $this->outboxPayloads()[0]['context']);
+    }
+
+    public function test_the_model_and_the_effort_are_stored_and_written_to_the_outbox(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-model-effort');
+
+        $request = $this->open($project, Uuid::v7(), model: 'claude-opus-4-1[1m]', effort: 'xhigh');
+
+        $this->em()->clear();
+        $stored = $this->em()->find(WorkRequest::class, $request->id);
+        self::assertInstanceOf(WorkRequest::class, $stored);
+        self::assertSame('claude-opus-4-1[1m]', $stored->model);
+        self::assertSame('xhigh', $stored->effort);
+        $payload = $this->outboxPayloads()[0];
+        self::assertSame('claude-opus-4-1[1m]', $payload['model']);
+        self::assertSame('xhigh', $payload['effort']);
+    }
+
+    /** @return iterable<string, array{?string, ?string, array<string, string>}> */
+    public static function invalidModelOrEffort(): iterable
+    {
+        yield 'empty model' => ['', null, ['model' => OpenWorkRequestHandler::INVALID_MODEL]];
+        yield 'model with a space' => ['claude opus', null, ['model' => OpenWorkRequestHandler::INVALID_MODEL]];
+        yield 'model with a newline' => ["opus\n", null, ['model' => OpenWorkRequestHandler::INVALID_MODEL]];
+        yield 'model with a no-break space' => ["opus\u{00A0}x", null, ['model' => OpenWorkRequestHandler::INVALID_MODEL]];
+        yield 'model that reads as an option' => ['--dangerously-skip-permissions', null, ['model' => OpenWorkRequestHandler::INVALID_MODEL]];
+        yield 'model over the cap' => [str_repeat('a', 65), null, ['model' => OpenWorkRequestHandler::INVALID_MODEL]];
+        yield 'unknown effort' => [null, 'extreme', ['effort' => OpenWorkRequestHandler::INVALID_EFFORT]];
+        yield 'effort in capitals' => [null, 'High', ['effort' => OpenWorkRequestHandler::INVALID_EFFORT]];
+        yield 'both' => ['a b', '', ['model' => OpenWorkRequestHandler::INVALID_MODEL, 'effort' => OpenWorkRequestHandler::INVALID_EFFORT]];
+    }
+
+    /** @param array<string, string> $errors */
+    #[DataProvider('invalidModelOrEffort')]
+    public function test_a_malformed_model_or_effort_is_refused(?string $model, ?string $effort, array $errors): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-invalid-model');
+
+        try {
+            $this->open($project, Uuid::v7(), model: $model, effort: $effort);
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame($errors, $e->errors);
+        }
+
+        self::assertSame(0, $this->countRequests());
     }
 
     public function test_a_live_request_keeps_the_context_it_opened_with(): void
@@ -388,7 +438,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertSame([], $this->outboxPayloads());
     }
 
-    /** Nothing in production calls the handler yet, so the compiled container holds none. */
+    /** Built by hand, so the clock and the subject handlers stay fixed. */
     private function handler(): OpenWorkRequestHandler
     {
         return new OpenWorkRequestHandler(
@@ -438,10 +488,12 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         ?string $capability = null,
         string $ruleId = 'implement-on-entry',
         WorkRequestContext $context = new WorkRequestContext(),
+        ?string $model = null,
+        ?string $effort = null,
     ): WorkRequest {
         $handler = $this->handler();
 
-        return $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, $kind, $capability, $ruleId, $context));
+        return $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, $kind, $capability, $ruleId, $context, $model, $effort));
     }
 
     private function unfinishedRunOf(

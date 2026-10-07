@@ -1,0 +1,163 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\Insights\Command;
+
+use App\Exception\DomainErrors;
+use App\Module\Bridge\Command\OpenWorkRequestCommand;
+use App\Module\Bridge\Command\OpenWorkRequestHandler;
+use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
+use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Insights\Entity\Analysis;
+use App\Module\Insights\Entity\AnalysisScope;
+use App\Module\Insights\Entity\AnalysisState;
+use App\Module\Insights\Entity\AnalysisTopic;
+use App\Module\Insights\Service\AnalysisSettings;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
+use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
+
+/** Stores a waiting analysis, then opens the work request that offers it to the bridges. */
+final readonly class StartAnalysisHandler
+{
+    public const string QUESTION_TOO_LONG = 'insights.analysis.error.question_too_long';
+    public const string QUESTION_REQUIRED = 'insights.analysis.error.question_required';
+    public const string INVALID_MODEL = 'insights.analysis.error.invalid_model';
+    public const string INVALID_EFFORT = 'insights.analysis.error.invalid_effort';
+
+    public const string WORK_KIND = 'analysis';
+    public const string CAPABILITY = 'subject-analysis';
+    public const string RULE_ID = 'insights.analysis';
+    public const string REQUEST_REFUSED = 'request-refused';
+    public const string REQUEST_FAILED = 'request-failed';
+
+    public function __construct(
+        private EntityManagerInterface $em,
+        private OpenWorkRequestHandler $openWorkRequest,
+        private AnalysisSettings $settings,
+        private ClockInterface $clock,
+        private Auditor $auditor,
+    ) {
+    }
+
+    public function __invoke(StartAnalysisCommand $command): Analysis
+    {
+        $question = null === $command->question ? null : trim($command->question);
+        if ('' === $question) {
+            $question = null;
+        }
+
+        $errors = [];
+        if (null !== $question && mb_strlen($question) > Analysis::MAX_QUESTION_LENGTH) {
+            $errors['question'] = self::QUESTION_TOO_LONG;
+        }
+        if (null === $question && AnalysisTopic::Question === $command->topic) {
+            $errors['question'] = self::QUESTION_REQUIRED;
+        }
+        if (null !== $command->model && 1 !== preg_match(WorkRequest::MODEL_PATTERN, $command->model)) {
+            $errors['model'] = self::INVALID_MODEL;
+        }
+        if (null !== $command->effort && !\in_array($command->effort, WorkRequest::EFFORTS, true)) {
+            $errors['effort'] = self::INVALID_EFFORT;
+        }
+        if ([] !== $errors) {
+            throw new DomainErrors($errors);
+        }
+
+        $analysis = new Analysis(
+            project: $command->project,
+            topic: $command->topic,
+            scope: new AnalysisScope($command->range),
+            question: $question,
+            model: $command->model ?? $this->settings->modelFor($command->project),
+            effort: $command->effort ?? $this->settings->effortFor($command->project),
+            createdAt: $this->clock->now(),
+        );
+        $this->em->persist($analysis);
+        $this->em->flush();
+        $analysisId = $analysis->id ?? throw new \LogicException('A stored analysis has an id.');
+
+        // Not inside a transaction of ours: Bridge announces the request after its own commit.
+        try {
+            $request = ($this->openWorkRequest)(new OpenWorkRequestCommand(
+                project: $command->project,
+                subject: new WorkSubject(Analysis::SUBJECT_TYPE, $analysisId),
+                cardNumber: null,
+                kind: self::WORK_KIND,
+                capability: self::CAPABILITY,
+                ruleId: self::RULE_ID,
+                context: new WorkRequestContext(),
+                model: $analysis->model,
+                effort: $analysis->effort,
+            ));
+        } catch (DomainErrors $e) {
+            $analysis->fail(self::REQUEST_REFUSED, $this->clock->now());
+            $this->em->flush();
+
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->failUnflushed($analysisId);
+
+            throw $e;
+        }
+
+        $analysis->workRequestId = $request->id;
+        $this->em->flush();
+
+        $this->auditor->record(
+            'insights.analysis_started',
+            AuditOutcome::Success,
+            [
+                'analysisId' => (string) $analysisId,
+                'projectId' => (string) $command->project->id,
+                'workRequestId' => (string) $request->id,
+                'topic' => $analysis->topic->value,
+                'range' => $command->range->value,
+                'model' => $analysis->model,
+                'effort' => $analysis->effort,
+            ],
+            new AuditSubject('analysis', (string) $analysisId),
+        );
+
+        return $analysis;
+    }
+
+    /**
+     * A failed transaction closes the entity manager, so the writes go through the connection.
+     * A failure after the request committed keeps the analysis live, because a bridge can still claim it.
+     */
+    private function failUnflushed(Uuid $analysisId): void
+    {
+        $connection = $this->em->getConnection();
+        $committed = $connection->fetchOne(
+            'SELECT id FROM work_requests WHERE subject_type = :type AND subject_id = :id ORDER BY created_at DESC LIMIT 1',
+            ['type' => Analysis::SUBJECT_TYPE, 'id' => $analysisId->toRfc4122()],
+        );
+        if (\is_string($committed)) {
+            $connection->executeStatement(
+                'UPDATE insights_analyses SET work_request_id = :request WHERE id = :id',
+                ['request' => $committed, 'id' => $analysisId->toRfc4122()],
+            );
+
+            return;
+        }
+
+        $connection->executeStatement(
+            'UPDATE insights_analyses SET state = :failed, reason = :reason, finished_at = :now WHERE id = :id AND state = :waiting',
+            [
+                'failed' => AnalysisState::Failed->value,
+                'reason' => self::REQUEST_FAILED,
+                'now' => $this->clock->now(),
+                'id' => $analysisId->toRfc4122(),
+                'waiting' => AnalysisState::Waiting->value,
+            ],
+            ['now' => Types::DATETIME_IMMUTABLE],
+        );
+    }
+}

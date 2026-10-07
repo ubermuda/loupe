@@ -90,7 +90,7 @@ export default defineConfig({
             {
               label: 'Analytics',
               items: [
-                { label: 'Metrics', slug: 'using/analytics' },
+                { label: 'Metrics and reports', slug: 'using/analytics' },
                 { label: 'Experiments', slug: 'using/experiments' },
               ],
             },

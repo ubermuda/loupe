@@ -101,7 +101,7 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
             }
             sort($names);
             self::assertSame(
-                ['audit_log.json', 'beta_invite.json', 'billing_profile.json', 'bridge_card_holds.json', 'bridge_commands.json', 'bridge_work_requests.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'decision_answers.json', 'documents.json', 'experiment_definitions.json', 'experiment_pins.json', 'forge_repositories.json', 'github_hooks.json', 'github_installations.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'worker_run_facts.json', 'worker_run_tool_calls.json', 'worker_run_usage.json', 'worker_runs.json'],
+                ['audit_log.json', 'beta_invite.json', 'billing_profile.json', 'bridge_card_holds.json', 'bridge_commands.json', 'bridge_work_requests.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'decision_answers.json', 'documents.json', 'experiment_definitions.json', 'experiment_pins.json', 'forge_repositories.json', 'github_hooks.json', 'github_installations.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'insights_analyses.json', 'insights_project_settings.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'worker_run_facts.json', 'worker_run_tool_calls.json', 'worker_run_usage.json', 'worker_runs.json'],
                 $names,
             );
 

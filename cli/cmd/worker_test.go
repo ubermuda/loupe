@@ -228,7 +228,8 @@ func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
 		{workerSpec{sessionID: testSession, permissionMode: "plan", prompt: "go"}, "--permission-mode plan --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
 		{workerSpec{sessionID: testSession, model: "opus", prompt: "go"}, "--model opus --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
 		{workerSpec{sessionID: testSession, schema: `{"type":"object"}`, prompt: "go"}, `--verbose --output-format stream-json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", model: "opus", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --verbose --output-format stream-json --json-schema {} -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, effort: "xhigh", prompt: "go"}, "--effort xhigh --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, permissionMode: "plan", model: "opus", effort: "low", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --effort low --verbose --output-format stream-json --json-schema {} -p --session-id " + testSession + " -- go"},
 	} {
 		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
 			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)

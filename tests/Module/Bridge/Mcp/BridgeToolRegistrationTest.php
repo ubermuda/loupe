@@ -106,8 +106,14 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         self::assertIsInt($start);
 
         self::assertSame(
-            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, WorkerRunToolCallsTool::NAME, MetricListTool::NAME, MetricQueryTool::NAME, BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, CardHoldTool::NAME, CardReleaseTool::NAME, CardPauseReleaseTool::NAME, BridgeCommandCancelTool::NAME],
-            \array_slice($names, $start, 12),
+            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, WorkerRunToolCallsTool::NAME, MetricListTool::NAME, MetricQueryTool::NAME],
+            \array_slice($names, $start, 5),
+        );
+        $bridgeList = array_search(BridgeListTool::NAME, $names, true);
+        self::assertIsInt($bridgeList);
+        self::assertSame(
+            [BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, CardHoldTool::NAME, CardReleaseTool::NAME, CardPauseReleaseTool::NAME, BridgeCommandCancelTool::NAME],
+            \array_slice($names, $bridgeList, 7),
         );
         $close = array_search(CardRunCloseTool::NAME, $names, true);
         self::assertIsInt($close);

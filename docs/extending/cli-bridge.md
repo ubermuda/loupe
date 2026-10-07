@@ -353,9 +353,10 @@ each project. The bridge keeps the answer for 10 minutes. When it cannot read
 it, the bridge uses the default list.
 
 `GET /api/projects` also gives `collectFullText` on each project. The bridge
-sends the full input text of a call only when that value is `true`. No setting
-turns it on yet, so the server always sends `false` and no call holds its full
-text.
+sends the full input text of a call only when that value is `true`. The
+project setting **Collect the full text of each tool call** turns it on, in the
+analysis settings on the
+[Reports](../using/analytics.md#reports) tab. It is off by default.
 
 A server with no tool call endpoint answers 404 with no error code, and so does
 a server with agent push switched off. The bridge then logs
@@ -742,8 +743,20 @@ interactive session.
 work:
   analysis:
     subject: analysis
+    model: sonnet
     prompt: Run the loupe-analysis skill for analysis {subjectId} of project {project}.
-``` Both shipped workflow templates
+```
+
+The `analysis` entry above runs the analyses that the owner starts on the
+[Reports](../using/analytics.md#reports) tab. The `loupe-analysis` skill of the
+Loupe plugin does the work. A work request can name a model and an effort. A
+request model replaces the `model` of the entry. A request effort reaches
+claude as `--effort`. A work entry has no effort of its own. A request model
+also skips the [experiment](#experiments) draw of an entry with variants, so
+the run joins no experiment. An analysis always names its model and its
+effort.
+
+Both shipped workflow templates
 request `teardown` each time a card reaches a terminal column. A `teardown`
 request that no bridge takes expires after the work timeout, and the card does
 not pause.

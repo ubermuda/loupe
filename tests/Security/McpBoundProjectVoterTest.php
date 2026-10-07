@@ -154,6 +154,19 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $project));
     }
 
+    public function test_a_denied_project_is_recorded_under_the_insights_operation_for_the_analysis_attributes(): void
+    {
+        $owner = $this->user('analysis-voter-audit@example.com');
+        $project = $this->project($owner);
+        $this->actAsMcpTokenBoundTo($this->project($owner));
+
+        $record = $this->auditedVote(McpBoundProjectVoter::ANALYSIS_WRITE, $project)->record('insights.mcp_access_denied');
+
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame('project', $record->subject?->type);
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::ANALYSIS_READ, $project));
+    }
+
     public function test_a_denied_worker_run_is_recorded_under_the_bridge_operation(): void
     {
         $owner = $this->user('run-voter-audit@example.com');
@@ -211,6 +224,8 @@ final class McpBoundProjectVoterTest extends KernelTestCase
             McpBoundProjectVoter::CARD_WRITE => ['card'],
             McpBoundProjectVoter::WORKER_RUN_READ => ['project', 'worker_run'],
             McpBoundProjectVoter::WORKER_RUN_WRITE => ['project', 'worker_run'],
+            McpBoundProjectVoter::ANALYSIS_READ => ['project'],
+            McpBoundProjectVoter::ANALYSIS_WRITE => ['project'],
         ];
 
         foreach ($accepts as $attribute => $accepted) {
@@ -244,6 +259,8 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_WRITE, $this->subjectOfType('site_review_comment', $project)));
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_READ, $this->subjectOfType('worker_run', $project)));
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $this->subjectOfType('project', $project)));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::ANALYSIS_READ, $this->subjectOfType('project', $project)));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::ANALYSIS_WRITE, $this->subjectOfType('project', $project)));
     }
 
     private function subjectOfType(string $subjectType, Project $project): ProjectScopedSubject

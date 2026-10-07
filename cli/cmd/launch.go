@@ -60,6 +60,9 @@ func launchScript(claude string, spec workerSpec) string {
 	if spec.model != "" {
 		b.WriteString(" --model " + shellQuote(spec.model))
 	}
+	if spec.effort != "" {
+		b.WriteString(" --effort " + shellQuote(spec.effort))
+	}
 	if spec.permissionMode != "" {
 		b.WriteString(" --permission-mode " + shellQuote(spec.permissionMode))
 	}

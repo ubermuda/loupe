@@ -291,13 +291,13 @@ func (p *pending) apply(m rules.Match) {
 	p.rule, p.action, p.project, p.pool = m.Rule, m.Action, m.Project, m.Pool
 	p.experiment, p.pin = m.Experiment, runPin{}
 	if p.continues != "" {
-		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
+		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.effort, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Effort, m.Schema
 		p.spec.before, p.spec.command = m.Before, m.Command
 
 		return
 	}
 	p.spec = workerSpec{
-		dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt,
+		dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, effort: m.Effort, schema: m.Schema, prompt: m.Prompt,
 		before: m.Before, command: m.Command,
 	}
 	// The server asks the work to resume the session of an unfinished run,

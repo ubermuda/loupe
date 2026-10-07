@@ -6566,6 +6566,61 @@
     .lp-cost-toggle__option[aria-current='true'] {
         @apply bg-surface-1 text-ink shadow-sm;
     }
+    /* Reports tab of Analytics: the Analyse form, the settings, then one card per analysis with its proposals. */
+    .lp-reports-panel {
+        @apply mt-6 rounded-xl border border-line bg-surface-1 p-4;
+    }
+    .lp-reports-form__fields {
+        @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3;
+    }
+    .lp-reports-settings__summary {
+        @apply cursor-pointer font-display text-lg font-bold tracking-tight text-ink;
+    }
+    .lp-reports-settings[open] > .lp-reports-settings__summary {
+        @apply mb-3;
+    }
+    .lp-reports-list {
+        @apply mt-6 flex list-none flex-col gap-3 p-0;
+    }
+    .lp-reports-analysis {
+        @apply rounded-xl border border-line bg-surface-1 p-4;
+    }
+    .lp-reports-analysis__head {
+        @apply flex items-start gap-3;
+    }
+    .lp-reports-analysis__title {
+        @apply m-0 flex items-baseline gap-2 font-display text-base font-bold text-ink;
+    }
+    .lp-reports-analysis__range {
+        @apply text-sm font-normal text-fg-mute;
+    }
+    .lp-reports-analysis__facts {
+        @apply m-0 mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm;
+    }
+    .lp-reports-analysis__facts dt {
+        @apply text-xs text-fg-label;
+    }
+    .lp-reports-analysis__facts dd {
+        @apply m-0 text-ink;
+    }
+    .lp-reports-proposals {
+        @apply mt-4 flex list-none flex-col gap-2 p-0;
+    }
+    .lp-reports-proposal {
+        @apply rounded-lg bg-surface-2 p-3;
+    }
+    .lp-reports-proposal__title {
+        @apply m-0 text-sm font-semibold text-ink;
+    }
+    .lp-reports-proposal__body {
+        @apply m-0 mt-1 max-w-none text-sm text-fg-mute;
+    }
+    .lp-reports-proposal__actions {
+        @apply mt-3 flex flex-wrap items-start gap-2;
+    }
+    .lp-reports-proposal__dismiss {
+        @apply flex flex-wrap items-center gap-2;
+    }
     .lp-metric-summary {
         @apply grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 mb-0;
     }

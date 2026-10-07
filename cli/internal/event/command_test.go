@@ -211,6 +211,39 @@ func TestParseCommandReadsTheContext(t *testing.T) {
 	}
 }
 
+// A command carries the model and the effort of the work request of its run.
+// An older server sends none, and a null decodes as "".
+func TestParseCommandReadsTheModelAndTheEffort(t *testing.T) {
+	for _, tc := range []struct{ extra, model, effort string }{
+		{``, "", ""},
+		{`,"model":null,"effort":null`, "", ""},
+		{`,"model":"claude-opus-4-1[1m]","effort":"xhigh"`, "claude-opus-4-1[1m]", "xhigh"},
+		{`,"effort":"low"`, "", "low"},
+	} {
+		payload := strings.Replace(commandPayload, `"workKind":"plan"`, `"workKind":"plan"`+tc.extra, 1)
+		c, err := ParseCommand([]byte(payload))
+		if err != nil || c.Model != tc.model || c.Effort != tc.effort {
+			t.Fatalf("%s: command = %+v, err = %v", tc.extra, c, err)
+		}
+	}
+}
+
+func TestParseCommandRejectsAMalformedModelOrEffort(t *testing.T) {
+	for _, extra := range []string{
+		`,"model":"claude opus"`,
+		`,"model":"opus\n"`,
+		`,"model":"--dangerously-skip-permissions"`,
+		`,"model":"` + strings.Repeat("a", 65) + `"`,
+		`,"effort":"extreme"`,
+		`,"effort":"High"`,
+	} {
+		payload := strings.Replace(commandPayload, `"workKind":"plan"`, `"workKind":"plan"`+extra, 1)
+		if _, err := ParseCommand([]byte(payload)); err == nil {
+			t.Fatalf("expected %s to be rejected", extra)
+		}
+	}
+}
+
 func TestParseDropsACommandAsAnUnknownType(t *testing.T) {
 	if err := parseErr(t, commandPayload); !errors.Is(err, ErrUnknownType) {
 		t.Fatalf("err = %v, want an unknown type", err)

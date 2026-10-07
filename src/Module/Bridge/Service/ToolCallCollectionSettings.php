@@ -17,6 +17,7 @@ final readonly class ToolCallCollectionSettings
 
     public function __construct(
         private FeatureFlagService $featureFlags,
+        private ProjectCollectionSettingsInterface $projectSettings,
     ) {
     }
 
@@ -32,10 +33,9 @@ final readonly class ToolCallCollectionSettings
         return [] === $programs ? self::parse(self::DEFAULT_SUBCOMMAND_PROGRAMS) : $programs;
     }
 
-    /** No project setting exists yet, so the bridge sends no full text. */
     public function collectFullText(Project $project): bool
     {
-        return false;
+        return $this->projectSettings->collectFullText($project);
     }
 
     /** @return list<string> */

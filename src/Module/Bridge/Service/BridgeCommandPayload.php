@@ -45,6 +45,8 @@ final class BridgeCommandPayload
             'expiresAt' => $command->expiresAt->format(\DateTimeInterface::ATOM),
             'cause' => $command->cause->value,
             'context' => $command->context->toArray(),
+            'model' => $command->model,
+            'effort' => $command->effort,
         ];
     }
 }

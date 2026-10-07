@@ -16,6 +16,7 @@ use App\Module\Bridge\Service\StopLadder;
 use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use App\Module\Inbox\Install\InboxInstallFlags;
+use App\Module\Insights\Service\AnalysisSettings;
 use App\Module\Review\Install\ReviewInstallFlags;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Module\SiteReview\SiteReviewDrawing;
@@ -68,7 +69,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(24, $flags);
+        self::assertCount(26, $flags);
         // Seeded on: the environment prerequisite holds it off until a hub is configured.
         self::assertTrue($flags[LiveUpdates::FLAG]->value);
         // Seeded on: drawing is additive, and a flag that installs off would
@@ -81,6 +82,8 @@ final class SeedFlagsControllerTest extends WebTestCase
         self::assertSame(7500, $flags[StopLadder::SIGTERM_FLAG]->value);
         self::assertSame(2500, $flags[StopLadder::SIGKILL_FLAG]->value);
         self::assertSame(ToolCallCollectionSettings::DEFAULT_SUBCOMMAND_PROGRAMS, $flags[ToolCallCollectionSettings::SUBCOMMAND_PROGRAMS_FLAG]->value);
+        self::assertSame('sonnet', $flags[AnalysisSettings::MODEL_FLAG]->value);
+        self::assertSame('medium', $flags[AnalysisSettings::EFFORT_FLAG]->value);
         // Seeded off: the update check is the app's only self-initiated
         // outbound request, so an install must not start making it unasked.
         self::assertFalse($flags[UpdateCheck::FLAG]->value);

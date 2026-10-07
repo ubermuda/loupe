@@ -231,6 +231,7 @@ holds, by `commandId`. Each command carries these fields:
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
 | `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
 | `context` | the context of the work request of the run, taken when the command was stored, with the five keys of the [work request context](#work-requests). Each key is `null` for a run with no work request. A server from before the context sends no `context` key |
+| `model`, `effort` | the [model and the effort](#work-requests) of the work request of the run, taken when the command was stored, or `null`. A resume runs with them, as the first run did. A server from before these keys sends none |
 
 The `bridge.command_ttl_minutes` feature flag sets how long a command waits,
 and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from
@@ -365,6 +366,8 @@ another bridge claimed. Each request carries these fields:
 | `createdAt` | the time the request opened, as an RFC 3339 date |
 | `resumeSessionId` | the session of an unfinished run of the card and kind that the run resumes, or `null` for a fresh start |
 | `context` | what the card held when the request opened. See the table below |
+| `model` | the model the run uses over the model of the work entry, or `null`. A run with a request model joins no experiment |
+| `effort` | the effort level the run passes to `claude --effort`: `low`, `medium`, `high`, `xhigh` or `max`, or `null` |
 
 The `context` object always holds five keys. Each one is `null` when the card
 held no such value. A server from before the context sends no `context` key.

@@ -5,4 +5,7 @@
     <a class="lp-tabs__tab"
        href="{{ path('app_project_analytics_experiments', {id: project.id}) }}"
        {% if active == 'experiments' %}aria-current="page"{% endif %}>{{ 'analytics.tabs.experiments'|trans }}</a>
+    <a class="lp-tabs__tab"
+       href="{{ path('app_project_analytics_reports', {id: project.id}) }}"
+       {% if active == 'reports' %}aria-current="page"{% endif %}>{{ 'analytics.tabs.reports'|trans }}</a>
 </nav>

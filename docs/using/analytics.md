@@ -1,12 +1,13 @@
 ---
-title: "Analytics: Metrics"
-description: "The Metrics tab of the Analytics page, which charts how the agents of a project perform over time."
+title: "Analytics: Metrics and Reports"
+description: "The Metrics tab of the Analytics page, which charts how the agents of a project perform over time, and the Reports tab, where an agent explains the cost."
 ---
 
 The **Metrics** tab of the project's **Analytics** page charts one metric of the
 agents over time. It reads the [worker runs](worker-runs.md) that a bridge
 reports, and the cards that they finish. The **Experiments** tab compares the
-variants of each [experiment](experiments.md).
+variants of each [experiment](experiments.md). On the [Reports](#reports) tab,
+an agent analyses the runs and proposes changes.
 
 Open **Analytics** in the project sidebar, or go to
 `/projects/{project}/analytics/metrics`. Only the project owner can open it.
@@ -160,3 +161,89 @@ the old address stay when the page knows them.
 The MCP tool `metric_query` returns the same numbers as this page, and
 `metric_list` lists the metrics. See [the MCP tools](mcp.md#what-the-tools-do).
 Over the MCP, the group of a bridge is its id, and the page shows its name.
+
+## Reports
+
+The **Reports** tab lists the analyses of the project, newest first. An
+analysis is a piece of agent work about the project rather than about a card.
+The agent reads the worker runs, writes a report document, and proposes
+changes. Go to `/projects/{project}/analytics/reports`. Only the project owner
+can open it.
+
+An analysis needs a bridge with a work entry for the `analysis` subject.
+[Work requests](../extending/cli-bridge.md#work-requests) shows the entry. The
+`loupe-analysis` skill of the Loupe plugin does the work.
+
+### Start an analysis
+
+Fill the **Analyse** form, and press **Analyse**.
+
+| Field | Values |
+|---|---|
+| Topic | **Cost**, where the cost of the workers goes |
+| Range | **30 days**, **90 days** or **All time**: the runs the agent reads |
+| Model | the model of the agent, such as `sonnet` or `opus` |
+| Effort | **Low**, **Medium**, **High**, **Extra high** or **Maximum** |
+
+An empty model or effort takes the project default. The analysis opens a work
+request, and a bridge that reports the `subject-analysis` capability claims it.
+The request model and effort replace the model of the work entry.
+
+### States and reasons
+
+Each analysis shows its state, its model and effort, its cost so far, and the
+time it started.
+
+| State | Meaning |
+|---|---|
+| **Waiting for a bridge** | No bridge has claimed the work yet |
+| **Running** | A bridge claimed the work, and the agent runs |
+| **Done** | The agent sent its report |
+| **Failed** | The work ended with no report. The reason follows the state |
+| **Paused** | No bridge took the work before the work timeout. Nothing runs it again |
+
+A failed analysis shows one of these reasons:
+
+- `request-refused`: the server refused the work request.
+- `request-failed`: an error stopped the server before it opened the work request.
+- `no-report`: the work ended, and the agent sent no report.
+- The reason of the bridge, or `refused`, when the bridge refused the work.
+
+A paused analysis shows `no-bridge-took-work`. A failed or paused analysis is
+final. To try again, start a new analysis. The cost is the sum of the runs
+of the analysis. It shows **unknown** when no run has a known cost.
+
+### The report and the proposals
+
+A done analysis links its report document. The `loupe-analysis` skill tags it
+`analysis`. Open it to read and comment, as on any document.
+
+Below the analysis, each proposal shows its title, its detail and its
+estimated saving. A proposal is **Proposed** until you act on it.
+
+- Press **Create the card** to put a feature card in the backlog of the board.
+  The proposal then reads **Card created**, with a link to the card.
+- Press **Dismiss** to close the proposal. Type an optional reason first.
+
+A proposal of the kind `bucket-rule` offers only **Dismiss**, because Loupe
+cannot apply such a rule yet.
+
+### Analysis settings
+
+Open **Analysis settings** to set the defaults of the project.
+
+| Setting | Meaning |
+|---|---|
+| Default model | the model of a new analysis that names none |
+| Default effort | the effort of a new analysis that names none |
+| Collect the full text of each tool call | the bridge sends the full text of each tool call, so an analysis can read it |
+
+An empty default model or effort takes the instance default. The
+`insights.default_analysis_model` feature flag holds the instance model, and
+its default is `sonnet`. The `insights.default_analysis_effort` feature flag
+holds the instance effort, and its default is `medium`. Change them at **`/admin/feature-flags`**.
+The full text switch is off by default.
+
+The MCP tools `analysis_get` and `analysis_report` let the agent read and
+finish an analysis. `analytics_settings_get` and `analytics_settings_update`
+read and change the settings. See [the MCP tools](mcp.md#what-the-tools-do).

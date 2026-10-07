@@ -18,6 +18,7 @@ final class AnalyticsPageShellTest extends WebTestCase
     {
         yield 'metrics' => ['/analytics/metrics', 'Metrics'];
         yield 'experiments' => ['/analytics/experiments', 'Experiments'];
+        yield 'reports' => ['/analytics/reports', 'Reports'];
     }
 
     #[DataProvider('tabs')]
@@ -38,9 +39,9 @@ final class AnalyticsPageShellTest extends WebTestCase
         self::assertSame('Analytics', trim($crawler->filter('h1.lp-workspace-title')->text()));
 
         $tabs = $crawler->filter('nav.lp-analytics-tabs .lp-tabs__tab');
-        self::assertSame(['Metrics', 'Experiments'], $tabs->each(static fn ($tab): string => trim($tab->text())));
+        self::assertSame(['Metrics', 'Experiments', 'Reports'], $tabs->each(static fn ($tab): string => trim($tab->text())));
         self::assertSame(
-            [$base.'/analytics/metrics', $base.'/analytics/experiments'],
+            [$base.'/analytics/metrics', $base.'/analytics/experiments', $base.'/analytics/reports'],
             $tabs->each(static fn ($tab): ?string => $tab->attr('href')),
         );
         self::assertSame([$activeTab], $crawler->filter('nav.lp-analytics-tabs [aria-current="page"]')->each(static fn ($tab): string => trim($tab->text())));
