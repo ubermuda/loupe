@@ -75,7 +75,9 @@ func TestWorkerEnvPushesAsTheAgentAccount(t *testing.T) {
 		"GIT_COMMITTER_EMAIL=4242+loupe-bot@users.noreply.github.com",
 		"GIT_CONFIG_KEY_0=credential.https://github.com.helper", "GIT_CONFIG_VALUE_0=",
 		"GIT_CONFIG_KEY_1=credential.https://github.com.helper", "GIT_CONFIG_VALUE_1=" + agentHelper,
-		"GIT_CONFIG_COUNT=2",
+		"GIT_CONFIG_KEY_2=url.https://github.com/.insteadOf", "GIT_CONFIG_VALUE_2=git@github.com:",
+		"GIT_CONFIG_KEY_3=url.https://github.com/.insteadOf", "GIT_CONFIG_VALUE_3=ssh://git@github.com/",
+		"GIT_CONFIG_COUNT=4",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("workerEnv =\n%q\nwant\n%q", got, want)
@@ -92,7 +94,9 @@ func TestWorkerEnvKeepsTheInheritedGitConfig(t *testing.T) {
 		"GIT_CONFIG_KEY_0=core.editor", "GIT_CONFIG_VALUE_0=vi",
 		"GIT_CONFIG_KEY_1=credential.https://github.com.helper", "GIT_CONFIG_VALUE_1=",
 		"GIT_CONFIG_KEY_2=credential.https://github.com.helper", "GIT_CONFIG_VALUE_2=" + agentHelper,
-		"GIT_CONFIG_COUNT=3",
+		"GIT_CONFIG_KEY_3=url.https://github.com/.insteadOf", "GIT_CONFIG_VALUE_3=git@github.com:",
+		"GIT_CONFIG_KEY_4=url.https://github.com/.insteadOf", "GIT_CONFIG_VALUE_4=ssh://git@github.com/",
+		"GIT_CONFIG_COUNT=5",
 	} {
 		if !slices.Contains(got, e) {
 			t.Fatalf("workerEnv = %q, want %q in it", got, e)

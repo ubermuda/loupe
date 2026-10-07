@@ -205,13 +205,19 @@ func workerEnv(environ []string, sessionID string, agent *config.AgentAccount) [
 		"GIT_AUTHOR_EMAIL="+email, "GIT_COMMITTER_EMAIL="+email,
 		"GIT_CONFIG_KEY_"+n(gitConfigs)+"="+githubHelperKey, "GIT_CONFIG_VALUE_"+n(gitConfigs)+"=",
 		"GIT_CONFIG_KEY_"+n(gitConfigs+1)+"="+githubHelperKey, "GIT_CONFIG_VALUE_"+n(gitConfigs+1)+"="+helper,
-		"GIT_CONFIG_COUNT="+n(gitConfigs+2),
+		// An SSH remote would push with the machine's key, so it goes through HTTPS.
+		"GIT_CONFIG_KEY_"+n(gitConfigs+2)+"="+githubInsteadOfKey, "GIT_CONFIG_VALUE_"+n(gitConfigs+2)+"=git@github.com:",
+		"GIT_CONFIG_KEY_"+n(gitConfigs+3)+"="+githubInsteadOfKey, "GIT_CONFIG_VALUE_"+n(gitConfigs+3)+"=ssh://git@github.com/",
+		"GIT_CONFIG_COUNT="+n(gitConfigs+4),
 	)
 }
 
 // githubHelperKey is the git config key of the credential helpers for
 // github.com.
 const githubHelperKey = "credential.https://github.com.helper"
+
+// githubInsteadOfKey rewrites a GitHub SSH remote to its HTTPS form.
+const githubInsteadOfKey = "url.https://github.com/.insteadOf"
 
 // agentEnvOverrides are the inherited variables an agent account replaces.
 var agentEnvOverrides = []string{

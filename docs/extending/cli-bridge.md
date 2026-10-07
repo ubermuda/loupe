@@ -332,12 +332,14 @@ first removes the inherited `GH_TOKEN`, `GITHUB_TOKEN`, `GIT_AUTHOR_NAME`,
 | `GH_TOKEN` | The stored token, which `gh` reads |
 | `GIT_AUTHOR_NAME`, `GIT_COMMITTER_NAME` | The login |
 | `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_EMAIL` | `<id>+<login>@users.noreply.github.com` |
-| `GIT_CONFIG_KEY_n`, `GIT_CONFIG_VALUE_n` | Two `credential.https://github.com.helper` entries |
-| `GIT_CONFIG_COUNT` | The inherited count plus two |
+| `GIT_CONFIG_KEY_n`, `GIT_CONFIG_VALUE_n` | Two `credential.https://github.com.helper` entries and two `url.https://github.com/.insteadOf` entries |
+| `GIT_CONFIG_COUNT` | The inherited count plus four |
 
 The first helper entry is empty, which removes every helper that your git
 configuration names for `github.com`. The second helper answers with the login
-and `$GH_TOKEN`. An inherited `GIT_CONFIG_COUNT` keeps its entries, and the
+and `$GH_TOKEN`. The two `insteadOf` entries change a GitHub SSH remote,
+`git@github.com:` or `ssh://git@github.com/`, to HTTPS. A worker then pushes
+with the token, never with the SSH key of the machine. An inherited `GIT_CONFIG_COUNT` keeps its entries, and the
 bridge numbers its own entries after them. A before command and a command
 action keep the bridge's own environment, so they push as you.
 
