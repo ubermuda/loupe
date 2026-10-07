@@ -820,8 +820,27 @@ func TestTheHeartbeatBodyCarriesTheRuleFileName(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if hb := heartbeatBody(set); hb.Name == nil || *hb.Name != want {
+		if hb := heartbeatBody(set, ""); hb.Name == nil || *hb.Name != want {
 			t.Fatalf("name: %s gave %v, want %q", value, hb.Name, want)
+		}
+	}
+}
+
+// The server reads an absent pushLogin as no change, so the bridge always
+// sends one, and "" when no agent account is checked.
+func TestTheHeartbeatBodyCarriesThePushLogin(t *testing.T) {
+	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n  plan:\n    prompt: go\n"
+	set, err := rules.Parse([]byte(body), rules.Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for login, want := range map[string]string{"bot": `"pushLogin":"bot"`, "": `"pushLogin":""`} {
+		b, err := json.Marshal(heartbeatBody(set, login))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), want) {
+			t.Fatalf("heartbeat body %s, want %s", b, want)
 		}
 	}
 }
