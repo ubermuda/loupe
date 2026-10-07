@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Repository;
 
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -132,5 +136,78 @@ final class WorkerRunRepositoryTest extends KernelTestCase
 
         self::assertSame(['breakdown', 'fix', 'implement'], $runs->findOpenWorkKindsOfCard($cardId));
         self::assertSame([], $runs->findOpenWorkKindsOfCard(Uuid::v7()));
+    }
+
+    public function test_a_newer_run_of_the_card_hides_its_warning_unless_it_was_set_aside(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'warning-newer-'.uniqid().'@example.com'), 'Warning newer');
+
+        $hiddenByQueued = Uuid::v7();
+        $this->warningClosedAt($em, $project, $hiddenByQueued, WorkerRunState::Failed);
+        $this->runReceivedAt($em, $project, $hiddenByQueued, WorkerRunState::Queued, '10:06');
+
+        $keptByEarlierOpen = Uuid::v7();
+        $this->runReceivedAt($em, $project, $keptByEarlierOpen, WorkerRunState::Running, '10:01');
+        $failedLate = $this->warningClosedAt($em, $project, $keptByEarlierOpen, WorkerRunState::Failed);
+
+        $hiddenByInteractive = Uuid::v7();
+        $this->warningClosedAt($em, $project, $hiddenByInteractive, WorkerRunState::Blocked);
+        $this->runReceivedAt($em, $project, $hiddenByInteractive, WorkerRunState::Running, '10:06', WorkerRunKind::Interactive);
+
+        $hiddenByTimedOut = Uuid::v7();
+        $this->warningClosedAt($em, $project, $hiddenByTimedOut, WorkerRunState::GaveUp);
+        $this->runReceivedAt($em, $project, $hiddenByTimedOut, WorkerRunState::TimedOut, '10:06');
+
+        $keptByReplaced = Uuid::v7();
+        $replacedWarning = $this->warningClosedAt($em, $project, $keptByReplaced, WorkerRunState::NoResult);
+        $this->runReceivedAt($em, $project, $keptByReplaced, WorkerRunState::Replaced, '10:06');
+
+        $keptBySkipped = Uuid::v7();
+        $skippedWarning = $this->warningClosedAt($em, $project, $keptBySkipped, WorkerRunState::Failed);
+        $this->runReceivedAt($em, $project, $keptBySkipped, WorkerRunState::Skipped, '10:06');
+
+        $hiddenInTheSameSecond = Uuid::v7();
+        $this->warningClosedAt($em, $project, $hiddenInTheSameSecond, WorkerRunState::Failed);
+        $this->runReceivedAt($em, $project, $hiddenInTheSameSecond, WorkerRunState::Queued, '10:05');
+
+        $keptInTheSameSecond = Uuid::v7();
+        $this->runReceivedAt($em, $project, $keptInTheSameSecond, WorkerRunState::Queued, '10:05');
+        $sameSecondWarning = $this->warningClosedAt($em, $project, $keptInTheSameSecond, WorkerRunState::Failed);
+
+        $runs = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $runs);
+
+        self::assertEqualsCanonicalizing(
+            [(string) $failedLate->id, (string) $replacedWarning->id, (string) $skippedWarning->id, (string) $sameSecondWarning->id],
+            array_column($runs->findWarningRowsOfProject($project), 'id'),
+        );
+        self::assertNull($runs->findWarningRowOfCard($project, $hiddenByQueued));
+        self::assertNull($runs->findWarningRowOfCard($project, $hiddenInTheSameSecond));
+        self::assertSame(
+            ['id' => (string) $failedLate->id, 'card_id' => (string) $keptByEarlierOpen, 'state' => WorkerRunState::Failed->value, 'output' => 'worker output'],
+            $runs->findWarningRowOfCard($project, $keptByEarlierOpen),
+        );
+    }
+
+    /** A warning run received at 10:00, which the server closed at 10:05. */
+    private function warningClosedAt(EntityManagerInterface $em, Project $project, Uuid $cardId, WorkerRunState $state): WorkerRun
+    {
+        $run = $this->seedRun($em, $project, new \DateTimeImmutable('2026-09-01 10:00:00'), cardId: $cardId, state: $state, runKey: Uuid::v4());
+        $em->persist(new WorkerRunStateChange($run, $state, new \DateTimeImmutable('2026-09-01 10:05:00'), new \DateTimeImmutable('2026-09-01 10:05:00')));
+        $em->flush();
+
+        return $run;
+    }
+
+    private function runReceivedAt(EntityManagerInterface $em, Project $project, Uuid $cardId, WorkerRunState $state, string $time, WorkerRunKind $kind = WorkerRunKind::Worker): WorkerRun
+    {
+        $at = new \DateTimeImmutable('2026-09-01 '.$time.':00');
+        $run = $this->seedRun($em, $project, $at, cardId: $cardId, state: $state, kind: $kind);
+        $em->persist(new WorkerRunStateChange($run, $state, $at, $at));
+        $em->flush();
+
+        return $run;
     }
 }

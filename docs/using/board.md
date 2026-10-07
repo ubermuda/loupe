@@ -180,7 +180,8 @@ The board is at **`/projects/<project>/board`**, and the project sidebar links
 to it. The columns read side by side, in board order. Each card shows its
 number, its title, its type, how many pull requests it links to, and how many
 review comments still wait on it.
-A card whose latest worker run gave up or is blocked also shows a warning. See
+A card whose latest worker run gave up, is blocked, failed or has no result also
+shows a warning. A newer run of the card clears it. See
 [A warning on the card](worker-runs.md#a-warning-on-the-card).
 
 A card also shows a badge for each problem on its open pull requests.

@@ -786,11 +786,16 @@ class WorkerRunRepository extends ServiceEntityRepository
 
     /**
      * For each card of the project, its latest outcome, kept only when that
-     * outcome is gave-up or blocked. The pick comes before the filter, so a later
-     * success clears the warning. An open run is no outcome and changes nothing.
-     * Latest means the last the server closed, by the state change that holds
-     * the outcome. A resume jumps the queue, and two bridge clocks can disagree,
-     * so neither the queue time nor the bridge end time orders outcomes.
+     * outcome is a warning: gave-up, blocked, failed or no-result. The pick
+     * comes before the filter, so a later success clears the warning. Latest
+     * means the last the server closed, by the state change that holds the
+     * outcome. A resume jumps the queue, and two bridge clocks can disagree, so
+     * neither the queue time nor the bridge end time orders outcomes.
+     *
+     * The newest run decides, so a run of the card that the server received
+     * after that close hides the warning, open or closed, of any kind. A
+     * replaced or skipped run never ran, and hides nothing. In the same second,
+     * the insertion order of the state changes decides.
      *
      * @return list<array{id: string, card_id: string, state: string, output: string}>
      */
@@ -861,6 +866,7 @@ class WorkerRunRepository extends ServiceEntityRepository
                 static fn (WorkerRunState $state): string => $state->value,
                 array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isWarning()),
             )),
+            'setAside' => [WorkerRunState::Replaced->value, WorkerRunState::Skipped->value],
         ];
         $cardFilter = '';
         if (null !== $cardId) {
@@ -875,7 +881,8 @@ class WorkerRunRepository extends ServiceEntityRepository
             <<<SQL
                 SELECT latest.id, latest.card_id, latest.state, latest.output
                 FROM (
-                    SELECT DISTINCT ON (r.subject_id) r.id, r.subject_id AS card_id, r.state, r.output
+                    SELECT DISTINCT ON (r.subject_id) r.id, r.subject_id AS card_id, r.state, r.output,
+                        COALESCE(closed.received_at, r.received_at) AS closed_at, closed.sequence AS closed_sequence
                     FROM bridge_worker_runs r
                     LEFT JOIN LATERAL (
                         SELECT s.received_at, s.sequence
@@ -887,10 +894,18 @@ class WorkerRunRepository extends ServiceEntityRepository
                     WHERE r.project_id = :project AND r.subject_type = 'card' AND r.state IN (:outcomes) {$cardFilter}
                     ORDER BY r.subject_id, COALESCE(closed.received_at, r.received_at) DESC, closed.sequence DESC NULLS LAST, r.id DESC
                 ) latest
-                WHERE latest.state IN (:warnings)
+                WHERE latest.state IN (:warnings) AND NOT EXISTS (
+                    SELECT 1
+                    FROM bridge_worker_runs newer
+                    WHERE newer.project_id = :project AND newer.subject_type = 'card' AND newer.subject_id = latest.card_id
+                        AND newer.id <> latest.id AND newer.state NOT IN (:setAside)
+                        AND (newer.received_at > latest.closed_at
+                            OR (newer.received_at = latest.closed_at
+                                AND (SELECT MIN(s.sequence) FROM bridge_worker_run_states s WHERE s.run_id = newer.id) > latest.closed_sequence))
+                )
                 SQL,
             $params,
-            ['outcomes' => ArrayParameterType::STRING, 'warnings' => ArrayParameterType::STRING],
+            ['outcomes' => ArrayParameterType::STRING, 'warnings' => ArrayParameterType::STRING, 'setAside' => ArrayParameterType::STRING],
         )->fetchAllAssociative();
 
         return $rows;

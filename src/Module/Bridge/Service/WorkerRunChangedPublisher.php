@@ -12,7 +12,7 @@ use Symfony\Component\Uid\Uuid;
 /**
  * Tells the open worker run pages of a project to reload. The message carries
  * no run, because what a page shows depends on who is looking at it. It also
- * tells the open boards when the run warning of a card changes.
+ * tells the open boards when a run of a card changes, which can change its warning.
  */
 final readonly class WorkerRunChangedPublisher
 {
@@ -34,9 +34,8 @@ final readonly class WorkerRunChangedPublisher
     }
 
     /** Tells the open boards to place the card again. Call it after the change commits. */
-    public function cardWarningChanged(Project $project, Uuid $cardId): void
+    public function cardWarningChanged(Uuid $projectId, Uuid $cardId): void
     {
-        $projectId = $project->id ?? throw new \LogicException('Project has no id.');
         $this->publisher->queue($this->topics->forBoard($projectId), ['type' => self::CARD_WARNING_CHANGED, 'cardId' => (string) $cardId]);
     }
 }

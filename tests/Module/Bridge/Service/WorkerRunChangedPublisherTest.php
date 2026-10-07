@@ -85,26 +85,39 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $this->project = $this->project($this->em(), $this->owner, 'Run publish');
     }
 
-    public function test_a_state_report_signals_the_project_at_terminate(): void
+    public function test_a_state_report_signals_the_project_and_the_card_at_terminate(): void
     {
-        $this->reportState(Uuid::v4(), WorkerRunState::Queued);
+        $cardId = Uuid::v7();
+        $this->reportState(Uuid::v4(), WorkerRunState::Queued, cardId: $cardId);
 
         self::assertCount(0, $this->published);
-        $this->assertPublishedAtTerminate(1);
+        $this->assertPublishedAtTerminate(2);
         $this->assertSignalsTheProject($this->published[0]);
+        self::assertSame([(string) $cardId], $this->warnedCards());
+    }
+
+    public function test_a_state_report_about_no_card_signals_no_board(): void
+    {
+        $result = $this->reportState(Uuid::v4(), WorkerRunState::Queued, subject: new WorkSubject('analysis', Uuid::v7()));
+
+        // Guard: the report reached a run, and the run pages heard of it.
+        self::assertNotNull($result->run);
+        $this->assertPublishedAtTerminate(1);
+        self::assertSame([], $this->warnedCards());
     }
 
     public function test_a_repeated_state_report_changes_nothing_and_publishes_nothing(): void
     {
         $runKey = Uuid::v4();
-        $this->reportState($runKey, WorkerRunState::Queued);
-        $this->assertPublishedAtTerminate(1);
+        $cardId = Uuid::v7();
+        $this->reportState($runKey, WorkerRunState::Queued, cardId: $cardId);
+        $this->assertPublishedAtTerminate(2);
 
-        $result = $this->reportState($runKey, WorkerRunState::Queued);
+        $result = $this->reportState($runKey, WorkerRunState::Queued, cardId: $cardId);
 
         // Guard: the report reached the run, so only the publish stayed away.
         self::assertNotNull($result->run);
-        $this->assertPublishedAtTerminate(1);
+        $this->assertPublishedAtTerminate(2);
     }
 
     public function test_a_report_for_a_project_the_owner_does_not_hold_publishes_nothing(): void
@@ -121,7 +134,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
     {
         $cardId = Uuid::v7();
 
-        $this->service(WorkerRunChangedPublisher::class)->cardWarningChanged($this->project, $cardId);
+        $this->service(WorkerRunChangedPublisher::class)->cardWarningChanged($this->project->id ?? throw new \LogicException('The project has no id.'), $cardId);
 
         $this->assertPublishedAtTerminate(1);
         self::assertSame([$this->boardTopic()], $this->published[0]->getTopics());
@@ -134,15 +147,15 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $cardId = Uuid::v7();
         $runKey = Uuid::v4();
         $this->reportState($runKey, WorkerRunState::Running, cardId: $cardId);
-        $this->assertPublishedAtTerminate(1);
+        $this->assertPublishedAtTerminate(2);
 
         $this->reportState($runKey, WorkerRunState::GaveUp, cardId: $cardId);
-        $this->assertPublishedAtTerminate(3);
-        self::assertSame([(string) $cardId], $this->warnedCards());
+        $this->assertPublishedAtTerminate(4);
+        self::assertSame([(string) $cardId, (string) $cardId], $this->warnedCards());
 
         $result = $this->reportState($runKey, WorkerRunState::GaveUp, cardId: $cardId);
         self::assertNotNull($result->run);
-        $this->assertPublishedAtTerminate(3);
+        $this->assertPublishedAtTerminate(4);
     }
 
     public function test_a_blocked_state_report_signals_the_card(): void
@@ -153,15 +166,6 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
 
         $this->assertPublishedAtTerminate(2);
         self::assertSame([(string) $cardId], $this->warnedCards());
-    }
-
-    public function test_a_success_with_no_warning_before_signals_no_card(): void
-    {
-        $this->reportState(Uuid::v4(), WorkerRunState::Succeeded);
-
-        // Guard: the run pages heard of the report.
-        $this->assertPublishedAtTerminate(1);
-        self::assertSame([], $this->warnedCards());
     }
 
     public function test_a_success_after_a_warning_signals_the_card(): void
@@ -175,11 +179,10 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         self::assertSame([(string) $cardId], $this->warnedCards());
     }
 
-    public function test_a_launch_failure_after_a_warning_signals_the_card_once(): void
+    public function test_a_launch_failure_signals_the_card_once(): void
     {
         $cardId = Uuid::v7();
         $sessionId = Uuid::v4();
-        $this->seedWarning($cardId, WorkerRunState::Blocked);
         $fail = fn (): array => $this->service(InteractiveRuns::class)->recordLaunchFailure(
             $this->project, $cardId, 3, $sessionId, 'design', Uuid::v7(), 'launcher exited 1', new \DateTimeImmutable('2026-09-23 11:59:00'),
         );
@@ -192,30 +195,20 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $this->assertPublishedAtTerminate(2);
     }
 
-    public function test_a_launch_failure_with_no_warning_before_signals_no_card(): void
-    {
-        [, $created] = $this->service(InteractiveRuns::class)->recordLaunchFailure(
-            $this->project, Uuid::v7(), 3, Uuid::v4(), 'design', Uuid::v7(), 'launcher exited 1', new \DateTimeImmutable('2026-09-23 11:59:00'),
-        );
-
-        self::assertTrue($created);
-        $this->assertPublishedAtTerminate(1);
-        self::assertSame([], $this->warnedCards());
-    }
-
     public function test_an_inventory_publishes_only_when_it_moves_a_run(): void
     {
         $bridgeId = Uuid::v7();
         $runKey = Uuid::v4();
-        $this->seedRun($this->em(), $this->project, bridgeId: $bridgeId, state: WorkerRunState::Running, runKey: $runKey);
+        $run = $this->seedRun($this->em(), $this->project, bridgeId: $bridgeId, state: WorkerRunState::Running, runKey: $runKey);
         $inventory = $this->service(ReportBridgeRunsHandler::class);
 
         self::assertSame([], $inventory(new ReportBridgeRunsCommand($this->owner, $bridgeId, [HeldRunKey::of($this->project->id ?? Uuid::v4(), $runKey) => WorkerRunState::Running])));
         $this->assertPublishedAtTerminate(0);
 
         self::assertCount(1, $inventory(new ReportBridgeRunsCommand($this->owner, $bridgeId, [])));
-        $this->assertPublishedAtTerminate(1);
+        $this->assertPublishedAtTerminate(2);
         $this->assertSignalsTheProject($this->published[0]);
+        self::assertSame([(string) $run->subjectId], $this->warnedCards());
     }
 
     public function test_a_session_usage_report_publishes_only_when_it_changes_a_run(): void
@@ -244,8 +237,9 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
     public function test_the_sweep_publishes_when_the_worker_has_handled_the_message(): void
     {
         $other = $this->project($this->em(), $this->owner, 'Run publish other');
+        $cards = [];
         foreach ([$this->project, $this->project, $other] as $project) {
-            $this->seedRun($this->em(), $project, new \DateTimeImmutable('2026-09-23 11:00:00'), bridgeId: Uuid::v7(), state: WorkerRunState::Running, runKey: Uuid::v4());
+            $cards[] = (string) $this->seedRun($this->em(), $project, new \DateTimeImmutable('2026-09-23 11:00:00'), bridgeId: Uuid::v7(), state: WorkerRunState::Running, runKey: Uuid::v4())->subjectId;
         }
 
         $this->service(TimeOutQuietWorkerRunsTask::class)();
@@ -253,10 +247,15 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
 
         $this->dispatcher()->dispatch(new WorkerMessageHandledEvent(new Envelope(new \stdClass()), 'scheduler_default'));
 
-        // One signal per project, however many of its runs timed out.
-        self::assertCount(2, $this->published);
-        $topics = array_map(static fn (Update $update): array => $update->getTopics(), $this->published);
+        // One run page signal per project, however many of its runs timed out, and one board signal per card.
+        $runPages = array_values(array_filter(
+            $this->published,
+            static fn (Update $update): bool => str_contains($update->getData(), '"type":"'.WorkerRunChangedPublisher::TYPE.'"'),
+        ));
+        $topics = array_map(static fn (Update $update): array => $update->getTopics(), $runPages);
         self::assertEqualsCanonicalizing([[$this->runTopic($this->project)], [$this->runTopic($other)]], $topics);
+        self::assertCount(5, $this->published);
+        self::assertEqualsCanonicalizing(\array_slice($cards, 0, 2), $this->warnedCards());
     }
 
     public function test_a_command_request_publishes_and_a_refusal_does_not(): void
@@ -417,7 +416,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         ]));
     }
 
-    private function reportState(Uuid $runKey, WorkerRunState $state, ?User $owner = null, ?Uuid $cardId = null): ReportWorkerRunStateResult
+    private function reportState(Uuid $runKey, WorkerRunState $state, ?User $owner = null, ?Uuid $cardId = null, ?WorkSubject $subject = null): ReportWorkerRunStateResult
     {
         return $this->service(ReportWorkerRunStateHandler::class)(new ReportWorkerRunStateCommand(
             owner: $owner ?? $this->owner,
@@ -426,8 +425,8 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             bridgeId: Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506180'),
             state: $state,
             at: new \DateTimeImmutable('2026-09-23 10:00:00'),
-            subject: WorkSubject::card($cardId ?? Uuid::v7()),
-            cardNumber: 1,
+            subject: $subject ?? WorkSubject::card($cardId ?? Uuid::v7()),
+            cardNumber: null === $subject ? 1 : null,
             workKind: 'plan',
             endedAt: $state->isOutcome() ? new \DateTimeImmutable('2026-09-23 10:05:00') : null,
         ));
