@@ -39,6 +39,20 @@ class WorkflowPendingBaselineRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * One statement, so it joins a caller's transaction.
+     *
+     * @param non-empty-list<Uuid> $cardIds
+     */
+    public function unmarkCards(array $cardIds): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE FROM workflow_pending_baselines WHERE card_id IN (:cardIds)',
+            ['cardIds' => array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds)],
+            ['cardIds' => ArrayParameterType::STRING],
+        );
+    }
+
     /** Marks every card of the project, in one statement. */
     public function markProject(Uuid $projectId): void
     {
