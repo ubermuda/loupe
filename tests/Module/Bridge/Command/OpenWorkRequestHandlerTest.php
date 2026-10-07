@@ -438,7 +438,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertSame([], $this->outboxPayloads());
     }
 
-    /** Nothing in production calls the handler yet, so the compiled container holds none. */
+    /** Built by hand, so the clock and the subject handlers stay fixed. */
     private function handler(): OpenWorkRequestHandler
     {
         return new OpenWorkRequestHandler(

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Service;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Service\ProjectCollectionSettingsInterface;
 use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -31,7 +32,7 @@ final class ToolCallCollectionSettingsTest extends TestCase
         $flags = $this->createStub(FeatureFlagService::class);
         $flags->method('getStringValue')->willReturn($value);
 
-        self::assertSame($expected, new ToolCallCollectionSettings($flags)->subcommandPrograms($this->project()));
+        self::assertSame($expected, new ToolCallCollectionSettings($flags, $this->createStub(ProjectCollectionSettingsInterface::class))->subcommandPrograms($this->project()));
     }
 
     public function test_the_default_list_is_the_fallback_of_the_flag(): void
@@ -42,12 +43,24 @@ final class ToolCallCollectionSettingsTest extends TestCase
             ->with(ToolCallCollectionSettings::SUBCOMMAND_PROGRAMS_FLAG, implode(',', self::DEFAULT))
             ->willReturnArgument(1);
 
-        self::assertSame(self::DEFAULT, new ToolCallCollectionSettings($flags)->subcommandPrograms($this->project()));
+        self::assertSame(self::DEFAULT, new ToolCallCollectionSettings($flags, $this->createStub(ProjectCollectionSettingsInterface::class))->subcommandPrograms($this->project()));
     }
 
-    public function test_no_project_collects_the_full_text(): void
+    #[DataProvider('projectAnswers')]
+    public function test_the_project_settings_decide_whether_the_full_text_is_collected(bool $answer): void
     {
-        self::assertFalse(new ToolCallCollectionSettings($this->createStub(FeatureFlagService::class))->collectFullText($this->project()));
+        $project = $this->project();
+        $projectSettings = $this->createMock(ProjectCollectionSettingsInterface::class);
+        $projectSettings->expects($this->once())->method('collectFullText')->with($project)->willReturn($answer);
+
+        self::assertSame($answer, new ToolCallCollectionSettings($this->createStub(FeatureFlagService::class), $projectSettings)->collectFullText($project));
+    }
+
+    /** @return iterable<string, array{bool}> */
+    public static function projectAnswers(): iterable
+    {
+        yield 'on' => [true];
+        yield 'off' => [false];
     }
 
     private function project(): Project
