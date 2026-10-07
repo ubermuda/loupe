@@ -37,6 +37,7 @@ final class AdvertisedTools
         'readiness_get',
         'discovery_start',
         'readiness_report_submit',
+        'workflow_get',
         'document_create',
         'document_list',
         'document_get',

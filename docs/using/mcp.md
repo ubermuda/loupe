@@ -230,6 +230,7 @@ It installs twelve skills, each covering one part of working a Loupe project:
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
 | `loupe:loupe-workers` | Reading worker runs and bridges, and stopping, resuming or cancelling a run |
+| `loupe:loupe-discovery` | A read-only discovery run that writes the readiness report of a project |
 | `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
 | `loupe:loupe-stage-product-design` | One review round on a product document |
 | `loupe:loupe-stage-tech-design` | A card entering the tech design column |
@@ -262,9 +263,10 @@ Roughly in the order an agent uses them:
 | `project_update` | Change the project's name, description, domain or search language. A new name also changes the slug |
 | `project_origins_set` | Replace the list of site origins the sign-in widget may run on |
 | `readiness_guide_set` | Show or hide the readiness checklist on the Workshop |
-| `readiness_get` | Read the readiness checks of the project, each with its status, and the state of the latest discovery run. It works while the Workshop guide is hidden |
+| `readiness_get` | Read the readiness checks of the project, each with its status, and the state and the `runId` of the latest discovery run. `readiness_report_submit` takes that `runId`. It works while the Workshop guide is hidden |
 | `discovery_start` | Start a read-only [discovery run](workshop.md#run-discovery) on a new Backlog card. A running bridge must serve the project, the project needs a workflow with board automation on, and one run can be open at a time |
 | `readiness_report_submit` | Submit the report of a [discovery run](workshop.md#review-the-report): the findings, and the cards it proposes. Loupe writes the report as a document for review. When the owner approves it, each ticked proposal becomes a card in Next. A run takes one report |
+| `workflow_get` | Read the [workflow](workflows.md) of the project: its template and version, the board columns with the slot of each, and each kind of work with the rules that ask for it and its `checks` |
 | `document_create` | Submit Markdown as a new document, or as a draft with `draft`; returns a review URL, the language it was stored in and its status |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_publish` | Send a draft to review, so it reaches the reviewer's inbox |

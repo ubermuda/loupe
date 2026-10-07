@@ -428,6 +428,7 @@ final readonly class TemplateParser
         $errorCount = \count($errors);
         $params = [];
         $until = null;
+        $checks = [];
         $declared = self::actionParameters($type);
         if ($app && ActionType::Request === $type) {
             $declared[self::PROMPT] = false;
@@ -448,6 +449,10 @@ final readonly class TemplateParser
             }
             if ('document' === $param) {
                 $params += self::document($given, $where, $errors);
+                continue;
+            }
+            if ('checks' === $param) {
+                $checks = self::checks($given, $where, $errors);
                 continue;
             }
             $error = match ($param) {
@@ -475,7 +480,7 @@ final readonly class TemplateParser
             }
         }
 
-        return \count($errors) === $errorCount ? new ActionCall($type, $params, $until) : null;
+        return \count($errors) === $errorCount ? new ActionCall($type, $params, $until, $checks) : null;
     }
 
     /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write and the epic opening need no fallback. */
@@ -483,7 +488,7 @@ final readonly class TemplateParser
     {
         return match ($type) {
             ActionType::Move => ['to' => true, 'from' => false],
-            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false, 'document' => false],
+            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false, 'document' => false, 'checks' => false],
             ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
             ActionType::Pause => ['reason' => true, 'until' => true],
             ActionType::Release => ['reason' => true],
@@ -519,6 +524,31 @@ final readonly class TemplateParser
         }
 
         return [self::DOCUMENT_TAG => $given['tag'], self::DOCUMENT_STATUS => $status->value];
+    }
+
+    /**
+     * @param list<string> $errors
+     *
+     * @return list<string>
+     */
+    private static function checks(mixed $given, string $where, array &$errors): array
+    {
+        if (!\is_array($given) || [] === $given || !array_is_list($given)) {
+            $errors[] = $where.': parameter "checks" must be a non-empty list of non-empty strings';
+
+            return [];
+        }
+        $checks = [];
+        foreach ($given as $check) {
+            if (!\is_string($check) || '' === $check) {
+                $errors[] = $where.': parameter "checks" must be a non-empty list of non-empty strings';
+
+                return [];
+            }
+            $checks[] = $check;
+        }
+
+        return $checks;
     }
 
     /** @param list<string> $slotKeys */

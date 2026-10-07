@@ -5,4 +5,11 @@ rules:
     - id: discovery
       slot: '@backlog'
       when: { card.discovery_requested: {} }
-      then: { request: { kind: discovery, onTimeout: expire, prompt: discovery } }
+      then:
+          request:
+              kind: discovery
+              onTimeout: expire
+              prompt: discovery
+              checks:
+                  - The Loupe plugin skills are installed for the agent, with the loupe-discovery skill
+                  - The bridge rule file maps the discovery kind, or sets appPrompts to true

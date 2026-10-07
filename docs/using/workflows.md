@@ -242,6 +242,12 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 
 Simple asks for `teardown` alone.
 
+Each request of a shipped template carries a `checks` list. The list names what
+that work needs from the project, such as a worktree per card or a test command.
+A [discovery run](workshop.md#run-discovery) reads the lists through the
+`workflow_get` MCP tool, and checks the project against them. A project bound
+before this release gets the lists through a migration.
+
 ## What a request carries
 
 A request for work carries the context of its card, as the card was when the

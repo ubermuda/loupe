@@ -201,6 +201,32 @@ final class TemplateParserTest extends TestCase
         );
     }
 
+    public function test_a_request_carries_its_checks_apart_from_its_params(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['then']['request']['checks'] = ['A worktree per card', 'A preview URL per branch'];
+
+        foreach ([$this->parser->parse(...), $this->parser->parseStored(...)] as $parse) {
+            $then = $parse($template)->rulesFor('build')[0]->then;
+            self::assertSame(['A worktree per card', 'A preview URL per branch'], $then->checks);
+            self::assertSame(['kind' => 'implement', 'capability' => 'interactive', 'limit' => 3], $then->params);
+        }
+    }
+
+    public function test_a_request_with_no_checks_has_an_empty_list(): void
+    {
+        self::assertSame([], $this->parser->parse(self::valid())->rulesFor('build')[0]->then->checks);
+    }
+
+    public function test_app_rules_accept_a_request_with_checks(): void
+    {
+        $rules = $this->parser->parseAppRules(['rules' => [
+            ['id' => 'app-done', 'slot' => '@terminal', 'when' => ['all' => []], 'then' => ['request' => ['kind' => 'teardown', 'checks' => ['A teardown command']]]],
+        ]]);
+
+        self::assertSame(['A teardown command'], $rules[0]->then->checks);
+    }
+
     public function test_a_document_condition_takes_a_tag_and_an_optional_status(): void
     {
         $template = self::valid();
@@ -461,6 +487,36 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[2] (merge) then.forge-write: unknown parameter "document"'];
+        yield 'an empty checks list' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = [];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'checks as a string' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = 'A worktree';
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'checks as a map' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = ['worktree' => 'A worktree'];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'a checks entry that is empty' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = ['A worktree', ''];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'a checks entry that is not a string' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = ['A worktree', 3];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'checks on another action' => [static function (array $t): array {
+            $t['rules'][1]['then']['move']['checks'] = ['A worktree'];
+
+            return $t;
+        }, 'rules[1] (to-review) then.move: unknown parameter "checks"'];
         yield 'until outside a pause' => [static function (array $t): array {
             $t['rules'][4]['then']['release']['until'] = ['pr.open' => []];
 
