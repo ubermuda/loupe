@@ -6,6 +6,7 @@ namespace App\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Inbox\Service\Dev\DevExperimentSeeder;
 use App\Module\Insights\Service\Dev\DevAnalysesSeeder;
 use App\Module\Project\Command\EnsureHarnessProjectCommand;
 use App\Module\Project\Command\EnsureHarnessProjectHandler;
@@ -48,6 +49,7 @@ final class SeedDevDataCommand extends Command
         private readonly UserRepository $users,
         private readonly EnsureHarnessProjectHandler $ensureProject,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly DevExperimentSeeder $experiment,
         private readonly DevAnalysesSeeder $analyses,
 
         #[Autowire(param: 'app.terms.version')]
@@ -71,7 +73,8 @@ final class SeedDevDataCommand extends Command
         $this->seedUser(self::ADMIN_EMAIL, 'Admin User', ['ROLE_ADMIN']);
 
         $project = ($this->ensureProject)(new EnsureHarnessProjectCommand($user, self::PROJECT_NAME));
-        $this->analyses->seed($project);
+        $this->experiment->seed($project);
+        $this->analyses->seed($project, DevExperimentSeeder::EXPERIMENT);
 
         // Printed for a human to copy into SITE_REVIEW_WIDGET_PROJECT. No
         // caller parses it, so the prefix is for readers only.
