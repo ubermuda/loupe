@@ -80,7 +80,8 @@ it. An agent ends a pause with the `card_pause_release` MCP tool.
 ## Writes to GitHub
 
 A rule can write to a pull request: merge it, update its branch, change its
-base, switch an epic pull request between draft and ready, or close it. Each
+base, open an epic pull request, switch it between draft and ready, or close
+it. Each
 write is off until the owner turns it on, on the **Automation** tab. With a
 write off, the rule asks a bridge for the same work instead. See
 [Automation](board.md#automation).
@@ -117,10 +118,20 @@ Some rules act from any slot:
 3. A child in the Backlog whose last blocker finished moves to Implementation.
 4. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
+5. A child that reaches a terminal column with a pull request merged into its
+   epic branch asks for an epic preview refresh.
 
 An epic follows its children. An epic whose children all finished moves to In
 review when it has a pull request, and to the terminal column when it has none.
 It moves on only after its breakdown request ends.
+When a child merges into the epic branch and the epic has no open pull request, the
+workflow opens the epic pull request. Such an epic never moves straight to the
+terminal column. It goes through In review with its epic pull request. With
+the open write off, the rule refuses and tries again later. The epic waits in
+Implementation until a person turns the write on or links a pull request.
+Turning the write on opens the pull request of each waiting epic, and ends the
+pause of an epic that ran out of retries. A save that also turns the automation
+on does neither, so turn the write on in a separate save.
 A new open child moves it back to Implementation. With the epic writes on, the
 pull request of an epic is a draft in Implementation, turns ready in In review,
 and closes when the epic returns to the Backlog.
@@ -152,6 +163,7 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 | `sync` | An update of a branch that is behind, with the sync write off |
 | `merge` | A merge, with the merge write off |
 | `teardown` | The removal of the card's worktree |
+| `epic-preview` | A refresh of the epic preview after a child merges into the epic branch |
 
 Simple asks for `teardown` alone.
 

@@ -53,7 +53,7 @@
                         </div>
                     {% endif %}
                 </div>
-                {% for field in [form.commentOnStaleApproval, form.syncBehind, form.mergePullRequests, form.changeBase, form.epicDraftSwitch, form.closeEpicPullRequests] %}
+                {% for field in [form.commentOnStaleApproval, form.syncBehind, form.mergePullRequests, form.changeBase, form.epicDraftSwitch, form.closeEpicPullRequests, form.openEpicPullRequests] %}
                 <div class="lp-form-field">
                     <label class="lp-choice">
                         {{ form_widget(field) }}
@@ -63,6 +63,12 @@
                     <div class="lp-field-errors" data-field-errors="{{ field.vars.name }}">{{ form_errors(field) }}</div>
                 </div>
                 {% endfor %}
+                <div class="lp-form-field">
+                    {{ form_label(form.epicBranchPattern, null, {label_attr: {class: 'lp-label'}}) }}
+                    {{ form_widget(form.epicBranchPattern, {attr: {class: 'lp-input'}}) }}
+                    {{ form_help(form.epicBranchPattern, {help_attr: {class: 'lp-form-hint'}}) }}
+                    <div class="lp-field-errors" data-field-errors="epicBranchPattern">{{ form_errors(form.epicBranchPattern) }}</div>
+                </div>
                 <div class="lp-settings-form-actions">
                     <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.automation.submit'|trans }}</button>
                 </div>

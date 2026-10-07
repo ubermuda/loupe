@@ -4,18 +4,24 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Action;
 
+use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\ForgePullRequestWrites;
 use App\Module\Forge\Service\PullRequestBaseChangers;
 use App\Module\Forge\Service\PullRequestBranchUpdaters;
 use App\Module\Forge\Service\PullRequestMergers;
+use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
@@ -30,6 +36,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final class ForgeWriteTest extends KernelTestCase
 {
@@ -250,12 +257,134 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([], $this->liveKinds($card));
     }
 
+    public function test_an_epic_opening_that_is_off_refuses_so_a_retry_opens_it_later(): void
+    {
+        [$epic] = $this->epicWithMergedChild($this->project());
+
+        self::assertEquals(ActionOutcome::refused('open-epic-off'), $this->write($epic, 'open-epic', fallback: null));
+        self::assertSame([], $this->writer->calls);
+        self::assertSame([], $this->liveKinds($epic));
+    }
+
+    public function test_an_epic_opening_on_a_card_that_is_not_an_epic_does_nothing(): void
+    {
+        [$epic] = $this->epicWithMergedChild($this->project(openEpicPullRequests: true));
+        $epic->type = CardType::Feature;
+
+        self::assertEquals(ActionOutcome::done(), $this->write($epic, 'open-epic', fallback: null));
+        self::assertSame([], $this->writer->calls);
+    }
+
+    public function test_it_opens_the_epic_pull_request_and_links_it_to_the_epic(): void
+    {
+        [$epic, $childPullRequest] = $this->epicWithMergedChild($this->project(openEpicPullRequests: true));
+        $existing = $this->pullRequest($epic, state: PullRequestState::Closed, head: 'epic/'.$epic->number);
+        foreach ($this->service(CardPullRequestRepository::class)->findBy(['card' => $epic]) as $link) {
+            $epic->pullRequests->add($link);
+        }
+
+        self::assertEquals(ActionOutcome::done(), $this->write($epic, 'open-epic', fallback: null));
+
+        self::assertCount(1, $this->writer->calls);
+        self::assertSame(['open', $childPullRequest->number, 'epic/'.$epic->number, 'main', 'Epic'], \array_slice($this->writer->calls[0], 0, 5));
+        $body = $this->writer->calls[0][5];
+        self::assertIsString($body);
+        self::assertStringContainsString('`epic/'.$epic->number.'`', $body);
+        self::assertMatchesRegularExpression('#https?://\S+/projects/'.$epic->project->id.'/board/cards/'.$epic->id.'#', $body);
+        self::assertSame([
+            ['forge' => 'github', 'repository' => 'acme/widgets', 'number' => $existing->number],
+            ['forge' => 'github', 'repository' => 'acme/widgets', 'number' => 900],
+        ], $this->service(CardPullRequestRepository::class)->findCurrentKeys($epic));
+    }
+
+    public function test_an_epic_that_links_its_open_pull_request_opens_nothing(): void
+    {
+        [$epic] = $this->epicWithMergedChild($this->project(openEpicPullRequests: true));
+        $this->pullRequest($epic, head: 'epic/'.$epic->number);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($epic, 'open-epic', fallback: null));
+        self::assertSame([], $this->writer->calls);
+    }
+
+    public function test_an_epic_that_links_the_opened_pull_request_in_another_case_gets_no_second_link(): void
+    {
+        [$epic] = $this->epicWithMergedChild($this->project(openEpicPullRequests: true));
+        $this->writer->openedNumber = 77;
+        $this->em()->persist(new CardPullRequest($epic, 'https://github.com/Acme/Widgets/pull/77', Forge::GitHub, 'Acme/Widgets', 77));
+        $this->em()->flush();
+
+        self::assertEquals(ActionOutcome::done(), $this->write($epic, 'open-epic', fallback: null));
+        self::assertCount(1, $this->writer->calls);
+        self::assertCount(1, $this->service(CardPullRequestRepository::class)->findCurrentKeys($epic));
+    }
+
+    public function test_an_epic_with_no_merged_child_is_refused(): void
+    {
+        $project = $this->project(openEpicPullRequests: true);
+        $epic = $this->epic($project);
+        $child = $this->card($project, 'in-review');
+        $child->parent = $epic;
+        $this->pullRequest($child, base: 'epic/'.$epic->number);
+
+        self::assertEquals(ActionOutcome::refused('no-merged-child'), $this->write($epic, 'open-epic', fallback: null));
+        self::assertSame([], $this->writer->calls);
+    }
+
+    public function test_a_merged_child_with_no_default_branch_is_refused(): void
+    {
+        [$epic, $childPullRequest] = $this->epicWithMergedChild($this->project(openEpicPullRequests: true));
+        $childPullRequest->defaultBranch = null;
+        $this->em()->flush();
+
+        self::assertEquals(ActionOutcome::refused('no-default-branch'), $this->write($epic, 'open-epic', fallback: null));
+        self::assertSame([], $this->writer->calls);
+    }
+
+    public function test_a_failed_epic_opening_is_refused_with_its_cause_and_links_nothing(): void
+    {
+        [$epic] = $this->epicWithMergedChild($this->project(openEpicPullRequests: true));
+        $this->writer->failure = new PullRequestWriteFailed('api_failed_http_status_422', permanent: false);
+
+        self::assertEquals(ActionOutcome::refused('api-failed-http-status-422'), $this->write($epic, 'open-epic', fallback: null));
+        self::assertSame([], $this->service(CardPullRequestRepository::class)->findCurrentKeys($epic));
+    }
+
+    public function test_an_epic_opening_with_no_opener_for_the_forge_does_nothing(): void
+    {
+        [$epic] = $this->epicWithMergedChild($this->project(openEpicPullRequests: true));
+
+        self::assertEquals(ActionOutcome::done(), $this->write($epic, 'open-epic', fallback: null, writers: false));
+        self::assertSame([], $this->service(CardPullRequestRepository::class)->findCurrentKeys($epic));
+    }
+
+    private function epic(Project $project): Card
+    {
+        $epic = $this->card($project, 'in-review');
+        $epic->type = CardType::Epic;
+        $epic->title = 'Epic';
+        $this->em()->flush();
+
+        return $epic;
+    }
+
+    /** @return array{Card, ForgePullRequest} the epic, and the merged pull request of its child */
+    private function epicWithMergedChild(Project $project): array
+    {
+        $epic = $this->epic($project);
+        $child = $this->card($project, 'done');
+        $child->parent = $epic;
+        $this->em()->flush();
+
+        return [$epic, $this->pullRequest($child, state: PullRequestState::Merged, base: 'epic/'.$epic->number)];
+    }
+
     private function project(
         bool $mergePullRequests = false,
         bool $changeBase = false,
         bool $syncBehind = false,
         bool $epicDraftSwitch = false,
         bool $closeEpicPullRequests = false,
+        bool $openEpicPullRequests = false,
     ): Project {
         $project = $this->workflowProject('forge-write');
         $this->em()->persist(new BoardAutomationSettings(
@@ -265,6 +394,7 @@ final class ForgeWriteTest extends KernelTestCase
             changeBase: $changeBase,
             epicDraftSwitch: $epicDraftSwitch,
             closeEpicPullRequests: $closeEpicPullRequests,
+            openEpicPullRequests: $openEpicPullRequests,
         ));
         $this->em()->flush();
 
@@ -288,7 +418,10 @@ final class ForgeWriteTest extends KernelTestCase
             $forgePullRequests,
             new PullRequestBranchUpdaters($registered),
             new PullRequestStateWriters($registered),
+            new PullRequestOpeners($registered),
             $this->opener(),
+            $this->service(UpdateCardHandler::class),
+            $this->service(UrlGeneratorInterface::class),
             'squash',
         );
 
