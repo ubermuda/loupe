@@ -71,10 +71,11 @@ time. Name the biggest thing you changed, then check the summary mentions it.
 Both rules cost time on a large diff. Put the pass count and what the last pass
 covered on the body's gate line, so "Codex: clean" never claims more than it did.
 
-e2e is not in the local gate. The `e2e` required check on the PR gates the
-suite, and it runs the same `just e2e` on a disposable runner. Push, then read
-that check. Fix every failure it reports, including pre-existing ones. Do not
-run the full suite locally before you open the PR. See "Running the suite
+e2e is not in the local gate. The required checks `e2e-chromium`,
+`e2e-chromium-2` and `e2e-rest` on the PR gate the suite. They run the same
+`just e2e` on disposable runners. Push, then read those checks. Fix every
+failure they report, including pre-existing ones. Do not run the full suite
+locally before you open the PR. See "Running the suite
 locally is debugging, not gating" for the cases that still want a local run.
 
 If `mcp__codex-cli__review` is not available, STOP and tell the owner. A missing
@@ -203,7 +204,7 @@ the output.
 
 Skip the Codex review. Say so in the PR body, so the record shows the gate was
 reduced deliberately rather than forgotten. CI still runs its own checks
-including `e2e`; you skip the review, not them.
+including the e2e shards; you skip the review, not them.
 
 The test is the diff, not the intent. Every changed file must end in `.md`.
 Check it, do not assume:
@@ -412,15 +413,13 @@ test discriminates rather than passing vacuously.
 
 ## Running the suite locally is debugging, not gating
 
-CI's `e2e` check is the gate. It runs the same `just e2e` against a disposable
-stack, with both `E2E_BASE_URL` and `MAILPIT_URL` set correctly. See
-`.github/workflows/ci.yml`.
+The three shard checks `e2e-chromium`, `e2e-chromium-2` and `e2e-rest` are the
+gate. They run the same `just e2e` against a disposable stack, with both
+`E2E_BASE_URL` and `MAILPIT_URL` set correctly. See `.github/workflows/ci.yml`.
 
-The work happens in three jobs, `e2e-chromium`, `e2e-chromium-2` and
-`e2e-rest`, each on its own runner with its own stack. `e2e` itself is a fan-in
-job that reports red when any shard fails. Read the shard job for a failure,
-because `e2e` names no test. `maxFailures: 1` is per process, so a red run can
-report one failure in each shard.
+Each shard is its own required check, on its own runner with its own stack.
+Read the red shard for the failure. `maxFailures: 1` is per process, so a red
+run can report one failure in each shard.
 
 Locally the same suite is slower, destructive, and measurably less truthful.
 Across one wave of five branches, every local e2e problem was environmental and
@@ -708,11 +707,12 @@ gh api repos/ubermuda/loupe/rulesets/$id \
   -q '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
 ```
 
-On 2026-09-21 it printed thirteen contexts: `lint`, `cs-check`, `phpstan`,
-`arkitect`, `gamache`, `audit`, `phpunit`, `e2e`, `js-test`, `cli-test`,
+On 2026-10-06 it printed twelve contexts: `lint`, `cs-check`, `phpstan`,
+`arkitect`, `gamache`, `audit`, `phpunit`, `js-test`, `cli-test`,
 `e2e-chromium`, `e2e-rest` and `e2e-chromium-2`. Run the command rather than
-trust that snapshot. It read ten before the e2e shard jobs arrived, and nothing
-in the repository fails when it goes stale.
+trust that snapshot. It read ten before the e2e shard jobs arrived, and
+thirteen while a fan-in `e2e` job also ran. Nothing in the repository fails
+when it goes stale.
 
 No ruleset covers `refs/heads/epic/*` since 2026-10-02. Loupe gives a pull
 request into `epic/<n>` the required checks of `main`, and the merge stage
