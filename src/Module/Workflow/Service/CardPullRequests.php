@@ -9,6 +9,7 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Workflow\Contract\PullRequestFacts;
 
 /** The pull requests that Forge tracks for the links of a card, and the one the engine acts on. */
 final readonly class CardPullRequests
@@ -40,6 +41,35 @@ final readonly class CardPullRequests
         return $pullRequests;
     }
 
+    public function childMergedInto(Card $parent, string $baseBranch): bool
+    {
+        return $this->cardPullRequests->hasChildMergedInto($parent, $baseBranch);
+    }
+
+    /** Whether the card links the pull request, whatever case its link spells the repository in. */
+    public function links(Card $card, string $forge, string $repository, int $number): bool
+    {
+        return null !== $this->cardPullRequests->findUrlOfPullRequest($card, $forge, $repository, $number);
+    }
+
+    /** @return list<string> every link URL of the card, read past the identity map */
+    public function currentUrls(Card $card): array
+    {
+        return $this->cardPullRequests->findCurrentUrls($card);
+    }
+
+    /** The pull request of a child of the card that merged into the branch last, as Forge tracks it. */
+    public function lastChildMergedInto(Card $parent, string $baseBranch): ?ForgePullRequest
+    {
+        $key = $this->cardPullRequests->findLastChildMergedInto($parent, $baseBranch);
+        if (null === $key) {
+            return null;
+        }
+        $projectId = $parent->project->id ?? throw new \LogicException('A stored card has a project id.');
+
+        return $this->forgePullRequests->findByKeys($projectId, [$key])[0] ?? null;
+    }
+
     /**
      * The open pull request opened last, else the pull request opened last. A pull request
      * with no opening time sorts first, and the id breaks a tie.
@@ -59,6 +89,20 @@ final readonly class CardPullRequests
         }
 
         return $primary;
+    }
+
+    /**
+     * The pull request the facts read, by its id. Facts with no id fall back to the primary one.
+     *
+     * @param list<ForgePullRequest> $pullRequests
+     */
+    public function subjectOf(array $pullRequests, ?PullRequestFacts $facts): ?ForgePullRequest
+    {
+        if (null === $facts?->id) {
+            return $this->primary($pullRequests);
+        }
+
+        return array_find($pullRequests, static fn (ForgePullRequest $pullRequest): bool => true === $pullRequest->id?->equals($facts->id));
     }
 
     /** @return array{string, string} */

@@ -52,7 +52,8 @@ func workRequest(kind string) api.WorkRequest {
 		WorkRequestID: workRequestID,
 		Kind:          kind,
 		State:         api.WorkRequestOpen,
-		CardID:        cardID,
+		SubjectType:   api.SubjectCard,
+		SubjectID:     cardID,
 		CardNumber:    87,
 		RuleID:        "impl.rule",
 		CreatedAt:     time.Date(2026, 10, 1, 12, 30, 0, 0, time.UTC),
@@ -111,6 +112,12 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 		"variant model too long":       {entry("x", "prompt: x\nvariants:\n  - {name: a, weight: 1, model: "+strings.Repeat("m", 101)+"}"), "the server takes at most 100"},
 		"two variants of one name":     {entry("x", "prompt: x\nvariants:\n  - {name: a, weight: 1, model: opus}\n  - {name: a, weight: 1, model: sonnet}"), `two variants are named "a"`},
 		"undeclared pool":              {entry("x", "prompt: x\nworkerPool: slow"), `work "x": workerPool "slow" is not in workerPools, which declares default, quick`},
+		"subject with a capital":       {entry("x", "subject: Analysis\nprompt: x"), `work "x": subject "Analysis" is not 1 to 32`},
+		"subject too long":             {entry("x", "subject: "+strings.Repeat("a", 33)+"\nprompt: x"), "is not 1 to 32"},
+		"cardId off card":              {entry("x", "subject: analysis\nprompt: 'Do {cardId}'"), "prompt uses {cardId}, which names a card, and this entry runs subject analysis"},
+		"cardNumber in run off card":   {entry("x", "subject: analysis\naction: command\nrun: [make, '{cardNumber}']"), "run uses {cardNumber}, which names a card"},
+		"cardId in before off card":    {entry("x", "subject: analysis\nprompt: x\nbefore:\n  run: [prep, '{cardId}']"), "before.run uses {cardId}, which names a card"},
+		"interactive off card":         {entry("x", "subject: analysis\n"+interactive), "action interactive opens a session on a card, and this entry runs subject analysis"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			text, _ := file(t, tc.body)
@@ -275,6 +282,37 @@ func TestAGoneProjectKillsItsWork(t *testing.T) {
 	}
 }
 
+// An entry runs the subject type it names, card by default, and skips a
+// request about another subject.
+func TestMatchWorkRunsTheSubjectOfTheEntry(t *testing.T) {
+	s := checked(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: Implement {cardNumber}.\n"+
+		"  analyse:\n    subject: analysis\n    action: command\n    run: [analyse, '{subjectType}', '{subjectId}', '{project}']\n")
+	analysis := workRequest("analyse")
+	analysis.SubjectType, analysis.SubjectID, analysis.CardNumber = "analysis", "0199a0e2-aaaa-7c5e-9f2a-3b1c6d7e8f90", 0
+
+	m := s.MatchWork(analysis)
+	if m.Skip != Run || m.Command == nil || !slices.Equal(m.Command.Argv, []string{"analyse", "analysis", "0199a0e2-aaaa-7c5e-9f2a-3b1c6d7e8f90", "loupe"}) {
+		t.Fatalf("match = %+v", m)
+	}
+	onCard := workRequest("analyse")
+	if m := s.MatchWork(onCard); m.Skip != NoRule {
+		t.Fatalf("a card request matched the analysis entry: %+v", m)
+	}
+	analysis.Kind = "implement"
+	if m := s.MatchWork(analysis); m.Skip != NoRule {
+		t.Fatalf("an analysis request matched the card entry: %+v", m)
+	}
+}
+
+// A card subject fills the card placeholders and the subject ones alike.
+func TestMatchWorkFillsTheSubjectOfACard(t *testing.T) {
+	s := checked(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: '{cardId} {cardNumber} {subjectType} {subjectId}'\n")
+	m := s.MatchWork(workRequest("implement"))
+	if want := cardID + " 87 card " + cardID; !strings.HasPrefix(m.Prompt, want) {
+		t.Fatalf("prompt = %q, want it to start with %q", m.Prompt, want)
+	}
+}
+
 func TestCapabilities(t *testing.T) {
 	for name, tc := range map[string]struct {
 		body string
@@ -282,6 +320,9 @@ func TestCapabilities(t *testing.T) {
 	}{
 		"workers only":     {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n", []string{"work-requests"}},
 		"with interactive": {workFile, []string{"work-requests", "interactive"}},
+		"with subjects": {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    subject: review\n    prompt: x\n" +
+			"  y:\n    subject: analysis\n    prompt: x\n  z:\n    subject: analysis\n    prompt: x\n  w:\n    subject: card\n    prompt: x\n",
+			[]string{"work-requests", "subject-analysis", "subject-review"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := parse(t, tc.body).Capabilities(); !slices.Equal(got, tc.want) {

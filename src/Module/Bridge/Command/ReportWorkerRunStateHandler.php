@@ -11,6 +11,7 @@ use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkerRunQueued;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\Service\WorkerRunUsageRecorder;
@@ -49,6 +50,7 @@ final readonly class ReportWorkerRunStateHandler
         private WorkerRunChangedPublisher $publisher,
         private WorkerRunUsageRecorder $usageRecorder,
         private EventDispatcherInterface $events,
+        private WorkRequestRepository $workRequests,
     ) {
     }
 
@@ -65,8 +67,9 @@ final readonly class ReportWorkerRunStateHandler
 
             $run = $this->workerRuns->findOneByRunKey($project, $command->bridgeId, $command->runKey);
             // Read before the write: a new outcome is the latest of its card.
-            $warned = $command->state->isOutcome()
-                && null !== $this->workerRuns->findWarningRowOfCard($project, $run->cardId ?? $command->cardId);
+            $subject = $run?->subject() ?? $command->subject;
+            $warned = $command->state->isOutcome() && $subject->isCard()
+                && null !== $this->workerRuns->findWarningRowOfCard($project, $subject->id);
             // Read after the run lock, so a reopening never predates a timeout
             // that the sweep wrote while this report waited.
             $receivedAt = $this->clock->now();
@@ -74,7 +77,8 @@ final readonly class ReportWorkerRunStateHandler
                 $run = new WorkerRun(
                     project: $project,
                     bridgeId: $command->bridgeId,
-                    cardId: $command->cardId,
+                    subjectType: $command->subject->type,
+                    subjectId: $command->subject->id,
                     cardNumber: $command->cardNumber,
                     workKind: $command->workKind,
                     state: $command->state,
@@ -115,7 +119,7 @@ final readonly class ReportWorkerRunStateHandler
                 if ($moves) {
                     $this->apply($run, $command);
                     $closes = !$command->state->isOpen();
-                    $warningChanged = $command->state->isOutcome() && ($warned || $command->state->isWarning());
+                    $warningChanged = $command->state->isOutcome() && $subject->isCard() && ($warned || $command->state->isWarning());
                 }
                 // A retry carries its first time, which precedes the timeout.
                 $at = $reopens ? $receivedAt : $command->at;
@@ -137,7 +141,7 @@ final readonly class ReportWorkerRunStateHandler
             }
         }
         if ($warningChanged && null !== $result->run) {
-            $this->publisher->cardWarningChanged($result->run->project, $result->run->cardId);
+            $this->publisher->cardWarningChanged($result->run->project, $result->run->subjectId);
         }
         if ($closes && null !== $result->run) {
             $this->audit($result->run);
@@ -147,8 +151,8 @@ final readonly class ReportWorkerRunStateHandler
             }
         }
         if ($created && null !== $result->run && WorkerRunState::Queued === $command->state
-            && self::FIX_KIND === $result->run->workKind) {
-            $this->events->dispatch(self::queued($result->run));
+            && self::FIX_KIND === $result->run->workKind && $result->run->subject()->isCard()) {
+            $this->events->dispatch($this->queued($result->run));
         }
 
         return $result;
@@ -195,12 +199,16 @@ final readonly class ReportWorkerRunStateHandler
         );
     }
 
-    private static function queued(WorkerRun $run): WorkerRunQueued
+    private function queued(WorkerRun $run): WorkerRunQueued
     {
+        $context = null === $run->workRequestId ? null : $this->workRequests->findOneOfSubject($run->workRequestId, $run->project, $run->subject())?->context;
+
         return new WorkerRunQueued(
             projectId: $run->project->id ?? throw new \LogicException('A persisted project has an id.'),
             runId: $run->id ?? throw new \LogicException('A flushed run has an id.'),
-            cardId: $run->cardId,
+            cardId: $run->subjectId,
+            pullRequestNumber: $context?->pullRequestNumber,
+            pullRequestUrl: $context?->pullRequestUrl,
         );
     }
 
@@ -278,6 +286,8 @@ final readonly class ReportWorkerRunStateHandler
                 'bridgeId' => (string) $run->bridgeId,
                 'runKey' => (string) $run->runKey,
                 'sessionId' => null === $run->sessionId ? null : (string) $run->sessionId,
+                'subjectType' => $run->subjectType,
+                'subjectId' => (string) $run->subjectId,
                 'cardNumber' => $run->cardNumber,
                 'workRequestId' => $run->workRequestId?->toRfc4122(),
                 'workKind' => $run->workKind,

@@ -16,12 +16,13 @@ const testSessionID = "0199a0e2-5e5e-7f66-9b33-405162738495"
 
 func launchReport(state string) InteractiveLaunchReport {
 	return InteractiveLaunchReport{
-		BridgeID:   "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
-		CardID:     "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
-		CardNumber: 42,
-		WorkKind:   "design",
-		State:      state,
-		At:         time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC),
+		BridgeID:    "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
+		SubjectType: SubjectCard,
+		SubjectID:   "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
+		CardNumber:  42,
+		WorkKind:    "design",
+		State:       state,
+		At:          time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC),
 	}
 }
 
@@ -56,10 +57,10 @@ func TestReportInteractiveLaunchPutsTheLaunchOnTheSession(t *testing.T) {
 	if path != "/api/projects/loupe/interactive-runs/"+testSessionID {
 		t.Fatalf("path = %s", path)
 	}
-	if got := keys(body); got != "at,bridgeId,cardId,cardNumber,state,workKind" {
+	if got := keys(body); got != "at,bridgeId,cardNumber,state,subjectId,subjectType,workKind" {
 		t.Fatalf("keys = %s", got)
 	}
-	if body["state"] != "running" || body["cardNumber"] != float64(42) || body["workKind"] != "design" || body["at"] != "2026-09-25T10:00:00Z" {
+	if body["state"] != "running" || body["cardNumber"] != float64(42) || body["subjectType"] != "card" || body["workKind"] != "design" || body["at"] != "2026-09-25T10:00:00Z" {
 		t.Fatalf("body = %v", body)
 	}
 }

@@ -75,9 +75,9 @@ final readonly class InboxAskCloser
         if (null === $ask->sessionId) {
             return null;
         }
-        $run = $this->workerRuns->findFirstOfSession($ask->project, $ask->sessionId);
+        $cardId = $this->workerRuns->findFirstOfSession($ask->project, $ask->sessionId)?->cardId();
 
-        return null === $run ? null : $this->cards->findOneByIdAndProjectId((string) $run->cardId, (string) $ask->project->id);
+        return null === $cardId ? null : $this->cards->findOneByIdAndProjectId((string) $cardId, (string) $ask->project->id);
     }
 
     /** The Doctrine transport commits the message with the close, and the queue sends the resume after it. */

@@ -13,6 +13,8 @@ final readonly class WithdrawWorkRequestCommand
         public Uuid $workRequestId,
         /** Cancelled or expired. */
         public WorkRequestState $state,
+        /** Leaves a request that a bridge claimed since the caller read it. */
+        public bool $onlyIfOpen = false,
     ) {
     }
 }

@@ -8,8 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
-use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
@@ -26,6 +24,7 @@ use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -285,10 +284,6 @@ final readonly class ProjectShowcaseSeeder
         $this->linkPullRequest($columnRules, 445, PullRequestChecks::Failed, PullRequestMergeability::Mergeable, PullRequestReview::ChangesRequested, ['lint']);
         $this->linkPullRequest($onboarding, 447, PullRequestChecks::Passed, PullRequestMergeability::Mergeable, PullRequestReview::Approved);
 
-        $automation = new CardAutomation($columnRules);
-        $automation->lastAction = CardAutomationAction::Synced;
-        $automation->lastActionAt = new \DateTimeImmutable('-20 minutes');
-        $this->em->persist($automation);
         $this->em->flush();
 
         return ['checkout' => $checkout, 'history' => $history, 'columns' => $columnRules, 'onboarding' => $onboarding, 'pullRequest' => $pullRequest];
@@ -585,7 +580,8 @@ final readonly class ProjectShowcaseSeeder
         $finished = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: $cardId,
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId,
             cardNumber: $card->number,
             workKind: 'fix',
             state: WorkerRunState::Succeeded,
@@ -601,7 +597,8 @@ final readonly class ProjectShowcaseSeeder
         $open = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: $cardId,
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId,
             cardNumber: $card->number,
             workKind: 'implement',
             state: WorkerRunState::Running,
@@ -668,7 +665,8 @@ final readonly class ProjectShowcaseSeeder
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: $child->id ?? throw new \LogicException('A stored card has an id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $child->id ?? throw new \LogicException('A stored card has an id.'),
             cardNumber: $child->number,
             workKind: 'implement',
             state: WorkerRunState::GaveUp,

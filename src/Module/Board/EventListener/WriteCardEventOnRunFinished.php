@@ -49,8 +49,12 @@ final readonly class WriteCardEventOnRunFinished
 
         // One try per run, so a failed row does not cost the other runs theirs.
         foreach ($runs as $run) {
+            $cardId = $run->cardId();
+            if (null === $cardId) {
+                continue;
+            }
             try {
-                $card = $this->cards->findOneByIdAndProjectId($run->cardId->toRfc4122(), (string) $run->project->id);
+                $card = $this->cards->findOneByIdAndProjectId($cardId->toRfc4122(), (string) $run->project->id);
                 $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
                 if (null !== $card && $run->state->isOpen()) {
                     // A timed-out run can reopen, and its row must not show it finished meanwhile.

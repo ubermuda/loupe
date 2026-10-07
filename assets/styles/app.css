@@ -6340,10 +6340,6 @@
     .lp-pull-request-state__failed {
         @apply basis-full text-xs text-fg-mute;
     }
-    /* What the board automation last did on the card. */
-    .lp-card-automation {
-        @apply flex items-center gap-1.5 text-xs text-fg-mute m-0 mt-3;
-    }
     /* Site-review feedback left on a page that named this card. Read only
        here: the status is owned by the site-review screen and by the MCP tool
        that marks a comment addressed. */

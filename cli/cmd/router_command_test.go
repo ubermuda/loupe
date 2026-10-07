@@ -34,7 +34,7 @@ const testCommandID = "0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f90"
 func testCommand(id, kind, bridgeID string, expires time.Time) api.Command {
 	return api.Command{
 		Type: event.CommandType, ProjectID: testProject, Subject: api.CommandSubject{Type: "bridge-command", ID: id}, CommandID: id,
-		Kind: kind, BridgeID: bridgeID, CardID: cardUUID(87), CardNumber: 87, WorkKind: "plan", ExpiresAt: expires,
+		Kind: kind, BridgeID: bridgeID, SubjectType: api.SubjectCard, SubjectID: cardUUID(87), CardNumber: 87, WorkKind: "plan", ExpiresAt: expires,
 	}
 }
 

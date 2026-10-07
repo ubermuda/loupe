@@ -13,6 +13,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Bridge\View\WorkerRunAction;
 use App\Module\Bridge\View\WorkerRunControl;
 use App\Module\Bridge\View\WorkerRunControls;
@@ -181,7 +182,7 @@ final class WorkerRunControlsTest extends KernelTestCase
     public function test_a_run_with_no_bridge_has_no_control(): void
     {
         [$project] = $this->scenario('controls-no-bridge');
-        $worker = new WorkerRun($project, null, Uuid::v7(), 1, 'plan', WorkerRunState::Running, sessionId: Uuid::v4());
+        $worker = new WorkerRun($project, null, WorkSubject::CARD, Uuid::v7(), 1, 'plan', WorkerRunState::Running, sessionId: Uuid::v4());
         $this->em()->persist($worker);
         $this->em()->flush();
 

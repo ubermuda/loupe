@@ -77,6 +77,34 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertSame($changeBase, $context['changeBase']);
     }
 
+    public function test_it_stores_and_audits_the_epic_pull_request_settings(): void
+    {
+        $this->save(enabled: true, syncBehind: false, openEpicPullRequests: true, epicBranchPattern: '  feature/epic-{number}  ');
+
+        $settings = $this->stored();
+        self::assertTrue($settings->openEpicPullRequests);
+        self::assertSame('feature/epic-{number}', $settings->epicBranchPattern);
+        $context = $this->audit->record('board.automation_settings_saved')->context;
+        self::assertTrue($context['openEpicPullRequests']);
+        self::assertSame('feature/epic-{number}', $context['epicBranchPattern']);
+    }
+
+    /** @return iterable<string, array{?string}> */
+    public static function blankPatterns(): iterable
+    {
+        yield 'null' => [null];
+        yield 'empty' => [''];
+        yield 'spaces' => ['   '];
+    }
+
+    #[DataProvider('blankPatterns')]
+    public function test_a_blank_epic_branch_pattern_is_stored_as_null(?string $pattern): void
+    {
+        $this->save(enabled: true, syncBehind: false, epicBranchPattern: $pattern);
+
+        self::assertNull($this->stored()->epicBranchPattern);
+    }
+
     public function test_every_write_opt_in_is_off_by_default(): void
     {
         $this->em->persist(new BoardAutomationSettings($this->project));
@@ -87,6 +115,7 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertFalse($settings->changeBase);
         self::assertFalse($settings->epicDraftSwitch);
         self::assertFalse($settings->closeEpicPullRequests);
+        self::assertFalse($settings->openEpicPullRequests);
     }
 
     /** @return iterable<string, array{?array{bool, bool}, bool, bool, int}> */
@@ -125,7 +154,7 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         }
     }
 
-    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false): void
+    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, ?string $epicBranchPattern = 'epic/{number}'): void
     {
         $handler = self::getContainer()->get(SaveBoardAutomationSettingsHandler::class);
         self::assertInstanceOf(SaveBoardAutomationSettingsHandler::class, $handler);
@@ -137,6 +166,8 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
             syncBehind: $syncBehind,
             mergePullRequests: $mergePullRequests,
             changeBase: $changeBase,
+            openEpicPullRequests: $openEpicPullRequests,
+            epicBranchPattern: $epicBranchPattern,
         ));
     }
 

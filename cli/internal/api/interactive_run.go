@@ -15,9 +15,12 @@ import (
 // PUT /api/projects/{handle}/interactive-runs/{sessionId} takes it. State is
 // RunRunning or RunNotStarted, and only RunNotStarted carries a FailureReason.
 type InteractiveLaunchReport struct {
-	BridgeID   string `json:"bridgeId"`
-	CardID     string `json:"cardId"`
-	CardNumber int    `json:"cardNumber"`
+	BridgeID string `json:"bridgeId"`
+	// SubjectType is always SubjectCard, because an interactive run is about
+	// a card.
+	SubjectType string `json:"subjectType"`
+	SubjectID   string `json:"subjectId"`
+	CardNumber  int    `json:"cardNumber"`
 	// WorkKind names the session: the kind of its work request, or the rule
 	// that launched it.
 	WorkKind      string    `json:"workKind"`

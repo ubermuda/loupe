@@ -10,6 +10,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\OpenCardRuns;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Bridge\View\OpenCardRun;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
@@ -121,7 +122,8 @@ final class OpenCardRunsTest extends TestCase
         return new WorkerRun(
             project: $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $cardId,
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId,
             cardNumber: 1,
             workKind: $workKind,
             state: $state,

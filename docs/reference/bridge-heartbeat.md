@@ -222,7 +222,8 @@ holds, by `commandId`. Each command carries these fields:
 | `kind` | `stop-run`, `resume-run` or `rerun-command` |
 | `bridgeId` | the bridge that must act. Another bridge drops the event |
 | `runKey`, `sessionId` | the run and its session, or `null` when the run has none |
-| `cardId`, `cardNumber` | the card of the run |
+| `subjectType`, `subjectId` | the subject of the run, such as `card` and the card id |
+| `cardNumber` | the number of the card of a `card` subject, as a label for a person, or `null` for any other subject |
 | `workRequestId`, `workKind`, `ruleId` | the work request of the run, or `null` for a run from before the work map |
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
 | `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
@@ -301,9 +302,12 @@ answer settles a command.
 
 ## Work requests
 
-A work request is a piece of agent work on one card that the server asks a
-bridge to run. One bridge claims it, runs it, and sends the result. A rule of
-the [workflow](../using/workflows.md) opens a request when it asks for work.
+A work request is a piece of agent work on one subject that the server asks a
+bridge to run. The subject is usually a card. One bridge claims it, runs it,
+and sends the result. A rule of the [workflow](../using/workflows.md) opens a
+request on a card when it asks for work. A module of the app can open a request
+on a subject of its own type, and the server refuses a subject type that no
+module handles.
 
 A bridge that claims work requests reports the `work-requests` capability. A
 request can also name a capability that the bridge must report, such as
@@ -329,13 +333,14 @@ another bridge claimed. Each request carries these fields:
 | Field | Meaning |
 |---|---|
 | `type` | `bridge.work_request` |
-| `projectId` | the project of the card |
+| `projectId` | the project of the request |
 | `subject` | `{"type":"work-request","id":<workRequestId>}` |
 | `workRequestId` | the id of the request |
 | `kind` | the kind of work, such as `implement` |
 | `capability` | the capability a bridge must report to claim the request, or `null` |
 | `state` | `open`, `claimed`, `done`, `refused`, `expired` or `cancelled` |
-| `cardId`, `cardNumber` | the card of the work |
+| `subjectType`, `subjectId` | what the work is about, such as `card` and the card id. A module can name other subject types |
+| `cardNumber` | the number of the card of a `card` subject, as a label for a person, or `null` for any other subject. It never identifies the card |
 | `ruleId` | the id of the rule that opened the request |
 | `createdAt` | the time the request opened, as an RFC 3339 date |
 | `resumeSessionId` | the session of an unfinished run of the card and kind that the run resumes, or `null` for a fresh start |
@@ -346,7 +351,7 @@ held no such value. A server from before the context sends no `context` key.
 
 | Key | Meaning |
 |---|---|
-| `pullRequestNumber` | the number of the primary pull request of the card |
+| `pullRequestNumber` | the number of the pull request that the rule acts on |
 | `pullRequestUrl` | the link to that pull request, as the card holds it. Only an `https` URL of at most 2000 characters is sent |
 | `headSha` | the head commit of that pull request, as 7 to 64 lower-case hex digits. A later push leaves it behind |
 | `reason` | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |
@@ -403,6 +408,13 @@ out. It clears the bridge and the token of the claim, and sends a
 the work of a bridge that stopped. `app.bridge.work_request_reopen_schedule` in
 the same file sets when that task runs. `app:reopen-lapsed-work-requests` runs
 the same sweep once by hand.
+
+A second task runs each minute and expires each open request about a subject
+other than a card that no bridge claimed within 2 hours. A reopen starts the
+wait again. `app.bridge.subject_work_timeout_minutes` in the same file sets the
+wait, and `app:expire-subject-work-requests` runs the same sweep once by hand.
+The workflow expires the open requests of a card by the work timeout of its
+template.
 
 The claim stays with its holder after `leaseUntil` passes, until that task
 opens the request again. Until then, the holder can still renew or settle the

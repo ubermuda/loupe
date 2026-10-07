@@ -8,6 +8,7 @@ use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Mcp\DocumentCreateTool;
 use App\Tests\Support\McpRefusalMessages;
@@ -262,5 +263,35 @@ final class DocumentCreateToolTest extends KernelTestCase
         $result = ($this->tool)('Zahlungen', '# Zahlungen');
 
         self::assertSame('german', $result['language']);
+    }
+
+    public function test_a_document_is_created_in_review_by_default(): void
+    {
+        $owner = $this->user('create-in-review@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame('in-review', ($this->tool)('Auth PRD', '# Auth')['status']);
+    }
+
+    public function test_a_draft_stays_out_of_review(): void
+    {
+        $owner = $this->user('create-draft@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)('Auth PRD', '# Auth', draft: true);
+
+        self::assertSame('draft', $result['status']);
+        $this->em->clear();
+        $document = $this->em->find(Document::class, Uuid::fromString($result['documentId']));
+        self::assertInstanceOf(Document::class, $document);
+        self::assertSame(DocumentStatus::Draft, $document->status);
     }
 }

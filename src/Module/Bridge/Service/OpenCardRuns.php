@@ -28,6 +28,9 @@ final readonly class OpenCardRuns
     {
         $kept = [];
         foreach ($this->workerRuns->findOpenOfProject($project) as $run) {
+            if (!$run->subject()->isCard()) {
+                continue;
+            }
             $candidate = self::view($run);
             $cardId = (string) $candidate->cardId;
             if (!isset($kept[$cardId]) || self::compare($candidate, $kept[$cardId]) < 0) {
@@ -45,7 +48,7 @@ final readonly class OpenCardRuns
     {
         $since = \in_array($run->state, [WorkerRunState::Preparing, WorkerRunState::Running, WorkerRunState::Stopping], true) ? $run->startedAt ?? $run->receivedAt : $run->receivedAt;
 
-        return new OpenCardRun($run->cardId, $run->state, $run->kind, $run->workKind, $since);
+        return new OpenCardRun($run->subjectId, $run->state, $run->kind, $run->workKind, $since);
     }
 
     private static function compare(OpenCardRun $left, OpenCardRun $right): int

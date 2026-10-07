@@ -11,6 +11,7 @@ use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\FeatureFlags;
 use Psr\Log\NullLogger;
@@ -62,9 +63,9 @@ final class WorkRequestAnnouncerTest extends KernelTestCase
         $live->publish();
 
         self::assertEquals([
-            new WorkRequestChanged($first->id ?? throw new \LogicException(), $a->cardId, $a->id ?? throw new \LogicException(), WorkRequestState::Open),
-            new WorkRequestChanged($first->id, $b->cardId, $b->id ?? throw new \LogicException(), WorkRequestState::Claimed),
-            new WorkRequestChanged($second->id ?? throw new \LogicException(), $c->cardId, $c->id ?? throw new \LogicException(), WorkRequestState::Done),
+            new WorkRequestChanged($first->id ?? throw new \LogicException(), WorkSubject::CARD, $a->subjectId, $a->id ?? throw new \LogicException(), WorkRequestState::Open),
+            new WorkRequestChanged($first->id, WorkSubject::CARD, $b->subjectId, $b->id ?? throw new \LogicException(), WorkRequestState::Claimed),
+            new WorkRequestChanged($second->id ?? throw new \LogicException(), WorkSubject::CARD, $c->subjectId, $c->id ?? throw new \LogicException(), WorkRequestState::Done),
         ], $dispatched);
         self::assertSame(
             [$topics->forWorkerRuns($first->id), $topics->forWorkerRuns($second->id)],
