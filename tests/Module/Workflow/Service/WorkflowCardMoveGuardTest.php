@@ -105,30 +105,47 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
 
-    public function test_a_breakdown_worker_run_of_the_epic_may_move_its_child(): void
+    /** @return iterable<string, array{string}> */
+    public static function parentRunKinds(): iterable
     {
-        $this->bindLifecycle($this->project);
-        $epic = $this->card('in-progress', CardType::Epic);
-        $child = $this->card('next', parent: $epic);
-        $guard = $this->guard();
-        $target = $this->column($this->project, 'in-progress');
-
-        self::assertTrue($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown')));
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'work:implement')));
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::workflowRule('breakdown')));
+        yield 'breakdown' => ['breakdown'];
+        yield 'implement' => ['implement'];
     }
 
-    public function test_a_run_that_only_carries_the_breakdown_name_is_refused(): void
+    #[DataProvider('parentRunKinds')]
+    public function test_a_worker_run_of_the_parent_epic_may_move_its_child_from_the_backlog_to_implementation(string $workKind): void
     {
         $this->bindLifecycle($this->project);
         $epic = $this->card('in-progress', CardType::Epic);
-        $child = $this->card('next', parent: $epic);
-        $orphan = $this->card('next');
+        $child = $this->card('backlog', parent: $epic);
+
+        self::assertTrue($this->guard()->allows($child, $this->column($this->project, 'in-progress'), CardReporter::Agent, $this->runCause($epic, $workKind)));
+    }
+
+    public function test_a_run_of_the_parent_epic_may_make_only_the_move_the_template_names(): void
+    {
+        $this->bindLifecycle($this->project);
+        $epic = $this->card('in-progress', CardType::Epic);
+        $guard = $this->guard();
+        $cause = $this->runCause($epic, 'breakdown');
+
+        self::assertFalse($guard->allows($this->card('backlog', parent: $epic), $this->column($this->project, 'in-review'), CardReporter::Agent, $cause), 'a column the entry does not name');
+        self::assertFalse($guard->allows($this->card('next', parent: $epic), $this->column($this->project, 'in-progress'), CardReporter::Agent, $cause), 'a source the entry does not name');
+    }
+
+    public function test_only_a_stored_worker_run_of_the_parent_matches_a_parent_run_move(): void
+    {
+        $this->bindLifecycle($this->project);
+        $epic = $this->card('in-progress', CardType::Epic);
+        $child = $this->card('backlog', parent: $epic);
+        $orphan = $this->card('backlog');
         $guard = $this->guard();
         $target = $this->column($this->project, 'in-progress');
         $elsewhere = $this->workflowProject('move-guard-elsewhere');
 
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', WorkerRunKind::Interactive)), 'an interactive run takes any name');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Human, null), 'a person');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::workflowRule('breakdown')), 'a rule');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', WorkerRunKind::Interactive)), 'an interactive run');
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', project: $elsewhere)), 'a run of another project');
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'breakdown')), 'no stored run');
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a run of a card that is not the parent');

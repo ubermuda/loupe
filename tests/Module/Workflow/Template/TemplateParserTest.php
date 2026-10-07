@@ -19,6 +19,7 @@ use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\InvalidTemplate;
+use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\TemplateParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -55,6 +56,7 @@ final class TemplateParserTest extends TestCase
             'manualMoves' => [
                 ['from' => '@backlog', 'to' => 'build'],
                 ['from' => '*', 'to' => '*'],
+                ['from' => '@backlog', 'to' => 'review', 'by' => 'parent-run'],
             ],
             'backoffMinutes' => [10, 60],
             'workTimeoutMinutes' => 120,
@@ -111,6 +113,8 @@ final class TemplateParserTest extends TestCase
         self::assertSame(120, $template->workTimeoutMinutes);
         self::assertSame('@backlog', $template->manualMoves[0]->from);
         self::assertSame('build', $template->manualMoves[0]->to);
+        self::assertNull($template->manualMoves[0]->by);
+        self::assertSame(ManualMoveActor::ParentRun, $template->manualMoves[2]->by);
 
         $ids = static fn (array $rules): array => array_map(static fn ($rule) => $rule->id, $rules);
         self::assertSame(['start', 'to-review', 'wait'], $ids($template->rulesFor('build')));
@@ -295,6 +299,11 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'manualMoves[0].from: unknown slot "shipping"'];
+        yield 'unknown manual move actor' => [static function (array $t): array {
+            $t['manualMoves'][2]['by'] = 'anyone';
+
+            return $t;
+        }, 'manualMoves[2].by: must be one of parent-run'];
         yield 'wildcard rule slot' => [static function (array $t): array {
             $t['rules'][0]['slot'] = '*';
 

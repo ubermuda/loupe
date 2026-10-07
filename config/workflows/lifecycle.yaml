@@ -13,6 +13,7 @@ manualMoves:
     - { from: '@backlog', to: tech-design }
     - { from: next, to: product-design }
     - { from: next, to: tech-design }
+    - { from: '@backlog', to: implementation, by: parent-run }
 backoffMinutes: [10, 60, 360]
 workTimeoutMinutes: 120
 rules:
@@ -182,11 +183,10 @@ rules:
       then: { move: { to: '@terminal' } }
 
     - id: breakdown-ended
-      slot: implementation
       when:
           all:
               - card.type: { type: epic }
-              - not: { run.worker_active: { kind: breakdown } }
+              - not: { run.worker_active: {} }
       then: { evaluate: { cards: children } }
 
     - id: epic-reopened-from-review
@@ -250,7 +250,7 @@ rules:
               - card.is_child: {}
               - not: { card.has_open_blocker: {} }
               - not: { pr.linked: {} }
-              - not: { parent.work_active: { kind: breakdown } }
+              - not: { parent.work_active: {} }
       then: { move: { to: implementation } }
 
     # No slot, so its truth outlives a move: a person who moves a card with an open pull request to the Backlog makes no edge.
@@ -267,4 +267,5 @@ rules:
               - not: { card.in_slot: { slot: '@terminal' } }
               - pr.all_finished_one_merged: {}
               - card.children_finished: {}
+              - any: [{ not: { card.type: { type: epic } } }, { not: { run.worker_active: {} } }]
       then: { move: { to: '@terminal' } }

@@ -14,6 +14,7 @@ use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\ManualMove;
+use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\Slot;
 use App\Module\Workflow\Template\Template;
@@ -51,7 +52,14 @@ final readonly class ShowWorkflowSettingsHandler
             ),
             rules: array_map(static fn (Rule $rule): WorkflowRuleView => self::rule($template, $rule), $template->rules),
             manualMoves: array_map(
-                static fn (ManualMove $move): WorkflowManualMoveView => new WorkflowManualMoveView(self::placeKey($template, $move->from), self::placeKey($template, $move->to)),
+                static fn (ManualMove $move): WorkflowManualMoveView => new WorkflowManualMoveView(
+                    self::placeKey($template, $move->from),
+                    self::placeKey($template, $move->to),
+                    match ($move->by) {
+                        null => 'workflow.settings.moves.by.person',
+                        ManualMoveActor::ParentRun => 'workflow.settings.moves.by.parent_run',
+                    },
+                ),
                 $template->manualMoves,
             ),
             backoffMinutes: $template->backoffMinutes,

@@ -12,7 +12,6 @@ use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
-use App\Module\Workflow\Template\ManualMove;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
@@ -21,8 +20,6 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 #[AsAlias(CardMoveGuard::class)]
 final readonly class WorkflowCardMoveGuard implements CardMoveGuard
 {
-    private const string BREAKDOWN_KIND = 'breakdown';
-
     private const string ANY_COLUMN = '*';
 
     public function __construct(
@@ -39,8 +36,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
     {
         if (!$this->automation->runsFor($card->project)
             || CardReporter::System === $actor
-            || $to === $card->column
-            || $this->isBreakdownRun($card, $cause)) {
+            || $to === $card->column) {
             return true;
         }
 
@@ -59,25 +55,32 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         $from = $this->facts->slotOf($card->column);
         $target = $this->facts->slotOf($to);
 
-        return array_any(
-            $template->manualMoves,
-            static fn (ManualMove $move): bool => self::matches($move->from, $from) && self::matches($move->to, $target),
-        );
+        $isParentRun = null;
+        foreach ($template->manualMoves as $move) {
+            if (!self::matches($move->from, $from) || !self::matches($move->to, $target)) {
+                continue;
+            }
+            if (null === $move->by) {
+                return true;
+            }
+            $isParentRun ??= $this->isParentRun($card, $cause);
+            if ($isParentRun) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    /**
-     * An interactive run takes any name, so only a stored worker run counts.
-     * A breakdown runs on the epic and moves its children, so the run's card is the moved card's parent.
-     */
-    private function isBreakdownRun(Card $card, ?CardEventCause $cause): bool
+    /** An interactive run takes any name, so only a stored worker run counts. */
+    private function isParentRun(Card $card, ?CardEventCause $cause): bool
     {
-        if ('run' !== $cause?->type || self::BREAKDOWN_KIND !== ($cause->fields['kind'] ?? null) || null === $card->parent?->id) {
+        if ('run' !== $cause?->type || null === $card->parent?->id) {
             return false;
         }
         $run = $this->workerRuns->findOneByIdAndProjectId((string) ($cause->fields['run'] ?? ''), (string) $card->project->id);
 
         return WorkerRunKind::Worker === $run?->kind
-            && self::BREAKDOWN_KIND === $run->workKind
             && true === $run->cardId()?->equals($card->parent->id);
     }
 
