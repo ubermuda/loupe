@@ -134,13 +134,13 @@ final class AnalysisToolsTest extends KernelTestCase
 
         $result = $this->reportTool()((string) $analysis->id, (string) $document->id, [
             ['kind' => 'card', 'title' => ' Cache the dependencies ', 'body' => 'Each run installs them again.', 'estimatedSaving' => 'About $4 a week'],
-            ['kind' => 'bucket-rule', 'title' => 'Group the lint runs', 'body' => 'They share one cause.', 'payload' => ['stage' => 'lint']],
+            ['kind' => 'bucket-rule', 'title' => 'Group the lint runs', 'body' => 'They share one cause.', 'payload' => ['pattern' => 'Bash:lint*', 'bucket' => 'lint']],
         ]);
 
         self::assertSame('done', $result['state']);
         self::assertSame((string) $document->id, $result['documentId']);
         self::assertSame(['Cache the dependencies', 'Group the lint runs'], array_column($result['proposals'], 'title'));
-        self::assertSame([null, ['stage' => 'lint']], array_column($result['proposals'], 'payload'));
+        self::assertSame([null, ['pattern' => 'Bash:lint*', 'bucket' => 'lint']], array_column($result['proposals'], 'payload'));
 
         $em->clear();
         $stored = $this->proposals()->findBy([], ['position' => 'ASC']);
@@ -173,6 +173,19 @@ final class AnalysisToolsTest extends KernelTestCase
         self::assertSame(
             "proposals: A proposal title must not be blank.\ndocumentId: The document must be a document of this project. Create the report with document_create first.",
             $this->refusal(fn () => $this->reportTool()((string) $analysis->id, (string) Uuid::v7(), [['kind' => 'card', 'title' => ' ', 'body' => 'Body.']])),
+        );
+    }
+
+    public function test_report_refuses_a_bucket_rule_without_a_valid_payload(): void
+    {
+        $project = $this->scenarioProject('analysis-report-rule');
+        $analysis = $this->seedAnalysis($this->em(), $project, AnalysisState::Running);
+        $document = $this->seedDocument($this->em(), $project);
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertStringStartsWith(
+            'proposals: A bucket-rule proposal needs a payload with pattern',
+            $this->refusal(fn () => $this->reportTool()((string) $analysis->id, (string) $document->id, [['kind' => 'bucket-rule', 'title' => 'T', 'body' => 'B', 'payload' => ['pattern' => 'Bash:lint*', 'bucket' => 'Bad Name']]])),
         );
     }
 

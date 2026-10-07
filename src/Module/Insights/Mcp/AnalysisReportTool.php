@@ -20,7 +20,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type AnalysisPayloadShape from AnalysisPayload
  */
-#[McpTool(name: self::NAME, description: 'Finish an analysis of this project with its report. First write the report with document_create, then pass its id as documentId. Pass analysisId, the subject id of your analysis work request. proposals lists at most 20 changes you propose, in the order the owner reads them, and an empty list is valid. Each proposal has kind, title and body. kind is card for a change that becomes a backlog card when the owner accepts it, or bucket-rule for a rule that groups runs. title is one line of at most 200 characters. body is the detail, in Markdown. payload is an optional object with the data a bucket-rule needs. estimatedSaving is an optional short text of at most 200 characters, such as "about $4 a week". The analysis then reads done, and the owner accepts or dismisses each proposal on the Reports page. A done or failed analysis takes no second report. The response is the analysis, as analysis_get answers it.')]
+#[McpTool(name: self::NAME, description: 'Finish an analysis of this project with its report. First write the report with document_create, then pass its id as documentId. Pass analysisId, the subject id of your analysis work request. proposals lists at most 20 changes you propose, in the order the owner reads them, and an empty list is valid. Each proposal has kind, title and body. kind is card for a change that becomes a backlog card when the owner accepts it, or bucket-rule for a rule that groups tool calls into a time bucket. title is one line of at most 200 characters. body is the detail, in Markdown. payload is required for a bucket-rule: an object with pattern, a glob over a tool call signature, and bucket, a name of lower case letters, digits, underscore and hyphen. estimatedSaving is an optional short text of at most 200 characters, such as "about $4 a week". The analysis then reads done, and the owner accepts or dismisses each proposal on the Reports page. A done or failed analysis takes no second report. The response is the analysis, as analysis_get answers it.')]
 final readonly class AnalysisReportTool
 {
     public const string NAME = 'analysis_report';
@@ -49,7 +49,7 @@ final readonly class AnalysisReportTool
                 'kind' => ['type' => 'string', 'enum' => ['card', 'bucket-rule']],
                 'title' => ['type' => 'string', 'maxLength' => Proposal::MAX_TITLE_LENGTH, 'description' => 'one line'],
                 'body' => ['type' => 'string', 'description' => 'the detail, in Markdown'],
-                'payload' => ['type' => 'object', 'description' => 'the data a bucket-rule needs'],
+                'payload' => ['type' => 'object', 'description' => 'for a bucket-rule: pattern and bucket', 'properties' => ['pattern' => ['type' => 'string'], 'bucket' => ['type' => 'string']]],
                 'estimatedSaving' => ['type' => 'string', 'maxLength' => Proposal::MAX_ESTIMATED_SAVING_LENGTH, 'description' => 'a short text, such as "about $4 a week"'],
             ],
             'required' => ['kind', 'title', 'body'],

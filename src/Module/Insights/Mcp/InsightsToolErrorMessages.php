@@ -38,6 +38,7 @@ final readonly class InsightsToolErrorMessages
             ReportAnalysisHandler::INVALID_KIND => 'A proposal kind is card or bucket-rule.',
             ReportAnalysisHandler::TITLE_BLANK => 'A proposal title must not be blank.',
             ReportAnalysisHandler::TITLE_TOO_LONG => \sprintf('A proposal title must be at most %d characters.', Proposal::MAX_TITLE_LENGTH),
+            ReportAnalysisHandler::BUCKET_RULE_INVALID => 'A bucket-rule proposal needs a payload with pattern, a glob of at most 120 characters, and bucket, a name of 1 to 64 characters: lower case letters, digits, underscore and hyphen.',
             ReportAnalysisHandler::BODY_BLANK => 'A proposal body must not be blank.',
             ReportAnalysisHandler::SAVING_TOO_LONG => \sprintf('An estimated saving must be at most %d characters.', Proposal::MAX_ESTIMATED_SAVING_LENGTH),
             UpdateAnalyticsSettingsHandler::INVALID_MODEL => 'A model is one word of at most 64 characters, such as sonnet or opus.',

@@ -41,7 +41,7 @@ final class ReportAnalysisHandlerTest extends KernelTestCase
 
         $this->handler()(new ReportAnalysisCommand($project, (string) $analysis->id, (string) $document->id, [
             new ReportedProposal('card', ' Cache the dependencies ', 'Each run installs them again.', ['files' => ['composer.lock']], ' About $4 a week '),
-            new ReportedProposal('bucket-rule', 'Put lint runs in their own bucket', 'They skew the median.'),
+            new ReportedProposal('bucket-rule', 'Put lint runs in their own bucket', 'They skew the median.', ['pattern' => 'Bash:lint*', 'bucket' => 'lint']),
         ]));
 
         $em->clear();
@@ -56,6 +56,7 @@ final class ReportAnalysisHandlerTest extends KernelTestCase
         self::assertSame(['files' => ['composer.lock']], $proposals[0]->payload);
         self::assertSame('About $4 a week', $proposals[0]->estimatedSaving);
         self::assertSame(ProposalState::Proposed, $proposals[0]->state);
+        self::assertSame(['pattern' => 'Bash:lint*', 'bucket' => 'lint'], $proposals[1]->payload);
         self::assertNull($proposals[1]->estimatedSaving);
         self::assertSame([0, 1], array_map(static fn ($p) => $p->position, $proposals));
     }
@@ -124,6 +125,10 @@ final class ReportAnalysisHandlerTest extends KernelTestCase
         yield 'a blank title' => [[new ReportedProposal('card', '  ', 'Body')], ReportAnalysisHandler::TITLE_BLANK];
         yield 'a long title' => [[new ReportedProposal('card', str_repeat('t', 201), 'Body')], ReportAnalysisHandler::TITLE_TOO_LONG];
         yield 'a blank body' => [[$valid, new ReportedProposal('card', 'Title', ' ')], ReportAnalysisHandler::BODY_BLANK];
+        yield 'a bucket rule with no payload' => [[new ReportedProposal('bucket-rule', 'Title', 'Body')], ReportAnalysisHandler::BUCKET_RULE_INVALID];
+        yield 'a bucket rule with a bad bucket name' => [[new ReportedProposal('bucket-rule', 'Title', 'Body', ['pattern' => 'Bash:lint*', 'bucket' => 'Lint Runs'])], ReportAnalysisHandler::BUCKET_RULE_INVALID];
+        yield 'a bucket rule with a blank pattern' => [[new ReportedProposal('bucket-rule', 'Title', 'Body', ['pattern' => ' ', 'bucket' => 'lint'])], ReportAnalysisHandler::BUCKET_RULE_INVALID];
+        yield 'a bucket rule with a non-string pattern' => [[new ReportedProposal('bucket-rule', 'Title', 'Body', ['pattern' => ['x'], 'bucket' => 'lint'])], ReportAnalysisHandler::BUCKET_RULE_INVALID];
         yield 'a long saving' => [[new ReportedProposal('card', 'Title', 'Body', null, str_repeat('s', 201))], ReportAnalysisHandler::SAVING_TOO_LONG];
     }
 

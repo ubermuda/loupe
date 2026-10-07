@@ -1,6 +1,6 @@
 ---
 title: "Analytics: Metrics and Reports"
-description: "The Metrics tab of the Analytics page, which charts how the agents of a project perform over time, and the Reports tab, where an agent explains the cost."
+description: "The Metrics tab of the Analytics page, which charts how the agents of a project perform over time, the Time buckets tab, and the Reports tab, where an agent explains the cost and the time."
 ---
 
 The **Metrics** tab of the project's **Analytics** page charts one metric of the
@@ -180,7 +180,7 @@ Fill the **Analyse** form, and press **Analyse**.
 
 | Field | Values |
 |---|---|
-| Topic | **Cost**, where the cost of the workers goes |
+| Topic | **Cost**, where the cost of the workers goes, or **Time**, where the time of the workers goes |
 | Range | **30 days**, **90 days** or **All time**: the runs the agent reads |
 | Model | the model of the agent, such as `sonnet` or `opus` |
 | Effort | **Low**, **Medium**, **High**, **Extra high** or **Maximum** |
@@ -188,6 +188,12 @@ Fill the **Analyse** form, and press **Analyse**.
 An empty model or effort takes the project default. The analysis opens a work
 request, and a bridge that reports the `subject-analysis` capability claims it.
 The request model and effort replace the model of the work entry.
+
+A **Time** analysis reads the bucket times of the runs, the slowest tool calls
+and the idle gaps. It names repeated steps and polling loops, and it sets apart
+a slow call that is no fault of the worker. It proposes a card for each fix. It
+also proposes a rule for each slow call that no [time bucket](#time-buckets)
+takes yet.
 
 ### States and reasons
 
@@ -257,7 +263,7 @@ most 50 names.
 
 The **Time buckets** tab splits the tool time of each worker run into buckets.
 A rule has a pattern and a bucket. The pattern is a glob that matches the
-signature of a tool call, such as `Bash:git *`. A star matches any run of
+signature of a tool call, such as `git *` or `grep`. A star matches any run of
 characters and a question mark matches one. A bucket name has 1 to 64
 characters of lower case letters, digits, `_` and `-`.
 

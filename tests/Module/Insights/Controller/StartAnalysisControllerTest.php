@@ -43,6 +43,27 @@ final class StartAnalysisControllerTest extends WebTestCase
         self::assertNotNull($analyses[0]->workRequestId);
     }
 
+    public function test_the_time_topic_starts_an_analysis(): void
+    {
+        $client = static::createClient();
+        $project = $this->scenarioProject('start-analysis-time');
+        $projectId = (string) $project->id;
+        $this->em()->clear();
+
+        $client->loginUser($project->owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports');
+        $client->submitForm('Analyse', [
+            'start_analysis_form[topic]' => 'time',
+            'start_analysis_form[range]' => 'thirty-days',
+        ]);
+
+        self::assertResponseRedirects('/projects/'.$projectId.'/analytics/reports');
+        $analyses = $this->analyses($projectId);
+        self::assertCount(1, $analyses);
+        self::assertSame('time', $analyses[0]->topic->value);
+        self::assertNotNull($analyses[0]->workRequestId);
+    }
+
     public function test_an_empty_model_and_effort_take_the_project_defaults(): void
     {
         $client = static::createClient();

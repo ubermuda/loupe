@@ -9,6 +9,7 @@ use App\Module\Insights\Entity\Analysis;
 use App\Module\Insights\Entity\Proposal;
 use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Repository\AnalysisRepository;
+use App\Module\Insights\Service\BucketRuleWriter;
 use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -28,6 +29,7 @@ final readonly class ReportAnalysisHandler
     public const string INVALID_KIND = 'insights.proposal.error.invalid_kind';
     public const string TITLE_BLANK = 'insights.proposal.error.title_blank';
     public const string TITLE_TOO_LONG = 'insights.proposal.error.title_too_long';
+    public const string BUCKET_RULE_INVALID = 'insights.proposal.error.report_bucket_rule_invalid';
     public const string BODY_BLANK = 'insights.proposal.error.body_blank';
     public const string SAVING_TOO_LONG = 'insights.proposal.error.estimated_saving_too_long';
 
@@ -119,6 +121,7 @@ final readonly class ReportAnalysisHandler
                 '' === $title => self::TITLE_BLANK,
                 mb_strlen($title) > Proposal::MAX_TITLE_LENGTH => self::TITLE_TOO_LONG,
                 '' === trim($proposal->body) => self::BODY_BLANK,
+                ProposalKind::BucketRule->value === $proposal->kind && !self::hasValidRule($proposal->payload) => self::BUCKET_RULE_INVALID,
                 mb_strlen(self::saving($proposal) ?? '') > Proposal::MAX_ESTIMATED_SAVING_LENGTH => self::SAVING_TOO_LONG,
                 default => null,
             };
@@ -128,6 +131,15 @@ final readonly class ReportAnalysisHandler
         }
 
         return [];
+    }
+
+    /** @param array<mixed>|null $payload */
+    private static function hasValidRule(?array $payload): bool
+    {
+        $pattern = $payload['pattern'] ?? null;
+        $bucket = $payload['bucket'] ?? null;
+
+        return \is_string($pattern) && \is_string($bucket) && [] === BucketRuleWriter::errors($pattern, $bucket);
     }
 
     private static function saving(ReportedProposal $proposal): ?string

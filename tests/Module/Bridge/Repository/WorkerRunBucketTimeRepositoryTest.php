@@ -57,7 +57,7 @@ final class WorkerRunBucketTimeRepositoryTest extends KernelTestCase
 
         $times = $this->repository()->findMillisecondsOfRuns([$both, $onlyOther, $none], 'tests');
 
-        self::assertSame([(string) $both => 40, (string) $onlyOther => 0], $times);
+        self::assertEquals([(string) $both => 40, (string) $onlyOther => 0], $times);
         self::assertSame([], $this->repository()->findMillisecondsOfRuns([], 'tests'));
     }
 

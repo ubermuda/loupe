@@ -7107,6 +7107,7 @@
             <trans-unit id="insights.reports.flash.dismissed"><source>insights.reports.flash.dismissed</source><target>The proposal is dismissed.</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.topic.label"><source>insights.form.start_analysis_form.topic.label</source><target>Topic</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.topic.cost"><source>insights.form.start_analysis_form.topic.cost</source><target>Cost</target></trans-unit>
+            <trans-unit id="insights.form.start_analysis_form.topic.time"><source>insights.form.start_analysis_form.topic.time</source><target>Time</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.label"><source>insights.form.start_analysis_form.range.label</source><target>Range</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.thirty-days"><source>insights.form.start_analysis_form.range.thirty-days</source><target>30 days</target></trans-unit>
             <trans-unit id="insights.form.start_analysis_form.range.ninety-days"><source>insights.form.start_analysis_form.range.ninety-days</source><target>90 days</target></trans-unit>
@@ -7132,7 +7133,7 @@
             <trans-unit id="insights.form.analytics_settings_form.subcommand_programs.label"><source>insights.form.analytics_settings_form.subcommand_programs.label</source><target>Programs with subcommands</target></trans-unit>
             <trans-unit id="insights.form.analytics_settings_form.subcommand_programs.help"><source>insights.form.analytics_settings_form.subcommand_programs.help</source><target>A comma list, such as git, npm, just. For these programs the second word joins the signature of a shell command. Leave it blank to use the instance list.</target></trans-unit>
             <trans-unit id="insights.form.bucket_rule_form.pattern.label"><source>insights.form.bucket_rule_form.pattern.label</source><target>Pattern</target></trans-unit>
-            <trans-unit id="insights.form.bucket_rule_form.pattern.help"><source>insights.form.bucket_rule_form.pattern.help</source><target>Matches the signature of a tool call, such as Bash:git push. A star matches any run of characters and a question mark matches one.</target></trans-unit>
+            <trans-unit id="insights.form.bucket_rule_form.pattern.help"><source>insights.form.bucket_rule_form.pattern.help</source><target>Matches the signature of a tool call, such as git push or grep. A star matches any run of characters and a question mark matches one.</target></trans-unit>
             <trans-unit id="insights.form.bucket_rule_form.bucket.label"><source>insights.form.bucket_rule_form.bucket.label</source><target>Bucket</target></trans-unit>
             <trans-unit id="insights.form.bucket_rule_form.bucket.help"><source>insights.form.bucket_rule_form.bucket.help</source><target>A name of 1 to 64 characters: lower case letters, digits, underscore and hyphen.</target></trans-unit>
             <trans-unit id="insights.form.dismiss_proposal_form.reason.label"><source>insights.form.dismiss_proposal_form.reason.label</source><target>Reason</target></trans-unit>
