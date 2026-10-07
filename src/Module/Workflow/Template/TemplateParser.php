@@ -222,7 +222,7 @@ final readonly class TemplateParser
     {
         $evaluatesChildren = ActionType::Evaluate === $rule->then->type && 'children' === ($rule->then->params['cards'] ?? null);
         $found = [];
-        foreach ($rule->when instanceof ConditionLeaf ? [[$rule->when]] : self::allLists($rule->when) as $list) {
+        foreach (self::allLists($rule->when) as $list) {
             $leaves = array_filter($list, static fn (Expression $child): bool => $child instanceof ConditionLeaf);
             if (!$evaluatesChildren && !array_any($leaves, static fn (ConditionLeaf $leaf): bool => \in_array(FactKey::Children, $leaf->reads(), true))) {
                 continue;
@@ -239,32 +239,37 @@ final readonly class TemplateParser
     }
 
     /**
-     * An `all` inside an `all` joins its list. A `not` turns the type leaves under it around, so its lists are not walked.
+     * Each branch of an `any` also holds the members of the lists around it. A `not` turns the type leaves under it around, so its lists are not walked.
      *
-     * @return list<list<Expression>> the members of every conjunction in the expression
+     * @param list<Expression> $around the members of the enclosing lists
+     *
+     * @return list<list<Expression>> the members of every conjunction that can hold for a card
      */
-    private static function allLists(Expression $expression): array
+    private static function allLists(Expression $expression, array $around = []): array
     {
         if ($expression instanceof AnyOf) {
-            return array_merge(...array_map(self::allLists(...), $expression->children));
+            return array_merge(...array_map(static fn (Expression $branch): array => self::allLists($branch, $around), $expression->children));
         }
         if (!$expression instanceof AllOf) {
-            return [];
+            return [[...$around, $expression]];
         }
-        $members = [];
-        $nested = [];
-        foreach ($expression->children as $child) {
-            if ($child instanceof AllOf) {
-                $lists = self::allLists($child);
-                array_push($members, ...array_shift($lists) ?? []);
-                array_push($nested, ...$lists);
+        $members = $around;
+        $branches = [];
+        foreach (self::conjuncts($expression) as $child) {
+            if ($child instanceof AnyOf) {
+                $branches[] = $child;
             } else {
                 $members[] = $child;
-                array_push($nested, ...self::allLists($child));
             }
         }
 
-        return [$members, ...$nested];
+        return [$members, ...array_merge(...array_map(static fn (AnyOf $any): array => self::allLists($any, $members), $branches))];
+    }
+
+    /** @return list<Expression> the members of the `all`, with each `all` inside it joined in */
+    private static function conjuncts(AllOf $all): array
+    {
+        return array_merge(...array_map(static fn (Expression $child): array => $child instanceof AllOf ? self::conjuncts($child) : [$child], $all->children));
     }
 
     /**

@@ -171,13 +171,12 @@ final class TemplateParserTest extends TestCase
         self::assertCount(5, $this->parser->parse($template)->rules);
     }
 
-    public function test_a_type_without_children_under_a_not_or_in_an_any_does_not_read_them(): void
+    public function test_a_type_without_children_under_a_not_or_in_another_branch_does_not_read_them(): void
     {
         $template = self::valid();
         $template['rules'][0]['when'] = ['all' => [
-            ['card.children_finished' => []],
             ['not' => ['card.type' => ['type' => 'bug']]],
-            ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]],
+            ['any' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]],
         ]];
         $template['rules'][4]['when'] = ['all' => [['not' => ['card.type' => ['type' => 'bug']]]]];
         $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
@@ -417,6 +416,16 @@ final class TemplateParserTest extends TestCase
         }, 'rules[1] (to-review): the type "feature" may not have children, but the rule reads them'];
         yield 'all inside all reading the children of a type without children' => [static function (array $t): array {
             $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['all' => [['card.children_finished' => []]]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'any branch reading the children of the type around it' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['any' => [['card.children_finished' => []], ['pr.open' => []]]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'any branch naming a type that the list around it reads the children of' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.children_finished' => []], ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
