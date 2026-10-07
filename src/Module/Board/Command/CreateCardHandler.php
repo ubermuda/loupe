@@ -13,7 +13,6 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
-use App\Module\Board\Exception\CardCommittedException;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -29,7 +28,6 @@ use App\Module\Board\Service\PullRequestUrlResolver;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -162,18 +160,6 @@ final readonly class CreateCardHandler
             throw new DomainErrors([UpdateCardHandler::LINKED_CARD_GONE === $card ? 'relatedCards' : 'column' => $card]);
         }
 
-        $cardId = $card->id ?? throw new \LogicException('Card has no id.');
-        try {
-            $this->afterCommit($command, $card, $cardId, \count($relatedCards));
-        } catch (\Throwable $e) {
-            throw new CardCommittedException($cardId, $e);
-        }
-
-        return $card;
-    }
-
-    private function afterCommit(CreateCardCommand $command, Card $card, Uuid $cardId, int $relatedCardCount): void
-    {
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback. The title stays
         // out, because it is a sentence a person wrote.
@@ -181,7 +167,7 @@ final readonly class CreateCardHandler
             'board.card_created',
             AuditOutcome::Success,
             [
-                'cardId' => (string) $cardId,
+                'cardId' => (string) $card->id,
                 'cardNumber' => $card->number,
                 'projectId' => (string) $command->project->id,
                 'type' => $card->type->value,
@@ -190,19 +176,21 @@ final readonly class CreateCardHandler
                 'reporter' => $card->reporter->value,
                 'pullRequestCount' => \count($card->pullRequests),
                 'documentCount' => \count($card->documents),
-                'relatedCardCount' => $relatedCardCount,
+                'relatedCardCount' => \count($relatedCards),
             ],
-            new AuditSubject('card', (string) $cardId),
+            new AuditSubject('card', (string) $card->id),
         );
 
         $this->events->dispatch(new CardChanged(
             $command->project->id ?? throw new \LogicException('Project has no id.'),
-            $cardId,
+            $card->id ?? throw new \LogicException('Card has no id.'),
             CardChanged::CREATED,
             true,
         ));
         if ($card->drawsLane()) {
             $this->events->dispatch(new BoardColumnsChanged($command->project));
         }
+
+        return $card;
     }
 }

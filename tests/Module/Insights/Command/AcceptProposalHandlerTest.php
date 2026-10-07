@@ -16,12 +16,12 @@ use App\Module\Insights\Entity\AnalysisState;
 use App\Module\Insights\Entity\Proposal;
 use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Entity\ProposalState;
-use App\Module\Insights\Proposal\ProposalCardCommittedException;
 use App\Module\Insights\Proposal\ProposalCardCreatorInterface;
 use App\Module\Insights\Repository\ProposalRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Insights\InsightsScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -103,6 +103,7 @@ final class AcceptProposalHandlerTest extends KernelTestCase
             self::assertSame(['title' => 'board.card.error.title_blank'], $e->errors);
         }
 
+        self::assertTrue($em->isOpen());
         $em->clear();
         $stored = $this->service(ProposalRepository::class)->find($proposal->id);
         self::assertInstanceOf(Proposal::class, $stored);
@@ -110,33 +111,44 @@ final class AcceptProposalHandlerTest extends KernelTestCase
         self::assertNull($stored->cardId);
     }
 
-    public function test_a_card_that_commits_before_a_later_step_fails_stays_linked(): void
+    public function test_a_failure_after_the_card_commits_rolls_back_the_card_and_the_claim(): void
     {
         $em = $this->em();
         [$proposal] = $this->reportedProposal($em, 'accept-proposal-after-commit');
         $dispatcher = self::getContainer()->get('event_dispatcher');
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
-        $dispatcher->addListener(CardChanged::class, static function (): void {
+        $hubDown = static function (): void {
             throw new \RuntimeException('The hub is down.');
-        });
+        };
+        $dispatcher->addListener(CardChanged::class, $hubDown);
 
         try {
             $this->handler()(new AcceptProposalCommand($proposal));
-            self::fail('Expected the failure after the commit.');
-        } catch (ProposalCardCommittedException $e) {
-            self::assertSame('The hub is down.', $e->getPrevious()?->getPrevious()?->getMessage());
+            self::fail('Expected the failure after the card commit.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('The hub is down.', $e->getMessage());
         }
 
-        $em->clear();
-        $stored = $this->service(ProposalRepository::class)->find($proposal->id);
-        self::assertInstanceOf(Proposal::class, $stored);
-        self::assertSame(ProposalState::Created, $stored->state);
-        self::assertNotNull($stored->cardId);
-        self::assertInstanceOf(Card::class, $this->service(CardRepository::class)->find($stored->cardId));
-        self::assertSame(1, $this->countCards($em, $stored));
+        self::assertSame(0, $this->countCards($em, $proposal));
+        self::assertSame(
+            [ProposalState::Proposed->value, null],
+            array_values($em->getConnection()->fetchNumeric('SELECT state, card_id FROM insights_proposals WHERE id = ?', [(string) $proposal->id]) ?: []),
+        );
 
-        $this->assertRefused(['proposal' => AcceptProposalHandler::NOT_PROPOSED], $stored);
-        self::assertSame(1, $this->countCards($em, $stored));
+        $dispatcher->removeListener(CardChanged::class, $hubDown);
+        $this->service(ManagerRegistry::class)->resetManager();
+        $retry = $this->service(ProposalRepository::class)->find($proposal->id);
+        self::assertInstanceOf(Proposal::class, $retry);
+
+        $accepted = $this->handler()(new AcceptProposalCommand($retry));
+
+        self::assertSame(ProposalState::Created, $accepted->state);
+        self::assertNotNull($accepted->cardId);
+        self::assertInstanceOf(Card::class, $this->service(CardRepository::class)->find($accepted->cardId));
+        self::assertSame(1, $this->countCards($em, $proposal));
+
+        $this->assertRefused(['proposal' => AcceptProposalHandler::NOT_PROPOSED], $accepted);
+        self::assertSame(1, $this->countCards($em, $proposal));
     }
 
     /** @return array{Proposal, string} */

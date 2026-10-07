@@ -11,10 +11,10 @@ use Symfony\Component\Uid\Uuid;
 interface ProposalCardCreatorInterface
 {
     /**
-     * Creates the card in the backlog of the project and answers its id.
+     * Creates the card in the backlog of the project and answers its id. It joins
+     * the transaction of the caller, so a rollback there removes the card.
      *
-     * @throws \App\Exception\DomainErrors    when the board refuses the card
-     * @throws ProposalCardCommittedException when a step fails after the card is stored
+     * @throws \App\Exception\DomainErrors when the board refuses the card
      */
     public function createBacklogCard(Project $project, ProposalCard $card): Uuid;
 }

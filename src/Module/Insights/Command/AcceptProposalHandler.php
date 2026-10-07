@@ -9,20 +9,17 @@ use App\Module\Insights\Entity\Proposal;
 use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Entity\ProposalState;
 use App\Module\Insights\Proposal\ProposalCard;
-use App\Module\Insights\Proposal\ProposalCardCommittedException;
 use App\Module\Insights\Proposal\ProposalCardCreatorInterface;
 use App\Module\Insights\Repository\ProposalRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * Turns a proposed card into a backlog card. The proposal moves to created
- * before the card exists, so a second accept that races this one finds it
- * taken. A refused card puts the proposal back. A stored card stays linked,
- * even when a later step fails.
+ * Turns a proposed card into a backlog card. The card and the created proposal
+ * commit in one transaction, under a lock on the proposal row, so a failure
+ * leaves neither and a second accept that races this one waits and is refused.
  */
 final readonly class AcceptProposalHandler
 {
@@ -44,58 +41,39 @@ final readonly class AcceptProposalHandler
             throw new DomainErrors(['proposal' => self::BUCKET_RULE_UNSUPPORTED]);
         }
 
-        $claimed = $this->em->wrapInTransaction(function () use ($proposalId): ?Proposal {
+        // The card transaction nests as a savepoint. A refusal leaves as a
+        // value, because a throw closes the EntityManager.
+        $accepted = $this->em->wrapInTransaction(function () use ($proposalId): Proposal|DomainErrors {
             $proposal = $this->proposals->findOneLocked($proposalId);
             if (null === $proposal || ProposalState::Proposed !== $proposal->state) {
-                return null;
+                return new DomainErrors(['proposal' => self::NOT_PROPOSED]);
+            }
+            try {
+                $cardId = $this->cards->createBacklogCard($proposal->analysis->project, new ProposalCard($proposal->title, $proposal->body, $proposal->analysis->documentId));
+            } catch (DomainErrors $refusal) {
+                return $refusal;
             }
             $proposal->state = ProposalState::Created;
-            $this->em->flush();
+            $proposal->cardId = $cardId;
 
             return $proposal;
         });
-        if (null === $claimed) {
-            throw new DomainErrors(['proposal' => self::NOT_PROPOSED]);
+        if ($accepted instanceof DomainErrors) {
+            throw $accepted;
         }
-
-        $project = $claimed->analysis->project;
-        $failure = null;
-        try {
-            $cardId = $this->cards->createBacklogCard($project, new ProposalCard($claimed->title, $claimed->body, $claimed->analysis->documentId));
-        } catch (ProposalCardCommittedException $e) {
-            $cardId = $e->cardId;
-            $failure = $e;
-        } catch (\Throwable $e) {
-            $this->release($proposalId);
-
-            throw $e;
-        }
-        $claimed->cardId = $cardId;
-        $this->em->flush();
 
         $this->auditor->record(
             'insights.proposal_accepted',
             AuditOutcome::Success,
             [
                 'proposalId' => (string) $proposalId,
-                'analysisId' => (string) $claimed->analysis->id,
-                'projectId' => (string) $project->id,
-                'cardId' => $cardId->toRfc4122(),
+                'analysisId' => (string) $accepted->analysis->id,
+                'projectId' => (string) $accepted->analysis->project->id,
+                'cardId' => (string) $accepted->cardId,
             ],
             new AuditSubject('proposal', (string) $proposalId),
         );
-        if (null !== $failure) {
-            throw $failure;
-        }
 
-        return $claimed;
-    }
-
-    private function release(Uuid $proposalId): void
-    {
-        $this->em->getConnection()->executeStatement(
-            'UPDATE insights_proposals SET state = :proposed WHERE id = :id AND state = :created AND card_id IS NULL',
-            ['proposed' => ProposalState::Proposed->value, 'created' => ProposalState::Created->value, 'id' => $proposalId->toRfc4122()],
-        );
+        return $accepted;
     }
 }

@@ -8,9 +8,7 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Exception\CardCommittedException;
 use App\Module\Insights\Proposal\ProposalCard;
-use App\Module\Insights\Proposal\ProposalCardCommittedException;
 use App\Module\Insights\Proposal\ProposalCardCreatorInterface;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
@@ -28,19 +26,15 @@ final readonly class BoardProposalCardCreator implements ProposalCardCreatorInte
     #[\Override]
     public function createBacklogCard(Project $project, ProposalCard $card): Uuid
     {
-        try {
-            $created = ($this->createCard)(new CreateCardCommand(
-                project: $project,
-                title: $card->title,
-                body: $card->body,
-                type: CardType::Feature,
-                reporter: CardReporter::Agent,
-                documentIds: null === $card->reportDocumentId ? [] : [$card->reportDocumentId->toRfc4122()],
-                actor: CardReporter::Human,
-            ));
-        } catch (CardCommittedException $e) {
-            throw new ProposalCardCommittedException($e->cardId, $e);
-        }
+        $created = ($this->createCard)(new CreateCardCommand(
+            project: $project,
+            title: $card->title,
+            body: $card->body,
+            type: CardType::Feature,
+            reporter: CardReporter::Agent,
+            documentIds: null === $card->reportDocumentId ? [] : [$card->reportDocumentId->toRfc4122()],
+            actor: CardReporter::Human,
+        ));
 
         return $created->id ?? throw new \LogicException('A stored card has an id.');
     }
