@@ -4,3 +4,5 @@ mcp:
     http:
         path: /mcp
         allowed_hosts: '%env(csv:MCP_ALLOWED_HOSTS)%'
+    # Above the tool count, so a client that reads only the first page of tools/list still sees every tool.
+    pagination_limit: 100

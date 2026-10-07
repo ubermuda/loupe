@@ -2574,6 +2574,22 @@
                 <source>project.connect.tool.metric_query</source>
                 <target>Read one metric, such as cost, tokens, duration or merge rate, over time, by run or by card, with the rows behind it.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.analysis_get">
+                <source>project.connect.tool.analysis_get</source>
+                <target>Read one analysis, with its state, its cost so far and the changes it proposes.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.analysis_report">
+                <source>project.connect.tool.analysis_report</source>
+                <target>Finish an analysis with its report document and the changes it proposes.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.analytics_settings_get">
+                <source>project.connect.tool.analytics_settings_get</source>
+                <target>Read the default model, the default effort and the full-text setting of the analyses.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.analytics_settings_update">
+                <source>project.connect.tool.analytics_settings_update</source>
+                <target>Change the default model, the default effort or the full-text setting of the analyses.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.bridge_list">
                 <source>project.connect.tool.bridge_list</source>
                 <target>List the bridges that follow the project, with their heartbeat, their pause, their worker pools and their open runs.</target>
