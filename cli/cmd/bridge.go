@@ -468,6 +468,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		r.mu.Unlock()
 		r.hookRunner.attach(r.heartbeat)
 		r.heartbeat.start()
+		r.syncHostSampler()
 	}
 	if r.update != nil && r.update.resumed != nil {
 		watched = r.update.watchHealth(ctx, r, updates)

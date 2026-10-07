@@ -75,9 +75,13 @@ type heartbeater struct {
 	paused bool
 	// claims are the work claims the router holds. They live apart from body
 	// too.
-	claims   []api.WorkClaim
-	sentAt   time.Time
-	interval time.Duration
+	claims []api.WorkClaim
+	// samples are the host samples no accepted heartbeat has carried yet, and
+	// sampleSeq counts every sample ever added.
+	samples   []api.HostSample
+	sampleSeq uint64
+	sentAt    time.Time
+	interval  time.Duration
 	// reset wakes the loop to arm its timer with a new interval.
 	reset chan struct{}
 	// poolsChanged wakes the loop to send changed pool rows.
@@ -213,6 +217,41 @@ func (h *heartbeater) setPools(rows []api.WorkerPoolReport) {
 	}
 }
 
+// addHostSample keeps s for the next heartbeat, which does not go out sooner.
+// The buffer drops the oldest sample past api.MaxHostSamples. A nil
+// heartbeater drops s.
+func (h *heartbeater) addHostSample(s api.HostSample) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.samples = append(h.samples, s)
+	h.sampleSeq++
+	if over := len(h.samples) - api.MaxHostSamples; over > 0 {
+		h.samples = slices.Delete(h.samples, 0, over)
+	}
+}
+
+// pendingHostSamples copies the buffer, with the count of samples added so
+// far.
+func (h *heartbeater) pendingHostSamples() ([]api.HostSample, uint64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return slices.Clone(h.samples), h.sampleSeq
+}
+
+// dropHostSamples removes the samples up to the upto-th one added, which an
+// accepted heartbeat carried.
+func (h *heartbeater) dropHostSamples(upto uint64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if n := len(h.samples) - int(h.sampleSeq-upto); n > 0 {
+		h.samples = slices.Delete(h.samples, 0, n)
+	}
+}
+
 // sendPools sends the pool rows when they differ from the last sent ones.
 // Inside the window of the last send, it returns a timer for the window end.
 func (h *heartbeater) sendPools() <-chan time.Time {
@@ -282,7 +321,14 @@ func (h *heartbeater) send() {
 	}
 
 	h.queue.SendLatest(heartbeatLane, func(ctx context.Context) error {
+		// The samples are read when the heartbeat goes out, because a newer
+		// heartbeat can replace this one before then.
+		var upto uint64
+		body.HostSamples, upto = h.pendingHostSamples()
 		reply, err := h.client.Heartbeat(ctx, h.bridgeID, body)
+		if err == nil {
+			h.dropHostSamples(upto)
+		}
 		if err == nil && h.onRange != nil {
 			h.onRange(reply.CLIRange)
 		}

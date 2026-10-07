@@ -110,7 +110,8 @@ type File struct {
 	Work map[string]WorkEntry `yaml:"work"`
 	// Name is the host name when absent, and a blank value opts out.
 	Name *string `yaml:"name"`
-	// Collect is on when the key is absent.
+	// Collect is on when the key is absent. Off, it also stops the host
+	// samples.
 	Collect *bool `yaml:"collect"`
 }
 
@@ -668,7 +669,7 @@ func (s *Set) AutoUpdateSet() bool {
 }
 
 // Collect reports whether the bridge sends the tool calls and the timing of
-// each worker run.
+// each worker run, and the host samples.
 func (s *Set) Collect() bool {
 	return !s.noCollect
 }

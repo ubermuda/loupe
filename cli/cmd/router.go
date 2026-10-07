@@ -58,6 +58,17 @@ type router struct {
 	runs    *runReports
 	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
 	heartbeat *heartbeater
+	// hostSampling and hostInterval are the host sampling flags, under mu.
+	hostSampling bool
+	hostInterval time.Duration
+	// sampler is the running host sampler, or nil. samplerMu guards it, and
+	// is taken before mu.
+	samplerMu sync.Mutex
+	sampler   *hostSampler
+	// hostAfter and hostSample stand in for time.After and the host reader in
+	// a test. Nil uses the real ones.
+	hostAfter  func(time.Duration) <-chan time.Time
+	hostSample func(context.Context) (api.HostSample, error)
 	// hookRunner runs the hook packages on start, stop, busy and idle. A nil
 	// one runs nothing.
 	hookRunner *hookRunner
@@ -542,15 +553,18 @@ func (r *router) markGone(id string, seq uint64) ([]pending, bool) {
 }
 
 // applyFlags keeps the flags of one GET /api/events answer for the workers that
-// start after it, and gives its heartbeat interval to the heartbeat.
+// start after it, gives its heartbeat interval to the heartbeat, and starts or
+// stops the host sampler.
 func (r *router) applyFlags(events api.Events) {
 	r.mu.Lock()
 	r.inbox = events.Enabled(api.InboxFlag)
 	r.stopWaits = stopWaitsOf(events)
+	r.hostSampling, r.hostInterval = events.Enabled(api.HostSamplingFlag), hostSampleInterval(events)
 	r.mu.Unlock()
 	if r.heartbeat != nil {
 		r.heartbeat.setInterval(heartbeatInterval(events))
 	}
+	r.syncHostSampler()
 }
 
 // onRefresh applies the flags of a fresh GET /api/events. It logs, once for

@@ -321,3 +321,64 @@ func TestHeartbeatSendsTheNameOnlyWhenSet(t *testing.T) {
 		}
 	}
 }
+
+// The host samples keep the field names the server reads, send null for an
+// unknown battery, and the client keeps the newest MaxHostSamples.
+func TestHeartbeatSendsTheNewestHostSamples(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+	client := New(server.URL, "t", server.Client())
+
+	pct, ac := 87.5, true
+	at := time.Date(2026, 10, 7, 9, 30, 0, 0, time.UTC)
+	one := HostSample{SampledAt: at, CPUPct: []float64{12.5, 3}, MemUsed: 1024, MemTotal: 4096, SwapUsed: 0, BatteryPct: &pct, OnAC: &ac}
+	if _, err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", HostSamples: []HostSample{one, {SampledAt: at, CPUPct: []float64{}}}}); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"projects":[],"cliVersion":"v","hostSamples":[` +
+		`{"sampledAt":"2026-10-07T09:30:00Z","cpuPct":[12.5,3],"memUsed":1024,"memTotal":4096,"swapUsed":0,"batteryPct":87.5,"onAc":true},` +
+		`{"sampledAt":"2026-10-07T09:30:00Z","cpuPct":[],"memUsed":0,"memTotal":0,"swapUsed":0,"batteryPct":null,"onAc":null}]}`
+	if body != want {
+		t.Fatalf("body = %s", body)
+	}
+
+	samples := make([]HostSample, MaxHostSamples+5)
+	for i := range samples {
+		samples[i] = HostSample{SampledAt: at.Add(time.Duration(i) * time.Second), CPUPct: []float64{}}
+	}
+	if _, err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", HostSamples: samples}); err != nil {
+		t.Fatal(err)
+	}
+	var sent struct {
+		HostSamples []HostSample `json:"hostSamples"`
+	}
+	if err := json.Unmarshal([]byte(body), &sent); err != nil {
+		t.Fatal(err)
+	}
+	if len(sent.HostSamples) != MaxHostSamples || !sent.HostSamples[0].SampledAt.Equal(samples[5].SampledAt) {
+		t.Fatalf("sent %d samples, first at %s", len(sent.HostSamples), sent.HostSamples[0].SampledAt)
+	}
+}
+
+// No sample sends no key, so an older server reads the body as before.
+func TestHeartbeatSendsNoHostSamplesKeyWhenThereAreNone(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+
+	if _, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", HostSamples: []HostSample{}}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(body, "hostSamples") {
+		t.Fatalf("body = %s", body)
+	}
+}

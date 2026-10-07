@@ -64,6 +64,13 @@ type Events struct {
 // heartbeats.
 const HeartbeatIntervalFlag = "bridge.heartbeat_interval_seconds"
 
+// HostSamplingFlag switches the host samples on, and HostSampleIntervalFlag
+// holds the seconds between two of them.
+const (
+	HostSamplingFlag       = "bridge.host_sampling_enabled"
+	HostSampleIntervalFlag = "bridge.host_sample_interval_seconds"
+)
+
 // maxSeconds keeps a number of seconds inside what a time.Duration holds.
 const maxSeconds = math.MaxInt64 / int64(time.Second)
 
@@ -522,6 +529,25 @@ type Heartbeat struct {
 	WorkClaims []WorkClaim `json:"workClaims,omitzero"`
 	// Name sends no key when nil, which keeps the stored name, and "" clears it.
 	Name *string `json:"name,omitempty"`
+	// HostSamples sends no key when empty. The client sends the newest
+	// MaxHostSamples of them.
+	HostSamples []HostSample `json:"hostSamples,omitempty"`
+}
+
+// MaxHostSamples is the server's cap on the host samples of one heartbeat.
+const MaxHostSamples = 720
+
+// HostSample is one reading of the host the bridge runs on. CPUPct holds one
+// percent for each core. BatteryPct and OnAC are nil when the bridge cannot
+// tell, which a host with no battery also gives for BatteryPct.
+type HostSample struct {
+	SampledAt  time.Time `json:"sampledAt"`
+	CPUPct     []float64 `json:"cpuPct"`
+	MemUsed    int64     `json:"memUsed"`
+	MemTotal   int64     `json:"memTotal"`
+	SwapUsed   int64     `json:"swapUsed"`
+	BatteryPct *float64  `json:"batteryPct"`
+	OnAC       *bool     `json:"onAc"`
 }
 
 // HeartbeatReply is what the server answers to a heartbeat. Paused is nil when
@@ -605,6 +631,9 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 	}
 	if len(hb.WorkClaims) > MaxWorkClaims {
 		hb.WorkClaims = hb.WorkClaims[:MaxWorkClaims]
+	}
+	if len(hb.HostSamples) > MaxHostSamples {
+		hb.HostSamples = hb.HostSamples[len(hb.HostSamples)-MaxHostSamples:]
 	}
 	body, err := json.Marshal(hb)
 	if err != nil {
