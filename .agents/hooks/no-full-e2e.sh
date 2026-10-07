@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Refuses a Bash command that runs the whole Playwright suite on this machine.
-# CI's `e2e` check is the gate. A local full run is slower, destructive and
+# CI's e2e shard checks are the gate. A local full run is slower, destructive and
 # less truthful, and it fights every other worktree for one php-fpm container.
 # One named spec stays allowed, because a selector change has no other check.
 set -uo pipefail
@@ -20,8 +20,8 @@ deny() {
     exit 0
 }
 
-full_run="A full local e2e run is not the gate, and CI's e2e check is. Push and read that check. To debug one spec, name it: just e2e tests/<area>/<spec>.spec.ts"
-coverage="just e2e-coverage runs the whole suite. CI's e2e check is the gate, and 'just ci-report e2e-coverage' fetches the report."
+full_run="A full local e2e run is not the gate, and CI's e2e shard checks are. Push and read those checks. To debug one spec, name it: just e2e tests/<area>/<spec>.spec.ts"
+coverage="just e2e-coverage runs the whole suite. CI's e2e shard checks are the gate, and 'just ci-report e2e-coverage' fetches the report."
 
 # A spec argument is what separates debugging one spec from running the suite.
 names_a_spec() {

@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Contract;
 
+use Symfony\Component\Uid\Uuid;
+
 final readonly class PullRequestFacts
 {
     /**
-     * @param bool $baseIsMergeTarget the base is the default branch or the branch of the card's epic
-     * @param bool $baseIsEpicBranch  the base is the branch of the card's epic
+     * @param bool  $baseIsMergeTarget the base is the default branch or the branch of the card's epic
+     * @param bool  $baseIsEpicBranch  the base is the branch of the card's epic
+     * @param ?Uuid $id                the id of the Forge pull request row
      */
     public function __construct(
         public PullRequestState $state,
@@ -23,6 +26,7 @@ final readonly class PullRequestFacts
         public bool $stacked,
         public bool $parentMerged,
         public ?\DateTimeImmutable $closedAt,
+        public ?Uuid $id = null,
     ) {
     }
 

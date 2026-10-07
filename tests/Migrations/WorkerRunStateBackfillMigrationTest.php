@@ -11,11 +11,13 @@ use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Doctrine\DBAL\Schema\Schema;
 use DoctrineMigrations\Version20260923185847;
+use DoctrineMigrations\Version20261006022037;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 require_once __DIR__.'/../../migrations/Version20260923185847.php';
+require_once __DIR__.'/../../migrations/Version20261006022037.php';
 
 final class WorkerRunStateBackfillMigrationTest extends KernelTestCase
 {
@@ -34,8 +36,9 @@ final class WorkerRunStateBackfillMigrationTest extends KernelTestCase
         $em->clear();
         $connection = $em->getConnection();
 
-        foreach (['down', 'up'] as $direction) {
-            $migration = new Version20260923185847($connection, new NullLogger());
+        // The replayed migration reads card_id, which a later migration drops.
+        foreach ([[Version20261006022037::class, 'down'], [Version20260923185847::class, 'down'], [Version20260923185847::class, 'up']] as [$class, $direction]) {
+            $migration = new $class($connection, new NullLogger());
             $migration->{$direction}(new Schema());
             foreach ($migration->getSql() as $query) {
                 $connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());

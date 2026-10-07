@@ -23,6 +23,12 @@ final readonly class Facts
     ) {
     }
 
+    /** A copy that reads another pull request as the one the card acts on. */
+    public function withPullRequest(?PullRequestFacts $pullRequest): self
+    {
+        return new self($this->now, $this->card, $pullRequest, $this->pullRequests, $this->run, $this->provided, $this->fingerprints);
+    }
+
     /**
      * @template T of object
      *

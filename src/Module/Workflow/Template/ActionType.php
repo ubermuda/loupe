@@ -11,4 +11,5 @@ enum ActionType: string
     case ForgeWrite = 'forge-write';
     case Pause = 'pause';
     case Release = 'release';
+    case Evaluate = 'evaluate';
 }

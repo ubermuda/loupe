@@ -24,9 +24,10 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * The run fixes a pull request of its card: the first open one the forge
- * tracks, else the first one the card links. The forge state gives the head
- * and the reason.
+ * The run fixes a pull request of its card: the link the event names, by URL
+ * and then by a number that one link alone holds. An event that names no link of the card falls back to
+ * the first open one the forge tracks, else the first one the card links. The
+ * forge state gives the head and the reason.
  */
 #[AsEventListener]
 final readonly class QueueFixRunCommentOnWorkerRunQueued
@@ -74,10 +75,13 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
         if ([] === $keys) {
             return;
         }
-        $tracked = self::firstOpen($keys, $this->forgePullRequests->findByKeys($event->projectId, $keys));
-        $forge = $tracked->forge ?? $keys[0]['forge'];
-        $repository = $tracked->repository ?? $keys[0]['repository'];
-        $number = $tracked->number ?? $keys[0]['number'];
+        $rows = $this->forgePullRequests->findByKeys($event->projectId, $keys);
+        $named = self::named($keys, $event);
+        $key = $named ?? $keys[0];
+        $tracked = null === $named ? self::firstOpen($keys, $rows) : array_find($rows, static fn (ForgePullRequest $row): bool => self::matches($row, $named));
+        $forge = $tracked->forge ?? $key['forge'];
+        $repository = $tracked->repository ?? $key['repository'];
+        $number = $tracked->number ?? $key['number'];
         $headSha = $tracked?->headSha;
         $reason = null === $tracked ? null : self::reasonOf($tracked);
 
@@ -122,21 +126,44 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
     }
 
     /**
-     * @param non-empty-list<array{forge: string, repository: string, number: int}> $keys
-     * @param list<ForgePullRequest>                                                $rows
+     * @param non-empty-list<array{forge: string, repository: string, number: int, url: string}> $keys
+     *
+     * @return array{forge: string, repository: string, number: int, url: string}|null
+     */
+    private static function named(array $keys, WorkerRunQueued $event): ?array
+    {
+        $url = null === $event->pullRequestUrl ? null : mb_strtolower($event->pullRequestUrl);
+        $byUrl = null === $url ? null : array_find($keys, static fn (array $key): bool => mb_strtolower($key['url']) === $url);
+        if (null !== $byUrl || null === $event->pullRequestNumber) {
+            return $byUrl;
+        }
+        // Two repositories can share a number, so only a single match names the link.
+        $byNumber = array_values(array_filter($keys, static fn (array $key): bool => $key['number'] === $event->pullRequestNumber));
+
+        return 1 === \count($byNumber) ? $byNumber[0] : null;
+    }
+
+    /**
+     * @param non-empty-list<array{forge: string, repository: string, number: int, url: string}> $keys
+     * @param list<ForgePullRequest>                                                             $rows
      */
     private static function firstOpen(array $keys, array $rows): ?ForgePullRequest
     {
         foreach ($keys as $key) {
             foreach ($rows as $row) {
-                if (PullRequestState::Open === $row->state && $row->forge === $key['forge']
-                    && mb_strtolower($row->repository) === mb_strtolower($key['repository']) && $row->number === $key['number']) {
+                if (PullRequestState::Open === $row->state && self::matches($row, $key)) {
                     return $row;
                 }
             }
         }
 
         return null;
+    }
+
+    /** @param array{forge: string, repository: string, number: int, url: string} $key */
+    private static function matches(ForgePullRequest $row, array $key): bool
+    {
+        return $row->forge === $key['forge'] && mb_strtolower($row->repository) === mb_strtolower($key['repository']) && $row->number === $key['number'];
     }
 
     /** The first reason a fix is due, in the order the board asks for fixes. */

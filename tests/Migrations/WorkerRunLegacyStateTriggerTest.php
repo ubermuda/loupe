@@ -34,8 +34,8 @@ final class WorkerRunLegacyStateTriggerTest extends KernelTestCase
 
         $id = Uuid::v7()->toRfc4122();
         $connection->executeStatement(
-            'INSERT INTO bridge_worker_runs (id, project_id, bridge_id, session_id, card_id, card_number, rule_name, started_at, ended_at, exit_code, has_result, failure_reason, output, received_at)
-             VALUES (:id, :project, :bridge, :session, :card, 3, :rule, NOW(), NOW(), :exit, :hasResult, :reason, :output, NOW())',
+            'INSERT INTO bridge_worker_runs (id, project_id, bridge_id, session_id, subject_type, subject_id, card_number, rule_name, started_at, ended_at, exit_code, has_result, failure_reason, output, received_at)
+             VALUES (:id, :project, :bridge, :session, \'card\', :card, 3, :rule, NOW(), NOW(), :exit, :hasResult, :reason, :output, NOW())',
             [
                 'id' => $id,
                 'project' => $projectId,
@@ -60,8 +60,8 @@ final class WorkerRunLegacyStateTriggerTest extends KernelTestCase
 
         $id = Uuid::v7()->toRfc4122();
         $connection->executeStatement(
-            "INSERT INTO bridge_worker_runs (id, project_id, bridge_id, run_key, state, card_id, card_number, rule_name, output, received_at)
-             VALUES (:id, :project, :bridge, :runKey, 'failed', :card, 3, 'plan', '', NOW())",
+            "INSERT INTO bridge_worker_runs (id, project_id, bridge_id, run_key, state, subject_type, subject_id, card_number, rule_name, output, received_at)
+             VALUES (:id, :project, :bridge, :runKey, 'failed', 'card', :card, 3, 'plan', '', NOW())",
             [
                 'id' => $id,
                 'project' => $projectId,

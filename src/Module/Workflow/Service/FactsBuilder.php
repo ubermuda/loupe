@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -47,6 +48,7 @@ final readonly class FactsBuilder
         private CardPullRequests $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
         private WorkRequestRepository $workRequests,
+        private WorkerRunRepository $workerRuns,
         private FactProviders $providers,
         private BoardAutomation $boardAutomation,
         private Connection $connection,
@@ -74,8 +76,8 @@ final readonly class FactsBuilder
                 }
             }
         }
-        $pullRequestFacts = array_map(fn (ForgePullRequest $pullRequest): PullRequestFacts => $this->pullRequestFacts($pullRequest, $parentEpicBranch, $epicRepositories), $pullRequests);
-        $primaryIndex = array_search($this->cardPullRequests->primary($pullRequests), $pullRequests, true);
+        $primary = $this->cardPullRequests->primary($pullRequests);
+        $pullRequestFacts = self::inSubjectOrder($pullRequests, array_map(fn (ForgePullRequest $pullRequest): PullRequestFacts => $this->pullRequestFacts($pullRequest, $parentEpicBranch, $epicRepositories), $pullRequests));
         $settled = $this->workRequests->findLatestSettledForCard($cardId);
 
         $provided = array_map(fn (FactProvider $provider): array => $this->provided($provider, $cardId), $this->providers->byClass);
@@ -96,7 +98,7 @@ final readonly class FactsBuilder
                 childMergedIntoEpicBranch: $children['total'] > 0 && null !== $epicBranch
                     && $this->cardPullRequests->childMergedInto($card, $epicBranch),
             ),
-            pullRequest: false === $primaryIndex ? null : $pullRequestFacts[$primaryIndex],
+            pullRequest: null === $primary ? null : array_find($pullRequestFacts, static fn (PullRequestFacts $facts): bool => true === $primary->id?->equals($facts->id)),
             pullRequests: $pullRequestFacts,
             run: new RunFacts(
                 activeWorkKinds: array_values(array_unique(array_map(
@@ -104,6 +106,8 @@ final readonly class FactsBuilder
                     $this->workRequests->findLiveForCard($cardId),
                 ))),
                 lastRefusalCode: WorkRequestState::Refused === $settled?->state ? $settled->reason : null,
+                activeWorkerKinds: $this->workerRuns->findOpenWorkKindsOfCard($cardId),
+                parentActiveKinds: null === $card->parent ? [] : $this->workerRuns->findOpenWorkKindsOfCard($card->parent->id ?? throw new \LogicException('A stored card has an id.')),
             ),
             provided: array_map(static fn (array $result): object => $result[0], $provided),
             fingerprints: array_map(static fn (array $result): mixed => $result[1], array_filter($provided, static fn (array $result): bool => !$result[0] instanceof Unreadable)),
@@ -203,7 +207,25 @@ final readonly class FactsBuilder
                 // Forge records no close time, so the last read of the pull request stands in for it.
                 ForgePullRequestState::Closed => $pullRequest->refreshedAt,
             },
+            id: $pullRequest->id,
         );
+    }
+
+    /**
+     * The unstacked pull requests first, then the oldest opened. One with no opening time sorts first, and the id breaks a tie.
+     *
+     * @param list<ForgePullRequest> $pullRequests
+     * @param list<PullRequestFacts> $facts        the facts of each pull request, at the same index
+     *
+     * @return list<PullRequestFacts>
+     */
+    private static function inSubjectOrder(array $pullRequests, array $facts): array
+    {
+        $order = array_keys($facts);
+        $key = static fn (int $i): array => [$facts[$i]->stacked, $pullRequests[$i]->openedAt?->format('Y-m-d\TH:i:s.u') ?? '', (string) $pullRequests[$i]->id];
+        usort($order, static fn (int $a, int $b): int => $key($a) <=> $key($b));
+
+        return array_map(static fn (int $i): PullRequestFacts => $facts[$i], $order);
     }
 
     private static function repositoryKey(ForgePullRequest $pullRequest): string
