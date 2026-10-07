@@ -889,6 +889,21 @@ final class EngineTest extends KernelTestCase
         self::assertSame([true, 1, '2026-10-02 12:11:00', 'workflow-slot-missing'], [$state->truth, $state->attempts, $state->dueAt?->format('Y-m-d H:i:s'), $state->lastRefusal]);
     }
 
+    public function test_a_release_fires_the_rules_of_a_card_that_got_a_baseline_mark_while_held(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->hold($card);
+        $this->saveAutomation($card, false);
+        $this->saveAutomation($card, true);
+        self::assertTrue($this->service(WorkflowPendingBaselineRepository::class)->isMarked($card->id ?? throw new \LogicException('A flushed card has an id.')));
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertCount(1, $this->liveRequests($card));
+    }
+
     public function test_a_release_opens_no_second_request_while_one_is_live(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
@@ -2008,6 +2023,7 @@ final class EngineTest extends KernelTestCase
         $events->addListener(CardHoldsReleased::class, new RearmCardsOnCardHoldsReleased(
             $this->service(WorkflowRuleStateRepository::class),
             $this->service(WorkRequestRepository::class),
+            $this->service(WorkflowPendingBaselineRepository::class),
             new EvaluationTrigger($this->service(MessageBusInterface::class)),
             $clock,
         ));

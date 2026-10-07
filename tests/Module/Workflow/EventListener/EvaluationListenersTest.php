@@ -50,6 +50,7 @@ use App\Module\Workflow\EventListener\EvaluateCardsOnReviewSubmitted;
 use App\Module\Workflow\EventListener\EvaluateCardsOnWorkerRunChanged;
 use App\Module\Workflow\EventListener\RearmCardsOnCardHoldsReleased;
 use App\Module\Workflow\Messenger\EvaluateCard;
+use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Tests\Module\Workflow\Action\ActionScenario;
@@ -239,6 +240,7 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist($state);
         $this->em()->persist($untouched);
         $this->em()->flush();
+        $this->service(WorkflowPendingBaselineRepository::class)->markCards($this->projectId(), $this->uuids($one, $other));
 
         $this->rearmListener()(new CardHoldsReleased($this->projectId(), [$one->id ?? throw new \LogicException('A flushed card has an id.'), $two->id ?? throw new \LogicException('A flushed card has an id.')]));
 
@@ -255,7 +257,7 @@ final class EvaluationListenersTest extends KernelTestCase
         self::assertSame(self::RELEASED_AT, $open->reopenedAt?->format('Y-m-d H:i:s'));
         self::assertNull($claimed->reopenedAt);
         self::assertNull($otherOpen->reopenedAt);
-        self::assertSame([], $this->pendingBaselines());
+        self::assertSame($this->ids($other), $this->pendingBaselines());
         self::assertSame($this->ids($one, $two), $this->sent());
     }
 
@@ -272,6 +274,7 @@ final class EvaluationListenersTest extends KernelTestCase
         return new RearmCardsOnCardHoldsReleased(
             $this->service(WorkflowRuleStateRepository::class),
             $this->service(WorkRequestRepository::class),
+            $this->service(WorkflowPendingBaselineRepository::class),
             $this->trigger(),
             new MockClock(self::RELEASED_AT),
         );
@@ -317,6 +320,12 @@ final class EvaluationListenersTest extends KernelTestCase
     private function ids(Card ...$cards): array
     {
         return array_values(array_map(static fn (Card $card): string => ($card->id ?? throw new \LogicException('A flushed card has an id.'))->toRfc4122(), $cards));
+    }
+
+    /** @return non-empty-list<Uuid> */
+    private function uuids(Card $card, Card ...$cards): array
+    {
+        return array_map(static fn (Card $card): Uuid => $card->id ?? throw new \LogicException('A flushed card has an id.'), [$card, ...$cards]);
     }
 
     private function projectId(): Uuid
