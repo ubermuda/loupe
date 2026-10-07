@@ -38,9 +38,9 @@ return static function (Config $config): void {
 
     $config->add($src,
         Rule::allClasses()
-            ->that(new NotResideInTheseNamespaces('App\Module\Board', 'App\Module\Inbox', 'App\Module\Workflow'))
+            ->that(new NotResideInTheseNamespaces('App\Module\Board', 'App\Module\Inbox', 'App\Module\Readiness', 'App\Module\Workflow'))
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Board']))
-            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle. Inbox is exempt, because it links an item to a card by foreign key and Board never imports Inbox. Workflow is exempt, because the engine reads and moves cards, and Board never imports Workflow'),
+            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle. Inbox is exempt, because it links an item to a card by foreign key and Board never imports Inbox. Workflow is exempt, because the engine reads and moves cards, and Board never imports Workflow. Readiness is exempt, because it creates and moves cards, and Board never imports Readiness'),
     );
 
     $config->add($src,

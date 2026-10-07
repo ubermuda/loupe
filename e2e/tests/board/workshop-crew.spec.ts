@@ -19,6 +19,11 @@ test('Workshop shows reported connections and opens the matching details', async
     const { projectId } = await seed.json();
     const workshopUrl = `/projects/${projectId}`;
     await page.goto(workshopUrl);
+    // A fresh project shows the readiness guide alone until it is hidden.
+    await expect(
+        page.locator('[data-readiness-guide][data-readiness-layout="full"]'),
+    ).toBeVisible();
+    await page.locator('[data-readiness-hide]').click();
     const empty = page.locator('[data-workshop-crew-empty]');
     await expect(empty).toBeVisible();
     await expect(empty).toHaveAttribute('href', `${workshopUrl}/connect`);

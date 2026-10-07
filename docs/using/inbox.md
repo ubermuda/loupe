@@ -255,7 +255,10 @@ Each project has seven switches, one for each cause of a wait:
 
 The switches are on the inbox settings page, at **Project settings > Inbox**.
 The **Settings** button at the top of the inbox page also opens it. Only the
-project owner can open the page. Every switch is on until you change it.
+project owner can open the page. Every switch is on until you change it. An
+agent connected to the project can change the switches with the
+`inbox_settings_update` [MCP tool](mcp.md#changing-the-project-settings). A
+switch that the call omits keeps its value.
 
 When you save, Loupe checks every card of the project again. A wait that
 already exists opens an item when you turn its switch on. A wait ends when you

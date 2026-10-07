@@ -19,6 +19,8 @@ final class ProjectExporterTest extends TestCase
         $project = new Project($user, 'My project', 'example.com', description: 'Review the customer portal.');
         $project->forwardsToAgent = true;
         $project->allowedOrigins = ['https://staging.example.com'];
+        $project->readinessGuideHiddenAt = new \DateTimeImmutable('2026-10-06T19:50:00+00:00');
+        $project->agentGitHubLogin = 'acme-agent';
 
         /** @var ProjectRepository&Stub $repo */
         $repo = $this->createStub(ProjectRepository::class);
@@ -34,6 +36,10 @@ final class ProjectExporterTest extends TestCase
         self::assertTrue($rows[0]['forwardsToAgent']);
         self::assertSame(['https://staging.example.com'], $rows[0]['allowedOrigins']);
         self::assertArrayHasKey('createdAt', $rows[0]);
+        self::assertSame('2026-10-06T19:50:00+00:00', $rows[0]['readinessGuideHiddenAt']);
+        self::assertArrayHasKey('agentFirstSeenAt', $rows[0]);
+        self::assertNull($rows[0]['agentFirstSeenAt']);
+        self::assertSame('acme-agent', $rows[0]['agentGitHubLogin']);
         self::assertSame('projects.json', new ProjectExporter($repo)->filename());
     }
 }

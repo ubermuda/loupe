@@ -76,7 +76,9 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             'createdAt' => self::NOW,
             'resumeSessionId' => null,
             'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
+            'prompt' => null,
         ]], $this->outboxPayloads());
+        self::assertNull($stored->prompt);
 
         $record = $audit->record('bridge.work_request_opened');
         self::assertSame(AuditOutcome::Success, $record->outcome);
@@ -102,6 +104,20 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertInstanceOf(WorkRequest::class, $stored);
         self::assertEquals($context, $stored->context);
         self::assertSame($context->toArray(), $this->outboxPayloads()[0]['context']);
+    }
+
+    public function test_the_prompt_is_stored_and_written_to_the_outbox(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-prompt');
+
+        $request = $this->open($project, Uuid::v7(), kind: 'groom', prompt: "Groom the card.\n");
+
+        $this->em()->clear();
+        $stored = $this->em()->find(WorkRequest::class, $request->id);
+        self::assertInstanceOf(WorkRequest::class, $stored);
+        self::assertSame("Groom the card.\n", $stored->prompt);
+        self::assertSame("Groom the card.\n", $this->outboxPayloads()[0]['prompt']);
     }
 
     public function test_a_live_request_keeps_the_context_it_opened_with(): void
@@ -438,10 +454,11 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         ?string $capability = null,
         string $ruleId = 'implement-on-entry',
         WorkRequestContext $context = new WorkRequestContext(),
+        ?string $prompt = null,
     ): WorkRequest {
         $handler = $this->handler();
 
-        return $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, $kind, $capability, $ruleId, $context));
+        return $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, $kind, $capability, $ruleId, $context, $prompt));
     }
 
     private function unfinishedRunOf(

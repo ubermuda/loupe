@@ -27,6 +27,11 @@ class BoardAutomationSettings
 
     public const string DEFAULT_EPIC_BRANCH_PATTERN = 'epic/'.self::EPIC_BRANCH_NUMBER;
 
+    /** Blank, or a Git branch name that holds the epic number placeholder exactly once. */
+    public const string EPIC_BRANCH_PATTERN_RULE = '/^\s*$|^\s*(?!.*\{number\}.*\{number\})(?!.*\.\.)(?!.*\.lock(?:\/|\s*$))(?=.*\{number\})(?:[A-Za-z0-9_]|\{number\})(?:[A-Za-z0-9._-]|\{number\}|\/(?![\/.-]))*(?<![.\/])\s*$/';
+
+    public const int EPIC_BRANCH_PATTERN_MAX_LENGTH = 255;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -84,7 +89,7 @@ class BoardAutomationSettings
         public bool $openEpicPullRequests = false,
 
         /** The branch the breakdown pushes for an epic, with the card number as the placeholder. Null means no epic branches. */
-        #[ORM\Column(length: 255, nullable: true, options: ['default' => self::DEFAULT_EPIC_BRANCH_PATTERN])]
+        #[ORM\Column(length: self::EPIC_BRANCH_PATTERN_MAX_LENGTH, nullable: true, options: ['default' => self::DEFAULT_EPIC_BRANCH_PATTERN])]
         public ?string $epicBranchPattern = self::DEFAULT_EPIC_BRANCH_PATTERN,
 
         /** How many days back a terminal column of the board reads. The history page shows the rest. */

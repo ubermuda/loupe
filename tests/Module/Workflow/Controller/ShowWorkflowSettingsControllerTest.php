@@ -8,6 +8,9 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Entity\WorkflowBinding;
+use App\Module\Workflow\Template\AppRules;
+use App\Module\Workflow\Template\TemplateParser;
+use App\Tests\Module\Workflow\Template\AppRulesTest;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\AcceptedTerms;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -45,6 +48,9 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.forge"]', 'Forge: not pr.linked');
         self::assertSelectorTextContains('[data-rule-id="merged"] [data-condition-source="workflow.source.board"]', 'Board: not card.in_slot (slot: @terminal), card.children_finished');
         self::assertSelectorNotExists('[data-rule-missing]');
+        self::assertSelectorTextContains('[data-workflow-app-rules] [data-rule-id="discovery"] [data-condition-source="workflow.source.readiness"]', 'Readiness: card.discovery_requested');
+        self::assertSelectorNotExists('[data-workflow-template-rules] [data-rule-id="discovery"]');
+        self::assertSelectorExists('[data-manual-move]');
         self::assertSame(['Anyone', 'A run of the parent epic'], array_values(array_unique($crawler->filter('[data-manual-move-by]')->extract(['_text']))));
         self::assertSelectorTextContains('[data-workflow-timings]', '10, 60, 360');
         self::assertSelectorTextContains('[data-workflow-timings]', '120');
@@ -96,6 +102,28 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until] [data-condition-source="workflow.source.board"]', 'Board: card.is_child');
         self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until] [data-condition-source="workflow.source.forge"]', 'Forge: pr.open');
         self::assertCount(2, $crawler->filter('[data-rule-id="hold"] [data-condition-source="workflow.source.board"]'));
+    }
+
+    public function test_the_rules_the_app_adds_show_in_their_own_group(): void
+    {
+        $parser = self::getContainer()->get(TemplateParser::class);
+        self::assertInstanceOf(TemplateParser::class, $parser);
+        self::getContainer()->set(AppRules::class, new AppRules($parser, AppRulesTest::FIXTURE));
+        $project = $this->workflowProject('workflow-page-app-rules');
+        $this->bindLifecycle($project);
+        $owner = $this->stampedOwner($project);
+
+        $this->client->loginUser($owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/workflow');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[data-workflow-app-rules] h2', 'Rules the app adds');
+        self::assertSelectorTextContains('[data-workflow-app-rules] [data-rule-id="app-groom"]', 'Backlog');
+        self::assertSelectorTextContains('[data-workflow-app-rules] [data-rule-id="app-groom"]', 'groom');
+        self::assertSelectorExists('[data-workflow-app-rules] [data-rule-id="app-tidy"]');
+        self::assertSelectorNotExists('[data-workflow-app-rules] [data-rule-id="implement"]');
+        self::assertSelectorNotExists('[data-workflow-template-rules] [data-rule-id="app-groom"]');
+        self::assertSelectorExists('[data-workflow-template-rules] [data-rule-id="implement"]');
     }
 
     public function test_an_unbound_project_says_it_runs_no_template(): void

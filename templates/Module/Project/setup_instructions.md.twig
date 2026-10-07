@@ -166,7 +166,9 @@ If the file, the project entry or a worker entry does not exist, change nothing.
 
 If the file has a `rules:` list, tell the user that this bridge release refuses it, and give them https://github.com/ubermuda/loupe/blob/main/cli/README.md#the-work-map. Change nothing, and go to step 10.
 
-Ask the user whether each worker gets its own folder or works in the repository folder. If the answer is the repository folder, change nothing and go to step 10.
+If the file has no top-level `appPrompts` key, add `appPrompts: true`. With it, the bridge runs the prompt that Loupe sends for a kind of work that `work:` does not map. An entry under `work:` still wins. Tell the user what the key does.
+
+Ask the user whether each worker gets its own folder or works in the repository folder. If the answer is the repository folder, go to the last paragraph of this step.
 
 If each worker gets its own folder, ask the user for two commands. One command makes or refreshes the folder of a card. The other command removes it. Tell the user the contract of the first command:
 
@@ -196,7 +198,7 @@ work:
 
 A command entry waits until a running worker of the same card ends. The bridge does not retry a failed command.
 
-Show the changed YAML to the user. Save the file only when the user agrees. Then run `loupe bridge reload`, with `--rules <path>` when the bridge uses another file. Show any error to the user. A socket error means that no bridge runs, and the bridge reads the file when it starts.
+When you changed nothing, go to step 10. Otherwise show the changed YAML to the user. Save the file only when the user agrees. Then run `loupe bridge reload`, with `--rules <path>` when the bridge uses another file. Show any error to the user. A socket error means that no bridge runs, and the bridge reads the file when it starts.
 
 ## 10. Finish
 

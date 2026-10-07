@@ -42,6 +42,7 @@ final readonly class BridgeExporter implements UserDataExporterInterface
                 'capabilities' => $bridge->capabilities,
                 'name' => $bridge->name,
                 'requestedName' => $bridge->requestedName,
+                'pushLogin' => $bridge->pushLogin,
             ];
         }
     }

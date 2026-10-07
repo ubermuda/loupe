@@ -85,6 +85,9 @@ final readonly class RecordBridgeHeartbeatHandler
             if (null !== $command->capabilities) {
                 $bridge->capabilities = $command->capabilities;
             }
+            if (null !== $command->pushLogin) {
+                $bridge->pushLogin = '' === $command->pushLogin ? null : $command->pushLogin;
+            }
             $heldName = $bridge->name;
             if ('' === $command->name) {
                 // A release holds the lock until it commits, so a claim waiting on it reads the free name.

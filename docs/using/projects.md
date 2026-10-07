@@ -20,6 +20,9 @@ The header keeps New project reachable on narrow screens and with enlarged text.
 
 Use a tile's Edit control or Project settings to change its description.
 Clear the description and save to remove it.
+An agent connected to the project can change the name, description, domain and document language with the `project_update` MCP tool.
+It changes the allowed origins of the sign-in widget with `project_origins_set`.
+See [Changing the project settings](mcp.md#changing-the-project-settings).
 An invalid submission keeps the entered text so you can correct it.
 
 While the inbox is on, Project settings also has an Inbox section.
@@ -35,6 +38,17 @@ Workshop's Your crew section shows these connections and their health. Select a 
 When the project has no reported connections, Your crew links to connection setup.
 Each connection shows its own health. This does not report whether an individual agent is available or running.
 Agent configuration and rules remain read-only in Loupe. Configure them through the CLI and its rule file.
+
+## Agent readiness
+
+Project settings has an Agent readiness tab. Only the project owner can open it.
+The Discovery part shows the state of the latest discovery run, with the same status as the Repository row of the [readiness guide](workshop.md#run-discovery).
+The Agent GitHub account part links to the page that sets up a [GitHub user for the agents](../getting-started/agent-github-account.md).
+The Workshop guide part has one switch, "Show the readiness checklist on the Workshop".
+Turn it on and select Save to show the [readiness guide](workshop.md#the-readiness-guide) on the Workshop again.
+Turn it off and select Save to hide the guide.
+While the guide is hidden, the tab shows the date it was hidden.
+An agent connected to the project can show or hide the guide with the `readiness_guide_set` MCP tool.
 
 ## Repositories
 
