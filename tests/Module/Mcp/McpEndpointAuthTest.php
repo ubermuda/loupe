@@ -125,6 +125,9 @@ final class McpEndpointAuthTest extends WebTestCase
             'feedback_list',
             'feedback_mark_addressed',
             'project_current',
+            'project_origins_set',
+            'project_update',
+            'readiness_guide_set',
             'series_list',
             'series_rename',
             'tag_list',
@@ -148,8 +151,33 @@ final class McpEndpointAuthTest extends WebTestCase
         self::assertContains('document_highlight', $this->listToolNames($client, $raw));
     }
 
+    public function test_one_tools_list_page_carries_every_tool(): void
+    {
+        $client = static::createClient();
+        $raw = $this->persistValidToken($client);
+
+        $pages = $this->listToolPages($client, $raw);
+
+        // A client that stops after one page must still see every tool.
+        self::assertCount(1, $pages);
+        self::assertContains('project_current', $pages[0]);
+    }
+
     /** @return list<string> */
     private function listToolNames(KernelBrowser $client, string $rawToken): array
+    {
+        $names = array_merge(...$this->listToolPages($client, $rawToken));
+        sort($names);
+
+        return $names;
+    }
+
+    /**
+     * Follows nextCursor to the last page.
+     *
+     * @return list<list<string>>
+     */
+    private function listToolPages(KernelBrowser $client, string $rawToken): array
     {
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
             'CONTENT_TYPE' => 'application/json',
@@ -158,20 +186,25 @@ final class McpEndpointAuthTest extends WebTestCase
         self::assertSame(200, $client->getResponse()->getStatusCode());
         $sessionId = $client->getResponse()->headers->get('Mcp-Session-Id');
 
-        $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
-            'CONTENT_TYPE' => 'application/json',
-            'HTTP_AUTHORIZATION' => 'Bearer '.$rawToken,
-            'HTTP_MCP_SESSION_ID' => $sessionId,
-        ], content: '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}');
-        $response = $client->getResponse();
-        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $pages = [];
+        $cursor = null;
+        do {
+            $params = null === $cursor ? new \stdClass() : ['cursor' => $cursor];
+            $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer '.$rawToken,
+                'HTTP_MCP_SESSION_ID' => $sessionId,
+            ], content: json_encode(['jsonrpc' => '2.0', 'id' => \count($pages) + 2, 'method' => 'tools/list', 'params' => $params], \JSON_THROW_ON_ERROR));
+            $response = $client->getResponse();
+            self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
 
-        $body = json_decode((string) $response->getContent(), true);
-        self::assertIsArray($body['result']['tools']);
-        $names = array_column($body['result']['tools'], 'name');
-        sort($names);
+            $body = json_decode((string) $response->getContent(), true);
+            self::assertIsArray($body['result']['tools']);
+            $pages[] = array_values(array_column($body['result']['tools'], 'name'));
+            $cursor = $body['result']['nextCursor'] ?? null;
+        } while (null !== $cursor && \count($pages) < 10);
 
-        return $names;
+        return $pages;
     }
 
     public function test_request_on_an_unlisted_host_is_rejected_with_a_self_diagnosing_body(): void

@@ -13,6 +13,7 @@ use App\Module\Inbox\Mcp\InboxGetTool;
 use App\Module\Inbox\Mcp\InboxJoinTool;
 use App\Module\Inbox\Mcp\InboxListTool;
 use App\Module\Inbox\Mcp\InboxSearchTool;
+use App\Module\Inbox\Mcp\InboxSettingsUpdateTool;
 use App\Module\Inbox\Mcp\InboxWithdrawTool;
 use App\Module\Project\Mcp\AdvertisedTools;
 use Doctrine\ORM\EntityManagerInterface;
@@ -54,6 +55,7 @@ final class InboxToolRegistrationTest extends KernelTestCase
         yield 'inbox_list' => [InboxListTool::NAME, InboxListTool::class];
         yield 'inbox_get' => [InboxGetTool::NAME, InboxGetTool::class];
         yield 'inbox_withdraw' => [InboxWithdrawTool::NAME, InboxWithdrawTool::class];
+        yield 'inbox_settings_update' => [InboxSettingsUpdateTool::NAME, InboxSettingsUpdateTool::class];
     }
 
     /** @param class-string $toolClass */
@@ -86,7 +88,7 @@ final class InboxToolRegistrationTest extends KernelTestCase
         $names = array_column($this->advertised()->enabled(), 'name');
         $inbox = array_values(array_filter($names, static fn (string $name): bool => str_starts_with($name, 'inbox_')));
 
-        self::assertSame([InboxAskTool::NAME, InboxSearchTool::NAME, InboxJoinTool::NAME, InboxListTool::NAME, InboxGetTool::NAME, InboxWithdrawTool::NAME], $inbox);
+        self::assertSame([InboxAskTool::NAME, InboxSearchTool::NAME, InboxJoinTool::NAME, InboxListTool::NAME, InboxGetTool::NAME, InboxWithdrawTool::NAME, InboxSettingsUpdateTool::NAME], $inbox);
     }
 
     public function test_inbox_ask_publishes_its_items_as_a_list_of_objects(): void
