@@ -614,10 +614,12 @@ final readonly class Engine
     /**
      * A rule waits when it cannot read its facts. A pause whose until cannot be read could never release,
      * so its rule waits while it is true. A false one still records its edge.
+     * A refill that cannot be read makes the rule wait too, like a when that cannot be read.
      */
     private function waits(Evaluation $run, Rule $rule): bool
     {
         return null !== $rule->when->unreadable($run->facts)
+            || null !== $rule->then->refill?->unreadable($run->facts)
             || (null !== $rule->then->until?->unreadable($run->facts) && $this->ruleSubject->bind($rule, $run->facts)->truth);
     }
 

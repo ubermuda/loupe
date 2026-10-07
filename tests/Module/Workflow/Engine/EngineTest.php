@@ -2271,6 +2271,25 @@ final class EngineTest extends KernelTestCase
         self::assertSame(['provided'], $this->firedRules());
     }
 
+    public function test_a_request_rule_waits_when_its_refill_source_is_off(): void
+    {
+        $rule = self::requestRule('provided', self::NOT_EPIC, limit: 3);
+        $rule['then']['request']['refill'] = self::PROVIDED_READY;
+        $card = $this->boundCard([$rule]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->provider()->on = false;
+
+        $this->evaluate($card);
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertNull($this->ruleStateOrNull($card, 'provided'));
+
+        $this->provider()->on = true;
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(['provided'], $this->firedRules());
+    }
+
     public function test_a_rule_pause_whose_until_is_unreadable_stays(): void
     {
         $card = $this->boundCard([[
