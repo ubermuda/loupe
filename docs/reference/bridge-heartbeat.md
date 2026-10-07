@@ -30,6 +30,7 @@ The path holds no project, because one bridge follows several projects.
   "projects": ["0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90"],
   "cliVersion": "1.0.0",
   "name": "homelab",
+  "pushLogin": "acme-agent",
   "update": {"state": "rolled-back", "version": "1.1.0"},
   "workerPools": [
     {"name": "default", "size": 3, "inUse": 2, "queued": 0},
@@ -43,6 +44,7 @@ The path holds no project, because one bridge follows several projects.
 | `projects` | required. A list of at most 500 project ids, which may be empty. The server keeps the ids of projects the token's user owns, and drops every other id |
 | `cliVersion` | required. The version of a release build, such as `1.0.0`, or the commit of a development build. 1 to 100 characters after trimming |
 | `name` | optional. The name the web UI shows for the bridge. 1 to 40 characters after trimming, with no control character. A missing or `null` value keeps the name the server holds, and an empty or blank value clears it. See [The bridge name](#the-bridge-name) |
+| `pushLogin` | optional. The GitHub login the bridge pushes as, from `loupe agent-account set`. It holds 1 to 39 letters, digits and single hyphens, and does not start or end with a hyphen. A missing or `null` value keeps the login the server holds, and an empty value clears it. See [The push login](#the-push-login) |
 | `update` | optional. The state of the bridge's own [update](../extending/cli-bridge.md#updates) |
 | `update.state` | required in `update`. One of the states below |
 | `update.version` | optional. The release the state is about, at most 100 characters |
@@ -92,6 +94,16 @@ heartbeat, stores the name it asked for, and gives it no name. The
 [agents page](../using/worker-runs.md#bridge-health) shows a warning on that bridge.
 The bridge gets the name at its next heartbeat after the other bridge clears or
 changes it. Bridges of different accounts never clash.
+
+### The push login
+
+A bridge with an [agent GitHub account](../getting-started/agent-github-account.md)
+sends the login of that account as `pushLogin`. The server stores it on the
+row of the bridge. The Agent GitHub account row of the
+[readiness guide](../using/workshop.md#the-readiness-guide) is done when a
+running bridge of the project sends the login that the owner recorded. The
+server compares the two logins without regard to case. The token of the
+account never reaches the server.
 
 | `update.state` | Meaning |
 |---|---|
@@ -345,6 +357,7 @@ another bridge claimed. Each request carries these fields:
 | `createdAt` | the time the request opened, as an RFC 3339 date |
 | `resumeSessionId` | the session of an unfinished run of the card and kind that the run resumes, or `null` for a fresh start |
 | `context` | what the card held when the request opened. See the table below |
+| `prompt` | the text of the app prompt that the rule names, or `null`. Only a rule that Loupe ships can name one. A bridge with `appPrompts: true` runs it for a kind that its `work:` map does not hold |
 
 The `context` object always holds five keys. Each one is `null` when the card
 held no such value. A server from before the context sends no `context` key.
@@ -462,8 +475,8 @@ writes a `bridge.work_request_settled` record to the audit log.
 Deleting an account deletes the rows of its bridges and their commands. The
 data export holds the bridges in `bridges.json`, with the stored update state,
 version and install method, the hook rows, the worker pool rows with their
-report time, the pause state, the capabilities, the name the bridge holds and
-the name it asked for. It holds the commands in
+report time, the pause state, the capabilities, the name the bridge holds,
+the name it asked for and the push login. It holds the commands in
 `bridge_commands.json`.
 
 Deleting a project deletes its work requests. The data export holds the work

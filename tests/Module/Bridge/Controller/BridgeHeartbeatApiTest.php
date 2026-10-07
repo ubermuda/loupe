@@ -686,6 +686,14 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'a name that is too long' => [['name' => str_repeat('a', Bridge::MAX_NAME_LENGTH + 1)]];
         yield 'a name with a control character' => [['name' => "lap\x01top"]];
         yield 'a name that is not a string' => [['name' => 7]];
+        yield 'a push login with a leading hyphen' => [['pushLogin' => '-acme']];
+        yield 'a push login with a trailing hyphen' => [['pushLogin' => 'acme-']];
+        yield 'a push login with two hyphens in a row' => [['pushLogin' => 'acme--agent']];
+        yield 'a push login with an underscore' => [['pushLogin' => 'acme_agent']];
+        yield 'a push login that is too long' => [['pushLogin' => str_repeat('a', 40)]];
+        yield 'a push login with a trailing newline' => [['pushLogin' => "acme\n"]];
+        yield 'a blank push login' => [['pushLogin' => '   ']];
+        yield 'a push login that is not a string' => [['pushLogin' => 7]];
     }
 
     /** @param array<string, mixed> $overrides */
@@ -936,6 +944,48 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $this->put($client, (string) Uuid::v4(), $raw, ['projects' => 'loupe']);
         self::assertResponseStatusCodeSame(429);
         self::assertTrue($client->getResponse()->headers->has('Retry-After'));
+    }
+
+    public function test_the_push_login_is_stored(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user($this->em(), 'heartbeat-push-login@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'pushLogin' => 'Acme-Agent-2']);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame('Acme-Agent-2', $this->bridge($owner, $bridgeId)->pushLogin);
+    }
+
+    public function test_a_heartbeat_without_a_push_login_keeps_the_stored_one(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user($this->em(), 'heartbeat-push-login-absent@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'pushLogin' => 'acme-agent']);
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'pushLogin' => null]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame('acme-agent', $this->bridge($owner, $bridgeId)->pushLogin);
+    }
+
+    public function test_an_empty_push_login_clears_the_stored_one(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user($this->em(), 'heartbeat-push-login-clear@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'pushLogin' => 'acme-agent']);
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'pushLogin' => '']);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertNull($this->bridge($owner, $bridgeId)->pushLogin);
     }
 
     /** @param array<string, mixed> $payload */

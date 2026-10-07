@@ -19,6 +19,7 @@ final readonly class OpenWorkRequestCommand
         public ?string $capability,
         public string $ruleId,
         public WorkRequestContext $context,
+        public ?string $prompt = null,
     ) {
     }
 }

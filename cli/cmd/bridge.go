@@ -244,6 +244,8 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		hookRunner: newHookRunner(hookList, bridgeID, bl.log),
 		claude:     claude,
 		cursorFile: cursorFile,
+		agent:      cfg.AgentAccount,
+		pushLogin:  checkAgentAccount(cmd.Context(), cfg.AgentAccount, bl.log),
 	}
 	if dir, err := config.Dir(); err == nil {
 		r.assumeAutoUpdate = migrateAutoUpdate(bl.log, dir, path, o.resumeFile != "")
@@ -395,7 +397,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 
 	set := r.rules()
 	if r.bridgeID != "" {
-		announce(ctx, apiClient(cfg), r.bridgeID, set, r.log)
+		announce(ctx, apiClient(cfg), r.bridgeID, set, r.pushLogin, r.log)
 	}
 	events, err := startEvents(ctx, cfg, r.bridgeID, set)
 	if err != nil {
@@ -429,7 +431,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	var updates *updater
 	var watched <-chan struct{}
 	if r.bridgeID != "" {
-		hb := newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set), heartbeatInterval(events), r.log)
+		hb := newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set, r.pushLogin), heartbeatInterval(events), r.log)
 		if dir, err := config.Dir(); err != nil {
 			r.log.Warn("update_skipped", "reason", err.Error())
 		} else {
@@ -526,8 +528,8 @@ func logStaged(log *slog.Logger, from string) stagedHook {
 // announce sends one heartbeat before the first GET /api/events, because the
 // server serves the events only to a bridge whose heartbeat names the
 // work-requests capability. A failure leaves GET /api/events to answer.
-func announce(ctx context.Context, client heartbeatSender, bridgeID string, set *rules.Set, log *slog.Logger) {
-	body := heartbeatBody(set)
+func announce(ctx context.Context, client heartbeatSender, bridgeID string, set *rules.Set, pushLogin string, log *slog.Logger) {
+	body := heartbeatBody(set, pushLogin)
 	body.Capabilities = slices.Concat(bridgeCapabilities, body.Capabilities)
 	if _, err := client.Heartbeat(ctx, bridgeID, body); err != nil {
 		log.Warn("start_heartbeat_failed", "error", err.Error())
@@ -558,8 +560,9 @@ func startEvents(ctx context.Context, cfg config.Config, bridgeID string, set *r
 }
 
 // heartbeatBody names the projects the rule file maps, by id, the CLI
-// version, the capabilities of the work map and the bridge name.
-func heartbeatBody(set *rules.Set) api.Heartbeat {
+// version, the capabilities of the work map, the bridge name and the login
+// that workers push as.
+func heartbeatBody(set *rules.Set, pushLogin string) api.Heartbeat {
 	ids := []string{}
 	for _, slug := range set.Projects() {
 		ids = append(ids, set.ProjectID(slug))
@@ -567,7 +570,7 @@ func heartbeatBody(set *rules.Set) api.Heartbeat {
 
 	name := set.Name()
 
-	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Capabilities: set.Capabilities(), Name: &name}
+	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Capabilities: set.Capabilities(), Name: &name, PushLogin: &pushLogin}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

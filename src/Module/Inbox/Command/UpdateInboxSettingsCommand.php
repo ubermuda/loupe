@@ -6,17 +6,18 @@ namespace App\Module\Inbox\Command;
 
 use App\Module\Project\Entity\Project;
 
+/** A null switch keeps its stored value, which the handler reads under its lock. */
 final readonly class UpdateInboxSettingsCommand
 {
     public function __construct(
         public Project $project,
-        public bool $documentInReview,
-        public bool $runBlocked,
-        public bool $runGaveUp,
-        public bool $runWaitingForPerson,
-        public bool $pullRequestReady,
-        public bool $pullRequestFixStopped,
-        public bool $cardPaused,
+        public ?bool $documentInReview,
+        public ?bool $runBlocked,
+        public ?bool $runGaveUp,
+        public ?bool $runWaitingForPerson,
+        public ?bool $pullRequestReady,
+        public ?bool $pullRequestFixStopped,
+        public ?bool $cardPaused,
     ) {
     }
 }

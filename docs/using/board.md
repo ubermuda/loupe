@@ -58,8 +58,9 @@ time. A board has at least one terminal column, and it can have more. See
 
 ### Change the columns
 
-Only the project owner changes columns, in **Board settings**. The board itself
-has no column controls, and its columns cannot be dragged. No MCP tool and no
+The project owner changes columns in **Board settings**. An agent connected to
+the project can change them through the [MCP column tools](mcp.md#what-the-tools-do).
+The board itself has no column controls, and its columns cannot be dragged. No
 API route writes a column.
 Another reader of the board sees no column controls.
 
@@ -853,11 +854,23 @@ An agent drives the board through the MCP endpoint. See
 | `card_update` | Exactly one of `cardId` and `number` is required. `title`, `body`, `type`, `status`, `pullRequestUrls`, `documentIds` and `relatedCards` are optional. |
 | `card_run_open` | `sessionId`, `name` and exactly one of `cardId` and `number` are required. `status` is optional. |
 | `card_run_close` | `sessionId` and exactly one of `cardId` and `number` are required. |
+| `column_create` | `label` is required. |
+| `column_update` | `slug` is required. `label` and `terminal` are optional. |
+| `column_reorder` | `order` is required: the slugs of every column except Backlog, in the new order. |
+| `column_delete` | `slug` is required. `targetColumn` is required when the column holds cards. |
+| `automation_settings_update` | Every argument is optional. Each one is a setting of **Automation**, such as `enabled`, `syncBehind`, `openEpicPullRequests` or `epicBranchPattern`. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal`, `default` and `backlog`. The Backlog row
 has `default` and `backlog` both true. `card_list` returns the same
-list in `columns`, beside its cards. The tools read columns and never write one.
+list in `columns`, beside its cards.
+
+`column_create`, `column_update`, `column_reorder` and `column_delete` change
+the columns, as **Board settings** does. They refuse the changes that Board
+settings refuses, and the error says what the agent can fix. A setting that
+`automation_settings_update` omits keeps its value. An empty `epicBranchPattern`
+turns epic branches off. The call refuses a pattern that is not a branch name
+with `{number}` exactly once, and then it saves nothing.
 
 `card_run_open` and `card_run_close` record an interactive session on a card.
 See [Interactive sessions](worker-runs.md#interactive-sessions).
