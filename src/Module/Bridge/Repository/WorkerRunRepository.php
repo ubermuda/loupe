@@ -508,6 +508,26 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    public function hasOpenWorkerOfSessionOnCard(Project $project, Uuid $sessionId, Uuid $cardId): bool
+    {
+        return null !== $this->createQueryBuilder('r')
+            ->select('1')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
+            ->andWhere('r.kind = :kind')
+            ->andWhere('r.state IN (:openStates)')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     private function openInteractiveOfSession(Project $project, Uuid $cardId, Uuid $sessionId): QueryBuilder
     {
         return $this->interactive($project)

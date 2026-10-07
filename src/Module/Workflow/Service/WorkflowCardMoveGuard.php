@@ -9,14 +9,12 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMoveGuard;
-use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use Symfony\Component\Uid\Uuid;
 
 /** A card is managed while the engine runs for its project, its project has a template, and nobody holds it. */
 #[AsAlias(CardMoveGuard::class)]
@@ -85,21 +83,13 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         if (null === $run) {
             return false;
         }
-        if (self::isOpenWorkerRunOn($run, $parentId)) {
+        if (WorkerRunKind::Worker === $run->kind && $run->state->isOpen() && true === $run->cardId()?->equals($parentId)) {
             return true;
         }
 
         // The cause prefers a run on the child, so a resumed session can name an older child run.
-        $parentRun = null === $run->sessionId ? null : $this->workerRuns->findLikeliestOfSession($card->project, $run->sessionId, $parentId);
-
-        return null !== $parentRun && self::isOpenWorkerRunOn($parentRun, $parentId);
-    }
-
-    private static function isOpenWorkerRunOn(WorkerRun $run, Uuid $cardId): bool
-    {
-        return WorkerRunKind::Worker === $run->kind
-            && $run->state->isOpen()
-            && true === $run->cardId()?->equals($cardId);
+        return null !== $run->sessionId
+            && $this->workerRuns->hasOpenWorkerOfSessionOnCard($card->project, $run->sessionId, $parentId);
     }
 
     /** A column no slot links matches the wildcard alone. */

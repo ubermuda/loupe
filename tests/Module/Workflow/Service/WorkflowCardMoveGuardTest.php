@@ -164,6 +164,9 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
 
         self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'no parent run in the session');
 
+        $this->runCause($epic, 'implement', kind: WorkerRunKind::Interactive, sessionId: $session);
+        self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'an interactive parent run in the session');
+
         $this->runCause($epic, 'implement', sessionId: $session);
         self::assertTrue($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'an open parent run in the session');
         self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $this->runCause($child, 'implement', sessionId: Uuid::v7())), 'a session with no parent run');
