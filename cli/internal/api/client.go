@@ -529,13 +529,17 @@ type Heartbeat struct {
 	WorkClaims []WorkClaim `json:"workClaims,omitzero"`
 	// Name sends no key when nil, which keeps the stored name, and "" clears it.
 	Name *string `json:"name,omitempty"`
-	// HostSamples sends no key when empty. The client sends the newest
-	// MaxHostSamples of them.
+	// HostSamples sends no key when empty. The client sends the oldest
+	// HostSamplesPerHeartbeat of them.
 	HostSamples []HostSample `json:"hostSamples,omitempty"`
 }
 
-// MaxHostSamples is the server's cap on the host samples of one heartbeat.
-const MaxHostSamples = 720
+// MaxHostSamples caps the samples the bridge keeps. HostSamplesPerHeartbeat
+// caps one heartbeat, so its body stays far under the 1 MB body limit.
+const (
+	MaxHostSamples          = 720
+	HostSamplesPerHeartbeat = 60
+)
 
 // HostSample is one reading of the host the bridge runs on. CPUPct holds one
 // percent for each core. BatteryPct and OnAC are nil when the bridge cannot
@@ -632,8 +636,8 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 	if len(hb.WorkClaims) > MaxWorkClaims {
 		hb.WorkClaims = hb.WorkClaims[:MaxWorkClaims]
 	}
-	if len(hb.HostSamples) > MaxHostSamples {
-		hb.HostSamples = hb.HostSamples[len(hb.HostSamples)-MaxHostSamples:]
+	if len(hb.HostSamples) > HostSamplesPerHeartbeat {
+		hb.HostSamples = hb.HostSamples[:HostSamplesPerHeartbeat]
 	}
 	body, err := json.Marshal(hb)
 	if err != nil {

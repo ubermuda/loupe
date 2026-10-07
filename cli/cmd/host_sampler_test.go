@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -125,6 +126,38 @@ func TestTheHostSampleBufferDropsTheOldest(t *testing.T) {
 	}
 }
 
+// A backlog goes out oldest first, at most api.HostSamplesPerHeartbeat at a
+// time, and only an accepted heartbeat removes what it carried.
+func TestABacklogOfHostSamplesDrainsOverSeveralHeartbeats(t *testing.T) {
+	client := &fakeHeartbeats{errors: []error{nil, errors.New("offline")}}
+	hh := startHeartbeater(t, client, time.Minute)
+	for i := range 150 {
+		hh.h.addHostSample(hostSampleAt(i))
+	}
+
+	hh.tick(t, time.Minute)
+	if got := len(pendingSamples(hh.h)); got != 150 {
+		t.Fatalf("a failed heartbeat left %d samples", got)
+	}
+	for range 4 {
+		hh.tick(t, time.Minute)
+	}
+
+	ranges := [][2]int{{0, 60}, {0, 60}, {60, 120}, {120, 150}}
+	for i, r := range ranges {
+		var want []int
+		for m := r[0]; m < r[1]; m++ {
+			want = append(want, m)
+		}
+		if got := sampledTimes(client.at(i + 1)); !equalInts(got, want) {
+			t.Fatalf("heartbeat %d carried %v", i+1, got)
+		}
+	}
+	if got := sampledTimes(client.at(5)); got != nil {
+		t.Fatalf("heartbeat after the drain carried %v", got)
+	}
+}
+
 func TestANilHeartbeaterDropsAHostSample(t *testing.T) {
 	var h *heartbeater
 	h.addHostSample(hostSampleAt(1))
@@ -201,6 +234,9 @@ func TestTheHostSamplingFlagStartsAndStopsTheSampler(t *testing.T) {
 
 	stopped := sh.running()
 	sh.r.applyFlags(samplingFlags(false, 30))
+	if got := pendingSamples(sh.hh.h); len(got) != 0 {
+		t.Fatalf("the flag off left %d samples", len(got))
+	}
 	if sh.running() != nil {
 		t.Fatal("the sampler runs after the flag went off")
 	}
@@ -219,6 +255,7 @@ func TestTheHostSamplerTakesANewInterval(t *testing.T) {
 	sh.r.applyFlags(samplingFlags(true, 30))
 	eventually(t, "the first timer", func() bool { return sh.timers.count() == 1 })
 	first := sh.running()
+	sh.hh.h.addHostSample(hostSampleAt(1))
 	sh.r.applyFlags(samplingFlags(true, 30))
 	if sh.running() != first {
 		t.Fatal("the same interval restarted the sampler")
@@ -228,6 +265,9 @@ func TestTheHostSamplerTakesANewInterval(t *testing.T) {
 	eventually(t, "the fallback timer", func() bool { return sh.timers.count() == 2 })
 	if delay, _ := sh.timers.last(); delay != time.Minute {
 		t.Fatalf("delay = %s", delay)
+	}
+	if got := pendingSamples(sh.hh.h); len(got) != 1 {
+		t.Fatalf("a new interval left %d samples", len(got))
 	}
 }
 
@@ -247,11 +287,37 @@ func TestCollectFalseStopsTheHostSampler(t *testing.T) {
 	if sh.running() == nil {
 		t.Fatal("the sampler does not run after collect went back on")
 	}
+	sh.hh.h.addHostSample(hostSampleAt(1))
 	if res := h.reload(t, "collect: false\n"+defaultRules); !res.OK {
 		t.Fatalf("reload = %+v", res)
 	}
 	if sh.running() != nil {
 		t.Fatal("the sampler runs after a reload set collect: false")
+	}
+	if got := pendingSamples(sh.hh.h); len(got) != 0 {
+		t.Fatalf("collect: false left %d samples", len(got))
+	}
+}
+
+// The sampler rounds and clamps each reading before the buffer keeps it.
+func TestTheHostSamplerNormalizesEachSample(t *testing.T) {
+	sh := startSamplerHarness(t, defaultRules)
+	pct := 104.2
+	sh.r.hostSample = func(context.Context) (api.HostSample, error) {
+		defer func() { sh.taken <- struct{}{} }()
+
+		return api.HostSample{SampledAt: sampleEpoch, CPUPct: []float64{12.3456, 100.04, -0.2}, MemUsed: -1, BatteryPct: &pct}, nil
+	}
+	sh.r.applyFlags(samplingFlags(true, 30))
+	eventually(t, "a sampler timer", func() bool { return sh.timers.count() == 1 })
+	_, ch := sh.timers.last()
+	ch <- time.Now()
+	<-sh.taken
+	eventually(t, "the sample in the buffer", func() bool { return len(pendingSamples(sh.hh.h)) == 1 })
+
+	got := pendingSamples(sh.hh.h)[0]
+	if !slices.Equal(got.CPUPct, []float64{12.3, 100, 0}) || got.MemUsed != 0 || *got.BatteryPct != 100 {
+		t.Fatalf("sample = %+v, battery %v", got, *got.BatteryPct)
 	}
 }
 

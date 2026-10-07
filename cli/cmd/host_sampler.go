@@ -60,7 +60,7 @@ func startHostSampler(ctx context.Context, interval time.Duration, after func(ti
 				continue
 			}
 			failing = false
-			add(sample)
+			add(hostsample.Normalize(sample))
 		}
 	}()
 
@@ -93,6 +93,7 @@ func (r *router) syncHostSampler() {
 		s.stop()
 		r.sampler = nil
 		if !on {
+			hb.clearHostSamples()
 			r.log.Info("host_sampling_stopped")
 		}
 	}

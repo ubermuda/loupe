@@ -323,8 +323,8 @@ func TestHeartbeatSendsTheNameOnlyWhenSet(t *testing.T) {
 }
 
 // The host samples keep the field names the server reads, send null for an
-// unknown battery, and the client keeps the newest MaxHostSamples.
-func TestHeartbeatSendsTheNewestHostSamples(t *testing.T) {
+// unknown battery, and the client keeps the oldest HostSamplesPerHeartbeat.
+func TestHeartbeatSendsTheOldestHostSamples(t *testing.T) {
 	var body string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
@@ -347,7 +347,7 @@ func TestHeartbeatSendsTheNewestHostSamples(t *testing.T) {
 		t.Fatalf("body = %s", body)
 	}
 
-	samples := make([]HostSample, MaxHostSamples+5)
+	samples := make([]HostSample, HostSamplesPerHeartbeat+5)
 	for i := range samples {
 		samples[i] = HostSample{SampledAt: at.Add(time.Duration(i) * time.Second), CPUPct: []float64{}}
 	}
@@ -360,7 +360,7 @@ func TestHeartbeatSendsTheNewestHostSamples(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &sent); err != nil {
 		t.Fatal(err)
 	}
-	if len(sent.HostSamples) != MaxHostSamples || !sent.HostSamples[0].SampledAt.Equal(samples[5].SampledAt) {
+	if len(sent.HostSamples) != HostSamplesPerHeartbeat || !sent.HostSamples[0].SampledAt.Equal(samples[0].SampledAt) {
 		t.Fatalf("sent %d samples, first at %s", len(sent.HostSamples), sent.HostSamples[0].SampledAt)
 	}
 }

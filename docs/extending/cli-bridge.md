@@ -369,8 +369,9 @@ timing at all.
 
 The bridge can sample the machine it runs on. A sample holds the use of each
 CPU core, the memory in use and in total, the swap in use, the battery charge
-and the power source. The bridge sends its samples with the next
-[heartbeat](../reference/bridge-heartbeat.md#host-samples). The server uses
+and the power source. The bridge keeps up to 720 samples, and sends at most
+60 of them with each
+[heartbeat](../reference/bridge-heartbeat.md#host-samples), oldest first. The server uses
 them for the host metrics of each run, as
 [Run metrics](../reference/worker-runs.md#run-metrics) describes.
 

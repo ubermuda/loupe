@@ -233,13 +233,24 @@ func (h *heartbeater) addHostSample(s api.HostSample) {
 	}
 }
 
-// pendingHostSamples copies the buffer, with the count of samples added so
-// far.
+// pendingHostSamples copies the oldest api.HostSamplesPerHeartbeat samples,
+// with the count of samples added up to the last of them.
 func (h *heartbeater) pendingHostSamples() ([]api.HostSample, uint64) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	n := min(len(h.samples), api.HostSamplesPerHeartbeat)
 
-	return slices.Clone(h.samples), h.sampleSeq
+	return slices.Clone(h.samples[:n]), h.sampleSeq - uint64(len(h.samples)-n)
+}
+
+// clearHostSamples empties the buffer. A nil heartbeater does nothing.
+func (h *heartbeater) clearHostSamples() {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.samples = nil
 }
 
 // dropHostSamples removes the samples up to the upto-th one added, which an

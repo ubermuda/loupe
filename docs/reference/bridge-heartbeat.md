@@ -112,8 +112,9 @@ takes samples only while the `bridge.host_sampling_enabled` flag is on, as
 The bridge keeps each sample until a heartbeat that carries it is accepted. A
 failed or replaced heartbeat loses no sample, because the next one carries it
 again. The bridge keeps at most 720 samples, and drops the oldest past that
-limit. A sample waits for the next heartbeat, so the samples arrive at the
-heartbeat interval.
+limit. A heartbeat carries at most 60 samples, oldest first, so a backlog
+goes out over several heartbeats. A sample waits for the next heartbeat, so
+the samples arrive at the heartbeat interval.
 
 The server stores the samples only while `bridge.host_sampling_enabled` is on.
 While the flag is off, it drops them and answers the heartbeat as usual. A
