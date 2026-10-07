@@ -179,6 +179,8 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         self::assertTrue($guard->allows($this->card('backlog'), $this->column($this->project, 'next'), CardReporter::Human, null));
         self::assertTrue($guard->allows($this->card('next'), $this->column($this->project, 'tech-design'), CardReporter::Human, null));
         self::assertFalse($guard->allows($this->card('tech-design'), $this->column($this->project, 'next'), CardReporter::Human, null));
+        self::assertTrue($guard->allows($this->card('in-progress'), $this->column($this->project, 'tech-design'), CardReporter::Human, null));
+        self::assertFalse($guard->allows($this->card('in-progress'), $this->column($this->project, 'product-design'), CardReporter::Human, null));
         self::assertFalse($guard->allows($this->card('next'), $this->column($this->project, 'done'), CardReporter::Human, null));
     }
 
