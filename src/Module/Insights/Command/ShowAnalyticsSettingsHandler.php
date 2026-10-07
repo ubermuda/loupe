@@ -25,6 +25,7 @@ final readonly class ShowAnalyticsSettingsHandler
             defaultModel: $own?->defaultModel,
             defaultEffort: $own?->defaultEffort,
             collectFullText: $own->collectFullText ?? false,
+            subcommandPrograms: $own?->subcommandPrograms,
             model: $this->settings->modelFor($project),
             effort: $this->settings->effortFor($project),
         );

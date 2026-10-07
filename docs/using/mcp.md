@@ -298,8 +298,8 @@ Roughly in the order an agent uses them:
 | `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it. The metric `bucket-time:<name>` reads the time of the main-session tool calls of a run in one bucket, in milliseconds. A name is 1 to 64 characters of `a-z`, `0-9`, `_` and `-`. A run with no data for any bucket has an unknown value |
 | `analysis_get` | Read one analysis, with its topic, its range, its model and effort, its state and reason, its cost so far and its proposals |
 | `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
-| `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, and whether the bridge sends the full text of each tool call |
-| `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort clears the project value, so the instance default applies |
+| `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, the programs with subcommands, and whether the bridge sends the full text of each tool call |
+| `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort, or an empty list of programs, clears the project value, so the instance default applies |
 | `bridge_list` | List the bridges that follow the project, with their name, their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |

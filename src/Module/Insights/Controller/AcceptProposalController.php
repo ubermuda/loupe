@@ -9,6 +9,7 @@ use App\Exception\DomainErrors;
 use App\Module\Insights\Command\AcceptProposalCommand;
 use App\Module\Insights\Command\AcceptProposalHandler;
 use App\Module\Insights\Entity\Proposal;
+use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -42,8 +43,8 @@ class AcceptProposalController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(proposalId, project)')] Proposal $proposal,
     ): Response {
         try {
-            ($this->acceptProposal)(new AcceptProposalCommand($proposal));
-            $this->addFlash('success', $this->translator->trans('insights.reports.flash.accepted'));
+            $accepted = ($this->acceptProposal)(new AcceptProposalCommand($proposal));
+            $this->addFlash('success', $this->translator->trans(ProposalKind::BucketRule === $accepted->kind ? 'insights.reports.flash.rule_accepted' : 'insights.reports.flash.accepted'));
         } catch (DomainErrors $e) {
             foreach ($e->errors as $key) {
                 $this->addFlash('error', $this->translator->trans($key));

@@ -32,6 +32,7 @@ final readonly class InsightsSettingsExporter implements UserDataExporterInterfa
                 'defaultModel' => $settings->defaultModel,
                 'defaultEffort' => $settings->defaultEffort,
                 'collectFullText' => $settings->collectFullText,
+                'subcommandPrograms' => $settings->subcommandPrograms,
             ];
         }
     }

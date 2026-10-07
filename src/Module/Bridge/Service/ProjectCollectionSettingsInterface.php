@@ -10,4 +10,9 @@ use App\Module\Project\Entity\Project;
 interface ProjectCollectionSettingsInterface
 {
     public function collectFullText(Project $project): bool;
+
+    /**
+     * @return list<string>|null the programs the project sets, or null when the instance list applies
+     */
+    public function subcommandPrograms(Project $project): ?array;
 }

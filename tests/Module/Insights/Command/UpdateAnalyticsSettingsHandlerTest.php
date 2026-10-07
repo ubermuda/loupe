@@ -50,6 +50,66 @@ final class UpdateAnalyticsSettingsHandlerTest extends KernelTestCase
         self::assertTrue($rows[0]->collectFullText);
     }
 
+    public function test_the_subcommand_programs_are_stored_without_duplicates_and_null_clears_them(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'analytics-settings-programs@example.com'), 'Analytics settings');
+
+        $this->handler()(new UpdateAnalyticsSettingsCommand($project, null, null, false, subcommandPrograms: ['git', 'bazel', 'git', 'c++']));
+        $em->clear();
+        self::assertSame(['git', 'bazel', 'c++'], $this->repository()->findOneBy(['project' => (string) $project->id])?->subcommandPrograms);
+
+        $project = $em->find($project::class, $project->id) ?? throw new \LogicException();
+        $this->handler()(new UpdateAnalyticsSettingsCommand($project, 'opus', null, false, changeEffort: false, changeCollectFullText: false, changeSubcommandPrograms: false));
+        $em->clear();
+        self::assertSame(['git', 'bazel', 'c++'], $this->repository()->findOneBy(['project' => (string) $project->id])?->subcommandPrograms);
+
+        $project = $em->find($project::class, $project->id) ?? throw new \LogicException();
+        $this->handler()(new UpdateAnalyticsSettingsCommand($project, null, null, false, subcommandPrograms: []));
+        $em->clear();
+        self::assertNull($this->repository()->findOneBy(['project' => (string) $project->id])?->subcommandPrograms);
+    }
+
+    /** @return iterable<string, array{list<string>, string}> */
+    public static function malformedPrograms(): iterable
+    {
+        yield 'a name with a space' => [['git', 'two words'], UpdateAnalyticsSettingsHandler::INVALID_SUBCOMMAND_PROGRAMS];
+        yield 'an empty name' => [[''], UpdateAnalyticsSettingsHandler::INVALID_SUBCOMMAND_PROGRAMS];
+        yield 'a name of 41 characters' => [[str_repeat('a', 41)], UpdateAnalyticsSettingsHandler::INVALID_SUBCOMMAND_PROGRAMS];
+        yield 'a path' => [['/usr/bin/git'], UpdateAnalyticsSettingsHandler::INVALID_SUBCOMMAND_PROGRAMS];
+        yield 'fifty one names' => [array_map(static fn (int $index): string => 'tool'.$index, range(1, 51)), UpdateAnalyticsSettingsHandler::TOO_MANY_SUBCOMMAND_PROGRAMS];
+    }
+
+    /** @param list<string> $programs */
+    #[DataProvider('malformedPrograms')]
+    public function test_a_malformed_list_of_programs_is_refused_and_nothing_is_stored(array $programs, string $key): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'analytics-settings-programs-refused-'.uniqid().'@example.com'), 'Analytics settings');
+
+        try {
+            $this->handler()(new UpdateAnalyticsSettingsCommand($project, null, null, false, subcommandPrograms: $programs));
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['subcommandPrograms' => $key], $e->errors);
+        }
+
+        self::assertNull($this->repository()->findForProject($project));
+    }
+
+    public function test_fifty_names_are_accepted(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'analytics-settings-programs-fifty@example.com'), 'Analytics settings');
+
+        $this->handler()(new UpdateAnalyticsSettingsCommand($project, null, null, false, subcommandPrograms: array_map(static fn (int $index): string => 'tool'.$index, range(1, 50))));
+
+        self::assertCount(50, $this->repository()->findForProject($project)->subcommandPrograms ?? []);
+    }
+
     /** @return iterable<string, array{?string, ?string, array<string, string>}> */
     public static function malformed(): iterable
     {

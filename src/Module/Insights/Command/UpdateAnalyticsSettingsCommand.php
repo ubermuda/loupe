@@ -19,6 +19,13 @@ final readonly class UpdateAnalyticsSettingsCommand
         public bool $changeModel = true,
         public bool $changeEffort = true,
         public bool $changeCollectFullText = true,
+        /**
+         * Null clears the project list, so the instance list applies.
+         *
+         * @var list<string>|null
+         */
+        public ?array $subcommandPrograms = null,
+        public bool $changeSubcommandPrograms = true,
     ) {
     }
 }

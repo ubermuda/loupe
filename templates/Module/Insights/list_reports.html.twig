@@ -58,6 +58,12 @@
                 </div>
             </div>
             <div class="lp-form-field">
+                {{ form_label(settingsForm.subcommandPrograms, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(settingsForm.subcommandPrograms, {attr: {class: 'lp-input', placeholder: 'insights.reports.settings.instance_default'|trans}}) }}
+                {{ form_help(settingsForm.subcommandPrograms, {help_attr: {class: 'lp-form-hint'}}) }}
+                <div class="lp-field-errors" data-field-errors="subcommandPrograms">{{ form_errors(settingsForm.subcommandPrograms) }}</div>
+            </div>
+            <div class="lp-form-field">
                 <label class="lp-choice">
                     {{ form_widget(settingsForm.collectFullText) }}
                     {{ settingsForm.collectFullText.vars.label|trans }}
@@ -117,10 +123,19 @@
                         <h4 class="lp-reports-proposal__title" data-proposal-title>{{ proposal.title }}</h4>
                         <span class="lp-status-chip lp-status-chip--{{ proposalChip }}">
                             <span class="lp-status-chip__dot"></span>
-                            <span data-proposal-state>{{ ('insights.reports.proposal.state.' ~ proposal.state.value)|trans }}{% if proposal.dismissReason is not null %}: {{ proposal.dismissReason }}{% endif %}</span>
+                            <span data-proposal-state>{{ ('insights.reports.proposal.state.' ~ (proposal.kind.value == 'bucket-rule' and proposal.state.value == 'created' ? 'rule_created' : proposal.state.value))|trans }}{% if proposal.dismissReason is not null %}: {{ proposal.dismissReason }}{% endif %}</span>
                         </span>
                     </div>
                     <div class="prose lp-prose lp-reports-proposal__body" data-proposal-body>{{ proposal.body|proposal_body }}</div>
+                    {% if proposal.kind.value == 'bucket-rule' %}
+                    {% set rulePattern = proposal.payload['pattern'] ?? null %}
+                    {% set ruleBucket = proposal.payload['bucket'] ?? null %}
+                    <p class="lp-form-hint" data-proposal-rule>{{ 'insights.reports.proposal.rule'|trans }}
+                        <code data-proposal-pattern>{{ rulePattern is iterable ? '' : rulePattern }}</code>
+                        {{ 'insights.reports.proposal.rule_bucket'|trans }}
+                        <code data-proposal-bucket>{{ ruleBucket is iterable ? '' : ruleBucket }}</code>
+                    </p>
+                    {% endif %}
                     {% if proposal.estimatedSaving is not null %}
                     <p class="lp-form-hint">{{ 'insights.reports.proposal.saving'|trans }} <span data-proposal-saving>{{ proposal.estimatedSaving }}</span></p>
                     {% endif %}
@@ -130,12 +145,10 @@
                     {% if proposal.state.value == 'proposed' %}
                     {% set dismissForm = insights_dismiss_form(proposal, refusedDismissForm) %}
                     <div class="lp-reports-proposal__actions">
-                        {% if proposal.kind.value == 'card' %}
                         <form method="post" action="{{ path('app_project_analytics_proposal_accept', {id: project.id, proposalId: proposal.id}|merge(page > 1 ? {page: page} : {})) }}">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token('insights-proposal-accept') }}">
-                            <button class="lp-btn lp-btn--primary lp-btn--sm" type="submit">{{ 'insights.reports.proposal.accept'|trans }}</button>
+                            <button class="lp-btn lp-btn--primary lp-btn--sm" type="submit">{{ (proposal.kind.value == 'bucket-rule' ? 'insights.reports.proposal.accept_rule' : 'insights.reports.proposal.accept')|trans }}</button>
                         </form>
-                        {% endif %}
                         {{ form_start(dismissForm, {action: path('app_project_analytics_proposal_dismiss', {id: project.id, proposalId: proposal.id}|merge(page > 1 ? {page: page} : {})), attr: {class: 'lp-reports-proposal__dismiss'}}) }}
                             {{ form_label(dismissForm.reason, null, {label_attr: {class: 'sr-only'}}) }}
                             {{ form_widget(dismissForm.reason, {attr: {class: 'lp-input', placeholder: 'insights.reports.proposal.reason_placeholder'|trans}}) }}

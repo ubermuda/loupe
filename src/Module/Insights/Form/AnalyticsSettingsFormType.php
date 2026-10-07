@@ -34,6 +34,11 @@ final class AnalyticsSettingsFormType extends AbstractType
             'label' => 'insights.form.analytics_settings_form.collect_full_text.label',
             'help' => 'insights.form.analytics_settings_form.collect_full_text.help',
         ]);
+        $builder->add('subcommandPrograms', TextType::class, [
+            'required' => false,
+            'label' => 'insights.form.analytics_settings_form.subcommand_programs.label',
+            'help' => 'insights.form.analytics_settings_form.subcommand_programs.help',
+        ]);
     }
 
     #[\Override]

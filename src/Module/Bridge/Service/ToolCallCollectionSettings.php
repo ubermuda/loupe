@@ -21,13 +21,26 @@ final readonly class ToolCallCollectionSettings
     ) {
     }
 
+    /** A program name as a project may set it: a word of letters, digits and ".", "_", "+" and "-". */
+    public const string PROGRAM_PATTERN = '/^[A-Za-z0-9._+-]{1,40}$/D';
+
+    public const int MAX_PROJECT_PROGRAMS = 50;
+
     /**
-     * The flag is an instance setting, so every project reads the same list.
+     * The list of the project when it sets one, else the instance flag. An invalid entry in the project list is dropped.
      *
      * @return list<string>
      */
     public function subcommandPrograms(Project $project): array
     {
+        $own = array_slice(array_values(array_filter(
+            $this->projectSettings->subcommandPrograms($project) ?? [],
+            static fn (string $program): bool => 1 === preg_match(self::PROGRAM_PATTERN, $program),
+        )), 0, self::MAX_PROJECT_PROGRAMS);
+        if ([] !== $own) {
+            return $own;
+        }
+
         $programs = self::parse($this->featureFlags->getStringValue(self::SUBCOMMAND_PROGRAMS_FLAG, self::DEFAULT_SUBCOMMAND_PROGRAMS));
 
         return [] === $programs ? self::parse(self::DEFAULT_SUBCOMMAND_PROGRAMS) : $programs;

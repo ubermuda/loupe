@@ -6,6 +6,7 @@ namespace App\Module\Insights\Mcp;
 
 use App\Exception\DomainErrors;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Insights\Command\ReportAnalysisHandler;
 use App\Module\Insights\Command\UpdateAnalyticsSettingsHandler;
 use App\Module\Insights\Entity\Proposal;
@@ -41,6 +42,8 @@ final readonly class InsightsToolErrorMessages
             ReportAnalysisHandler::SAVING_TOO_LONG => \sprintf('An estimated saving must be at most %d characters.', Proposal::MAX_ESTIMATED_SAVING_LENGTH),
             UpdateAnalyticsSettingsHandler::INVALID_MODEL => 'A model is one word of at most 64 characters, such as sonnet or opus.',
             UpdateAnalyticsSettingsHandler::INVALID_EFFORT => \sprintf('Use one of: %s.', implode(', ', WorkRequest::EFFORTS)),
+            UpdateAnalyticsSettingsHandler::INVALID_SUBCOMMAND_PROGRAMS => 'A program name is 1 to 40 characters of letters, digits and . _ + -.',
+            UpdateAnalyticsSettingsHandler::TOO_MANY_SUBCOMMAND_PROGRAMS => \sprintf('Pass at most %d programs.', ToolCallCollectionSettings::MAX_PROJECT_PROGRAMS),
             default => self::UNMAPPED,
         };
     }

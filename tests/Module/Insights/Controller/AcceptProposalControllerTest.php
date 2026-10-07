@@ -40,7 +40,7 @@ final class AcceptProposalControllerTest extends WebTestCase
     public function test_a_refused_accept_redirects_back_with_an_error(): void
     {
         $client = static::createClient();
-        $proposal = $this->proposal('accept-controller-rule', ProposalKind::BucketRule);
+        $proposal = $this->proposal('accept-controller-rule', ProposalKind::BucketRule, null);
         $projectId = (string) $proposal->analysis->project->id;
         $owner = $proposal->analysis->project->owner;
         $this->em()->clear();
@@ -50,8 +50,27 @@ final class AcceptProposalControllerTest extends WebTestCase
 
         self::assertResponseRedirects('/projects/'.$projectId.'/analytics/reports');
         $crawler = $client->followRedirect();
-        self::assertStringContainsString('Loupe cannot apply a bucket rule yet.', $crawler->filter('body')->text());
+        self::assertStringContainsString('Loupe cannot make a rule of it', $crawler->filter('body')->text());
         self::assertSame(ProposalState::Proposed, $this->stored($proposal)->state);
+    }
+
+    public function test_accepting_a_bucket_rule_adds_the_rule_and_redirects_back_with_a_flash(): void
+    {
+        $client = static::createClient();
+        $proposal = $this->proposal('accept-controller-rule-ok', ProposalKind::BucketRule, ['pattern' => 'Bash:git *', 'bucket' => 'git']);
+        $projectId = (string) $proposal->analysis->project->id;
+        $owner = $proposal->analysis->project->owner;
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/analytics/proposals/'.$proposal->id.'/accept', ['_csrf_token' => 'csrf-token'], [], ['HTTP_REFERER' => 'http://localhost/']);
+
+        self::assertResponseRedirects('/projects/'.$projectId.'/analytics/reports');
+        $crawler = $client->followRedirect();
+        self::assertStringContainsString('The bucket rule is now in the list of time buckets.', $crawler->filter('body')->text());
+        self::assertSame('Rule created', trim($crawler->filter('[data-proposal="'.$proposal->id.'"] [data-proposal-state]')->text()));
+        self::assertSame(ProposalState::Created, $this->stored($proposal)->state);
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM insights_bucket_rules WHERE project_id = ?', [$projectId]));
     }
 
     public function test_an_accept_from_a_later_page_returns_to_that_page(): void
@@ -99,7 +118,8 @@ final class AcceptProposalControllerTest extends WebTestCase
         self::assertSame(ProposalState::Proposed, $this->stored($proposal)->state);
     }
 
-    private function proposal(string $name, ProposalKind $kind = ProposalKind::Card): Proposal
+    /** @param array<mixed>|null $payload */
+    private function proposal(string $name, ProposalKind $kind = ProposalKind::Card, ?array $payload = null): Proposal
     {
         $em = $this->em();
         $project = $this->scenarioProject($name);
@@ -109,7 +129,7 @@ final class AcceptProposalControllerTest extends WebTestCase
         $analysis->documentId = $this->seedDocument($em, $project)->id;
         $em->flush();
 
-        return $this->seedProposal($em, $analysis, $kind);
+        return $this->seedProposal($em, $analysis, $kind, 0, $payload);
     }
 
     private function stored(Proposal $proposal): Proposal

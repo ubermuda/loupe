@@ -79,6 +79,19 @@ final class AnalysisSettingsTest extends TestCase
         self::assertTrue($this->resolver($on, [])->collectFullText($this->project()));
     }
 
+    public function test_the_programs_are_the_project_list_or_null(): void
+    {
+        $own = new InsightsProjectSettings($this->project());
+        $own->subcommandPrograms = ['bazel'];
+        $empty = new InsightsProjectSettings($this->project());
+        $empty->subcommandPrograms = [];
+
+        self::assertNull($this->resolver(null, [])->subcommandPrograms($this->project()));
+        self::assertNull($this->resolver(new InsightsProjectSettings($this->project()), [])->subcommandPrograms($this->project()));
+        self::assertNull($this->resolver($empty, [])->subcommandPrograms($this->project()));
+        self::assertSame(['bazel'], $this->resolver($own, [])->subcommandPrograms($this->project()));
+    }
+
     /** @param array<string, string> $flagValues */
     private function resolver(?InsightsProjectSettings $settings, array $flagValues): AnalysisSettings
     {

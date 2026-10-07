@@ -10,20 +10,28 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Bridge\Messenger\RecomputeBucketTimes;
 use App\Module\Insights\Command\AcceptProposalCommand;
 use App\Module\Insights\Command\AcceptProposalHandler;
 use App\Module\Insights\Entity\AnalysisState;
+use App\Module\Insights\Entity\InsightsBucketRule;
 use App\Module\Insights\Entity\Proposal;
 use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Entity\ProposalState;
 use App\Module\Insights\Proposal\ProposalCardCreatorInterface;
+use App\Module\Insights\Repository\InsightsBucketRuleRepository;
 use App\Module\Insights\Repository\ProposalRepository;
+use App\Module\Insights\Service\BucketRuleWriter;
+use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Insights\InsightsScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Ubermuda\AuditBundle\Auditor;
 
 final class AcceptProposalHandlerTest extends KernelTestCase
@@ -78,14 +86,83 @@ final class AcceptProposalHandlerTest extends KernelTestCase
         $this->assertRefused(['proposal' => AcceptProposalHandler::NOT_PROPOSED], $proposal);
     }
 
-    public function test_a_bucket_rule_is_refused_for_now(): void
+    public function test_an_accepted_bucket_rule_becomes_the_last_rule_of_the_project_and_asks_for_a_recompute(): void
     {
         $em = $this->em();
-        $project = $this->scenarioProject('accept-proposal-bucket');
-        $proposal = $this->seedProposal($em, $this->seedAnalysis($em, $project, AnalysisState::Done), ProposalKind::BucketRule);
+        $project = $this->scenarioProject('accept-proposal-rule');
+        $em->persist(new InsightsBucketRule($project, 'Bash:just *', 'just', 4));
+        $proposal = $this->seedRuleProposal($em, $project, ['pattern' => ' Bash:git * ', 'bucket' => 'git']);
+        $transport = $this->transport();
+        $transport->reset();
 
-        $this->assertRefused(['proposal' => AcceptProposalHandler::BUCKET_RULE_UNSUPPORTED], $proposal);
+        $accepted = $this->handler()(new AcceptProposalCommand($proposal));
+
+        self::assertSame(ProposalState::Created, $accepted->state);
+        self::assertNull($accepted->cardId);
+        $em->clear();
+        $rules = $this->service(InsightsBucketRuleRepository::class)->findOrdered($em->find($project::class, $project->id) ?? throw new \LogicException());
+        self::assertSame([['Bash:just *', 'just', 4], ['Bash:git *', 'git', 5]], array_map(static fn (InsightsBucketRule $rule): array => [$rule->pattern, $rule->bucket, $rule->position], $rules));
+        self::assertSame(0, $this->countCards($em, $proposal));
+        self::assertEquals([new RecomputeBucketTimes((string) $project->id)], array_map(static fn ($envelope): object => $envelope->getMessage(), $transport->getSent()));
+    }
+
+    /** @return iterable<string, array{array<mixed>|null}> */
+    public static function invalidPayloads(): iterable
+    {
+        yield 'no payload' => [null];
+        yield 'no bucket' => [['pattern' => 'Bash:git *']];
+        yield 'a blank pattern' => [['pattern' => '  ', 'bucket' => 'git']];
+        yield 'a pattern that is too long' => [['pattern' => str_repeat('a', 121), 'bucket' => 'git']];
+        yield 'a bucket with capitals' => [['pattern' => 'Bash:git *', 'bucket' => 'Git']];
+        yield 'a bucket that is not text' => [['pattern' => 'Bash:git *', 'bucket' => ['git']]];
+    }
+
+    /** @param array<mixed>|null $payload */
+    #[DataProvider('invalidPayloads')]
+    public function test_a_bucket_rule_with_an_invalid_payload_is_refused_and_stays_open(?array $payload): void
+    {
+        $em = $this->em();
+        $project = $this->scenarioProject('accept-proposal-rule-invalid');
+        $proposal = $this->seedRuleProposal($em, $project, $payload);
+        $transport = $this->transport();
+        $transport->reset();
+
+        $this->assertRefused(['proposal' => AcceptProposalHandler::BUCKET_RULE_INVALID], $proposal);
+
+        self::assertTrue($em->isOpen());
         self::assertSame(ProposalState::Proposed, $proposal->state);
+        self::assertSame(0, $this->ruleCount($em, $project));
+        self::assertSame([], $transport->getSent());
+    }
+
+    public function test_a_bucket_rule_is_refused_when_the_project_is_at_the_limit(): void
+    {
+        $em = $this->em();
+        $project = $this->scenarioProject('accept-proposal-rule-limit');
+        for ($position = 0; $position < InsightsBucketRule::MAX_PER_PROJECT; ++$position) {
+            $em->persist(new InsightsBucketRule($project, 'Bash:tool'.$position.' *', 'tool', $position));
+        }
+        $proposal = $this->seedRuleProposal($em, $project, ['pattern' => 'Bash:git *', 'bucket' => 'git']);
+        $transport = $this->transport();
+        $transport->reset();
+
+        $this->assertRefused(['proposal' => AcceptProposalHandler::BUCKET_RULE_LIMIT], $proposal);
+
+        self::assertSame(ProposalState::Proposed, $proposal->state);
+        self::assertSame(InsightsBucketRule::MAX_PER_PROJECT, $this->ruleCount($em, $project));
+        self::assertSame([], $transport->getSent());
+    }
+
+    public function test_a_bucket_rule_accepted_once_refuses_a_second_accept(): void
+    {
+        $em = $this->em();
+        $project = $this->scenarioProject('accept-proposal-rule-twice');
+        $proposal = $this->seedRuleProposal($em, $project, ['pattern' => 'Bash:git *', 'bucket' => 'git']);
+        $this->handler()(new AcceptProposalCommand($proposal));
+
+        $this->assertRefused(['proposal' => AcceptProposalHandler::NOT_PROPOSED], $proposal);
+
+        self::assertSame(1, $this->ruleCount($em, $project));
     }
 
     public function test_a_card_the_board_refuses_puts_the_proposal_back(): void
@@ -94,7 +171,7 @@ final class AcceptProposalHandlerTest extends KernelTestCase
         [$proposal] = $this->reportedProposal($em, 'accept-proposal-board-refuses');
         $creator = $this->createStub(ProposalCardCreatorInterface::class);
         $creator->method('createBacklogCard')->willThrowException(new DomainErrors(['title' => 'board.card.error.title_blank']));
-        $handler = new AcceptProposalHandler($this->service(ProposalRepository::class), $creator, $em, $this->service(Auditor::class));
+        $handler = new AcceptProposalHandler($this->service(ProposalRepository::class), $creator, $em, $this->service(BucketRuleWriter::class), $this->service(MessageBusInterface::class), $this->service(Auditor::class));
 
         try {
             $handler(new AcceptProposalCommand($proposal));
@@ -149,6 +226,27 @@ final class AcceptProposalHandlerTest extends KernelTestCase
 
         $this->assertRefused(['proposal' => AcceptProposalHandler::NOT_PROPOSED], $accepted);
         self::assertSame(1, $this->countCards($em, $proposal));
+    }
+
+    /** @param array<mixed>|null $payload */
+    private function seedRuleProposal(EntityManagerInterface $em, Project $project, ?array $payload): Proposal
+    {
+        $em->flush();
+
+        return $this->seedProposal($em, $this->seedAnalysis($em, $project, AnalysisState::Done), ProposalKind::BucketRule, 0, $payload);
+    }
+
+    private function ruleCount(EntityManagerInterface $em, Project $project): int
+    {
+        return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM insights_bucket_rules WHERE project_id = ?', [(string) $project->id]);
+    }
+
+    private function transport(): InMemoryTransport
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        return $transport;
     }
 
     /** @return array{Proposal, string} */

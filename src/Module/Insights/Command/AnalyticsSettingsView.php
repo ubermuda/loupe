@@ -14,6 +14,8 @@ final readonly class AnalyticsSettingsView
         public ?string $defaultModel,
         public ?string $defaultEffort,
         public bool $collectFullText,
+        /** @var list<string>|null the project list, or null when the instance list applies */
+        public ?array $subcommandPrograms,
         public string $model,
         public string $effort,
     ) {

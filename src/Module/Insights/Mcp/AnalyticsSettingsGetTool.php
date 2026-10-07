@@ -13,9 +13,9 @@ use Mcp\Exception\ToolCallException;
 /**
  * Reads the analysis settings of the project.
  *
- * @phpstan-type AnalyticsSettingsPayload array{defaultModel: ?string, defaultEffort: ?string, collectFullText: bool, model: string, effort: string}
+ * @phpstan-type AnalyticsSettingsPayload array{defaultModel: ?string, defaultEffort: ?string, collectFullText: bool, subcommandPrograms: list<string>, model: string, effort: string}
  */
-#[McpTool(name: self::NAME, description: 'Read the analysis settings of this project. defaultModel and defaultEffort are the values the project sets, or null when it sets none. model and effort are the values a new analysis takes when it names none: the project value, else the instance default. effort is low, medium, high, xhigh or max. collectFullText says whether the bridge sends the full text of each tool call. Change the settings with analytics_settings_update.')]
+#[McpTool(name: self::NAME, description: 'Read the analysis settings of this project. defaultModel and defaultEffort are the values the project sets, or null when it sets none. model and effort are the values a new analysis takes when it names none: the project value, else the instance default. effort is low, medium, high, xhigh or max. collectFullText says whether the bridge sends the full text of each tool call. subcommandPrograms is the list of programs whose second word joins the signature of a shell command, such as git or npm, as this project sets it. It is empty when the project sets none, so the instance list applies. Change the settings with analytics_settings_update.')]
 final readonly class AnalyticsSettingsGetTool
 {
     public const string NAME = 'analytics_settings_get';
@@ -45,6 +45,7 @@ final readonly class AnalyticsSettingsGetTool
             'defaultModel' => $view->defaultModel,
             'defaultEffort' => $view->defaultEffort,
             'collectFullText' => $view->collectFullText,
+            'subcommandPrograms' => $view->subcommandPrograms ?? [],
             'model' => $view->model,
             'effort' => $view->effort,
         ];

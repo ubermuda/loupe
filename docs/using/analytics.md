@@ -225,8 +225,11 @@ estimated saving. A proposal is **Proposed** until you act on it.
   The proposal then reads **Card created**, with a link to the card.
 - Press **Dismiss** to close the proposal. Type an optional reason first.
 
-A proposal of the kind `bucket-rule` offers only **Dismiss**, because Loupe
-cannot apply such a rule yet.
+A proposal of the kind `bucket-rule` shows its pattern and its bucket. Press
+**Create the rule** on it to add the rule to the [time buckets](#time-buckets)
+of the project. The proposal then reads **Rule created**. Loupe
+refuses a proposal whose pattern or bucket is not valid, and a proposal for a
+project that already holds 50 rules. Dismiss such a proposal.
 
 ### Analysis settings
 
@@ -236,6 +239,7 @@ Open **Analysis settings** to set the defaults of the project.
 |---|---|
 | Default model | the model of a new analysis that names none |
 | Default effort | the effort of a new analysis that names none |
+| Programs with subcommands | a comma list, such as `git, npm`. For these programs the second word joins the signature of a shell command |
 | Collect the full text of each tool call | the bridge sends the full text of each tool call, so an analysis can read it |
 
 An empty default model or effort takes the instance default. The
@@ -243,6 +247,24 @@ An empty default model or effort takes the instance default. The
 its default is `sonnet`. The `insights.default_analysis_effort` feature flag
 holds the instance effort, and its default is `medium`. Change them at **`/admin/feature-flags`**.
 The full text switch is off by default.
+
+A blank list of programs takes the instance list. The
+`insights.subcommand_programs` feature flag holds it. A program name has 1 to
+40 characters of letters, digits and `.`, `_`, `+` and `-`. A list holds at
+most 50 names.
+
+### Time buckets
+
+The **Time buckets** tab splits the tool time of each worker run into buckets.
+A rule has a pattern and a bucket. The pattern is a glob that matches the
+signature of a tool call, such as `Bash:git *`. A star matches any run of
+characters and a question mark matches one. A bucket name has 1 to 64
+characters of lower case letters, digits, `_` and `-`.
+
+The first rule that matches a call takes it. A call that no rule takes counts
+in the bucket `other`. Use **Move up** and **Move down** to change the order.
+A project holds at most 50 rules. After each change, Loupe computes the bucket
+times of the runs of the project again, in the background.
 
 The MCP tools `analysis_get` and `analysis_report` let the agent read and
 finish an analysis. `analytics_settings_get` and `analytics_settings_update`
