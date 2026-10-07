@@ -7,7 +7,8 @@ export const DEBOUNCE_MILLISECONDS = 300;
 /**
  * Reloads a frame of worker runs when the Mercure hub reports a change, and
  * after each reconnect for any change it missed. An open run drawer holds the
- * reload until it closes, so the reader keeps what they are reading.
+ * reload until it closes, so the reader keeps what they are reading. With a
+ * project value, a change that names another project is ignored.
  */
 export default class extends Controller {
     static targets = ['frame'];
@@ -15,6 +16,7 @@ export default class extends Controller {
         url: String,
         frames: Array,
         whole: Boolean,
+        project: String,
         events: { type: Array, default: ['worker_run.changed'] },
     };
 
@@ -27,7 +29,7 @@ export default class extends Controller {
             }
         };
         this.element.addEventListener('close', this.onDialogClose, true);
-        this.unsubscribe = on(this.eventsValue, () => this.schedule(), {
+        this.unsubscribe = on(this.eventsValue, (data) => this.receive(data), {
             onReconnect: () => this.schedule(),
         });
     }
@@ -37,6 +39,14 @@ export default class extends Controller {
         this.element.removeEventListener('close', this.onDialogClose, true);
         this.unsubscribe?.();
         this.unsubscribe = undefined;
+    }
+
+    receive(data) {
+        const projectId = data?.projectId;
+        if (this.projectValue && projectId && projectId !== this.projectValue) {
+            return;
+        }
+        this.schedule();
     }
 
     schedule() {

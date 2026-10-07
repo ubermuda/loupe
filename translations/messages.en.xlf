@@ -7357,6 +7357,43 @@
             <trans-unit id="workflow.refusal.invalid-work-request"><source>workflow.refusal.invalid-work-request</source><target>The app refused to open the work request.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-not-found"><source>workflow.refusal.document-not-found</source><target>The card has no document with the tag that the rule names.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-ambiguous"><source>workflow.refusal.document-ambiguous</source><target>The card has more than one document with the tag that the rule names.</target></trans-unit>
+            <trans-unit id="project.edit.nav.readiness"><source>project.edit.nav.readiness</source><target>Agent readiness</target></trans-unit>
+            <trans-unit id="readiness.guide.title"><source>readiness.guide.title</source><target>Ready for agents</target></trans-unit>
+            <trans-unit id="readiness.guide.count"><source>readiness.guide.count</source><target>%done% of %total%</target></trans-unit>
+            <trans-unit id="readiness.guide.heading"><source>readiness.guide.heading</source><target>Get %project% ready for agents</target></trans-unit>
+            <trans-unit id="readiness.guide.description"><source>readiness.guide.description</source><target>Work through these checks, and agents can pick up cards on this project.</target></trans-unit>
+            <trans-unit id="readiness.guide.hide"><source>readiness.guide.hide</source><target>Hide this guide</target></trans-unit>
+            <trans-unit id="readiness.discovery.title"><source>readiness.discovery.title</source><target>Run discovery</target></trans-unit>
+            <trans-unit id="readiness.discovery.body"><source>readiness.discovery.body</source><target>Discovery reads the repository and the workflow, then writes a readiness report for this project.</target></trans-unit>
+            <trans-unit id="readiness.discovery.status"><source>readiness.discovery.status</source><target>Not run yet</target></trans-unit>
+            <trans-unit id="readiness.row.agent.label"><source>readiness.row.agent.label</source><target>Agent connected</target></trans-unit>
+            <trans-unit id="readiness.row.agent.done"><source>readiness.row.agent.done</source><target>Connected</target></trans-unit>
+            <trans-unit id="readiness.row.agent.open"><source>readiness.row.agent.open</source><target>No agent yet</target></trans-unit>
+            <trans-unit id="readiness.row.agent.action"><source>readiness.row.agent.action</source><target>Connect</target></trans-unit>
+            <trans-unit id="readiness.row.workflow.label"><source>readiness.row.workflow.label</source><target>Workflow</target></trans-unit>
+            <trans-unit id="readiness.row.workflow.done"><source>readiness.row.workflow.done</source><target>Chosen</target></trans-unit>
+            <trans-unit id="readiness.row.workflow.open"><source>readiness.row.workflow.open</source><target>Not chosen</target></trans-unit>
+            <trans-unit id="readiness.row.bridge.label"><source>readiness.row.bridge.label</source><target>Bridge running</target></trans-unit>
+            <trans-unit id="readiness.row.bridge.done"><source>readiness.row.bridge.done</source><target>Running</target></trans-unit>
+            <trans-unit id="readiness.row.bridge.open"><source>readiness.row.bridge.open</source><target>Not running</target></trans-unit>
+            <trans-unit id="readiness.row.bridge.action"><source>readiness.row.bridge.action</source><target>Start</target></trans-unit>
+            <trans-unit id="readiness.row.github.label"><source>readiness.row.github.label</source><target>GitHub App</target></trans-unit>
+            <trans-unit id="readiness.row.github.done"><source>readiness.row.github.done</source><target>Installed</target></trans-unit>
+            <trans-unit id="readiness.row.github.open"><source>readiness.row.github.open</source><target>Not installed</target></trans-unit>
+            <trans-unit id="readiness.row.github.action"><source>readiness.row.github.action</source><target>Install</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.label"><source>readiness.row.agent_account.label</source><target>Agent GitHub account</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.open"><source>readiness.row.agent_account.open</source><target>Not set up</target></trans-unit>
+            <trans-unit id="readiness.row.repository.label"><source>readiness.row.repository.label</source><target>Repository</target></trans-unit>
+            <trans-unit id="readiness.row.repository.open"><source>readiness.row.repository.open</source><target>Not run</target></trans-unit>
+            <trans-unit id="readiness.settings.title"><source>readiness.settings.title</source><target>Agent readiness</target></trans-unit>
+            <trans-unit id="readiness.settings.description"><source>readiness.settings.description</source><target>Check what this project needs before agents can work on it.</target></trans-unit>
+            <trans-unit id="readiness.settings.discovery.title"><source>readiness.settings.discovery.title</source><target>Discovery</target></trans-unit>
+            <trans-unit id="readiness.settings.discovery.empty"><source>readiness.settings.discovery.empty</source><target>Discovery has not run on this project.</target></trans-unit>
+            <trans-unit id="readiness.settings.guide.title"><source>readiness.settings.guide.title</source><target>Workshop guide</target></trans-unit>
+            <trans-unit id="readiness.settings.guide.hidden_at"><source>readiness.settings.guide.hidden_at</source><target>Hidden on %date%</target></trans-unit>
+            <trans-unit id="readiness.settings.submit"><source>readiness.settings.submit</source><target>Save</target></trans-unit>
+            <trans-unit id="readiness.settings.flash.saved"><source>readiness.settings.flash.saved</source><target>Readiness settings saved.</target></trans-unit>
+            <trans-unit id="readiness.form.update_readiness_settings_form.show_guide.label"><source>readiness.form.update_readiness_settings_form.show_guide.label</source><target>Show the readiness checklist on the Workshop</target></trans-unit>
         </body>
     </file>
 </xliff>

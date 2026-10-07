@@ -60,6 +60,14 @@ class Project implements ProjectScopedSubject
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     public ?string $slug = null;
 
+    /** Set when the owner hides the readiness guide, or by the backfill for a board already in use. */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $readinessGuideHiddenAt = null;
+
+    /** The first time an MCP request resolved this project. ProjectRepository::markAgentSeen() writes it. */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $agentFirstSeenAt = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: User::class)]
