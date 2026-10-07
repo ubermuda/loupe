@@ -421,3 +421,47 @@ func TestALongHeredocKeepsTheCommandAfterIt(t *testing.T) {
 		t.Fatalf("signatures %q", got)
 	}
 }
+
+// The peak is the largest input context of a main-session assistant line. The
+// result line sums the whole run, so it does not count.
+func TestReadsThePeakContextOfEachFixture(t *testing.T) {
+	for name, want := range map[string]*int64{
+		"plain_background_subagent.jsonl": i64(10 + 31333 + 429),
+		"background_two_results.jsonl":    i64(30048),
+		"resumed.jsonl":                   i64(32161),
+		"old_json.json":                   nil,
+		"idle_gap.jsonl":                  nil,
+		"partial_last_line.jsonl":         nil,
+		"no_result.jsonl":                 nil,
+		"unanswered_call.jsonl":           nil,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := readFixture(t, name).PeakContextTokens; !reflect.DeepEqual(got, want) {
+				t.Errorf("peakContextTokens %v, want %v", show(got), show(want))
+			}
+		})
+	}
+}
+
+// A subagent line holds a larger context than the main session, and does not
+// count. A main-session line with no usage, or with one of the three fields
+// missing or null, counts for nothing.
+func TestThePeakContextCountsTheMainSessionAlone(t *testing.T) {
+	out := readFixture(t, "peak_context.jsonl")
+
+	if want := int64(10 + 31333 + 429); out.PeakContextTokens == nil || *out.PeakContextTokens != want {
+		t.Fatalf("peakContextTokens %v, want %d", show(out.PeakContextTokens), want)
+	}
+}
+
+// A line whose content holds no blocks still gives its context.
+func TestThePeakContextReadsALineWithNoContent(t *testing.T) {
+	in := `{"type":"assistant","message":{"usage":{"input_tokens":1,"cache_read_input_tokens":2,"cache_creation_input_tokens":3}}}` + "\n"
+	out, err := Read(strings.NewReader(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.PeakContextTokens == nil || *out.PeakContextTokens != 6 {
+		t.Fatalf("peakContextTokens %v, want 6", show(out.PeakContextTokens))
+	}
+}

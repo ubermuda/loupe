@@ -69,6 +69,9 @@ type Output struct {
 	Result []byte
 	Calls  []Call
 	Timing Timing
+	// PeakContextTokens is the largest input context of one main-session
+	// assistant line, and nil when no line gives all three token counts.
+	PeakContextTokens *int64
 }
 
 // ReadFile reads the stdout file at path.
@@ -152,6 +155,7 @@ type reader struct {
 	previous  time.Time
 	// gaps are the pauses longer than idleGap between two timed lines.
 	gaps []span
+	peak *int64
 }
 
 // span is the time from one instant to a later one.
@@ -197,9 +201,22 @@ func (rd *reader) line(raw []byte) {
 
 	var msg struct {
 		Content json.RawMessage `json:"content"`
+		Usage   struct {
+			Input       *int64 `json:"input_tokens"`
+			CacheRead   *int64 `json:"cache_read_input_tokens"`
+			CacheCreate *int64 `json:"cache_creation_input_tokens"`
+		} `json:"usage"`
+	}
+	if json.Unmarshal(e.Message, &msg) != nil {
+		return
+	}
+	if u := msg.Usage; e.Type == "assistant" && parent == "" && u.Input != nil && u.CacheRead != nil && u.CacheCreate != nil {
+		if size := *u.Input + *u.CacheRead + *u.CacheCreate; rd.peak == nil || size > *rd.peak {
+			rd.peak = &size
+		}
 	}
 	var blocks []block
-	if json.Unmarshal(e.Message, &msg) != nil || json.Unmarshal(msg.Content, &blocks) != nil {
+	if json.Unmarshal(msg.Content, &blocks) != nil {
 		return
 	}
 	agent := asyncAgent(e.ToolUseResult, blocks)
@@ -301,7 +318,7 @@ func (rd *reader) output() Output {
 		c.DurationMs = &d
 	}
 
-	out := Output{Result: rd.result, Calls: rd.calls}
+	out := Output{Result: rd.result, Calls: rd.calls, PeakContextTokens: rd.peak}
 	if rd.timed > 0 {
 		idle, tool := rd.idleTime(), rd.toolTime()
 		out.Timing = Timing{ToolTimeMs: &tool, IdleGapMs: &idle}

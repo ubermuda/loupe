@@ -323,6 +323,7 @@ func (r *router) stoppedReport(p pending, e endedRun) api.RunStateReport {
 	}
 	if e.res.err == nil {
 		report.Usage = r.usage(p, e.res.usage)
+		report.PeakContextTokens = e.res.peakContextTokens
 	}
 
 	return report
