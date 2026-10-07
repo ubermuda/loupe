@@ -283,6 +283,11 @@ Roughly in the order an agent uses them:
 | `card_update` | Change a card, or move it to another column |
 | `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
 | `card_run_close` | Close the interactive run a session opened on a card |
+| `column_create` | Add a column at the end of the board, from a label |
+| `column_update` | Rename a column, or set whether it is terminal |
+| `column_reorder` | Put the columns in a new order; Backlog stays first |
+| `column_delete` | Delete a column, and move its cards to `targetColumn` |
+| `automation_settings_update` | Turn the board's Automation settings on or off |
 | `inbox_ask` | Hand questions and to-dos to the project owner (off by default, see below) |
 | `inbox_search` | Search every inbox item's title and body by words, closed ones included |
 | `inbox_join` | Add an open item that is already in the inbox to the session's own ask |
@@ -463,7 +468,14 @@ column is where finished work goes, and a card that enters one gets a
 A card created with no `status` lands in Backlog, whose slug is `backlog`.
 Backlog is not drawn as a board column, and it has its own page. `board_columns`
 lists it with `default` and `backlog` both true. Renaming a column changes its
-slug. No tool writes a column.
+slug.
+
+`column_create`, `column_update`, `column_reorder` and `column_delete` change
+the columns, as **Board settings** does. They refuse the changes that Board
+settings refuses, and the error says what the agent can fix. For example, a
+delete of a column that holds cards needs `targetColumn`.
+`automation_settings_update` changes the **Automation** settings, and a setting
+that the call omits keeps its value.
 
 The board has no delete tool. An agent moves a card to a terminal column; only a
 person removes one. `card_update` also refuses to change `reporter`, because
