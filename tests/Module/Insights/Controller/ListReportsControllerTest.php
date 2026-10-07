@@ -228,7 +228,7 @@ final class ListReportsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?topic=experiment&experiment=prompt-test');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['cost', 'experiment'], $crawler->filter('#start_analysis_form_topic option')->each(static fn ($option): string => (string) $option->attr('value')));
+        self::assertSame(['cost', 'experiment', 'host'], $crawler->filter('#start_analysis_form_topic option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertSame(['', 'model-test', 'prompt-test'], $crawler->filter('#start_analysis_form_experiment option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertSame('experiment', $crawler->filter('#start_analysis_form_topic option[selected]')->attr('value'));
         self::assertSame('prompt-test', $crawler->filter('#start_analysis_form_experiment option[selected]')->attr('value'));
@@ -243,7 +243,7 @@ final class ListReportsControllerTest extends WebTestCase
         $this->em()->clear();
 
         $client->loginUser($project->owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?topic=host&experiment=no-such-experiment');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?topic=time&experiment=no-such-experiment');
 
         self::assertResponseIsSuccessful();
         self::assertSame('cost', $crawler->filter('#start_analysis_form_topic option[selected]')->attr('value'));
