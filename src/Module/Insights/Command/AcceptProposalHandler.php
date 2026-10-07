@@ -9,6 +9,7 @@ use App\Module\Insights\Entity\Proposal;
 use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Entity\ProposalState;
 use App\Module\Insights\Proposal\ProposalCard;
+use App\Module\Insights\Proposal\ProposalCardCommittedException;
 use App\Module\Insights\Proposal\ProposalCardCreatorInterface;
 use App\Module\Insights\Repository\ProposalRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,7 +21,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Turns a proposed card into a backlog card. The proposal moves to created
  * before the card exists, so a second accept that races this one finds it
- * taken. A refused card puts the proposal back.
+ * taken. A refused card puts the proposal back. A stored card stays linked,
+ * even when a later step fails.
  */
 final readonly class AcceptProposalHandler
 {
@@ -57,8 +59,12 @@ final readonly class AcceptProposalHandler
         }
 
         $project = $claimed->analysis->project;
+        $failure = null;
         try {
             $cardId = $this->cards->createBacklogCard($project, new ProposalCard($claimed->title, $claimed->body, $claimed->analysis->documentId));
+        } catch (ProposalCardCommittedException $e) {
+            $cardId = $e->cardId;
+            $failure = $e;
         } catch (\Throwable $e) {
             $this->release($proposalId);
 
@@ -78,6 +84,9 @@ final readonly class AcceptProposalHandler
             ],
             new AuditSubject('proposal', (string) $proposalId),
         );
+        if (null !== $failure) {
+            throw $failure;
+        }
 
         return $claimed;
     }

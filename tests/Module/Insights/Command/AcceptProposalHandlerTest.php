@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Insights\Command\AcceptProposalCommand;
 use App\Module\Insights\Command\AcceptProposalHandler;
@@ -15,12 +16,14 @@ use App\Module\Insights\Entity\AnalysisState;
 use App\Module\Insights\Entity\Proposal;
 use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Entity\ProposalState;
+use App\Module\Insights\Proposal\ProposalCardCommittedException;
 use App\Module\Insights\Proposal\ProposalCardCreatorInterface;
 use App\Module\Insights\Repository\ProposalRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Insights\InsightsScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 
 final class AcceptProposalHandlerTest extends KernelTestCase
@@ -105,6 +108,35 @@ final class AcceptProposalHandlerTest extends KernelTestCase
         self::assertInstanceOf(Proposal::class, $stored);
         self::assertSame(ProposalState::Proposed, $stored->state);
         self::assertNull($stored->cardId);
+    }
+
+    public function test_a_card_that_commits_before_a_later_step_fails_stays_linked(): void
+    {
+        $em = $this->em();
+        [$proposal] = $this->reportedProposal($em, 'accept-proposal-after-commit');
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(CardChanged::class, static function (): void {
+            throw new \RuntimeException('The hub is down.');
+        });
+
+        try {
+            $this->handler()(new AcceptProposalCommand($proposal));
+            self::fail('Expected the failure after the commit.');
+        } catch (ProposalCardCommittedException $e) {
+            self::assertSame('The hub is down.', $e->getPrevious()?->getPrevious()?->getMessage());
+        }
+
+        $em->clear();
+        $stored = $this->service(ProposalRepository::class)->find($proposal->id);
+        self::assertInstanceOf(Proposal::class, $stored);
+        self::assertSame(ProposalState::Created, $stored->state);
+        self::assertNotNull($stored->cardId);
+        self::assertInstanceOf(Card::class, $this->service(CardRepository::class)->find($stored->cardId));
+        self::assertSame(1, $this->countCards($em, $stored));
+
+        $this->assertRefused(['proposal' => AcceptProposalHandler::NOT_PROPOSED], $stored);
+        self::assertSame(1, $this->countCards($em, $stored));
     }
 
     /** @return array{Proposal, string} */

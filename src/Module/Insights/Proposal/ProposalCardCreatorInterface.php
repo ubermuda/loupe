@@ -13,7 +13,8 @@ interface ProposalCardCreatorInterface
     /**
      * Creates the card in the backlog of the project and answers its id.
      *
-     * @throws \App\Exception\DomainErrors when the board refuses the card
+     * @throws \App\Exception\DomainErrors    when the board refuses the card
+     * @throws ProposalCardCommittedException when a step fails after the card is stored
      */
     public function createBacklogCard(Project $project, ProposalCard $card): Uuid;
 }
