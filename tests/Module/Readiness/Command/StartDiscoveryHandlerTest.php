@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Readiness\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\Bridge;
@@ -71,7 +72,6 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
     public function test_the_queued_evaluation_opens_the_discovery_request(): void
     {
         $project = $this->liveProject();
-        $this->bindLifecycle($project);
 
         $run = $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
         $engine = self::getContainer()->get(Engine::class);
@@ -99,6 +99,23 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
 
         self::assertSame([], $this->runs($project));
         self::assertSame([], $this->evaluatedCardIds());
+    }
+
+    public function test_a_project_with_no_workflow_is_refused(): void
+    {
+        $project = $this->workflowProject('discovery-start-no-workflow');
+        $this->bridge($project, new \DateTimeImmutable());
+
+        $this->assertRefused($project, ['workflow' => StartDiscoveryHandler::NO_WORKFLOW]);
+    }
+
+    public function test_a_project_whose_board_automation_is_off_is_refused(): void
+    {
+        $project = $this->liveProject();
+        $this->em()->persist(new BoardAutomationSettings($project, enabled: false));
+        $this->em()->flush();
+
+        $this->assertRefused($project, ['automation' => StartDiscoveryHandler::AUTOMATION_OFF]);
     }
 
     public function test_a_second_start_while_a_run_is_requested_names_its_card(): void
@@ -133,9 +150,24 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
     private function liveProject(): Project
     {
         $project = $this->workflowProject('discovery-start');
+        $this->bindLifecycle($project);
         $this->bridge($project, new \DateTimeImmutable());
 
         return $project;
+    }
+
+    /** @param array<string, string> $errors */
+    private function assertRefused(Project $project, array $errors): void
+    {
+        try {
+            $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+            self::fail('The start must be refused.');
+        } catch (DomainErrors $e) {
+            self::assertSame($errors, $e->errors);
+        }
+
+        self::assertSame([], $this->runs($project));
+        self::assertSame([], $this->evaluatedCardIds());
     }
 
     private function bridge(Project $project, \DateTimeImmutable $lastSeenAt): void

@@ -24,6 +24,10 @@ final readonly class StartDiscoveryHandler
 {
     public const string NO_LIVE_BRIDGE = 'readiness.discovery.error.no_bridge';
 
+    public const string NO_WORKFLOW = 'readiness.discovery.error.no_workflow';
+
+    public const string AUTOMATION_OFF = 'readiness.discovery.error.automation_off';
+
     public function __construct(
         private ReadinessChecklist $checklist,
         private DiscoveryRunRepository $discoveryRuns,
@@ -37,8 +41,15 @@ final readonly class StartDiscoveryHandler
     public function __invoke(StartDiscoveryCommand $command): DiscoveryRun
     {
         $project = $command->project;
-        if (!$this->checklist->bridgeLive($project)) {
-            throw new DomainErrors(['bridge' => self::NO_LIVE_BRIDGE]);
+        // A run the engine cannot request would stay requested with no work.
+        $refusal = $this->checklist->startRefusal($project);
+        if (null !== $refusal) {
+            $field = match ($refusal) {
+                self::NO_WORKFLOW => 'workflow',
+                self::AUTOMATION_OFF => 'automation',
+                default => 'bridge',
+            };
+            throw new DomainErrors([$field => $refusal]);
         }
 
         // The lock makes the check and the new card one step, so two starts cannot both pass. A refusal leaves the closure as a value, because a throw closes the EntityManager.
@@ -79,9 +90,7 @@ final readonly class StartDiscoveryHandler
             new AuditSubject('discovery_run', (string) $run->id),
         );
         // No listener evaluates a new card, and the app rule fires only when the engine evaluates it.
-        if ($this->evaluations->isOn()) {
-            $this->evaluations->forCards([$cardId]);
-        }
+        $this->evaluations->forCards([$cardId]);
 
         return $run;
     }

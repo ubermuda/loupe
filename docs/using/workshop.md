@@ -80,6 +80,8 @@ The [`discovery` rule](workflows.md#rules-the-app-adds) then asks a bridge for t
 An agent can start discovery with the `discovery_start` MCP tool, and read the checklist with `readiness_get`.
 
 Discovery needs a running bridge that serves the project.
+The project must also have a workflow, and **Run the workflow of the board** must be on, on the [Automation](board.md#automation) tab.
+Otherwise the workflow cannot ask a bridge for the work, so Loupe refuses the start.
 The bridge must set `appPrompts: true` in its `rules.yaml`, and its CLI must support app prompts.
 See [Command-line bridge](../extending/cli-bridge.md#work-requests).
 
@@ -89,7 +91,9 @@ The Repository row shows the state of the latest run:
 |---|---|---|
 | Not run | Discovery never ran on this project | Run discovery |
 | Discovery waits for a running bridge | Discovery never ran, and no bridge serves the project now | None. The Bridge running row links to the setup |
+| Discovery waits for a workflow | Discovery never ran, and the project has no workflow | None. Choose a workflow for the project |
+| Discovery waits for board automation | Discovery never ran, and the workflow of the board is off | None. Switch on **Run the workflow of the board** |
 | Running on card #N | A run is open. A second start is refused until it ends | Open card |
-| Discovery failed: reason | The run ended with no report. "No bridge took the work." means that no bridge claimed the request in time. "The discovery card left Backlog before the work ended." means that the work stopped because the card moved | Run again, when a bridge is running |
+| Discovery failed: reason | The run ended with no report. "No bridge took the work." means that no bridge claimed the request in time. "The discovery card left Backlog before the work ended." means that the work stopped because the card moved | Run again, when discovery can start |
 | The report waits for your review | The worker reported | None |
 | Reviewed | The owner reviewed the report. The row is done | None |

@@ -25,6 +25,7 @@ use App\Module\Readiness\Command\StartDiscoveryCommand;
 use App\Module\Readiness\Command\StartDiscoveryHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AcceptedTerms;
@@ -380,7 +381,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()['inbox.enabled']->value = true;
         $owner = $this->user($em, 'workshop-guide-discovery@example.com');
         [$quiet, $busy] = $this->projects($em, $owner, 'Guide discovery', 'Guide discovery busy');
-        $this->liveBridge($em, $owner, $quiet, $busy);
+        $this->readyForDiscovery($em, $owner, $quiet, $busy);
         $em->persist(new InboxItem($busy, 1, InboxItemKind::Question, 'A question', false));
         $em->flush();
         $em->clear();
@@ -406,7 +407,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'workshop-guide-discovering@example.com');
         [$project] = $this->projects($em, $owner, 'Guide discovering');
-        $this->liveBridge($em, $owner, $project);
+        $this->readyForDiscovery($em, $owner, $project);
         $run = self::getContainer()->get(StartDiscoveryHandler::class)(new StartDiscoveryCommand($project, CardReporter::Human));
         $this->openRun($em, $project, $run->card, WorkerRunState::Running, 'discovery', '-5 minutes');
         $em->clear();
@@ -427,7 +428,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'workshop-guide-discovering-busy@example.com');
         [$project] = $this->projects($em, $owner, 'Guide discovering busy');
-        $this->liveBridge($em, $owner, $project);
+        $this->readyForDiscovery($em, $owner, $project);
         $run = self::getContainer()->get(StartDiscoveryHandler::class)(new StartDiscoveryCommand($project, CardReporter::Human));
         $this->openRun($em, $project, $run->card, WorkerRunState::Running, 'discovery', '-5 minutes');
         $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Running work', '', CardType::Feature));
@@ -517,8 +518,12 @@ final class ShowWorkshopControllerTest extends WebTestCase
         return $projects;
     }
 
-    private function liveBridge(EntityManagerInterface $em, User $owner, Project ...$projects): void
+    /** A live bridge serves the projects, and each project has a workflow. */
+    private function readyForDiscovery(EntityManagerInterface $em, User $owner, Project ...$projects): void
     {
+        foreach ($projects as $project) {
+            $em->persist(new WorkflowBinding($project, 'simple', 1, []));
+        }
         $em->persist(new Bridge(AgentCredential::managed($em, $owner, $owner->id), Uuid::v4(), array_values(array_map(static fn (Project $project): string => (string) $project->id, $projects)), 'b4e39aa7', new \DateTimeImmutable()));
         $em->flush();
     }

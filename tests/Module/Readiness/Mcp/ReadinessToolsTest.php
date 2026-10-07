@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Readiness\Mcp;
 
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Project\Entity\Project;
@@ -88,6 +89,31 @@ final class ReadinessToolsTest extends KernelTestCase
         $this->discoveryStart()();
     }
 
+    public function test_discovery_start_with_no_workflow_names_the_fix(): void
+    {
+        $project = $this->workflowProject('discovery-start-tool-no-workflow');
+        $this->addBridge($project);
+        $this->actAsMcpTokenBoundTo($project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Choose a workflow for this project');
+
+        $this->discoveryStart()();
+    }
+
+    public function test_discovery_start_with_board_automation_off_names_the_fix(): void
+    {
+        $project = $this->liveProject('discovery-start-tool-automation-off');
+        $this->em()->persist(new BoardAutomationSettings($project, enabled: false));
+        $this->em()->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Switch on "Run the workflow of the board"');
+
+        $this->discoveryStart()();
+    }
+
     public function test_a_second_discovery_start_names_the_open_card(): void
     {
         $project = $this->liveProject('discovery-start-tool-twice');
@@ -114,11 +140,17 @@ final class ReadinessToolsTest extends KernelTestCase
     private function liveProject(string $name): Project
     {
         $project = $this->workflowProject($name);
+        $this->bindLifecycle($project);
+        $this->addBridge($project);
+
+        return $project;
+    }
+
+    private function addBridge(Project $project): void
+    {
         $em = $this->em();
         $em->persist(new Bridge(AgentCredential::managed($em, $project->owner, $project->owner->id), Uuid::v4(), [(string) $project->id], 'b4e39aa7', new \DateTimeImmutable()));
         $em->flush();
-
-        return $project;
     }
 
     private function readinessGet(): ReadinessGetTool

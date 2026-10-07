@@ -12,6 +12,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
+use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Tests\Module\Readiness\ReadinessScenario;
 use App\Tests\Support\AgentCredential;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -57,6 +58,23 @@ final class StartDiscoveryControllerTest extends WebTestCase
         self::assertSame([], $this->runs($project));
         $client->followRedirect();
         self::assertSelectorTextContains('body', 'Start a bridge that serves this project');
+    }
+
+    public function test_a_start_with_no_workflow_names_the_fix(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user('discovery-start-no-workflow@example.com');
+        $project = $this->boardProject($owner, 'Start discovery no workflow', bound: false);
+        $this->bridge($project);
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->startUrl($project));
+
+        self::assertResponseRedirects('/projects/'.$project->id);
+        self::assertSame([], $this->runs($project));
+        $client->followRedirect();
+        self::assertSelectorTextContains('body', 'Choose a workflow for this project');
     }
 
     public function test_a_second_start_names_the_card_of_the_open_run(): void
@@ -122,12 +140,15 @@ final class StartDiscoveryControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(405);
     }
 
-    private function boardProject(User $owner, string $name): Project
+    private function boardProject(User $owner, string $name, bool $bound = true): Project
     {
         $project = $this->project($owner, $name);
         $seeder = static::getContainer()->get(BoardColumnSeeder::class);
         self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
         $seeder->seed($project);
+        if ($bound) {
+            $this->em()->persist(new WorkflowBinding($project, 'simple', 1, []));
+        }
         $this->em()->flush();
 
         return $project;

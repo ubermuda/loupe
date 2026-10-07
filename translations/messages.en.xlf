@@ -2504,7 +2504,7 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.discovery_start">
                 <source>project.connect.tool.discovery_start</source>
-                <target>Start a read-only discovery run on a new Backlog card. A live bridge must serve the project.</target>
+                <target>Start a read-only discovery run on a new Backlog card. A live bridge must serve the project, and the project needs a workflow with board automation on.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.tag_list">
                 <source>project.connect.tool.tag_list</source>
@@ -7474,6 +7474,8 @@
             <trans-unit id="readiness.row.repository.open"><source>readiness.row.repository.open</source><target>Not run</target></trans-unit>
             <trans-unit id="readiness.row.repository.action"><source>readiness.row.repository.action</source><target>Run discovery</target></trans-unit>
             <trans-unit id="readiness.row.repository.no_bridge"><source>readiness.row.repository.no_bridge</source><target>Discovery waits for a running bridge</target></trans-unit>
+            <trans-unit id="readiness.row.repository.no_workflow"><source>readiness.row.repository.no_workflow</source><target>Discovery waits for a workflow</target></trans-unit>
+            <trans-unit id="readiness.row.repository.automation_off"><source>readiness.row.repository.automation_off</source><target>Discovery waits for board automation</target></trans-unit>
             <trans-unit id="readiness.row.repository.running"><source>readiness.row.repository.running</source><target>Running on card #%number%</target></trans-unit>
             <trans-unit id="readiness.row.repository.card"><source>readiness.row.repository.card</source><target>Open card</target></trans-unit>
             <trans-unit id="readiness.row.repository.failed"><source>readiness.row.repository.failed</source><target>Discovery failed: %reason%</target></trans-unit>
@@ -7481,6 +7483,8 @@
             <trans-unit id="readiness.row.repository.reported"><source>readiness.row.repository.reported</source><target>The report waits for your review</target></trans-unit>
             <trans-unit id="readiness.row.repository.done"><source>readiness.row.repository.done</source><target>Reviewed</target></trans-unit>
             <trans-unit id="readiness.discovery.error.no_bridge"><source>readiness.discovery.error.no_bridge</source><target>No bridge serves this project now. Start a bridge that serves this project, then run discovery again.</target></trans-unit>
+            <trans-unit id="readiness.discovery.error.no_workflow"><source>readiness.discovery.error.no_workflow</source><target>This project has no workflow. Choose a workflow for this project, then run discovery again.</target></trans-unit>
+            <trans-unit id="readiness.discovery.error.automation_off"><source>readiness.discovery.error.automation_off</source><target>Board automation is off for this project. Switch on "Run the workflow of the board" on the Automation tab of the project settings, then run discovery again.</target></trans-unit>
             <trans-unit id="readiness.discovery.error.running"><source>readiness.discovery.error.running</source><target>Discovery already runs on card #%number%. Wait until that run ends.</target></trans-unit>
             <trans-unit id="readiness.settings.title"><source>readiness.settings.title</source><target>Agent readiness</target></trans-unit>
             <trans-unit id="readiness.settings.description"><source>readiness.settings.description</source><target>Check what this project needs before agents can work on it.</target></trans-unit>

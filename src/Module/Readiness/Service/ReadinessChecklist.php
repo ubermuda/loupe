@@ -15,11 +15,15 @@ use App\Module\Project\Workshop\WorkshopConnectionsProviderInterface;
 use App\Module\Project\Workshop\WorkshopReadiness;
 use App\Module\Project\Workshop\WorkshopReadinessProviderInterface;
 use App\Module\Project\Workshop\WorkshopReadinessRow;
+use App\Module\Readiness\Command\StartDiscoveryHandler;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\EventListener\FailDiscoveryOnRequestWithdrawn;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
+use App\Module\Workflow\Contract\CardEvaluations;
+use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
+use App\Module\Workflow\Service\WorkflowAutomation;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -39,6 +43,8 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
         private UrlGeneratorInterface $urls,
         private DiscoveryRunRepository $discoveryRuns,
         private TranslatorInterface $translator,
+        private WorkflowAutomation $automation,
+        private CardEvaluations $evaluations,
     ) {
     }
 
@@ -95,18 +101,38 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
                 actionUrl: $installUrl,
             ),
             $this->agentAccountRow($project, $running),
-            $this->repositoryRow($project, $discovery, $bridge),
+            $this->repositoryRow($project, $discovery, $this->refusal($project, $bridge, $binding)),
         ], $discovery?->card->number);
     }
 
     /** A bridge that serves the project sent its heartbeat lately. */
-    public function bridgeLive(Project $project): bool
+    private function bridgeLive(Project $project): bool
     {
         return [] !== $this->runningConnections($project);
     }
 
-    private function repositoryRow(Project $project, ?DiscoveryRun $run, bool $bridge): WorkshopReadinessRow
+    /** The error key that refuses a discovery start now, or null when the engine can open its request. */
+    public function startRefusal(Project $project): ?string
     {
+        $projectId = $project->id ?? throw new \LogicException('A stored project has an id.');
+
+        return $this->refusal($project, $this->bridgeLive($project), $this->workflowBindings->findOneByProjectId($projectId));
+    }
+
+    /** The same gates as the engine, which skips a card of a project with no workflow or with its automation off. */
+    private function refusal(Project $project, bool $bridge, ?WorkflowBinding $binding): ?string
+    {
+        return match (true) {
+            !$bridge => StartDiscoveryHandler::NO_LIVE_BRIDGE,
+            null === $binding => StartDiscoveryHandler::NO_WORKFLOW,
+            !$this->evaluations->isOn() || !$this->automation->runsFor($project) => StartDiscoveryHandler::AUTOMATION_OFF,
+            default => null,
+        };
+    }
+
+    private function repositoryRow(Project $project, ?DiscoveryRun $run, ?string $refusal): WorkshopReadinessRow
+    {
+        $canStart = null === $refusal;
         $start = $this->urls->generate('app_readiness_discovery_start', ['id' => (string) $project->id]);
         $row = static fn (string $status, bool $done = false, ?string $actionLabel = null, ?string $actionUrl = null, array $parameters = [], ?string $csrf = null): WorkshopReadinessRow => new WorkshopReadinessRow(
             'repository',
@@ -121,9 +147,13 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
         );
 
         return match ($run?->state) {
-            null => $bridge
-                ? $row('readiness.row.repository.open', actionLabel: 'readiness.row.repository.action', actionUrl: $start, csrf: self::START_TOKEN)
-                : $row('readiness.row.repository.no_bridge'),
+            null => match ($refusal) {
+                null => $row('readiness.row.repository.open', actionLabel: 'readiness.row.repository.action', actionUrl: $start, csrf: self::START_TOKEN),
+                StartDiscoveryHandler::NO_WORKFLOW => $row('readiness.row.repository.no_workflow'),
+                StartDiscoveryHandler::AUTOMATION_OFF => $row('readiness.row.repository.automation_off'),
+                StartDiscoveryHandler::NO_LIVE_BRIDGE => $row('readiness.row.repository.no_bridge'),
+                default => throw new \LogicException('Unknown discovery refusal '.$refusal),
+            },
             DiscoveryRunState::Requested => $row(
                 'readiness.row.repository.running',
                 actionLabel: 'readiness.row.repository.card',
@@ -132,10 +162,10 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
             ),
             DiscoveryRunState::Failed => $row(
                 'readiness.row.repository.failed',
-                actionLabel: $bridge ? 'readiness.row.repository.retry' : null,
-                actionUrl: $bridge ? $start : null,
+                actionLabel: $canStart ? 'readiness.row.repository.retry' : null,
+                actionUrl: $canStart ? $start : null,
                 parameters: ['%reason%' => $this->failureReason($run)],
-                csrf: $bridge ? self::START_TOKEN : null,
+                csrf: $canStart ? self::START_TOKEN : null,
             ),
             DiscoveryRunState::Reported => $row('readiness.row.repository.reported'),
             DiscoveryRunState::Done => $row('readiness.row.repository.done', done: true),
