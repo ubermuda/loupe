@@ -221,7 +221,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs eleven skills, each covering one part of working a Loupe project:
+It installs one skill for each part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -230,6 +230,7 @@ It installs eleven skills, each covering one part of working a Loupe project:
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
 | `loupe:loupe-workers` | Reading worker runs and bridges, and stopping, resuming or cancelling a run |
+| `loupe:loupe-analysis` | Running an analysis: a cost report with proposals, from the runs of the project |
 | `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
 | `loupe:loupe-stage-product-design` | One review round on a product document |
 | `loupe:loupe-stage-tech-design` | A card entering the tech design column |
@@ -295,6 +296,10 @@ Roughly in the order an agent uses them:
 | `worker_run_tool_calls` | Read a page of the tool calls of one worker run, in the order the worker made them. Each call gives its tool, its start, its duration, its error flag, whether a subagent made it, and its signatures. `perPage` defaults to 20, with a maximum of 100 |
 | `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes |
 | `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it |
+| `analysis_get` | Read one analysis, with its topic, its range, its model and effort, its state and reason, its cost so far and its proposals |
+| `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
+| `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, and whether the bridge sends the full text of each tool call |
+| `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort clears the project value, so the instance default applies |
 | `bridge_list` | List the bridges that follow the project, with their name, their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
