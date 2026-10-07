@@ -98,6 +98,7 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 		"command with workerPool":      {entry("x", command+"workerPool: quick"), "workerPool names agent behaviour"},
 		"command with metrics":         {entry("x", command+"metrics: [cost]"), "metrics names agent behaviour"},
 		"metrics without variants":     {entry("x", "prompt: x\nmetrics: [cost]"), "metrics needs variants"},
+		"empty metrics, no variants":   {entry("x", "prompt: x\nmetrics: []"), "metrics needs variants"},
 		"bad metric key":               {entry("x", "prompt: x\nmetrics: [Cost]\n"+variants), `metric "Cost": a metric key is 1 to 64`},
 		"metric key too long":          {entry("x", "prompt: x\nmetrics: [c"+strings.Repeat("o", 64)+"]\n"+variants), "a metric key is 1 to 64"},
 		"repeated metric":              {entry("x", "prompt: x\nmetrics: [cost, cost]\n"+variants), `metric "cost" is listed twice`},
@@ -133,6 +134,15 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestParseAcceptsEmptyMetricsWithVariants(t *testing.T) {
+	body := "projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n    metrics: []\n" +
+		"    variants:\n      - {name: a, weight: 1, model: opus}\n"
+	text, _ := file(t, body)
+	if _, err := Parse([]byte(text), Defaults{}); err != nil {
+		t.Fatalf("err = %v", err)
 	}
 }
 

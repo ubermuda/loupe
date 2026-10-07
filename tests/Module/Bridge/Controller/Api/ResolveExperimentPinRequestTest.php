@@ -91,6 +91,7 @@ final class ResolveExperimentPinRequestTest extends TestCase
         yield 'a digit first' => [['1cost']];
         yield 'too long' => [['c'.str_repeat('o', 64)]];
         yield 'a repeat' => [['cost', 'cost']];
+        yield 'a trailing newline' => [["cost\n"]];
     }
 
     #[DataProvider('invalidMetrics')]

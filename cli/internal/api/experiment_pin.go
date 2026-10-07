@@ -18,8 +18,8 @@ var ErrExperimentPinsUnsupported = errors.New("the server has no experiment pin 
 // runs with. candidate is the variant the bridge drew, and variants are the
 // ones the rule offers now. weights holds the weight of each variant, in the
 // order of variants. metrics are the metric keys the experiment declares,
-// which the server shows on its Comparison tab. It answers the variant, and the variant the pin moved
-// from, or "" when the pin did not move.
+// which the server shows on its Comparison tab. It answers the variant, and
+// the variant the pin moved from, or "" when the pin did not move.
 func (c *Client) ResolveExperimentPin(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int, metrics []string) (string, string, error) {
 	if variants == nil {
 		variants = []string{}

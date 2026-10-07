@@ -116,6 +116,38 @@ final class ExperimentPinApiTest extends WebTestCase
         self::assertNull($definitions[0]->metrics);
     }
 
+    /** An older bridge sends no metrics, and its valid weights clear the stored list. */
+    public function test_valid_weights_with_no_metrics_clear_the_stored_metrics(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-no-metrics@example.com');
+        $project = $this->project($em, $owner, 'Pin Api No Metrics');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1,3],"metrics":["cost"]}',
+        );
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['cost'], $this->allDefinitions()[0]->metrics);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"opus","variants":["opus","sonnet"],"weights":[2,3]}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        $definitions = $this->allDefinitions();
+        self::assertCount(1, $definitions);
+        self::assertSame([['name' => 'opus', 'weight' => 2], ['name' => 'sonnet', 'weight' => 3]], $definitions[0]->weights);
+        self::assertNull($definitions[0]->metrics);
+    }
+
     public function test_numeric_variant_names_are_stored_with_their_names(): void
     {
         $client = static::createClient();

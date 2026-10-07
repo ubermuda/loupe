@@ -20,7 +20,7 @@ final class ResolveExperimentPinRequest
 
     public const int MAX_METRICS = 16;
 
-    private const string METRIC_KEY_PATTERN = '/^[a-z][a-z0-9:-]{0,63}$/';
+    private const string METRIC_KEY_PATTERN = '/^[a-z][a-z0-9:-]{0,63}$/D';
 
     public function __construct(
         public mixed $candidate = null,
