@@ -27,6 +27,7 @@ framework:
             App\Module\Board\Messenger\PostFixRunComment: async
             App\Module\Board\Messenger\PostPullRequestNotice: async
             App\Module\Board\Messenger\SyncNextPullRequest: async
+            App\Module\Bridge\Messenger\CollectSessionUsage: async
             App\Module\Bridge\Messenger\ResumeAskingSession: async
             App\Module\Forge\Messenger\RefreshPullRequestState: async
             App\Module\Inbox\Messenger\ReconcileCardWaits: async

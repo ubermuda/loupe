@@ -281,14 +281,13 @@ These actions close an open interactive run, and it then shows **Closed**:
   nothing. The delete of a column moves its cards, so it closes their runs.
 - A person deletes the card.
 
-When the session calls `card_run_close`, Loupe asks the bridges that follow
-the project for the usage of the run. The bridge that holds the session
-transcript sums the tokens between the start and the end of the run, subagents
-included, and reports them. The run then shows its usage, marked
-**Estimated**, and the card total counts it. A bridge older than this feature
-never gets the request. A run that closes another way gets its usage when the
-same session later calls `card_run_close` on that card. A run with no bridge
-that holds its transcript keeps no usage.
+Each of these closes makes Loupe ask the bridges that follow the project for
+the usage of the run. The bridge that holds the session transcript sums the
+tokens between the start and the end of the run, subagents included, and
+reports them. The run then shows its usage, marked **Estimated**, and the card
+total counts it. A bridge older than this feature never gets the request. While
+the run has no usage, each later `card_run_close` call from the session asks
+again. A run with no bridge that holds its transcript keeps no usage.
 
 No timeout closes the run. A session that stops with no call leaves its run open
 until the owner closes it or the card moves. While the run is open, a bridge

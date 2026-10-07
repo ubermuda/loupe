@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Service;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
+use App\Module\Bridge\Messenger\CollectSessionUsage;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -15,6 +16,7 @@ use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -24,7 +26,8 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * from the session, a person or a move of the card ends it.
  *
  * Each write runs in its own transaction, which nests as a savepoint inside a
- * caller's transaction.
+ * caller's transaction. Each close queues a request for the usage of the run
+ * in that transaction, so a rollback leaves no request.
  */
 final readonly class InteractiveRuns
 {
@@ -35,6 +38,7 @@ final readonly class InteractiveRuns
         private ClockInterface $clock,
         private WorkerRunChangedPublisher $publisher,
         private EventDispatcherInterface $events,
+        private MessageBusInterface $bus,
     ) {
     }
 
@@ -187,8 +191,13 @@ final readonly class InteractiveRuns
         return [$outcome[0], $outcome[1]];
     }
 
-    /** Null when the session has no run on the card. A closed run comes back unchanged. */
-    public function close(Project $project, Uuid $cardId, Uuid $sessionId): ?WorkerRun
+    /**
+     * The run of the session on the card, null when it has none, and whether
+     * this call closed it. A closed run comes back unchanged.
+     *
+     * @return array{?WorkerRun, bool}
+     */
+    public function close(Project $project, Uuid $cardId, Uuid $sessionId): array
     {
         return $this->closeLocked(
             fn (): ?WorkerRun => $this->workerRuns->findOpenInteractiveForUpdate($project, $cardId, $sessionId),
@@ -202,7 +211,7 @@ final readonly class InteractiveRuns
         return $this->closeLocked(
             fn (): ?WorkerRun => $this->workerRuns->findOpenInteractiveByIdForUpdate($project, $runId),
             fn (): ?WorkerRun => $this->workerRuns->findInteractiveById($project, $runId),
-        );
+        )[0];
     }
 
     /**
@@ -247,8 +256,10 @@ final readonly class InteractiveRuns
      *
      * @param \Closure(): ?WorkerRun $findOpenLocked
      * @param \Closure(): ?WorkerRun $findAny
+     *
+     * @return array{?WorkerRun, bool}
      */
-    private function closeLocked(\Closure $findOpenLocked, \Closure $findAny): ?WorkerRun
+    private function closeLocked(\Closure $findOpenLocked, \Closure $findAny): array
     {
         /** @var array{?WorkerRun, bool} $outcome */
         $outcome = $this->em->wrapInTransaction(function () use ($findOpenLocked, $findAny): array {
@@ -276,7 +287,7 @@ final readonly class InteractiveRuns
             $this->announce([$run]);
         }
 
-        return $run;
+        return $outcome;
     }
 
     /** @param list<WorkerRun> $runs */
@@ -292,5 +303,6 @@ final readonly class InteractiveRuns
         $run->moveTo(WorkerRunState::Closed);
         $run->endedAt = $at;
         $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Closed, $at, $at));
+        $this->bus->dispatch(new CollectSessionUsage((string) $run->project->id, (string) $run->id));
     }
 }
