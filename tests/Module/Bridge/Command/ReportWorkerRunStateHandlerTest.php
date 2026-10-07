@@ -22,6 +22,7 @@ use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\DispatchedEvents;
@@ -156,7 +157,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame($runKey->toRfc4122(), $result->run->runKey?->toRfc4122());
         self::assertSame(self::BRIDGE, $result->run->bridgeId?->toRfc4122());
         self::assertSame(WorkerRunKind::Worker, $result->run->kind);
-        self::assertSame($cardId->toRfc4122(), $result->run->cardId->toRfc4122());
+        self::assertSame($cardId->toRfc4122(), $result->run->subjectId->toRfc4122());
         self::assertSame(12, $result->run->cardNumber);
         self::assertSame('review', $result->run->workKind);
         self::assertSame(WorkerRunState::Queued, $result->run->state);
@@ -334,6 +335,8 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             'bridgeId' => self::BRIDGE,
             'runKey' => $runKey->toRfc4122(),
             'sessionId' => self::SESSION,
+            'subjectType' => 'card',
+            'subjectId' => '0199a0e2-b1f3-7a44-9c11-2d3e4f506172',
             'cardNumber' => 1,
             'workRequestId' => null,
             'workKind' => 'plan',
@@ -925,7 +928,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             bridgeId: $bridgeId ?? Uuid::fromString(self::BRIDGE),
             state: $state,
             at: new \DateTimeImmutable('2026-09-23 10:0'.$state->rank().':00'),
-            cardId: $cardId ?? Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506172'),
+            subject: WorkSubject::card($cardId ?? Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506172')),
             cardNumber: $cardNumber,
             workRequestId: $workRequestId,
             workKind: $workKind,

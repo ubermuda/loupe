@@ -32,6 +32,8 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
@@ -520,7 +522,7 @@ final class EngineTest extends KernelTestCase
     public function test_a_live_request_whose_rule_left_the_template_is_cancelled(): void
     {
         $card = $this->boundCard([]);
-        $request = new WorkRequest($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
+        $request = new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
         $this->em()->persist($request);
         $this->em()->flush();
 
@@ -557,7 +559,7 @@ final class EngineTest extends KernelTestCase
     public function test_a_held_card_fires_nothing_and_settles_no_request_until_the_hold_goes(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
-        $stale = new WorkRequest($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
+        $stale = new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
         $this->em()->persist($stale);
         $this->em()->flush();
         $this->hold($card);
@@ -1438,7 +1440,7 @@ final class EngineTest extends KernelTestCase
             $this->service(WorkflowAutomation::class),
             $this->service(WorkflowPendingBaselineRepository::class),
             $workRequests,
-            new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class)),
+            new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class), new WorkSubjectHandlers([])),
             $cardPauses,
             new PauseCardHandler($cardPauses, $this->em(), $clock, $auditor, $dispatcher, $this->service(\App\Module\Board\Repository\CardEventRepository::class)),
             $releaseCardPause,
@@ -1592,7 +1594,7 @@ final class EngineTest extends KernelTestCase
     {
         return array_map(
             static fn (WorkRequest $request): string => $request->ruleId,
-            $this->service(WorkRequestRepository::class)->findBy(['cardId' => $card->id]),
+            $this->service(WorkRequestRepository::class)->findBy(['subjectType' => WorkSubject::CARD, 'subjectId' => $card->id]),
         );
     }
 }

@@ -9,6 +9,7 @@ use App\Module\Board\Mcp\AgentRunCause;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -136,7 +137,8 @@ final class AgentRunCauseTest extends KernelTestCase
         $run = new WorkerRun(
             project: $project ?? $this->project,
             bridgeId: Uuid::v4(),
-            cardId: $cardId ?? Uuid::v4(),
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId ?? Uuid::v4(),
             cardNumber: 1,
             workKind: $rule,
             state: $state,

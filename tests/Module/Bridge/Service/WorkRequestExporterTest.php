@@ -51,7 +51,8 @@ final class WorkRequestExporterTest extends KernelTestCase
             [
                 'workRequestId' => (string) $claimed->id,
                 'project' => 'Own Work Requests',
-                'cardId' => (string) $cardId,
+                'subjectType' => 'card',
+                'subjectId' => (string) $cardId,
                 'cardNumber' => 7,
                 'kind' => 'implement',
                 'capability' => 'claude',
@@ -75,7 +76,8 @@ final class WorkRequestExporterTest extends KernelTestCase
             [
                 'workRequestId' => (string) $refused->id,
                 'project' => 'Own Work Requests',
-                'cardId' => (string) $refused->cardId,
+                'subjectType' => 'card',
+                'subjectId' => (string) $refused->subjectId,
                 'cardNumber' => 7,
                 'kind' => 'merge',
                 'capability' => null,

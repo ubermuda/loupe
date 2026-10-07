@@ -10,13 +10,20 @@ use App\Module\Bridge\Command\SettleWorkRequestHandler;
 use App\Module\Bridge\Command\SettleWorkRequestResult;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\WorkRequestChanged;
+use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestRefusal;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
+use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Module\Bridge\WorkSubject\RecordingWorkSubjectHandler;
 use App\Tests\Support\DispatchedEvents;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\Auditor;
 
 final class SettleWorkRequestHandlerTest extends KernelTestCase
 {
@@ -78,14 +85,38 @@ final class SettleWorkRequestHandlerTest extends KernelTestCase
         $this->settle($owner, $request, WorkRequestState::Expired);
     }
 
+    public function test_a_settlement_tells_the_handler_of_its_subject(): void
+    {
+        $subjects = new RecordingWorkSubjectHandler();
+        [$owner, $request] = $this->claimed('settle-subject', new WorkSubject(RecordingWorkSubjectHandler::TYPE, Uuid::v7()));
+
+        self::assertTrue($this->settle($owner, $request, WorkRequestState::Refused, $subjects)->settled);
+        self::assertFalse($this->settle($owner, $request, WorkRequestState::Refused, $subjects)->settled);
+
+        self::assertCount(1, $subjects->settled);
+        self::assertSame((string) $request->id, (string) $subjects->settled[0]->id);
+        self::assertSame(WorkRequestState::Refused, $subjects->settled[0]->state);
+        self::assertSame([], $subjects->expired);
+    }
+
+    public function test_a_settlement_on_a_card_tells_no_subject_handler(): void
+    {
+        $subjects = new RecordingWorkSubjectHandler();
+        [$owner, $request] = $this->claimed('settle-card');
+
+        self::assertTrue($this->settle($owner, $request, WorkRequestState::Done, $subjects)->settled);
+
+        self::assertSame([], $subjects->settled);
+    }
+
     /** @return array{User, WorkRequest} */
-    private function claimed(string $name): array
+    private function claimed(string $name, ?WorkSubject $subject = null): array
     {
         self::bootKernel();
         self::getContainer()->set('clock', new MockClock(self::NOW));
         $em = $this->em();
         $owner = $this->user($em, $name.'@example.com');
-        $request = $this->seedWorkRequest($em, $this->project($em, $owner, 'Project '.$name), state: WorkRequestState::Claimed);
+        $request = $this->seedWorkRequest($em, $this->project($em, $owner, 'Project '.$name), state: WorkRequestState::Claimed, subject: $subject);
         $request->bridgeId = Uuid::v4();
         $request->claimToken = Uuid::v4();
         $request->leaseUntil = new \DateTimeImmutable('2026-10-01 12:32:00');
@@ -94,10 +125,17 @@ final class SettleWorkRequestHandlerTest extends KernelTestCase
         return [$owner, $request];
     }
 
-    private function settle(User $owner, WorkRequest $request, WorkRequestState $state): SettleWorkRequestResult
+    private function settle(User $owner, WorkRequest $request, WorkRequestState $state, ?RecordingWorkSubjectHandler $subjects = null): SettleWorkRequestResult
     {
-        $handler = self::getContainer()->get(SettleWorkRequestHandler::class);
-        self::assertInstanceOf(SettleWorkRequestHandler::class, $handler);
+        $handler = new SettleWorkRequestHandler(
+            $this->service(WorkRequestRepository::class),
+            $this->service(OutboxWriter::class),
+            $this->em(),
+            new MockClock(self::NOW),
+            $this->service(Auditor::class),
+            $this->service(WorkRequestAnnouncer::class),
+            new WorkSubjectHandlers(null === $subjects ? [] : [$subjects]),
+        );
 
         return $handler(new SettleWorkRequestCommand(
             owner: $owner,
@@ -107,5 +145,20 @@ final class SettleWorkRequestHandlerTest extends KernelTestCase
             state: $state,
             reason: null,
         ));
+    }
+
+    /**
+     * @template T of object
+     *
+     * @param class-string<T> $class
+     *
+     * @return T
+     */
+    private function service(string $class): object
+    {
+        $service = self::getContainer()->get($class);
+        self::assertInstanceOf($class, $service);
+
+        return $service;
     }
 }

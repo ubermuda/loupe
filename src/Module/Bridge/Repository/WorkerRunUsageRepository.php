@@ -56,7 +56,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
                     SUM(cache_write_tokens) AS cache_write,
                     BOOL_OR(source = :estimated OR cost_usd IS NULL) AS estimated
                 FROM bridge_worker_run_usage
-                WHERE project_id = :project AND card_id = :card
+                WHERE project_id = :project AND subject_type = 'card' AND subject_id = :card
                 SQL,
             [
                 'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
@@ -96,7 +96,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
             CostSplit::Rule => "COALESCE(work_kind, '')",
             CostSplit::Model => 'model',
         };
-        $conditions = ['project_id = :project', 'card_id IN (:cards)'];
+        $conditions = ['project_id = :project', "subject_type = 'card'", 'subject_id IN (:cards)'];
         $parameters = [
             'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
             'cards' => array_map(static fn (Uuid $id): string => (string) $id, $cardIds),
@@ -116,7 +116,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
             \sprintf(
                 <<<'SQL'
                     SELECT
-                        card_id,
+                        subject_id AS card_id,
                         %1$s AS part,
                         COALESCE(SUM(ROUND(cost_usd * 1000000)), 0)::bigint AS cost_micros,
                         SUM(input_tokens) AS input,
@@ -162,14 +162,14 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
             <<<'SQL'
                 SELECT
-                    r.card_id,
+                    r.subject_id AS card_id,
                     CASE WHEN BOOL_OR(r.usage_source IS NULL AND r.started_at IS NOT NULL) OR BOOL_OR(u.run_id IS NOT NULL AND u.cost_usd IS NULL)
                         THEN NULL ELSE SUM(ROUND(u.cost_usd * 1000000))::bigint END AS cost_micros,
                     CASE WHEN BOOL_OR(r.usage_source IS NULL AND r.started_at IS NOT NULL) THEN NULL ELSE SUM(u.output_tokens) END AS output
                 FROM bridge_worker_runs r
                 LEFT JOIN bridge_worker_run_usage u ON u.run_id = r.id AND u.project_id = :project
-                WHERE r.project_id = :project AND r.experiment = :experiment
-                GROUP BY r.card_id
+                WHERE r.project_id = :project AND r.experiment = :experiment AND r.subject_type = 'card'
+                GROUP BY r.subject_id
                 SQL,
             [
                 'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),

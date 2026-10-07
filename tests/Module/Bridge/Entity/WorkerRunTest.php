@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Entity;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -73,7 +74,8 @@ final class WorkerRunTest extends TestCase
         return new WorkerRun(
             project: new Project(new User('Alice A', 'alice@example.com', 'x'), 'My project'),
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'plan',
             state: WorkerRunState::Queued,

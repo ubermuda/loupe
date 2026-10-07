@@ -49,7 +49,8 @@ final class RerunWorkerRunController extends AppController
         }
 
         // The card frame reads a session that writes nothing, so a flash there would never clear.
-        $fromCardFrame = 'card-worker-runs' === $request->headers->get('Turbo-Frame');
+        $cardId = $run->cardId();
+        $fromCardFrame = null !== $cardId && 'card-worker-runs' === $request->headers->get('Turbo-Frame');
         try {
             ($this->requestCommand)(new RequestBridgeCommandCommand($run, BridgeCommandKind::RerunCommand, $user));
         } catch (DomainErrors $e) {
@@ -57,7 +58,7 @@ final class RerunWorkerRunController extends AppController
             if ($fromCardFrame) {
                 return $this->render('@Bridge/_card_worker_runs.html.twig', [
                     'project' => $project,
-                    'cardId' => (string) $run->cardId,
+                    'cardId' => (string) $cardId,
                     'commandErrors' => $messages,
                 ], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
             }
@@ -70,7 +71,7 @@ final class RerunWorkerRunController extends AppController
         if ($fromCardFrame) {
             return $this->redirectToRoute('app_project_card_worker_runs', [
                 'id' => (string) $project->id,
-                'cardId' => (string) $run->cardId,
+                'cardId' => (string) $cardId,
             ], Response::HTTP_SEE_OTHER);
         }
 

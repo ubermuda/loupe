@@ -29,7 +29,8 @@ final readonly class WorkRequestExporter implements UserDataExporterInterface
             yield [
                 'workRequestId' => (string) $request->id,
                 'project' => $request->project->name,
-                'cardId' => (string) $request->cardId,
+                'subjectType' => $request->subjectType,
+                'subjectId' => (string) $request->subjectId,
                 'cardNumber' => $request->cardNumber,
                 'kind' => $request->kind,
                 'capability' => $request->capability,

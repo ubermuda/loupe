@@ -33,7 +33,7 @@ final readonly class WorkerRunSearchIndexer
             \sprintf(
                 <<<'SQL'
                     UPDATE bridge_worker_runs
-                    SET search_vector = setweight(to_tsvector('%1$s', card_number::text), '%2$s')
+                    SET search_vector = setweight(to_tsvector('%1$s', COALESCE(card_number::text, '')), '%2$s')
                         || setweight(to_tsvector('%1$s', COALESCE(work_kind, '')), '%2$s')
                         || setweight(to_tsvector('%1$s', output), '%3$s')
                     WHERE id = :id
