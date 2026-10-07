@@ -196,6 +196,15 @@ final class TemplateParserTest extends TestCase
         self::assertCount(5, $this->parser->parse($template)->rules);
     }
 
+    public function test_a_pause_until_that_reads_children_only_for_epics_allows_a_rule_that_also_matches_bugs(): void
+    {
+        $template = self::valid();
+        $template['rules'][3]['when'] = ['any' => [['card.type' => ['type' => 'bug']], ['card.type' => ['type' => 'epic']]]];
+        $template['rules'][3]['then']['pause']['until'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
     public function test_a_branch_that_names_a_second_type_never_holds_and_reads_nothing(): void
     {
         $template = self::valid();
