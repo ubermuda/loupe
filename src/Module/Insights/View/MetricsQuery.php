@@ -36,7 +36,8 @@ final readonly class MetricsQuery
      */
     public static function fromQuery(InputBag $query): self
     {
-        $metric = Metric::tryFrom($query->getString('metric')) ?? Metric::Cost;
+        $requested = Metric::tryFrom($query->getString('metric'));
+        $metric = null !== $requested && \in_array($requested, Metric::standalone(), true) ? $requested : Metric::Cost;
 
         return new self(
             unit: self::allowed(MetricUnit::tryFrom($query->getString('unit')) ?? MetricUnit::Card, $metric->units()),

@@ -51,6 +51,7 @@ the user owns, with its outcome, its duration, its cost, its token sums, its
 timing and its peak context. It includes the rows whose run the retention sweep deleted.
 `worker_run_tool_calls.json` holds each tool call of those runs, with its tool,
 its timing and its signatures.
+`worker_run_bucket_times.json` holds the time of each run in each bucket of the project rules.
 [Retention](../reference/worker-runs.md#retention) lists the other worker run
 files.
 

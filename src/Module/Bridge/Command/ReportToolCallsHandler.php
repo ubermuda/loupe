@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
+use App\Module\Bridge\Service\BucketTimeComputer;
 use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Bridge\Service\WorkerRunFactWriter;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
@@ -18,7 +19,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Stores the tool calls of a run, and the timing when the batch carries it.
  * The calls go in with SQL, which the fact listener never sees, so the handler
- * rewrites the fact row itself.
+ * rewrites the fact row and the bucket times itself.
  */
 final readonly class ReportToolCallsHandler
 {
@@ -27,6 +28,7 @@ final readonly class ReportToolCallsHandler
         private WorkerRunRepository $workerRuns,
         private WorkerRunToolCallRepository $workerRunToolCalls,
         private WorkerRunFactWriter $factWriter,
+        private BucketTimeComputer $bucketTimes,
         private ToolCallCollectionSettings $collectionSettings,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
@@ -58,7 +60,9 @@ final readonly class ReportToolCallsHandler
                 $run->idleGapMs = $command->timing->idleGapMs;
                 $this->em->flush();
             }
-            $this->factWriter->upsert([$run->id ?? throw new \LogicException('A found run has an id.')]);
+            $runId = $run->id ?? throw new \LogicException('A found run has an id.');
+            $this->factWriter->upsert([$runId]);
+            $this->bucketTimes->recompute($project, [$runId]);
 
             $this->logger->info('bridge.tool_calls_reported', [
                 'projectId' => (string) $project->id,

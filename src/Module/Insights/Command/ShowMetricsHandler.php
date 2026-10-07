@@ -30,7 +30,7 @@ final readonly class ShowMetricsHandler
         $project = $command->project;
         $query = $command->query;
         // The query takes only what its metric allows, so the handler never refuses it.
-        $metrics = ($this->metricQuery)(new MetricQueryCommand($project, $query->unit, $query->metric, $query->statistic, $query->group, $query->range, $query->bucket));
+        $metrics = ($this->metricQuery)(new MetricQueryCommand($project, $query->unit, $query->metric, $query->statistic, $query->group, $query->range, $query->bucket, null));
         $groupLabels = MetricGroup::Bridge === $query->group
             ? $this->bridgeLabels->forOwner($project->owner, array_values(array_filter(array_map(static fn (MetricSeries $series): ?string => $series->group, $metrics->series))))
             : [];

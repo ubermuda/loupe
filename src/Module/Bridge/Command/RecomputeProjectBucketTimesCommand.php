@@ -6,7 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Project\Entity\Project;
 
-final readonly class ListMetricsCommand
+final readonly class RecomputeProjectBucketTimesCommand
 {
     public function __construct(
         public Project $project,

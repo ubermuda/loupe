@@ -45,7 +45,7 @@ class ShowMetricsController extends AppController
             'keptRunIds' => $view->keptRunIds,
             'rowLimit' => ShowMetricsHandler::ROW_LIMIT,
             'chart' => MetricChart::build($query->metric, $query->statistic, $query->bucket, $view->metrics->series),
-            'metrics' => Metric::cases(),
+            'metrics' => Metric::standalone(),
             'ranges' => MetricRange::cases(),
             'buckets' => MetricBucket::cases(),
         ]);

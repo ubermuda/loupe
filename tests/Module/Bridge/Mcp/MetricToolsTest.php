@@ -32,8 +32,8 @@ final class MetricToolsTest extends KernelTestCase
 
         $metrics = $this->listTool()()['metrics'];
 
-        self::assertSame(array_map(static fn (Metric $metric): string => $metric->value, Metric::cases()), array_column($metrics, 'key'));
-        $stopRate = $metrics[array_search('stop-rate', array_column($metrics, 'key'), true)];
+        self::assertSame(array_map(static fn (Metric $metric): string => $metric->value, Metric::standalone()), array_column($metrics, 'key'));
+        $stopRate = array_column($metrics, null, 'key')['stop-rate'];
         self::assertSame([
             'key' => 'stop-rate',
             'units' => ['run'],
@@ -42,6 +42,30 @@ final class MetricToolsTest extends KernelTestCase
             'groups' => ['stage', 'model', 'variant', 'card-type', 'bridge', 'none'],
             'description' => Metric::StopRate->description(),
         ], $stopRate);
+    }
+
+    public function test_the_list_adds_one_entry_for_each_bucket_of_the_project(): void
+    {
+        [$project, $other] = $this->projects('metric-list-buckets');
+        $this->runWithBuckets($project, ['tests' => 10, 'other' => 5]);
+        $this->runWithBuckets($project, ['tests' => 20, 'build' => 30]);
+        $this->runWithBuckets($other, ['elsewhere' => 1]);
+        $this->actAsMcpTokenBoundTo($project);
+
+        $metrics = $this->listTool()()['metrics'];
+
+        $keys = array_column($metrics, 'key');
+        self::assertSame(['bucket-time:build', 'bucket-time:other', 'bucket-time:tests'], \array_slice($keys, -3));
+        self::assertNotContains('bucket-time', $keys);
+        self::assertNotContains('bucket-time:elsewhere', $keys);
+        self::assertSame([
+            'key' => 'bucket-time:build',
+            'units' => ['run', 'card'],
+            'valueType' => 'duration',
+            'statistics' => ['median', 'mean', 'sum', 'p90', 'count'],
+            'groups' => ['stage', 'model', 'variant', 'card-type', 'bridge', 'none'],
+            'description' => Metric::BucketTime->description(),
+        ], array_column($metrics, null, 'key')['bucket-time:build']);
     }
 
     public function test_the_list_refuses_an_unbound_token(): void
@@ -102,7 +126,7 @@ final class MetricToolsTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
 
         self::assertSame(
-            'Unknown metric "speed". Use one of: cost, input-tokens, output-tokens, cache-read-tokens, cache-write-tokens, duration, runs, stop-rate, merge-rate, fix-rounds, hours-to-merge.',
+            'Unknown metric "speed". Use one of: cost, input-tokens, output-tokens, cache-read-tokens, cache-write-tokens, duration, runs, stop-rate, merge-rate, fix-rounds, hours-to-merge, bucket-time:<name>.',
             $this->refusal(unit: 'run', metric: 'speed', statistic: 'sum'),
         );
         self::assertSame(
@@ -120,6 +144,47 @@ final class MetricToolsTest extends KernelTestCase
             'The metric stop-rate does not take the unit "card". Use one of: run. The metric stop-rate does not take the statistic "sum". Use one of: mean, count. metric_list lists the valid combinations.',
             $this->refusal(unit: 'card', metric: 'stop-rate', statistic: 'sum'),
         );
+    }
+
+    public function test_a_bucket_time_run_has_the_time_of_the_bucket_zero_or_unknown(): void
+    {
+        [$project] = $this->projects('metric-bucket-run');
+        $ended = new \DateTimeImmutable('-2 days')->setTime(9, 0);
+        $inBucket = $this->fact($project, $ended, 1, runId: $this->runWithBuckets($project, ['tests' => 4000, 'other' => 1000]));
+        $otherBucket = $this->fact($project, $ended->modify('-1 hour'), 1, runId: $this->runWithBuckets($project, ['other' => 700]));
+        $noRows = $this->fact($project, $ended->modify('-2 hours'), 1);
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = $this->queryTool()(unit: 'run', metric: 'bucket-time:tests', statistic: 'sum');
+
+        self::assertSame('bucket-time:tests', $result['metric']);
+        $series = $result['series'][0];
+        self::assertSame(['value' => 4000, 'rows' => 2], $series['total']);
+        $values = array_column($series['rows'], 'value', 'id');
+        self::assertSame([(string) $inBucket => 4000, (string) $otherBucket => 0, (string) $noRows => null], $values);
+    }
+
+    public function test_a_bucket_time_without_a_valid_name_is_refused(): void
+    {
+        [$project] = $this->projects('metric-bucket-name');
+        $this->actAsMcpTokenBoundTo($project);
+
+        foreach (['bucket-time', 'bucket-time:', 'bucket-time:Tests', 'bucket-time:a b', 'bucket-time:'.str_repeat('a', 65)] as $metric) {
+            self::assertStringContainsString('needs the name of a bucket', $this->refusal(unit: 'run', metric: $metric, statistic: 'sum'), $metric);
+        }
+        self::assertStringContainsString('Unknown metric "cost:tests"', $this->refusal(unit: 'run', metric: 'cost:tests', statistic: 'sum'));
+    }
+
+    public function test_a_bucket_time_name_of_64_characters_is_read(): void
+    {
+        [$project] = $this->projects('metric-bucket-long');
+        $name = str_repeat('a', 64);
+        $this->fact($project, new \DateTimeImmutable('-1 day'), 1, runId: $this->runWithBuckets($project, [$name => 5]));
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = $this->queryTool()(unit: 'run', metric: 'bucket-time:'.$name, statistic: 'sum');
+
+        self::assertSame(['value' => 5, 'rows' => 1], $result['series'][0]['total']);
     }
 
     public function test_the_query_refuses_an_unbound_token(): void
@@ -141,9 +206,26 @@ final class MetricToolsTest extends KernelTestCase
         return [$this->project($em, $owner, 'Bound '.$name), $this->project($em, $owner, 'Other '.$name)];
     }
 
-    private function fact(Project $project, \DateTimeImmutable $endedAt, int $cost, ?int $cardNumber = null): Uuid
+    /**
+     * @param array<string, int> $times
+     *
+     * @return Uuid the id of a stored run of the project that has the bucket rows
+     */
+    private function runWithBuckets(Project $project, array $times): Uuid
     {
-        $runId = Uuid::v7();
+        $run = $this->seedRun($this->em(), $project);
+        // The fact listener wrote a fact row for the run, and the test writes its own.
+        $this->em()->getConnection()->executeStatement('DELETE FROM bridge_worker_run_facts WHERE run_id = :run', ['run' => (string) $run->id]);
+        foreach ($times as $bucket => $ms) {
+            $this->em()->getConnection()->insert('bridge_worker_run_bucket_times', ['id' => (string) Uuid::v7(), 'run_id' => (string) $run->id, 'bucket' => (string) $bucket, 'ms' => $ms]);
+        }
+
+        return $run->id ?? throw new \LogicException('A stored run has an id.');
+    }
+
+    private function fact(Project $project, \DateTimeImmutable $endedAt, int $cost, ?int $cardNumber = null, ?Uuid $runId = null): Uuid
+    {
+        $runId ??= Uuid::v7();
         $this->em()->getConnection()->insert('bridge_worker_run_facts', [
             'run_id' => (string) $runId,
             'project_id' => (string) $project->id,

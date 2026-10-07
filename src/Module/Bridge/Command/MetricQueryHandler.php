@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricBucket;
 use App\Module\Bridge\Metric\MetricPoint;
 use App\Module\Bridge\Metric\MetricRow;
@@ -30,6 +31,9 @@ final readonly class MetricQueryHandler
     public function __invoke(MetricQueryCommand $command): MetricQueryView
     {
         $metric = $command->metric;
+        if ((Metric::BucketTime === $metric) !== (null !== $command->bucketName)) {
+            throw new \LogicException('A bucket name goes with the bucket-time metric and with no other.');
+        }
         $errors = [];
         if (!\in_array($command->unit, $metric->units(), true)) {
             $errors['unit'] = self::UNIT_NOT_ALLOWED;
@@ -44,7 +48,7 @@ final readonly class MetricQueryHandler
             throw new DomainErrors($errors);
         }
 
-        $rows = $this->rows->rows($command->project, $command->unit, $metric, $command->group, $command->range->startFrom($this->clock->now()));
+        $rows = $this->rows->rows($command->project, $command->unit, $metric, $command->group, $command->range->startFrom($this->clock->now()), $command->bucketName);
 
         /** @var array<string, array{group: ?string, rows: list<MetricRow>}> $byGroup */
         $byGroup = [];

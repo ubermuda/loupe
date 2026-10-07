@@ -688,7 +688,8 @@ another project. The account's data export holds each run in
 `requestedModel` and `switchedFrom`, its `workRequestId`, `workKind` and `ruleId`, and its `toolTimeMs`, `idleGapMs` and `peakContextTokens`. It holds every usage
 row in `worker_run_usage.json`. It holds every tool call in
 `worker_run_tool_calls.json`, with its project, the `runKey` of its run, and the
-fields of [the tool call report](#reporting-the-tool-calls-of-a-run). It holds the fact row of each run in
+fields of [the tool call report](#reporting-the-tool-calls-of-a-run). It holds the time of each run in each bucket in
+`worker_run_bucket_times.json`, with its project, the `runKey` of its run, the `bucket` and the `ms`. It holds the fact row of each run in
 `worker_run_facts.json`, with its outcome, its duration, its cost, its token sums and the
 [run metrics](#run-metrics) of its timing and its peak context.
 A fact row stays after the retention sweep deletes its run. It holds every experiment pin in

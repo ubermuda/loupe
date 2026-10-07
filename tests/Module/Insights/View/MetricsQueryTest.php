@@ -58,10 +58,16 @@ final class MetricsQueryTest extends TestCase
         self::assertSame(['unit' => 'run', 'metric' => 'stop-rate', 'statistic' => 'mean'], $stopRate->routeParams());
     }
 
+    public function test_bucket_time_is_no_choice_of_the_page(): void
+    {
+        self::assertSame(Metric::Cost, MetricsQuery::fromQuery(self::query(['metric' => 'bucket-time']))->metric);
+        self::assertNotContains(Metric::BucketTime, Metric::standalone());
+    }
+
     /** @return iterable<string, array{Metric}> */
     public static function metrics(): iterable
     {
-        foreach (Metric::cases() as $metric) {
+        foreach (Metric::standalone() as $metric) {
             yield $metric->value => [$metric];
         }
     }

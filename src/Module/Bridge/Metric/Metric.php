@@ -18,6 +18,18 @@ enum Metric: string
     case MergeRate = 'merge-rate';
     case FixRounds = 'fix-rounds';
     case HoursToMerge = 'hours-to-merge';
+    case BucketTime = 'bucket-time';
+
+    /**
+     * The metrics whose key says all. Bucket time needs a bucket name too, so
+     * a picker that lists keys alone leaves it out.
+     *
+     * @return list<self>
+     */
+    public static function standalone(): array
+    {
+        return array_values(array_filter(self::cases(), static fn (self $metric): bool => self::BucketTime !== $metric));
+    }
 
     /** @return list<MetricUnit> */
     public function units(): array
@@ -34,7 +46,7 @@ enum Metric: string
         return match ($this) {
             self::Cost => MetricValueType::Money,
             self::InputTokens, self::OutputTokens, self::CacheReadTokens, self::CacheWriteTokens => MetricValueType::Tokens,
-            self::Duration, self::HoursToMerge => MetricValueType::Duration,
+            self::Duration, self::HoursToMerge, self::BucketTime => MetricValueType::Duration,
             self::Runs, self::FixRounds => MetricValueType::Count,
             self::StopRate, self::MergeRate => MetricValueType::Ratio,
         };
@@ -81,6 +93,7 @@ enum Metric: string
             self::MergeRate => 'The share of finished cards whose pull request merged.', // @translation-check-ignore
             self::FixRounds => 'The number of fix rounds a finished card needed.', // @translation-check-ignore
             self::HoursToMerge => 'The hours from the first pull request opening to the last merge.', // @translation-check-ignore
+            self::BucketTime => 'The time of the main-session tool calls of a run in one bucket of the project rules, in milliseconds. Name the bucket after a colon: bucket-time:<name>.', // @translation-check-ignore
         };
     }
 }
