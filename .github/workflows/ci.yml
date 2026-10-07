@@ -19,12 +19,68 @@ env:
   # composer gets 60 API requests an hour across the whole runner fleet.
   COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
 
+permissions:
+  contents: read
+  packages: read
+
 # One job per leg of `just ci`, rather than one job running it. A single job
 # reports a single check, so a red build names the branch and nothing else —
 # split, the failure names itself in the checks list and branch protection can
 # require the legs individually. Each job runs the same recipe a workstation
 # runs, so the two gates cannot drift.
 jobs:
+  # Pushes the php-fpm image that the setup action pulls. A same-repository
+  # branch publishes too, so a branch that changes the Dockerfile fills the
+  # registry for its own re-runs. No job waits for it.
+  php-fpm-image:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Name the image
+        id: image
+        run: |
+          hash=$( { date -u +%G-%V; cat docker/dev/php-fpm/Dockerfile docker/dev/php-fpm/*.conf docker/dev/php-fpm/*.ini; } | sha256sum | cut -c1-16)
+          repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/$repo/php-fpm:$hash" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Look for the image
+        id: exists
+        run: |
+          if docker manifest inspect "${{ steps.image.outputs.image }}" >/dev/null 2>&1; then echo "found=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.exists.outputs.found != 'true'
+        id: buildx-mirror
+        continue-on-error: true
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+      - if: steps.exists.outputs.found != 'true' && steps.buildx-mirror.outcome == 'failure'
+        uses: docker/setup-buildx-action@v4
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+      - if: steps.exists.outputs.found != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/dev/php-fpm/Dockerfile
+          tags: ${{ steps.image.outputs.image }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
