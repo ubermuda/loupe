@@ -63,17 +63,15 @@ final readonly class InboxSettingsUpdateTool implements FlagGatedToolInterface
             if (!$this->authorization->isGranted(McpBoundProjectVoter::PROJECT_WRITE, $project)) {
                 throw new ToolCallException('This connection cannot change this project.');
             }
-            $current = $this->switches->for($project);
-
             ($this->updateSettings)(new UpdateInboxSettingsCommand(
                 project: $project,
-                documentInReview: $documentInReview ?? $current->documentInReview,
-                runBlocked: $runBlocked ?? $current->runBlocked,
-                runGaveUp: $runGaveUp ?? $current->runGaveUp,
-                runWaitingForPerson: $runWaitingForPerson ?? $current->runWaitingForPerson,
-                pullRequestReady: $pullRequestReady ?? $current->pullRequestReady,
-                pullRequestFixStopped: $pullRequestFixStopped ?? $current->pullRequestFixStopped,
-                cardPaused: $cardPaused ?? $current->cardPaused,
+                documentInReview: $documentInReview,
+                runBlocked: $runBlocked,
+                runGaveUp: $runGaveUp,
+                runWaitingForPerson: $runWaitingForPerson,
+                pullRequestReady: $pullRequestReady,
+                pullRequestFixStopped: $pullRequestFixStopped,
+                cardPaused: $cardPaused,
             ));
             $saved = $this->switches->for($project);
 
