@@ -23,6 +23,8 @@ final class WorkflowGetToolTest extends KernelTestCase
     ];
 
     private const string TEARDOWN_CHECK = 'A command that removes the worktree and the preview of a finished card';
+    private const string DISCOVERY_CHECK = 'The Loupe plugin skills are installed for the agent, with the loupe-discovery skill';
+    private const string DISCOVERY_BRIDGE_CHECK = 'The bridge rule file maps the discovery kind, or sets appPrompts to true';
 
     protected function setUp(): void
     {
@@ -50,7 +52,8 @@ final class WorkflowGetToolTest extends KernelTestCase
         self::assertSame(['kind' => 'fix', 'origin' => 'template', 'rules' => ['fix-in-implementation', 'fix-in-review'], 'checks' => self::CODE_CHECKS], $kinds['fix']);
         self::assertSame(['kind' => 'sync', 'origin' => 'template', 'rules' => ['update-behind'], 'checks' => []], $kinds['sync']);
         self::assertSame(['kind' => 'merge', 'origin' => 'template', 'rules' => ['merge-ready', 'merge-ready-epic-child'], 'checks' => []], $kinds['merge']);
-        self::assertSame(['kind' => 'discovery', 'origin' => 'app', 'rules' => ['discovery'], 'checks' => []], $kinds['discovery']);
+        self::assertSame('app', $kinds['discovery']['origin']);
+        self::assertContains(self::DISCOVERY_CHECK, $kinds['discovery']['checks']);
     }
 
     public function test_a_lifecycle_project_lists_its_columns_in_board_order_with_their_slots(): void
@@ -80,7 +83,7 @@ final class WorkflowGetToolTest extends KernelTestCase
         self::assertSame(['key' => 'simple', 'version' => 1], $answer['template']);
         self::assertSame([
             ['kind' => 'teardown', 'origin' => 'template', 'rules' => ['teardown'], 'checks' => [self::TEARDOWN_CHECK]],
-            ['kind' => 'discovery', 'origin' => 'app', 'rules' => ['discovery'], 'checks' => []],
+            ['kind' => 'discovery', 'origin' => 'app', 'rules' => ['discovery'], 'checks' => [self::DISCOVERY_CHECK, self::DISCOVERY_BRIDGE_CHECK]],
         ], $answer['kinds']);
         self::assertSame([null], array_values(array_unique(array_column($answer['columns'], 'slot'))));
     }
