@@ -35,6 +35,23 @@ jobs:
           node: 'true'
       - run: just lint
 
+      # A matrix leg the ruleset does not name can fail and still merge.
+      - name: Every e2e leg is a required check
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          required=$(gh api repos/${{ github.repository }}/rules/branches/main \
+            --jq '.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context')
+          legs=$(awk '/^  e2e-shard:/{j=1} j&&/include:/{i=1} j&&/^    steps:/{exit} i&&/- name:/{print "e2e-" $3}' .github/workflows/ci.yml)
+          missing=0
+          for leg in $legs; do
+            grep -qxF "$leg" <<<"$required" && continue
+            echo "::error::$leg is not a required check. Add it to the main ruleset."
+            missing=1
+          done
+          exit $missing
+
   cs-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
