@@ -6,6 +6,7 @@ namespace App\Tests\Module\Insights\Controller;
 
 use App\Module\Insights\Entity\Analysis;
 use App\Module\Insights\Entity\AnalysisState;
+use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Entity\ProposalState;
 use App\Tests\Module\Insights\InsightsScenario;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -96,6 +97,27 @@ final class ListReportsControllerTest extends WebTestCase
         self::assertSame('Waiting for a bridge', trim($crawler->filter('[data-analysis="'.$waiting->id.'"] [data-analysis-state]')->text()));
         self::assertSame('Running', trim($crawler->filter('[data-analysis="'.$running->id.'"] [data-analysis-state]')->text()));
         self::assertSame('Paused: usage-limit', trim($crawler->filter('[data-analysis="'.$paused->id.'"] [data-analysis-state]')->text()));
+    }
+
+    public function test_a_bucket_rule_proposal_offers_dismiss_and_no_create(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('reports-bucket-rule');
+        $analysis = $this->seedAnalysis($em, $project);
+        $card = $this->seedProposal($em, $analysis);
+        $rule = $this->seedProposal($em, $analysis, ProposalKind::BucketRule, 1);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-proposal="'.$card->id.'"] form[action$="/accept"]'));
+        $ruleRow = $crawler->filter('[data-proposal="'.$rule->id.'"]');
+        self::assertCount(1, $ruleRow->filter('form[action$="/dismiss"]'));
+        self::assertCount(0, $ruleRow->filter('form[action$="/accept"]'));
     }
 
     public function test_a_project_with_no_analysis_says_what_an_analysis_needs(): void

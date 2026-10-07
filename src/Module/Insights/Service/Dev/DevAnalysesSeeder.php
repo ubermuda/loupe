@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Insights\Service\Dev;
 
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunUsage;
 use App\Module\Bridge\Metric\MetricRange;
+use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Insights\Command\StartAnalysisHandler;
 use App\Module\Insights\Entity\Analysis;
 use App\Module\Insights\Entity\AnalysisScope;
 use App\Module\Insights\Entity\AnalysisTopic;
@@ -19,11 +24,12 @@ use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\MarkdownRenderer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
+use Symfony\Component\Uid\Uuid;
 
 /**
- * Writes a finished cost analysis with its report and two proposals, and a
- * waiting one, so the Reports page of a dev project shows each state. The
- * waiting analysis opens no work request, so no bridge claims it.
+ * Writes a finished cost analysis with its report, two proposals and a costed
+ * run, and a waiting one, so the Reports page of a dev project shows each
+ * state. The waiting analysis opens no work request, so no bridge claims it.
  */
 #[When('dev')]
 final readonly class DevAnalysesSeeder
@@ -65,6 +71,7 @@ final readonly class DevAnalysesSeeder
         $this->em->flush();
         $done->start();
         $done->complete($report->id ?? throw new \LogicException('A stored document has an id.'), new \DateTimeImmutable('-2 days +20 minutes'));
+        $this->seedRun($done, new \DateTimeImmutable('-2 days +20 minutes'));
 
         $this->em->persist(new Proposal($done, ProposalKind::Card, 'Cache the dependencies between runs', "Each run installs the dependencies again.\nA shared cache keyed on the lock file skips that step.", null, 'About $4 a week', 0));
         $dismissed = new Proposal($done, ProposalKind::Card, 'Run the lint stage on a smaller model', 'The lint stage reads short diffs, so a smaller model can do it.', null, 'About $1 a week', 1);
@@ -77,5 +84,29 @@ final readonly class DevAnalysesSeeder
         $this->documentSearch->index($report);
 
         return true;
+    }
+
+    /** WorkerRunFactListener writes the fact row on flush, and AnalysisRepository::costOf() sums it. */
+    private function seedRun(Analysis $analysis, \DateTimeImmutable $endedAt): void
+    {
+        $run = new WorkerRun(
+            project: $analysis->project,
+            bridgeId: Uuid::v4(),
+            subjectType: Analysis::SUBJECT_TYPE,
+            subjectId: $analysis->id ?? throw new \LogicException('A stored analysis has an id.'),
+            cardNumber: null,
+            workKind: StartAnalysisHandler::WORK_KIND,
+            state: WorkerRunState::Succeeded,
+            runKey: Uuid::v4(),
+            startedAt: $endedAt->modify('-18 minutes'),
+            endedAt: $endedAt,
+            exitCode: 0,
+            hasResult: true,
+            output: 'The report is written and the analysis is done.',
+            receivedAt: $endedAt,
+        );
+        $run->usageSource = WorkerRunUsageSource::Reported;
+        $this->em->persist($run);
+        $this->em->persist(new WorkerRunUsage($run, $analysis->project, $run->subjectType, $run->subjectId, $run->workKind, 'claude-sonnet-5-5', WorkerRunUsageSource::Reported, 182_000, 9_400, 1_250_000, 64_000, '1.840000'));
     }
 }

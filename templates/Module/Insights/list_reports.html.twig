@@ -130,10 +130,12 @@
                     {% if proposal.state.value == 'proposed' %}
                     {% set dismissForm = insights_dismiss_form(proposal, refusedDismissForm) %}
                     <div class="lp-reports-proposal__actions">
+                        {% if proposal.kind.value == 'card' %}
                         <form method="post" action="{{ path('app_project_analytics_proposal_accept', {id: project.id, proposalId: proposal.id}) }}">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token('insights-proposal-accept') }}">
                             <button class="lp-btn lp-btn--primary lp-btn--sm" type="submit">{{ 'insights.reports.proposal.accept'|trans }}</button>
                         </form>
+                        {% endif %}
                         {{ form_start(dismissForm, {action: path('app_project_analytics_proposal_dismiss', {id: project.id, proposalId: proposal.id}), attr: {class: 'lp-reports-proposal__dismiss'}}) }}
                             {{ form_label(dismissForm.reason, null, {label_attr: {class: 'sr-only'}}) }}
                             {{ form_widget(dismissForm.reason, {attr: {class: 'lp-input', placeholder: 'insights.reports.proposal.reason_placeholder'|trans}}) }}
