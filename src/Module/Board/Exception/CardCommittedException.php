@@ -6,7 +6,10 @@ namespace App\Module\Board\Exception;
 
 use Symfony\Component\Uid\Uuid;
 
-/** The card is stored, and a step after the commit failed. A retry would create a second card. */
+/**
+ * The transaction of CreateCardHandler ended, and a later step failed. With no
+ * outer transaction the card is stored, so a retry would create a second card.
+ */
 final class CardCommittedException extends \RuntimeException
 {
     public function __construct(
