@@ -93,7 +93,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         ], $rules['tech-design-approved']->whenGroups);
 
         self::assertEquals([
-            new WorkflowRuleView('discovery', 'workflow.settings.where.backlog', 'workflow.settings.action.request', null, 'discovery', [new WorkflowConditionGroupView('workflow.source.readiness', [new WorkflowConditionView('card.discovery_requested', false, '')])], [], []),
+            new WorkflowRuleView('discovery', 'workflow.settings.where.backlog', 'workflow.settings.action.request', null, 'discovery', [new WorkflowConditionGroupView('workflow.source.readiness', [new WorkflowConditionView('card.discovery_requested', false, '')])], [], [], []),
         ], $template->appRules);
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.next', 'workflow.settings.moves.by.anyone'), $template->manualMoves[0]);
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.implementation', 'workflow.settings.moves.by.parent_run'), $template->manualMoves[7]);
@@ -120,8 +120,8 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         self::assertInstanceOf(BoundWorkflowView::class, $template);
         self::assertSame(['merged', 'teardown'], array_map(static fn (WorkflowRuleView $rule): string => $rule->id, $template->rules));
         self::assertEquals([
-            new WorkflowRuleView('app-groom', 'workflow.settings.where.backlog', 'workflow.settings.action.request', null, 'groom', [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.has_open_blocker', true, '')])], [], []),
-            new WorkflowRuleView('app-tidy', 'workflow.settings.where.any', 'workflow.settings.action.release', null, null, [], [], []),
+            new WorkflowRuleView('app-groom', 'workflow.settings.where.backlog', 'workflow.settings.action.request', null, 'groom', [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.has_open_blocker', true, '')])], [], [], []),
+            new WorkflowRuleView('app-tidy', 'workflow.settings.where.any', 'workflow.settings.action.release', null, null, [], [], [], []),
         ], $template->appRules);
     }
 
