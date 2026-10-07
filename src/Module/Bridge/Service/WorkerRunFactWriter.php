@@ -157,17 +157,6 @@ final readonly class WorkerRunFactWriter
             on_battery = EXCLUDED.on_battery
         SQL;
 
-    private const string OVERLAPPED_SQL = <<<'SQL'
-        SELECT o.id
-        FROM bridge_worker_runs r
-        JOIN projects p ON p.id = r.project_id
-        JOIN bridge_worker_runs o ON o.bridge_id = r.bridge_id
-            AND o.started_at < COALESCE(r.ended_at, 'infinity'::timestamp)
-            AND o.ended_at > r.started_at
-        JOIN projects op ON op.id = o.project_id AND op.owner_id = p.owner_id
-        WHERE r.id IN (:ids) AND r.started_at IS NOT NULL
-        SQL;
-
     public function __construct(
         private Connection $connection,
     ) {
@@ -180,15 +169,12 @@ final readonly class WorkerRunFactWriter
             return;
         }
 
-        $ids = array_map(static fn (Uuid $id): string => (string) $id, $runIds);
+        $params = ['ids' => array_map(static fn (Uuid $id): string => (string) $id, $runIds)];
         $types = ['ids' => ArrayParameterType::STRING];
 
         // The lock waits for a writer that holds a run, and the upsert after it
         // reads that writer's commit, so an older read never overwrites a newer row.
-        $this->connection->transactional(function () use ($ids, $types): void {
-            // An ended run that a given run overlaps gets a new concurrent count too.
-            $overlapped = $this->connection->fetchFirstColumn(self::OVERLAPPED_SQL, ['ids' => $ids], $types);
-            $params = ['ids' => array_values(array_unique([...$ids, ...array_map(strval(...), $overlapped)]))];
+        $this->connection->transactional(function () use ($params, $types): void {
             $this->connection->executeQuery('SELECT id FROM bridge_worker_runs WHERE id IN (:ids) ORDER BY id FOR UPDATE', $params, $types);
             $this->connection->executeStatement(self::UPSERT_SQL, $params, $types);
         });
