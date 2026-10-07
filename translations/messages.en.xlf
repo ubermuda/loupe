@@ -2498,6 +2498,18 @@
                 <source>project.connect.tool.project_current</source>
                 <target>Report which project this connection acts on.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.project_update">
+                <source>project.connect.tool.project_update</source>
+                <target>Change the name, description, domain or search language of the project. A new name also changes the slug.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.project_origins_set">
+                <source>project.connect.tool.project_origins_set</source>
+                <target>Replace the list of site origins the sign-in widget may run on.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.readiness_guide_set">
+                <source>project.connect.tool.readiness_guide_set</source>
+                <target>Show or hide the readiness checklist on the Workshop.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.readiness_get">
                 <source>project.connect.tool.readiness_get</source>
                 <target>Read the readiness checks of the project and the state of its latest discovery run.</target>
@@ -2641,6 +2653,10 @@
             <trans-unit id="project.connect.tool.inbox_withdraw">
                 <source>project.connect.tool.inbox_withdraw</source>
                 <target>Withdraw an open item that is no longer needed, with a reason the owner reads.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.inbox_settings_update">
+                <source>project.connect.tool.inbox_settings_update</source>
+                <target>Turn the inbox wait switches on or off. A switch you leave out keeps its value.</target>
             </trans-unit>
 
             <!-- First-run wizard -->

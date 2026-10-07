@@ -22,6 +22,9 @@ use Symfony\Component\Uid\Uuid;
 class Project implements ProjectScopedSubject
 {
     public const string SLUG_CONSTRAINT = 'uniq_project_owner_slug';
+    public const int MAX_NAME_LENGTH = 100;
+    public const int MAX_DOMAIN_LENGTH = 255;
+    public const int MAX_DESCRIPTION_LENGTH = 500;
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -78,7 +81,7 @@ class Project implements ProjectScopedSubject
         #[ORM\ManyToOne(targetEntity: User::class)]
         public readonly User $owner,
 
-        #[ORM\Column(length: 100)]
+        #[ORM\Column(length: self::MAX_NAME_LENGTH)]
         public string $name {
             set(string $name) {
                 $this->slug = Slug::forName($name, $this->slug);
@@ -86,7 +89,7 @@ class Project implements ProjectScopedSubject
             }
         },
 
-        #[ORM\Column(length: 255, nullable: true)]
+        #[ORM\Column(length: self::MAX_DOMAIN_LENGTH, nullable: true)]
         public ?string $domain = null,
 
         #[ORM\Column]

@@ -31,6 +31,9 @@ final class AdvertisedTools
      */
     private const array ORDER = [
         'project_current',
+        'project_update',
+        'project_origins_set',
+        'readiness_guide_set',
         'readiness_get',
         'discovery_start',
         'document_create',
@@ -82,6 +85,7 @@ final class AdvertisedTools
         'inbox_list',
         'inbox_get',
         'inbox_withdraw',
+        'inbox_settings_update',
     ];
 
     /** @var list<array{name: string, descriptionKey: string}>|null */

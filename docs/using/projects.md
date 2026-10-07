@@ -20,6 +20,9 @@ The header keeps New project reachable on narrow screens and with enlarged text.
 
 Use a tile's Edit control or Project settings to change its description.
 Clear the description and save to remove it.
+An agent connected to the project can change the name, description, domain and document language with the `project_update` MCP tool.
+It changes the allowed origins of the sign-in widget with `project_origins_set`.
+See [Changing the project settings](mcp.md#changing-the-project-settings).
 An invalid submission keeps the entered text so you can correct it.
 
 While the inbox is on, Project settings also has an Inbox section.
@@ -45,6 +48,7 @@ The Workshop guide part has one switch, "Show the readiness checklist on the Wor
 Turn it on and select Save to show the [readiness guide](workshop.md#the-readiness-guide) on the Workshop again.
 Turn it off and select Save to hide the guide.
 While the guide is hidden, the tab shows the date it was hidden.
+An agent connected to the project can show or hide the guide with the `readiness_guide_set` MCP tool.
 
 ## Repositories
 
