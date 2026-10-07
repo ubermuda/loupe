@@ -153,7 +153,23 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', state: WorkerRunState::Succeeded)), 'a run that ended');
     }
 
-    private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null, WorkerRunState $state = WorkerRunState::Running): CardEventCause
+    public function test_a_resumed_session_whose_cause_is_an_older_child_run_still_moves_the_child_for_its_open_parent_run(): void
+    {
+        $this->bindLifecycle($this->project);
+        $epic = $this->card('in-progress', CardType::Epic);
+        $child = $this->card('backlog', parent: $epic);
+        $target = $this->column($this->project, 'in-progress');
+        $session = Uuid::v7();
+        $childRun = $this->runCause($child, 'implement', state: WorkerRunState::Succeeded, sessionId: $session);
+
+        self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'no parent run in the session');
+
+        $this->runCause($epic, 'implement', sessionId: $session);
+        self::assertTrue($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'an open parent run in the session');
+        self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $this->runCause($child, 'implement', sessionId: Uuid::v7())), 'a session with no parent run');
+    }
+
+    private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null, WorkerRunState $state = WorkerRunState::Running, ?Uuid $sessionId = null): CardEventCause
     {
         $run = new WorkerRun(
             project: $project ?? $this->project,
@@ -163,6 +179,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
             cardNumber: $card->number,
             workKind: $rule,
             state: $state,
+            sessionId: $sessionId,
             kind: $kind,
         );
         $this->em()->persist($run);
