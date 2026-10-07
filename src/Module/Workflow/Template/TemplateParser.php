@@ -227,11 +227,14 @@ final readonly class TemplateParser
             if (!$evaluatesChildren && !array_any($leaves, static fn (ConditionLeaf $leaf): bool => \in_array(FactKey::Children, $leaf->reads(), true))) {
                 continue;
             }
-            foreach ($leaves as $leaf) {
-                $type = $leaf->condition instanceof CardHasType ? ($types[ParameterValue::string($leaf->params, 'type')] ?? null) : null;
-                if (null !== $type && !$type->children) {
-                    $found[$type->key] = true;
-                }
+            $named = array_values(array_unique(array_map(
+                static fn (ConditionLeaf $leaf): string => ParameterValue::string($leaf->params, 'type'),
+                array_filter($leaves, static fn (ConditionLeaf $leaf): bool => $leaf->condition instanceof CardHasType),
+            )));
+            // A card has one type, so a list that names two can never hold.
+            $type = 1 === \count($named) ? ($types[$named[0]] ?? null) : null;
+            if (null !== $type && !$type->children) {
+                $found[$type->key] = true;
             }
         }
 

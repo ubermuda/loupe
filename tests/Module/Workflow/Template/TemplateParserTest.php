@@ -184,6 +184,17 @@ final class TemplateParserTest extends TestCase
         self::assertCount(5, $this->parser->parse($template)->rules);
     }
 
+    public function test_a_branch_that_names_a_second_type_never_holds_and_reads_nothing(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [
+            ['card.type' => ['type' => 'bug']],
+            ['any' => [['pr.open' => []], ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]]]],
+        ]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
     public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
     {
         self::assertNull($this->parser->parse(self::valid())->onWorkFailed);
