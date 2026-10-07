@@ -310,6 +310,37 @@ across runs.
 
 The bridge needs a Mercure hub to have anything to subscribe to.
 
+## Agent account
+
+`loupe agent-account set` stores the token of a separate GitHub user for
+agents in `config.json`. Each claude worker then pushes as that user. The token
+stays on the machine, and Loupe never receives it. `show` prints the login and
+the id, and `clear` removes the account.
+
+When the bridge starts, it calls `GET /user` on the GitHub API with the stored
+token. It sends the login that GitHub gives as `pushLogin` in each heartbeat.
+With no account, the bridge sends `""`. When the call fails, the bridge logs
+`agent_account_check_failed` and sends `""`, so a revoked token never shows as
+set up. The bridge does not check again until it restarts.
+
+Each claude worker gets these variables when an account is stored. The bridge
+first removes the inherited `GH_TOKEN`, `GITHUB_TOKEN`, `GIT_AUTHOR_NAME`,
+`GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL`.
+
+| Variable | Value |
+|---|---|
+| `GH_TOKEN` | The stored token, which `gh` reads |
+| `GIT_AUTHOR_NAME`, `GIT_COMMITTER_NAME` | The login |
+| `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_EMAIL` | `<id>+<login>@users.noreply.github.com` |
+| `GIT_CONFIG_KEY_n`, `GIT_CONFIG_VALUE_n` | Two `credential.https://github.com.helper` entries |
+| `GIT_CONFIG_COUNT` | The inherited count plus two |
+
+The first helper entry is empty, which removes every helper that your git
+configuration names for `github.com`. The second helper answers with the login
+and `$GH_TOKEN`. An inherited `GIT_CONFIG_COUNT` keeps its entries, and the
+bridge numbers its own entries after them. A before command and a command
+action keep the bridge's own environment, so they push as you.
+
 ## Experiments
 
 An experiment splits the cards of a kind of work between models. A worker entry

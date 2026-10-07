@@ -100,6 +100,8 @@ type workerSpec struct {
 	// command is the command of a command rule, which runs in place of
 	// claude, or nil.
 	command *rules.Command
+	// agent is the GitHub user that claude pushes as, or nil.
+	agent *config.AgentAccount
 }
 
 // workerOps is the process surface the router drives. Tests replace run so the
@@ -157,10 +159,12 @@ func workerArgs(spec workerSpec) []string {
 }
 
 // workerEnv is claude's environment. A ceiling the operator set, empty
-// included, stays as set. The session id replaces an inherited one.
-func workerEnv(environ []string, sessionID string) []string {
-	env := make([]string, 0, len(environ)+2)
+// included, stays as set. The session id replaces an inherited one. An agent
+// account replaces the inherited GitHub token and git identity.
+func workerEnv(environ []string, sessionID string, agent *config.AgentAccount) []string {
+	env := make([]string, 0, len(environ)+13)
 	ceiling := false
+	gitConfigs := 0
 	for _, e := range environ {
 		if strings.HasPrefix(e, sessionEnv+"=") {
 			continue
@@ -168,13 +172,51 @@ func workerEnv(environ []string, sessionID string) []string {
 		if strings.HasPrefix(e, ceilingEnv+"=") {
 			ceiling = true
 		}
+		if agent != nil {
+			if n, ok := strings.CutPrefix(e, "GIT_CONFIG_COUNT="); ok {
+				gitConfigs, _ = strconv.Atoi(n)
+				gitConfigs = max(gitConfigs, 0)
+
+				continue
+			}
+			if slices.ContainsFunc(agentEnvOverrides, func(name string) bool { return strings.HasPrefix(e, name+"=") }) {
+				continue
+			}
+		}
 		env = append(env, e)
 	}
 	if !ceiling {
 		env = append(env, ceilingEnv+"=0")
 	}
+	env = append(env, sessionEnv+"="+sessionID)
+	if agent == nil {
+		return env
+	}
 
-	return append(env, sessionEnv+"="+sessionID)
+	email := strconv.FormatInt(agent.ID, 10) + "+" + agent.Login + "@users.noreply.github.com"
+	// The empty helper drops every helper the owner's git config names for
+	// github.com, so only the agent's token answers.
+	helper := `!f() { test "$1" = get && echo username=` + agent.Login + ` && echo "password=$GH_TOKEN"; }; f`
+	n := strconv.Itoa
+
+	return append(env,
+		"GH_TOKEN="+agent.Token,
+		"GIT_AUTHOR_NAME="+agent.Login, "GIT_COMMITTER_NAME="+agent.Login,
+		"GIT_AUTHOR_EMAIL="+email, "GIT_COMMITTER_EMAIL="+email,
+		"GIT_CONFIG_KEY_"+n(gitConfigs)+"="+githubHelperKey, "GIT_CONFIG_VALUE_"+n(gitConfigs)+"=",
+		"GIT_CONFIG_KEY_"+n(gitConfigs+1)+"="+githubHelperKey, "GIT_CONFIG_VALUE_"+n(gitConfigs+1)+"="+helper,
+		"GIT_CONFIG_COUNT="+n(gitConfigs+2),
+	)
+}
+
+// githubHelperKey is the git config key of the credential helpers for
+// github.com.
+const githubHelperKey = "credential.https://github.com.helper"
+
+// agentEnvOverrides are the inherited variables an agent account replaces.
+var agentEnvOverrides = []string{
+	"GH_TOKEN", "GITHUB_TOKEN",
+	"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
 }
 
 // workerShell runs claude on the argv after $0 and records claude's exit code
@@ -305,7 +347,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	status := filepath.Join(dir, "status")
 	cmd := exec.CommandContext(ctx, "/bin/sh", append([]string{"-c", workerShell, status}, workerArgs(spec)...)...)
 	cmd.Dir = spec.dir
-	cmd.Env = workerEnv(os.Environ(), spec.sessionID)
+	cmd.Env = workerEnv(os.Environ(), spec.sessionID, spec.agent)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = waitDelay
 	setProcessGroup(cmd)
