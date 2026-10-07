@@ -478,6 +478,20 @@ final class EngineTest extends KernelTestCase
         self::assertSame([CardPauseKind::WorkTimeout, 'no-bridge-took-work', 'work'], [$pause->kind, $pause->reason, $pause->ruleId]);
     }
 
+    public function test_a_repair_that_expires_pauses_the_card_when_its_rule_expires_its_own_work(): void
+    {
+        $rule = ['id' => 'work', 'slot' => 'one', 'when' => self::ALWAYS, 'then' => ['request' => ['kind' => 'work', 'onTimeout' => 'expire']]];
+        $card = $this->boundCard([$rule], onWorkFailed: self::REPAIR);
+        $repair = $this->repairing($card);
+
+        $this->evaluate($card, '2026-10-02 14:00:00');
+
+        self::assertSame(WorkRequestState::Expired, $repair->state);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        self::assertSame([CardPauseKind::WorkTimeout, 'no-bridge-took-work'], [$pause->kind, $pause->reason]);
+    }
+
     public function test_a_card_that_leaves_the_slot_cancels_its_repair(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: self::REPAIR);
