@@ -180,12 +180,14 @@ Each run row carries its `kind`: `worker`, `interactive` or `command`.
 
 ## A warning on the card
 
-A card whose latest outcome is **Gave up** or **Blocked** shows a warning on the
-board. The warning names the state and the start of the run output, and links to
-that run on this page. A later run of the card that ends another way clears it,
-and so does a move of the card to another column. A run from an older bridge
-names no column, so its warning stays in every column. An open run leaves the
-warning in place until it ends.
+A card whose latest outcome is **Gave up**, **Blocked**, **Failed** or **No
+result** shows a warning on the board. The warning names the state and the start
+of the run output, and links to that run on this page. The newest run of the
+card decides. A run of the card that the server receives after that outcome
+clears the warning, in any state except **Replaced** or **Skipped**. So a queued
+retry, a running worker or an interactive session clears it at once. A run that
+times out clears it too. A move of the card to another column does not clear
+it.
 
 ## The usage total of a card
 
