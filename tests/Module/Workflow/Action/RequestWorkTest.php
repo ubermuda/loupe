@@ -35,7 +35,7 @@ final class RequestWorkTest extends KernelTestCase
 
         $outcome = $this->action()->run($rule, $card, FactsMother::facts(), $this->state($card, $rule->id));
 
-        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertOpenedWork($outcome);
         $live = $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.'));
         self::assertCount(1, $live);
         self::assertSame(['product-design', 'interactive', 'start-product-design', $card->number], [$live[0]->kind, $live[0]->capability, $live[0]->ruleId, $live[0]->cardNumber]);
@@ -107,7 +107,7 @@ final class RequestWorkTest extends KernelTestCase
         $state = $this->state($card);
         $state->fires = 2;
 
-        self::assertEquals(ActionOutcome::done(), $this->action()->run($rule, $card, FactsMother::facts(), $state));
+        self::assertOpenedWork($this->action()->run($rule, $card, FactsMother::facts(), $state));
 
         $this->em()->getConnection()->executeStatement('DELETE FROM work_requests');
         $state->fires = 3;
@@ -240,7 +240,7 @@ final class RequestWorkTest extends KernelTestCase
 
         $outcome = $this->action()->run($this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design']), $card, $facts, $this->state($card));
 
-        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertOpenedWork($outcome);
         self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
     }
 
@@ -255,7 +255,7 @@ final class RequestWorkTest extends KernelTestCase
         ]));
         $rule = $this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design', 'document.status' => 'changes-requested']);
 
-        self::assertEquals(ActionOutcome::done(), $this->action()->run($rule, $card, $facts, $this->state($card)));
+        self::assertOpenedWork($this->action()->run($rule, $card, $facts, $this->state($card)));
         self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
     }
 
