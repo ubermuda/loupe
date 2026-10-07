@@ -7,6 +7,7 @@ namespace App\Module\Workflow\Template;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Action\ActionOutcome;
+use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Expression\AllOf;
@@ -95,6 +96,12 @@ final readonly class TemplateParser
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
         $manualMoves = $this->manualMoves(self::topLevelList($source, 'manualMoves', $errors), $slotKeys, $errors);
         $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $errors, $lenient);
+        // The engine tells a repair request apart by its kind, so no rule may ask for that kind.
+        foreach ($rules as $rule) {
+            if (null !== $onWorkFailed?->repairKind && ActionType::Request === $rule->then->type && $onWorkFailed->repairKind === ActionParams::optionalString($rule, 'kind')) {
+                $errors[] = \sprintf('onWorkFailed.repair.kind: the rule "%s" already asks for the kind "%s"', $rule->id, $onWorkFailed->repairKind);
+            }
+        }
 
         if ([] !== $errors) {
             throw new InvalidTemplate($errors);

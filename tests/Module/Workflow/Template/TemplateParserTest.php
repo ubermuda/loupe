@@ -255,6 +255,7 @@ final class TemplateParserTest extends TestCase
         yield 'repair that is not a map' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'repair' => 'repair']] + $t, 'onWorkFailed.repair: must be a map with a string "kind"'];
         yield 'repair with no kind' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'repair' => []]] + $t, 'onWorkFailed.repair: must be a map with a string "kind"'];
         yield 'repair with a bad kind' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'repair' => ['kind' => 'Not A Kind']]] + $t, 'onWorkFailed.repair.kind: must be a work request kind'];
+        yield 'repair kind that a rule asks for' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'repair' => ['kind' => 'implement']]] + $t, 'onWorkFailed.repair.kind: the rule "start" already asks for the kind "implement"'];
         yield 'retry policy with a negative count' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => -1]] + $t, 'onWorkFailed.retries: must be a non-negative integer'];
         yield 'wrongly typed work timeout' => [static fn (array $t): array => ['workTimeoutMinutes' => 0] + $t, 'workTimeoutMinutes: must be a positive integer'];
 

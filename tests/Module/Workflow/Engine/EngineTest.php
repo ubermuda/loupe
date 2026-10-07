@@ -350,11 +350,14 @@ final class EngineTest extends KernelTestCase
 
     public function test_a_repair_request_that_cannot_open_pauses_the_card(): void
     {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS), self::requestRule('repair', self::ALWAYS)], onWorkFailed: self::REPAIR);
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: self::REPAIR);
         $this->evaluate($card);
         $this->refuse($this->liveRequestOfKind($card, 'work'), 'failed', '2026-10-02 12:20:00');
         $this->evaluate($card, '2026-10-02 12:21:00');
         $this->evaluate($card, '2026-10-02 12:31:00');
+        // A live request of the repair kind makes the open refuse.
+        $this->em()->persist(new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'repair', null, 'work', new \DateTimeImmutable(self::NOON)));
+        $this->em()->flush();
 
         $this->refuse($this->liveRequestOfKind($card, 'work'), 'failed', '2026-10-02 12:40:00');
         $this->evaluate($card, '2026-10-02 12:41:00');
