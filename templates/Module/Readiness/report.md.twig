@@ -1,0 +1,57 @@
+{%- autoescape false -%}
+## {{ 'readiness.report.summary'|trans }}
+
+{{ 'readiness.report.workflow'|trans({'%workflow%': workflow}) }}
+{% if summary is not empty %}
+
+{{ summary }}
+{% endif %}
+
+## {{ 'readiness.report.findings'|trans }}
+
+### {{ 'readiness.report.ready'|trans }}
+
+{% for finding in ready %}
+{{ loop.index }}. **{{ finding.check }}**: {{ finding.evidence }}
+{% else %}
+{{ 'readiness.report.none'|trans }}
+{% endfor %}
+
+### {{ 'readiness.report.gaps'|trans }}
+
+{% for finding in gaps %}
+{{ loop.index }}. **{{ finding.check }}**: {{ finding.evidence }}
+{% else %}
+{{ 'readiness.report.none'|trans }}
+{% endfor %}
+{% if proposals is not empty %}
+
+## {{ 'readiness.report.proposals'|trans }}
+{% for proposal in proposals %}
+
+### {{ proposal.title }}
+
+{{ 'readiness.report.type'|trans({'%type%': proposal.type}) }}
+
+{{ proposal.body }}
+{% if proposal.openCardNumber is not null %}
+
+{{ 'readiness.report.covered'|trans({'%number%': proposal.openCardNumber}) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if options is not empty %}
+
+## {{ 'readiness.report.decision'|trans }}
+
+<!-- decision: proposals -->
+
+{{ 'readiness.report.decision_prompt'|trans }}
+
+{% for option in options %}
+- [ ] {{ option }}
+{% endfor %}
+
+<!-- /decision -->
+{% endif %}
+{% endautoescape %}

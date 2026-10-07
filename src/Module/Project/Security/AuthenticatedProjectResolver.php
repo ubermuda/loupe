@@ -54,7 +54,12 @@ final readonly class AuthenticatedProjectResolver
     /** The project this MCP request acts on, or why it has none. */
     public function mcpResolution(): ProjectResolution
     {
-        return $this->resolution($this->tokenStorage->getToken(), ApiScope::Mcp);
+        $resolution = $this->resolution($this->tokenStorage->getToken(), ApiScope::Mcp);
+        if (null !== $resolution->project && null === $resolution->project->agentFirstSeenAt) {
+            $this->projects->markAgentSeen($resolution->project);
+        }
+
+        return $resolution;
     }
 
     /**

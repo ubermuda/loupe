@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -21,7 +22,7 @@ func TestWorkerEnvLiftsTheWaitCeiling(t *testing.T) {
 	base := make([]string, 1, 3)
 	base[0] = "HOME=/home/a"
 
-	got := workerEnv(base, "s1")
+	got := workerEnv(base, "s1", nil)
 	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0", sessionVar + "s1"}) {
 		t.Fatalf("workerEnv = %q", got)
 	}
@@ -34,7 +35,7 @@ func TestWorkerEnvKeepsTheOperatorsCeiling(t *testing.T) {
 	for _, set := range []string{ceilingVar + "5000", ceilingVar + "0", ceilingVar} {
 		base := []string{"HOME=/home/a", set}
 		want := []string{"HOME=/home/a", set, sessionVar + "s1"}
-		if got := workerEnv(base, "s1"); !slices.Equal(got, want) {
+		if got := workerEnv(base, "s1", nil); !slices.Equal(got, want) {
 			t.Fatalf("workerEnv(%q) = %q", base, got)
 		}
 	}
@@ -45,12 +46,70 @@ func TestWorkerEnvKeepsTheOperatorsCeiling(t *testing.T) {
 func TestWorkerEnvReplacesAnInheritedSession(t *testing.T) {
 	base := []string{sessionVar + "outer", "HOME=/home/a", sessionVar + "again"}
 
-	got := workerEnv(base, "s1")
+	got := workerEnv(base, "s1", nil)
 	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0", sessionVar + "s1"}) {
 		t.Fatalf("workerEnv = %q", got)
 	}
 	if !slices.Equal(base, []string{sessionVar + "outer", "HOME=/home/a", sessionVar + "again"}) {
 		t.Fatalf("workerEnv changed the caller's array: %q", base)
+	}
+}
+
+// The helper prints the agent's login and the token from GH_TOKEN, and only
+// for a get.
+const agentHelper = `!f() { test "$1" = get && echo username=loupe-bot && echo "password=$GH_TOKEN"; }; f`
+
+func TestWorkerEnvPushesAsTheAgentAccount(t *testing.T) {
+	base := []string{
+		"HOME=/home/a", "GH_TOKEN=owner", "GITHUB_TOKEN=owner", "GIT_AUTHOR_NAME=Owner",
+		"GIT_AUTHOR_EMAIL=owner@example.test", "GIT_COMMITTER_NAME=Owner", "GIT_COMMITTER_EMAIL=owner@example.test",
+	}
+	account := &config.AgentAccount{Token: "ghp_agent", Login: "loupe-bot", ID: 4242}
+
+	got := workerEnv(base, "s1", account)
+	want := []string{
+		"HOME=/home/a", ceilingVar + "0", sessionVar + "s1",
+		"GH_TOKEN=ghp_agent",
+		"GIT_AUTHOR_NAME=loupe-bot", "GIT_COMMITTER_NAME=loupe-bot",
+		"GIT_AUTHOR_EMAIL=4242+loupe-bot@users.noreply.github.com",
+		"GIT_COMMITTER_EMAIL=4242+loupe-bot@users.noreply.github.com",
+		"GIT_CONFIG_KEY_0=credential.https://github.com.helper", "GIT_CONFIG_VALUE_0=",
+		"GIT_CONFIG_KEY_1=credential.https://github.com.helper", "GIT_CONFIG_VALUE_1=" + agentHelper,
+		"GIT_CONFIG_KEY_2=url.https://github.com/.insteadOf", "GIT_CONFIG_VALUE_2=git@github.com:",
+		"GIT_CONFIG_KEY_3=url.https://github.com/.insteadOf", "GIT_CONFIG_VALUE_3=ssh://git@github.com/",
+		"GIT_CONFIG_COUNT=4",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("workerEnv =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// An operator's own GIT_CONFIG entries stay, and the agent's follow them.
+func TestWorkerEnvKeepsTheInheritedGitConfig(t *testing.T) {
+	base := []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=core.editor", "GIT_CONFIG_VALUE_0=vi"}
+	account := &config.AgentAccount{Token: "ghp_agent", Login: "loupe-bot", ID: 4242}
+
+	got := workerEnv(base, "s1", account)
+	for _, e := range []string{
+		"GIT_CONFIG_KEY_0=core.editor", "GIT_CONFIG_VALUE_0=vi",
+		"GIT_CONFIG_KEY_1=credential.https://github.com.helper", "GIT_CONFIG_VALUE_1=",
+		"GIT_CONFIG_KEY_2=credential.https://github.com.helper", "GIT_CONFIG_VALUE_2=" + agentHelper,
+		"GIT_CONFIG_KEY_3=url.https://github.com/.insteadOf", "GIT_CONFIG_VALUE_3=git@github.com:",
+		"GIT_CONFIG_KEY_4=url.https://github.com/.insteadOf", "GIT_CONFIG_VALUE_4=ssh://git@github.com/",
+		"GIT_CONFIG_COUNT=5",
+	} {
+		if !slices.Contains(got, e) {
+			t.Fatalf("workerEnv = %q, want %q in it", got, e)
+		}
+	}
+	counts := 0
+	for _, e := range got {
+		if strings.HasPrefix(e, "GIT_CONFIG_COUNT=") {
+			counts++
+		}
+	}
+	if counts != 1 {
+		t.Fatalf("workerEnv = %q, want one GIT_CONFIG_COUNT", got)
 	}
 }
 

@@ -18,6 +18,7 @@ final class WorkshopCrewTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'workshop-crew@example.com');
         $project = $this->project($em, $owner, 'Workshop crew');
+        $project->readinessGuideHiddenAt = new \DateTimeImmutable();
         $otherProject = $this->project($em, $owner, 'Other project');
         $healthy = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: 'healthy-version');
         $stale = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: 'stale-version', lastSeenAt: new \DateTimeImmutable('-1 day'));
@@ -56,6 +57,7 @@ final class WorkshopCrewTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'workshop-empty-crew@example.com');
         $project = $this->project($em, $owner, 'Empty crew');
+        $project->readinessGuideHiddenAt = new \DateTimeImmutable();
         $this->seedBridge($em, $owner, projects: [], cliVersion: 'unrelated-version');
         $em->clear();
 

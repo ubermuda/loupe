@@ -10,8 +10,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
 /**
- * Reads the columns of the project's board. Nothing writes a column through MCP,
- * so an agent cannot rename a slug that something outside the app depends on.
+ * Reads the columns of the project's board. The column_* tools change them.
  *
  * @phpstan-import-type BoardColumnSummary from BoardColumnPayload
  */
