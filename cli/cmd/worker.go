@@ -18,6 +18,7 @@ import (
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
@@ -31,10 +32,6 @@ const maxOutput = 4000
 
 // maxStdout bounds the JSON document the bridge reads from claude's stdout.
 const maxStdout = 1 << 20
-
-// ceilingEnv lifts claude -p's background wait ceiling, which otherwise ends a
-// worker mid-task and exits 0.
-const ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
 
 // sessionEnv gives `loupe mcp` the claude session of a worker, so the server
 // can name the run that moves a card.
@@ -100,6 +97,8 @@ type workerSpec struct {
 	// command is the command of a command rule, which runs in place of
 	// claude, or nil.
 	command *rules.Command
+	// harness runs the worker, and a nil one is the default harness.
+	harness harn.Harness
 }
 
 // workerOps is the process surface the router drives. Tests replace run so the
@@ -132,54 +131,23 @@ func defaultWorkerOps() workerOps {
 	}
 }
 
-// workerArgs builds claude's argv. The prompt is an argv element, so no shell
-// reads it. It follows --, because claude reads a prompt that starts with - as
-// an option.
-func workerArgs(spec workerSpec) []string {
-	args := make([]string, 0, 13)
-	if spec.permissionMode != "" {
-		args = append(args, "--permission-mode", spec.permissionMode)
-	}
-	if spec.model != "" {
-		args = append(args, "--model", spec.model)
-	}
-	args = append(args, "--output-format", "json")
-	if spec.schema != "" {
-		args = append(args, "--json-schema", spec.schema)
-	}
-
-	session := "--session-id"
-	if spec.resume {
-		session = "--resume"
-	}
-
-	return append(args, "-p", session, spec.sessionID, "--", spec.prompt)
-}
-
-// workerEnv is claude's environment. A ceiling the operator set, empty
-// included, stays as set. The session id replaces an inherited one.
+// workerEnv is the environment the bridge gives a worker before its harness
+// adds to it. The session id replaces an inherited one.
 func workerEnv(environ []string, sessionID string) []string {
-	env := make([]string, 0, len(environ)+2)
-	ceiling := false
+	env := make([]string, 0, len(environ)+1)
 	for _, e := range environ {
-		if strings.HasPrefix(e, sessionEnv+"=") {
-			continue
+		if !strings.HasPrefix(e, sessionEnv+"=") {
+			env = append(env, e)
 		}
-		if strings.HasPrefix(e, ceilingEnv+"=") {
-			ceiling = true
-		}
-		env = append(env, e)
-	}
-	if !ceiling {
-		env = append(env, ceilingEnv+"=0")
 	}
 
 	return append(env, sessionEnv+"="+sessionID)
 }
 
-// workerShell runs claude on the argv after $0 and records claude's exit code
-// in "$0.exit". The prompt stays one argv element, so no shell parses it.
-const workerShell = `claude "$@"; echo $? > "$0.exit"`
+// workerShell runs the program and argv after $0 and records the program's
+// exit code in "$0.exit". The prompt stays one argv element, so no shell
+// parses it.
+const workerShell = `"$@"; echo $? > "$0.exit"`
 
 // runRecord is run.json, what the bridge knows about a worker it started.
 type runRecord struct {
@@ -200,6 +168,8 @@ type runRecord struct {
 	SessionID      string `json:"sessionId"`
 	Resume         bool   `json:"resume,omitempty"`
 	Prompt         string `json:"prompt"`
+	// Harness names the harness of the worker, and "" is the default one.
+	Harness string `json:"harness,omitempty"`
 	// Baseline is the session's usage before a resume started. A resume with
 	// no baseline could not read it.
 	Baseline *transcript.Usage `json:"baseline,omitempty"`
@@ -272,9 +242,10 @@ func adoptWorker(ctx context.Context, dir string) workerResult {
 // startWorker starts the worker shell and writes its run record. It returns the
 // run directory whenever it made one, so a failed start leaves nothing behind.
 func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atomic.Bool, error) {
-	// The shell always starts, so a claude it cannot run must fail here to read
-	// as a run that never started.
-	if _, err := exec.LookPath("claude"); err != nil {
+	// The shell always starts, so a program it cannot run must fail here to
+	// read as a run that never started.
+	h := spec.adapter()
+	if _, err := exec.LookPath(h.Program()); err != nil {
 		return nil, "", nil, err
 	}
 	if spec.runID == "" {
@@ -303,9 +274,10 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	defer stderr.Close()
 
 	status := filepath.Join(dir, "status")
-	cmd := exec.CommandContext(ctx, "/bin/sh", append([]string{"-c", workerShell, status}, workerArgs(spec)...)...)
+	command := spec.harnessCommand(workerEnv(os.Environ(), spec.sessionID))
+	cmd := exec.CommandContext(ctx, "/bin/sh", append([]string{"-c", workerShell, status, h.Program()}, command.Args...)...)
 	cmd.Dir = spec.dir
-	cmd.Env = workerEnv(os.Environ(), spec.sessionID)
+	cmd.Env = command.Env
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = waitDelay
 	setProcessGroup(cmd)
@@ -325,7 +297,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	// before it starts.
 	var baseline *transcript.Usage
 	if spec.resume {
-		baseline = sessionBaseline(spec.sessionID)
+		baseline = sessionBaseline(h, spec.sessionID)
 	}
 	launched := time.Now()
 	if err := cmd.Start(); err != nil {
@@ -336,7 +308,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
 		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
-		Baseline: baseline,
+		Harness: h.Name(), Baseline: baseline,
 	}
 	// A worker with no record cannot outlive this bridge, so it does not run.
 	if err := writeRunRecord(dir, rec); err != nil {
@@ -363,12 +335,13 @@ func createOutput(dir, name string) (*os.File, error) {
 func workerOutcome(dir string, killed bool, waitErr error) workerResult {
 	stdout, stdoutErr := readCapped(filepath.Join(dir, "stdout"), maxStdout)
 	stderr, stderrErr := readCapped(filepath.Join(dir, "stderr"), maxOutput)
-	res := decodeWorkerOutput(stdout.buf.Bytes(), stdout.dropped, stderr.text())
+	rec, recErr := readRunRecord(dir)
+	res := decodeWorkerOutput(recordHarness(rec), stdout.buf.Bytes(), stdout.dropped, stderr.text())
 	if readErr := errors.Join(stdoutErr, stderrErr); readErr != nil {
 		res.output = strings.TrimLeft(res.output+"\n"+readErr.Error(), "\n")
 	}
 	res.killed, res.dir = killed, dir
-	if rec, err := readRunRecord(dir); err == nil {
+	if recErr == nil {
 		res.usage = workerUsage(rec, res.reported)
 	}
 	if waitErr != nil {
@@ -450,27 +423,19 @@ func (w *capWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// decodeWorkerOutput reads the one JSON document claude --output-format json
-// prints. A cut-off or undecodable stdout holds no result. The output is the
-// first non-empty of the summary, claude's result text, stderr and the raw
-// stdout that did not decode.
-func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResult {
-	var doc struct {
-		StructuredOutput json.RawMessage `json:"structured_output"`
-		Result           string          `json:"result"`
-		IsError          bool            `json:"is_error"`
-		ModelUsage       json.RawMessage `json:"modelUsage"`
-	}
+// decodeWorkerOutput reads the worker's stdout through its harness. A cut-off
+// or undecodable stdout holds no result. The output is the first non-empty of
+// the summary, the harness's result text, stderr and the raw stdout that did
+// not decode.
+func decodeWorkerOutput(h harn.Harness, stdout []byte, overflow bool, stderr string) workerResult {
+	doc := h.Output(stdout, overflow)
 	var res workerResult
 	var summary, raw string
-	decoded := !overflow && json.Unmarshal(stdout, &doc) == nil
-	if !decoded {
+	if !doc.Decoded {
 		raw = string(stdout)
 	}
-	if decoded {
-		if len(doc.ModelUsage) > 0 && string(doc.ModelUsage) != "null" {
-			res.reported, _ = transcript.DecodeModelUsage(doc.ModelUsage)
-		}
+	if doc.Decoded {
+		res.reported = doc.Usage
 		var fields map[string]any
 		_ = json.Unmarshal(doc.StructuredOutput, &fields)
 		status, _ := fields["status"].(string)

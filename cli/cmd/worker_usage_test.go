@@ -120,7 +120,7 @@ func TestWorkerUsage(t *testing.T) {
 
 func TestSessionBaseline(t *testing.T) {
 	claudeHome(t, testSession, early, costState, streamed2)
-	got := sessionBaseline(testSession)
+	got := sessionBaseline(defaultHarness(), testSession)
 	want := transcript.Usage{"claude-opus-5-5": {InputTokens: 100, OutputTokens: 10, CacheReadTokens: 1000, CacheWriteTokens: 50, CostUSD: ptr(1.25)}}
 	if got == nil || !reflect.DeepEqual(*got, want) {
 		t.Fatalf("sessionBaseline = %v", got)
@@ -128,12 +128,12 @@ func TestSessionBaseline(t *testing.T) {
 
 	// A session with no cost-state line spent nothing that claude carries over.
 	claudeHome(t, testSession, streamed2)
-	if got := sessionBaseline(testSession); got == nil || len(*got) != 0 {
+	if got := sessionBaseline(defaultHarness(), testSession); got == nil || len(*got) != 0 {
 		t.Fatalf("sessionBaseline = %v, want zero", got)
 	}
 
 	claudeHome(t, testSession)
-	if got := sessionBaseline(testSession); got != nil {
+	if got := sessionBaseline(defaultHarness(), testSession); got != nil {
 		t.Fatalf("sessionBaseline of a missing session = %v, want nil", *got)
 	}
 }

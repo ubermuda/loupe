@@ -28,7 +28,6 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
-	"github.com/ubermuda/loupe/cli/internal/transcript"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
 
@@ -107,10 +106,10 @@ type router struct {
 	signal    func(pid int, sig stopSignal) error
 	stopAfter func(time.Duration) <-chan time.Time
 	// findTranscript fails when this machine holds no transcript of the
-	// session. A nil one looks in the Claude Code config directory.
+	// session. A nil one asks the default harness.
 	findTranscript func(sessionID string) error
 	// startDir is the folder a session started in, and "" when this machine
-	// holds no transcript of it. A nil one is transcriptStartDir.
+	// holds no transcript of it. A nil one asks the harness of the run.
 	startDir func(sessionID string) (string, error)
 
 	mu sync.Mutex
@@ -955,7 +954,7 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 func (r *router) resumeDir(p pending) (pending, string) {
 	lookup := r.startDir
 	if lookup == nil {
-		lookup = transcriptStartDir
+		lookup = p.spec.adapter().StartDir
 	}
 	recorded, err := lookup(p.spec.sessionID)
 	if err != nil {
@@ -1003,24 +1002,6 @@ func (r *router) resumeDir(p pending) (pending, string) {
 	)...)
 
 	return p, ""
-}
-
-// transcriptStartDir is the folder the session started in, from its transcript
-// in the Claude Code config directory, and "" when there is none.
-func transcriptStartDir(sessionID string) (string, error) {
-	dir, err := transcript.ConfigDir()
-	if err != nil {
-		return "", err
-	}
-	path, err := transcript.Find(dir, sessionID)
-	if errors.Is(err, transcript.ErrNotFound) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-
-	return transcript.StartDir(path)
 }
 
 // prepare runs the before command of the run's rule in the project dir, in

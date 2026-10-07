@@ -1,0 +1,168 @@
+// Package claude runs Claude Code as the harness of a worker.
+package claude
+
+import (
+	"encoding/json"
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/ubermuda/loupe/cli/internal/harness"
+	"github.com/ubermuda/loupe/cli/internal/transcript"
+)
+
+// ceilingEnv lifts claude -p's background wait ceiling, which otherwise ends a
+// worker mid-task and exits 0.
+const ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
+
+// Harness is Claude Code.
+type Harness struct{}
+
+// New is the Claude Code harness.
+func New() Harness { return Harness{} }
+
+func (Harness) Name() string { return "claude-code" }
+
+func (Harness) Program() string { return "claude" }
+
+func (Harness) Worker(spec harness.Spec) harness.Command {
+	return harness.Command{Args: args(spec, "--session-id"), Env: env(spec.Env)}
+}
+
+func (Harness) Resume(spec harness.Spec) harness.Command {
+	return harness.Command{Args: args(spec, "--resume"), Env: env(spec.Env)}
+}
+
+// args builds claude's argv. The prompt is an argv element, so no shell reads
+// it. It follows --, because claude reads a prompt that starts with - as an
+// option.
+func args(spec harness.Spec, session string) []string {
+	args := make([]string, 0, 13)
+	if spec.PermissionMode != "" {
+		args = append(args, "--permission-mode", spec.PermissionMode)
+	}
+	if spec.Model != "" {
+		args = append(args, "--model", spec.Model)
+	}
+	args = append(args, "--output-format", "json")
+	if spec.Schema != "" {
+		args = append(args, "--json-schema", spec.Schema)
+	}
+
+	return append(args, "-p", session, spec.SessionID, "--", spec.Prompt)
+}
+
+// env is claude's environment. A ceiling the operator set, empty included,
+// stays as set.
+func env(environ []string) []string {
+	env := make([]string, 0, len(environ)+1)
+	ceiling := false
+	for _, e := range environ {
+		if strings.HasPrefix(e, ceilingEnv+"=") {
+			ceiling = true
+		}
+		env = append(env, e)
+	}
+	if !ceiling {
+		env = append(env, ceilingEnv+"=0")
+	}
+
+	return env
+}
+
+// shellQuote quotes s for a POSIX shell, so the shell reads it as one word.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// Interactive deletes the script first, so the prompt does not stay on the
+// disk.
+func (Harness) Interactive(program string, spec harness.Spec) string {
+	var b strings.Builder
+	b.WriteString("#!/bin/sh\n")
+	b.WriteString("rm -f -- \"$0\"\n")
+	b.WriteString("cd -- " + shellQuote(spec.Dir) + " || exit 1\n")
+	b.WriteString("exec " + shellQuote(program) + " --session-id " + shellQuote(spec.SessionID))
+	if spec.Model != "" {
+		b.WriteString(" --model " + shellQuote(spec.Model))
+	}
+	if spec.PermissionMode != "" {
+		b.WriteString(" --permission-mode " + shellQuote(spec.PermissionMode))
+	}
+	b.WriteString(" -- " + shellQuote(spec.Prompt) + "\n")
+
+	return b.String()
+}
+
+// Output reads the one JSON document claude --output-format json prints. A
+// document with a field of the wrong type does not decode, and keeps the
+// result it held.
+func (Harness) Output(stdout []byte, overflow bool) harness.Output {
+	var doc struct {
+		StructuredOutput json.RawMessage `json:"structured_output"`
+		Result           string          `json:"result"`
+		// IsError goes unread, but a document whose is_error is no bool
+		// does not decode.
+		IsError    bool            `json:"is_error"`
+		ModelUsage json.RawMessage `json:"modelUsage"`
+	}
+	decoded := !overflow && json.Unmarshal(stdout, &doc) == nil
+	out := harness.Output{Decoded: decoded, Result: doc.Result}
+	if !decoded {
+		return out
+	}
+	out.StructuredOutput = doc.StructuredOutput
+	if len(doc.ModelUsage) > 0 && string(doc.ModelUsage) != "null" {
+		out.Usage, _ = transcript.DecodeModelUsage(doc.ModelUsage)
+	}
+
+	return out
+}
+
+// find is the transcript of the session in the Claude Code config directory.
+func find(sessionID string) (string, error) {
+	dir, err := transcript.ConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	return transcript.Find(dir, sessionID)
+}
+
+func (Harness) SessionUsage(sessionID string, from, to time.Time) (transcript.Usage, error) {
+	path, err := find(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return transcript.Between(path, from, to)
+}
+
+// SessionTotal reads the last cost-state line of the transcript. A session
+// with no such line spent zero.
+func (Harness) SessionTotal(sessionID string) (transcript.Usage, error) {
+	path, err := find(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return transcript.LastCostState(path)
+}
+
+func (Harness) StartDir(sessionID string) (string, error) {
+	path, err := find(sessionID)
+	if errors.Is(err, transcript.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return transcript.StartDir(path)
+}
+
+func (Harness) HasSession(sessionID string) error {
+	_, err := find(sessionID)
+
+	return err
+}

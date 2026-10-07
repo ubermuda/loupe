@@ -110,7 +110,7 @@ func TestRunWorkerReadsTheExitCodeAndTheOutputFromItsRunDirectory(t *testing.T) 
 		t.Fatalf("dir = %q", res.dir)
 	}
 	rec, err := readRunRecord(res.dir)
-	if err != nil || rec.RunID != "run-1" || rec.PID <= 0 || rec.StartTime == "" {
+	if err != nil || rec.RunID != "run-1" || rec.PID <= 0 || rec.StartTime == "" || rec.Harness != "claude-code" {
 		t.Fatalf("run record = %+v, %v", rec, err)
 	}
 }
@@ -192,7 +192,7 @@ func TestRunWorkerPassesThePromptUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
-	if want := workerArgs(spec); !slices.Equal(got, want) {
+	if want := spec.harnessCommand(nil).Args; !slices.Equal(got, want) {
 		t.Fatalf("claude got %q, want %q", got, want)
 	}
 }
