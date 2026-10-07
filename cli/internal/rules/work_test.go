@@ -42,6 +42,7 @@ work:
     variants:
       - {name: a, weight: 1, model: opus}
       - {name: b, weight: 3, model: sonnet}
+    metrics: [cost, merge-rate]
 `
 
 func workRequest(kind string) api.WorkRequest {
@@ -87,6 +88,7 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 		"interactive with before":      {entry("x", interactive+"before:\n  run: [x]"), "before names worker behaviour, and action interactive launches no worker"},
 		"interactive with variants":    {entry("x", interactive+variants), "variants names worker behaviour"},
 		"interactive with workerPool":  {entry("x", interactive+"workerPool: quick"), "workerPool names worker behaviour"},
+		"interactive with metrics":     {entry("x", interactive+"metrics: [cost]"), "metrics names worker behaviour"},
 		"interactive with run":         {entry("x", interactive+"run: [x]"), "run belongs to action command, and this entry launches an interactive session"},
 		"command with prompt":          {entry("x", command+"prompt: x"), "prompt names agent behaviour, and action command starts no agent"},
 		"command with model":           {entry("x", command+"model: opus"), "model names agent behaviour"},
@@ -94,6 +96,11 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 		"command with before":          {entry("x", command+"before:\n  run: [x]"), "before names agent behaviour"},
 		"command with variants":        {entry("x", command+variants), "variants names agent behaviour"},
 		"command with workerPool":      {entry("x", command+"workerPool: quick"), "workerPool names agent behaviour"},
+		"command with metrics":         {entry("x", command+"metrics: [cost]"), "metrics names agent behaviour"},
+		"metrics without variants":     {entry("x", "prompt: x\nmetrics: [cost]"), "metrics needs variants"},
+		"bad metric key":               {entry("x", "prompt: x\nmetrics: [Cost]\n"+variants), `metric "Cost": a metric key is 1 to 64`},
+		"metric key too long":          {entry("x", "prompt: x\nmetrics: [c"+strings.Repeat("o", 64)+"]\n"+variants), "a metric key is 1 to 64"},
+		"repeated metric":              {entry("x", "prompt: x\nmetrics: [cost, cost]\n"+variants), `metric "cost" is listed twice`},
 		"command without run":          {entry("x", "action: command"), "run is required"},
 		"command timeout too long":     {entry("x", command+"timeout: 2h"), "the most it takes is 1h0m0s"},
 		"command timeout not duration": {entry("x", command+"timeout: soon"), `timeout "soon" is not a duration`},
@@ -126,6 +133,19 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestParseRefusesTooManyMetrics(t *testing.T) {
+	keys := make([]string, MaxMetrics+1)
+	for i := range keys {
+		keys[i] = "m" + strings.Repeat("a", i+1)
+	}
+	body := "projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n    metrics: [" + strings.Join(keys, ", ") +
+		"]\n    variants:\n      - {name: a, weight: 1, model: opus}\n"
+	text, _ := file(t, body)
+	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), "it has 17 metrics, and the server takes at most 16") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
@@ -243,9 +263,14 @@ func TestMatchWorkCarriesTheVariantsAsAnExperiment(t *testing.T) {
 	if !slices.Equal(m.Experiment.Variants, want) {
 		t.Fatalf("variants = %+v", m.Experiment.Variants)
 	}
+	if !slices.Equal(m.Experiment.Metrics, []string{"cost", "merge-rate"}) {
+		t.Fatalf("metrics = %v", m.Experiment.Metrics)
+	}
 	m.Experiment.Variants[0].Model = "changed"
-	if s.MatchWork(workRequest("split")).Experiment.Variants[0].Model != "opus" {
-		t.Fatal("a caller changed the set's variants")
+	m.Experiment.Metrics[0] = "changed"
+	again := s.MatchWork(workRequest("split")).Experiment
+	if again.Variants[0].Model != "opus" || again.Metrics[0] != "cost" {
+		t.Fatal("a caller changed the set's experiment")
 	}
 }
 
