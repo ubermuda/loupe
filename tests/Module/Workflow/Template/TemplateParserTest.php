@@ -19,6 +19,7 @@ use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\InvalidTemplate;
+use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -487,6 +488,72 @@ final class TemplateParserTest extends TestCase
                 'version: must be an integer',
                 'rules[2] (merge) when: unknown condition "pr.foo"',
             ], $e->errors);
+        }
+    }
+
+    public function test_app_rules_accept_a_request_with_a_prompt_in_the_backlog(): void
+    {
+        $rules = $this->parser->parseAppRules(['rules' => [
+            ['id' => 'app-groom', 'slot' => '@backlog', 'when' => ['card.has_open_blocker' => []], 'then' => ['request' => ['kind' => 'groom', 'prompt' => 'groom-card']]],
+            ['id' => 'app-done', 'slot' => '@terminal', 'when' => ['all' => []], 'then' => ['request' => ['kind' => 'teardown']]],
+        ]]);
+
+        self::assertSame(['app-groom', 'app-done'], array_map(static fn ($rule) => $rule->id, $rules));
+        self::assertSame([RuleOrigin::App, RuleOrigin::App], array_map(static fn ($rule) => $rule->origin, $rules));
+        self::assertSame('@backlog', $rules[0]->slot);
+        self::assertSame(['kind' => 'groom', TemplateParser::PROMPT => 'groom-card'], $rules[0]->then->params);
+    }
+
+    public function test_template_rules_have_the_template_origin(): void
+    {
+        foreach ($this->parser->parse(self::valid())->rules as $rule) {
+            self::assertSame(RuleOrigin::Template, $rule->origin);
+        }
+    }
+
+    /** @return iterable<string, array{array<mixed>, list<string>}> */
+    public static function appRuleRefusals(): iterable
+    {
+        $rule = static fn (array $then, ?string $slot = null): array => ['rules' => [array_filter(['id' => 'app-rule', 'slot' => $slot, 'when' => ['all' => []], 'then' => $then], static fn ($v) => null !== $v)]];
+
+        yield 'a slot key' => [$rule(['request' => ['kind' => 'groom']], 'next'), ['rules[0] (app-rule) slot: unknown slot "next"']];
+        yield 'a prompt name with a capital' => [$rule(['request' => ['kind' => 'groom', 'prompt' => 'Groom']]), ['rules[0] (app-rule) then.request: parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters']];
+        yield 'a prompt name with a path' => [$rule(['request' => ['kind' => 'groom', 'prompt' => '../secret']]), ['rules[0] (app-rule) then.request: parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters']];
+        yield 'a prompt name too long' => [$rule(['request' => ['kind' => 'groom', 'prompt' => str_repeat('a', 41)]]), ['rules[0] (app-rule) then.request: parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters']];
+        yield 'a prompt on another action' => [$rule(['release' => ['reason' => 'x', 'prompt' => 'groom']]), ['rules[0] (app-rule) then.release: unknown parameter "prompt"']];
+        yield 'a move to a slot' => [$rule(['move' => ['to' => 'next']]), ['rules[0] (app-rule) then.move.to: unknown slot "next"']];
+        yield 'no rules key' => [[], ['rules: is missing']];
+        yield 'rules not a list' => [['rules' => ['a' => 1]], ['rules: must be a list']];
+        yield 'another top-level key' => [['rules' => [], 'slots' => []], ['slots: unknown key, app rules hold only "rules"']];
+    }
+
+    /**
+     * @param array<mixed> $source
+     * @param list<string> $errors
+     */
+    #[DataProvider('appRuleRefusals')]
+    public function test_app_rules_refuse_an_invalid_source(array $source, array $errors): void
+    {
+        try {
+            $this->parser->parseAppRules($source);
+            self::fail('The parser must refuse the app rules.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame($errors, $e->errors);
+        }
+    }
+
+    public function test_a_template_refuses_a_prompt(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['then']['request']['prompt'] = 'groom';
+
+        foreach ([$this->parser->parse(...), $this->parser->parseStored(...)] as $parse) {
+            try {
+                $parse($template);
+                self::fail('A template rule must not name a prompt.');
+            } catch (InvalidTemplate $e) {
+                self::assertSame(['rules[0] (start) then.request: unknown parameter "prompt"'], $e->errors);
+            }
         }
     }
 }

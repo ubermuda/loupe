@@ -30,6 +30,10 @@ final readonly class TemplateParser
     public const string DOCUMENT_TAG = 'document.tag';
     public const string DOCUMENT_STATUS = 'document.status';
 
+    /** The parameter of an app request that names a prompt file. A template cannot write it. */
+    public const string PROMPT = 'prompt';
+    private const string PROMPT_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
+
     public function __construct(
         private Conditions $conditions,
     ) {
@@ -55,6 +59,32 @@ final readonly class TemplateParser
     public function parseStored(array $source): Template
     {
         return $this->parseWith($source, lenient: true);
+    }
+
+    /**
+     * Parses the rules the app adds to every template. They act in the backlog, in a terminal column or in every column.
+     *
+     * @param array<mixed> $source
+     *
+     * @return list<Rule>
+     *
+     * @throws InvalidTemplate
+     */
+    public function parseAppRules(array $source): array
+    {
+        $errors = [];
+        foreach (array_keys($source) as $key) {
+            if ('rules' !== $key) {
+                $errors[] = \sprintf('%s: unknown key, app rules hold only "rules"', $key);
+            }
+        }
+        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), [], $errors, lenient: false, app: true);
+
+        if ([] !== $errors) {
+            throw new InvalidTemplate($errors);
+        }
+
+        return $rules;
     }
 
     /** @param array<mixed> $source */
@@ -89,7 +119,7 @@ final readonly class TemplateParser
         $slots = $this->slots(self::topLevelList($source, 'slots', $errors), $errors);
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
         $manualMoves = $this->manualMoves(self::topLevelList($source, 'manualMoves', $errors), $slotKeys, $errors);
-        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $errors, $lenient);
+        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $errors, $lenient, app: false);
 
         if ([] !== $errors) {
             throw new InvalidTemplate($errors);
@@ -175,7 +205,7 @@ final readonly class TemplateParser
      *
      * @return list<Rule>
      */
-    private function rules(array $source, array $slotKeys, array &$errors, bool $lenient): array
+    private function rules(array $source, array $slotKeys, array &$errors, bool $lenient, bool $app): array
     {
         $rules = [];
         $seen = [];
@@ -223,13 +253,13 @@ final readonly class TemplateParser
 
             $then = null;
             if (\array_key_exists('then', $entry)) {
-                $then = $this->action($entry['then'], $where.' then', $slotKeys, $errors, $lenient);
+                $then = $this->action($entry['then'], $where.' then', $slotKeys, $errors, $lenient, $app);
             } else {
                 $errors[] = $where.' then: is missing';
             }
 
             if (\count($errors) === $errorCount && null !== $when && null !== $then && (null === $slot || \is_string($slot))) {
-                $rules[] = new Rule($id, $slot, $when, $then);
+                $rules[] = new Rule($id, $slot, $when, $then, $app ? RuleOrigin::App : RuleOrigin::Template);
             }
         }
 
@@ -347,7 +377,7 @@ final readonly class TemplateParser
      * @param list<string> $slotKeys
      * @param list<string> $errors
      */
-    private function action(mixed $node, string $where, array $slotKeys, array &$errors, bool $lenient): ?ActionCall
+    private function action(mixed $node, string $where, array $slotKeys, array &$errors, bool $lenient, bool $app): ?ActionCall
     {
         if (!\is_array($node) || 1 !== \count($node) || !\is_string(array_key_first($node))) {
             $errors[] = $where.': an action must have exactly one key';
@@ -373,6 +403,9 @@ final readonly class TemplateParser
         $params = [];
         $until = null;
         $declared = self::actionParameters($type);
+        if ($app && ActionType::Request === $type) {
+            $declared[self::PROMPT] = false;
+        }
         foreach ($declared as $param => $required) {
             if (!\array_key_exists($param, $value)) {
                 if (ActionType::Pause === $type && 'until' === $param) {
@@ -398,6 +431,7 @@ final readonly class TemplateParser
                     implode(', ', array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),
                 ),
                 'onTimeout' => \in_array($given, self::ON_TIMEOUT, true) ? null : \sprintf('parameter "onTimeout" must be one of %s', implode(', ', self::ON_TIMEOUT)),
+                self::PROMPT => \is_string($given) && 1 === preg_match(self::PROMPT_PATTERN, $given) ? null : 'parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters',
                 default => \is_string($given) && '' !== $given ? null : \sprintf('parameter "%s" must be a non-empty string', $param),
             };
             if (null !== $error) {

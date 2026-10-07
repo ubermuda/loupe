@@ -131,18 +131,32 @@ func checkWork(kind string, w *WorkEntry) error {
 // MatchWork matches a work request against the work map. It checks the
 // request first, so its prompt holds checked values only. An unmapped project
 // skips as Unmapped. An unknown kind, an invalid request or dead work skips as
-// NoRule. The server already checked the capability.
+// NoRule. The server already checked the capability. A kind the map does not
+// hold runs the app prompt of the request, when the set has appPrompts and the
+// prompt is valid.
 func (s *Set) MatchWork(w api.WorkRequest) Match {
 	if event.CheckWorkRequest(&w) != nil {
 		return Match{Skip: NoRule}
 	}
+	m := s.MatchKind(w)
+	if _, mapped := s.work[w.Kind]; m.Skip == Run && !mapped && !validAppPrompt(w.Prompt) {
+		return Match{Skip: NoRule, Project: m.Project}
+	}
 
-	return s.MatchKind(w)
+	return m
+}
+
+// validAppPrompt reports whether an app prompt holds text and only the
+// placeholders of a work entry.
+func validAppPrompt(prompt string) bool {
+	return strings.TrimSpace(prompt) != "" && len(checkPlaceholders("", prompt, event.WorkRequestType, workPlaceholders)) == 0
 }
 
 // MatchKind matches the run of a kind of work against the work map, as a
 // person's command names that run. It reads the project, the card, the kind
 // and the ids of w, and checks none of them, so the caller checks them first.
+// A kind the map does not hold runs as an app prompt when the set has
+// appPrompts. A continued run carries no prompt and needs none.
 func (s *Set) MatchKind(w api.WorkRequest) Match {
 	slug, ok := s.slugs[w.ProjectID]
 	if !ok {
@@ -152,11 +166,27 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 	s.mu.RLock()
 	dead := s.deadWork[slug] != ""
 	s.mu.RUnlock()
-	if !ok || dead {
+	if (!ok && !s.appPrompts) || dead {
 		return Match{Skip: NoRule, Project: slug}
 	}
 
 	v := workValues(w, slug)
+	if !ok {
+		// A nil map of fields always builds.
+		schema, _ := resultSchema(nil)
+
+		return Match{
+			Skip:           Run,
+			Rule:           WorkRulePrefix + w.Kind,
+			Project:        slug,
+			Dir:            s.dirs[slug],
+			PermissionMode: s.defaults.PermissionMode,
+			Model:          s.defaults.Model,
+			Schema:         schema,
+			Prompt:         directive.Render(w.Prompt, v),
+			Pool:           DefaultPool,
+		}
+	}
 	m := Match{
 		Skip:           Run,
 		Rule:           WorkRulePrefix + w.Kind,
@@ -244,9 +274,10 @@ func (s *Set) WorkEntry(kind string) (WorkEntry, bool) {
 	return w, ok
 }
 
-// HasWork reports whether the set has a work map.
+// HasWork reports whether the set claims work requests: it has a work map, or
+// it runs app prompts.
 func (s *Set) HasWork() bool {
-	return len(s.work) > 0
+	return len(s.work) > 0 || s.appPrompts
 }
 
 // WorkDead is the reason the work of a mapped project died, and "" while it
@@ -259,10 +290,10 @@ func (s *Set) WorkDead(slug string) string {
 }
 
 // Capabilities lists what the work map lets the bridge claim: work-requests
-// for any entry, and interactive too for an interactive entry. It is nil for
-// a set with no work.
+// for any entry or for app prompts, and interactive too for an interactive
+// entry. It is nil for a set with no work.
 func (s *Set) Capabilities() []string {
-	if len(s.work) == 0 {
+	if !s.HasWork() {
 		return nil
 	}
 	out := []string{CapabilityWorkRequests}

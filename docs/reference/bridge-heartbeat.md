@@ -340,6 +340,7 @@ another bridge claimed. Each request carries these fields:
 | `createdAt` | the time the request opened, as an RFC 3339 date |
 | `resumeSessionId` | the session of an unfinished run of the card and kind that the run resumes, or `null` for a fresh start |
 | `context` | what the card held when the request opened. See the table below |
+| `prompt` | the text of the app prompt that the rule names, or `null`. Only a rule that Loupe ships can name one. A bridge with `appPrompts: true` runs it for a kind that its `work:` map does not hold |
 
 The `context` object always holds five keys. Each one is `null` when the card
 held no such value. A server from before the context sends no `context` key.
