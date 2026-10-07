@@ -18,6 +18,8 @@ use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Action\ActionOutcome;
+use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Expression\AllOf;
@@ -67,6 +69,14 @@ trait ActionScenario
             $this->service(WorkerRunRepository::class),
             new WorkSubjectHandlers([]),
         );
+    }
+
+    /** The action did its work and opened a request, whose id the outcome carries. */
+    private static function assertOpenedWork(ActionOutcome $outcome): void
+    {
+        self::assertSame(ActionOutcomeKind::Done, $outcome->kind);
+        self::assertFalse($outcome->alreadyLive);
+        self::assertNotNull($outcome->requestId);
     }
 
     private function opener(): WorkRequestOpener

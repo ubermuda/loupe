@@ -89,3 +89,14 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 5. The merge stage skips the `just cs` on `main` after the merge, and the person who holds the merge queue runs it. The `teardown` rule removes the card worktree when the card reaches `done`.
 6. An update of a branch keeps its approval, because the ruleset does not dismiss a stale review. The ruleset has no merge queue, so `gh pr merge` never turns on auto-merge here.
 7. The approver is `ubermuda`. The merge stage counts that reviewer's approval only, and reads it by time. A sync after the approval keeps it. A conflict resolution or any other commit after it needs the owner or the merge queue.
+
+## Repair
+
+1. The repair worker starts in `.worktrees/card-<number>`. Its `before` command is `bin/worktrees/bridge-before.sh --git-only`, which makes the git worktree alone. The folder has no database, no containers and no app, so run no `just` recipe and no `compose-exec.sh` there.
+2. The main checkout is the first `worktree` line of `git worktree list --porcelain`.
+3. `<base>` is the base branch of the card, as `Gate` item 1 and the `Epics` section say. The card branch is the branch that starts `card-<number>-`.
+4. The worker may take three actions, and no other. Before each action, `git status --porcelain` in the worker folder must print nothing. Otherwise stop blocked, because each action can lose local work.
+5. Reset or re-create the card branch from its base. Run `git fetch origin`. When `git branch --show-current` prints nothing, the folder is detached. Then run `git switch -c card-<number>-<short-slug> origin/<base>`, and stop this item. Otherwise, when `git log origin/<base>..HEAD` prints a commit, stop blocked, because a reset loses that commit. Otherwise run `git reset --hard origin/<base>`. Push nothing, because the next run pushes the branch.
+6. Sync the epic branch `epic/<parent number>` of the card with `main`. Run `git fetch origin`, then `git switch --detach origin/epic/<parent number>`, then `git merge origin/main`. When the merge conflicts, run `git merge --abort` and stop blocked. Otherwise run `git push origin HEAD:refs/heads/epic/<parent number>`, and never force it. When the push fails, stop blocked. Then run `git switch <card branch>` when the card has a branch, and take item 5.
+7. Remove a broken card worktree, so the next full `before` command builds it again. Record the repair on the card first. Then run `( cd <main checkout> && just worktree-down card-<number> )` as your last command. It removes the worker folder and the card databases, and keeps the branch.
+8. The worker never pushes to `main`, never force-pushes, and never changes application code. It never changes the folder, the branch or the databases of another card. It never commits, except the merge commit of item 6.

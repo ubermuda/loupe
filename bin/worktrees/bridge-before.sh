@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # Bridge `before` command: create or repair the card's worktree at .worktrees/card-<n>.
-# Usage: bridge-before.sh <cardNumber> <cardId> [<pullRequestNumber>]
+# Usage: bridge-before.sh [--git-only] <cardNumber> <cardId> [<pullRequestNumber>]
+# --git-only makes the git worktree alone, with no database, containers or widget marker.
 # The bridge reads the last stdout line as the worker's folder, so all other output goes to stderr.
 set -euo pipefail
 
 exec 3>&1 1>&2
+
+git_only=""
+if [ "${1:-}" = "--git-only" ]; then
+    git_only=1
+    shift
+fi
 
 number=${1:-}
 card_id=${2:-}
@@ -68,6 +75,11 @@ else
     else
         git -C "$main" worktree add --detach "$root" origin/main
     fi
+fi
+
+if [ -n "$git_only" ]; then
+    printf '%s\n' "$root" >&3
+    exit 0
 fi
 
 widget_backend() {
