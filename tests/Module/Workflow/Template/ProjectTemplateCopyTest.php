@@ -19,7 +19,7 @@ final class ProjectTemplateCopyTest extends KernelTestCase
 {
     use WorkflowProjects;
 
-    public function test_it_reads_the_stored_copy_back_as_the_shipped_template(): void
+    public function test_it_reads_the_stored_copy_back_as_the_shipped_template_with_the_app_rules(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('workflow-copy');
@@ -31,9 +31,11 @@ final class ProjectTemplateCopyTest extends KernelTestCase
 
         $parser = self::getContainer()->get(TemplateParser::class);
         $shipped = self::getContainer()->get(ShippedTemplates::class);
+        $appRules = self::getContainer()->get(AppRules::class);
         self::assertInstanceOf(TemplateParser::class, $parser);
         self::assertInstanceOf(ShippedTemplates::class, $shipped);
-        self::assertEquals($parser->parse($shipped->source('lifecycle')), $template);
+        self::assertInstanceOf(AppRules::class, $appRules);
+        self::assertEquals($appRules->appendTo($parser->parse($shipped->source('lifecycle'))), $template);
     }
 
     public function test_the_app_rules_come_after_the_rules_of_the_stored_copy(): void

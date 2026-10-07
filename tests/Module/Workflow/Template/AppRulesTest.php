@@ -28,9 +28,15 @@ final class AppRulesTest extends KernelTestCase
         parent::tearDown();
     }
 
-    public function test_the_shipped_file_holds_no_rule(): void
+    public function test_the_shipped_file_holds_the_discovery_rule(): void
     {
-        self::assertSame([], $this->shippedAppRules()->rules());
+        $rules = $this->shippedAppRules()->rules();
+
+        self::assertSame(['discovery'], array_map(static fn (Rule $rule): string => $rule->id, $rules));
+        self::assertSame(RuleOrigin::App, $rules[0]->origin);
+        self::assertSame('@backlog', $rules[0]->slot);
+        self::assertSame(['kind' => 'discovery', 'onTimeout' => 'expire', 'prompt' => 'discovery'], $rules[0]->then->params);
+        self::assertSame(file_get_contents(\dirname(__DIR__, 4).'/config/workflows/app/prompts/discovery.md'), $this->shippedAppRules()->prompt('discovery'));
     }
 
     public function test_the_shipped_app_rules_join_every_shipped_template(): void
@@ -39,7 +45,7 @@ final class AppRulesTest extends KernelTestCase
         foreach ($shipped->keys() as $key) {
             $template = $this->parser()->parse($shipped->source($key));
 
-            self::assertEquals($template->rules, $this->shippedAppRules()->appendTo($template)->rules);
+            self::assertEquals([...$template->rules, ...$this->shippedAppRules()->rules()], $this->shippedAppRules()->appendTo($template)->rules);
         }
     }
 

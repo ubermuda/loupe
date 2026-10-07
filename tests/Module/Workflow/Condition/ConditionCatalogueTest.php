@@ -20,6 +20,7 @@ final class ConditionCatalogueTest extends KernelTestCase
         self::assertSame([
             'card.child_merged_into_epic_branch',
             'card.children_finished',
+            'card.discovery_requested',
             'card.document',
             'card.document_approved',
             'card.document_changes_requested',
@@ -71,10 +72,11 @@ final class ConditionCatalogueTest extends KernelTestCase
         self::assertInstanceOf(TranslatorBagInterface::class, $translator);
         $catalogue = $translator->getCatalogue('en');
         $sources = ['card' => 'workflow.source.board', 'pr' => 'workflow.source.forge', 'run' => 'workflow.source.bridge', 'parent' => 'workflow.source.bridge'];
+        $sourceOfKey = ['card.discovery_requested' => 'workflow.source.readiness'];
 
         foreach (self::catalogueKeys($conditions) as $key) {
             $source = $conditions->get($key)::source();
-            self::assertSame($sources[explode('.', $key)[0]], $source, $key);
+            self::assertSame($sourceOfKey[$key] ?? $sources[explode('.', $key)[0]], $source, $key);
             self::assertTrue($catalogue->defines($source), \sprintf('"%s" has no English string.', $source));
         }
     }

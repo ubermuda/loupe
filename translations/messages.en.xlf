@@ -7268,6 +7268,8 @@
             <trans-unit id="workflow.waiting.not.card_has_open_blocker"><source>workflow.waiting.not.card_has_open_blocker</source><target>Waiting: a blocking card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_is_child"><source>workflow.waiting.card_is_child</source><target>Waiting: the card is not a child of an epic.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_is_child"><source>workflow.waiting.not.card_is_child</source><target>Waiting: the card is a child of an epic.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_discovery_requested"><source>workflow.waiting.card_discovery_requested</source><target>Waiting: the card has no requested discovery.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_discovery_requested"><source>workflow.waiting.not.card_discovery_requested</source><target>Waiting: the card has a requested discovery.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_child_merged_into_epic_branch"><source>workflow.waiting.card_child_merged_into_epic_branch</source><target>Waiting: no child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_child_merged_into_epic_branch"><source>workflow.waiting.not.card_child_merged_into_epic_branch</source><target>Waiting: a child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_has_children"><source>workflow.waiting.card_has_children</source><target>Waiting: the card has no child cards.</target></trans-unit>
@@ -7321,6 +7323,7 @@
             <trans-unit id="workflow.source.board"><source>workflow.source.board</source><target>Board</target></trans-unit>
             <trans-unit id="workflow.source.forge"><source>workflow.source.forge</source><target>Forge</target></trans-unit>
             <trans-unit id="workflow.source.bridge"><source>workflow.source.bridge</source><target>Bridge</target></trans-unit>
+            <trans-unit id="workflow.source.readiness"><source>workflow.source.readiness</source><target>Readiness</target></trans-unit>
             <trans-unit id="workflow.slot.next"><source>workflow.slot.next</source><target>Next</target></trans-unit>
             <trans-unit id="workflow.slot.product_design"><source>workflow.slot.product_design</source><target>Product design</target></trans-unit>
             <trans-unit id="workflow.slot.tech_design"><source>workflow.slot.tech_design</source><target>Tech design</target></trans-unit>
