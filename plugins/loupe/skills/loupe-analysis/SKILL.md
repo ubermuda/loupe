@@ -49,7 +49,7 @@ The host metrics come from samples that a bridge takes of its machine. Read them
 3. When no run has a sample, skip steps 5 to 7. Do step 4, because `concurrentRuns` stays available with no sample. The report then says that no sample is known, and gives only the concurrency findings.
 4. For each `workKind` and each `bridgeId`, compare runs with `concurrentRuns` 1 against runs with a higher count. Compare `metrics.durationMs`, and the share of runs whose `state` is `failed`, `timed-out` or `lost`.
 5. Find the runs with `onBattery` true. Also find the runs that ended `stopped`, `failed` or `lost` on a bridge that was on battery near that time.
-6. Call `bridge_host_samples` with the `runId` of each of those runs. A falling `batteryPct` with `onAc` false shows a drain. A gap in `sampledAt` before the end of the run shows that the machine slept or lost power.
+6. Call `bridge_host_samples` with the `runId` of each of those runs. A falling `batteryPct` with `onAc` false shows a drain. A gap in `sampledAt` before the end of the run can show that the machine slept or lost power. A bridge restart, a failed host read or sampling that went off also leave a gap. Name the cause as likely only when the battery fell before the gap, and say what else can explain it.
 7. Find the runs with a high `meanCpuPct`, and the runs whose `peakMemBytes` is near `memTotal` of their samples. A `peakSwapBytes` above zero shows memory pressure. Group them by `workKind` and `bridgeId`.
 8. Find a change for each problem. Examples are a smaller worker pool on a bridge, a laptop bridge that stays on AC power, or a heavy work kind that moves to another bridge.
 
@@ -57,7 +57,7 @@ The host metrics come from samples that a bridge takes of its machine. Read them
 |---|---|
 | Too many runs at one time | `metrics.concurrentRuns` against `metrics.durationMs` and `state` |
 | A machine on battery | `metrics.onBattery`, then `batteryPct` and `onAc` of `bridge_host_samples` |
-| A machine that slept or lost power | a gap in `sampledAt` of `bridge_host_samples` before the run ended |
+| A machine that slept or lost power | a gap in `sampledAt` of `bridge_host_samples` before the run ended, after a falling `batteryPct` |
 | CPU pressure | `metrics.meanCpuPct`, and `cpuPct` per core of `bridge_host_samples` |
 | Memory pressure | `metrics.peakMemBytes` against `memTotal`, and `metrics.peakSwapBytes` |
 

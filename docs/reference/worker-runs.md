@@ -495,6 +495,9 @@ source. A sample that arrives after the run ended updates these values.
 `concurrentRuns` needs no sample. It is `null` for a run with no bridge, no
 start or no end. A run with no end counts as an overlap only while it is
 `preparing`, `running` or `stopping`, so a lost run does not count forever.
+Loupe takes the count when the run ends, and does not change it when another
+run reports later. `bin/console app:bridge:rebuild-run-facts` counts every run
+again from the stored times.
 
 ## Resolving an experiment pin
 

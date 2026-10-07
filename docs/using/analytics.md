@@ -194,7 +194,8 @@ suffer when too many run on one bridge at the same time, and for runs on a
 machine on battery or one that slept. It also looks for CPU and memory
 pressure. The analysis needs host samples, which are off by default.
 [Host samples](../extending/cli-bridge.md#host-samples) says how to turn them
-on. With no samples, the report says so and proposes nothing.
+on. With no samples, the report says so, and compares only the runs that
+shared a bridge, because Loupe counts those from the run times.
 
 ### States and reasons
 
