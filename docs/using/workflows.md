@@ -116,6 +116,10 @@ Some rules act from any slot:
    terminal column once no child is open.
 2. A card in the Backlog whose pull request reopens moves to Implementation.
 3. A child in the Backlog whose last blocker finished moves to Implementation.
+   It waits while a breakdown of its epic runs. When that breakdown ends, the
+   epic evaluates its children again. The wait reads the open worker runs of
+   the epic. An older bridge that sends no run key reports a run only after it
+   ends, so its breakdown does not hold the children.
 4. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
 5. A child that reaches a terminal column with a pull request merged into its

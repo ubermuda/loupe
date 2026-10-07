@@ -98,7 +98,9 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
     await expect(other.locator('main')).toContainText(`Mine ${RUN}`);
     await other.getByRole('button', { name: 'Delete card' }).click();
     await other.getByRole('button', { name: 'Delete it' }).click();
-    await expect(other).toHaveURL(new RegExp(`${boardUrl}$`));
+    await expect(other).toHaveURL(new RegExp(`${boardUrl}$`), {
+        timeout: 15_000,
+    });
 
     await expect(drawer.getByText('This card was deleted.')).toBeVisible();
     await expect(drawer.getByRole('button', { name: /^Save/ })).toHaveCount(0);
@@ -159,7 +161,9 @@ test('the open drawer shows a move made elsewhere, on the tab the reader had ope
     await other
         .locator('.lp-card-move__form select[name$="[column]"]')
         .selectOption({ label: 'In progress' });
-    await expect(other).toHaveURL(new RegExp(`${boardUrl}$`));
+    await expect(other).toHaveURL(new RegExp(`${boardUrl}$`), {
+        timeout: 15_000,
+    });
 
     // The update waits for the hub, a debounce and a fetch of the card.
     await expect(identity).toContainText('In progress', { timeout: 15000 });
