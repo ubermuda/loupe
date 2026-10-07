@@ -10,6 +10,7 @@ use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Query;
@@ -216,6 +217,28 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->addOrderBy('w.id', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    /**
+     * Restarts the timeout of each open request of the cards, in one statement, so it joins a caller's transaction.
+     * A managed request is stale after it.
+     *
+     * @param non-empty-list<Uuid> $cardIds
+     */
+    public function restartClockOfOpenForCards(Uuid $projectId, array $cardIds, \DateTimeImmutable $now): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE work_requests SET reopened_at = :now
+             WHERE project_id = :project AND state = :open AND subject_type = :card AND subject_id IN (:cardIds)',
+            [
+                'now' => $now,
+                'project' => $projectId->toRfc4122(),
+                'open' => WorkRequestState::Open->value,
+                'card' => WorkSubject::CARD,
+                'cardIds' => array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds),
+            ],
+            ['now' => Types::DATETIME_IMMUTABLE, 'cardIds' => ArrayParameterType::STRING],
+        );
     }
 
     /**

@@ -32,7 +32,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
- * Writes to the primary pull request of a card through the forge. A state write goes to each
+ * Writes to the pull request the rule acts on through the forge. A state write goes to each
  * pull request of the card. A write the project did not opt into, or that no writer of the forge supports, opens the fallback
  * work instead. A state write with no fallback then does nothing. The epic opening acts on an epic with no pull request:
  * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
@@ -86,7 +86,7 @@ final readonly class ForgeWrite implements Action
                 : $fallback();
         }
 
-        $pullRequest = $this->cardPullRequests->primary($pullRequests);
+        $pullRequest = $this->cardPullRequests->subjectOf($pullRequests, $facts->pullRequest);
         if (null === $pullRequest) {
             return ActionOutcome::refused('no-pull-request');
         }

@@ -11,6 +11,7 @@ use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkerRunQueued;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\Service\WorkerRunUsageRecorder;
@@ -49,6 +50,7 @@ final readonly class ReportWorkerRunStateHandler
         private WorkerRunChangedPublisher $publisher,
         private WorkerRunUsageRecorder $usageRecorder,
         private EventDispatcherInterface $events,
+        private WorkRequestRepository $workRequests,
     ) {
     }
 
@@ -150,7 +152,7 @@ final readonly class ReportWorkerRunStateHandler
         }
         if ($created && null !== $result->run && WorkerRunState::Queued === $command->state
             && self::FIX_KIND === $result->run->workKind && $result->run->subject()->isCard()) {
-            $this->events->dispatch(self::queued($result->run));
+            $this->events->dispatch($this->queued($result->run));
         }
 
         return $result;
@@ -197,12 +199,16 @@ final readonly class ReportWorkerRunStateHandler
         );
     }
 
-    private static function queued(WorkerRun $run): WorkerRunQueued
+    private function queued(WorkerRun $run): WorkerRunQueued
     {
+        $context = null === $run->workRequestId ? null : $this->workRequests->findOneOfSubject($run->workRequestId, $run->project, $run->subject())?->context;
+
         return new WorkerRunQueued(
             projectId: $run->project->id ?? throw new \LogicException('A persisted project has an id.'),
             runId: $run->id ?? throw new \LogicException('A flushed run has an id.'),
             cardId: $run->subjectId,
+            pullRequestNumber: $context?->pullRequestNumber,
+            pullRequestUrl: $context?->pullRequestUrl,
         );
     }
 

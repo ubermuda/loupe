@@ -25,16 +25,20 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Repository\CardHoldRepository;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -43,6 +47,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\EvaluateChildren;
 use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Action\MoveCard;
 use App\Module\Workflow\Action\PauseCard;
@@ -54,11 +59,12 @@ use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Engine\Engine;
+use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
 use App\Module\Workflow\Event\CardPaused;
-use App\Module\Workflow\EventListener\BaselineCardsOnCardHoldsReleased;
+use App\Module\Workflow\EventListener\RearmCardsOnCardHoldsReleased;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Messenger\EvaluateCardHandler;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
@@ -88,6 +94,7 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 
 final class EngineTest extends KernelTestCase
@@ -436,6 +443,277 @@ final class EngineTest extends KernelTestCase
         self::assertNull($this->activePause($card));
     }
 
+    public function test_a_fix_rule_on_a_stack_fixes_the_base_first_and_then_the_pull_request_stacked_on_it(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 3)]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+
+        $this->evaluate($card);
+        $state = $this->ruleState($card, 'fix');
+        self::assertTrue($base->id?->equals($state->subjectPullRequestId));
+        self::assertSame(1, $state->fires);
+        $first = $this->liveRequests($card)[0];
+        self::assertSame($base->number, $first->context->pullRequestNumber);
+        $this->finish($first);
+
+        $base->checks = PullRequestChecks::Passed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        $state = $this->ruleState($card, 'fix');
+        self::assertTrue($upper->id?->equals($state->subjectPullRequestId));
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live, 'The rule stayed true, and the new subject fired it again.');
+        self::assertSame($upper->number, $live[0]->context->pullRequestNumber);
+        self::assertSame(1, $state->fires, 'A new subject starts a fresh fix budget.');
+        self::assertEqualsCanonicalizing([
+            ['reason' => 'checks-failed', 'pullRequest' => $base->number],
+            ['reason' => 'checks-failed', 'pullRequest' => $upper->number],
+        ], $this->fixEvents($card));
+    }
+
+    public function test_a_new_subject_waits_for_the_live_request_of_the_old_one_to_settle(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 3)]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $first = $this->liveRequests($card)[0];
+
+        $base->checks = PullRequestChecks::Passed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        $state = $this->ruleState($card, 'fix');
+        self::assertTrue($base->id?->equals($state->subjectPullRequestId), 'The live request still serves the base.');
+        self::assertSame(1, $state->fires);
+
+        $this->finish($first);
+        $this->evaluate($card, '2026-10-02 12:40:00');
+
+        $state = $this->ruleState($card, 'fix');
+        self::assertTrue($upper->id?->equals($state->subjectPullRequestId));
+        self::assertCount(1, $this->liveRequests($card));
+        self::assertNotSame($first, $this->liveRequests($card)[0]);
+        self::assertSame(1, $state->fires);
+    }
+
+    public function test_a_work_limit_pause_releases_when_the_rule_moves_to_another_pull_request(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1)]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+
+        $base->checks = PullRequestChecks::Pending;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+        $pause = $this->activePause($card);
+        self::assertSame(CardPauseKind::WorkLimit, $pause?->kind);
+
+        $base->checks = PullRequestChecks::Passed;
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame('subject-changed', $pause->releaseReason);
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame($upper->number, $live[0]->context->pullRequestNumber);
+        self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+    }
+
+    public function test_a_work_limit_pause_released_for_a_new_subject_waits_for_the_live_request_of_the_old_one(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1)]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $first = $this->liveRequests($card)[0];
+
+        $base->checks = PullRequestChecks::Pending;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+        $pause = $this->activePause($card);
+        self::assertSame(CardPauseKind::WorkLimit, $pause?->kind);
+
+        $base->checks = PullRequestChecks::Passed;
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+        self::assertSame('subject-changed', $pause->releaseReason);
+        self::assertSame([$first], $this->liveRequests($card));
+        self::assertTrue($base->id?->equals($this->ruleState($card, 'fix')->subjectPullRequestId));
+        self::assertSame(1, $this->ruleState($card, 'fix')->fires, 'The base keeps its count while its request is live.');
+
+        $this->finish($first);
+        $this->evaluate($card, '2026-10-02 12:40:00');
+
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame($upper->number, $live[0]->context->pullRequestNumber);
+        self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+        self::assertNull($this->activePause($card));
+    }
+
+    public function test_a_work_limit_pause_released_from_a_hold_ends_when_the_rule_moves_to_another_pull_request(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1)]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+
+        $base->checks = PullRequestChecks::Pending;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+        $pause = $this->activePause($card);
+        self::assertSame(CardPauseKind::WorkLimit, $pause?->kind);
+
+        $this->hold($card);
+        $base->checks = PullRequestChecks::Passed;
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->releaseHold($card, '2026-10-02 12:25:00');
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame('subject-changed', $pause->releaseReason);
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame($upper->number, $live[0]->context->pullRequestNumber);
+        $state = $this->ruleState($card, 'fix');
+        self::assertTrue($upper->id?->equals($state->subjectPullRequestId));
+        self::assertSame(1, $state->fires);
+    }
+
+    public function test_a_work_limit_pause_released_from_a_hold_stays_on_the_same_pull_request(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 1)]);
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $this->setType($card, CardType::Feature);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card, '2026-10-02 12:31:00');
+        $pause = $this->activePause($card);
+        self::assertSame(CardPauseKind::WorkLimit, $pause?->kind);
+        $this->hold($card);
+
+        $this->releaseHold($card, '2026-10-02 12:40:00');
+        $this->evaluate($card, '2026-10-02 12:41:00');
+
+        self::assertNull($pause->releasedAt);
+        self::assertSame([], $this->liveRequests($card));
+        self::assertSame(0, $this->ruleState($card, 'fix')->fires);
+    }
+
+    public function test_a_rule_that_turns_false_before_it_moves_to_another_pull_request_starts_a_fresh_budget(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1)]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+
+        $base->checks = PullRequestChecks::Passed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+
+        self::assertNull($this->activePause($card));
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame($upper->number, $live[0]->context->pullRequestNumber);
+        self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+    }
+
+    public function test_a_rule_pause_reads_its_until_on_the_pull_request_it_paused(): void
+    {
+        $card = $this->boundCard([[
+            'id' => 'hold',
+            'slot' => 'one',
+            'when' => ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]],
+            'then' => ['pause' => ['reason' => 'red', 'until' => ['pr.checks_passed' => []]]],
+        ]]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertSame(CardPauseKind::Rule, $pause?->kind);
+
+        $base->checks = PullRequestChecks::Passed;
+        $upper->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame('until-met', $pause->releaseReason);
+    }
+
+    public function test_a_true_rule_with_no_stored_subject_adopts_its_subject_and_fires_nothing(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['pr.checks_failed' => []], limit: 3)]);
+        $pullRequest = $this->pullRequest($card);
+        $pullRequest->checks = PullRequestChecks::Failed;
+        $state = new WorkflowRuleState($card, $card->project, 'fix', new \DateTimeImmutable(self::NOON));
+        $state->truth = true;
+        $state->fires = 2;
+        $this->em()->persist($state);
+        $this->em()->flush();
+
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame([], $this->liveRequests($card));
+        $state = $this->ruleState($card, 'fix');
+        self::assertSame(2, $state->fires);
+        self::assertTrue($pullRequest->id?->equals($state->subjectPullRequestId));
+    }
+
+    public function test_a_merge_rule_binds_the_base_of_a_stack_although_the_stacked_pull_request_opened_later(): void
+    {
+        $card = $this->boundCard([self::requestRule('merge', ['all' => [['pr.open' => []], ['pr.base_is_merge_target' => []]]])]);
+        [$base] = $this->stack($card);
+
+        $this->evaluate($card);
+
+        self::assertCount(1, $this->liveRequests($card));
+        self::assertTrue($base->id?->equals($this->ruleState($card, 'merge')->subjectPullRequestId));
+    }
+
+    /** @return array{ForgePullRequest, ForgePullRequest} a base pull request and one stacked on it, opened later */
+    private function stack(Card $card): array
+    {
+        $base = $this->pullRequest($card, head: 'base-branch');
+        $base->openedAt = new \DateTimeImmutable('2026-10-01 09:00:00');
+        $upper = $this->pullRequest($card, base: 'base-branch', head: 'upper-branch');
+        $upper->openedAt = new \DateTimeImmutable('2026-10-01 10:00:00');
+        $this->em()->flush();
+
+        return [$base, $upper];
+    }
+
     /** @return list<array<string, mixed>> */
     private static function holdRules(): array
     {
@@ -577,7 +855,7 @@ final class EngineTest extends KernelTestCase
         self::assertCount(1, $this->liveRequests($card));
     }
 
-    public function test_after_a_release_a_rule_that_was_already_true_fires_nothing_and_a_later_rule_still_fires(): void
+    public function test_a_release_fires_every_rule_that_matches_the_card_now(): void
     {
         $card = $this->boundCard([
             self::requestRule('work', self::ALWAYS),
@@ -585,33 +863,154 @@ final class EngineTest extends KernelTestCase
             self::moveRule('stuck', 'three', self::NOT_EPIC),
         ]);
         $this->hold($card);
-        $stale = new WorkflowRuleState($card, $card->project, 'stuck');
-        $stale->attempts = 2;
-        $stale->dueAt = new \DateTimeImmutable(self::NOON);
-        $stale->lastRefusal = 'workflow-slot-missing';
-        $stale->lastRefusalAt = new \DateTimeImmutable(self::NOON);
-        $this->em()->persist($stale);
+        $work = new WorkflowRuleState($card, $card->project, 'work');
+        $work->truth = true;
+        $work->fires = 1;
+        $stuck = new WorkflowRuleState($card, $card->project, 'stuck');
+        $stuck->truth = true;
+        $stuck->attempts = 2;
+        $stuck->dueAt = new \DateTimeImmutable('2026-10-02 18:00:00');
+        $stuck->lastRefusal = 'workflow-slot-missing';
+        $stuck->lastRefusalAt = new \DateTimeImmutable(self::NOON);
+        $this->em()->persist($work);
+        $this->em()->persist($stuck);
         $this->em()->flush();
 
         $this->releaseHold($card);
         $this->evaluate($card, '2026-10-02 12:01:00');
 
-        self::assertSame([], $this->liveRequests($card));
-        self::assertSame([], $this->firedRecords());
-        self::assertSame([true, false], [$this->ruleState($card, 'work')->truth, $this->ruleState($card, 'fix')->truth]);
+        self::assertSame(['work', 'stuck'], $this->firedRules());
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertSame('work', $live[0]->ruleId);
+        self::assertSame(1, $this->ruleState($card, 'work')->fires);
+        self::assertFalse($this->ruleState($card, 'fix')->truth);
         $state = $this->ruleState($card, 'stuck');
-        self::assertSame([true, 0, null, null, null], [$state->truth, $state->attempts, $state->dueAt, $state->lastRefusal, $state->lastRefusalAt]);
-        self::assertNotNull($state->fingerprint);
+        self::assertSame([true, 1, '2026-10-02 12:11:00', 'workflow-slot-missing'], [$state->truth, $state->attempts, $state->dueAt?->format('Y-m-d H:i:s'), $state->lastRefusal]);
+    }
 
-        $this->setType($card, CardType::Bug);
+    public function test_a_release_fires_the_rules_of_a_card_that_got_a_baseline_mark_while_held(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->hold($card);
+        $this->saveAutomation($card, false);
+        $this->saveAutomation($card, true);
+        self::assertTrue($this->service(WorkflowPendingBaselineRepository::class)->isMarked($card->id ?? throw new \LogicException('A flushed card has an id.')));
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertCount(1, $this->liveRequests($card));
+    }
+
+    public function test_a_release_opens_no_second_request_while_one_is_live(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+        $this->hold($card);
+
+        $this->releaseHold($card, '2026-10-02 12:01:00');
         $this->evaluate($card, '2026-10-02 12:02:00');
 
         $live = $this->liveRequests($card);
         self::assertCount(1, $live);
-        self::assertSame('fix', $live[0]->ruleId);
+        self::assertSame($request, $live[0]);
+        self::assertSame(WorkRequestState::Open, $request->state);
     }
 
-    public function test_the_release_baseline_cancels_a_request_whose_rule_no_longer_applies(): void
+    public function test_a_release_opens_a_new_request_when_the_last_one_settled(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $first = $this->liveRequests($card)[0];
+        $this->finish($first);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+        self::assertSame([], $this->liveRequests($card), 'A rule that stays true fires once.');
+        $this->hold($card);
+
+        $this->releaseHold($card, '2026-10-02 12:40:00');
+        $this->evaluate($card, '2026-10-02 12:41:00');
+
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertNotSame($first, $live[0]);
+    }
+
+    public function test_a_release_gives_a_limited_rule_a_fresh_work_budget(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS, limit: 1)]);
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        self::assertSame(1, $this->ruleState($card, 'work')->fires);
+        $this->hold($card);
+
+        $this->releaseHold($card, '2026-10-02 12:40:00');
+        $this->evaluate($card, '2026-10-02 12:41:00');
+
+        self::assertNull($this->activePause($card));
+        self::assertCount(1, $this->liveRequests($card));
+        self::assertSame(1, $this->ruleState($card, 'work')->fires);
+    }
+
+    public function test_a_release_fires_a_move_rule_and_the_move_ends_the_pass(): void
+    {
+        $card = $this->boundCard([
+            self::moveRule('advance', 'two', self::ALWAYS),
+            self::requestRule('work', self::ALWAYS),
+        ]);
+        $this->hold($card);
+        $advance = new WorkflowRuleState($card, $card->project, 'advance');
+        $advance->truth = true;
+        $this->em()->persist($advance);
+        $this->em()->flush();
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('in-progress', $card->column->slug);
+        self::assertSame(['advance'], $this->firedRules());
+        self::assertSame([], $this->liveRequests($card));
+        self::assertNull($this->ruleStateOrNull($card, 'work'));
+    }
+
+    public function test_a_release_restarts_the_timeout_of_an_open_request(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+        $this->hold($card);
+
+        $this->releaseHold($card, '2026-10-02 14:30:00');
+        $this->evaluate($card, '2026-10-02 15:00:00');
+
+        self::assertSame(WorkRequestState::Open, $request->state);
+        self::assertNull($this->activePause($card));
+
+        $this->evaluate($card, '2026-10-02 16:30:00');
+
+        self::assertSame(WorkRequestState::Expired, $request->state);
+        self::assertSame(CardPauseKind::WorkTimeout, $this->activePause($card)?->kind);
+    }
+
+    public function test_a_release_keeps_a_retries_pause_whose_facts_did_not_change(): void
+    {
+        $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)], backoffMinutes: []);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        $fired = $this->firedRecords();
+        $this->hold($card);
+
+        $this->releaseHold($card, '2026-10-02 12:01:00');
+        $this->evaluate($card, '2026-10-02 12:02:00');
+
+        self::assertNull($pause->releasedAt);
+        self::assertSame($fired, $this->firedRecords());
+    }
+
+    public function test_a_release_cancels_a_request_whose_rule_no_longer_applies(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
         $this->evaluate($card);
@@ -629,21 +1028,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame($fired, $this->firedRecords());
     }
 
-    public function test_the_release_baseline_leaves_an_overdue_request_and_pauses_nothing(): void
-    {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
-        $this->evaluate($card);
-        $request = $this->liveRequests($card)[0];
-        $this->hold($card);
-
-        $this->releaseHold($card);
-        $this->evaluate($card, '2026-10-02 15:00:00');
-
-        self::assertSame(WorkRequestState::Open, $request->state);
-        self::assertNull($this->activePause($card));
-    }
-
-    public function test_the_release_baseline_resets_the_rules_of_the_slot_the_card_left_so_they_fire_on_return(): void
+    public function test_a_release_resets_the_rules_of_the_slot_the_card_left_so_they_fire_on_return(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
         $this->evaluate($card);
@@ -663,7 +1048,7 @@ final class EngineTest extends KernelTestCase
         self::assertCount(1, $this->liveRequests($card));
     }
 
-    public function test_the_release_baseline_ends_a_retries_pause_whose_facts_changed_while_held(): void
+    public function test_a_retries_pause_whose_facts_changed_while_held_releases_and_the_rule_fires_again(): void
     {
         $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)], backoffMinutes: []);
         $this->evaluate($card);
@@ -674,27 +1059,31 @@ final class EngineTest extends KernelTestCase
 
         $this->releaseHold($card);
         $this->evaluate($card, '2026-10-02 12:01:00');
-        $this->evaluate($card, '2026-10-02 12:02:00');
 
         self::assertSame('facts-changed', $pause->releaseReason);
-        self::assertNull($this->activePause($card));
+        self::assertSame(['stuck'], $this->firedRules());
+        $next = $this->activePause($card);
+        self::assertNotNull($next, 'The rule fired again and its first refusal paused the card again.');
+        self::assertNotSame($pause, $next);
     }
 
-    public function test_a_card_held_again_before_its_baseline_keeps_it_for_the_next_release(): void
+    public function test_a_card_held_again_right_after_a_release_fires_its_rules_when_the_hold_goes(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
         $this->hold($card);
         $this->releaseHold($card);
         $this->hold($card);
 
-        $this->evaluate($card);
-        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+        $this->evaluate($card, '2026-10-02 12:30:00');
+        self::assertSame([], $this->liveRequests($card));
 
         $this->dropHold($card);
-        $this->evaluate($card, '2026-10-02 12:01:00');
+        $this->evaluate($card, '2026-10-02 12:31:00');
 
-        self::assertSame([], $this->liveRequests($card));
-        self::assertTrue($this->ruleState($card, 'work')->truth);
+        self::assertCount(1, $this->liveRequests($card));
+        self::assertSame(1, $this->ruleState($card, 'work')->fires);
     }
 
     public function test_a_card_whose_board_automation_is_off_fires_nothing_and_turning_it_on_again_is_quiet(): void
@@ -1009,6 +1398,72 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $epic->column->slug);
     }
 
+    public function test_a_lifecycle_child_waits_in_the_backlog_while_the_breakdown_of_its_epic_runs_and_moves_when_it_ends(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-ended');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $breakdown = $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->evaluate($epic);
+        self::assertFalse($this->ruleState($epic, 'breakdown-ended')->truth);
+
+        $child = $this->childOf($epic, 'backlog');
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $breakdown->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $records = \count($this->firedRecords());
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+        self::assertCount($records + 1, $this->firedRecords());
+        self::assertContains('breakdown-ended', $this->firedRules());
+
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_with_an_open_blocker_stays_in_the_backlog_when_the_breakdown_of_its_epic_ends(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-ended-blocked');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $breakdown = $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->evaluate($epic);
+        $child = $this->childOf($epic, 'backlog');
+        $this->block($child);
+
+        $breakdown->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('backlog', $child->column->slug);
+    }
+
+    public function test_a_resumed_breakdown_of_the_epic_still_holds_the_child_in_the_backlog(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-breakdown-resumed');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->workerRun($epic, 'breakdown', WorkerRunState::Blocked);
+        $resumed = $this->workerRun($epic, 'breakdown', WorkerRunState::Resumed);
+        $this->evaluate($epic);
+        $child = $this->childOf($epic, 'backlog');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $resumed->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
     public function test_a_lifecycle_epic_whose_last_child_merged_into_the_epic_branch_fires_the_open_rule_and_stays_out_of_done(): void
     {
         self::bootKernel();
@@ -1172,7 +1627,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->errors());
     }
 
-    public function test_a_rule_that_the_baseline_cannot_read_fires_once_when_its_source_is_back_and_it_is_true(): void
+    public function test_a_rule_that_cannot_read_its_facts_after_a_release_fires_once_when_its_source_is_back_and_it_is_true(): void
     {
         $card = $this->boundCard([self::requestRule('provided', self::PROVIDED_READY)]);
         $this->provider()->facts = new ProvidedFacts(ready: true);
@@ -1294,7 +1749,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame('facts-changed', $pause->releaseReason);
     }
 
-    public function test_the_release_baseline_writes_no_state_for_a_rule_that_cannot_read_its_facts(): void
+    public function test_after_a_release_a_rule_that_cannot_read_its_facts_waits_and_the_others_fire(): void
     {
         $card = $this->boundCard([
             self::requestRule('provided', self::PROVIDED_READY),
@@ -1306,12 +1761,12 @@ final class EngineTest extends KernelTestCase
 
         $this->evaluate($card);
 
-        self::assertTrue($this->ruleState($card, 'work')->truth);
+        self::assertSame(['work'], $this->firedRules());
         self::assertNull($this->ruleStateOrNull($card, 'provided'));
-        self::assertSame([], $this->liveRequests($card));
+        self::assertCount(1, $this->liveRequests($card));
     }
 
-    public function test_the_release_baseline_writes_no_state_for_a_true_pause_rule_whose_until_cannot_be_read(): void
+    public function test_after_a_release_a_true_pause_rule_whose_until_cannot_be_read_waits(): void
     {
         $card = $this->boundCard([[
             'id' => 'hold',
@@ -1469,6 +1924,7 @@ final class EngineTest extends KernelTestCase
                 new CardPullRequests($this->service(CardPullRequestRepository::class), $forgePullRequests),
                 $forgePullRequests,
                 $workRequests,
+                $this->service(WorkerRunRepository::class),
                 $this->providers(),
                 $this->service(BoardAutomation::class),
                 $this->em()->getConnection(),
@@ -1489,10 +1945,48 @@ final class EngineTest extends KernelTestCase
                 new PauseCard(),
                 new ReleasePause($cardPauses, $releaseCardPause),
                 $this->service(ForgeWrite::class),
+                new EvaluateChildren($this->service(CardRepository::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
             ]),
+            new RuleSubject(),
             $engineEvents,
             $this->logger,
         );
+    }
+
+    private function workerRun(Card $card, string $workKind, WorkerRunState $state): WorkerRun
+    {
+        $run = new WorkerRun(
+            project: $card->project,
+            bridgeId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('A flushed card has an id.'),
+            cardNumber: $card->number,
+            workKind: $workKind,
+            state: $state,
+        );
+        $this->em()->persist($run);
+        $this->em()->flush();
+
+        return $run;
+    }
+
+    /** Runs the queued evaluations of the card, then empties the queue. Answers how many ran. */
+    private function evaluateQueued(Card $card, string $at): int
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+        $cardId = $card->id ?? throw new \LogicException('A flushed card has an id.');
+        $evaluations = 0;
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof EvaluateCard && $message->cardId === $cardId->toRfc4122()) {
+                $this->evaluate($card, $at);
+                ++$evaluations;
+            }
+        }
+        $transport->reset();
+
+        return $evaluations;
     }
 
     private function ruleState(Card $card, string $ruleId): WorkflowRuleState
@@ -1521,20 +2015,27 @@ final class EngineTest extends KernelTestCase
         $this->service(CardHolds::class)->hold($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), null);
     }
 
-    /** The hold goes through the listener, so the card gets its baseline. */
-    private function releaseHold(Card $card): void
+    /** The hold goes through the listener. The engine shares the entity manager, so the rows the listener rewrote are read again. */
+    private function releaseHold(Card $card, string $at = self::NOON): void
     {
+        $clock = new MockClock($at);
         $events = new EventDispatcher();
-        $events->addListener(CardHoldsReleased::class, new BaselineCardsOnCardHoldsReleased(
+        $events->addListener(CardHoldsReleased::class, new RearmCardsOnCardHoldsReleased(
+            $this->service(WorkflowRuleStateRepository::class),
+            $this->service(WorkRequestRepository::class),
             $this->service(WorkflowPendingBaselineRepository::class),
             new EvaluationTrigger($this->service(MessageBusInterface::class)),
+            $clock,
         ));
-        $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), new MockClock(self::NOON), $events);
+        $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), $clock, $events);
 
         $holds->release($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);
+        foreach ([...$this->service(WorkflowRuleStateRepository::class)->findForCard($card), ...$this->liveRequests($card)] as $row) {
+            $this->em()->refresh($row);
+        }
     }
 
-    /** The hold goes with no baseline, as it did before the engine ran. */
+    /** The hold goes with no listener, so the rules keep their state. */
     private function dropHold(Card $card): void
     {
         $this->service(CardHoldRepository::class)->deleteOfCards($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);

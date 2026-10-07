@@ -355,7 +355,7 @@ rule of [Usage](#usage). The report fills a run with unknown usage, and replaces
 estimated counts with reported ones. It never replaces reported counts.
 
 An interactive run has no worker process, so a report without `runId` never
-reaches it. When `card_run_close` closes such a run, the server sends a
+reaches it. When such a run closes, the server sends a
 `collect-session-usage` command to the bridges that can hold its transcript. See
 [Pause and commands](bridge-heartbeat.md#pause-and-commands). The bridge that
 holds it sends this report with the `runId` of the command and one usage object.

@@ -75,6 +75,7 @@ final readonly class ShowWorkflowSettingsHandler
                 ActionType::ForgeWrite => 'workflow.settings.action.forge_write',
                 ActionType::Pause => 'workflow.settings.action.pause',
                 ActionType::Release => 'workflow.settings.action.release',
+                ActionType::Evaluate => 'workflow.settings.action.evaluate',
             },
             targetKey: ActionType::Move === $type ? self::placeKey($template, (string) $params['to']) : null,
             kind: match ($type) {

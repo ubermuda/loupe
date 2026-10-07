@@ -22,6 +22,7 @@ use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -911,6 +912,40 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertEquals($run->id, $event->runId);
         self::assertSame($cardId->toRfc4122(), $event->cardId->toRfc4122());
         self::assertSame([$depth], $queued->transactionDepths());
+        self::assertNull($event->pullRequestNumber);
+        self::assertNull($event->pullRequestUrl);
+    }
+
+    public function test_a_queued_fix_run_names_the_pull_request_of_its_work_request(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-queued-fix-request');
+        $cardId = Uuid::v7();
+        $request = $this->seedWorkRequest($this->em(), $project, $cardId, kind: 'fix', ruleId: 'fix-on-red');
+        $request->context = new WorkRequestContext(pullRequestNumber: 41, pullRequestUrl: 'https://github.com/acme/widgets/pull/41');
+        $this->em()->flush();
+        $queued = DispatchedEvents::of(self::getContainer(), WorkerRunQueued::class);
+
+        $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, cardId: $cardId, workKind: 'fix', workRequestId: $request->id, ruleId: 'fix-on-red');
+
+        self::assertCount(1, $queued->events());
+        self::assertSame(41, $queued->events()[0]->pullRequestNumber);
+        self::assertSame('https://github.com/acme/widgets/pull/41', $queued->events()[0]->pullRequestUrl);
+    }
+
+    public function test_a_queued_fix_run_that_names_the_request_of_another_card_names_no_pull_request(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-queued-fix-other');
+        $request = $this->seedWorkRequest($this->em(), $project, Uuid::v7(), kind: 'fix', ruleId: 'fix-on-red');
+        $request->context = new WorkRequestContext(pullRequestNumber: 41);
+        $this->em()->flush();
+        $queued = DispatchedEvents::of(self::getContainer(), WorkerRunQueued::class);
+
+        $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, cardId: Uuid::v7(), workKind: 'fix', workRequestId: $request->id, ruleId: 'fix-on-red');
+
+        self::assertCount(1, $queued->events());
+        self::assertNull($queued->events()[0]->pullRequestNumber);
     }
 
     public function test_a_repeat_of_the_queued_fix_report_announces_nothing_more(): void

@@ -109,4 +109,28 @@ final class WorkerRunRepositoryTest extends KernelTestCase
         );
         self::assertSame([], $runs->findCardIdsWithOpenRun($project, []));
     }
+
+    public function test_find_open_work_kinds_of_card_answers_the_distinct_kinds_of_its_open_worker_runs(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'open-kinds-'.uniqid().'@example.com'), 'Open kinds');
+        $cardId = Uuid::v7();
+
+        $this->seedRun($em, $project, workKind: 'implement', cardId: $cardId, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, workKind: 'breakdown', cardId: $cardId, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, workKind: 'breakdown', cardId: $cardId, state: WorkerRunState::Resumed);
+        $this->seedRun($em, $project, workKind: 'fix', cardId: $cardId, state: WorkerRunState::Queued);
+        $this->seedRun($em, $project, workKind: 'review', cardId: $cardId, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $this->seedRun($em, $project, workKind: 'sync', cardId: $cardId, state: WorkerRunState::Running, kind: WorkerRunKind::Command);
+        $this->seedRun($em, $project, workKind: null, cardId: $cardId, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, workKind: 'plan', cardId: $cardId, state: WorkerRunState::Succeeded);
+        $this->seedRun($em, $project, workKind: 'teardown', state: WorkerRunState::Running);
+
+        $runs = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $runs);
+
+        self::assertSame(['breakdown', 'fix', 'implement'], $runs->findOpenWorkKindsOfCard($cardId));
+        self::assertSame([], $runs->findOpenWorkKindsOfCard(Uuid::v7()));
+    }
 }
