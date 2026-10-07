@@ -1464,6 +1464,85 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $child->column->slug);
     }
 
+    public function test_a_lifecycle_child_waits_in_the_backlog_while_any_worker_run_of_its_epic_is_open(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-parent-run-ended');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $run = $this->workerRun($epic, 'implement', WorkerRunState::Running);
+        $this->evaluate($epic);
+        $child = $this->childOf($epic, 'backlog');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $run->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_epic_in_a_design_column_wakes_its_children_when_its_run_ends(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-design-run-ended');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->moveTo($epic, 'tech-design');
+        $run = $this->workerRun($epic, 'tech-design', WorkerRunState::Running);
+        $this->evaluate($epic);
+        self::assertFalse($this->ruleState($epic, 'breakdown-ended')->truth);
+        $child = $this->childOf($epic, 'backlog');
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $run->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+
+        self::assertContains('breakdown-ended', $this->firedRules());
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_merged_epic_with_finished_children_waits_for_its_open_run_before_it_moves_to_done(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-merged-epic-run');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->moveTo($epic, 'in-review');
+        $this->childOf($epic, 'done');
+        $this->pullRequest($epic, PullRequestState::Merged);
+        $run = $this->workerRun($epic, 'fix', WorkerRunState::Running);
+
+        $this->evaluate($epic);
+        self::assertSame('in-review', $epic->column->slug);
+
+        $run->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+
+        self::assertSame('done', $epic->column->slug);
+    }
+
+    public function test_a_lifecycle_card_with_a_merged_pull_request_moves_to_done_while_its_run_is_open(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-merged-card-run');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'in-review');
+        $this->pullRequest($card, PullRequestState::Merged);
+        $this->workerRun($card, 'fix', WorkerRunState::Running);
+
+        $this->evaluate($card);
+
+        self::assertSame('done', $card->column->slug);
+    }
+
     public function test_a_lifecycle_epic_whose_last_child_merged_into_the_epic_branch_fires_the_open_rule_and_stays_out_of_done(): void
     {
         self::bootKernel();

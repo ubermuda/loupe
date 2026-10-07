@@ -56,6 +56,13 @@ workflow makes no move and asks for no work on it.
 [The board](board.md#managed-and-unmanaged-cards) describes both states, and
 the Workflow panel of the card page.
 
+A move in the template can name who may make it. A move with
+`by: parent-run` is open to an open worker run of the parent epic, and not
+to a person. The run may be of any work kind, such as a breakdown or a fix.
+An interactive run does not count. A move with no `by` is open to anyone. The
+**Who** column of the manual moves on the Workflow settings page shows who may
+make each move.
+
 ## Pauses and retries
 
 The workflow pauses a card when a rule asks for it, and when work keeps failing.
@@ -93,7 +100,8 @@ review. A person can move a card from the Backlog to Next, Product design or
 Tech design, and from Next back to the Backlog or on to a design slot. A person
 can also move a card from Implementation back to Tech design, for example when
 the card has no tech design yet. A card whose tech design is approved goes
-back to Implementation at once when it has no open blocker.
+back to Implementation at once when it has no open blocker. A worker run of an
+epic can move a child of that epic from the Backlog to Implementation.
 
 | Slot | The workflow |
 |---|---|
@@ -116,13 +124,14 @@ commits need a new approval.
 Some rules act from any slot:
 
 1. A card whose pull requests all finished, with one merged, moves to the
-   terminal column once no child is open.
+   terminal column once no child is open. A merged epic also waits while any
+   worker run of it is open.
 2. A card in the Backlog whose pull request reopens moves to Implementation.
 3. A child in the Backlog whose last blocker finished moves to Implementation.
-   It waits while a breakdown of its epic runs. When that breakdown ends, the
-   epic evaluates its children again. The wait reads the open worker runs of
-   the epic. An older bridge that sends no run key reports a run only after it
-   ends, so its breakdown does not hold the children.
+   It waits while any worker run of its epic is open. When the last such run
+   ends, the epic evaluates its children again, in any column. The wait reads
+   the open worker runs of the epic. An older bridge that sends no run key
+   reports a run only after it ends, so its run does not hold the children.
 4. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
 5. A child that reaches a terminal column with a pull request merged into its
