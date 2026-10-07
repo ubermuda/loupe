@@ -14,14 +14,13 @@ final readonly class BoardCardTitleSource implements CardTitleSourceInterface
 {
     public function __construct(
         private CardRepository $cards,
-        private BoardAvailability $board,
     ) {
     }
 
     #[\Override]
     public function titlesFor(Project $project, array $cardIds): array
     {
-        if ([] === $cardIds || !$this->board->isEnabled()) {
+        if ([] === $cardIds) {
             return [];
         }
 

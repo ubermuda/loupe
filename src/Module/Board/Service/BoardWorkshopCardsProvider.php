@@ -24,7 +24,6 @@ final readonly class BoardWorkshopCardsProvider implements WorkshopCardsProvider
     public function __construct(
         private CardRepository $cards,
         private OpenCardRuns $openRuns,
-        private BoardAvailability $board,
         private UrlGeneratorInterface $urls,
     ) {
     }
@@ -32,10 +31,6 @@ final readonly class BoardWorkshopCardsProvider implements WorkshopCardsProvider
     #[\Override]
     public function forProject(Project $project): WorkshopCardsInMotion
     {
-        if (!$this->board->isEnabled()) {
-            return new WorkshopCardsInMotion();
-        }
-
         $runs = $this->openRuns->forProject($project);
         $cards = [];
         foreach ($this->cards->findByIdsInProject($project, array_map(static fn (OpenCardRun $run): Uuid => $run->cardId, $runs)) as $card) {

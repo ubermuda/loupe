@@ -7,11 +7,12 @@ namespace App\Module\Bridge\Controller\Api;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
-/** How one launch of an interactive session went, as the bridge reports it. */
+/** How one launch of an interactive session went, as the bridge reports it. An interactive run is about a card. */
 final class ReportInteractiveLaunchRequest
 {
     public const array STATES = [WorkerRunState::Running->value, WorkerRunState::NotStarted->value];
@@ -21,12 +22,16 @@ final class ReportInteractiveLaunchRequest
         #[Assert\Uuid]
         public ?string $bridgeId = null,
 
+        #[Assert\Choice(choices: [WorkSubject::CARD])]
+        #[Assert\NotBlank]
+        public ?string $subjectType = null,
+
         #[Assert\NotBlank]
         #[Assert\Uuid]
-        public ?string $cardId = null,
+        public ?string $subjectId = null,
 
         #[Assert\NotNull]
-        #[Assert\Range(min: 1, max: ReportWorkerRunRequest::MAX_CARD_NUMBER)]
+        #[Assert\Range(min: 1, max: WorkerRun::MAX_CARD_NUMBER)]
         public ?int $cardNumber = null,
 
         /** The kind of the work request, or the name of the session when it runs no work request. */
@@ -81,9 +86,10 @@ final class ReportInteractiveLaunchRequest
         return Uuid::fromString($this->bridgeId ?? throw new \LogicException('bridgeId is required after validation.'));
     }
 
+    /** The card, because the subject type is always a card after validation. */
     public function cardId(): Uuid
     {
-        return Uuid::fromString($this->cardId ?? throw new \LogicException('cardId is required after validation.'));
+        return Uuid::fromString($this->subjectId ?? throw new \LogicException('subjectId is required after validation.'));
     }
 
     /** Trimmed, because the length constraint measured the trimmed value. */

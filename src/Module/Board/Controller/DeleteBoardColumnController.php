@@ -13,7 +13,6 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnRequest;
 use App\Module\Board\Security\BoardColumnVoter;
-use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -46,7 +45,6 @@ final class DeleteBoardColumnController extends AppController
     public function __construct(
         private readonly DeleteBoardColumnHandler $deleteColumn,
         private readonly FormFactoryInterface $formFactory,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -55,8 +53,6 @@ final class DeleteBoardColumnController extends AppController
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(columnId, projectId)')] BoardColumn $column,
     ): Response {
-        $this->board->requireEnabled();
-
         $projectId = (string) $column->project->id;
         $label = $this->translator->trans($column->label);
         $data = new DeleteBoardColumnRequest();

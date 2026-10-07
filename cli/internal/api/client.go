@@ -388,9 +388,6 @@ var ErrProjectNotFound = errors.New("project not found")
 // caller's projects.
 var ErrProjectAmbiguous = errors.New("project handle is ambiguous")
 
-// ErrBoardDisabled is returned when the instance has the board switched off.
-var ErrBoardDisabled = errors.New("the board is disabled on this instance")
-
 // ErrEndpointMissing is returned for a 404 that carries no error code, which
 // is the answer of a server that predates the endpoint.
 var ErrEndpointMissing = errors.New("the server has no columns endpoint")
@@ -405,8 +402,6 @@ func notFound(body io.Reader) error {
 	switch payload.Error {
 	case "project_not_found":
 		return ErrProjectNotFound
-	case "board_disabled":
-		return ErrBoardDisabled
 	default:
 		return ErrEndpointMissing
 	}
@@ -488,27 +483,6 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 	return payload.Sites, nil
 }
 
-// WorkerRun is one finished worker run, as POST
-// /api/projects/{handle}/worker-runs takes it.
-//
-// ExitCode is nil when the process never started, and FailureReason then says
-// why. The server keeps those two faults apart, and refuses a report that sends
-// both or neither. HasResult says whether the output held a result line, and is
-// nil with ExitCode.
-type WorkerRun struct {
-	BridgeID      string    `json:"bridgeId"`
-	SessionID     string    `json:"sessionId"`
-	CardID        string    `json:"cardId"`
-	CardNumber    int       `json:"cardNumber"`
-	RuleName      string    `json:"ruleName"`
-	StartedAt     time.Time `json:"startedAt"`
-	EndedAt       time.Time `json:"endedAt"`
-	ExitCode      *int      `json:"exitCode"`
-	HasResult     *bool     `json:"hasResult"`
-	FailureReason *string   `json:"failureReason"`
-	Output        string    `json:"output"`
-}
-
 // The server's own caps on a report. It refuses a longer value, and a refused
 // report is lost, so the client cuts each one to fit.
 const (
@@ -521,60 +495,6 @@ const (
 // a token it will not take, a handle it does not know, or a body it reads as
 // invalid. A retry cannot turn any of those into a stored row.
 var ErrReportRefused = errors.New("the server refused the worker run report")
-
-// ReportWorkerRun records one finished worker run against one of the caller's
-// projects. It answers whether the server wrote a new row.
-//
-// The server answers 201 for a new report and 200 for one it already holds, so
-// a retry of a report that landed counts as a success. A caller that has sent
-// this report once reads a false as a row it did not write.
-func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerRun) (bool, error) {
-	// Trimmed before the cut, because the server trims first and then measures.
-	// A name of 100 spaces and a word would otherwise cut to spaces alone, which
-	// the server reads as blank and refuses for good.
-	run.RuleName = clip(strings.TrimSpace(run.RuleName), maxRuleName)
-	run.Output = clip(run.Output, maxRunOutput)
-	if run.FailureReason != nil {
-		reason := clip(*run.FailureReason, maxFailureReason)
-		run.FailureReason = &reason
-	}
-
-	body, err := json.Marshal(run)
-	if err != nil {
-		return false, fmt.Errorf("%w: encode the worker run: %w", ErrReportRefused, err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/worker-runs", bytes.NewReader(body))
-	if err != nil {
-		return false, err
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.do(req)
-	if err != nil {
-		return false, fmt.Errorf("report the worker run: %w", err)
-	}
-	defer resp.Body.Close()
-
-	detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-
-	switch {
-	case resp.StatusCode == http.StatusCreated:
-		return true, nil
-	case resp.StatusCode == http.StatusOK:
-		return false, nil
-	// A rate limit and a request timeout clear on their own, so they are the two
-	// 4xx answers worth another try. Every other 4xx reads the same body again.
-	case resp.StatusCode == http.StatusTooManyRequests, resp.StatusCode == http.StatusRequestTimeout:
-		return false, fmt.Errorf("worker run report not taken yet (HTTP %d)", resp.StatusCode)
-	case resp.StatusCode >= 400 && resp.StatusCode < 500:
-		return false, fmt.Errorf("%w (HTTP %d): %s", ErrReportRefused, resp.StatusCode, strings.TrimSpace(string(detail)))
-	default:
-		return false, fmt.Errorf("worker run report failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
-	}
-}
 
 // Heartbeat is the body of PUT /api/bridges/{bridgeId}/heartbeat: the ids of
 // the projects the bridge follows, the build it runs, where its own update

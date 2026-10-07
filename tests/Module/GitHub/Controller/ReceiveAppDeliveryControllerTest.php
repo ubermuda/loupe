@@ -64,7 +64,6 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         $this->configureAppKey();
-        $this->enableBoard();
         $project = $this->project('all');
         $this->installation($project, 9_000_604, GitHubRepositorySelection::All);
         $this->linkedCard($project, 'acme/d', 3);
@@ -82,7 +81,6 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $project = $this->project('selected');
         $this->installation($project, 9_000_605);
         $this->linkedCard($project, 'acme/e', 3);
@@ -100,7 +98,6 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $project = $this->project('incomplete');
         $installation = $this->installation($project, 9_000_615);
         $installation->listIncomplete = true;
@@ -118,7 +115,6 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $project = $this->project('owned');
         $this->installation($project, 9_000_606);
         $this->owned($project, 606, 'acme/f', ForgeRepositorySource::Installation, 9_000_606);
@@ -157,7 +153,6 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $project = $this->project('no-key');
         $this->installation($project, 9_000_608);
         $this->owned($project, 608, 'acme/k', ForgeRepositorySource::Installation, 9_000_608);
@@ -223,7 +218,6 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $project = $this->project('installed');
         $holder = $this->project('holder');
         $this->installation($project, 9_000_607, GitHubRepositorySelection::All);
@@ -266,7 +260,6 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $project = $this->project('suspended');
         $this->installation($project, 9_000_609, GitHubRepositorySelection::All);
         $tracked = $this->trackedPullRequest($project, 'acme/h', 3, 'aaa111');
@@ -331,7 +324,6 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $this->enableBoard();
         $project = $this->project('renamed');
         $this->installation($project, 9_000_613);
         $this->owned($project, 613, 'acme/old', ForgeRepositorySource::Installation, 9_000_613);

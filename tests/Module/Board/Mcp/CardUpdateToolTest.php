@@ -13,6 +13,7 @@ use App\Module\Board\Mcp\CardUpdateTool;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -52,16 +53,6 @@ final class CardUpdateToolTest extends KernelTestCase
         $createTool = self::getContainer()->get(CardCreateTool::class);
         self::assertInstanceOf(CardCreateTool::class, $createTool);
         $this->createTool = $createTool;
-    }
-
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-update-flag-off'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)('01920000-0000-7000-8000-000000000000', title: 'New');
     }
 
     public function test_the_named_fields_change_and_the_rest_stay(): void
@@ -136,7 +127,6 @@ final class CardUpdateToolTest extends KernelTestCase
 
     public function test_a_move_through_the_tool_is_published_as_an_agent_action(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-update-actor');
         $this->actAsMcpTokenBoundTo($project);
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
@@ -150,7 +140,6 @@ final class CardUpdateToolTest extends KernelTestCase
 
     public function test_a_move_with_the_session_header_names_the_worker_run(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-update-run-cause');
         $this->actAsMcpTokenBoundTo($project);
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
@@ -158,7 +147,8 @@ final class CardUpdateToolTest extends KernelTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: Uuid::fromString($created['cardId']),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::fromString($created['cardId']),
             cardNumber: $created['number'],
             workKind: 'implement',
             state: WorkerRunState::Running,
@@ -194,7 +184,6 @@ final class CardUpdateToolTest extends KernelTestCase
 
     public function test_status_takes_the_slugs_of_this_board_and_no_other(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('card-update-own-columns');
         $this->em->persist(new BoardColumn(project: $project, label: 'Won’t do', slug: 'wont-do', position: 4, terminal: true));
         $elsewhere = $this->makeProject('card-update-other-columns');
@@ -439,7 +428,6 @@ final class CardUpdateToolTest extends KernelTestCase
     /** @return CardSummary */
     private function card(string $label): array
     {
-        $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject($label));
 
         return ($this->createTool)('Ship it', 'Body', 'feature', pullRequestUrls: [self::PULL_REQUEST]);

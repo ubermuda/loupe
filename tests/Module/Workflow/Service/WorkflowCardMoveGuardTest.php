@@ -9,7 +9,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMoveGuard;
@@ -18,6 +17,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Service\FactsBuilder;
@@ -28,8 +28,6 @@ use App\Tests\Module\Workflow\WorkflowProjects;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
-use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class WorkflowCardMoveGuardTest extends KernelTestCase
 {
@@ -54,20 +52,6 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $card = $this->card('next');
         $this->boardAutomation()->settingsForUpdate($this->project)->enabled = false;
         $this->em()->flush();
-
-        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
-    }
-
-    public function test_with_the_board_off_for_the_instance_every_move_is_allowed(): void
-    {
-        $this->bindLifecycle($this->project);
-        $card = $this->card('next');
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = false;
-        $reader = self::getContainer()->get(DoctrineFeatureFlagReader::class);
-        self::assertInstanceOf(DoctrineFeatureFlagReader::class, $reader);
-        $reader->reset();
 
         self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
     }
@@ -156,7 +140,8 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $run = new WorkerRun(
             project: $project ?? $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $this->idOf($card),
+            subjectType: WorkSubject::CARD,
+            subjectId: $this->idOf($card),
             cardNumber: $card->number,
             workKind: $rule,
             state: WorkerRunState::Running,

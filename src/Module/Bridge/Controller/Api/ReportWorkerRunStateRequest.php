@@ -9,13 +9,14 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
  * One state of one worker run, as the bridge reports it. Every report carries
- * the card and the work request, so the first report the server reads can
+ * the subject and the work request, so the first report the server reads can
  * create the run. A run of an old bridge rule carries no work request.
  */
 final class ReportWorkerRunStateRequest
@@ -42,11 +43,15 @@ final class ReportWorkerRunStateRequest
         public ?\DateTimeImmutable $at = null,
 
         #[Assert\NotBlank]
-        #[Assert\Uuid]
-        public ?string $cardId = null,
+        #[Assert\Regex(pattern: WorkSubject::TYPE_PATTERN)]
+        public ?string $subjectType = null,
 
-        #[Assert\NotNull]
-        #[Assert\Range(min: 1, max: ReportWorkerRunRequest::MAX_CARD_NUMBER)]
+        #[Assert\NotBlank]
+        #[Assert\Uuid]
+        public ?string $subjectId = null,
+
+        /** The label of a card subject. Any other subject has none. */
+        #[Assert\Range(min: 1, max: WorkerRun::MAX_CARD_NUMBER)]
         public ?int $cardNumber = null,
 
         #[Assert\Uuid]
@@ -65,7 +70,7 @@ final class ReportWorkerRunStateRequest
         public ?\DateTimeImmutable $startedAt = null,
         public ?\DateTimeImmutable $endedAt = null,
 
-        #[Assert\Range(min: ReportWorkerRunRequest::MIN_EXIT_CODE, max: ReportWorkerRunRequest::MAX_EXIT_CODE)]
+        #[Assert\Range(min: WorkerRun::MIN_EXIT_CODE, max: WorkerRun::MAX_EXIT_CODE)]
         public ?int $exitCode = null,
         public ?bool $hasResult = null,
 
@@ -166,6 +171,18 @@ final class ReportWorkerRunStateRequest
         }
     }
 
+    #[Assert\Callback]
+    public function validateCardNumber(ExecutionContextInterface $context): void
+    {
+        if (WorkSubject::CARD === $this->subjectType && null === $this->cardNumber) {
+            $context->buildViolation('A run about a card names the card number.')->atPath('cardNumber')->addViolation();
+        }
+
+        if (null !== $this->subjectType && WorkSubject::CARD !== $this->subjectType && null !== $this->cardNumber) {
+            $context->buildViolation('A run about a subject that is no card has no card number.')->atPath('cardNumber')->addViolation();
+        }
+    }
+
     /** The server stores the four experiment fields of a run together. */
     #[Assert\Callback]
     public function validateExperiment(ExecutionContextInterface $context): void
@@ -202,7 +219,7 @@ final class ReportWorkerRunStateRequest
     }
 
     /**
-     * An outcome follows the pairing rules of the finished run report, and its
+     * An outcome has an exit code or a failure reason, never both, and its
      * state must be the one its exit code, result flag and status imply. So a
      * clean exit with no result is no-result, never succeeded. Gave-up stands
      * in for any outcome that the bridge would resume.
@@ -307,9 +324,12 @@ final class ReportWorkerRunStateRequest
         return Uuid::fromString($this->bridgeId ?? throw new \LogicException('bridgeId is required after validation.'));
     }
 
-    public function cardId(): Uuid
+    public function subject(): WorkSubject
     {
-        return Uuid::fromString($this->cardId ?? throw new \LogicException('cardId is required after validation.'));
+        return new WorkSubject(
+            $this->subjectType ?? throw new \LogicException('subjectType is required after validation.'),
+            Uuid::fromString($this->subjectId ?? throw new \LogicException('subjectId is required after validation.')),
+        );
     }
 
     public function continues(): ?Uuid

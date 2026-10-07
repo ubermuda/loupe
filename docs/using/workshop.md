@@ -6,7 +6,7 @@ description: "See open requests, cards, and recent project activity."
 Open a project to see its Workshop. The summary counts belong to that project.
 It shows open requests, open cards, and completed cards.
 Cards in terminal columns count as completed, regardless of the column's name.
-Disabled inbox or board features show an explanation instead of a zero count.
+A disabled inbox shows an explanation instead of a zero count.
 
 Needs you shows the six oldest open inbox items, oldest first.
 The list includes [automatic items](inbox.md#automatic-items), which Loupe opens for a waiting card.

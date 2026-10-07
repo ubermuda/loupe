@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Command\CloseCardRunHandler;
-use App\Module\Board\Mcp\BoardFlagGate;
 use App\Module\Board\Mcp\BoardSubjectResolver;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardPayload;
@@ -67,25 +66,6 @@ final class CardRunToolsTest extends KernelTestCase
         $createTool = self::getContainer()->get(CardCreateTool::class);
         self::assertInstanceOf(CardCreateTool::class, $createTool);
         $this->createTool = $createTool;
-    }
-
-    public function test_both_tools_refuse_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-run-flag-off'));
-        $sessionId = (string) Uuid::v4();
-
-        foreach ([
-            fn (): array => ($this->open)($sessionId, self::SKILL, number: 1),
-            fn (): array => ($this->close)($sessionId, number: 1),
-        ] as $call) {
-            try {
-                $call();
-                self::fail('the tool must refuse');
-            } catch (ToolCallException $e) {
-                self::assertSame('The board is switched off on this instance.', $e->getMessage());
-            }
-        }
     }
 
     public function test_open_records_a_running_run_and_returns_the_card(): void
@@ -173,7 +153,6 @@ final class CardRunToolsTest extends KernelTestCase
             static fn (array $context): bool => $runId === $context['runId'] && $context['exception'] instanceof \RuntimeException,
         ));
         $close = new CardRunCloseTool(
-            $this->service(BoardFlagGate::class),
             $this->service(BoardSubjectResolver::class),
             new CloseCardRunHandler($this->runs(), new RequestSessionUsageCollectionHandler(
                 $bridges,
@@ -277,7 +256,6 @@ final class CardRunToolsTest extends KernelTestCase
     /** @return CardSummary */
     private function card(string $label): array
     {
-        $this->enableBoard();
         $this->project = $this->makeProject($label);
         $this->actAsMcpTokenBoundTo($this->project);
 

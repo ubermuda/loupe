@@ -8,7 +8,6 @@ use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -17,6 +16,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\MercureCookies;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -24,7 +24,6 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ListWorkerRunsControllerTest extends WebTestCase
 {
@@ -53,6 +52,28 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringContainsString('#42', $body);
         self::assertStringContainsString('plan', $body);
         self::assertStringNotContainsString('othersrule', $body);
+    }
+
+    public function test_a_run_about_another_subject_shows_its_subject_type_and_no_card(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'runs-subject@example.com');
+        $project = $this->project($em, $owner, 'Subjects');
+        $subjectId = Uuid::v7();
+        $this->seedRun($em, $project, workKind: 'analysis', cardId: $subjectId, subjectType: 'analysis');
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('analysis', trim($crawler->filter('.lp-data-table__row [data-worker-run-subject]')->text()));
+        self::assertStringContainsString((string) $subjectId, $crawler->filter('div[data-worker-run-subject]')->text());
+        self::assertStringNotContainsString('/board/cards/', (string) $crawler->filter('.lp-run-drawer__metadata')->html());
     }
 
     /**
@@ -96,7 +117,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $em->persist(new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 5,
             workKind: 'waiting rule',
             state: WorkerRunState::Queued,
@@ -653,7 +675,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $running = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 1,
             workKind: 'running rule',
             state: WorkerRunState::Queued,
@@ -663,7 +686,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $queued = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 2,
             workKind: 'queued rule',
             state: WorkerRunState::Queued,
@@ -893,7 +917,6 @@ final class ListWorkerRunsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = $this->em();
-        static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
 
         $owner = $this->user($em, 'row-owner@example.com');
         $project = $this->project($em, $owner, 'Rows');

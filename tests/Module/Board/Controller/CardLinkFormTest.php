@@ -23,7 +23,6 @@ final class CardLinkFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-form-edit@example.com');
         $project = $this->project($em, $owner);
         $a = $this->card($em, $project, 'Ship the schema');
@@ -51,7 +50,6 @@ final class CardLinkFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-form-older@example.com');
         $project = $this->project($em, $owner);
         $oldest = $this->card($em, $project, 'The oldest card');
@@ -75,7 +73,6 @@ final class CardLinkFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-form-self@example.com');
         $project = $this->project($em, $owner);
         $a = $this->card($em, $project, 'Ship the schema');
@@ -96,7 +93,6 @@ final class CardLinkFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-form-twice@example.com');
         $project = $this->project($em, $owner);
         $a = $this->card($em, $project, 'Ship the schema');
@@ -121,7 +117,6 @@ final class CardLinkFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-form-clear@example.com');
         $project = $this->project($em, $owner);
         $a = $this->card($em, $project, 'Ship the schema');
@@ -147,7 +142,6 @@ final class CardLinkFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-form-create@example.com');
         $project = $this->project($em, $owner);
         $b = $this->card($em, $project, 'Ship the page');
@@ -173,7 +167,6 @@ final class CardLinkFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'link-form-prefill@example.com');
         $project = $this->project($em, $owner);
         $a = $this->card($em, $project, 'Ship the schema');

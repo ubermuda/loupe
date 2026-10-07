@@ -107,7 +107,7 @@ export default defineConfig({
                 /billing\/beta-invite\.spec\.ts/,
                 /billing\/trial-end-lifecycle\.spec\.ts/,
                 /install\/.*\.spec\.ts/,
-                /board\/.*\.spec\.ts/,
+                /board\/workshop\.spec\.ts/,
                 /inbox\/.*\.spec\.ts/,
                 /admin\/.*\.spec\.ts/,
                 /billing\/paywall\.spec\.ts/,
@@ -117,16 +117,6 @@ export default defineConfig({
                 /review\/mermaid-diagrams\.spec\.ts/,
                 /review\/decision-live\.spec\.ts/,
             ],
-            use: {
-                ...devices['Desktop Chrome'],
-            },
-        },
-        {
-            name: 'board',
-            // Board specs flip board.enabled, which 404s the board under any
-            // other board spec still running.
-            testMatch: /board\/.*\.spec\.ts/,
-            workers: 1,
             use: {
                 ...devices['Desktop Chrome'],
             },
@@ -148,6 +138,7 @@ export default defineConfig({
             // render, so nothing else runs beside these.
             testMatch: [
                 /billing\/paywall\.spec\.ts/,
+                /board\/workshop\.spec\.ts/,
                 /account\/social-login\.spec\.ts/,
                 /inbox\/.*\.spec\.ts/,
                 /project\/search\.spec\.ts/,
@@ -159,7 +150,7 @@ export default defineConfig({
             use: {
                 ...devices['Desktop Chrome'],
             },
-            dependencies: ['chromium', 'board', 'admin'],
+            dependencies: ['chromium', 'admin'],
         },
         {
             name: 'waitlist',
@@ -202,7 +193,6 @@ export default defineConfig({
             // otherwise destroy mid-run.
             dependencies: [
                 'chromium',
-                'board',
                 'admin',
                 'global-flags',
                 'waitlist',

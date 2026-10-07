@@ -26,6 +26,7 @@ use App\Module\Bridge\Repository\WorkerRunFactRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Bridge\View\CardTitleSourceInterface;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -240,10 +241,10 @@ final class ShowExperimentHandlerTest extends KernelTestCase
                 foreach (['+20 hours' => WorkerRunState::Blocked, '+21 hours' => WorkerRunState::Failed, '+22 hours' => WorkerRunState::Stopped] as $at => $state) {
                     $stopped = $this->experimentRun($card, 'a', at: $at, state: $state);
                     $stopped->usageSource = WorkerRunUsageSource::Reported;
-                    $this->em->persist(new WorkerRunUsage($stopped, $run->project, $card, $stopped->workKind, 'claude-opus-5-5', WorkerRunUsageSource::Reported, 0, 0, 0, 0, '0.000000'));
+                    $this->em->persist(new WorkerRunUsage($stopped, $run->project, WorkSubject::CARD, $card, $stopped->workKind, 'claude-opus-5-5', WorkerRunUsageSource::Reported, 0, 0, 0, 0, '0.000000'));
                 }
                 // Neither a row whose run is gone nor the usage of a run outside the experiment counts.
-                $this->em->persist(new WorkerRunUsage(null, $run->project, $card, 'build', 'claude-opus-5-5', WorkerRunUsageSource::Reported, 1, 1, 0, 0, '5.000000'));
+                $this->em->persist(new WorkerRunUsage(null, $run->project, WorkSubject::CARD, $card, 'build', 'claude-opus-5-5', WorkerRunUsageSource::Reported, 1, 1, 0, 0, '5.000000'));
                 $this->seedUsage($this->em, $this->plainRun($card, 'design', '-1 hour'), costUsd: '5.000000');
             }
         }

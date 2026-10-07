@@ -6,9 +6,9 @@ namespace App\Tests\Module\Insights\Controller;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\AgentCredential;
@@ -17,7 +17,6 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ShowMetricsControllerTest extends WebTestCase
 {
@@ -240,24 +239,14 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertSame('3 more runs are not shown.', trim($table->filter('[data-metrics-hidden-rows]')->text()));
     }
 
-    public function test_a_card_row_links_to_the_card_when_the_board_is_on(): void
+    public function test_a_card_row_links_to_the_card(): void
     {
-        $crawler = $this->finishedCardPage(true);
+        $crawler = $this->finishedCardPage();
 
         $row = $crawler->filter('[data-metrics-table] tbody tr');
         self::assertCount(1, $row);
         self::assertSame('$2.50', trim($row->filter('td')->eq(1)->text()));
         self::assertSame('#9', trim($row->filter('a')->text()));
-    }
-
-    public function test_a_card_row_names_the_card_with_no_link_when_the_board_is_off(): void
-    {
-        $crawler = $this->finishedCardPage(false);
-
-        $row = $crawler->filter('[data-metrics-table] tbody tr');
-        self::assertCount(1, $row);
-        self::assertCount(0, $row->filter('a'));
-        self::assertSame('#9', trim($row->filter('td')->first()->text()));
     }
 
     public function test_another_users_project_is_refused(): void
@@ -275,12 +264,11 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    private function finishedCardPage(bool $boardEnabled): Crawler
+    private function finishedCardPage(): Crawler
     {
         $client = static::createClient();
         $em = $this->em();
-        static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $boardEnabled;
-        $owner = $this->user($em, 'metrics-cards-'.($boardEnabled ? 'on' : 'off').'@example.com');
+        $owner = $this->user($em, 'metrics-cards@example.com');
         $project = $this->project($em, $owner, 'Card metrics');
         $done = new BoardColumn($project, 'Done', 'done', 0, terminal: true);
         $card = new Card($project, $done, 'Ship it', '', 9);
@@ -298,9 +286,7 @@ final class ShowMetricsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics?range=all');
 
         self::assertResponseIsSuccessful();
-        if ($boardEnabled) {
-            self::assertSame('/projects/'.$projectId.'/board/cards/'.$cardId, $crawler->filter('[data-metrics-table] tbody tr a')->attr('href'));
-        }
+        self::assertSame('/projects/'.$projectId.'/board/cards/'.$cardId, $crawler->filter('[data-metrics-table] tbody tr a')->attr('href'));
 
         return $crawler;
     }
@@ -314,7 +300,8 @@ final class ShowMetricsControllerTest extends WebTestCase
             $em->persist(new WorkerRun(
                 project: $managed,
                 bridgeId: Uuid::v7(),
-                cardId: Uuid::v7(),
+                subjectType: WorkSubject::CARD,
+                subjectId: Uuid::v7(),
                 cardNumber: $index + 1,
                 workKind: 'plan',
                 state: WorkerRunState::Succeeded,

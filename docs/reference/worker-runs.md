@@ -82,7 +82,8 @@ identifies a run by its project, its `bridgeId` and its `runId`.
   "bridgeId": "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
   "state": "running",
   "at": "2026-09-13T10:00:00+00:00",
-  "cardId": "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
+  "subjectType": "card",
+  "subjectId": "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
   "cardNumber": 42,
   "workRequestId": "0199a0e2-c4d5-7e6f-8a9b-0c1d2e3f4a5b",
   "workKind": "implement",
@@ -92,8 +93,9 @@ identifies a run by its project, its `bridgeId` and its `runId`.
 }
 ```
 
-Every report carries the card and the work request, so the first report the
-server reads can create the run. The reports of one run can therefore arrive in any
+Every report carries the subject and the work request, so the first report the
+server reads can create the run. The subject is what the work is about. It is
+usually a card, and a module can name other subject types. The reports of one run can therefore arrive in any
 order.
 
 | Field | Rule |
@@ -101,8 +103,9 @@ order.
 | `bridgeId` | required. A uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
 | `state` | required. One of the seventeen states the bridge sets. The server refuses `timed-out`, `lost` and `closed` |
 | `at` | required. When the run reached the state, on the bridge clock, as an ISO 8601 timestamp |
-| `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
-| `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
+| `subjectType` | required. What the run is about, such as `card`. It matches `^[a-z][a-z0-9-]{0,39}$`. The bridge copies it from the work request |
+| `subjectId` | required. The uuid of the subject, which is the card id for a card. It is a plain value, so a deleted card leaves its run history intact |
+| `cardNumber` | the short number the card shows, counting from 1 inside the project, at most 2147483647. It is a label for a person, and never identifies the card. Required for a `card` subject, and refused for any other subject. The bridge leaves it out for another subject |
 | `workRequestId` | the uuid of the work request the run runs. A run of a person's resume or rerun names the request of the run it continues |
 | `workKind` | the kind of the work request, such as `implement` or `fix`. It matches `^[a-z][a-z0-9-]{0,39}$` |
 | `ruleId` | the id of the workflow rule that opened the work request. It matches `^[a-z0-9][a-z0-9._-]{0,99}$` |
@@ -246,16 +249,13 @@ exception. It writes a new history row, and the server answers 201.
 | 401 | | the request carries no token |
 | 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
-| 404 | | agent push is switched off on the instance, or the server has no such endpoint |
+| 404 | | agent push is switched off on the instance |
 | 422 | `{"error":"invalid_run_id"}` | `runId` is not a uuid |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
 
 `id` is the server's own id for the run, which the Worker runs page shows as
 the attempt ID. It is not the `runId`.
-
-The bridge reads a 404 with no body as a server that has no run states. It
-then falls back on the [finished run report](#reporting-a-finished-run).
 
 ## Reporting the runs a bridge holds
 
@@ -292,9 +292,7 @@ The server compares the list with the runs of that bridge that are open or
 - A run the list names and the server does not hold stays unknown. Its own
   state report creates it.
 
-Each change writes a history row, stamped with the server clock. The report
-never touches a run from the finished run report, because that run has no
-`runId`.
+Each change writes a history row, stamped with the server clock.
 
 | Status | Body | When |
 |---|---|---|
@@ -457,92 +455,6 @@ it no longer holds the run. Only a report that closes the run replaces `lost`.
 `app.bridge.run_timeout_schedule` in `config/services.yaml` is the cron
 expression of the task. `app:time-out-worker-runs` runs the same pass by hand.
 See [Console commands](commands.md).
-
-## Reporting a finished run
-
-`POST /api/projects/{handle}/worker-runs`
-
-A bridge built before run states reports each run once, when it ends. A new
-bridge uses this endpoint only on a server that has no run states. The handle
-follows the same rules as above.
-
-```json
-{
-  "bridgeId": "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
-  "sessionId": "5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f",
-  "cardId": "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
-  "cardNumber": 42,
-  "startedAt": "2026-09-13T10:00:00+00:00",
-  "endedAt": "2026-09-13T10:00:21+00:00",
-  "exitCode": 0,
-  "hasResult": true,
-  "failureReason": null,
-  "output": "reading card 42\nwrote a plan"
-}
-```
-
-| Field | Rule |
-|---|---|
-| `bridgeId` | a uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
-| `sessionId` | required. The uuid of the Claude Code session the worker ran as. The bridge generates a new one for each worker and passes it to `claude --session-id` |
-| `cardId` | the uuid of the card the worker was started for. It is a plain value, so a deleted card leaves its run history intact |
-| `cardNumber` | the short number the card shows, counting from 1 inside the project, at most 2147483647 |
-| `startedAt` | when the worker started, on the bridge clock, as an ISO 8601 timestamp |
-| `endedAt` | when the worker finished, on the bridge clock. It cannot be before `startedAt`, because both come from the same clock |
-| `exitCode` | the process exit code, between -255 and 255. Send `null` when the process never started |
-| `hasResult` | optional. `true` when the worker gave a structured result, `false` when it did not. Send `null` when the process never started, because a non-null value is refused when `exitCode` is `null` |
-| `failureReason` | why the process never started, at most 1000 characters. Required when `exitCode` is `null`, and refused when it is not |
-| `output` | what the worker printed, at most 4000 characters. It may be empty |
-
-A report without `sessionId` is refused with a 422 that names the field. A
-bridge built before the field existed sends none, so the server stores none of
-its runs. Rebuild the bridge from `cli/` to report runs again.
-
-The pairing of `exitCode` and `failureReason` is enforced, because a process
-that ran and failed is a different fault from a process that never started. A
-report that sends both, or neither, is refused.
-
-The server writes the run with its outcome and a history of two states:
-`running` at `startedAt`, then the outcome at `endedAt`. The outcome is
-`not-started` for a `null` exit code, and `failed` for any code other than 0.
-
-`hasResult` decides the outcome of a run that exited with code 0. `false` gives
-`no-result`, and `true` gives `succeeded`. A non-zero `exitCode` gives `failed`
-whatever `hasResult` says. A bridge built before the field existed sends none,
-and the server then reads the outcome from `exitCode` alone.
-
-The server stamps its own arrival time on the row. Both clocks are kept: the
-bridge clock says when the work happened, and the server clock says when the
-report landed. The gap between them is how long the report waited in the
-bridge's outbound queue.
-
-A report is safe to retry. The server identifies a run by its project, its
-`bridgeId`, its `cardId` and its `startedAt`, so a report it already holds
-answers with the row it already wrote and changes nothing. Send the same body
-again after a timeout or a lost response. A second run of the same card carries
-a later `startedAt`, so it is a new row.
-
-Send either timestamp in any offset. The server converts both to UTC before it
-stores them, so the same instant written two ways is the same report, and the
-list reads the same whichever offset a bridge runs in.
-
-`startedAt` is stored to the second, and a fraction of a second in the value you
-send is dropped. Two runs of one card by one bridge that start inside the same
-second therefore count as one report, and the second record is lost. A worker
-runs for minutes, so this needs a run that ends in milliseconds, which a failure
-to start does. The bridge in `cli/` logs `report_folded` when the server answers
-200 to a report it is sending for the first time, so the loss is on the record.
-
-| Status | Body | When |
-|---|---|---|
-| 201 | `{"id":"<uuid>"}` | the run is stored |
-| 200 | `{"id":"<uuid>"}` | the server already held this report, and the body changed nothing |
-| 401 | | the request carries no token |
-| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
-| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
-| 404 | | agent push is switched off on the instance |
-| 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
-| 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
 
 Send `Accept: application/json` to get a 422 body as JSON, on any endpoint of
 this page.

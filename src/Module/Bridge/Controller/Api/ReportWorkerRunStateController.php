@@ -19,8 +19,8 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * Records one state of one worker run against one of the caller's projects.
  * The firewall admits agent-scoped tokens alone.
  *
- * The bridge reads a 404 with no error code as a server with no such endpoint,
- * so every refusal the controller makes carries a code.
+ * Every refusal the controller makes carries an error code, so the bridge can
+ * tell an unknown project from an instance with agent push switched off.
  */
 #[RequireFeatureFlag(AgentPush::FLAG)]
 #[Route(
@@ -54,8 +54,8 @@ final class ReportWorkerRunStateController extends AppController
             bridgeId: $payload->bridgeId(),
             state: $payload->state(),
             at: $payload->at(),
-            cardId: $payload->cardId(),
-            cardNumber: $payload->cardNumber ?? throw new \LogicException('cardNumber is required after validation.'),
+            subject: $payload->subject(),
+            cardNumber: $payload->cardNumber,
             workRequestId: $payload->workRequestId(),
             workKind: $payload->workKind,
             ruleId: $payload->ruleId,

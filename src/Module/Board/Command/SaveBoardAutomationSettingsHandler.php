@@ -29,6 +29,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings = $this->automation->settingsForUpdate($command->project);
         $wasEnabled = $settings->enabled;
         $wasSyncing = $settings->enabled && $settings->syncBehind;
+        $wasOpeningEpics = $settings->openEpicPullRequests;
         $settings->enabled = $command->enabled;
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
@@ -37,8 +38,15 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->changeBase = $command->changeBase;
         $settings->epicDraftSwitch = $command->epicDraftSwitch;
         $settings->closeEpicPullRequests = $command->closeEpicPullRequests;
+        $settings->openEpicPullRequests = $command->openEpicPullRequests;
+        $epicBranchPattern = trim($command->epicBranchPattern ?? '');
+        $settings->epicBranchPattern = '' === $epicBranchPattern ? null : $epicBranchPattern;
         $this->em->flush();
-        $this->events->dispatch(new BoardAutomationSettingsSaved($command->project, !$wasEnabled && $command->enabled));
+        $this->events->dispatch(new BoardAutomationSettingsSaved(
+            $command->project,
+            !$wasEnabled && $command->enabled,
+            !$wasOpeningEpics && $command->openEpicPullRequests,
+        ));
 
         // A pull request that fell behind while the sync was off waits for no other trigger.
         if (!$wasSyncing && $command->enabled && $command->syncBehind) {
@@ -55,6 +63,8 @@ final readonly class SaveBoardAutomationSettingsHandler
             'changeBase' => $command->changeBase,
             'epicDraftSwitch' => $command->epicDraftSwitch,
             'closeEpicPullRequests' => $command->closeEpicPullRequests,
+            'openEpicPullRequests' => $command->openEpicPullRequests,
+            'epicBranchPattern' => $settings->epicBranchPattern,
         ]);
     }
 }

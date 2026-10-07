@@ -22,7 +22,6 @@ final class CardDrawerSaveControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'drawer-save@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Before', body: 'Old body');
@@ -60,7 +59,6 @@ final class CardDrawerSaveControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'page-save@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Before');
@@ -77,7 +75,6 @@ final class CardDrawerSaveControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'drawer-create@example.com');
         $project = $this->project($em, $owner);
         $next = $this->column($project, 'next');
@@ -104,7 +101,6 @@ final class CardDrawerSaveControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'drawer-clash@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Opened', body: 'Opened body');
@@ -134,7 +130,6 @@ final class CardDrawerSaveControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'drawer-deleted@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Doomed');

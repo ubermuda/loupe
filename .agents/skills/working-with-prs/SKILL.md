@@ -836,9 +836,11 @@ any pull request into `main` does. It syncs by a merge of `main`, through
 `gh pr update-branch` or the app sync, and the approval covers that merge. An epic whose breakdown ran before the epic
 branch existed has no `epic/<n>`, and its children target `main`.
 
-After each child merge, the merge stage refreshes the epic preview at
-`https://epic-<n>.loupe.dev.localhost` and carries the child's preview links to
-the `## Preview` section of the epic pull request. It re-mints each signed link
+The app opens the epic pull request as a draft after the first child merge.
+After each child merge, an `epic-preview` work request has the merge stage
+refresh the epic preview at `https://epic-<n>.loupe.dev.localhost`. The stage
+carries the child's preview links to the `## Preview` section of the epic pull
+request. It re-mints each signed link
 from its `to` and `email` parameters. So write each Preview line of a child with
 a signed link and its marker in backticks. The child's seeded state stays in the
 child's database, so a carried line can read "not proved" or "not minted". Seed that state on

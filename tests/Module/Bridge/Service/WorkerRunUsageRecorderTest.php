@@ -99,7 +99,8 @@ final class WorkerRunUsageRecorderTest extends KernelTestCase
         $row = $em->getConnection()->fetchAssociative('SELECT * FROM bridge_worker_run_usage WHERE run_id = ?', [(string) $run->id]);
         self::assertIsArray($row);
         self::assertSame((string) $project->id, $row['project_id']);
-        self::assertSame((string) $run->cardId, $row['card_id']);
+        self::assertSame('card', $row['subject_type']);
+        self::assertSame((string) $run->subjectId, $row['subject_id']);
         self::assertSame('review', $row['work_kind']);
         self::assertSame('estimated', $row['source']);
         self::assertSame([10, 20, 30, 40], [$row['input_tokens'], $row['output_tokens'], $row['cache_read_tokens'], $row['cache_write_tokens']]);

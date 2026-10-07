@@ -6,28 +6,21 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
-// Each flag goes back to its shipped value: the board on, the inbox off.
+// The inbox goes back to its shipped value, off.
 test.afterEach(async ({ page }) => {
-    for (const [name, enabled] of [
-        ['board.enabled', 1],
-        ['inbox.enabled', 0],
-    ] as const) {
-        const response = await page.request.post('/dev/e2e/feature-flag', {
-            form: { name, enabled },
-        });
-        expect(response.ok()).toBeTruthy();
-    }
+    const response = await page.request.post('/dev/e2e/feature-flag', {
+        form: { name: 'inbox.enabled', enabled: 0 },
+    });
+    expect(response.ok()).toBeTruthy();
 });
 
 test('workshop opens the matching request and keeps card details in its drawer', async ({
     page,
 }) => {
-    for (const name of ['board.enabled', 'inbox.enabled']) {
-        const response = await page.request.post('/dev/e2e/feature-flag', {
-            form: { name, enabled: 1 },
-        });
-        expect(response.ok()).toBeTruthy();
-    }
+    const inboxOn = await page.request.post('/dev/e2e/feature-flag', {
+        form: { name: 'inbox.enabled', enabled: 1 },
+    });
+    expect(inboxOn.ok()).toBeTruthy();
     const first = await page.request.post('/dev/seed/inbox');
     expect(first.ok()).toBeTruthy();
     const { projectId } = await first.json();
@@ -56,7 +49,8 @@ test('workshop opens the matching request and keeps card details in its drawer',
                 bridgeId: crypto.randomUUID(),
                 at: new Date().toISOString(),
                 state: 'queued',
-                cardId,
+                subjectType: 'card',
+                subjectId: cardId,
                 cardNumber: 1,
                 workKind: 'implement',
             },
@@ -222,23 +216,22 @@ test('workshop opens the matching request and keeps card details in its drawer',
     ).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(card).toBeFocused();
-    for (const name of ['board.enabled', 'inbox.enabled']) {
-        const response = await page.request.post('/dev/e2e/feature-flag', {
-            form: { name, enabled: 0 },
-        });
-        expect(response.ok()).toBeTruthy();
-    }
+    const inboxOff = await page.request.post('/dev/e2e/feature-flag', {
+        form: { name: 'inbox.enabled', enabled: 0 },
+    });
+    expect(inboxOff.ok()).toBeTruthy();
     await page.goto(workshopUrl);
     await expect(
-        page.locator('[data-workshop-stat] .lp-workshop-stat__value'),
+        page.locator(
+            '[data-workshop-stat="requests"] .lp-workshop-stat__value',
+        ),
     ).toHaveCount(0);
     await expect(page.locator('[data-workshop-stat="requests"]')).toContainText(
         'The inbox is disabled',
     );
     await expect(
-        page.locator('[data-workshop-stat="open-cards"]'),
-    ).toContainText('The board is disabled');
-    await expect(
-        page.locator('[data-workshop-stat="completed-cards"]'),
-    ).toContainText('The board is disabled');
+        page.locator(
+            '[data-workshop-stat="open-cards"] .lp-workshop-stat__value',
+        ),
+    ).toBeVisible();
 });

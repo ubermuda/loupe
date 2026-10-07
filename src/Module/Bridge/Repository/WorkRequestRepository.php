@@ -7,11 +7,13 @@ namespace App\Module\Bridge\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Query;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -196,26 +198,45 @@ class WorkRequestRepository extends ServiceEntityRepository
     }
 
     /**
-     * Serialises the opens of one kind on one card until the transaction ends,
-     * so a second open reads the first instead of tripping the unique index.
+     * The open requests about a subject other than a card that waited for a
+     * bridge since the deadline or longer, oldest first. A reopen restarts the wait.
+     *
+     * @return list<WorkRequest>
      */
-    public function lockLive(Uuid $cardId, string $kind): void
+    public function findOpenOfOtherSubjectsBefore(\DateTimeImmutable $deadline): array
+    {
+        return array_values($this->createQueryBuilder('w')
+            ->andWhere('w.state = :open')
+            ->andWhere('w.subjectType <> :card')
+            ->andWhere('COALESCE(w.reopenedAt, w.createdAt) <= :deadline')
+            ->setParameter('open', WorkRequestState::Open->value)
+            ->setParameter('card', WorkSubject::CARD)
+            ->setParameter('deadline', $deadline, Types::DATETIME_IMMUTABLE)
+            ->orderBy('w.createdAt', 'ASC')
+            ->addOrderBy('w.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * Serialises the opens of one kind on one subject until the transaction
+     * ends, so a second open reads the first instead of tripping the unique index.
+     */
+    public function lockLive(WorkSubject $subject, string $kind): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(
             'SELECT pg_advisory_xact_lock(hashtext(?))',
-            ['work_request:'.$cardId->toRfc4122().':'.$kind],
+            ['work_request:'.$subject->type.':'.$subject->id->toRfc4122().':'.$kind],
         );
     }
 
     /** Reads the state alone, like the unique index. */
-    public function hasLive(Uuid $cardId, string $kind): bool
+    public function hasLive(WorkSubject $subject, string $kind): bool
     {
-        return null !== $this->createQueryBuilder('w')
+        return null !== $this->ofSubject($subject)
             ->select('1')
-            ->andWhere('w.cardId = :cardId')
             ->andWhere('w.kind = :kind')
             ->andWhere('w.state IN (:live)')
-            ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('kind', $kind)
             ->setParameter('live', [WorkRequestState::Open->value, WorkRequestState::Claimed->value])
             ->setMaxResults(1)
@@ -223,16 +244,14 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** The request with the id, when it belongs to the card of the project. A run report names its request unchecked. */
-    public function findOneOfCard(Uuid $id, Project $project, Uuid $cardId): ?WorkRequest
+    /** The request with the id, when it belongs to the subject in the project. A run report names its request unchecked. */
+    public function findOneOfSubject(Uuid $id, Project $project, WorkSubject $subject): ?WorkRequest
     {
-        return $this->createQueryBuilder('w')
+        return $this->ofSubject($subject)
             ->andWhere('w.id = :id')
             ->andWhere('w.project = :project')
-            ->andWhere('w.cardId = :cardId')
             ->setParameter('id', $id, UuidType::NAME)
             ->setParameter('project', $project)
-            ->setParameter('cardId', $cardId, UuidType::NAME)
             ->getQuery()
             ->getOneOrNullResult();
     }
@@ -244,10 +263,8 @@ class WorkRequestRepository extends ServiceEntityRepository
      */
     public function findLiveForCard(Uuid $cardId): array
     {
-        return array_values($this->createQueryBuilder('w')
-            ->andWhere('w.cardId = :cardId')
+        return array_values($this->ofSubject(WorkSubject::card($cardId))
             ->andWhere('w.state IN (:live)')
-            ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('live', [WorkRequestState::Open->value, WorkRequestState::Claimed->value])
             ->orderBy('w.createdAt', 'ASC')
             ->addOrderBy('w.id', 'ASC')
@@ -258,11 +275,9 @@ class WorkRequestRepository extends ServiceEntityRepository
     /** The newest request of the card that the rule opened for the kind, in any state. */
     public function findLatestOfCardKindRule(Uuid $cardId, string $kind, string $ruleId): ?WorkRequest
     {
-        return $this->createQueryBuilder('w')
-            ->andWhere('w.cardId = :cardId')
+        return $this->ofSubject(WorkSubject::card($cardId))
             ->andWhere('w.kind = :kind')
             ->andWhere('w.ruleId = :ruleId')
-            ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('kind', $kind)
             ->setParameter('ruleId', $ruleId)
             ->orderBy('w.createdAt', 'DESC')
@@ -275,10 +290,8 @@ class WorkRequestRepository extends ServiceEntityRepository
     /** The request of the card that settled done or refused last. */
     public function findLatestSettledForCard(Uuid $cardId): ?WorkRequest
     {
-        return $this->createQueryBuilder('w')
-            ->andWhere('w.cardId = :cardId')
+        return $this->ofSubject(WorkSubject::card($cardId))
             ->andWhere('w.state IN (:settled)')
-            ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('settled', [WorkRequestState::Done->value, WorkRequestState::Refused->value])
             ->orderBy('w.settledAt', 'DESC')
             ->addOrderBy('w.id', 'DESC')
@@ -303,5 +316,14 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->addOrderBy('w.id', 'ASC')
             ->getQuery()
             ->toIterable();
+    }
+
+    private function ofSubject(WorkSubject $subject): QueryBuilder
+    {
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.subjectType = :subjectType')
+            ->andWhere('w.subjectId = :subjectId')
+            ->setParameter('subjectType', $subject->type)
+            ->setParameter('subjectId', $subject->id, UuidType::NAME);
     }
 }

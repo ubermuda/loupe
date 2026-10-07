@@ -11,7 +11,6 @@
 {% endblock %}
 
 {% block body %}
-{% set boardEnabled = is_feature_enabled('board.enabled') %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
     {% include 'activity/_header.html.twig' with {} only %}
 
@@ -109,7 +108,7 @@
         <div class="lp-data-table__row" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if not frameRequest and listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
             <div class="lp-data-table__cell lp-data-table__primary">
                 <button type="button" class="lp-data-table__target" data-action="modal#open">
-                    <span class="lp-data-table__number">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
+                    {% if run.cardNumber is not null %}<span class="lp-data-table__number">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>{% else %}<span class="lp-data-table__number" data-worker-run-subject>{{ run.subjectType }}</span>{% endif %}
                     {% if item.cardTitle is not null %}<span class="lp-data-table__title">{{ item.cardTitle }}</span>{% endif %}
                     <span class="sr-only">{{ 'bridge.worker_runs.details.open'|trans }}</span>
                 </button>
@@ -123,7 +122,7 @@
             <span class="lp-data-table__cell">{{ run.workKind ?? 'bridge.worker_runs.no_work_kind'|trans }}{% if run.workerPool is not null %} <span class="lp-tag lp-tag--neutral" data-worker-pool>{{ 'bridge.worker_runs.worker_pool_label'|trans({'%pool%': run.workerPool}) }}</span>{% endif %}</span>
             <span class="lp-data-table__cell lp-data-table__cell--end">{% if item.interactive and item.state.isOpen() and item.duration() is not null %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}</span>
             <span class="lp-data-table__cell"><time datetime="{{ shownAt|date('c') }}" title="{{ shownAt|date('Y-m-d H:i:s T') }}">{{ shownAt|relative_time }}</time></span>
-            {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, boardEnabled: boardEnabled, bridgeLabels: bridgeLabels} only %}
+            {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, bridgeLabels: bridgeLabels} only %}
         </div>
         {% endfor %}
     </twig:DataTable>

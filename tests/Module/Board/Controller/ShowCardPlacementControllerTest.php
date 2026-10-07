@@ -9,6 +9,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -24,7 +25,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-member@example.com');
         $project = $this->project($em, $owner);
@@ -64,7 +64,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-epic@example.com');
         $project = $this->project($em, $owner);
@@ -89,7 +88,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-lane-head@example.com');
         $project = $this->project($em, $owner);
@@ -119,7 +117,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-backlog-lane-head@example.com');
         $project = $this->project($em, $owner);
@@ -146,7 +143,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-backlog-card@example.com');
         $project = $this->project($em, $owner);
@@ -169,7 +165,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-lane-child@example.com');
         $project = $this->project($em, $owner);
@@ -196,7 +191,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-no-lane@example.com');
         $project = $this->project($em, $owner);
@@ -217,7 +211,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-lane-ids@example.com');
         $project = $this->project($em, $owner);
@@ -247,7 +240,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-warning@example.com');
         $project = $this->project($em, $owner);
@@ -269,7 +261,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-owner@example.com');
         $outsider = $this->user($em, 'placement-outsider@example.com');
@@ -291,7 +282,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-owner-gone@example.com');
         $outsider = $this->user($em, 'placement-outsider-gone@example.com');
@@ -311,7 +301,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-deleted@example.com');
         $project = $this->project($em, $owner);
@@ -339,7 +328,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-old-done@example.com');
         $project = $this->project($em, $owner);
@@ -366,7 +354,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-history@example.com');
         $project = $this->project($em, $owner);
@@ -400,7 +387,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $member = $this->user($em, 'placement-cross-member@example.com');
         $stranger = $this->user($em, 'placement-cross-stranger@example.com');
@@ -425,31 +411,10 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertStringNotContainsString('lp-board-card"', $content);
     }
 
-    public function test_the_placement_is_not_found_while_the_board_is_off(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'placement-flag-off@example.com');
-        $project = $this->project($em, $owner);
-        $this->addTriageColumn($project);
-        $em->flush();
-        $card = $this->card($em, $project, 'Hidden');
-        $url = $this->placementUrl((string) $project->id, (string) $card->id);
-        $this->disableBoard();
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $url);
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
     public function test_the_board_page_gives_each_card_and_row_a_stable_id_and_digest(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-ids@example.com');
         $project = $this->project($em, $owner);
@@ -484,7 +449,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-digest-child@example.com');
         $project = $this->project($em, $owner);
@@ -505,7 +469,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-digest-epic@example.com');
         $project = $this->project($em, $owner);
@@ -532,7 +495,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-lane@example.com');
         $project = $this->project($em, $owner);
@@ -562,7 +524,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-lane-other@example.com');
         $project = $this->project($em, $owner);
@@ -589,7 +550,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-lane-epic@example.com');
         $project = $this->project($em, $owner);
@@ -613,7 +573,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-lane-removed@example.com');
         $project = $this->project($em, $owner);
@@ -642,7 +601,6 @@ final class ShowCardPlacementControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'placement-no-lane@example.com');
         $project = $this->project($em, $owner);
@@ -664,7 +622,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $run = new WorkerRun(
             project: $card->project,
             bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $card->number,
             workKind: 'implement',
             state: WorkerRunState::GaveUp,

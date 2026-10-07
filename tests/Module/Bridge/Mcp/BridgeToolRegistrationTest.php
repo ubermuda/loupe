@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\CardRunCloseTool;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Mcp\BridgeCommandCancelTool;
@@ -20,13 +19,11 @@ use App\Module\Bridge\Mcp\WorkerRunResumeTool;
 use App\Module\Bridge\Mcp\WorkerRunStopTool;
 use App\Module\Project\Mcp\AdvertisedTools;
 use App\Module\Workflow\Mcp\CardPauseReleaseTool;
-use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Registry;
 use Mcp\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /**
  * The worker tools are reached only through the published schema, so their
@@ -98,13 +95,6 @@ final class BridgeToolRegistrationTest extends KernelTestCase
 
     public function test_the_bridge_tools_are_advertised_after_the_board_run_tools(): void
     {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
-        $em = self::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $em->flush();
-
         $advertised = self::getContainer()->get(AdvertisedTools::class);
         self::assertInstanceOf(AdvertisedTools::class, $advertised);
 

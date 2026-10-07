@@ -12,12 +12,7 @@
  * still open the card.
  */
 
-import {
-    test as base,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
 const RUN = Date.now();
@@ -45,16 +40,6 @@ async function waitForDragReady(page: Page): Promise<void> {
  */
 async function cardPlaced(page: Page): Promise<void> {
     await expect(page.locator(`${CARD}[aria-busy]`)).toHaveCount(0);
-}
-
-async function setBoardFlag(
-    request: APIRequestContext,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
 }
 
 async function devRegisterAndVerify(
@@ -99,7 +84,9 @@ async function createCard(
     await page.getByLabel('Title').fill(title);
     await page.getByLabel('Column').selectOption({ label: 'Next' });
     await page.getByRole('button', { name: 'Create card' }).click();
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible({
+        timeout: 15_000,
+    });
 }
 
 function group(page: Page, column: number) {
@@ -194,7 +181,6 @@ const test = base.extend<{ board: Board }>({
         async ({ page }, use, testInfo) => {
             await suppressToolbar(page);
             await suppressWidget(page);
-            await setBoardFlag(page.request, true);
 
             const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
             const email = `e2e+board+${tag}+${RUN}@example.com`;
@@ -217,14 +203,12 @@ const test = base.extend<{ board: Board }>({
     ],
 });
 
+// Some of its tests run 20s or more beside three other workers, near the default budget.
+test.slow();
+
 test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1440, height: 900 },
-});
-
-// The flag is global, so it goes back to its shipped value, on, for later specs.
-test.afterAll(async ({ request }) => {
-    await setBoardFlag(request, true);
 });
 
 test('the board search filters cards and reports an empty result', async ({

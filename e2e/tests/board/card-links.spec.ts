@@ -10,21 +10,12 @@ const test = createTest({
     name: 'Card Links Reviewer',
 });
 
+// Some of its tests run 20s or more beside three other workers, near the default budget.
+test.slow();
+
 test.beforeEach(async ({ page }) => {
     await suppressToolbar(page);
     await suppressWidget(page);
-    const flag = await page.request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(flag.ok()).toBeTruthy();
-});
-
-// The flag is global, so it goes back to its shipped value, on, for later specs.
-test.afterAll(async ({ request }) => {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 1 },
-    });
-    expect(response.ok()).toBeTruthy();
 });
 
 /** The site-review harness gives the account its project, so it runs first. */
@@ -54,7 +45,7 @@ async function createCard(
         .click();
     await expect(
         page.getByRole('heading', { name: title, exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     return new URL(page.url()).pathname;
 }
@@ -81,7 +72,7 @@ test('a link picked on the edit form shows on the other card as it reads it', as
     await page.getByRole('button', { name: 'Save card', exact: true }).click();
     await expect(
         page.getByRole('heading', { name: blocker, exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     await page.goto(blockedPath);
     const linked = page.locator('[data-linked-cards] [data-linked-card]');

@@ -6,7 +6,6 @@ namespace App\Tests\Module\Inbox\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
@@ -23,7 +22,6 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Profiler\Profile;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class LinkedInboxSectionTest extends WebTestCase
 {
@@ -54,9 +52,6 @@ final class LinkedInboxSectionTest extends WebTestCase
         $em->flush();
 
         $this->setInboxFlag(true);
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $em->flush();
 
         $this->client->loginUser($this->owner);

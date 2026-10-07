@@ -12,7 +12,7 @@ import (
 const commandPayload = `{"type":"bridge.command","projectId":"0192F3A1-4B2C-7D3E-8F10-A2B3C4D5E6F7",` +
 	`"subject":{"type":"bridge-command","id":"0199A0E2-0000-7C5E-9F2A-3B1C6D7E8F90"},"commandId":"0199A0E2-0000-7C5E-9F2A-3B1C6D7E8F90",` +
 	`"kind":"stop-run","bridgeId":"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A","runKey":"0199A0E2-1111-7C5E-9F2A-3B1C6D7E8F90",` +
-	`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90","cardId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7","cardNumber":42,` +
+	`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90","subjectType":"card","subjectId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7","cardNumber":42,` +
 	`"workRequestId":"0199A0E2-3333-7C5E-9F2A-3B1C6D7E8F90","workKind":"plan","ruleId":"plan-on-entry","expiresAt":"2026-09-29T10:15:00+00:00"}`
 
 func TestParseCommand(t *testing.T) {
@@ -29,7 +29,8 @@ func TestParseCommand(t *testing.T) {
 		BridgeID:      "7d1e2f3a-4b5c-4d6e-9f0a-1b2c3d4e5f6a",
 		RunKey:        "0199a0e2-1111-7c5e-9f2a-3b1c6d7e8f90",
 		SessionID:     "0199a0e2-2222-7c5e-9f2a-3b1c6d7e8f90",
-		CardID:        "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7",
+		SubjectType:   api.SubjectCard,
+		SubjectID:     "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7",
 		CardNumber:    42,
 		WorkRequestID: "0199a0e2-3333-7c5e-9f2a-3b1c6d7e8f90",
 		WorkKind:      "plan",
@@ -96,24 +97,37 @@ func TestParseCommandReadsTheCause(t *testing.T) {
 	}
 }
 
+// The run of a subject that is no card carries no card number.
+func TestParseCommandTakesASubjectThatIsNoCard(t *testing.T) {
+	payload := strings.Replace(commandPayload, `"subjectType":"card","subjectId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7","cardNumber":42,`,
+		`"subjectType":"analysis","subjectId":"0192F3A1-8888-7D3E-8F10-A2B3C4D5E6F7","cardNumber":null,`, 1)
+	c, err := ParseCommand([]byte(payload))
+	if err != nil || c.SubjectType != "analysis" || c.SubjectID != "0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7" || c.CardNumber != 0 {
+		t.Fatalf("command = %+v, err = %v", c, err)
+	}
+}
+
 func TestParseCommandRejectsEachMalformedField(t *testing.T) {
 	for name, pair := range map[string][2]string{
-		"another type":       {`"type":"bridge.command"`, `"type":"board.card_moved"`},
-		"projectId":          {`"projectId":"0192F3A1-4B2C-7D3E-8F10-A2B3C4D5E6F7"`, `"projectId":"p"`},
-		"commandId":          {`"commandId":"0199A0E2-0000-7C5E-9F2A-3B1C6D7E8F90"`, `"commandId":"c"`},
-		"subject of another": {`"id":"0199A0E2-0000-7C5E-9F2A-3B1C6D7E8F90"`, `"id":"0199a0e2-0000-7c5e-9f2a-000000000000"`},
-		"subject type":       {`"type":"bridge-command"`, `"type":"card"`},
-		"kind":               {`"kind":"stop-run"`, `"kind":"pause"`},
-		"bridgeId":           {`"bridgeId":"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A"`, `"bridgeId":null`},
-		"runKey":             {`"runKey":"0199A0E2-1111-7C5E-9F2A-3B1C6D7E8F90"`, `"runKey":"r"`},
-		"sessionId":          {`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90"`, `"sessionId":"s"`},
-		"cardId":             {`"cardId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7"`, `"cardId":null`},
-		"cardNumber":         {`"cardNumber":42`, `"cardNumber":0`},
-		"workRequestId":      {`"workRequestId":"0199A0E2-3333-7C5E-9F2A-3B1C6D7E8F90"`, `"workRequestId":"w"`},
-		"workKind":           {`"workKind":"plan"`, `"workKind":"Not A Kind"`},
-		"cause":              {`"kind":"stop-run"`, `"kind":"stop-run","cause":"a whim"`},
-		"no expiry":          {`,"expiresAt":"2026-09-29T10:15:00+00:00"`, ``},
-		"expiry not a date":  {`"expiresAt":"2026-09-29T10:15:00+00:00"`, `"expiresAt":"soon"`},
+		"another type":        {`"type":"bridge.command"`, `"type":"board.card_moved"`},
+		"projectId":           {`"projectId":"0192F3A1-4B2C-7D3E-8F10-A2B3C4D5E6F7"`, `"projectId":"p"`},
+		"commandId":           {`"commandId":"0199A0E2-0000-7C5E-9F2A-3B1C6D7E8F90"`, `"commandId":"c"`},
+		"subject of another":  {`"id":"0199A0E2-0000-7C5E-9F2A-3B1C6D7E8F90"`, `"id":"0199a0e2-0000-7c5e-9f2a-000000000000"`},
+		"subject type":        {`"type":"bridge-command"`, `"type":"card"`},
+		"kind":                {`"kind":"stop-run"`, `"kind":"pause"`},
+		"bridgeId":            {`"bridgeId":"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A"`, `"bridgeId":null`},
+		"runKey":              {`"runKey":"0199A0E2-1111-7C5E-9F2A-3B1C6D7E8F90"`, `"runKey":"r"`},
+		"sessionId":           {`"sessionId":"0199A0E2-2222-7C5E-9F2A-3B1C6D7E8F90"`, `"sessionId":"s"`},
+		"no subjectType":      {`"subjectType":"card",`, ``},
+		"subjectType":         {`"subjectType":"card"`, `"subjectType":"a card"`},
+		"subjectId":           {`"subjectId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7"`, `"subjectId":null`},
+		"cardNumber":          {`"cardNumber":42`, `"cardNumber":0`},
+		"cardNumber off card": {`"subjectType":"card"`, `"subjectType":"analysis"`},
+		"workRequestId":       {`"workRequestId":"0199A0E2-3333-7C5E-9F2A-3B1C6D7E8F90"`, `"workRequestId":"w"`},
+		"workKind":            {`"workKind":"plan"`, `"workKind":"Not A Kind"`},
+		"cause":               {`"kind":"stop-run"`, `"kind":"stop-run","cause":"a whim"`},
+		"no expiry":           {`,"expiresAt":"2026-09-29T10:15:00+00:00"`, ``},
+		"expiry not a date":   {`"expiresAt":"2026-09-29T10:15:00+00:00"`, `"expiresAt":"soon"`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			payload := strings.Replace(commandPayload, pair[0], pair[1], 1)

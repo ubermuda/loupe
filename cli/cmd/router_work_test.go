@@ -39,7 +39,7 @@ func workID(n int) string {
 func workRequest(n, card int, kind, state string) api.WorkRequest {
 	return api.WorkRequest{
 		Type: event.WorkRequestType, ProjectID: testProject, Subject: api.WorkRequestSubject{Type: "work-request", ID: workID(n)},
-		WorkRequestID: workID(n), Kind: kind, State: state, CardID: cardUUID(card), CardNumber: card, RuleID: "implement-on-next",
+		WorkRequestID: workID(n), Kind: kind, State: state, SubjectType: api.SubjectCard, SubjectID: cardUUID(card), CardNumber: card, RuleID: "implement-on-next",
 		CreatedAt: time.Date(2026, 10, 2, 8, 0, 0, 0, time.UTC),
 	}
 }
@@ -165,7 +165,7 @@ func TestAWorkOfferClaimsRunsAndSettles(t *testing.T) {
 	sent := rec.states()
 	wantStates(t, sent, api.RunQueued, api.RunRunning, api.RunSucceeded)
 	for _, s := range sent {
-		if s.report.WorkKind != "implement" || s.report.WorkRequestID != workID(1) || s.report.RuleID == "" || s.report.Rule != "work:implement" || s.report.CardID != cardUUID(87) || s.report.CardNumber != 87 || s.handle != testProject {
+		if s.report.WorkKind != "implement" || s.report.WorkRequestID != workID(1) || s.report.RuleID == "" || s.report.Rule != "work:implement" || s.report.SubjectType != api.SubjectCard || s.report.SubjectID != cardUUID(87) || s.report.CardNumber != 87 || s.handle != testProject {
 			t.Fatalf("report = %+v", s.report)
 		}
 	}
@@ -634,16 +634,23 @@ func TestAHandoverKeepsTheWorkClaims(t *testing.T) {
 	h2.states()
 	f2 := h2.withWork()
 	f2.requests[queued.WorkRequestID] = queued
+	// The adopted worker ends only after the freeze, or its end races the
+	// freeze and the state loses the live run.
+	ended := make(chan struct{})
 	h2.router.worker.adopt = func(context.Context, string) workerResult {
+		<-ended
 		return workerResult{hasResult: true, status: "finished"}
 	}
 	h2.router.pause()
 	h2.router.adopt(st)
 	if got := h2.heldClaims(); !slices.Equal(got, []api.WorkClaim{{ID: workID(1), ClaimToken: tokenOf(1)}}) {
+		close(ended)
 		t.Fatalf("adopted claims = %v", got)
 	}
-	if got, want := stateJSON(t, h2.router.freeze()), stateJSON(t, st); got != want {
-		t.Fatalf("adopted state freezes to\n%s\nwant\n%s", got, want)
+	frozen := stateJSON(t, h2.router.freeze())
+	close(ended)
+	if want := stateJSON(t, st); frozen != want {
+		t.Fatalf("adopted state freezes to\n%s\nwant\n%s", frozen, want)
 	}
 	h2.router.resume()
 	h2.router.wg.Wait()
@@ -727,4 +734,107 @@ func TestAWorkEntryWithVariantsPinsItsVariant(t *testing.T) {
 		t.Fatalf("workers = %+v", got)
 	}
 	wantExperiment(t, rec.states(), runPin{Experiment: "split", Variant: "b", RequestedModel: "sonnet"})
+}
+
+// analysisID is the id of the analysis that the subject tests run on.
+const analysisID = "0199d000-0000-7000-8000-000000000001"
+
+// analysisRequest is work request n of the kind about the analysis, which
+// carries no card number.
+func analysisRequest(n int, kind string) api.WorkRequest {
+	w := workRequest(n, 0, kind, api.WorkRequestOpen)
+	w.SubjectType, w.SubjectID = "analysis", analysisID
+
+	return w
+}
+
+// Work about a subject that is no card claims, runs and settles, and each of
+// its run states names the subject and no card.
+func TestAWorkOfferAboutAnotherSubjectReportsItsRun(t *testing.T) {
+	h := newHarnessWith(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectType} {subjectId}.\n", rules.Defaults{})
+	rec := h.states()
+	f := h.withWork()
+	h.worker.result = workerResult{hasResult: true, status: "finished"}
+
+	h.offer(f, analysisRequest(1, "analyse"))
+
+	calls := h.worker.recorded()
+	if len(calls) != 1 || !strings.HasPrefix(calls[0].prompt, "Analyse analysis "+analysisID+".") {
+		t.Fatalf("workers = %+v", calls)
+	}
+	sent := rec.states()
+	wantStates(t, sent, api.RunQueued, api.RunRunning, api.RunSucceeded)
+	for _, s := range sent {
+		r := s.report
+		if r.SubjectType != "analysis" || r.SubjectID != analysisID || r.CardNumber != 0 || r.WorkRequestID != workID(1) || r.WorkKind != "analyse" {
+			t.Fatalf("report = %+v", r)
+		}
+	}
+	if got := f.settled(); !slices.Equal(got, []string{workID(1) + " " + tokenOf(1) + " done"}) {
+		t.Fatalf("results = %v", got)
+	}
+	if n := len(h.events(t, "report_skipped")); n != 0 {
+		t.Fatalf("report_skipped logged %d times", n)
+	}
+}
+
+// A card entry runs no work about another subject, so the bridge skips it
+// and claims nothing.
+func TestACardEntrySkipsWorkAboutAnotherSubject(t *testing.T) {
+	h := newHarnessWith(t, workRules, rules.Defaults{})
+	h.states()
+	f := h.withWork()
+
+	h.offer(f, analysisRequest(1, "implement"))
+
+	if got := f.claimed(); len(got) != 0 {
+		t.Fatalf("claims = %v", got)
+	}
+	if calls := h.worker.recorded(); len(calls) != 0 {
+		t.Fatalf("workers = %+v", calls)
+	}
+}
+
+// cardOf names the card of a card subject only.
+func TestCardOfNamesTheCardOfACardSubjectOnly(t *testing.T) {
+	analysisCommand := api.Command{ProjectID: testProject, SubjectType: "analysis", SubjectID: analysisID}
+	cardCommand := api.Command{ProjectID: testProject, SubjectType: api.SubjectCard, SubjectID: cardUUID(87), CardNumber: 87}
+	for name, tc := range map[string]struct {
+		e      event.Event
+		id     string
+		number int
+	}{
+		"card work":        {workEvent(workRequest(1, 87, "implement", api.WorkRequestOpen)), cardUUID(87), 87},
+		"analysis work":    {workEvent(analysisRequest(1, "analyse")), "", 0},
+		"card command":     {commandEvent(cardCommand), cardUUID(87), 87},
+		"analysis command": {commandEvent(analysisCommand), "", 0},
+	} {
+		if id, number := cardOf(tc.e); id != tc.id || number != tc.number {
+			t.Fatalf("%s: cardOf = %q, %d, want %q, %d", name, id, number, tc.id, tc.number)
+		}
+	}
+}
+
+// A rerun or a resume continues the work of the run, so it keeps the subject.
+func TestCommandWorkKeepsTheSubject(t *testing.T) {
+	w := commandWork(api.Command{ProjectID: testProject, SubjectType: "analysis", SubjectID: analysisID, WorkKind: "analyse", WorkRequestID: workID(1)})
+	if w.SubjectType != "analysis" || w.SubjectID != analysisID || w.CardNumber != 0 || w.OnCard() {
+		t.Fatalf("work = %+v", w)
+	}
+}
+
+// A claim that answers with another subject than the offer is refused.
+func TestCheckClaimComparesTheSubject(t *testing.T) {
+	offer := workRequest(1, 87, "implement", api.WorkRequestOpen)
+	if err := checkClaim(api.Claim{WorkRequest: offer}, offer); err != nil {
+		t.Fatal(err)
+	}
+	for name, w := range map[string]api.WorkRequest{
+		"another card":    workRequest(1, 88, "implement", api.WorkRequestOpen),
+		"another subject": analysisRequest(1, "implement"),
+	} {
+		if err := checkClaim(api.Claim{WorkRequest: w}, offer); err == nil {
+			t.Fatalf("%s: the claim was taken", name)
+		}
+	}
 }

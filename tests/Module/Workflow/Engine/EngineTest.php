@@ -11,19 +11,19 @@ use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardLink;
+use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
@@ -32,6 +32,8 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
@@ -87,8 +89,6 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Ubermuda\AuditBundle\Auditor;
-use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class EngineTest extends KernelTestCase
 {
@@ -522,7 +522,7 @@ final class EngineTest extends KernelTestCase
     public function test_a_live_request_whose_rule_left_the_template_is_cancelled(): void
     {
         $card = $this->boundCard([]);
-        $request = new WorkRequest($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
+        $request = new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
         $this->em()->persist($request);
         $this->em()->flush();
 
@@ -559,7 +559,7 @@ final class EngineTest extends KernelTestCase
     public function test_a_held_card_fires_nothing_and_settles_no_request_until_the_hold_goes(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
-        $stale = new WorkRequest($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
+        $stale = new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
         $this->em()->persist($stale);
         $this->em()->flush();
         $this->hold($card);
@@ -720,23 +720,6 @@ final class EngineTest extends KernelTestCase
         self::assertSame(['fix'], $this->firedRules());
     }
 
-    public function test_a_card_evaluated_while_the_board_is_off_for_the_instance_gets_a_baseline_for_when_it_is_on(): void
-    {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
-        $this->setBoardEnabled(false);
-
-        $this->evaluate($card);
-
-        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
-
-        $this->setBoardEnabled(true);
-        $this->evaluate($card, '2026-10-02 12:01:00');
-
-        self::assertSame([], $this->liveRequests($card));
-        self::assertSame([], $this->firedRecords());
-        self::assertTrue($this->ruleState($card, 'work')->truth);
-    }
-
     public function test_a_project_with_no_workflow_is_left_alone(): void
     {
         self::bootKernel();
@@ -754,7 +737,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-lifecycle');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $this->approvedDocument($card, 'tech-design');
+        $this->document($card, 'tech-design');
 
         $this->evaluate($card);
 
@@ -768,6 +751,76 @@ final class EngineTest extends KernelTestCase
         self::assertSame(['implement', 'implement'], [$live[0]->kind, $live[0]->ruleId]);
     }
 
+    public function test_a_revised_design_document_back_in_review_asks_for_no_new_design(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-design-revision');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'tech-design');
+        $design = $this->document($card, 'tech-design', DocumentStatus::ChangesRequested);
+        $this->evaluate($card);
+        self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
+
+        $this->setStatus($design, DocumentStatus::InReview);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('tech-design', $card->column->slug);
+        self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
+    }
+
+    public function test_an_undone_design_approval_asks_for_no_new_design(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-design-undo');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'tech-design');
+        $this->block($card);
+        $design = $this->document($card, 'tech-design');
+        $this->evaluate($card);
+        self::assertSame('tech-design', $card->column->slug);
+
+        $this->setStatus($design, DocumentStatus::InReview);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('tech-design', $card->column->slug);
+        self::assertSame([], $this->requestRuleIds($card));
+    }
+
+    public function test_a_design_approved_straight_after_a_change_request_only_moves_the_card(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-design-approved-after-changes');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'tech-design');
+        $design = $this->document($card, 'tech-design', DocumentStatus::ChangesRequested);
+        $this->evaluate($card);
+        self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
+
+        $this->setStatus($design, DocumentStatus::Approved);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('in-progress', $card->column->slug);
+        self::assertSame(['tech-design-approved'], $this->firedRules());
+        self::assertSame(['tech-design-revise'], $this->requestRuleIds($card));
+    }
+
+    public function test_a_revised_product_document_back_in_review_asks_for_no_new_session(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-product-revision');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'product-design');
+        $product = $this->document($card, 'product-design', DocumentStatus::ChangesRequested);
+        $this->evaluate($card);
+        self::assertSame(['product-design-revise'], $this->requestRuleIds($card));
+
+        $this->setStatus($product, DocumentStatus::InReview);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        self::assertSame('product-design', $card->column->slug);
+        self::assertSame(['product-design-revise'], $this->requestRuleIds($card));
+    }
+
     /** The board updates live from CardChanged, so each change the engine makes to a card dispatches one. */
     public function test_an_engine_move_and_its_work_request_reach_the_live_board(): void
     {
@@ -775,7 +828,7 @@ final class EngineTest extends KernelTestCase
         $project = $this->workflowProject('engine-live');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $this->approvedDocument($card, 'tech-design');
+        $this->document($card, 'tech-design');
         $changed = [];
         $dispatcher = self::getContainer()->get('event_dispatcher');
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
@@ -954,6 +1007,44 @@ final class EngineTest extends KernelTestCase
         $this->childOf($epic, 'next');
         $this->evaluate($epic, '2026-10-02 12:30:00');
         self::assertSame('in-progress', $epic->column->slug);
+    }
+
+    public function test_a_lifecycle_epic_whose_last_child_merged_into_the_epic_branch_fires_the_open_rule_and_stays_out_of_done(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-epic-open');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $child = $this->childOf($epic, 'done');
+        $this->pullRequest($child, PullRequestState::Merged, base: 'epic/'.$epic->number);
+        $this->evaluate($epic);
+        $this->finish($this->liveRequests($epic)[0]);
+
+        $this->evaluate($epic, '2026-10-02 12:25:00');
+
+        self::assertSame('in-progress', $epic->column->slug);
+        $state = $this->ruleState($epic, 'epic-open-pull-request');
+        self::assertSame('open-epic-off', $state->lastRefusal);
+        self::assertNotNull($state->dueAt);
+    }
+
+    public function test_a_lifecycle_child_merged_into_the_epic_branch_asks_for_an_epic_preview_and_one_merged_into_main_does_not(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-epic-preview');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $intoEpic = $this->childOf($epic, 'done');
+        $this->pullRequest($intoEpic, PullRequestState::Merged, base: 'epic/'.$epic->number);
+        $intoMain = $this->childOf($epic, 'done');
+        $this->pullRequest($intoMain, PullRequestState::Merged);
+
+        $this->evaluate($intoEpic);
+        $this->evaluate($intoMain);
+
+        $kinds = fn (Card $card): array => array_map(static fn (WorkRequest $request): string => $request->kind, $this->liveRequests($card));
+        self::assertEqualsCanonicalizing(['epic-preview', 'teardown'], $kinds($intoEpic));
+        self::assertSame(['teardown'], $kinds($intoMain));
     }
 
     public function test_a_card_evaluations_call_evaluates_the_card_and_its_provided_fact_fires_the_rule(): void
@@ -1379,6 +1470,7 @@ final class EngineTest extends KernelTestCase
                 $forgePullRequests,
                 $workRequests,
                 $this->providers(),
+                $this->service(BoardAutomation::class),
                 $this->em()->getConnection(),
             ),
             new FactFingerprint(),
@@ -1387,7 +1479,7 @@ final class EngineTest extends KernelTestCase
             $this->service(WorkflowAutomation::class),
             $this->service(WorkflowPendingBaselineRepository::class),
             $workRequests,
-            new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class)),
+            new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class), new WorkSubjectHandlers([])),
             $cardPauses,
             new PauseCardHandler($cardPauses, $this->em(), $clock, $auditor, $dispatcher, $this->service(\App\Module\Board\Repository\CardEventRepository::class)),
             $releaseCardPause,
@@ -1435,7 +1527,7 @@ final class EngineTest extends KernelTestCase
         $events = new EventDispatcher();
         $events->addListener(CardHoldsReleased::class, new BaselineCardsOnCardHoldsReleased(
             $this->service(WorkflowPendingBaselineRepository::class),
-            new EvaluationTrigger($this->service(MessageBusInterface::class), $this->service(BoardAvailability::class)),
+            new EvaluationTrigger($this->service(MessageBusInterface::class)),
         ));
         $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), new MockClock(self::NOON), $events);
 
@@ -1460,12 +1552,6 @@ final class EngineTest extends KernelTestCase
             $settings->mergePullRequests,
             $settings->changeBase,
         ));
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $this->service(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->service(DoctrineFeatureFlagReader::class)->reset();
     }
 
     private function requestChangesOnHead(ForgePullRequest $pullRequest): void
@@ -1516,15 +1602,38 @@ final class EngineTest extends KernelTestCase
         $this->em()->flush();
     }
 
-    private function approvedDocument(Card $card, string $tagName): void
+    private function document(Card $card, string $tagName, DocumentStatus $status = DocumentStatus::Approved): Document
     {
         $document = new Document($card->project->owner, $card->project, 'Design');
-        $document->status = DocumentStatus::Approved;
+        $document->status = $status;
         $tag = new Tag($card->project, $tagName);
         $this->em()->persist($tag);
         $document->tags->add($tag);
         $this->em()->persist($document);
         $this->em()->persist(new CardDocument($card, $document));
         $this->em()->flush();
+
+        return $document;
+    }
+
+    private function setStatus(Document $document, DocumentStatus $status): void
+    {
+        $document->status = $status;
+        $this->em()->flush();
+    }
+
+    private function block(Card $card): void
+    {
+        $this->em()->persist(new CardLink($this->card($card->project, 'next'), $card, CardLinkKind::Blocks));
+        $this->em()->flush();
+    }
+
+    /** @return list<string> the rule ids of every work request of the card, live or settled */
+    private function requestRuleIds(Card $card): array
+    {
+        return array_map(
+            static fn (WorkRequest $request): string => $request->ruleId,
+            $this->service(WorkRequestRepository::class)->findBy(['subjectType' => WorkSubject::CARD, 'subjectId' => $card->id]),
+        );
     }
 }

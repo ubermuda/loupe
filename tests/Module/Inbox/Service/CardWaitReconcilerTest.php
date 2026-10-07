@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -35,6 +36,8 @@ use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\PublishDocumentCommand;
+use App\Module\Review\Command\PublishDocumentHandler;
 use App\Module\Review\Command\SetDocumentTagsCommand;
 use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\Document;
@@ -105,6 +108,27 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(1, $wait->versionNumber);
         self::assertNull($wait->endedAt);
         self::assertSame(1, $this->searchHits('Tech'));
+    }
+
+    public function test_a_linked_draft_opens_no_wait_until_it_is_published(): void
+    {
+        $document = $this->linkedDocument('Tech design');
+        $document->status = DocumentStatus::Draft;
+        $this->em->flush();
+
+        $this->reconcile();
+        $this->reconciler->reconcile($this->project, null);
+
+        self::assertSame([], $this->watches());
+
+        $publish = self::getContainer()->get(PublishDocumentHandler::class);
+        self::assertInstanceOf(PublishDocumentHandler::class, $publish);
+        self::assertTrue($publish(new PublishDocumentCommand($document)));
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        self::assertEquals($document->id, $this->onlyWait($watch)->documentId);
     }
 
     public function test_a_second_document_adds_a_wait_to_the_same_item(): void
@@ -1064,7 +1088,8 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $run = new WorkerRun(
             project: $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $this->card->id ?? throw new \LogicException('Card has no id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $this->card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: $this->card->number,
             workKind: 'implement',
             state: $state,

@@ -303,17 +303,6 @@ describe('the mode', () => {
         expect(root.getElementById('lp-picker').style.display).toBe('block');
     });
 
-    it('is kept when the board is off, which says nothing about the card', async () => {
-        bootWidget({
-            mode: { mode: 'per-review', cardId: CARD },
-            respond: () =>
-                ok({ comments: [], context: null, feedbackAvailable: false }),
-        });
-        await settle();
-
-        expect(storedMode()).toEqual({ mode: 'per-review', cardId: CARD });
-    });
-
     it('is asked for again, with the draft kept, when a save names a closed card', async () => {
         const fetchMock = bootWidget({
             mode: { mode: 'per-review', cardId: CARD },
@@ -479,49 +468,6 @@ describe('the mode picker', () => {
         expect(storedMode()).toEqual({ mode: 'per-note', cardId: null });
         expect(targetText(root)).toBe('A new card for each note');
         expect(root.getElementById('lp-picker').style.display).toBe('none');
-    });
-});
-
-describe('the board switched off', () => {
-    it('disables the composer and says why at boot', async () => {
-        bootWidget({
-            respond: () =>
-                ok({ comments: [], context: null, feedbackAvailable: false }),
-        });
-        await settle();
-
-        const root = openNote();
-
-        expect(targetText(root)).toBe('Turn on the board to use site review');
-        // Read-only, not disabled, so a draft can still be copied out.
-        expect(root.getElementById('lp-textarea').disabled).toBe(false);
-        expect(root.getElementById('lp-textarea').readOnly).toBe(true);
-        expect(root.getElementById('lp-save').disabled).toBe(true);
-        expect(root.getElementById('lp-picker').style.display).toBe('none');
-    });
-
-    it('says so when a save learns it', async () => {
-        const fetchMock = bootWidget({
-            mode: { mode: 'per-note', cardId: null },
-            respond: () => ok({ comments: [], context: null }),
-        });
-        await settle();
-
-        const root = openNote();
-        await write(root, 'Too late');
-        fetchMock.mockImplementation(async () =>
-            rejected(409, { error: 'board_disabled' }),
-        );
-        root.getElementById('lp-save').click();
-        await settle();
-
-        expect(root.getElementById('lp-error').textContent).toContain(
-            'Turn on the board to use site review',
-        );
-        expect(targetText(root)).toBe('Turn on the board to use site review');
-        expect(root.getElementById('lp-textarea').value).toBe('Too late');
-        expect(root.getElementById('lp-textarea').disabled).toBe(false);
-        expect(root.getElementById('lp-textarea').readOnly).toBe(true);
     });
 });
 

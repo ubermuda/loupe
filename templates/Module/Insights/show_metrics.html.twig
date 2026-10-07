@@ -7,7 +7,6 @@
 {% endblock %}
 
 {% block body %}
-{% set boardEnabled = is_feature_enabled('board.enabled') %}
 {% set metric = query.metric %}
 {% set metricName = ('analytics.metrics.metric.' ~ metric.value)|trans %}
 {% set rowsKey = 'analytics.metrics.rows.' ~ query.unit.value %}
@@ -136,7 +135,7 @@
                         <td>
                             {% if query.unit.value == 'card' %}
                                 {% set cardLabel = 'bridge.worker_runs.card_number'|trans({'%number%': row.cardNumber}) %}
-                                {% if boardEnabled %}<a href="{{ path('app_board_card', {projectId: project.id, cardId: row.unitId}) }}">{{ cardLabel }}</a>{% else %}{{ cardLabel }}{% endif %}
+                                <a href="{{ path('app_board_card', {projectId: project.id, cardId: row.unitId}) }}">{{ cardLabel }}</a>
                             {% else %}
                                 {% set runLabel = row.cardNumber is null ? row.unitId : 'bridge.worker_runs.card_number'|trans({'%number%': row.cardNumber}) %}
                                 {% if keptRunIds[row.unitId.toRfc4122()] is defined %}<a href="{{ path('app_project_worker_runs', {id: project.id, search: row.unitId}) }}">{{ runLabel }}</a>{% else %}<span data-metrics-purged-run>{{ runLabel }}</span>{% endif %}

@@ -82,7 +82,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
                     SUM(cache_write_tokens) AS cache_write,
                     BOOL_OR(source = :estimated OR cost_usd IS NULL) AS estimated
                 FROM bridge_worker_run_usage
-                WHERE project_id = :project AND card_id = :card
+                WHERE project_id = :project AND subject_type = 'card' AND subject_id = :card
                 SQL,
             [
                 'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
