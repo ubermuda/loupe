@@ -70,7 +70,8 @@ of one account cannot hold one name, as
 The optional `collect:` key at the top of `rules.yaml` turns the
 [tool call report](#tool-calls) on or off. It is on when the key is absent.
 Set `collect: false`, and the bridge sends no tool call and no timing of any
-run. A reload applies a change to the key.
+run. It also takes and sends no [host sample](#host-samples). A reload applies
+a change to the key.
 
 A worker entry can also split its runs between models with variants, as
 [Experiments](#experiments) describes. Such an entry takes no model from the
@@ -363,6 +364,47 @@ a server with agent push switched off. The bridge then logs
 `tool_calls_unsupported` once. It drops that batch with no retry. The batches
 of later runs still try, so the calls come back when agent push comes back on. Set `collect: false` in `rules.yaml` to send no tool call and no
 timing at all.
+
+## Host samples
+
+The bridge can sample the machine it runs on. A sample holds the use of each
+CPU core, the memory in use and in total, the swap in use, the battery charge
+and the power source. The bridge sends its samples with the next
+[heartbeat](../reference/bridge-heartbeat.md#host-samples). The server uses
+them for the host metrics of each run, as
+[Run metrics](../reference/worker-runs.md#run-metrics) describes.
+
+The bridge reads the CPU, the memory and the swap through gopsutil. It skips a
+sample when one of them cannot be read. The battery source depends on the
+system:
+
+| System | Source |
+|---|---|
+| macOS | the output of `pmset -g batt` |
+| Linux | the `power_supply` class under `/sys/class/power_supply`. A battery of a device such as a mouse does not count |
+| other | none, so the charge and the power source are unknown |
+
+A machine with no battery sends no charge. A power source that the bridge
+cannot read is unknown, and the server stores it as `null`.
+
+Two feature flags control the samples. Change them at
+**`/admin/feature-flags`**:
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `bridge.host_sampling_enabled` | off | the bridges of the instance take samples |
+| `bridge.host_sample_interval_seconds` | 60 | the seconds between two samples. A value below 5 reads as 60 |
+
+To turn the samples on:
+
+1. Open **`/admin/feature-flags`** as an admin.
+2. Switch on `bridge.host_sampling_enabled`.
+3. Optionally, set `bridge.host_sample_interval_seconds`.
+4. Wait for each bridge to reconnect, or restart it.
+
+The bridge reads both flags from the [events endpoint](#events-endpoint) at
+start and at each reconnect. A bridge with `collect: false` in its `rules.yaml`
+takes no sample, whatever the flags say.
 
 ## Experiments
 
@@ -819,7 +861,9 @@ project the token's user owns:
     "inbox.enabled": false,
     "bridge.heartbeat_interval_seconds": 60,
     "bridge.stop_sigterm_after_ms": 7500,
-    "bridge.stop_sigkill_after_ms": 2500
+    "bridge.stop_sigkill_after_ms": 2500,
+    "bridge.host_sampling_enabled": false,
+    "bridge.host_sample_interval_seconds": 60
   },
   "cliRange": "^1.0",
   "head": 4812
@@ -846,7 +890,7 @@ heartbeat reply.
 `flags` holds the feature flags a bridge reads. The server lists a flag here
 only when its code names the flag, so no other flag reaches a token holder. A
 value is a boolean or an integer, as the flag's type says. Today the map holds
-four flags:
+six flags:
 
 | Flag | Type | Value |
 |---|---|---|
@@ -854,6 +898,8 @@ four flags:
 | `bridge.heartbeat_interval_seconds` | integer | the seconds between two heartbeats, 60 on an instance that holds no row for it. A stored value below 10 reads as 60 |
 | `bridge.stop_sigterm_after_ms` | integer | the milliseconds from SIGINT to SIGTERM when the bridge stops a run, 7500 on an instance that holds no row for it. A stored value below 100 reads as 7500 |
 | `bridge.stop_sigkill_after_ms` | integer | the milliseconds from SIGTERM to SIGKILL when the bridge stops a run, 2500 on an instance that holds no row for it. A stored value below 100 reads as 2500 |
+| `bridge.host_sampling_enabled` | boolean | whether the bridge takes [host samples](#host-samples), `false` on an instance that holds no row for it |
+| `bridge.host_sample_interval_seconds` | integer | the seconds between two host samples, 60 on an instance that holds no row for it. A stored value below 5 reads as 60 |
 
 The bridge reads the map at start and again at each reconnect. A flag change
 therefore reaches a running bridge at its next reconnect.
