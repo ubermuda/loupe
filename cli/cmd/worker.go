@@ -464,7 +464,7 @@ func (w *capWriter) Write(p []byte) (int, error) {
 // decodeWorkerOutput reads the result line of claude's stdout, which is nil
 // when there is none. raw is the start of stdout, and cut says stdout goes on
 // past it. The output is the first non-empty of the summary, claude's result
-// text, stderr and raw when no result line decodes.
+// text, stderr and the plain lines of raw when no result line decodes.
 func decodeWorkerOutput(result, raw []byte, cut bool, stderr string) workerResult {
 	var doc struct {
 		StructuredOutput json.RawMessage `json:"structured_output"`
@@ -476,7 +476,7 @@ func decodeWorkerOutput(result, raw []byte, cut bool, stderr string) workerResul
 	var summary, rawText string
 	decoded := result != nil && json.Unmarshal(result, &doc) == nil
 	if !decoded {
-		rawText = string(raw)
+		rawText = plainLines(raw)
 	}
 	if decoded {
 		if len(doc.ModelUsage) > 0 && string(doc.ModelUsage) != "null" {
@@ -507,6 +507,19 @@ func decodeWorkerOutput(result, raw []byte, cut bool, stderr string) workerResul
 	res.output = out.text()
 
 	return res
+}
+
+// plainLines drops each line of raw that starts with "{". A stream line can
+// hold tool input, and a cut last line no longer parses, so the shape decides.
+func plainLines(raw []byte) string {
+	var kept []string
+	for line := range strings.SplitSeq(string(raw), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "{") {
+			kept = append(kept, line)
+		}
+	}
+
+	return strings.TrimSpace(strings.Join(kept, "\n"))
 }
 
 func (w *capWriter) text() string {

@@ -122,7 +122,16 @@ func TestDecodeWorkerOutput(t *testing.T) {
 		},
 		"text after the document": {
 			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`,
-			want:   workerResult{output: `{"type":"result","structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`},
+			want:   workerResult{},
+		},
+		"stream lines with no result stay out": {
+			stdout: `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"echo secret"}}]}}` + "\nclaude: killed\n",
+			want:   workerResult{output: "claude: killed"},
+		},
+		"a cut stream line stays out": {
+			stdout:   `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"echo sec`,
+			overflow: true,
+			want:     workerResult{},
 		},
 		"undecoded stdout with no stderr is capped": {
 			stdout:   long,
