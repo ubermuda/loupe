@@ -1415,6 +1415,7 @@ func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 		report.ResultFields = r.resultFields(p, e.res.fields)
 	}
 	report.Usage = r.usage(p, e.res.usage)
+	report.PeakContextTokens = e.res.peakContextTokens
 
 	return report
 }

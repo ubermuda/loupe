@@ -57,6 +57,7 @@ final readonly class WorkerRunFactExporter implements UserDataExporterInterface
                 'longestCallMs' => $fact->longestCallMs,
                 'idleGapMs' => $fact->idleGapMs,
                 'subagentMs' => $fact->subagentMs,
+                'peakContextTokens' => $fact->peakContextTokens,
             ];
         }
     }

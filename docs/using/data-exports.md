@@ -47,8 +47,8 @@ invite. It is empty for a user who redeemed none. The admin's note on the invite
 stays out of the export.
 
 `worker_run_facts.json` holds the metrics row of each worker run of the projects
-the user owns, with its outcome, its duration, its cost, its token sums and its
-timing. It includes the rows whose run the retention sweep deleted.
+the user owns, with its outcome, its duration, its cost, its token sums, its
+timing and its peak context. It includes the rows whose run the retention sweep deleted.
 `worker_run_tool_calls.json` holds each tool call of those runs, with its tool,
 its timing and its signatures.
 [Retention](../reference/worker-runs.md#retention) lists the other worker run

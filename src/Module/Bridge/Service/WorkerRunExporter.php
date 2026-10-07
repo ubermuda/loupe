@@ -72,6 +72,7 @@ final readonly class WorkerRunExporter implements UserDataExporterInterface
                 'switchedFrom' => $run->switchedFrom,
                 'toolTimeMs' => $run->toolTimeMs,
                 'idleGapMs' => $run->idleGapMs,
+                'peakContextTokens' => $run->peakContextTokens,
                 'history' => $history[$run] ?? [],
             ];
         }

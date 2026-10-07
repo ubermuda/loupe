@@ -511,3 +511,29 @@ func TestReportRunStateSendsTheKindOfACommandRun(t *testing.T) {
 		}
 	}
 }
+
+// An outcome and a stopped report send the peak context when the bridge read
+// one, and leave it out when it read none.
+func TestReportRunStateSendsThePeakContext(t *testing.T) {
+	peak := int64(31772)
+	for _, state := range []string{RunSucceeded, RunStopped} {
+		report := stateReport(state)
+		report.PeakContextTokens = &peak
+		_, body, _, err := putState(t, report, http.StatusCreated)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if body["peakContextTokens"] != float64(31772) {
+			t.Fatalf("%s: body = %v", state, body)
+		}
+
+		report.PeakContextTokens = nil
+		_, body, _, err = putState(t, report, http.StatusCreated)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := body["peakContextTokens"]; ok {
+			t.Fatalf("%s: body = %v, want no peakContextTokens", state, body)
+		}
+	}
+}

@@ -304,8 +304,21 @@ func TestAdoptReadsTheOldJSONDocument(t *testing.T) {
 	if res.err != nil || res.exitCode != 0 || !res.hasResult || res.status != "finished" {
 		t.Fatalf("adoptWorker = %+v", res)
 	}
-	if !res.streamed || res.calls != nil || res.timing.ToolTimeMs != nil || res.timing.IdleGapMs != nil {
-		t.Fatalf("calls = %+v, timing = %+v, streamed = %v", res.calls, res.timing, res.streamed)
+	if !res.streamed || res.calls != nil || res.timing.ToolTimeMs != nil || res.timing.IdleGapMs != nil || res.peakContextTokens != nil {
+		t.Fatalf("calls = %+v, timing = %+v, peak = %v, streamed = %v", res.calls, res.timing, show(res.peakContextTokens), res.streamed)
+	}
+}
+
+// The outcome of a worker carries the peak context of its main session.
+func TestAdoptReadsThePeakContext(t *testing.T) {
+	stdout, err := os.ReadFile(filepath.Join("..", "internal", "stream", "testdata", "peak_context.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res := adoptWorker(context.Background(), endedRunDir(t, stdout))
+	if res.peakContextTokens == nil || *res.peakContextTokens != 10+31333+429 {
+		t.Fatalf("peakContextTokens = %v", show(res.peakContextTokens))
 	}
 }
 
