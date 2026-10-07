@@ -180,7 +180,7 @@ Fill the **Analyse** form, and press **Analyse**.
 
 | Field | Values |
 |---|---|
-| Topic | **Cost**, where the cost of the workers goes, or **Time**, where the time of the workers goes |
+| Topic | **Cost**, where the cost of the workers goes, **Time**, where the time of the workers goes, or **Host**, how the machines of the bridges behaved |
 | Range | **30 days**, **90 days** or **All time**: the runs the agent reads |
 | Model | the model of the agent, such as `sonnet` or `opus` |
 | Effort | **Low**, **Medium**, **High**, **Extra high** or **Maximum** |
@@ -194,6 +194,14 @@ and the idle gaps. It names repeated steps and polling loops, and it sets apart
 a slow call that is no fault of the worker. It proposes a card for each fix. It
 also proposes a rule for each slow call that no [time bucket](#time-buckets)
 takes yet.
+
+A **Host** analysis reads the host metrics of each run. It looks for runs that
+suffer when too many run on one bridge at the same time, and for runs on a
+machine on battery or one that slept. It also looks for CPU and memory
+pressure. The analysis needs host samples, which are off by default.
+[Host samples](../extending/cli-bridge.md#host-samples) says how to turn them
+on. With no samples, the report says so, and compares only the runs that
+shared a bridge, because Loupe counts those from the run times.
 
 ### States and reasons
 

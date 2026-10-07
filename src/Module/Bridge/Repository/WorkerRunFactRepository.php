@@ -156,7 +156,7 @@ class WorkerRunFactRepository extends ServiceEntityRepository
      */
     private function detached(Project $project, QueryBuilder $query): array
     {
-        /** @var list<array{runId: Uuid, subjectType: string, subjectId: Uuid, cardNumber: ?int, kind: WorkerRunKind, workKind: ?string, ruleId: ?string, experiment: ?string, variant: ?string, model: ?string, bridgeId: ?Uuid, outcome: WorkerRunState, startedAt: ?\DateTimeImmutable, endedAt: ?\DateTimeImmutable, receivedAt: \DateTimeImmutable, durationMs: int|string|null, costMicroUsd: int|string|null, tokensIn: int|string|null, tokensOut: int|string|null, tokensCacheRead: int|string|null, tokensCacheWrite: int|string|null, usageSource: ?WorkerRunUsageSource, toolTimeMs: int|string|null, modelTimeMs: int|string|null, toolCalls: ?int, failedCalls: ?int, longestCallMs: int|string|null, idleGapMs: int|string|null, subagentMs: int|string|null, peakContextTokens: int|string|null}> $rows */
+        /** @var list<array{runId: Uuid, subjectType: string, subjectId: Uuid, cardNumber: ?int, kind: WorkerRunKind, workKind: ?string, ruleId: ?string, experiment: ?string, variant: ?string, model: ?string, bridgeId: ?Uuid, outcome: WorkerRunState, startedAt: ?\DateTimeImmutable, endedAt: ?\DateTimeImmutable, receivedAt: \DateTimeImmutable, durationMs: int|string|null, costMicroUsd: int|string|null, tokensIn: int|string|null, tokensOut: int|string|null, tokensCacheRead: int|string|null, tokensCacheWrite: int|string|null, usageSource: ?WorkerRunUsageSource, toolTimeMs: int|string|null, modelTimeMs: int|string|null, toolCalls: ?int, failedCalls: ?int, longestCallMs: int|string|null, idleGapMs: int|string|null, subagentMs: int|string|null, peakContextTokens: int|string|null, meanCpuPct: float|string|null, peakMemBytes: int|string|null, peakSwapBytes: int|string|null, concurrentRuns: ?int, onBattery: ?bool}> $rows */
         $rows = $query->getQuery()->getArrayResult();
 
         return array_map(static fn (array $row): WorkerRunFact => new WorkerRunFact(
@@ -191,6 +191,11 @@ class WorkerRunFactRepository extends ServiceEntityRepository
             idleGapMs: null === $row['idleGapMs'] ? null : (int) $row['idleGapMs'],
             subagentMs: null === $row['subagentMs'] ? null : (int) $row['subagentMs'],
             peakContextTokens: null === $row['peakContextTokens'] ? null : (int) $row['peakContextTokens'],
+            meanCpuPct: null === $row['meanCpuPct'] ? null : (float) $row['meanCpuPct'],
+            peakMemBytes: null === $row['peakMemBytes'] ? null : (int) $row['peakMemBytes'],
+            peakSwapBytes: null === $row['peakSwapBytes'] ? null : (int) $row['peakSwapBytes'],
+            concurrentRuns: $row['concurrentRuns'],
+            onBattery: $row['onBattery'],
         ), $rows);
     }
 }

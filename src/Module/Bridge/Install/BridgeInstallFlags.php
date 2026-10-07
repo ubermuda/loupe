@@ -9,6 +9,7 @@ use App\Module\Account\Install\InstallFlagDefault;
 use App\Module\Account\Install\InstallFlagDefaultsInterface;
 use App\Module\Bridge\Service\BridgeCommandTtl;
 use App\Module\Bridge\Service\HeartbeatInterval;
+use App\Module\Bridge\Service\HostSampling;
 use App\Module\Bridge\Service\StopLadder;
 use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
@@ -16,8 +17,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 /**
- * Seeds the retention window, the heartbeat interval, the command lifetime and
- * the stop delays from their container parameters, so each flag row and its
+ * Seeds the retention window, the heartbeat interval, the command lifetime,
+ * the stop delays and the host sampling from their container parameters, so each flag row and its
  * coded fallback start out equal. The subcommand programs start at their coded
  * default.
  */
@@ -38,6 +39,12 @@ final readonly class BridgeInstallFlags implements InstallFlagDefaultsInterface
 
         #[Autowire(param: 'app.bridge.default_stop_sigkill_after_ms')]
         private int $stopSigkillAfterMs,
+
+        #[Autowire(param: 'app.bridge.default_host_sampling_enabled')]
+        private bool $hostSamplingEnabled,
+
+        #[Autowire(param: 'app.bridge.default_host_sample_interval_seconds')]
+        private int $hostSampleIntervalSeconds,
     ) {
     }
 
@@ -50,6 +57,8 @@ final readonly class BridgeInstallFlags implements InstallFlagDefaultsInterface
         yield new InstallFlagDefault(BridgeCommandTtl::FLAG, FeatureFlagType::Int, $this->commandTtlMinutes);
         yield new InstallFlagDefault(StopLadder::SIGTERM_FLAG, FeatureFlagType::Int, $this->stopSigtermAfterMs);
         yield new InstallFlagDefault(StopLadder::SIGKILL_FLAG, FeatureFlagType::Int, $this->stopSigkillAfterMs);
+        yield new InstallFlagDefault(HostSampling::ENABLED_FLAG, FeatureFlagType::Bool, $this->hostSamplingEnabled);
+        yield new InstallFlagDefault(HostSampling::INTERVAL_FLAG, FeatureFlagType::Int, $this->hostSampleIntervalSeconds);
         yield new InstallFlagDefault(ToolCallCollectionSettings::SUBCOMMAND_PROGRAMS_FLAG, FeatureFlagType::String, ToolCallCollectionSettings::DEFAULT_SUBCOMMAND_PROGRAMS);
     }
 }

@@ -22,8 +22,8 @@ final class StartAnalysisFormType extends AbstractType
     {
         $builder->add('topic', EnumType::class, [
             'class' => AnalysisTopic::class,
-            // Only the cost and time analyses have an agent skill so far.
-            'choices' => [AnalysisTopic::Cost, AnalysisTopic::Time],
+            // Only these topics have a section in the agent skill so far.
+            'choices' => [AnalysisTopic::Cost, AnalysisTopic::Time, AnalysisTopic::Host],
             'choice_label' => static fn (AnalysisTopic $topic): string => 'insights.form.start_analysis_form.topic.'.$topic->value,
             'label' => 'insights.form.start_analysis_form.topic.label',
         ]);
