@@ -64,13 +64,23 @@ as a new head commit. Otherwise it retries after 10 minutes, after 1 hour and
 after 6 hours. After the last retry the card pauses, and the owner's inbox gets
 an item that names the reason.
 
+A bridge can settle a work request as refused, for example when its worker run
+fails. In Lifecycle, the workflow then retries the work once, after 10 minutes,
+when the refusal code is `failed`, `timeout`, `unfinished`, `work-remains`,
+`tool-unavailable` or `worktree-failed`. A retry of an unfinished run resumes
+its session. A retry never counts toward the work limit of a fix rule. When the
+retry also fails, the card pauses with "too many attempts were refused". Any
+other refusal code pauses the card at once with "the worker stopped and needs a
+person". The board marks a card whose latest worker run failed or ended with no
+result, until a later run ends in another state.
+
 A work request that no bridge takes within 2 hours pauses the card with "no
 bridge took the work". A teardown request is the exception: it expires with no
 pause.
 
 A person ends a pause with **Retry now** in the Workflow panel of the card. The
-button shows for a pause after too many retries, after the work limit, or after
-no bridge took the work. It needs the permission to manage the project. A
+button shows for a pause after too many retries, after the work limit, after
+no bridge took the work, or after the worker stopped. It needs the permission to manage the project. A
 release is refused on an unmanaged card. It is also refused on a pause that a
 rule made, because that pause ends only on its own release condition. After a
 release the paused rule runs again with a fresh budget of retries and work. The

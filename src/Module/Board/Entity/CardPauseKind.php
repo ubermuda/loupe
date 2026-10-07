@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Entity;
 
-/** What paused a card: a rule that pauses, too many retries, or work that hit its limit or its timeout. */
+/** What paused a card: a rule that pauses, too many retries, work that hit its limit or its timeout, or a worker that stopped. */
 enum CardPauseKind: string
 {
     case Rule = 'rule';
@@ -14,4 +14,7 @@ enum CardPauseKind: string
     case WorkLimit = 'work-limit';
 
     case WorkTimeout = 'work-timeout';
+
+    /** The worker stopped with a code that the template does not retry, so a person must look. */
+    case WorkStopped = 'work-stopped';
 }

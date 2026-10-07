@@ -128,6 +128,18 @@ final class TemplateParserTest extends TestCase
         self::assertInstanceOf(Not::class, $wait->then->until);
     }
 
+    public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
+    {
+        self::assertNull($this->parser->parse(self::valid())->onWorkFailed);
+
+        $policy = $this->parser->parse(self::valid() + ['onWorkFailed' => ['retryOn' => ['failed', 'timeout'], 'retries' => 1]])->onWorkFailed;
+
+        self::assertNotNull($policy);
+        self::assertSame(1, $policy->retries);
+        self::assertTrue($policy->retries('timeout'));
+        self::assertFalse($policy->retries('needs-person'));
+    }
+
     public function test_an_evaluate_action_names_the_children(): void
     {
         $template = self::valid();
@@ -230,6 +242,9 @@ final class TemplateParserTest extends TestCase
         yield 'rules not a list' => [static fn (array $t): array => ['rules' => ['a' => 1]] + $t, 'rules: must be a list'];
         yield 'manual moves not a list' => [static fn (array $t): array => ['manualMoves' => 3] + $t, 'manualMoves: must be a list'];
         yield 'wrongly typed backoff' => [static fn (array $t): array => ['backoffMinutes' => [10, '60']] + $t, 'backoffMinutes: must be a list of positive integers'];
+        yield 'retry policy with no list' => [static fn (array $t): array => ['onWorkFailed' => ['retries' => 1]] + $t, 'onWorkFailed: must be a map with a list "retryOn"'];
+        yield 'retry policy with a bad code' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['Not A Code'], 'retries' => 1]] + $t, 'onWorkFailed.retryOn: each entry must be a refusal code'];
+        yield 'retry policy with a negative count' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => -1]] + $t, 'onWorkFailed.retries: must be a non-negative integer'];
         yield 'wrongly typed work timeout' => [static fn (array $t): array => ['workTimeoutMinutes' => 0] + $t, 'workTimeoutMinutes: must be a positive integer'];
 
         yield 'duplicate slot key' => [static function (array $t): array {
