@@ -64,7 +64,7 @@ which git ignores, and it does not download a run twice.
 | mutation | `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` | 90 days |
 | PHPUnit coverage | `Coverage report` | `phpunit-coverage` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
 | e2e coverage | `Coverage report` | `e2e-coverage` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
-| e2e timing | `CI` | `e2e-chromium`, `e2e-chromium-2`, `e2e-rest` | `e2e-timing-chromium`, `e2e-timing-chromium-2`, `e2e-timing-rest` | `results.json` | 30 days |
+| e2e timing | `CI` | `e2e-<leg>`, one per matrix leg | `e2e-timing-<leg>`, such as `e2e-timing-chromium-3` | `results.json` | 30 days |
 | PHPUnit timing | `CI` | `phpunit` | `phpunit-timing` | `junit.xml` | 30 days |
 
 The e2e timing artifact comes from every CI run, green or red. `bin/e2e-timing.mjs`
