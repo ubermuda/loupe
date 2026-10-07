@@ -177,8 +177,8 @@ lists each code.
 A worker reports `waiting` when its work waits on the forge, such as checks on
 a pushed pull request. The bridge reports that run as `waiting-on-forge`. The
 bridge resumes no run on its own. A run that ends `unfinished` posts `refused`
-with its reason, and the workflow retries the request. The retry names the
-session to resume, and the bridge resumes it when this machine holds its
+with its reason. A template whose `retryOn` lists `unfinished` retries the
+request. The retry names the session to resume, and the bridge resumes it when this machine holds its
 transcript.
 
 A server older than the `unfinished` and `blocked` states refuses them with a
