@@ -7485,6 +7485,7 @@
             <trans-unit id="readiness.agent_account.error.installer_login"><source>readiness.agent_account.error.installer_login</source><target>The agents need an account other than the one that installed the GitHub App.</target></trans-unit>
             <trans-unit id="readiness.form.update_agent_account_form.login.label"><source>readiness.form.update_agent_account_form.login.label</source><target>GitHub login of the agent account</target></trans-unit>
             <trans-unit id="readiness.form.update_agent_account_form.login.help"><source>readiness.form.update_agent_account_form.login.help</source><target>Leave it empty to clear the recorded login.</target></trans-unit>
+            <trans-unit id="readiness.discovery.reason.no_taker"><source>readiness.discovery.reason.no_taker</source><target>No bridge took the work.</target></trans-unit>
         </body>
     </file>
 </xliff>
