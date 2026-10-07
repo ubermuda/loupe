@@ -13,6 +13,7 @@ manualMoves:
     - { from: '@backlog', to: tech-design }
     - { from: next, to: product-design }
     - { from: next, to: tech-design }
+    - { from: implementation, to: tech-design }
 backoffMinutes: [10, 60, 360]
 workTimeoutMinutes: 120
 rules:
