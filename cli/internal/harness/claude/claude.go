@@ -75,8 +75,8 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// Interactive deletes the script first, so the prompt does not stay on the
-// disk.
+// Interactive is the launch script body. The script deletes itself first, so
+// the prompt does not stay on the disk.
 func (Harness) Interactive(program string, spec harness.Spec) string {
 	var b strings.Builder
 	b.WriteString("#!/bin/sh\n")

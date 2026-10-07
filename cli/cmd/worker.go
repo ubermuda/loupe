@@ -30,7 +30,7 @@ const waitDelay = 5 * time.Second
 // maxOutput caps the worker output a failure report carries.
 const maxOutput = 4000
 
-// maxStdout bounds the JSON document the bridge reads from claude's stdout.
+// maxStdout bounds the JSON document the bridge reads from the worker's stdout.
 const maxStdout = 1 << 20
 
 // sessionEnv gives `loupe mcp` the claude session of a worker, so the server
@@ -95,7 +95,7 @@ type workerSpec struct {
 	// nil.
 	before *rules.Before
 	// command is the command of a command rule, which runs in place of
-	// claude, or nil.
+	// the harness, or nil.
 	command *rules.Command
 	// harness runs the worker, and a nil one is the default harness.
 	harness harn.Harness

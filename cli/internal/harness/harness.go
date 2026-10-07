@@ -23,7 +23,7 @@ type Harness interface {
 	Interactive(program string, spec Spec) string
 	// Output decodes the stdout of a worker. An overflow holds no result.
 	Output(stdout []byte, overflow bool) Output
-	// SessionUsage is what the session spent from from on, and before to
+	// SessionUsage is what the session spent at or after from, and before to
 	// when to is set.
 	SessionUsage(sessionID string, from, to time.Time) (transcript.Usage, error)
 	// SessionTotal is what the whole session spent before a resume.
