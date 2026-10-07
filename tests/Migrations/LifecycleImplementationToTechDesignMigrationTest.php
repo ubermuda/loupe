@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Migrations;
+
+use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Template\ShippedTemplates;
+use App\Tests\Module\Workflow\Action\ActionScenario;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Schema\Schema;
+use DoctrineMigrations\Version20261007140013;
+use Psr\Log\NullLogger;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+require_once __DIR__.'/../../migrations/Version20261007140013.php';
+
+final class LifecycleImplementationToTechDesignMigrationTest extends KernelTestCase
+{
+    use ActionScenario;
+
+    public function test_a_lifecycle_binding_with_no_implementation_to_tech_design_move_gets_the_shipped_copy_and_a_second_run_changes_nothing(): void
+    {
+        self::bootKernel();
+        $lifecycle = $this->workflowProject('migration-implementation-tech-design');
+        $this->bindLifecycle($lifecycle);
+        $simple = $this->workflowProject('migration-implementation-tech-design-simple');
+        $this->bindHandler()(new BindWorkflowTemplateCommand($simple, 'simple', []));
+        $lifecycleId = ($lifecycle->id ?? throw new \LogicException('The project is not flushed.'))->toRfc4122();
+        $simpleId = ($simple->id ?? throw new \LogicException('The project is not flushed.'))->toRfc4122();
+        $connection = $this->em()->getConnection();
+        $connection->executeStatement(
+            "UPDATE workflow_bindings SET definition = (
+                SELECT jsonb_set(definition, '{manualMoves}', jsonb_agg(move ORDER BY position))
+                FROM jsonb_array_elements(definition->'manualMoves') WITH ORDINALITY AS moves(move, position)
+                WHERE NOT (move->>'from' = 'implementation' AND move->>'to' = 'tech-design')
+            ) WHERE project_id = ?",
+            [$lifecycleId],
+        );
+        $simpleBefore = $this->definition($connection, $simpleId);
+        self::assertNotEquals($this->service(ShippedTemplates::class)->source('lifecycle'), $this->definition($connection, $lifecycleId));
+
+        $this->migrate($connection);
+        $this->migrate($connection);
+
+        self::assertEquals($this->service(ShippedTemplates::class)->source('lifecycle'), $this->definition($connection, $lifecycleId));
+        self::assertEquals($simpleBefore, $this->definition($connection, $simpleId));
+    }
+
+    private function migrate(Connection $connection): void
+    {
+        $migration = new Version20261007140013($connection, new NullLogger());
+        $migration->up(new Schema());
+        foreach ($migration->getSql() as $query) {
+            $connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
+        }
+    }
+
+    /** @return array<mixed> */
+    private function definition(Connection $connection, string $projectId): array
+    {
+        $definition = $connection->fetchOne('SELECT definition FROM workflow_bindings WHERE project_id = ?', [$projectId]);
+        self::assertIsString($definition);
+        $decoded = json_decode($definition, true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        return $decoded;
+    }
+}

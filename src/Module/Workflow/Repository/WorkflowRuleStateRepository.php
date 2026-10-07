@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
@@ -26,6 +27,26 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
         $this->getEntityManager()->getConnection()->executeStatement(
             'SELECT pg_advisory_xact_lock(hashtext(?))',
             ['workflow_card:'.$cardId->toRfc4122()],
+        );
+    }
+
+    /**
+     * Forgets the truth, the retries and the work count of the rules of the cards, in one statement, so it joins a caller's transaction.
+     * The fingerprint and the subject pull request stay, for the pauses that compare against them. A managed state is stale after it.
+     *
+     * @param non-empty-list<Uuid> $cardIds
+     */
+    public function resetForCards(array $cardIds, \DateTimeImmutable $now): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE workflow_rule_states SET truth = false, attempts = 0, fires = 0, due_at = NULL, last_refusal = NULL,
+             last_refusal_at = NULL, updated_at = :now
+             WHERE card_id IN (:cardIds)',
+            [
+                'now' => $now,
+                'cardIds' => array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds),
+            ],
+            ['now' => Types::DATETIME_IMMUTABLE, 'cardIds' => ArrayParameterType::STRING],
         );
     }
 

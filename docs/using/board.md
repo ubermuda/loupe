@@ -448,8 +448,11 @@ These actions make the card managed again:
 - A person deletes the column of the card, or the card.
 
 When a card is managed again, the workflow takes the card as it is at that
-time. A condition that became true while the card was unmanaged does not fire.
-The workflow acts only on the changes that come after.
+time. Each rule whose condition is true then fires, also when it was true
+before. A rule does not request work a second time while its request is live.
+Each rule gets a fresh work budget, and the timeout of an open work request
+starts again. A card that the workflow paused stays paused until its pause
+ends.
 
 #### The Workflow panel
 
@@ -563,8 +566,8 @@ Loupe moves an epic on its own:
   `implementation` column.
 - When a child with a parent waits in Backlog and its last blocker
   moves to a terminal column, the child moves to the `implementation` column.
-  The child waits while a breakdown of its epic runs. When the breakdown ends,
-  the epic evaluates its children again, and a child with no open blocker moves.
+  The child waits while a run of its epic is open. When the run ends, the epic
+  evaluates its children again, and a child with no open blocker moves.
 
 A board with no `implementation` column skips the moves back. An epic with no
 children never moves on its own.
@@ -854,7 +857,7 @@ An agent drives the board through the MCP endpoint. See
 | `column_update` | `slug` is required. `label` and `terminal` are optional. |
 | `column_reorder` | `order` is required: the slugs of every column except Backlog, in the new order. |
 | `column_delete` | `slug` is required. `targetColumn` is required when the column holds cards. |
-| `automation_settings_update` | Every argument is optional. Each one is a setting of **Automation**, such as `enabled` or `syncBehind`. |
+| `automation_settings_update` | Every argument is optional. Each one is a setting of **Automation**, such as `enabled`, `syncBehind`, `openEpicPullRequests` or `epicBranchPattern`. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal`, `default` and `backlog`. The Backlog row
@@ -864,7 +867,9 @@ list in `columns`, beside its cards.
 `column_create`, `column_update`, `column_reorder` and `column_delete` change
 the columns, as **Board settings** does. They refuse the changes that Board
 settings refuses, and the error says what the agent can fix. A setting that
-`automation_settings_update` omits keeps its value.
+`automation_settings_update` omits keeps its value. An empty `epicBranchPattern`
+turns epic branches off. The call refuses a pattern that is not a branch name
+with `{number}` exactly once, and then it saves nothing.
 
 `card_run_open` and `card_run_close` record an interactive session on a card.
 See [Interactive sessions](worker-runs.md#interactive-sessions).

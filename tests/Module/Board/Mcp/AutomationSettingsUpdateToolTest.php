@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
+use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Mcp\AutomationSettingsUpdateTool;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Tests\Support\McpRefusalMessages;
@@ -12,6 +13,8 @@ use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Uid\Uuid;
 
 final class AutomationSettingsUpdateToolTest extends KernelTestCase
 {
@@ -52,6 +55,8 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
             'changeBase' => true,
             'epicDraftSwitch' => false,
             'closeEpicPullRequests' => false,
+            'openEpicPullRequests' => false,
+            'epicBranchPattern' => 'epic/{number}',
         ];
         self::assertSame($expected, $result);
 
@@ -66,7 +71,7 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertTrue($stored->changeBase);
     }
 
-    public function test_an_update_keeps_the_epic_settings_the_tool_does_not_take(): void
+    public function test_an_update_keeps_the_epic_settings_it_omits(): void
     {
         $project = $this->makeProject('automation-update-epic');
         $this->em->persist(new BoardAutomationSettings($project, openEpicPullRequests: true, epicBranchPattern: 'feature/{number}'));
@@ -82,6 +87,60 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertInstanceOf(BoardAutomationSettings::class, $stored);
         self::assertTrue($stored->openEpicPullRequests);
         self::assertSame('feature/{number}', $stored->epicBranchPattern);
+    }
+
+    public function test_it_sets_both_epic_settings_and_turning_the_opening_on_rearms_it(): void
+    {
+        $project = $this->makeProject('automation-update-epic-set');
+        $this->em->persist(new BoardAutomationSettings($project));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+        $saved = $this->savedEvents();
+
+        $result = ($this->tool)(openEpicPullRequests: true, epicBranchPattern: '  feature/epic-{number}  ');
+
+        self::assertTrue($result['openEpicPullRequests']);
+        self::assertSame('feature/epic-{number}', $result['epicBranchPattern']);
+        $stored = $this->stored($project->id);
+        self::assertTrue($stored->openEpicPullRequests);
+        self::assertSame('feature/epic-{number}', $stored->epicBranchPattern);
+        self::assertCount(1, $saved->events);
+        self::assertTrue($saved->events[0]->openEpicTurnedOn);
+    }
+
+    public function test_an_empty_pattern_turns_epic_branches_off(): void
+    {
+        $project = $this->makeProject('automation-update-epic-clear');
+        $this->em->persist(new BoardAutomationSettings($project, epicBranchPattern: 'feature/{number}'));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)(epicBranchPattern: '');
+
+        self::assertNull($result['epicBranchPattern']);
+        self::assertNull($this->stored($project->id)->epicBranchPattern);
+    }
+
+    public function test_a_pattern_that_is_no_branch_name_with_one_number_is_refused_and_nothing_is_saved(): void
+    {
+        $project = $this->makeProject('automation-update-epic-refused');
+        $this->em->persist(new BoardAutomationSettings($project, epicBranchPattern: 'feature/{number}'));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+        $saved = $this->savedEvents();
+
+        try {
+            ($this->tool)(syncBehind: true, epicBranchPattern: 'epic/{number}/{number}');
+            self::fail('The tool accepted a pattern with the placeholder twice.');
+        } catch (ToolCallException $e) {
+            self::assertStringStartsWith('epicBranchPattern: ', $e->getMessage());
+            self::assertStringContainsString('exactly once', $e->getMessage());
+        }
+
+        $stored = $this->stored($project->id);
+        self::assertSame('feature/{number}', $stored->epicBranchPattern);
+        self::assertFalse($stored->syncBehind);
+        self::assertSame([], $saved->events);
     }
 
     public function test_a_project_with_no_stored_settings_starts_from_the_defaults(): void
@@ -103,5 +162,32 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage(McpRefusalMessages::NO_PROJECT_REACHED);
         ($this->tool)(enabled: false);
+    }
+
+    private function stored(?Uuid $projectId): BoardAutomationSettings
+    {
+        $this->em->clear();
+        $repository = self::getContainer()->get(BoardAutomationSettingsRepository::class);
+        self::assertInstanceOf(BoardAutomationSettingsRepository::class, $repository);
+        $stored = $repository->findOneBy(['project' => $projectId]);
+        self::assertInstanceOf(BoardAutomationSettings::class, $stored);
+
+        return $stored;
+    }
+
+    /** @return object{events: list<BoardAutomationSettingsSaved>} */
+    private function savedEvents(): object
+    {
+        $saved = new class {
+            /** @var list<BoardAutomationSettingsSaved> */
+            public array $events = [];
+        };
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(BoardAutomationSettingsSaved::class, static function (BoardAutomationSettingsSaved $event) use ($saved): void {
+            $saved->events[] = $event;
+        });
+
+        return $saved;
     }
 }

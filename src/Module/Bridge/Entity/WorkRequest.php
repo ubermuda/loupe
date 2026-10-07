@@ -73,7 +73,7 @@ class WorkRequest
     #[ORM\Column(name: 'claims', options: ['default' => 0])]
     public int $claims = 0;
 
-    /** When a lapsed claim last opened the request again. */
+    /** When a lapsed claim last opened the request again, or a release of its card restarted its timeout. */
     #[ORM\Column(name: 'reopened_at', nullable: true)]
     public ?\DateTimeImmutable $reopenedAt = null;
 
