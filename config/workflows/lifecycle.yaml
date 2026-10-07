@@ -19,6 +19,7 @@ workTimeoutMinutes: 120
 onWorkFailed:
     retryOn: [failed, timeout, unfinished, work-remains, tool-unavailable, worktree-failed]
     retries: 1
+    repair: { kind: repair }
 rules:
     - id: product-design-session
       slot: product-design

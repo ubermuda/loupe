@@ -658,7 +658,7 @@ An interactive prompt gets none.
 | `{pullRequestNumber}` | the number of the pull request that the rule acts on, when the request opened |
 | `{pullRequestUrl}` | the link to that pull request, as the card holds it |
 | `{headSha}` | the head commit of that pull request when the request opened |
-| `{reason}` | why the pull request needs work: `conflict`, `checks-failed` or `changes-requested` |
+| `{reason}` | why the pull request needs work: `conflict`, `checks-failed` or `changes-requested`. For a `repair` request, the refusal code of the failed work, such as `failed` |
 | `{documentId}` | the id of the document that a revision works on, from the `document` parameter of the request rule |
 
 The last five come from the context of the request, a snapshot taken when the

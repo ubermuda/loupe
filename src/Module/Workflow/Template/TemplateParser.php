@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
+use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Action\ActionOutcome;
+use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Expression\AllOf;
@@ -94,6 +96,17 @@ final readonly class TemplateParser
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
         $manualMoves = $this->manualMoves(self::topLevelList($source, 'manualMoves', $errors), $slotKeys, $errors);
         $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $errors, $lenient);
+        // The engine tells a repair request apart by its kind, so no rule may ask for that kind.
+        foreach ($rules as $rule) {
+            $kind = match ($rule->then->type) {
+                ActionType::Request => ActionParams::optionalString($rule, 'kind'),
+                ActionType::ForgeWrite => ActionParams::optionalString($rule, 'fallback'),
+                default => null,
+            };
+            if (null !== $onWorkFailed?->repairKind && $onWorkFailed->repairKind === $kind) {
+                $errors[] = \sprintf('onWorkFailed.repair.kind: the rule "%s" already asks for the kind "%s"', $rule->id, $onWorkFailed->repairKind);
+            }
+        }
 
         if ([] !== $errors) {
             throw new InvalidTemplate($errors);
@@ -526,7 +539,23 @@ final readonly class TemplateParser
             return null;
         }
 
-        return new WorkFailurePolicy($retryOn, $retries);
+        $repair = $value['repair'] ?? null;
+        if (null === $repair) {
+            return new WorkFailurePolicy($retryOn, $retries);
+        }
+        $repairKind = \is_array($repair) ? ($repair['kind'] ?? null) : null;
+        if (!\is_string($repairKind)) {
+            $errors[] = 'onWorkFailed.repair: must be a map with a string "kind"';
+
+            return null;
+        }
+        if (1 !== preg_match(WorkRequest::KIND_PATTERN, $repairKind)) {
+            $errors[] = 'onWorkFailed.repair.kind: must be a work request kind';
+
+            return null;
+        }
+
+        return new WorkFailurePolicy($retryOn, $retries, $repairKind);
     }
 
     /** @return ?list<int> */
