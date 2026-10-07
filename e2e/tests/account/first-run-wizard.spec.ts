@@ -5,7 +5,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { registerFreshUser } from '../helpers';
+import { registerFreshUser, submitRedirectingForm } from '../helpers';
 
 test.describe('first-run wizard', () => {
     test.use({ storageState: { cookies: [], origins: [] } });
@@ -23,7 +23,11 @@ test.describe('first-run wizard', () => {
         await expect(page).toHaveURL(/\/welcome$/);
         await expect(page.locator('ol[data-wizard-step="1"]')).toBeVisible();
         await page.getByLabel(/Project name/i).fill('Wizard project');
-        await page.getByRole('button', { name: 'Create project' }).click();
+        await submitRedirectingForm(
+            page,
+            page.getByRole('button', { name: 'Create project' }),
+            '/welcome/project',
+        );
 
         await expect(page).toHaveURL(/\/welcome\/connect$/);
         await expect(page.locator('ol[data-wizard-step="2"]')).toBeVisible();
@@ -84,7 +88,11 @@ test.describe('first-run wizard', () => {
         await expect(
             page.getByRole('button', { name: 'Skip setup' }),
         ).toHaveCount(0);
-        await page.getByRole('button', { name: 'Go to dashboard' }).click();
+        await submitRedirectingForm(
+            page,
+            page.getByRole('button', { name: 'Go to dashboard' }),
+            '/welcome/done/finish',
+        );
 
         // The first render of the documents page can take over 3 s on a CI runner.
         await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/, {
@@ -108,7 +116,11 @@ test.describe('first-run wizard', () => {
         // This button sits inside the project form's action row and submits a
         // separate form through `form=`, because a nested <form> is invalid
         // HTML. Nothing else proves that wiring still submits.
-        await page.getByRole('button', { name: 'Skip setup' }).click();
+        await submitRedirectingForm(
+            page,
+            page.getByRole('button', { name: 'Skip setup' }),
+            '/welcome/skip',
+        );
         await expect(page).toHaveURL(/\/projects$/);
 
         await page.goto('/welcome');
@@ -124,10 +136,18 @@ test.describe('first-run wizard', () => {
 
         await expect(page).toHaveURL(/\/welcome$/);
         await page.getByLabel(/Project name/i).fill('Skipped project');
-        await page.getByRole('button', { name: 'Create project' }).click();
+        await submitRedirectingForm(
+            page,
+            page.getByRole('button', { name: 'Create project' }),
+            '/welcome/project',
+        );
         await expect(page).toHaveURL(/\/welcome\/connect$/);
 
-        await page.getByRole('button', { name: 'Skip setup' }).click();
+        await submitRedirectingForm(
+            page,
+            page.getByRole('button', { name: 'Skip setup' }),
+            '/welcome/skip',
+        );
         await expect(page).toHaveURL(/\/projects$/);
 
         await page.goto('/welcome');
