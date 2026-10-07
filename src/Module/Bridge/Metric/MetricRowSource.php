@@ -9,6 +9,7 @@ use App\Module\Bridge\Cost\FinishedCardSourceInterface;
 use App\Module\Bridge\Entity\WorkerRunFact;
 use App\Module\Bridge\Experiment\CardOutcome;
 use App\Module\Bridge\Experiment\CardReportSourceInterface;
+use App\Module\Bridge\Repository\WorkerRunBucketTimeRepository;
 use App\Module\Bridge\Repository\WorkerRunFactRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Project\Entity\Project;
@@ -21,23 +22,25 @@ final readonly class MetricRowSource
         private WorkerRunFactRepository $workerRunFacts,
         private FinishedCardSourceInterface $finishedCards,
         private CardReportSourceInterface $cardReports,
+        private WorkerRunBucketTimeRepository $workerRunBucketTimes,
     ) {
     }
 
     /** @return list<MetricRow> */
-    public function rows(Project $project, MetricUnit $unit, Metric $metric, MetricGroup $group, ?\DateTimeImmutable $from): array
+    public function rows(Project $project, MetricUnit $unit, Metric $metric, MetricGroup $group, ?\DateTimeImmutable $from, ?string $bucketName = null): array
     {
         return MetricUnit::Run === $unit
-            ? $this->runRows($project, $metric, $group, $from)
-            : $this->cardRows($project, $metric, $group, $from);
+            ? $this->runRows($project, $metric, $group, $from, $bucketName)
+            : $this->cardRows($project, $metric, $group, $from, $bucketName);
     }
 
     /** @return list<MetricRow> */
-    private function runRows(Project $project, Metric $metric, MetricGroup $group, ?\DateTimeImmutable $from): array
+    private function runRows(Project $project, Metric $metric, MetricGroup $group, ?\DateTimeImmutable $from, ?string $bucketName): array
     {
         // A stage belongs to the card workflow, so a stage grouping reads card runs alone.
         $facts = $this->workerRunFacts->findClosedSince($project, $from, MetricGroup::Stage === $group);
         $types = MetricGroup::CardType === $group ? $this->cardReports->typesFor($project, self::cardIdsOf($facts)) : [];
+        $times = $this->bucketTimesOf($facts, $bucketName);
 
         return array_map(
             static fn (WorkerRunFact $fact): MetricRow => new MetricRow(
@@ -45,14 +48,14 @@ final readonly class MetricRowSource
                 $fact->cardNumber,
                 self::groupOf($fact, $group, $types),
                 $fact->endedAt ?? $fact->receivedAt,
-                self::runValue($fact, $metric),
+                null === $bucketName ? self::runValue($fact, $metric) : $times[(string) $fact->runId] ?? null,
             ),
             $facts,
         );
     }
 
     /** @return list<MetricRow> */
-    private function cardRows(Project $project, Metric $metric, MetricGroup $group, ?\DateTimeImmutable $from): array
+    private function cardRows(Project $project, Metric $metric, MetricGroup $group, ?\DateTimeImmutable $from, ?string $bucketName): array
     {
         $cards = $this->finishedCards->finishedCards($project, $from);
         if ([] === $cards) {
@@ -66,6 +69,7 @@ final readonly class MetricRowSource
                 $factsByCard[(string) $fact->subjectId][] = $fact;
             }
         }
+        $times = $this->bucketTimesOf(array_merge(...array_values($factsByCard)), $bucketName);
         $outcomes = $metric->isCardOutcome() ? $this->cardReports->outcomesFor($project, $ids) : [];
         $types = MetricGroup::CardType === $group ? $this->cardReports->typesFor($project, $ids) : [];
 
@@ -93,12 +97,24 @@ final readonly class MetricRowSource
                     $card->completedAt,
                     $metric->isCardOutcome()
                         ? self::outcomeValue($outcomes[$id] ?? new CardOutcome(), $metric)
-                        : self::cardValue($partition['facts'], $metric),
+                        : self::cardValue($partition['facts'], $metric, $bucketName, $times),
                 );
             }
         }
 
         return $rows;
+    }
+
+    /**
+     * @param list<WorkerRunFact> $facts
+     *
+     * @return array<string, int> run id => milliseconds, for a bucket-time query alone
+     */
+    private function bucketTimesOf(array $facts, ?string $bucketName): array
+    {
+        return null === $bucketName || [] === $facts
+            ? []
+            : $this->workerRunBucketTimes->findMillisecondsOfRuns(array_map(static fn (WorkerRunFact $fact): Uuid => $fact->runId, $facts), $bucketName);
     }
 
     /**
@@ -147,14 +163,29 @@ final readonly class MetricRowSource
             Metric::CacheWriteTokens => $fact->tokensCacheWrite,
             Metric::Duration => $fact->durationMs,
             Metric::StopRate => $fact->outcome->isOutcome() ? (int) $fact->outcome->isStop() : null,
-            Metric::Runs, Metric::MergeRate, Metric::FixRounds, Metric::HoursToMerge => throw new \LogicException(\sprintf('The metric %s has no run value.', $metric->value)),
+            Metric::Runs, Metric::MergeRate, Metric::FixRounds, Metric::HoursToMerge, Metric::BucketTime => throw new \LogicException(\sprintf('The metric %s has no run value.', $metric->value)),
         };
     }
 
-    /** @param list<WorkerRunFact> $facts */
-    private static function cardValue(array $facts, Metric $metric): int|float|null
+    /**
+     * A bucket-time sum counts the runs that have bucket data, and a run with
+     * none adds nothing, because a command run or an old run never has any.
+     *
+     * @param list<WorkerRunFact> $facts
+     * @param array<string, int>  $times run id => milliseconds, for a bucket-time query alone
+     */
+    private static function cardValue(array $facts, Metric $metric, ?string $bucketName, array $times): int|float|null
     {
-        return Metric::Runs === $metric ? \count($facts) : self::inDollars(self::cardSum($facts, $metric), $metric);
+        if (Metric::Runs === $metric) {
+            return \count($facts);
+        }
+        if (null !== $bucketName) {
+            $known = array_filter(array_map(static fn (WorkerRunFact $fact): ?int => $times[(string) $fact->runId] ?? null, $facts), static fn (?int $ms): bool => null !== $ms);
+
+            return [] === $known ? null : array_sum($known);
+        }
+
+        return self::inDollars(self::cardSum($facts, $metric), $metric);
     }
 
     /**

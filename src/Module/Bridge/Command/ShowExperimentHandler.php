@@ -99,8 +99,8 @@ final readonly class ShowExperimentHandler
         $weights = null === $definition ? [] : array_column($definition->weights, 'weight', 'name');
         // An empty declaration names no metric, so the defaults apply.
         $declared = $definition?->metrics ?: null;
-        $metricKeys = null === $declared ? self::DEFAULT_METRICS : array_values(array_unique(array_filter($declared, static fn (string $key): bool => null !== Metric::tryFrom($key))));
-        $unknownMetrics = null === $declared ? [] : array_values(array_unique(array_filter($declared, static fn (string $key): bool => null === Metric::tryFrom($key))));
+        $metricKeys = null === $declared ? self::DEFAULT_METRICS : array_values(array_unique(array_filter($declared, self::isKnownMetric(...))));
+        $unknownMetrics = null === $declared ? [] : array_values(array_unique(array_filter($declared, static fn (string $key): bool => !self::isKnownMetric($key))));
 
         $variantNames = array_merge(array_keys($weights), array_values($pinVariants), array_keys($models));
 
@@ -314,10 +314,17 @@ final readonly class ShowExperimentHandler
                 Metric::Runs => $metric($key, $bootstrap($of, $key, static fn (array $row): int => \count($row['runs']))),
                 Metric::Cost => $metric($key, $bootstrap($of, $key, static fn (array $row): ?float => null === $row['costMicros'] ? null : $row['costMicros'] / 1_000_000)),
                 Metric::InputTokens, Metric::OutputTokens, Metric::CacheReadTokens, Metric::CacheWriteTokens, Metric::Duration => $metric($key, $bootstrap($of, $key, static fn (array $row): ?int => MetricRowSource::cardSum($row['facts'], $of))),
+                Metric::BucketTime => throw new \LogicException('A bucket time needs a bucket name, so an experiment cannot compare it.'),
             };
         }
 
         return $metrics;
+    }
+
+    /** A bucket time needs a bucket name, which an experiment key cannot give. */
+    private static function isKnownMetric(string $key): bool
+    {
+        return \in_array(Metric::tryFrom($key), Metric::standalone(), true);
     }
 
     /**

@@ -27,6 +27,7 @@ final class UpdateAnalyticsSettingsControllerTest extends WebTestCase
             'analytics_settings_form[model]' => 'opus',
             'analytics_settings_form[effort]' => 'low',
             'analytics_settings_form[collectFullText]' => true,
+            'analytics_settings_form[subcommandPrograms]' => ' git, ,bazel ',
         ]);
 
         self::assertResponseRedirects('/projects/'.$projectId.'/analytics/reports');
@@ -35,6 +36,8 @@ final class UpdateAnalyticsSettingsControllerTest extends WebTestCase
         self::assertSame('opus', $crawler->filter('input[name="analytics_settings_form[model]"]')->attr('value'));
         $settings = $this->settings($projectId);
         self::assertSame(['opus', 'low', true], [$settings?->defaultModel, $settings?->defaultEffort, $settings?->collectFullText]);
+        self::assertSame(['git', 'bazel'], $settings?->subcommandPrograms);
+        self::assertSame('git, bazel', $crawler->filter('input[name="analytics_settings_form[subcommandPrograms]"]')->attr('value'));
     }
 
     public function test_empty_values_clear_the_project_settings(): void
@@ -46,6 +49,7 @@ final class UpdateAnalyticsSettingsControllerTest extends WebTestCase
         $settings->defaultModel = 'opus';
         $settings->defaultEffort = 'high';
         $settings->collectFullText = true;
+        $settings->subcommandPrograms = ['git'];
         $em->persist($settings);
         $em->flush();
         $projectId = (string) $project->id;
@@ -53,12 +57,12 @@ final class UpdateAnalyticsSettingsControllerTest extends WebTestCase
 
         $client->loginUser($project->owner);
         $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/analytics/reports/settings', [
-            'analytics_settings_form' => ['model' => '', 'effort' => '', '_token' => 'csrf-token'],
+            'analytics_settings_form' => ['model' => '', 'effort' => '', 'subcommandPrograms' => ' , ', '_token' => 'csrf-token'],
         ], [], ['HTTP_REFERER' => 'http://localhost/']);
 
         self::assertResponseRedirects('/projects/'.$projectId.'/analytics/reports');
         $stored = $this->settings($projectId);
-        self::assertSame([null, null, false], [$stored?->defaultModel, $stored?->defaultEffort, $stored?->collectFullText]);
+        self::assertSame([null, null, false, null], [$stored?->defaultModel, $stored?->defaultEffort, $stored?->collectFullText, $stored?->subcommandPrograms]);
     }
 
     public function test_a_malformed_model_is_shown_on_its_field(): void
@@ -75,6 +79,23 @@ final class UpdateAnalyticsSettingsControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertStringContainsString('A model is one word', $crawler->filter('[data-analytics-settings-form] [data-field-errors="model"]')->text());
+        self::assertNull($this->settings($projectId));
+    }
+
+    public function test_a_malformed_program_is_shown_on_its_field(): void
+    {
+        $client = static::createClient();
+        $project = $this->scenarioProject('settings-form-programs-refused');
+        $projectId = (string) $project->id;
+        $this->em()->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/analytics/reports/settings', [
+            'analytics_settings_form' => ['model' => '', 'effort' => '', 'subcommandPrograms' => 'git, two words', '_token' => 'csrf-token'],
+        ], [], ['HTTP_REFERER' => 'http://localhost/']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('A program name is 1 to 40 characters', $crawler->filter('[data-analytics-settings-form] [data-field-errors="subcommandPrograms"]')->text());
         self::assertNull($this->settings($projectId));
     }
 

@@ -126,14 +126,14 @@ final class ListReportsControllerTest extends WebTestCase
         self::assertSame('Paused: usage-limit', trim($crawler->filter('[data-analysis="'.$paused->id.'"] [data-analysis-state]')->text()));
     }
 
-    public function test_a_bucket_rule_proposal_offers_dismiss_and_no_create(): void
+    public function test_a_bucket_rule_proposal_shows_its_rule_and_offers_accept_and_dismiss(): void
     {
         $client = static::createClient();
         $em = $this->em();
         $project = $this->scenarioProject('reports-bucket-rule');
         $analysis = $this->seedAnalysis($em, $project);
         $card = $this->seedProposal($em, $analysis);
-        $rule = $this->seedProposal($em, $analysis, ProposalKind::BucketRule, 1);
+        $rule = $this->seedProposal($em, $analysis, ProposalKind::BucketRule, 1, ['pattern' => 'Bash:git *', 'bucket' => 'git']);
         $projectId = (string) $project->id;
         $em->clear();
 
@@ -144,7 +144,11 @@ final class ListReportsControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-proposal="'.$card->id.'"] form[action$="/accept"]'));
         $ruleRow = $crawler->filter('[data-proposal="'.$rule->id.'"]');
         self::assertCount(1, $ruleRow->filter('form[action$="/dismiss"]'));
-        self::assertCount(0, $ruleRow->filter('form[action$="/accept"]'));
+        self::assertCount(1, $ruleRow->filter('form[action$="/accept"]'));
+        self::assertSame('Create the rule', trim($ruleRow->filter('form[action$="/accept"] button')->text()));
+        self::assertSame('Bash:git *', $ruleRow->filter('[data-proposal-pattern]')->text());
+        self::assertSame('git', $ruleRow->filter('[data-proposal-bucket]')->text());
+        self::assertCount(0, $crawler->filter('[data-proposal="'.$card->id.'"] [data-proposal-rule]'));
     }
 
     public function test_a_project_with_no_analysis_says_what_an_analysis_needs(): void
@@ -164,7 +168,7 @@ final class ListReportsControllerTest extends WebTestCase
         self::assertStringEndsWith('/extending/cli-bridge/#work-requests', (string) $empty->filter('a')->attr('href'));
         self::assertCount(1, $crawler->filter('[data-start-analysis-form]'));
         self::assertSame('sonnet', $crawler->filter('[data-start-analysis-form] input[name="start_analysis_form[model]"]')->attr('placeholder'));
-        self::assertSame(['cost', 'experiment', 'host'], $crawler->filter('select[name="start_analysis_form[topic]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
+        self::assertSame(['cost', 'time', 'experiment', 'host'], $crawler->filter('select[name="start_analysis_form[topic]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertSame(['', 'low', 'medium', 'high', 'xhigh', 'max'], $crawler->filter('select[name="start_analysis_form[effort]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertCount(1, $crawler->filter('[data-analytics-settings-form] input[name="analytics_settings_form[collectFullText]"]'));
     }
@@ -228,7 +232,7 @@ final class ListReportsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?topic=experiment&experiment=prompt-test');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['cost', 'experiment', 'host'], $crawler->filter('#start_analysis_form_topic option')->each(static fn ($option): string => (string) $option->attr('value')));
+        self::assertSame(['cost', 'time', 'experiment', 'host'], $crawler->filter('#start_analysis_form_topic option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertSame(['', 'model-test', 'prompt-test'], $crawler->filter('#start_analysis_form_experiment option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertSame('experiment', $crawler->filter('#start_analysis_form_topic option[selected]')->attr('value'));
         self::assertSame('prompt-test', $crawler->filter('#start_analysis_form_experiment option[selected]')->attr('value'));
@@ -243,7 +247,7 @@ final class ListReportsControllerTest extends WebTestCase
         $this->em()->clear();
 
         $client->loginUser($project->owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?topic=time&experiment=no-such-experiment');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?topic=question&experiment=no-such-experiment');
 
         self::assertResponseIsSuccessful();
         self::assertSame('cost', $crawler->filter('#start_analysis_form_topic option[selected]')->attr('value'));

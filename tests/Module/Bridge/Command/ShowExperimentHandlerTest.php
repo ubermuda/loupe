@@ -310,7 +310,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
     public function test_a_declaration_picks_the_known_metrics_in_its_order(): void
     {
         $definition = new ExperimentDefinition($this->project, self::EXPERIMENT, [['name' => 'a', 'weight' => 1]]);
-        $definition->metrics = ['duration', 'foo', 'input-tokens', 'duration', 'runs', 'bar', 'foo'];
+        $definition->metrics = ['duration', 'foo', 'input-tokens', 'duration', 'runs', 'bar', 'foo', 'bucket-time'];
         $this->em->persist($definition);
         $one = Uuid::v7();
         $this->seedUsage($this->em, $this->experimentRun($one, 'a', at: '+1 hour'), costUsd: '1.000000');
@@ -327,7 +327,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
 
         self::assertNotNull($view);
         self::assertSame(['duration', 'input-tokens', 'runs'], array_keys($view->metrics));
-        self::assertSame(['foo', 'bar'], $view->unknownMetrics);
+        self::assertSame(['foo', 'bar', 'bucket-time'], $view->unknownMetrics);
         self::assertEquals(new Interval(100.0, 100.0, 100.0), $view->metrics['input-tokens']->for('a'));
         self::assertEquals(Stats::bootstrapMean([300_000, 600_000], 'model-test:duration:a'), $view->metrics['duration']->for('a'));
         self::assertEquals(Stats::bootstrapMean([1, 2], 'model-test:runs:a'), $view->metrics['runs']->for('a'));

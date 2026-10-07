@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Insights\EventListener;
 
+use App\Module\Insights\Entity\InsightsBucketRule;
 use App\Module\Insights\Entity\InsightsProjectSettings;
 use App\Module\Insights\EventListener\DeleteInsightsDataOnProjectDeleting;
 use App\Module\Project\Entity\Project;
@@ -16,7 +17,7 @@ final class DeleteInsightsDataOnProjectDeletingTest extends KernelTestCase
 {
     use InsightsScenario;
 
-    private const array TABLES = ['insights_analyses', 'insights_proposals', 'insights_project_settings'];
+    private const array TABLES = ['insights_analyses', 'insights_proposals', 'insights_project_settings', 'insights_bucket_rules'];
 
     protected function setUp(): void
     {
@@ -48,6 +49,7 @@ final class DeleteInsightsDataOnProjectDeletingTest extends KernelTestCase
 
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM projects WHERE id = ?', [$doomedId]));
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM insights_analyses WHERE project_id = ?', [$doomedId]));
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM insights_bucket_rules WHERE project_id = ?', [$doomedId]));
     }
 
     private function seedInsights(string $name): Project
@@ -56,6 +58,7 @@ final class DeleteInsightsDataOnProjectDeletingTest extends KernelTestCase
         $project = $this->scenarioProject($name);
         $this->seedProposal($em, $this->seedAnalysis($em, $project));
         $em->persist(new InsightsProjectSettings($project));
+        $em->persist(new InsightsBucketRule($project, 'Bash:git *', 'git', 0));
         $em->flush();
 
         return $project;
@@ -71,6 +74,7 @@ final class DeleteInsightsDataOnProjectDeletingTest extends KernelTestCase
             'insights_analyses' => (int) $connection->fetchOne('SELECT COUNT(*) FROM insights_analyses WHERE project_id = ?', [$id]),
             'insights_proposals' => (int) $connection->fetchOne('SELECT COUNT(*) FROM insights_proposals p JOIN insights_analyses a ON a.id = p.analysis_id WHERE a.project_id = ?', [$id]),
             'insights_project_settings' => (int) $connection->fetchOne('SELECT COUNT(*) FROM insights_project_settings WHERE project_id = ?', [$id]),
+            'insights_bucket_rules' => (int) $connection->fetchOne('SELECT COUNT(*) FROM insights_bucket_rules WHERE project_id = ?', [$id]),
         ];
     }
 }

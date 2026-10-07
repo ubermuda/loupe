@@ -22,6 +22,7 @@ use App\Module\Bridge\Metric\MetricRowSource;
 use App\Module\Bridge\Metric\MetricSeries;
 use App\Module\Bridge\Metric\MetricStatistic;
 use App\Module\Bridge\Metric\MetricUnit;
+use App\Module\Bridge\Repository\WorkerRunBucketTimeRepository;
 use App\Module\Bridge\Repository\WorkerRunFactRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -136,6 +137,52 @@ final class MetricQueryHandlerTest extends KernelTestCase
         self::assertEquals(new MetricPoint(null, 2.0, 1), $review->total);
     }
 
+    public function test_a_card_bucket_time_adds_the_runs_with_data_and_is_unknown_with_none(): void
+    {
+        $known = $this->finishedCard(1, '2026-10-02 10:00:00');
+        $unknown = $this->finishedCard(2, '2026-10-03 10:00:00');
+        $zero = $this->finishedCard(3, '2026-10-03 11:00:00');
+        $this->fact($known, endedAt: '2026-10-01 09:00:00', runId: $this->runWithBuckets(['tests' => 1500]));
+        $this->fact($known, endedAt: '2026-10-02 09:00:00', runId: $this->runWithBuckets(['tests' => 2500, 'other' => 9]));
+        $this->fact($known, endedAt: '2026-10-02 09:30:00');
+        $this->fact($unknown, endedAt: '2026-10-03 09:00:00');
+        $this->fact($zero, endedAt: '2026-10-03 09:00:00', runId: $this->runWithBuckets(['other' => 9]));
+
+        $view = $this->query(MetricUnit::Card, Metric::BucketTime, MetricStatistic::Sum, bucketName: 'tests');
+
+        self::assertSame([3 => 0, 2 => null, 1 => 4000], array_column(array_map(static fn (MetricRow $row): array => ['n' => $row->cardNumber, 'v' => $row->value], $view->series[0]->rows), 'v', 'n'));
+        self::assertEquals(new MetricPoint(null, 4000, 2), $view->series[0]->total);
+    }
+
+    public function test_a_bucket_time_query_needs_a_name_and_no_other_metric_takes_one(): void
+    {
+        foreach ([[Metric::BucketTime, null], [Metric::Cost, 'tests']] as [$metric, $name]) {
+            try {
+                $this->query(MetricUnit::Run, $metric, MetricStatistic::Sum, bucketName: $name);
+                self::fail('Expected a refusal.');
+            } catch (\LogicException) {
+                self::addToAssertionCount(1);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, int> $times
+     *
+     * @return Uuid the id of a stored run that has the bucket rows
+     */
+    private function runWithBuckets(array $times): Uuid
+    {
+        $run = $this->seedRun($this->em, $this->project);
+        // The fact listener wrote a fact row for the run, and the test writes its own.
+        $this->em->getConnection()->executeStatement('DELETE FROM bridge_worker_run_facts WHERE run_id = :run', ['run' => (string) $run->id]);
+        foreach ($times as $bucket => $ms) {
+            $this->em->getConnection()->insert('bridge_worker_run_bucket_times', ['id' => (string) Uuid::v7(), 'run_id' => (string) $run->id, 'bucket' => (string) $bucket, 'ms' => $ms]);
+        }
+
+        return $run->id ?? throw new \LogicException('A stored run has an id.');
+    }
+
     public function test_a_card_with_a_started_run_and_no_cost_has_an_unknown_cost(): void
     {
         $priced = $this->finishedCard(1, '2026-10-02 10:00:00');
@@ -225,7 +272,7 @@ final class MetricQueryHandlerTest extends KernelTestCase
         }
     }
 
-    private function query(MetricUnit $unit, Metric $metric, MetricStatistic $statistic, MetricGroup $group = MetricGroup::None): MetricQueryView
+    private function query(MetricUnit $unit, Metric $metric, MetricStatistic $statistic, MetricGroup $group = MetricGroup::None, ?string $bucketName = null): MetricQueryView
     {
         $finished = new readonly class($this->finished) implements FinishedCardSourceInterface {
             /** @param list<FinishedCard> $cards */
@@ -277,9 +324,11 @@ final class MetricQueryHandlerTest extends KernelTestCase
         };
         $facts = self::getContainer()->get(WorkerRunFactRepository::class);
         self::assertInstanceOf(WorkerRunFactRepository::class, $facts);
-        $handler = new MetricQueryHandler(new MetricRowSource($facts, $finished, $reports), new MockClock(self::NOW.' UTC'));
+        $bucketTimes = self::getContainer()->get(WorkerRunBucketTimeRepository::class);
+        self::assertInstanceOf(WorkerRunBucketTimeRepository::class, $bucketTimes);
+        $handler = new MetricQueryHandler(new MetricRowSource($facts, $finished, $reports, $bucketTimes), new MockClock(self::NOW.' UTC'));
 
-        return $handler(new MetricQueryCommand($this->project, $unit, $metric, $statistic, $group, MetricRange::ThirtyDays, MetricBucket::Day));
+        return $handler(new MetricQueryCommand($this->project, $unit, $metric, $statistic, $group, MetricRange::ThirtyDays, MetricBucket::Day, $bucketName));
     }
 
     private function finishedCard(int $number, string $completedAt): Uuid
@@ -301,8 +350,9 @@ final class MetricQueryHandlerTest extends KernelTestCase
         string $subjectType = 'card',
         ?int $cardNumber = null,
         string $kind = 'worker',
+        ?Uuid $runId = null,
     ): Uuid {
-        $runId = Uuid::v7();
+        $runId ??= Uuid::v7();
         $this->em->getConnection()->insert('bridge_worker_run_facts', [
             'run_id' => (string) $runId,
             'project_id' => (string) $this->project->id,

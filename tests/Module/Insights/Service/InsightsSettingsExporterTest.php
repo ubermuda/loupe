@@ -22,6 +22,7 @@ final class InsightsSettingsExporterTest extends KernelTestCase
         $settings->defaultModel = 'claude-opus-5-5';
         $settings->defaultEffort = 'high';
         $settings->collectFullText = true;
+        $settings->subcommandPrograms = ['git', 'bazel'];
         $em->persist($settings);
         $em->persist(new InsightsProjectSettings($this->scenarioProject('settings-export-other')));
         $em->flush();
@@ -37,6 +38,7 @@ final class InsightsSettingsExporterTest extends KernelTestCase
             'defaultModel' => 'claude-opus-5-5',
             'defaultEffort' => 'high',
             'collectFullText' => true,
+            'subcommandPrograms' => ['git', 'bazel'],
         ]], $rows);
     }
 }

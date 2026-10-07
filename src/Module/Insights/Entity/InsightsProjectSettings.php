@@ -6,6 +6,7 @@ namespace App\Module\Insights\Entity;
 
 use App\Module\Insights\Repository\InsightsProjectSettingsRepository;
 use App\Module\Project\Entity\Project;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -30,6 +31,14 @@ class InsightsProjectSettings
     /** Whether the bridge sends the full text of each tool call. */
     #[ORM\Column(name: 'collect_full_text', options: ['default' => false])]
     public bool $collectFullText = false;
+
+    /**
+     * The programs whose second word joins the signature of a shell command. Null keeps the instance list.
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(name: 'subcommand_programs', type: Types::JSON, nullable: true)]
+    public ?array $subcommandPrograms = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]

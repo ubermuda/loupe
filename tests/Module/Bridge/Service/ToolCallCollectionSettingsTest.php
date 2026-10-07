@@ -46,6 +46,51 @@ final class ToolCallCollectionSettingsTest extends TestCase
         self::assertSame(self::DEFAULT, new ToolCallCollectionSettings($flags, $this->createStub(ProjectCollectionSettingsInterface::class))->subcommandPrograms($this->project()));
     }
 
+    public function test_the_programs_of_the_project_replace_the_instance_list(): void
+    {
+        $flags = $this->createStub(FeatureFlagService::class);
+        $flags->method('getStringValue')->willReturn('git,just');
+        $project = $this->project();
+        $projectSettings = $this->createStub(ProjectCollectionSettingsInterface::class);
+        $projectSettings->method('subcommandPrograms')->willReturn(['bazel', 'c++']);
+
+        self::assertSame(['bazel', 'c++'], new ToolCallCollectionSettings($flags, $projectSettings)->subcommandPrograms($project));
+    }
+
+    /** @return iterable<string, array{list<string>, list<string>}> */
+    public static function projectLists(): iterable
+    {
+        yield 'an empty list' => [[], ['git', 'just']];
+        yield 'only invalid names' => [['two words', '', str_repeat('a', 41), 'a/b'], ['git', 'just']];
+        yield 'a valid name among invalid ones' => [['two words', 'bazel'], ['bazel']];
+    }
+
+    /**
+     * @param list<string> $own
+     * @param list<string> $expected
+     */
+    #[DataProvider('projectLists')]
+    public function test_an_unusable_project_list_falls_back_to_the_instance_list(array $own, array $expected): void
+    {
+        $flags = $this->createStub(FeatureFlagService::class);
+        $flags->method('getStringValue')->willReturn('git,just');
+        $projectSettings = $this->createStub(ProjectCollectionSettingsInterface::class);
+        $projectSettings->method('subcommandPrograms')->willReturn($own);
+
+        self::assertSame($expected, new ToolCallCollectionSettings($flags, $projectSettings)->subcommandPrograms($this->project()));
+    }
+
+    public function test_a_project_list_is_cut_at_the_limit(): void
+    {
+        $programs = array_map(static fn (int $index): string => 'tool'.$index, range(1, ToolCallCollectionSettings::MAX_PROJECT_PROGRAMS + 5));
+        $projectSettings = $this->createStub(ProjectCollectionSettingsInterface::class);
+        $projectSettings->method('subcommandPrograms')->willReturn($programs);
+
+        $result = new ToolCallCollectionSettings($this->createStub(FeatureFlagService::class), $projectSettings)->subcommandPrograms($this->project());
+
+        self::assertSame(array_slice($programs, 0, ToolCallCollectionSettings::MAX_PROJECT_PROGRAMS), $result);
+    }
+
     #[DataProvider('projectAnswers')]
     public function test_the_project_settings_decide_whether_the_full_text_is_collected(bool $answer): void
     {

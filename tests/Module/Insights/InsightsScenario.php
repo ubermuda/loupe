@@ -47,9 +47,10 @@ trait InsightsScenario
         return $analysis;
     }
 
-    private function seedProposal(EntityManagerInterface $em, Analysis $analysis, ProposalKind $kind = ProposalKind::Card, int $position = 0): Proposal
+    /** @param array<mixed>|null $payload */
+    private function seedProposal(EntityManagerInterface $em, Analysis $analysis, ProposalKind $kind = ProposalKind::Card, int $position = 0, ?array $payload = null): Proposal
     {
-        $proposal = new Proposal($analysis, $kind, 'Cache the dependencies', 'Each run installs them again.', null, 'About $4 a week', $position);
+        $proposal = new Proposal($analysis, $kind, 'Cache the dependencies', 'Each run installs them again.', $payload, 'About $4 a week', $position);
         $em->persist($proposal);
         $em->flush();
 

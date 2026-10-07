@@ -6,6 +6,7 @@ namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Service\ToolCallCollectionSettings;
+use App\Module\Insights\Entity\InsightsProjectSettings;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
@@ -98,6 +99,39 @@ final class ListSitesApiTest extends WebTestCase
         self::assertCount(1, $data['sites']);
         self::assertFalse($data['sites'][0]['collectFullText']);
         self::assertSame(['git', 'just'], $data['sites'][0]['subcommandPrograms']);
+    }
+
+    /** A project that sets its own list sends it, and a project that sets none sends the instance list. */
+    public function test_a_project_list_of_subcommand_programs_replaces_the_instance_list(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'list-sites-override@example.com');
+        $own = new Project($owner, 'Own Programs');
+        $em->persist($own);
+        $em->persist(new Project($owner, 'Instance Programs'));
+        $settings = new InsightsProjectSettings($own);
+        $settings->subcommandPrograms = ['bazel', 'git'];
+        $em->persist($settings);
+        $em->flush();
+        $em->getConnection()->executeStatement(
+            'UPDATE feature_flag SET value = ? WHERE name = ?',
+            [json_encode('just', \JSON_THROW_ON_ERROR), ToolCallCollectionSettings::SUBCOMMAND_PROGRAMS_FLAG],
+        );
+
+        $raw = AgentCredential::agentToken(static::getContainer(), $owner);
+
+        $client->request(Request::METHOD_GET, '/api/projects',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertIsArray($data['sites']);
+        $programs = array_column($data['sites'], 'subcommandPrograms', 'slug');
+        self::assertSame(['bazel', 'git'], $programs['own-programs']);
+        self::assertSame(['just'], $programs['instance-programs']);
     }
 
     public function test_the_old_agent_path_is_gone(): void

@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunToolCall;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
+use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
@@ -72,6 +73,42 @@ class WorkerRunToolCallRepository extends ServiceEntityRepository
             self::INSERT_SQL,
             ['calls' => json_encode($rows, \JSON_THROW_ON_ERROR)],
         );
+    }
+
+    /**
+     * What the bucket computation reads of every call of the run, in order.
+     *
+     * @return list<array{signatures: list<string>, startedAt: \DateTimeImmutable, durationMs: ?int, inSubagent: bool}>
+     */
+    public function findBucketInputsOfRun(Uuid $runId): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT signatures, started_at, duration_ms, in_subagent FROM bridge_worker_run_tool_calls WHERE run_id = :run ORDER BY seq',
+            ['run' => $runId->toRfc4122()],
+        );
+
+        return array_map(static fn (array $row): array => [
+            'signatures' => array_values(array_map(strval(...), json_decode((string) $row['signatures'], true, 512, \JSON_THROW_ON_ERROR))),
+            'startedAt' => new \DateTimeImmutable((string) $row['started_at'], new \DateTimeZone('UTC')),
+            'durationMs' => null === $row['duration_ms'] ? null : (int) $row['duration_ms'],
+            'inSubagent' => (bool) $row['in_subagent'],
+        ], $rows);
+    }
+
+    /**
+     * The ids of the project runs that still hold a tool call, in id order,
+     * after the given id.
+     *
+     * @return list<Uuid>
+     */
+    public function findRunIdsWithCallsOfProject(Project $project, ?Uuid $after, int $limit): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT r.id FROM bridge_worker_runs r WHERE r.project_id = :project AND (CAST(:after AS uuid) IS NULL OR r.id > CAST(:after AS uuid)) AND EXISTS (SELECT 1 FROM bridge_worker_run_tool_calls c WHERE c.run_id = r.id) ORDER BY r.id LIMIT '.$limit,
+            ['project' => (string) $project->id, 'after' => $after?->toRfc4122()],
+        );
+
+        return array_map(static fn (mixed $id): Uuid => Uuid::fromString((string) $id), $ids);
     }
 
     /** @return Paginator<WorkerRunToolCall> */

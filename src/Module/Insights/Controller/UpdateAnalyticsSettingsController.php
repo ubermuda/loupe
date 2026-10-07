@@ -40,7 +40,7 @@ class UpdateAnalyticsSettingsController extends AppController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->updateSettings)(new UpdateAnalyticsSettingsCommand($project, $data->model, $data->effort, $data->collectFullText));
+                ($this->updateSettings)(new UpdateAnalyticsSettingsCommand($project, $data->model, $data->effort, $data->collectFullText, subcommandPrograms: $data->subcommandProgramList()));
                 $this->addFlash('success', $this->translator->trans('insights.reports.flash.settings_saved'));
 
                 return $this->redirectToRoute('app_project_analytics_reports', ['id' => (string) $project->id]);

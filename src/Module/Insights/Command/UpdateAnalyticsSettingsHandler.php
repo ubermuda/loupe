@@ -6,6 +6,7 @@ namespace App\Module\Insights\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Insights\Entity\InsightsProjectSettings;
 use App\Module\Insights\Repository\InsightsProjectSettingsRepository;
 use Doctrine\DBAL\LockMode;
@@ -19,6 +20,8 @@ final readonly class UpdateAnalyticsSettingsHandler
 {
     public const string INVALID_MODEL = 'insights.settings.error.invalid_model';
     public const string INVALID_EFFORT = 'insights.settings.error.invalid_effort';
+    public const string INVALID_SUBCOMMAND_PROGRAMS = 'insights.settings.error.invalid_subcommand_programs';
+    public const string TOO_MANY_SUBCOMMAND_PROGRAMS = 'insights.settings.error.too_many_subcommand_programs';
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -36,6 +39,12 @@ final readonly class UpdateAnalyticsSettingsHandler
         if (null !== $command->effort && !\in_array($command->effort, WorkRequest::EFFORTS, true)) {
             $errors['effort'] = self::INVALID_EFFORT;
         }
+        $programs = $command->changeSubcommandPrograms ? array_values(array_unique($command->subcommandPrograms ?? [])) : [];
+        if (\count($programs) > ToolCallCollectionSettings::MAX_PROJECT_PROGRAMS) {
+            $errors['subcommandPrograms'] = self::TOO_MANY_SUBCOMMAND_PROGRAMS;
+        } elseif ([] !== array_filter($programs, static fn (string $program): bool => 1 !== preg_match(ToolCallCollectionSettings::PROGRAM_PATTERN, $program))) {
+            $errors['subcommandPrograms'] = self::INVALID_SUBCOMMAND_PROGRAMS;
+        }
         if ([] !== $errors) {
             throw new DomainErrors($errors);
         }
@@ -43,7 +52,7 @@ final readonly class UpdateAnalyticsSettingsHandler
         $project = $command->project;
         $projectId = (string) ($project->id ?? throw new \LogicException('A stored project has an id.'));
 
-        $settings = $this->em->wrapInTransaction(function () use ($command, $project): InsightsProjectSettings {
+        $settings = $this->em->wrapInTransaction(function () use ($command, $project, $programs): InsightsProjectSettings {
             // The lock keeps two first saves from both inserting a row.
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
@@ -61,6 +70,9 @@ final readonly class UpdateAnalyticsSettingsHandler
             if ($command->changeCollectFullText) {
                 $settings->collectFullText = $command->collectFullText;
             }
+            if ($command->changeSubcommandPrograms) {
+                $settings->subcommandPrograms = [] === $programs ? null : $programs;
+            }
             $this->em->flush();
 
             return $settings;
@@ -74,6 +86,7 @@ final readonly class UpdateAnalyticsSettingsHandler
                 'model' => $settings->defaultModel,
                 'effort' => $settings->defaultEffort,
                 'collectFullText' => $settings->collectFullText,
+                'subcommandProgramCount' => \count($settings->subcommandPrograms ?? []),
             ],
             new AuditSubject('project', $projectId),
         );

@@ -32,6 +32,7 @@ final class AnalyticsSettingsToolsTest extends KernelTestCase
             'defaultModel' => null,
             'defaultEffort' => null,
             'collectFullText' => false,
+            'subcommandPrograms' => [],
             'model' => 'sonnet',
             'effort' => 'medium',
         ], $this->getTool()());
@@ -52,6 +53,7 @@ final class AnalyticsSettingsToolsTest extends KernelTestCase
             'defaultModel' => 'opus',
             'defaultEffort' => null,
             'collectFullText' => true,
+            'subcommandPrograms' => [],
             'model' => 'opus',
             'effort' => 'medium',
         ], $this->getTool()());
@@ -69,6 +71,7 @@ final class AnalyticsSettingsToolsTest extends KernelTestCase
             'defaultModel' => 'opus',
             'defaultEffort' => 'high',
             'collectFullText' => true,
+            'subcommandPrograms' => [],
             'model' => 'opus',
             'effort' => 'high',
         ], $result);
@@ -106,6 +109,35 @@ final class AnalyticsSettingsToolsTest extends KernelTestCase
                 $e->getMessage(),
             );
         }
+    }
+
+    public function test_update_sets_and_clears_the_subcommand_programs(): void
+    {
+        $project = $this->scenarioProject('settings-programs');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $set = $this->updateTool()(subcommandPrograms: ['git', 'bazel', 'git']);
+        $kept = $this->updateTool()(defaultModel: 'opus');
+        $cleared = $this->updateTool()(subcommandPrograms: []);
+
+        self::assertSame(['git', 'bazel'], $set['subcommandPrograms']);
+        self::assertSame(['git', 'bazel'], $kept['subcommandPrograms']);
+        self::assertSame([], $cleared['subcommandPrograms']);
+        self::assertSame([], $this->getTool()()['subcommandPrograms']);
+    }
+
+    public function test_update_refuses_a_malformed_program_in_readable_text(): void
+    {
+        $project = $this->scenarioProject('settings-programs-refused');
+        $this->actAsMcpTokenBoundTo($project);
+
+        try {
+            $this->updateTool()(subcommandPrograms: ['git', 'two words']);
+            self::fail('Expected a refusal.');
+        } catch (ToolCallException $e) {
+            self::assertSame('subcommandPrograms: A program name is 1 to 40 characters of letters, digits and . _ + -.', $e->getMessage());
+        }
+        self::assertSame([], $this->getTool()()['subcommandPrograms']);
     }
 
     public function test_update_refuses_an_unbound_token(): void

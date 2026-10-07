@@ -310,13 +310,13 @@ Roughly in the order an agent uses them:
 | `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output, its metrics and the commands sent to its bridge |
 | `worker_run_tool_calls` | Read a page of the tool calls of one worker run, in the order the worker made them. Each call gives its tool, its start, its duration, its error flag, whether a subagent made it, and its signatures. `perPage` defaults to 20, with a maximum of 100 |
 | `bridge_host_samples` | Read a page of the host samples of the bridge that ran one worker run, oldest first, from the start of the run to its end, or to now while the run is open. Each sample gives its time, the use of each core, the memory and swap in use, the total memory, the battery charge and the power source. The samples cover the whole machine, so they cover every run on that bridge at that time. `perPage` defaults to 100, with a maximum of 500 |
-| `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes |
-| `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it |
+| `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes. It adds one `bucket-time:<name>` entry for each bucket that has time on a run of the project |
+| `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it. The metric `bucket-time:<name>` reads the time of the main-session tool calls of a run in one bucket, in milliseconds. A name is 1 to 64 characters of `a-z`, `0-9`, `_` and `-`. A run with no data for any bucket has an unknown value |
 | `experiment_get` | Read the comparison of one experiment: the variants, each metric with its likely range per variant and whether it gives a clear answer, and one page of the cards, with the reasons a card is left out |
 | `analysis_get` | Read one analysis, with its topic, its range, the experiment that an experiment analysis compares, its model and effort, its state and reason, its cost so far and its proposals |
 | `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
-| `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, and whether the bridge sends the full text of each tool call |
-| `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort clears the project value, so the instance default applies |
+| `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, the programs with subcommands, and whether the bridge sends the full text of each tool call |
+| `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort, or an empty list of programs, clears the project value, so the instance default applies |
 | `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |

@@ -8,9 +8,13 @@ use App\Module\Bridge\Metric\Metric;
 
 final readonly class ListMetricsView
 {
-    /** @param list<Metric> $metrics */
+    /**
+     * @param list<Metric> $metrics     the metrics whose key says all
+     * @param list<string> $bucketNames the buckets with time on the runs of the project
+     */
     public function __construct(
         public array $metrics,
+        public array $bucketNames,
     ) {
     }
 }

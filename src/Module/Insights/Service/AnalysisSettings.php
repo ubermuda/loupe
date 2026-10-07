@@ -11,7 +11,7 @@ use App\Module\Project\Entity\Project;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
-/** The model, the effort and the collection setting of a project: its own value, else the instance flag, else the coded default. */
+/** The model, the effort and the collection settings of a project: its own value, else the instance flag, else the coded default. */
 #[AsAlias(ProjectCollectionSettingsInterface::class)]
 final readonly class AnalysisSettings implements ProjectCollectionSettingsInterface
 {
@@ -49,5 +49,13 @@ final readonly class AnalysisSettings implements ProjectCollectionSettingsInterf
     public function collectFullText(Project $project): bool
     {
         return $this->insightsProjectSettings->findForProject($project)->collectFullText ?? false;
+    }
+
+    #[\Override]
+    public function subcommandPrograms(Project $project): ?array
+    {
+        $programs = $this->insightsProjectSettings->findForProject($project)?->subcommandPrograms;
+
+        return [] === $programs ? null : $programs;
     }
 }

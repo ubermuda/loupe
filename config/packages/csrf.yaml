@@ -25,6 +25,8 @@ framework:
             - worker-run-close
             - worker-run-command
             - insights-proposal-accept
+            - insights-bucket-rule-delete
+            - insights-bucket-rule-move
             - bridge-pause
             - card-agents
             - workflow-pause-release

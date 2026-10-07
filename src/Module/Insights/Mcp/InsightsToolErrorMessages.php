@@ -6,6 +6,7 @@ namespace App\Module\Insights\Mcp;
 
 use App\Exception\DomainErrors;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Insights\Command\ReportAnalysisHandler;
 use App\Module\Insights\Command\UpdateAnalyticsSettingsHandler;
 use App\Module\Insights\Entity\Proposal;
@@ -37,10 +38,13 @@ final readonly class InsightsToolErrorMessages
             ReportAnalysisHandler::INVALID_KIND => 'A proposal kind is card or bucket-rule.',
             ReportAnalysisHandler::TITLE_BLANK => 'A proposal title must not be blank.',
             ReportAnalysisHandler::TITLE_TOO_LONG => \sprintf('A proposal title must be at most %d characters.', Proposal::MAX_TITLE_LENGTH),
+            ReportAnalysisHandler::BUCKET_RULE_INVALID => 'A bucket-rule proposal needs a payload with pattern, a glob of at most 120 characters, and bucket, a name of 1 to 64 characters: lower case letters, digits, underscore and hyphen.',
             ReportAnalysisHandler::BODY_BLANK => 'A proposal body must not be blank.',
             ReportAnalysisHandler::SAVING_TOO_LONG => \sprintf('An estimated saving must be at most %d characters.', Proposal::MAX_ESTIMATED_SAVING_LENGTH),
             UpdateAnalyticsSettingsHandler::INVALID_MODEL => 'A model is one word of at most 64 characters, such as sonnet or opus.',
             UpdateAnalyticsSettingsHandler::INVALID_EFFORT => \sprintf('Use one of: %s.', implode(', ', WorkRequest::EFFORTS)),
+            UpdateAnalyticsSettingsHandler::INVALID_SUBCOMMAND_PROGRAMS => 'A program name is 1 to 40 characters of letters, digits and . _ + -.',
+            UpdateAnalyticsSettingsHandler::TOO_MANY_SUBCOMMAND_PROGRAMS => \sprintf('Pass at most %d programs.', ToolCallCollectionSettings::MAX_PROJECT_PROGRAMS),
             default => self::UNMAPPED,
         };
     }

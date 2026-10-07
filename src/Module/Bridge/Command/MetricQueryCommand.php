@@ -22,6 +22,8 @@ final readonly class MetricQueryCommand
         public MetricGroup $group,
         public MetricRange $range,
         public MetricBucket $bucket,
+        /** The bucket of a bucket-time query, and null for every other metric. */
+        public ?string $bucketName,
     ) {
     }
 }
