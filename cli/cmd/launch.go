@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
+	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
@@ -33,39 +34,20 @@ func defaultScriptDir() string {
 	return filepath.Join(os.TempDir(), "loupe-sessions")
 }
 
-// resolveClaude is the absolute path of claude. The launch script changes
-// directory before it runs claude, so a relative path would miss.
+// resolveClaude is the absolute path of the default harness's program. The
+// launch script changes directory before it runs it, so a relative path would
+// miss.
 func resolveClaude() (string, error) {
-	path, err := lookPath("claude")
+	return resolveProgram(defaultHarness())
+}
+
+func resolveProgram(h harn.Harness) (string, error) {
+	path, err := lookPath(h.Program())
 	if err != nil {
-		return "", errors.New("claude is not installed or not on PATH")
+		return "", errors.New(h.Program() + " is not installed or not on PATH")
 	}
 
 	return filepath.Abs(path)
-}
-
-// shellQuote quotes s for a POSIX shell, so the shell reads it as one word.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
-
-// launchScript is the body of the script that a terminal runs. It deletes
-// itself first, so the prompt does not stay on the disk.
-func launchScript(claude string, spec workerSpec) string {
-	var b strings.Builder
-	b.WriteString("#!/bin/sh\n")
-	b.WriteString("rm -f -- \"$0\"\n")
-	b.WriteString("cd -- " + shellQuote(spec.dir) + " || exit 1\n")
-	b.WriteString("exec " + shellQuote(claude) + " --session-id " + shellQuote(spec.sessionID))
-	if spec.model != "" {
-		b.WriteString(" --model " + shellQuote(spec.model))
-	}
-	if spec.permissionMode != "" {
-		b.WriteString(" --permission-mode " + shellQuote(spec.permissionMode))
-	}
-	b.WriteString(" -- " + shellQuote(spec.prompt) + "\n")
-
-	return b.String()
 }
 
 // writeLaunchScript writes the script of one session into root and returns its
@@ -247,7 +229,7 @@ func (r *router) beginLaunch(l launch) func(start func() error) error {
 func (r *router) runLaunch(l launch) {
 	p := l.p
 	reason := ""
-	path, err := writeLaunchScript(l.dir, p.spec.sessionID, launchScript(l.claude, p.spec))
+	path, err := writeLaunchScript(l.dir, p.spec.sessionID, p.spec.adapter().Interactive(l.claude, p.spec.harnessSpec(nil)))
 	switch {
 	case l.ctx.Err() != nil:
 		reason = launchAborted

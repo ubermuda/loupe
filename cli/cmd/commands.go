@@ -19,7 +19,6 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
-	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
 // The channels a command arrives on, as command_received names them.
@@ -583,22 +582,10 @@ func commandCard(c api.Command) string {
 func (r *router) hasTranscript(sessionID string) bool {
 	find := r.findTranscript
 	if find == nil {
-		find = findTranscript
+		find = defaultHarness().HasSession
 	}
 
 	return find(sessionID) == nil
-}
-
-// findTranscript fails when the Claude Code config directory holds no
-// transcript of the session.
-func findTranscript(sessionID string) error {
-	dir, err := transcript.ConfigDir()
-	if err != nil {
-		return err
-	}
-	_, err = transcript.Find(dir, sessionID)
-
-	return err
 }
 
 // sendAck hands the answer to the report queue, which retries a failure. A

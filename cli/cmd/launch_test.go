@@ -2,86 +2,13 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
 )
-
-// stubClaude writes a claude that records its directory and its arguments,
-// one per NUL, to out.
-func stubClaude(t *testing.T, out string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "claude")
-	body := "#!/bin/sh\npwd > " + shellQuote(out+".pwd") + "\nprintf '%s\\0' \"$@\" > " + shellQuote(out) + "\n"
-	if err := os.WriteFile(path, []byte(body), 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	return path
-}
-
-// runScript writes the launch script of spec, runs it through /bin/sh, and
-// returns the arguments the stub claude read.
-func runScript(t *testing.T, spec workerSpec) []string {
-	t.Helper()
-	out := filepath.Join(t.TempDir(), "args")
-	path, err := writeLaunchScript(t.TempDir(), spec.sessionID, launchScript(stubClaude(t, out), spec))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b, err := exec.Command("/bin/sh", path).CombinedOutput(); err != nil {
-		t.Fatalf("script: %v: %s", err, b)
-	}
-	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("the script did not delete itself: %v", err)
-	}
-	pwd, err := os.ReadFile(out + ".pwd")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, _ := filepath.EvalSymlinks(spec.dir)
-	if got, _ := filepath.EvalSymlinks(strings.TrimSpace(string(pwd))); got != want {
-		t.Fatalf("pwd = %q, want %q", got, want)
-	}
-	raw, err := os.ReadFile(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00")
-}
-
-// hard is every character a shell reads as syntax, in single and double
-// quotes and bare.
-const hard = "it's \"quoted\" $HOME `id` $(id) \\n \\ back\nnew line\n\n%s %d 100% * ? ~ ; & | < > # ! {a,b} [x] '' '\\''"
-
-func TestTheLaunchScriptPassesEachValueAsItIs(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "it's a \"dir\" $x")
-	if err := os.Mkdir(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	spec := workerSpec{dir: dir, sessionID: "0199a0e2-0000-4000-8000-000000000001", model: "op'us $x", permissionMode: "accept`Edits`", prompt: "Design card 87.\n" + hard}
-
-	got := runScript(t, spec)
-	want := []string{"--session-id", spec.sessionID, "--model", spec.model, "--permission-mode", spec.permissionMode, "--", spec.prompt}
-	if !slices.Equal(got, want) {
-		t.Fatalf("args = %q, want %q", got, want)
-	}
-}
-
-func TestTheLaunchScriptLeavesOutAnUnsetModelAndMode(t *testing.T) {
-	spec := workerSpec{dir: t.TempDir(), sessionID: "s1", prompt: "-starts with a dash"}
-
-	got := runScript(t, spec)
-	if want := []string{"--session-id", "s1", "--", "-starts with a dash"}; !slices.Equal(got, want) {
-		t.Fatalf("args = %q, want %q", got, want)
-	}
-}
 
 func TestTheLaunchScriptIsPrivate(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "loupe-sessions")
