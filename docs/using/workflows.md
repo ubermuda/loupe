@@ -90,7 +90,10 @@ write off, the rule asks a bridge for the same work instead. See
 
 Lifecycle has the slots Next, Product design, Tech design, Implementation and In
 review. A person can move a card from the Backlog to Next, Product design or
-Tech design, and from Next back to the Backlog or on to a design slot.
+Tech design, and from Next back to the Backlog or on to a design slot. A person
+can also move a card from Implementation back to Tech design, for example when
+the card has no tech design yet. A card whose tech design is approved goes
+back to Implementation at once when it has no open blocker.
 
 | Slot | The workflow |
 |---|---|
