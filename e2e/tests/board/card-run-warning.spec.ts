@@ -1,6 +1,6 @@
 /**
  * Browser coverage for the warning a card shows when its latest worker run
- * gave up. The runs go through the real run state endpoint with an agent
+ * gave up or failed. The runs go through the real run state endpoint with an agent
  * token, so no bridge runs. The warning appears and clears on an open board
  * with no navigation, so the run needs a Mercure hub the browser can reach.
  */
@@ -16,11 +16,11 @@ import {
 const RUN = Date.now();
 const PASSWORD = 'E2eRunWarning1!';
 
-test('a card whose latest run gave up shows a warning until a later run succeeds', async ({
+test('a card shows a warning until a newer run of the card succeeds or starts', async ({
     browser,
     request,
 }) => {
-    // A sign-in, a card, a token and two live reports outlast the default budget.
+    // A sign-in, a card, a token and four live reports outlast the default budget.
     test.slow();
 
     const email = `e2e+run-warning+${RUN}@example.com`;
@@ -78,11 +78,6 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
                     subjectId: cardId,
                     cardNumber: 1,
                     workKind: 'implement',
-                    sessionId: crypto.randomUUID(),
-                    startedAt: '2026-09-23T10:00:00+00:00',
-                    endedAt: '2026-09-23T10:05:00+00:00',
-                    exitCode: 0,
-                    hasResult: true,
                     ...data,
                 },
             },
@@ -92,7 +87,15 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
         return (await response.json()).id as string;
     };
 
+    const outcome = {
+        sessionId: crypto.randomUUID(),
+        startedAt: '2026-09-23T10:00:00+00:00',
+        endedAt: '2026-09-23T10:05:00+00:00',
+        exitCode: 0,
+        hasResult: true,
+    };
     const gaveUp = await report({
+        ...outcome,
         state: 'gave-up',
         resultStatus: 'unfinished',
         output: 'CI still ran when the turn ended',
@@ -103,10 +106,26 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
     await expect(warning).toContainText('CI still ran when the turn ended');
 
     await report({
+        ...outcome,
         state: 'succeeded',
         resultStatus: 'finished',
         output: 'The pull request is ready',
     });
+    await expect(card.locator('[data-card-run-warning]')).toHaveCount(0);
+    await expect(card).toBeVisible();
+
+    const failed = await report({
+        ...outcome,
+        state: 'failed',
+        exitCode: 1,
+        output: 'The tests failed',
+    });
+    await expect(
+        card.locator(`[data-card-run-warning="${failed}"]`),
+    ).toContainText('Failed');
+
+    // A queued retry is the newest run of the card, so the warning goes before it ends.
+    await report({ state: 'queued' });
     await expect(card.locator('[data-card-run-warning]')).toHaveCount(0);
     await expect(card).toBeVisible();
     // Each run change places the one card, and never reloads the whole board.
