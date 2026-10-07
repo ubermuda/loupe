@@ -36,6 +36,7 @@ final readonly class ProjectExporter implements UserDataExporterInterface
                 'createdAt' => $project->createdAt->format(\DateTimeInterface::ATOM),
                 'readinessGuideHiddenAt' => $project->readinessGuideHiddenAt?->format(\DateTimeInterface::ATOM),
                 'agentFirstSeenAt' => $project->agentFirstSeenAt?->format(\DateTimeInterface::ATOM),
+                'agentGitHubLogin' => $project->agentGitHubLogin,
             ];
         }
     }

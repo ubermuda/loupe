@@ -29,6 +29,14 @@
                 <target>A note can have a maximum of {{ limit }} characters.</target>
             </trans-unit>
 
+            <trans-unit id="readiness.form.update_agent_account_form.login.invalid">
+                <source>readiness.form.update_agent_account_form.login.invalid</source>
+                <target>A GitHub login holds letters, digits and single hyphens, and does not start or end with a hyphen.</target>
+            </trans-unit>
+            <trans-unit id="readiness.form.update_agent_account_form.login.too_long">
+                <source>readiness.form.update_agent_account_form.login.too_long</source>
+                <target>A GitHub login holds at most {{ limit }} characters.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

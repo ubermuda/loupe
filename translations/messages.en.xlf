@@ -7449,7 +7449,10 @@
             <trans-unit id="readiness.row.github.open"><source>readiness.row.github.open</source><target>Not installed</target></trans-unit>
             <trans-unit id="readiness.row.github.action"><source>readiness.row.github.action</source><target>Install</target></trans-unit>
             <trans-unit id="readiness.row.agent_account.label"><source>readiness.row.agent_account.label</source><target>Agent GitHub account</target></trans-unit>
-            <trans-unit id="readiness.row.agent_account.open"><source>readiness.row.agent_account.open</source><target>Not set up</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.no_login"><source>readiness.row.agent_account.no_login</source><target>No login recorded yet</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.no_push"><source>readiness.row.agent_account.no_push</source><target>No running bridge pushes as %login% yet</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.done"><source>readiness.row.agent_account.done</source><target>Agents push as %login%</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.action"><source>readiness.row.agent_account.action</source><target>Set up</target></trans-unit>
             <trans-unit id="readiness.row.repository.label"><source>readiness.row.repository.label</source><target>Repository</target></trans-unit>
             <trans-unit id="readiness.row.repository.open"><source>readiness.row.repository.open</source><target>Not run</target></trans-unit>
             <trans-unit id="readiness.settings.title"><source>readiness.settings.title</source><target>Agent readiness</target></trans-unit>
@@ -7461,6 +7464,24 @@
             <trans-unit id="readiness.settings.submit"><source>readiness.settings.submit</source><target>Save</target></trans-unit>
             <trans-unit id="readiness.settings.flash.saved"><source>readiness.settings.flash.saved</source><target>Readiness settings saved.</target></trans-unit>
             <trans-unit id="readiness.form.update_readiness_settings_form.show_guide.label"><source>readiness.form.update_readiness_settings_form.show_guide.label</source><target>Show the readiness checklist on the Workshop</target></trans-unit>
+            <trans-unit id="readiness.settings.agent_account.title"><source>readiness.settings.agent_account.title</source><target>Agent GitHub account</target></trans-unit>
+            <trans-unit id="readiness.settings.agent_account.description"><source>readiness.settings.agent_account.description</source><target>Give the agents a GitHub user of their own, so that you can review and approve their pull requests.</target></trans-unit>
+            <trans-unit id="readiness.settings.agent_account.link"><source>readiness.settings.agent_account.link</source><target>Set up the agent account</target></trans-unit>
+            <trans-unit id="readiness.agent_account.title"><source>readiness.agent_account.title</source><target>Agent GitHub account</target></trans-unit>
+            <trans-unit id="readiness.agent_account.description"><source>readiness.agent_account.description</source><target>The agents push and open pull requests as a GitHub user of their own. You can then review and approve their work, because GitHub does not let a user approve their own pull request.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.title"><source>readiness.agent_account.steps.title</source><target>Steps</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.create"><source>readiness.agent_account.steps.create</source><target>Create a separate GitHub user for the agents. Do not use your own account or the account that installed the GitHub App.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.invite"><source>readiness.agent_account.steps.invite</source><target>Invite that user to the repository with write access, and accept the invitation as that user.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.token"><source>readiness.agent_account.steps.token</source><target>Sign in as that user and create a token. Use a fine-grained token with Contents and Pull requests set to read and write on the repository, or a classic token with the repo scope.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.bridge"><source>readiness.agent_account.steps.bridge</source><target>On the machine of the bridge, run this command, paste the token and press Enter. Then restart the bridge, because it reads the account when it starts:</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.record"><source>readiness.agent_account.steps.record</source><target>Record the login of that user below. The check is done when a running bridge pushes as that login.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.privacy"><source>readiness.agent_account.steps.privacy</source><target>Loupe does not create the account, and it never sees the token. The token stays on the machine of the bridge.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.login.title"><source>readiness.agent_account.login.title</source><target>Agent login</target></trans-unit>
+            <trans-unit id="readiness.agent_account.submit"><source>readiness.agent_account.submit</source><target>Save</target></trans-unit>
+            <trans-unit id="readiness.agent_account.flash.saved"><source>readiness.agent_account.flash.saved</source><target>Agent login saved.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.error.installer_login"><source>readiness.agent_account.error.installer_login</source><target>The agents need an account other than the one that installed the GitHub App.</target></trans-unit>
+            <trans-unit id="readiness.form.update_agent_account_form.login.label"><source>readiness.form.update_agent_account_form.login.label</source><target>GitHub login of the agent account</target></trans-unit>
+            <trans-unit id="readiness.form.update_agent_account_form.login.help"><source>readiness.form.update_agent_account_form.login.help</source><target>Leave it empty to clear the recorded login.</target></trans-unit>
         </body>
     </file>
 </xliff>

@@ -53,7 +53,7 @@ The guide is a checklist named Ready for agents. It counts the rows that are don
 - Workflow is done when the project has a workflow. The row shows the name of the workflow template.
 - Bridge running is done when a bridge that serves the project sends heartbeats. Start opens the Connect page.
 - GitHub App is done when a repository connects to the project through the GitHub App. Install starts the install when the instance has a GitHub App.
-- Agent GitHub account always shows Not set up. A later release adds a guided page for it.
+- Agent GitHub account is done when the owner records the login of the agent account, and a running bridge of the project pushes as that login. The row says which part is missing. Set up opens the [agent account page](../getting-started/agent-github-account.md).
 - Repository always shows Not run. A later release adds the discovery that fills it.
 
 When Needs you is empty and nothing is in motion, the guide is the only content of the Workshop.
