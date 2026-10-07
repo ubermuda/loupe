@@ -12,10 +12,13 @@ use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Insights\Entity\Analysis;
 use App\Module\Insights\Entity\AnalysisScope;
+use App\Module\Insights\Entity\AnalysisState;
 use App\Module\Insights\Entity\AnalysisTopic;
 use App\Module\Insights\Service\AnalysisSettings;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -32,6 +35,7 @@ final readonly class StartAnalysisHandler
     public const string CAPABILITY = 'subject-analysis';
     public const string RULE_ID = 'insights.analysis';
     public const string REQUEST_REFUSED = 'request-refused';
+    public const string REQUEST_FAILED = 'request-failed';
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -97,6 +101,10 @@ final readonly class StartAnalysisHandler
             $this->em->flush();
 
             throw $e;
+        } catch (\Throwable $e) {
+            $this->failUnflushed($analysisId);
+
+            throw $e;
         }
 
         $analysis->workRequestId = $request->id;
@@ -118,5 +126,21 @@ final readonly class StartAnalysisHandler
         );
 
         return $analysis;
+    }
+
+    /** A failed transaction closes the entity manager, so the write goes through the connection. */
+    private function failUnflushed(Uuid $analysisId): void
+    {
+        $this->em->getConnection()->executeStatement(
+            'UPDATE insights_analyses SET state = :failed, reason = :reason, finished_at = :now WHERE id = :id AND state = :waiting',
+            [
+                'failed' => AnalysisState::Failed->value,
+                'reason' => self::REQUEST_FAILED,
+                'now' => $this->clock->now(),
+                'id' => $analysisId->toRfc4122(),
+                'waiting' => AnalysisState::Waiting->value,
+            ],
+            ['now' => Types::DATETIME_IMMUTABLE],
+        );
     }
 }

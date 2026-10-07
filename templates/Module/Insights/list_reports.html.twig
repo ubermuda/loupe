@@ -120,7 +120,7 @@
                             <span data-proposal-state>{{ ('insights.reports.proposal.state.' ~ proposal.state.value)|trans }}{% if proposal.dismissReason is not null %}: {{ proposal.dismissReason }}{% endif %}</span>
                         </span>
                     </div>
-                    <p class="lp-reports-proposal__body" data-proposal-body>{{ proposal.body }}</p>
+                    <div class="prose lp-prose lp-reports-proposal__body" data-proposal-body>{{ proposal.body|proposal_body }}</div>
                     {% if proposal.estimatedSaving is not null %}
                     <p class="lp-form-hint">{{ 'insights.reports.proposal.saving'|trans }} <span data-proposal-saving>{{ proposal.estimatedSaving }}</span></p>
                     {% endif %}

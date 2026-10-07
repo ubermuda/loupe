@@ -150,6 +150,43 @@ final class StartAnalysisHandlerTest extends KernelTestCase
         self::assertNull($analyses[0]->workRequestId);
     }
 
+    public function test_a_work_request_that_fails_to_open_fails_the_analysis_and_rethrows(): void
+    {
+        $project = $this->scenarioProject('start-analysis-bridge-fails');
+        $broken = $this->createStub(WorkRequestRepository::class);
+        $broken->method('lockLive')->willThrowException(new \RuntimeException('database gone'));
+        $failing = new OpenWorkRequestHandler(
+            $broken,
+            $this->service(OutboxWriter::class),
+            $this->em(),
+            new MockClock(self::NOW),
+            $this->service(Auditor::class),
+            $this->service(WorkRequestAnnouncer::class),
+            $this->service(WorkerRunRepository::class),
+            $this->service(WorkSubjectHandlers::class),
+        );
+        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class));
+
+        try {
+            $handler(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All));
+            self::fail('Expected the failure to propagate.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('database gone', $e->getMessage());
+        }
+
+        self::assertFalse($this->em()->isOpen());
+        $rows = $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT state, reason, finished_at, work_request_id FROM insights_analyses WHERE project_id = ?',
+            [(string) $project->id],
+        );
+        self::assertSame([[
+            'state' => AnalysisState::Failed->value,
+            'reason' => StartAnalysisHandler::REQUEST_FAILED,
+            'finished_at' => self::NOW,
+            'work_request_id' => null,
+        ]], $rows);
+    }
+
     private function handler(): StartAnalysisHandler
     {
         return $this->service(StartAnalysisHandler::class);

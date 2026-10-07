@@ -200,15 +200,17 @@ time it started.
 | **Running** | A bridge claimed the work, and the agent runs |
 | **Done** | The agent sent its report |
 | **Failed** | The work ended with no report. The reason follows the state |
-| **Paused** | No bridge took the work before the work timeout. It can still take a report |
+| **Paused** | No bridge took the work before the work timeout. Nothing runs it again |
 
 A failed analysis shows one of these reasons:
 
 - `request-refused`: the server refused the work request.
+- `request-failed`: an error stopped the server before it opened the work request.
 - `no-report`: the work ended, and the agent sent no report.
 - The reason of the bridge, or `refused`, when the bridge refused the work.
 
-A paused analysis shows `no-bridge-took-work`. The cost is the sum of the runs
+A paused analysis shows `no-bridge-took-work`. A failed or paused analysis is
+final. To try again, start a new analysis. The cost is the sum of the runs
 of the analysis. It shows **unknown** when no run has a known cost.
 
 ### The report and the proposals

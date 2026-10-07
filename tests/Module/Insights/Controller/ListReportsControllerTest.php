@@ -78,6 +78,29 @@ final class ListReportsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-reports-empty]'));
     }
 
+    public function test_a_proposal_body_renders_as_sanitised_markdown(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('reports-proposal-markdown');
+        $proposal = $this->seedProposal($em, $this->seedAnalysis($em, $project));
+        $proposal->body = "**Cache** the `vendor` folder.\n\n<script>alert(1)</script><img src=x onerror=alert(1)>";
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports');
+
+        self::assertResponseIsSuccessful();
+        $body = $crawler->filter('[data-proposal="'.$proposal->id.'"] [data-proposal-body]');
+        self::assertSame('Cache', $body->filter('strong')->text());
+        self::assertSame('vendor', $body->filter('code')->text());
+        self::assertCount(0, $body->filter('script'));
+        self::assertCount(0, $body->filter('[onerror]'));
+        self::assertStringNotContainsString('&lt;strong&gt;', (string) $client->getResponse()->getContent());
+    }
+
     public function test_each_state_has_its_label(): void
     {
         $client = static::createClient();

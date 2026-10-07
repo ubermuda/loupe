@@ -66,6 +66,10 @@ type Command struct {
 	// Context is the context of the work request of the run, so a rerun or a
 	// resume fills the values the run had. An older server sends none.
 	Context WorkRequestContext `json:"context"`
+	// Model and Effort are what the work request of the run asked claude for,
+	// so a resume runs as the first run did. A null decodes as "".
+	Model  string `json:"model,omitempty"`
+	Effort string `json:"effort,omitempty"`
 }
 
 // CommandSubject names the command itself.

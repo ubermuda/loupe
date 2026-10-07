@@ -281,6 +281,12 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	if err := checkWorkContext(c.Context); err != nil {
 		return c, fmt.Errorf("command %s: %w", c.CommandID, err)
 	}
+	if c.Model != "" && !ModelWord(c.Model) {
+		return c, fmt.Errorf("command has an invalid model %q", c.Model)
+	}
+	if c.Effort != "" && !slices.Contains(api.Efforts, c.Effort) {
+		return c, fmt.Errorf("command has an invalid effort %q", c.Effort)
+	}
 
 	c.ProjectID = strings.ToLower(c.ProjectID)
 	c.CommandID = strings.ToLower(c.CommandID)

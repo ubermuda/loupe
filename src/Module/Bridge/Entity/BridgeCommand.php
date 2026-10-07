@@ -59,6 +59,13 @@ class BridgeCommand
     #[ORM\Column(name: 'context', type: Types::JSON, nullable: true)]
     private ?array $contextData = null;
 
+    /** The model and the effort of the work request of the run, so a resume runs as its first run did. */
+    #[ORM\Column(name: 'model', length: WorkRequest::MAX_MODEL_LENGTH, nullable: true)]
+    public ?string $model = null;
+
+    #[ORM\Column(name: 'effort', length: 16, nullable: true)]
+    public ?string $effort = null;
+
     public function __construct(
         /** The owner of the bridge row, which is the owner of the project. */
         #[ORM\JoinColumn(nullable: false)]

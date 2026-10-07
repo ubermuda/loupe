@@ -6613,7 +6613,7 @@
         @apply m-0 text-sm font-semibold text-ink;
     }
     .lp-reports-proposal__body {
-        @apply m-0 mt-1 whitespace-pre-line text-sm text-fg-mute;
+        @apply m-0 mt-1 max-w-none text-sm text-fg-mute;
     }
     .lp-reports-proposal__actions {
         @apply mt-3 flex flex-wrap items-start gap-2;

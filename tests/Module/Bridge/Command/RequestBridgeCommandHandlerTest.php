@@ -13,6 +13,8 @@ use App\Module\Bridge\Command\RequestBridgeCommandHandler;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Service\BridgeCommandPayload;
 use App\Module\Bridge\Service\BridgeCommandTtl;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\BridgeCommandCause;
@@ -82,6 +84,8 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'expiresAt' => '2026-09-29T12:15:00+00:00',
             'cause' => 'person',
             'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
+            'model' => null,
+            'effort' => null,
         ]], $this->outboxPayloads());
 
         $record = $audit->record('bridge.command_requested');
@@ -322,6 +326,27 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         $this->em()->clear();
         self::assertEquals($context, $this->em()->find(BridgeCommand::class, $command->id)?->context);
         self::assertSame($context->toArray(), $this->outboxPayloads()[0]['context']);
+    }
+
+    public function test_a_resume_carries_the_model_and_the_effort_of_the_work_request_of_its_run(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('command-model', state: WorkerRunState::Unfinished, context: new WorkRequestContext());
+        $request = $this->em()->find(WorkRequest::class, $run->workRequestId);
+        self::assertInstanceOf(WorkRequest::class, $request);
+        $request->model = 'opus';
+        $request->effort = 'high';
+        $this->em()->flush();
+
+        $command = $this->request($run, BridgeCommandKind::ResumeRun, $owner);
+
+        $this->em()->clear();
+        $stored = $this->em()->find(BridgeCommand::class, $command->id);
+        self::assertInstanceOf(BridgeCommand::class, $stored);
+        $heartbeat = BridgeCommandPayload::of($stored);
+        self::assertSame(['opus', 'high'], [$heartbeat['model'], $heartbeat['effort']]);
+        $event = $this->outboxPayloads()[0];
+        self::assertSame(['opus', 'high'], [$event['model'], $event['effort']]);
     }
 
     public function test_a_command_takes_no_context_from_a_work_request_of_another_project_or_card(): void

@@ -562,7 +562,7 @@ func commandWork(c api.Command) api.WorkRequest {
 	return api.WorkRequest{
 		Type: event.WorkRequestType, ProjectID: c.ProjectID, Subject: api.WorkRequestSubject{Type: "work-request", ID: c.WorkRequestID},
 		WorkRequestID: c.WorkRequestID, Kind: c.WorkKind, SubjectType: c.SubjectType, SubjectID: c.SubjectID,
-		CardNumber: c.CardNumber, RuleID: c.RuleID, Context: c.Context,
+		CardNumber: c.CardNumber, RuleID: c.RuleID, Context: c.Context, Model: c.Model, Effort: c.Effort,
 	}
 }
 
