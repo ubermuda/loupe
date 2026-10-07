@@ -10,11 +10,13 @@ use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunUsage;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
@@ -126,6 +128,29 @@ trait BridgeScenario
         $em->flush();
 
         return $usage;
+    }
+
+    private function seedToolCall(WorkerRun $run, int $seq = 1, string $tool = 'Bash'): void
+    {
+        $repository = static::getContainer()->get(WorkerRunToolCallRepository::class);
+        self::assertInstanceOf(WorkerRunToolCallRepository::class, $repository);
+        $repository->insertNew($run, [new WorkerRunToolCallReport(
+            seq: $seq,
+            tool: $tool,
+            startedAt: new \DateTimeImmutable('2026-01-01 10:00:01'),
+            durationMs: 1500,
+            isError: false,
+            inSubagent: false,
+            backgroundId: null,
+            waitsOn: null,
+            signatures: [$tool],
+            fullText: null,
+        )]);
+    }
+
+    private function countToolCalls(EntityManagerInterface $em): int
+    {
+        return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_tool_calls');
     }
 
     private function countUsage(EntityManagerInterface $em): int

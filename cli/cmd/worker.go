@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/rules"
+	"github.com/ubermuda/loupe/cli/internal/stream"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -29,7 +31,7 @@ const waitDelay = 5 * time.Second
 // maxOutput caps the worker output a failure report carries.
 const maxOutput = 4000
 
-// maxStdout bounds the JSON document the bridge reads from claude's stdout.
+// maxStdout bounds the stdout the bridge reads from a before command.
 const maxStdout = 1 << 20
 
 // ceilingEnv lifts claude -p's background wait ceiling, which otherwise ends a
@@ -70,6 +72,11 @@ type workerResult struct {
 	// usage is what this process spent, and nil when unknown.
 	reported transcript.Usage
 	usage    *api.Usage
+	// streamed says the bridge read claude's stdout, and calls and timing are
+	// what it held.
+	streamed bool
+	calls    []stream.Call
+	timing   stream.Timing
 }
 
 // workerProc is a started worker: its shell's pid, which leads its process
@@ -136,14 +143,14 @@ func defaultWorkerOps() workerOps {
 // reads it. It follows --, because claude reads a prompt that starts with - as
 // an option.
 func workerArgs(spec workerSpec) []string {
-	args := make([]string, 0, 13)
+	args := make([]string, 0, 14)
 	if spec.permissionMode != "" {
 		args = append(args, "--permission-mode", spec.permissionMode)
 	}
 	if spec.model != "" {
 		args = append(args, "--model", spec.model)
 	}
-	args = append(args, "--output-format", "json")
+	args = append(args, "--verbose", "--output-format", "stream-json")
 	if spec.schema != "" {
 		args = append(args, "--json-schema", spec.schema)
 	}
@@ -361,10 +368,14 @@ func createOutput(dir, name string) (*os.File, error) {
 // workerOutcome reads how the worker in dir ended. waitErr is a fault of the
 // wait itself, and not the exit of a process that ran.
 func workerOutcome(dir string, killed bool, waitErr error) workerResult {
-	stdout, stdoutErr := readCapped(filepath.Join(dir, "stdout"), maxStdout)
+	out, stdoutErr := stream.ReadFile(filepath.Join(dir, "stdout"))
+	head, headErr := readCapped(filepath.Join(dir, "stdout"), maxOutput)
 	stderr, stderrErr := readCapped(filepath.Join(dir, "stderr"), maxOutput)
-	res := decodeWorkerOutput(stdout.buf.Bytes(), stdout.dropped, stderr.text())
-	if readErr := errors.Join(stdoutErr, stderrErr); readErr != nil {
+	res := decodeWorkerOutput(out.Result, head.buf.Bytes(), head.dropped, stderr.text())
+	if stdoutErr == nil {
+		res.streamed, res.calls, res.timing = true, out.Calls, out.Timing
+	}
+	if readErr := errors.Join(cmp.Or(stdoutErr, headErr), stderrErr); readErr != nil {
 		res.output = strings.TrimLeft(res.output+"\n"+readErr.Error(), "\n")
 	}
 	res.killed, res.dir = killed, dir
@@ -450,11 +461,11 @@ func (w *capWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// decodeWorkerOutput reads the one JSON document claude --output-format json
-// prints. A cut-off or undecodable stdout holds no result. The output is the
-// first non-empty of the summary, claude's result text, stderr and the raw
-// stdout that did not decode.
-func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResult {
+// decodeWorkerOutput reads the result line of claude's stdout, which is nil
+// when there is none. raw is the start of stdout, and cut says stdout goes on
+// past it. The output is the first non-empty of the summary, claude's result
+// text, stderr and the plain lines of raw when no result line decodes.
+func decodeWorkerOutput(result, raw []byte, cut bool, stderr string) workerResult {
 	var doc struct {
 		StructuredOutput json.RawMessage `json:"structured_output"`
 		Result           string          `json:"result"`
@@ -462,10 +473,10 @@ func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResul
 		ModelUsage       json.RawMessage `json:"modelUsage"`
 	}
 	var res workerResult
-	var summary, raw string
-	decoded := !overflow && json.Unmarshal(stdout, &doc) == nil
+	var summary, rawText string
+	decoded := result != nil && json.Unmarshal(result, &doc) == nil
 	if !decoded {
-		raw = string(stdout)
+		rawText = plainLines(raw)
 	}
 	if decoded {
 		if len(doc.ModelUsage) > 0 && string(doc.ModelUsage) != "null" {
@@ -485,10 +496,10 @@ func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResul
 	}
 
 	out := &capWriter{limit: maxOutput}
-	for _, text := range []string{summary, doc.Result, stderr, raw} {
+	for _, text := range []string{summary, doc.Result, stderr, rawText} {
 		if text != "" {
 			_, _ = out.Write([]byte(text))
-			out.dropped = out.dropped || (text == raw && overflow)
+			out.dropped = out.dropped || (text == rawText && cut)
 
 			break
 		}
@@ -496,6 +507,19 @@ func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResul
 	res.output = out.text()
 
 	return res
+}
+
+// plainLines drops each line of raw that starts with "{". A stream line can
+// hold tool input, and a cut last line no longer parses, so the shape decides.
+func plainLines(raw []byte) string {
+	var kept []string
+	for line := range strings.SplitSeq(string(raw), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "{") {
+			kept = append(kept, line)
+		}
+	}
+
+	return strings.TrimSpace(strings.Join(kept, "\n"))
 }
 
 func (w *capWriter) text() string {

@@ -255,7 +255,7 @@ func TestTheHandoverFileRoundTripsAndRefusesAnotherFormat(t *testing.T) {
 func TestAHandoverAdoptsLiveWorkersAndReportsThem(t *testing.T) {
 	workerClaude(t, `case "$*" in *"Card 1 ("*) code=3;; *) code=0;; esac
 sleep 1
-echo "{\"structured_output\":{\"status\":\"finished\",\"summary\":\"exit $code\"}}"
+echo "{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"exit $code\"}}"
 exit $code
 `)
 	h := newHarnessWith(t, withMaxWorkers(defaultRules, 2), rules.Defaults{})
@@ -414,7 +414,7 @@ func TestAnAdoptedWorkerThatEndedIsReportedAtOnce(t *testing.T) {
 	if err := writeRunRecord(dir, runRecord{PID: cmd.Process.Pid, StartTime: "gone", RunID: "run-9"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "stdout"), []byte(`{"structured_output":{"status":"finished","summary":"done"}}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "stdout"), []byte(`{"type":"result","structured_output":{"status":"finished","summary":"done"}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "status.exit"), []byte("0\n"), 0o600); err != nil {

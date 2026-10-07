@@ -187,6 +187,25 @@ metrics row, and the card cost total on the board still counts its usage.
 `metric_query` reads the metrics rows over time, by run or by finished card, and
 `metric_list` lists the metrics it takes.
 
+The metrics row also holds the timing of the run, from the tool calls the
+bridge reads from the stream of the worker. `toolTimeMs` is the time the main
+session spent in tool calls, and `modelTimeMs` is the rest of the duration.
+`idleGapMs` sums the pauses of more than five minutes. `subagentMs` is the time
+of the subagents of the main session. `toolCalls`, `failedCalls` and
+`longestCallMs` count the calls. A run whose bridge sent no tool calls holds
+`null` in each of them. `worker_run_tool_calls` reads the calls of one run.
+[Run metrics](../reference/worker-runs.md#run-metrics) defines each value.
+
+A tool call holds its tool, its start, its duration, its error flag, and
+signatures that name what it ran. For a shell command, a signature keeps only
+the program name, such as `grep`. A program on the subcommand list, such as
+`git`, also keeps its subcommand, such as `git status`. No other argument
+reaches Loupe. A call holds its full input text only when its project collects
+full text, and no setting turns that on yet.
+[Tool calls](../extending/cli-bridge.md#tool-calls) gives the rules. Set
+`collect: false` in the `rules.yaml` of a bridge, and that bridge sends no tool
+call and no timing.
+
 The tools apply the same checks as the controls on this page. A resume needs a
 session and an ended run in a state that can resume. A run with a request that still waits refuses a second
 one, and so does a bridge that does not take commands. A refused run gives a

@@ -27,6 +27,10 @@ final class WorkerRunFactExporterTest extends KernelTestCase
         $bridgeId = Uuid::v7();
         $kept = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 10:05:01'), workKind: 'review', bridgeId: $bridgeId);
         $this->seedUsage($em, $kept);
+        $this->seedToolCall($kept);
+        $kept->toolTimeMs = 4000;
+        $kept->idleGapMs = 6000;
+        $em->flush();
         $swept = $this->seedRun($em, $project, cardNumber: 2);
         $this->seedRun($em, $this->project($em, $this->user($em, 'facts-export-other@example.com'), 'Other Facts'));
         $connection = $em->getConnection();
@@ -62,6 +66,13 @@ final class WorkerRunFactExporterTest extends KernelTestCase
             'tokensCacheRead' => 300,
             'tokensCacheWrite' => 40,
             'usageSource' => 'reported',
+            'toolTimeMs' => 4000,
+            'modelTimeMs' => 290000,
+            'toolCalls' => 1,
+            'failedCalls' => 0,
+            'longestCallMs' => 1500,
+            'idleGapMs' => 6000,
+            'subagentMs' => 0,
         ], $rows[0]);
         self::assertSame((string) $swept->id, $rows[1]['runId']);
         self::assertNull($rows[1]['costMicroUsd']);

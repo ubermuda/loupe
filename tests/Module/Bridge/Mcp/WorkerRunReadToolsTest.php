@@ -79,12 +79,12 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertSame('claude-opus-5-5', $usedRow['model']);
         self::assertSame('prompt-length', $usedRow['experiment']);
         self::assertSame('short', $usedRow['variant']);
-        self::assertSame(['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => 1100, 'tokensOut' => 40, 'tokensCacheRead' => 600, 'tokensCacheWrite' => 80], $usedRow['metrics']);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => 1100, 'tokensOut' => 40, 'tokensCacheRead' => 600, 'tokensCacheWrite' => 80, 'toolTimeMs' => null, 'modelTimeMs' => null, 'toolCalls' => null, 'failedCalls' => null, 'longestCallMs' => null, 'idleGapMs' => null, 'subagentMs' => null], $usedRow['metrics']);
 
         self::assertSame([], $bareRow['usage']);
         self::assertNull($bareRow['model']);
         self::assertNull($bareRow['experiment']);
-        self::assertSame(['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => null, 'tokensOut' => null, 'tokensCacheRead' => null, 'tokensCacheWrite' => null], $bareRow['metrics']);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => null, 'tokensOut' => null, 'tokensCacheRead' => null, 'tokensCacheWrite' => null, 'toolTimeMs' => null, 'modelTimeMs' => null, 'toolCalls' => null, 'failedCalls' => null, 'longestCallMs' => null, 'idleGapMs' => null, 'subagentMs' => null], $bareRow['metrics']);
 
         self::assertSame((string) $factless->id, $factlessRow['runId']);
         self::assertNull($factlessRow['metrics']);
@@ -107,7 +107,24 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $row = $this->listTool()()['runs'][0];
 
         self::assertSame(2.0, $row['metrics']['costUsd'] ?? null);
-        self::assertSame(['durationMs' => 300_000, 'costUsd' => 2.0, 'tokensIn' => 200, 'tokensOut' => 40, 'tokensCacheRead' => 600, 'tokensCacheWrite' => 80], $this->getTool()((string) $run->id)['runs'][0]['metrics']);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => 2.0, 'tokensIn' => 200, 'tokensOut' => 40, 'tokensCacheRead' => 600, 'tokensCacheWrite' => 80, 'toolTimeMs' => null, 'modelTimeMs' => null, 'toolCalls' => null, 'failedCalls' => null, 'longestCallMs' => null, 'idleGapMs' => null, 'subagentMs' => null], $this->getTool()((string) $run->id)['runs'][0]['metrics']);
+    }
+
+    public function test_the_metrics_carry_the_timing_and_the_tool_calls_of_the_run(): void
+    {
+        [$project] = $this->projects('list-timing');
+        $em = $this->em();
+        $run = $this->seedRun($em, $project);
+        $this->seedToolCall($run, 1, 'Bash');
+        $this->seedToolCall($run, 2, 'Agent');
+        $run->toolTimeMs = 4000;
+        $run->idleGapMs = 6000;
+        $em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $expected = ['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => null, 'tokensOut' => null, 'tokensCacheRead' => null, 'tokensCacheWrite' => null, 'toolTimeMs' => 4000, 'modelTimeMs' => 290_000, 'toolCalls' => 2, 'failedCalls' => 0, 'longestCallMs' => 1500, 'idleGapMs' => 6000, 'subagentMs' => 1500];
+        self::assertSame($expected, $this->listTool()()['runs'][0]['metrics']);
+        self::assertSame($expected, $this->getTool()((string) $run->id)['runs'][0]['metrics']);
     }
 
     public function test_the_reason_prefers_the_failure_reason_and_is_cut_to_300_characters(): void

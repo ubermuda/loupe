@@ -108,6 +108,27 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         self::assertSame((string) $keptUsageId, $em->getConnection()->fetchOne('SELECT id FROM bridge_worker_run_usage'));
     }
 
+    /** The run foreign key cascades, and the DQL delete of the runs is a plain DELETE in the database. */
+    public function test_deleting_a_project_takes_the_tool_calls_of_its_runs(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'tool-calls-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Tool Calls');
+        $kept = $this->project($em, $owner, 'Kept Tool Calls');
+        $this->seedToolCall($this->seedRun($em, $doomed));
+        $keptRun = $this->seedRun($em, $kept);
+        $this->seedToolCall($keptRun);
+        self::assertSame(2, $this->countToolCalls($em));
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(1, $this->countToolCalls($em));
+        self::assertSame((string) $keptRun->id, $em->getConnection()->fetchOne('SELECT run_id FROM bridge_worker_run_tool_calls'));
+    }
+
     public function test_deleting_a_project_takes_its_facts_and_leaves_another_projects_facts(): void
     {
         self::bootKernel();

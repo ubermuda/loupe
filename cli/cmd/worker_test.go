@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ubermuda/loupe/cli/internal/stream"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -54,8 +55,9 @@ func TestWorkerEnvReplacesAnInheritedSession(t *testing.T) {
 	}
 }
 
-// The shapes claude -p --output-format json --json-schema prints. A run that
-// --max-turns cuts off exits 1 with is_error and a null structured_output.
+// The result lines claude -p --output-format stream-json --json-schema prints.
+// A run that --max-turns cuts off exits 1 with is_error and a null
+// structured_output.
 func TestDecodeWorkerOutput(t *testing.T) {
 	long := strings.Repeat("x", maxOutput+10)
 	for name, tc := range map[string]struct {
@@ -69,31 +71,31 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			want:   workerResult{hasResult: true, status: "finished", output: "Wrote the plan.", fields: map[string]any{}},
 		},
 		"unfinished": {
-			stdout: `{"is_error":false,"result":"","structured_output":{"status":"unfinished","summary":"Tests still run."}}`,
+			stdout: `{"type":"result","is_error":false,"result":"","structured_output":{"status":"unfinished","summary":"Tests still run."}}`,
 			want:   workerResult{hasResult: true, status: "unfinished", output: "Tests still run.", fields: map[string]any{}},
 		},
 		"blocked": {
-			stdout: `{"is_error":false,"result":"","structured_output":{"status":"blocked","summary":"Asked the owner."}}` + "\n",
+			stdout: `{"type":"result","is_error":false,"result":"","structured_output":{"status":"blocked","summary":"Asked the owner."}}` + "\n",
 			want:   workerResult{hasResult: true, status: "blocked", output: "Asked the owner.", fields: map[string]any{}},
 		},
 		"extras": {
-			stdout: `{"structured_output":{"status":"finished","summary":"Opened a PR.","prUrl":"https://x.test/1","card":87}}`,
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"Opened a PR.","prUrl":"https://x.test/1","card":87}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: "Opened a PR.", fields: map[string]any{"prUrl": "https://x.test/1", "card": float64(87)}},
 		},
 		"a reason": {
-			stdout: `{"structured_output":{"status":"blocked","summary":"Asked the owner.","reason":"needs-owner","prUrl":"https://x.test/1"}}`,
+			stdout: `{"type":"result","structured_output":{"status":"blocked","summary":"Asked the owner.","reason":"needs-owner","prUrl":"https://x.test/1"}}`,
 			want:   workerResult{hasResult: true, status: "blocked", reason: "needs-owner", output: "Asked the owner.", fields: map[string]any{"prUrl": "https://x.test/1"}},
 		},
 		"a reason that is no string": {
-			stdout: `{"structured_output":{"status":"finished","summary":"Done.","reason":3}}`,
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"Done.","reason":3}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: "Done.", fields: map[string]any{}},
 		},
 		"a reason with no result": {
-			stdout: `{"result":"r","structured_output":{"status":"done","summary":"x","reason":"needs-owner"}}`,
+			stdout: `{"type":"result","result":"r","structured_output":{"status":"done","summary":"x","reason":"needs-owner"}}`,
 			want:   workerResult{output: "r"},
 		},
 		"an empty summary falls back to the result": {
-			stdout: `{"result":"All done.","structured_output":{"status":"finished","summary":""}}`,
+			stdout: `{"type":"result","result":"All done.","structured_output":{"status":"finished","summary":""}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: "All done.", fields: map[string]any{}},
 		},
 		"max turns": {
@@ -102,25 +104,34 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			want:   workerResult{output: "claude: reached the turn limit"},
 		},
 		"an unknown status": {
-			stdout: `{"result":"I did it.","structured_output":{"status":"done","summary":"x"}}`,
+			stdout: `{"type":"result","result":"I did it.","structured_output":{"status":"done","summary":"x"}}`,
 			want:   workerResult{output: "I did it."},
 		},
 		"a summary that is no string": {
-			stdout: `{"result":"r","structured_output":{"status":"finished","summary":3}}`,
+			stdout: `{"type":"result","result":"r","structured_output":{"status":"finished","summary":3}}`,
 			want:   workerResult{output: "r"},
 		},
 		"structured output that is no object": {
-			stdout: `{"result":"r","structured_output":"finished"}`,
+			stdout: `{"type":"result","result":"r","structured_output":"finished"}`,
 			want:   workerResult{output: "r"},
 		},
 		"broken JSON": {
-			stdout: `{"structured_output":{"status":"finished","summary":"x"}`,
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"x"}`,
 			stderr: "stream closed",
 			want:   workerResult{output: "stream closed"},
 		},
 		"text after the document": {
-			stdout: `{"structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`,
-			want:   workerResult{output: `{"structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`},
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`,
+			want:   workerResult{},
+		},
+		"stream lines with no result stay out": {
+			stdout: `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"echo secret"}}]}}` + "\nclaude: killed\n",
+			want:   workerResult{output: "claude: killed"},
+		},
+		"a cut stream line stays out": {
+			stdout:   `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"echo sec`,
+			overflow: true,
+			want:     workerResult{},
 		},
 		"undecoded stdout with no stderr is capped": {
 			stdout:   long,
@@ -128,7 +139,7 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			want:     workerResult{output: long[:maxOutput] + "… (truncated)"},
 		},
 		"a decoded document with no text stays empty": {
-			stdout: `{"result":"","structured_output":null}`,
+			stdout: `{"type":"result","result":"","structured_output":null}`,
 			want:   workerResult{},
 		},
 		"overflow": {
@@ -138,30 +149,34 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			want:     workerResult{output: "too much"},
 		},
 		"usage": {
-			stdout: `{"result":"r","total_cost_usd":0.5,"modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":3,"cacheCreationInputTokens":4,"costUSD":0.5}}}`,
+			stdout: `{"type":"result","result":"r","total_cost_usd":0.5,"modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":3,"cacheCreationInputTokens":4,"costUSD":0.5}}}`,
 			want: workerResult{output: "r", reported: transcript.Usage{
 				"claude-opus-5-5": {InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3, CacheWriteTokens: 4, CostUSD: ptr(0.5)},
 			}},
 		},
 		"usage of nothing": {
-			stdout: `{"result":"r","modelUsage":{}}`,
+			stdout: `{"type":"result","result":"r","modelUsage":{}}`,
 			want:   workerResult{output: "r", reported: transcript.Usage{}},
 		},
 		"null usage": {
-			stdout: `{"result":"r","modelUsage":null}`,
+			stdout: `{"type":"result","result":"r","modelUsage":null}`,
 			want:   workerResult{output: "r"},
 		},
 		"usage that is no object": {
-			stdout: `{"result":"r","modelUsage":[]}`,
+			stdout: `{"type":"result","result":"r","modelUsage":[]}`,
 			want:   workerResult{output: "r"},
 		},
 		"a long summary is capped": {
-			stdout: `{"structured_output":{"status":"finished","summary":"` + long + `"}}`,
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"` + long + `"}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: long[:maxOutput] + "… (truncated)", fields: map[string]any{}},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			got := decodeWorkerOutput([]byte(tc.stdout), tc.overflow, tc.stderr)
+			out, err := stream.Read(strings.NewReader(tc.stdout))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := decodeWorkerOutput(out.Result, []byte(tc.stdout), tc.overflow, tc.stderr)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("decodeWorkerOutput = %+v, want %+v", got, tc.want)
 			}
@@ -209,11 +224,11 @@ func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
 		spec workerSpec
 		want string
 	}{
-		{workerSpec{sessionID: testSession, prompt: "go"}, "--output-format json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", prompt: "go"}, "--permission-mode plan --output-format json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, model: "opus", prompt: "go"}, "--model opus --output-format json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, schema: `{"type":"object"}`, prompt: "go"}, `--output-format json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", model: "opus", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --output-format json --json-schema {} -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, prompt: "go"}, "--verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, permissionMode: "plan", prompt: "go"}, "--permission-mode plan --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, model: "opus", prompt: "go"}, "--model opus --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, schema: `{"type":"object"}`, prompt: "go"}, `--verbose --output-format stream-json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, permissionMode: "plan", model: "opus", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --verbose --output-format stream-json --json-schema {} -p --session-id " + testSession + " -- go"},
 	} {
 		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
 			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)

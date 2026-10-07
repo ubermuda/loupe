@@ -60,6 +60,23 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
         );
     }
 
+    public function test_the_tool_calls_go_with_the_runs_of_the_departing_account(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'tool-calls-purge-leaving@example.com');
+        $staying = $this->user($em, 'tool-calls-purge-staying@example.com');
+        $this->seedToolCall($this->seedRun($em, $this->project($em, $leaving, 'Leaving Tool Calls')));
+        $keptRun = $this->seedRun($em, $this->project($em, $staying, 'Staying Tool Calls'));
+        $this->seedToolCall($keptRun);
+        self::assertSame(2, $this->countToolCalls($em));
+
+        $this->purge($leaving);
+
+        self::assertSame(1, $this->countToolCalls($em));
+        self::assertSame((string) $keptRun->id, $em->getConnection()->fetchOne('SELECT run_id FROM bridge_worker_run_tool_calls'));
+    }
+
     /** A usage row whose run the retention sweep took still belongs to the account. */
     public function test_it_takes_the_usage_of_the_departing_account_alone(): void
     {

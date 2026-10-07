@@ -1182,6 +1182,7 @@ func (r *router) settle(p pending, e endedRun) {
 	defer r.quiesce.RUnlock()
 	done := func() {
 		r.end(p, e)
+		r.sendToolCalls(p, e.res)
 		if e.res.dir != "" {
 			_ = os.RemoveAll(e.res.dir)
 		}
@@ -1203,6 +1204,26 @@ func (r *router) settle(p pending, e endedRun) {
 	}
 	r.mu.Unlock()
 	done()
+}
+
+// sendToolCalls queues the tool calls and the timing that claude's stdout
+// held, behind the outcome of the run. The reports hold the calls, so the run
+// directory can go. A run the server holds no record of sends none.
+func (r *router) sendToolCalls(p pending, res workerResult) {
+	subjectType, _, cardNumber := subjectOf(p)
+	if !res.streamed || !r.reporting() || !r.rules().Collect() || subjectType == "" || (p.isWork() && p.claimToken == "") {
+		return
+	}
+	timeout := r.checkTimeout
+	if timeout <= 0 {
+		timeout = readTimeout
+	}
+	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+	reports := r.runs.toolCalls(ctx, p.event.ProjectID, p.runID, cardNumber, p.rule, res.calls, res.timing)
+	cancel()
+	for _, report := range reports {
+		r.reports.Enqueue(report)
+	}
 }
 
 // endedRun is how one worker ended. state is the outcome to report, and

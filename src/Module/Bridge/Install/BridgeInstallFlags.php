@@ -10,6 +10,7 @@ use App\Module\Account\Install\InstallFlagDefaultsInterface;
 use App\Module\Bridge\Service\BridgeCommandTtl;
 use App\Module\Bridge\Service\HeartbeatInterval;
 use App\Module\Bridge\Service\StopLadder;
+use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
@@ -17,7 +18,8 @@ use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 /**
  * Seeds the retention window, the heartbeat interval, the command lifetime and
  * the stop delays from their container parameters, so each flag row and its
- * coded fallback start out equal.
+ * coded fallback start out equal. The subcommand programs start at their coded
+ * default.
  */
 final readonly class BridgeInstallFlags implements InstallFlagDefaultsInterface
 {
@@ -48,5 +50,6 @@ final readonly class BridgeInstallFlags implements InstallFlagDefaultsInterface
         yield new InstallFlagDefault(BridgeCommandTtl::FLAG, FeatureFlagType::Int, $this->commandTtlMinutes);
         yield new InstallFlagDefault(StopLadder::SIGTERM_FLAG, FeatureFlagType::Int, $this->stopSigtermAfterMs);
         yield new InstallFlagDefault(StopLadder::SIGKILL_FLAG, FeatureFlagType::Int, $this->stopSigkillAfterMs);
+        yield new InstallFlagDefault(ToolCallCollectionSettings::SUBCOMMAND_PROGRAMS_FLAG, FeatureFlagType::String, ToolCallCollectionSettings::DEFAULT_SUBCOMMAND_PROGRAMS);
     }
 }

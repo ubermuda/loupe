@@ -153,6 +153,26 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The run of the project with this key, from any bridge, locked until the
+     * transaction ends. A key that two bridges share names no run.
+     */
+    public function findOneOfProjectByRunKey(Project $project, Uuid $runKey): ?WorkerRun
+    {
+        /** @var list<WorkerRun> $runs */
+        $runs = $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.runKey = :runKey')
+            ->setParameter('project', $project)
+            ->setParameter('runKey', $runKey, UuidType::NAME)
+            ->setMaxResults(2)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getResult();
+
+        return 1 === \count($runs) ? $runs[0] : null;
+    }
+
+    /**
      * The runs one bridge of the owner still holds as far as the server knows:
      * open or timed-out, with a run key, locked until the transaction ends. The
      * owner filter is a subquery, so the lock covers the runs and not the

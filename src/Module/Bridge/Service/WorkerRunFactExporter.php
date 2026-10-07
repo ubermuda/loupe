@@ -50,6 +50,13 @@ final readonly class WorkerRunFactExporter implements UserDataExporterInterface
                 'tokensCacheRead' => $fact->tokensCacheRead,
                 'tokensCacheWrite' => $fact->tokensCacheWrite,
                 'usageSource' => $fact->usageSource?->value,
+                'toolTimeMs' => $fact->toolTimeMs,
+                'modelTimeMs' => $fact->modelTimeMs,
+                'toolCalls' => $fact->toolCalls,
+                'failedCalls' => $fact->failedCalls,
+                'longestCallMs' => $fact->longestCallMs,
+                'idleGapMs' => $fact->idleGapMs,
+                'subagentMs' => $fact->subagentMs,
             ];
         }
     }

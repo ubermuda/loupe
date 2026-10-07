@@ -50,6 +50,33 @@ func (s *stateRecorder) ReportInteractiveLaunch(_ context.Context, handle, sessi
 	return true, nil
 }
 
+func (s *stateRecorder) ReportToolCalls(_ context.Context, handle, runID string, batch api.ToolCallBatch) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sent = append(s.sent, toolCallsSent{handle: handle, runID: runID, batch: batch})
+
+	return nil
+}
+
+func (s *stateRecorder) Sites(context.Context) ([]api.Site, error) {
+	return nil, nil
+}
+
+// toolCalls is every batch of tool calls sent so far, in order.
+func (s *stateRecorder) toolCalls() []toolCallsSent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var out []toolCallsSent
+	for _, v := range s.sent {
+		if b, ok := v.(toolCallsSent); ok {
+			out = append(out, b)
+		}
+	}
+
+	return out
+}
+
 // launches is every launch report sent so far, in order.
 func (s *stateRecorder) launches() []launchSent {
 	s.mu.Lock()
@@ -93,6 +120,8 @@ func (s *stateRecorder) names() []string {
 			out[i] = v.report.State
 		case launchSent:
 			out[i] = "launch"
+		case toolCallsSent:
+			out[i] = "tool-calls"
 		default:
 			out[i] = "inventory"
 		}

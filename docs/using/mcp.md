@@ -290,8 +290,9 @@ Roughly in the order an agent uses them:
 | `inbox_list` | Read a page of inbox items, filtered by state, ask, session, card or document |
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
-| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended. Each row gives the reason the run ended, its usage per model, its model, its experiment and variant, and its metrics |
-| `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
+| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended. Each row gives the reason the run ended, its usage per model, its model, its experiment and variant, and its metrics. The metrics hold the sums of the run and its timing: the tool time, the model time, the idle gaps, the subagent time, and the count, failures and longest duration of its tool calls |
+| `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output, its metrics and the commands sent to its bridge |
+| `worker_run_tool_calls` | Read a page of the tool calls of one worker run, in the order the worker made them. Each call gives its tool, its start, its duration, its error flag, whether a subagent made it, and its signatures. `perPage` defaults to 20, with a maximum of 100 |
 | `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes |
 | `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it |
 | `bridge_list` | List the bridges that follow the project, with their name, their heartbeat, their pause, their worker pools and their open runs |

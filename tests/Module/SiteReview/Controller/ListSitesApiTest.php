@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
@@ -69,6 +70,34 @@ final class ListSitesApiTest extends WebTestCase
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
         self::assertSame(['my-slugged-site'], array_column($data['sites'], 'slug'));
+    }
+
+    /** The bridge builds the signatures of a shell command from the programs, and sends no full text while the flag is false. */
+    public function test_each_site_carries_its_tool_call_collection_settings(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'list-sites-collection@example.com');
+        $em->persist(new Project($owner, 'Collecting Site'));
+        $em->flush();
+        $em->getConnection()->executeStatement(
+            'UPDATE feature_flag SET value = ? WHERE name = ?',
+            [json_encode(' git, ,just ', \JSON_THROW_ON_ERROR), ToolCallCollectionSettings::SUBCOMMAND_PROGRAMS_FLAG],
+        );
+
+        $raw = AgentCredential::agentToken(static::getContainer(), $owner);
+
+        $client->request(Request::METHOD_GET, '/api/projects',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertIsArray($data['sites']);
+        self::assertCount(1, $data['sites']);
+        self::assertFalse($data['sites'][0]['collectFullText']);
+        self::assertSame(['git', 'just'], $data['sites'][0]['subcommandPrograms']);
     }
 
     public function test_the_old_agent_path_is_gone(): void

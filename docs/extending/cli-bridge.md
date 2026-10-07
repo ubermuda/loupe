@@ -67,6 +67,11 @@ reload fails. A reload sends the new name with the next heartbeat. Two bridges
 of one account cannot hold one name, as
 [The bridge name](../reference/bridge-heartbeat.md#the-bridge-name) says.
 
+The optional `collect:` key at the top of `rules.yaml` turns the
+[tool call report](#tool-calls) on or off. It is on when the key is absent.
+Set `collect: false`, and the bridge sends no tool call and no timing of any
+run. A reload applies a change to the key.
+
 A worker entry can also split its runs between models with variants, as
 [Experiments](#experiments) describes. Such an entry takes no model from the
 `defaults:` block.
@@ -80,13 +85,15 @@ device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
 `GET /api/projects/{handle}/board/cards/{cardId}`,
 `PUT /api/projects/{handle}/worker-runs/{runId}`,
+`PUT /api/projects/{handle}/worker-runs/{runId}/tool-calls`,
 `PUT /api/projects/{handle}/interactive-runs/{sessionId}`,
 `PUT /api/bridges/{bridgeId}/runs`,
 `PUT /api/bridges/{bridgeId}/heartbeat`,
 `POST /api/bridges/{bridgeId}/work-requests/{workRequestId}/claim` and
 `PUT /api/bridges/{bridgeId}/work-requests/{workRequestId}/result`, and no
 other endpoint.
-The two run endpoints record the states of each worker run and each interactive session, and the
+The three run endpoints record the states and the tool calls of each worker
+run, and the states of each interactive session, and the
 [Worker run API](../reference/worker-runs.md) page covers them. The heartbeat
 endpoint records that the bridge runs, and the
 [Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
@@ -158,8 +165,12 @@ what each state means. The server adds `timed-out` and `lost` on its own. It
 also sets `closed` on an interactive run, which no bridge holds.
 
 A clean exit does not prove that the work finished. The bridge runs each
-worker with `--output-format json` and `--json-schema`, and every prompt asks
-for a structured result. The core schema requires `status`, which is
+worker with `--verbose --output-format stream-json` and `--json-schema`, and
+every prompt asks for a structured result. claude prints one JSON line for each
+step, and the bridge reads the first line of type `result`. A later `result`
+line comes from a turn that a background task notification starts, and the
+bridge ignores it. The bridge also reads the single JSON document of
+`--output-format json`, so a run that an older bridge started still reports. The core schema requires `status`, which is
 `finished`, `blocked`, `unfinished` or `waiting`, and a one-sentence `summary`. A worker with
 no valid structured result logs `worker_no_result` at `ERROR`, and its record
 carries `hasResult: false`. The stage skills still print a `STAGE RESULT:`
@@ -192,7 +203,7 @@ empty value, keeps that value.
 
 Each outcome carries the tokens the worker process spent, per model, as the
 `usage` field of the [Worker run API](../reference/worker-runs.md#usage). A
-worker that ends on its own prints `modelUsage` in its JSON result. The bridge
+worker that ends on its own prints `modelUsage` in its result line. The bridge
 sends those counts with the source `reported`, and the cost claude computed.
 
 claude's counts cover the whole session, so a resume would count the earlier
@@ -309,6 +320,48 @@ key, so `jq` selects what you want. The log file is appended, so it is a history
 across runs.
 
 The bridge needs a Mercure hub to have anything to subscribe to.
+
+## Tool calls
+
+The bridge reads each tool call of a worker from the stream on claude's stdout.
+When the worker ends, the bridge sends the calls after the final state of the
+run, to `PUT /api/projects/{handle}/worker-runs/{runId}/tool-calls`. One
+request holds at most 500 calls. The last request also holds the tool time and
+the idle time of the run, so a run with no call still sends one request.
+[Reporting the tool calls of a run](../reference/worker-runs.md#reporting-the-tool-calls-of-a-run)
+gives the fields.
+
+A call holds its tool, its start, its duration, its error flag, and whether a
+subagent made it. A call with no timestamp in the stream stays out. A call that
+starts a background task holds the id of that task, and a later call whose
+input names that id waits on it. An `Agent` or `Task` call lasts until the last
+line of its subagent, so a background subagent counts in full.
+
+A call also holds signatures, which name what it ran. A Bash call gets one
+signature for each program its command runs, such as `grep` or `git status`.
+A signature keeps the base name of the program and no argument. A program on
+the subcommand list also keeps its second word, when that word is a lowercase
+word of up to 31 characters. Any other call gets its tool name. A call holds at
+most 20 signatures.
+
+The `insights.subcommand_programs` feature flag holds the subcommand list, as a
+comma list, and you change it at **`/admin/feature-flags`**. Its default is
+`git,just,npm,pnpm,yarn,cargo,go,docker,gh,composer,make,pip,uv`, and an empty
+value reads as the default. The flag is one list for the whole instance.
+`GET /api/projects` gives the list to the bridge as `subcommandPrograms` on
+each project. The bridge keeps the answer for 10 minutes. When it cannot read
+it, the bridge uses the default list.
+
+`GET /api/projects` also gives `collectFullText` on each project. The bridge
+sends the full input text of a call only when that value is `true`. No setting
+turns it on yet, so the server always sends `false` and no call holds its full
+text.
+
+A server with no tool call endpoint answers 404 with no error code, and so does
+a server with agent push switched off. The bridge then logs
+`tool_calls_unsupported` once. It drops that batch with no retry. The batches
+of later runs still try, so the calls come back when agent push comes back on. Set `collect: false` in `rules.yaml` to send no tool call and no
+timing at all.
 
 ## Experiments
 

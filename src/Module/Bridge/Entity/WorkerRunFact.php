@@ -100,6 +100,30 @@ class WorkerRunFact
 
         #[ORM\Column(name: 'usage_source', length: 20, nullable: true, enumType: WorkerRunUsageSource::class)]
         public readonly ?WorkerRunUsageSource $usageSource,
+
+        #[ORM\Column(name: 'tool_time_ms', type: Types::BIGINT, nullable: true)]
+        public readonly ?int $toolTimeMs,
+
+        /** The duration less the tool time and the idle gaps, never below zero. Null when one of them is unknown. */
+        #[ORM\Column(name: 'model_time_ms', type: Types::BIGINT, nullable: true)]
+        public readonly ?int $modelTimeMs,
+
+        /** The four tool call columns are null when the run has no tool call rows. */
+        #[ORM\Column(name: 'tool_calls', nullable: true)]
+        public readonly ?int $toolCalls,
+
+        #[ORM\Column(name: 'failed_calls', nullable: true)]
+        public readonly ?int $failedCalls,
+
+        #[ORM\Column(name: 'longest_call_ms', type: Types::BIGINT, nullable: true)]
+        public readonly ?int $longestCallMs,
+
+        #[ORM\Column(name: 'idle_gap_ms', type: Types::BIGINT, nullable: true)]
+        public readonly ?int $idleGapMs,
+
+        /** The time of the Agent and Task calls of the main session. */
+        #[ORM\Column(name: 'subagent_ms', type: Types::BIGINT, nullable: true)]
+        public readonly ?int $subagentMs,
     ) {
     }
 }
