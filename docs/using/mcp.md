@@ -258,6 +258,9 @@ Roughly in the order an agent uses them:
 | Tool | Purpose |
 |---|---|
 | `project_current` | Report which project this connection acts on, with its id, slug and name |
+| `project_update` | Change the project's name, description, domain or search language. A new name also changes the slug |
+| `project_origins_set` | Replace the list of site origins the sign-in widget may run on |
+| `readiness_guide_set` | Show or hide the readiness checklist on the Workshop |
 | `document_create` | Submit Markdown as a new document, or as a draft with `draft`; returns a review URL, the language it was stored in and its status |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_publish` | Send a draft to review, so it reaches the reviewer's inbox |
@@ -295,6 +298,7 @@ Roughly in the order an agent uses them:
 | `inbox_list` | Read a page of inbox items, filtered by state, ask, session, card or document |
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
+| `inbox_settings_update` | Turn the inbox wait switches on or off (off with the inbox) |
 | `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended, each with the reason it ended |
 | `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
 | `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools and their open runs |
@@ -304,6 +308,18 @@ Roughly in the order an agent uses them:
 | `card_release` | Make an unmanaged card managed again. The queued runs on the card then start |
 | `card_pause_release` | End the workflow pause of a card, by `cardId` or `number`, so the paused rule runs again with a fresh budget. It ends a pause of kind `retries`, `work-limit` or `work-timeout`. It does not end a hold, which `card_release` ends |
 | `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
+
+### Changing the project settings
+
+`project_update`, `project_origins_set` and `readiness_guide_set` change the
+settings of the bound project, as **Project settings** does.
+`inbox_settings_update` changes the switches of the inbox settings page. An
+argument that a call omits keeps its value. On `project_update`, an empty
+`description` or `domain` clears it. A new name also changes the project slug,
+so a bridge rule file that names the old slug stops matching.
+`project_origins_set` replaces the whole list of allowed origins, and an empty
+list clears it. The tools refuse what the settings pages refuse, and the error
+names the argument to fix.
 
 ### Staging a draft
 
