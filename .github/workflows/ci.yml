@@ -44,7 +44,7 @@ jobs:
       - name: Name the image
         id: image
         run: |
-          hash=$(cat docker/dev/php-fpm/Dockerfile docker/dev/php-fpm/*.conf docker/dev/php-fpm/*.ini | sha256sum | cut -c1-16)
+          hash=$( { date -u +%G-%V; cat docker/dev/php-fpm/Dockerfile docker/dev/php-fpm/*.conf docker/dev/php-fpm/*.ini; } | sha256sum | cut -c1-16)
           repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
           echo "image=ghcr.io/$repo/php-fpm:$hash" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3

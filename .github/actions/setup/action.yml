@@ -53,7 +53,7 @@ runs:
         npm ci --prefix e2e
 
     # The publish job in ci.yml pushes the image under a hash of the Dockerfile and
-    # the files it copies. A hit skips buildx and the build. Any failure is a miss
+    # the files it copies, and the ISO week, so the mutable base image refreshes weekly. A hit skips buildx and the build. Any failure is a miss
     # and falls back to the build below.
     - if: inputs.docker == 'true'
       id: prebuilt
@@ -63,7 +63,7 @@ runs:
       run: |
         tag=$(docker compose config --images php-fpm | grep -E -- '-php-fpm$')
         test "$(printf '%s\n' "$tag" | grep -c .)" = 1
-        hash=$(cat docker/dev/php-fpm/Dockerfile docker/dev/php-fpm/*.conf docker/dev/php-fpm/*.ini | sha256sum | cut -c1-16)
+        hash=$( { date -u +%G-%V; cat docker/dev/php-fpm/Dockerfile docker/dev/php-fpm/*.conf docker/dev/php-fpm/*.ini; } | sha256sum | cut -c1-16)
         repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
         image="ghcr.io/$repo/php-fpm:$hash"
         echo "tag=$tag" >> "$GITHUB_OUTPUT"
