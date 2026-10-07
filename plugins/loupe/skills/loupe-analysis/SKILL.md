@@ -49,7 +49,7 @@ Pass `scope.range` as the `range` of each `metric_query`. Call `metric_list` fir
 
 1. In `metric_list`, find the `bucket-time:<name>` entries. Each one is a bucket that has time on a run of the project. The bucket `other` holds the calls that no rule takes. `analytics_settings_get` does not list the rules, so infer the buckets from `metric_list`.
 2. Query `duration` with unit `run`, statistic `median`, `p90` and `sum`, and group `stage`. Note the `total` of each series and its `rows`.
-3. Query each `bucket-time:<name>` with unit `run` and statistic `sum`. Compare each sum with the `duration` sum. A bucket with a large share is a cost of time. A run with no bucket data has an unknown value, so note how many rows each series holds.
+3. Query `duration` again with unit `run`, statistic `sum` and no group. A stage group leaves out the runs that belong to no card, and a bucket query counts them. Query each `bucket-time:<name>` with unit `run` and statistic `sum`, and compare each sum with this ungrouped `duration` sum. A bucket with a large share is a cost of time. A run with no bucket data has an unknown value, so note how many rows each series holds.
 4. Call `worker_run_list` with `workKind` for the stage with the most time. Read `metrics`: `durationMs`, `toolTimeMs`, `modelTimeMs`, `idleGapMs`, `longestCallMs` and `toolCalls`. Sort by the value you study, because the list is newest first.
 5. Call `worker_run_get` and `worker_run_tool_calls` on the longest runs, about five to ten. Page through each run while `hasMore` is true.
 6. Find the slowest calls: sort the calls by `durationMs`. Read their `signatures`.
