@@ -623,6 +623,20 @@ ignores a request for a project the file does not map, and logs one
 `project_unmapped` line. It skips a request of a kind the map does not hold,
 and a request about another subject type than the entry names.
 
+A request can carry an app prompt, which ships with Loupe and which no
+project can change. Set
+`appPrompts: true` at the top of the file to run it for a kind that the map
+does not hold. An entry of the kind always wins over the app prompt. The app
+prompt takes the placeholders below and gets the
+[prompt footer](#prompt-footer). It runs as a worker in the `default` pool,
+with `defaults.permissionMode` and `defaults.model`, then the flags. The bridge
+skips a request whose app prompt is blank or names an unknown placeholder. The
+key is off when it is absent.
+
+```yaml
+appPrompts: true
+```
+
 Each entry takes these fields:
 
 | Field | Required | Purpose |
@@ -658,7 +672,7 @@ An interactive prompt gets none.
 | `{pullRequestNumber}` | the number of the pull request that the rule acts on, when the request opened |
 | `{pullRequestUrl}` | the link to that pull request, as the card holds it |
 | `{headSha}` | the head commit of that pull request when the request opened |
-| `{reason}` | why the pull request needs work: `conflict`, `checks-failed` or `changes-requested` |
+| `{reason}` | why the pull request needs work: `conflict`, `checks-failed` or `changes-requested`. For a `repair` request, the refusal code of the failed work, such as `failed` |
 | `{documentId}` | the id of the document that a revision works on, from the `document` parameter of the request rule |
 
 The last five come from the context of the request, a snapshot taken when the
@@ -980,6 +994,8 @@ itself, and answers with the range of CLI versions it supports. A reload sends
 a heartbeat at once, so the server reads the new projects before the next
 interval. The heartbeat also carries the last run of each
 [hook](#loupe-bridge-hooks), and a hook run sends a heartbeat at once.
+The heartbeat carries `pushLogin`, the login of the
+[agent account](#loupe-agent-account) that the bridge checked at start.
 
 The heartbeat also carries `workerPools`, one row for each
 [worker pool](#the-queue) with its `name`, `size`, `inUse` and `queued` counts.
@@ -1390,6 +1406,29 @@ A hook runs with your rights and no sandbox. `install` shows what the package
 runs and asks you to confirm. Run `loupe bridge reload` after `install`,
 `remove` or `set`. See [Bridge hooks](../docs/extending/bridge-hooks.md) for the
 events, the manifest, the environment and the Amphetamine package.
+
+## `loupe agent-account`
+
+Stores the token of a separate GitHub user for agents. Each claude worker of
+the bridge then pushes, commits and calls `gh` as that user, so a person can
+tell agent work from their own.
+
+```bash
+loupe agent-account set < token.txt   # read the token, check it with GitHub, store it
+loupe agent-account show              # print the login and the id
+loupe agent-account clear             # remove the account
+```
+
+`set` reads one line from standard input. Pipe the token in, or type it and
+press Enter. The terminal shows what you type. `set` calls `GET /user` on the
+GitHub API with the token, and stores the token, the login and the id in
+`config.json`, which has mode 0600. A token that GitHub refuses stores nothing.
+`show` never prints the token. None of the three commands needs a login.
+
+The bridge reads the account when it starts, so restart the bridge after a
+change. A reload does not read it. [Command-line
+bridge](../docs/extending/cli-bridge.md#agent-account) lists the environment
+that each worker gets.
 
 ## `loupe usage backfill`
 

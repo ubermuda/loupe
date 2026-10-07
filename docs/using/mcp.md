@@ -221,7 +221,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs eleven skills, each covering one part of working a Loupe project:
+It installs twelve skills, each covering one part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -230,12 +230,14 @@ It installs eleven skills, each covering one part of working a Loupe project:
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
 | `loupe:loupe-workers` | Reading worker runs and bridges, and stopping, resuming or cancelling a run |
+| `loupe:loupe-discovery` | A read-only discovery run that writes the readiness report of a project |
 | `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
 | `loupe:loupe-stage-product-design` | One review round on a product document |
 | `loupe:loupe-stage-tech-design` | A card entering the tech design column |
 | `loupe:loupe-stage-implementation` | Building an approved design into a pull request |
 | `loupe:loupe-stage-fix-round` | One round of review feedback, from a fix request or run by hand |
 | `loupe:loupe-stage-merge` | Merging a ready pull request, or updating one that is behind its base |
+| `loupe:loupe-stage-repair` | Fixing the cause of failed work, after its retries run out |
 
 The plugin carried an MCP server until version 0.2.0, as an HTTP endpoint plus a
 project API token you typed at install. Two things were wrong with it. A plugin
@@ -258,6 +260,13 @@ Roughly in the order an agent uses them:
 | Tool | Purpose |
 |---|---|
 | `project_current` | Report which project this connection acts on, with its id, slug and name |
+| `project_update` | Change the project's name, description, domain or search language. A new name also changes the slug |
+| `project_origins_set` | Replace the list of site origins the sign-in widget may run on |
+| `readiness_guide_set` | Show or hide the readiness checklist on the Workshop |
+| `readiness_get` | Read the readiness checks of the project, each with its status, and the state and the `runId` of the latest discovery run. `readiness_report_submit` takes that `runId`. It works while the Workshop guide is hidden |
+| `discovery_start` | Start a read-only [discovery run](workshop.md#run-discovery) on a new Backlog card. A running bridge must serve the project, the project needs a workflow with board automation on, and one run can be open at a time |
+| `readiness_report_submit` | Submit the report of a [discovery run](workshop.md#review-the-report): the findings, and the cards it proposes. Loupe writes the report as a document for review. When the owner approves it, each ticked proposal becomes a card in Next. A run takes one report |
+| `workflow_get` | Read the [workflow](workflows.md) of the project: its template and version, the board columns with the slot of each, and each kind of work with the rules that ask for it and its `checks` |
 | `document_create` | Submit Markdown as a new document, or as a draft with `draft`; returns a review URL, the language it was stored in and its status |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_publish` | Send a draft to review, so it reaches the reviewer's inbox |
@@ -284,21 +293,39 @@ Roughly in the order an agent uses them:
 | `card_update` | Change a card, or move it to another column |
 | `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
 | `card_run_close` | Close the interactive run a session opened on a card |
+| `column_create` | Add a column at the end of the board, from a label |
+| `column_update` | Rename a column, or set whether it is terminal |
+| `column_reorder` | Put the columns in a new order; Backlog stays first |
+| `column_delete` | Delete a column, and move its cards to `targetColumn` |
+| `automation_settings_update` | Change the board's Automation settings, the epic branch pattern included |
 | `inbox_ask` | Hand questions and to-dos to the project owner (off by default, see below) |
 | `inbox_search` | Search every inbox item's title and body by words, closed ones included |
 | `inbox_join` | Add an open item that is already in the inbox to the session's own ask |
 | `inbox_list` | Read a page of inbox items, filtered by state, ask, session, card or document |
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
+| `inbox_settings_update` | Turn the inbox wait switches on or off (off with the inbox) |
 | `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, harness, account, model, words or the time a run ended, each with the reason it ended |
 | `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
-| `bridge_list` | List the bridges that follow the project, with their name, their heartbeat, their pause, their worker pools and their open runs |
+| `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
 | `card_hold` | Make a card unmanaged, by `cardId` or `number`. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until `card_release`. A live run goes on |
 | `card_release` | Make an unmanaged card managed again. The queued runs on the card then start |
-| `card_pause_release` | End the workflow pause of a card, by `cardId` or `number`, so the paused rule runs again with a fresh budget. It ends a pause of kind `retries`, `work-limit` or `work-timeout`. It does not end a hold, which `card_release` ends |
+| `card_pause_release` | End the workflow pause of a card, by `cardId` or `number`, so the paused rule runs again with a fresh budget. It ends a pause of kind `retries`, `work-limit`, `work-timeout` or `work-stopped`. It does not end a hold, which `card_release` ends |
 | `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
+
+### Changing the project settings
+
+`project_update`, `project_origins_set` and `readiness_guide_set` change the
+settings of the bound project, as **Project settings** does.
+`inbox_settings_update` changes the switches of the inbox settings page. An
+argument that a call omits keeps its value. On `project_update`, an empty
+`description` or `domain` clears it. A new name also changes the project slug,
+so a bridge rule file that names the old slug stops matching.
+`project_origins_set` replaces the whole list of allowed origins, and an empty
+list clears it. The tools refuse what the settings pages refuse, and the error
+names the argument to fix.
 
 ### Staging a draft
 
@@ -472,7 +499,18 @@ column is where finished work goes, and a card that enters one gets a
 A card created with no `status` lands in Backlog, whose slug is `backlog`.
 Backlog is not drawn as a board column, and it has its own page. `board_columns`
 lists it with `default` and `backlog` both true. Renaming a column changes its
-slug. No tool writes a column.
+slug.
+
+`column_create`, `column_update`, `column_reorder` and `column_delete` change
+the columns, as **Board settings** does. They refuse the changes that Board
+settings refuses, and the error says what the agent can fix. For example, a
+delete of a column that holds cards needs `targetColumn`.
+`automation_settings_update` changes the **Automation** settings, and a setting
+that the call omits keeps its value. `openEpicPullRequests` turns the opening of
+epic pull requests on or off. `epicBranchPattern` sets the branch that the
+breakdown pushes for an epic, such as `epic/{number}`. An empty
+`epicBranchPattern` turns epic branches off, and an omitted one keeps the
+pattern.
 
 The board has no delete tool. An agent moves a card to a terminal column; only a
 person removes one. `card_update` also refuses to change `reporter`, because
@@ -513,7 +551,7 @@ for any other card. A child counts as done when it sits in a terminal column.
 
 The full card also carries `pause`, the active workflow pause of the card, or
 null. A pause holds `pauseId`, `kind`, `reason`, `ruleId` and `since`. The kind
-is `rule`, `retries`, `work-limit` or `work-timeout`. `card_list` takes `paused`
+is `rule`, `retries`, `work-limit`, `work-timeout` or `work-stopped`. `card_list` takes `paused`
 as a filter: `true` keeps the paused cards, and `false` keeps the cards with no
 pause. `card_pause_release` ends a pause of any kind except `rule`. Pass the
 `pauseId` you read, and the tool refuses with `pause-changed` when the active

@@ -85,10 +85,10 @@ final class WorkerRunStateTest extends TestCase
         );
     }
 
-    public function test_only_blocked_and_gave_up_warn_on_the_card(): void
+    public function test_only_failed_no_result_blocked_and_gave_up_warn_on_the_card(): void
     {
         self::assertSame(
-            ['blocked', 'gave-up'],
+            ['failed', 'no-result', 'blocked', 'gave-up'],
             array_values(array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isWarning()),

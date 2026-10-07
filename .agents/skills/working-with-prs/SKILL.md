@@ -842,9 +842,13 @@ refresh the epic preview at `https://epic-<n>.loupe.dev.localhost`. The stage
 carries the child's preview links to the `## Preview` section of the epic pull
 request. It re-mints each signed link
 from its `to` and `email` parameters. So write each Preview line of a child with
-a signed link and its marker in backticks. The child's seeded state stays in the
-child's database, so a carried line can read "not proved" or "not minted". Seed that state on
-the epic preview by hand before you review the epic.
+a signed link, its marker in backticks, and a `State:` text. The child's
+database goes at teardown, and the stage seeds each state again on the epic
+preview from that text alone. So name every record the page needs, with its
+counts, its flags and the account that owns it. For example: "State: project
+owned by dev@loupe.test, 2 open inbox items, readiness guide not hidden". A
+line with no `State:` text, or a state the stage cannot build, reads "not
+proved" on the epic pull request.
 
 ## Running several branches at once
 

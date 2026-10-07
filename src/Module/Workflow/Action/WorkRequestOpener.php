@@ -14,7 +14,9 @@ use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
+use App\Module\Workflow\Template\AppRules;
 use App\Module\Workflow\Template\Rule;
+use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
 
 /**
@@ -27,10 +29,12 @@ final readonly class WorkRequestOpener
         private OpenWorkRequestHandler $openWorkRequest,
         private CardPullRequests $trackedPullRequests,
         private CardPullRequestRepository $cardPullRequests,
+        private AppRules $appRules,
     ) {
     }
 
-    public function open(Rule $rule, Card $card, Facts $facts, string $kind, ?string $capability): ActionOutcome
+    /** A given reason replaces the fix reason of the pull request in the context. */
+    public function open(Rule $rule, Card $card, Facts $facts, string $kind, ?string $capability, ?string $reason = null): ActionOutcome
     {
         $documentId = null;
         $tag = ActionParams::optionalString($rule, TemplateParser::DOCUMENT_TAG);
@@ -46,15 +50,18 @@ final readonly class WorkRequestOpener
             $documentId = $documents[0]->id;
         }
 
+        $promptName = RuleOrigin::App === $rule->origin ? ActionParams::optionalString($rule, TemplateParser::PROMPT) : null;
+
         try {
-            ($this->openWorkRequest)(new OpenWorkRequestCommand(
+            $request = ($this->openWorkRequest)(new OpenWorkRequestCommand(
                 project: $card->project,
                 subject: WorkSubject::card($card->id ?? throw new \LogicException('A stored card has an id.')),
                 cardNumber: $card->number,
                 kind: $kind,
                 capability: $capability,
                 ruleId: $rule->id,
-                context: $this->context($card, $facts, $documentId),
+                context: $this->context($card, $facts, $documentId, $reason),
+                prompt: null === $promptName ? null : $this->appRules->prompt($promptName),
             ));
         } catch (DomainErrors $e) {
             return \in_array(OpenWorkRequestHandler::LIVE, $e->errors, true)
@@ -62,13 +69,13 @@ final readonly class WorkRequestOpener
                 : ActionOutcome::refused('invalid-work-request');
         }
 
-        return ActionOutcome::done();
+        return ActionOutcome::done($request->id);
     }
 
     /** A link URL or a head of another shape stays out, because a bridge fills commands with these values. */
-    private function context(Card $card, Facts $facts, ?string $documentId): WorkRequestContext
+    private function context(Card $card, Facts $facts, ?string $documentId, ?string $reason): WorkRequestContext
     {
-        $reason = $facts->pullRequest?->fixReason();
+        $reason ??= $facts->pullRequest?->fixReason();
         $pullRequest = $this->trackedPullRequests->subjectOf($this->trackedPullRequests->forCard($card), $facts->pullRequest);
         if (null === $pullRequest) {
             return new WorkRequestContext(reason: $reason, documentId: $documentId);

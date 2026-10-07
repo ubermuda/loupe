@@ -26,6 +26,9 @@ final class Evaluation
     /** True once the pass asked for a pause, which ends it. */
     public bool $ended = false;
 
+    /** @var array<string, true> the ids of the rules whose repair request is live */
+    public array $repairing = [];
+
     /** @var list<array{rule: string, outcome: string, code: ?string}> */
     public array $fired = [];
 

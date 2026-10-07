@@ -680,3 +680,33 @@ func TestMatchRendersTheBeforeCommand(t *testing.T) {
 		t.Fatalf("a change to one match reached the entry: %q", again.Before.Argv)
 	}
 }
+
+func TestAppPromptsIsOffUnlessTheFileTurnsItOn(t *testing.T) {
+	for _, tc := range []struct {
+		line string
+		want bool
+	}{
+		{line: "", want: false},
+		{line: "appPrompts: true\n", want: true},
+		{line: "appPrompts: false\n", want: false},
+	} {
+		if got := parse(t, tc.line+oneRule).AppPrompts(); got != tc.want {
+			t.Fatalf("%q: AppPrompts = %v, want %v", tc.line, got, tc.want)
+		}
+	}
+}
+
+func TestParseRefusesAMisspeltAppPrompts(t *testing.T) {
+	text, _ := file(t, "appPrompt: true\n"+oneRule)
+	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), "field appPrompt not found") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// An app prompt runs in the default pool, so that pool needs a slot.
+func TestParseRefusesAppPromptsWithNoDefaultSlot(t *testing.T) {
+	text, _ := file(t, "appPrompts: true\nmaxWorkers: 1\nworkerPools:\n  quick: {size: 1}\nprojects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n    workerPool: quick\n")
+	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), "appPrompts: the default pool has no slot") {
+		t.Fatalf("err = %v", err)
+	}
+}

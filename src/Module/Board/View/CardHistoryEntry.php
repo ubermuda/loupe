@@ -148,6 +148,7 @@ final readonly class CardHistoryEntry
                 CardPauseKind::Retries => 'board.card.history.pause_kind.retries',
                 CardPauseKind::WorkLimit => 'board.card.history.pause_kind.work_limit',
                 CardPauseKind::WorkTimeout => 'board.card.history.pause_kind.work_timeout',
+                CardPauseKind::WorkStopped => 'board.card.history.pause_kind.work_stopped',
             })]),
             \is_string($ruleId) && '' !== $ruleId ? new TranslatableMessage('board.card.history.cause.workflow_rule', ['%rule%' => $ruleId]) : null,
         );

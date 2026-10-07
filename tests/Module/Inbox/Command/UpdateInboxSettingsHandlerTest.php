@@ -52,4 +52,28 @@ final class UpdateInboxSettingsHandlerTest extends KernelTestCase
             array_map(static fn ($envelope): object => $envelope->getMessage(), $transport->getSent()),
         );
     }
+
+    public function test_a_null_switch_keeps_the_value_stored_when_the_lock_is_taken(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $project = $this->project($em, $this->owner($em, 'inbox-settings-null'), 'inbox-settings-null');
+        $stored = new InboxProjectSettings($project);
+        $em->persist($stored);
+        $em->flush();
+        // Another request turns runBlocked off after this one loaded the row.
+        $em->getConnection()->executeStatement('UPDATE inbox_project_settings SET run_blocked = false WHERE id = ?', [(string) $stored->id]);
+
+        $handler = self::getContainer()->get(UpdateInboxSettingsHandler::class);
+        self::assertInstanceOf(UpdateInboxSettingsHandler::class, $handler);
+        $handler(new UpdateInboxSettingsCommand($project, documentInReview: false, runBlocked: null, runGaveUp: null, runWaitingForPerson: null, pullRequestReady: null, pullRequestFixStopped: null, cardPaused: null));
+
+        $em->clear();
+        $row = self::getContainer()->get(InboxProjectSettingsRepository::class)->findOneBy(['project' => (string) $project->id]);
+        self::assertInstanceOf(InboxProjectSettings::class, $row);
+        self::assertFalse($row->documentInReview);
+        self::assertFalse($row->runBlocked);
+        self::assertTrue($row->runGaveUp);
+    }
 }

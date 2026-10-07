@@ -102,7 +102,8 @@ final class ShippedTemplatesTest extends KernelTestCase
         $facts = FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [self::approved('product-design')]));
 
         self::assertSame(['tech-design-write'], $this->firingRuleIds($facts));
-        self::assertContainsEquals(new ActionCall(ActionType::Request, ['kind' => 'tech-design']), $this->actions($facts));
+        $requests = array_values(array_filter($this->actions($facts), static fn (ActionCall $action): bool => ActionType::Request === $action->type));
+        self::assertSame([['kind' => 'tech-design']], array_map(static fn (ActionCall $action): array => $action->params, $requests));
     }
 
     public function test_an_approved_tech_design_next_to_an_approved_product_design_moves_to_implementation(): void
@@ -208,7 +209,19 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertCount(1, $rules);
         self::assertSame('@terminal', $rules[0]->slot);
         self::assertTrue($rules[0]->when->evaluate(FactsMother::facts(card: FactsMother::card(slot: '@terminal'))));
-        self::assertEquals(new ActionCall(ActionType::Request, ['kind' => 'teardown', 'onTimeout' => 'expire']), $rules[0]->then);
+        self::assertSame(ActionType::Request, $rules[0]->then->type);
+        self::assertSame(['kind' => 'teardown', 'onTimeout' => 'expire'], $rules[0]->then->params);
+    }
+
+    #[DataProvider('shippedKeys')]
+    public function test_every_request_names_what_its_work_needs_from_the_project(string $key): void
+    {
+        $requests = array_values(array_filter($this->template($key)->rules, static fn ($rule): bool => ActionType::Request === $rule->then->type));
+
+        self::assertNotEmpty($requests);
+        foreach ($requests as $rule) {
+            self::assertNotSame([], $rule->then->checks, $rule->id);
+        }
     }
 
     public function test_the_ready_pull_request_of_an_epic_asks_for_the_merge_write(): void

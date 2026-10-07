@@ -16,28 +16,34 @@ use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\ManualMove;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\Rule;
+use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\Slot;
 use App\Module\Workflow\Template\Template;
-use App\Module\Workflow\Template\TemplateParser;
+use App\Module\Workflow\Template\TemplateSource;
 
 final readonly class ShowWorkflowSettingsHandler
 {
     public function __construct(
         private WorkflowBindingRepository $workflowBindings,
         private WorkflowSlotLinkRepository $workflowSlotLinks,
-        private TemplateParser $parser,
+        private TemplateSource $templates,
     ) {
     }
 
     public function __invoke(ShowWorkflowSettingsCommand $command): WorkflowSettingsView
     {
         $project = $command->project;
-        $binding = $this->workflowBindings->findOneByProjectId($project->id ?? throw new \LogicException('The project is not persisted.'));
+        $projectId = $project->id ?? throw new \LogicException('The project is not persisted.');
+        $binding = $this->workflowBindings->findOneByProjectId($projectId);
         if (null === $binding) {
             return new WorkflowSettingsView($project, null);
         }
 
-        $template = $this->parser->parseStored($binding->definition);
+        $template = $this->templates->forProject($projectId);
+        $rules = static fn (RuleOrigin $origin): array => array_map(
+            static fn (Rule $rule): WorkflowRuleView => self::rule($template, $rule),
+            array_values(array_filter($template->rules, static fn (Rule $rule): bool => $origin === $rule->origin)),
+        );
         $columns = $this->workflowSlotLinks->findColumnsBySlot($project);
 
         return new WorkflowSettingsView($project, new BoundWorkflowView(
@@ -50,7 +56,8 @@ final readonly class ShowWorkflowSettingsHandler
                 static fn (Slot $slot): WorkflowSlotView => new WorkflowSlotView($slot->key, $slot->label, ($columns[$slot->key] ?? null)?->label),
                 $template->slots,
             ),
-            rules: array_map(static fn (Rule $rule): WorkflowRuleView => self::rule($template, $rule), $template->rules),
+            rules: $rules(RuleOrigin::Template),
+            appRules: $rules(RuleOrigin::App),
             manualMoves: array_map(
                 static fn (ManualMove $move): WorkflowManualMoveView => new WorkflowManualMoveView(
                     self::placeKey($template, $move->from),
@@ -64,6 +71,7 @@ final readonly class ShowWorkflowSettingsHandler
             ),
             backoffMinutes: $template->backoffMinutes,
             workTimeoutMinutes: $template->workTimeoutMinutes,
+            workFailedBackoffMinutes: $template->onWorkFailed?->backoffMinutes,
         ));
     }
 
@@ -71,7 +79,7 @@ final readonly class ShowWorkflowSettingsHandler
     {
         $params = $rule->then->params;
         $type = $rule->then->type;
-        $expressions = array_values(array_filter([$rule->when, $rule->then->until]));
+        $expressions = array_values(array_filter([$rule->when, $rule->then->until, $rule->then->refill]));
         $missing = array_merge(...array_map(static fn (Expression $expression): array => $expression->missingKeys(), $expressions));
 
         return new WorkflowRuleView(
@@ -93,6 +101,7 @@ final readonly class ShowWorkflowSettingsHandler
             },
             whenGroups: self::groups($rule->when),
             untilGroups: null === $rule->then->until ? [] : self::groups($rule->then->until),
+            refillGroups: null === $rule->then->refill ? [] : self::groups($rule->then->refill),
             missingConditions: array_values(array_unique($missing)),
         );
     }

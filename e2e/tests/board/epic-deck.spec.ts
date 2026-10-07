@@ -258,7 +258,8 @@ test('a card dropped on the deck of its epic goes back to the Backlog', async ({
 
     await drag(page, face.locator('.lp-board-card__title'), deck(page, epic));
 
-    await expect(face).toHaveCount(0);
+    // The deck is a bucket, so the card stays hidden in its cell until the move answers.
+    await expect(face).toHaveCount(0, LIVE_UPDATE);
     await expect(label).toHaveText('2 in Backlog', LIVE_UPDATE);
     await expect(
         deck(page, epic).locator(`[data-card-id="${working.id}"]`),

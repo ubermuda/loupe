@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
+use App\Exception\DomainErrors;
 use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
 use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Form\SaveBoardAutomationSettingsFormType;
@@ -12,6 +13,7 @@ use App\Module\Board\Form\SaveBoardAutomationSettingsRequest;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -40,22 +42,28 @@ final class EditBoardAutomationSettingsController extends AppController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            ($this->saveSettings)(new SaveBoardAutomationSettingsCommand(
-                project: $project,
-                enabled: $data->enabled,
-                commentOnFixQueued: $data->commentOnFixQueued,
-                commentOnStaleApproval: $data->commentOnStaleApproval,
-                syncBehind: $data->syncBehind,
-                mergePullRequests: $data->mergePullRequests,
-                changeBase: $data->changeBase,
-                epicDraftSwitch: $data->epicDraftSwitch,
-                closeEpicPullRequests: $data->closeEpicPullRequests,
-                openEpicPullRequests: $data->openEpicPullRequests,
-                epicBranchPattern: $data->epicBranchPattern,
-            ));
-            $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
+            try {
+                ($this->saveSettings)(new SaveBoardAutomationSettingsCommand(
+                    project: $project,
+                    enabled: $data->enabled,
+                    commentOnFixQueued: $data->commentOnFixQueued,
+                    commentOnStaleApproval: $data->commentOnStaleApproval,
+                    syncBehind: $data->syncBehind,
+                    mergePullRequests: $data->mergePullRequests,
+                    changeBase: $data->changeBase,
+                    epicDraftSwitch: $data->epicDraftSwitch,
+                    closeEpicPullRequests: $data->closeEpicPullRequests,
+                    openEpicPullRequests: $data->openEpicPullRequests,
+                    epicBranchPattern: $data->epicBranchPattern,
+                ));
+                $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 
-            return $this->redirectToRoute('app_board_automation_settings', ['id' => (string) $project->id]);
+                return $this->redirectToRoute('app_board_automation_settings', ['id' => (string) $project->id]);
+            } catch (DomainErrors $e) {
+                foreach ($e->errors as $field => $translationKey) {
+                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
+                }
+            }
         }
 
         return $this->renderFormResponse('@Board/edit_board_automation_settings.html.twig', $form, [

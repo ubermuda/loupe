@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
+use App\Utils\GitHubLogin;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -118,6 +119,10 @@ class Bridge
     /** The name the last heartbeat asked for. */
     #[ORM\Column(name: 'requested_name', length: self::MAX_NAME_LENGTH, nullable: true)]
     public ?string $requestedName = null;
+
+    /** The GitHub user the bridge pushes as, as its last heartbeat reported it. */
+    #[ORM\Column(name: 'push_login', length: GitHubLogin::MAX_LENGTH, nullable: true)]
+    public ?string $pushLogin = null;
 
     /** What a page calls the bridge. */
     public string $label {

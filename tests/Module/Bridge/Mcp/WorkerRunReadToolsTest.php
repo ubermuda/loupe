@@ -340,6 +340,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $live->pauseRequested = true;
         $live->name = 'laptop';
         $live->requestedName = 'laptop';
+        $live->pushLogin = 'acme-agent';
         $quiet = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('-1 day'));
         $quiet->requestedName = 'laptop';
         $this->seedBridge($em, $project->owner, projects: [(string) $other->id]);
@@ -360,6 +361,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertSame('1.6.0', $row['cliVersion']);
         self::assertSame('laptop', $row['name']);
         self::assertSame('laptop', $row['requestedName']);
+        self::assertSame('acme-agent', $row['pushLogin']);
         self::assertTrue($row['pauseRequested']);
         self::assertNull($row['pausedReported']);
         self::assertTrue($row['takesCommands']);
@@ -370,6 +372,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertSame('quiet', $bridges[$quiet->id->toRfc4122()]['liveness']);
         self::assertNull($bridges[$quiet->id->toRfc4122()]['name']);
         self::assertSame('laptop', $bridges[$quiet->id->toRfc4122()]['requestedName']);
+        self::assertNull($bridges[$quiet->id->toRfc4122()]['pushLogin']);
         self::assertFalse($bridges[$quiet->id->toRfc4122()]['takesCommands']);
         self::assertFalse($bridges[$quiet->id->toRfc4122()]['takesReruns']);
         self::assertSame([], $bridges[$quiet->id->toRfc4122()]['openRuns']);

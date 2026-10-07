@@ -11,7 +11,7 @@ A bridge runs the workers of a project, and each worker is a run on one card. A 
 
 | Tool | Use it to |
 |---|---|
-| `worker_run_list` | find runs by `states`, `cardNumber`, `rule`, `bridgeId`, `search`, `endedAfter` and `endedBefore` |
+| `worker_run_list` | find runs by `states`, `cardNumber`, `workKind`, `bridgeId`, `search`, `endedAfter` and `endedBefore` |
 | `worker_run_get` | read one run with its series, output, state changes and commands |
 | `bridge_list` | check that each bridge is live and takes commands |
 | `worker_run_resume` | resume up to 50 ended runs by `runIds` |
