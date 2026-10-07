@@ -19,6 +19,8 @@ use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\InvalidTemplate;
+use App\Module\Workflow\Template\ManualMoveActor;
+use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -55,6 +57,7 @@ final class TemplateParserTest extends TestCase
             'manualMoves' => [
                 ['from' => '@backlog', 'to' => 'build'],
                 ['from' => '*', 'to' => '*'],
+                ['from' => '@backlog', 'to' => 'review', 'by' => 'parent-run'],
             ],
             'backoffMinutes' => [10, 60],
             'workTimeoutMinutes' => 120,
@@ -111,6 +114,8 @@ final class TemplateParserTest extends TestCase
         self::assertSame(120, $template->workTimeoutMinutes);
         self::assertSame('@backlog', $template->manualMoves[0]->from);
         self::assertSame('build', $template->manualMoves[0]->to);
+        self::assertNull($template->manualMoves[0]->by);
+        self::assertSame(ManualMoveActor::ParentRun, $template->manualMoves[2]->by);
 
         $ids = static fn (array $rules): array => array_map(static fn ($rule) => $rule->id, $rules);
         self::assertSame(['start', 'to-review', 'wait'], $ids($template->rulesFor('build')));
@@ -121,11 +126,33 @@ final class TemplateParserTest extends TestCase
         self::assertSame(ActionType::Request, $start->then->type);
         self::assertSame(['kind' => 'implement', 'capability' => 'interactive', 'limit' => 3], $start->then->params);
         self::assertNull($start->then->until);
+        self::assertNull($start->then->refill);
 
         $wait = $template->rulesFor(null)[0];
         self::assertSame(ActionType::Pause, $wait->then->type);
         self::assertSame(['reason' => 'busy'], $wait->then->params);
         self::assertInstanceOf(Not::class, $wait->then->until);
+    }
+
+    public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
+    {
+        self::assertNull($this->parser->parse(self::valid())->onWorkFailed);
+
+        $policy = $this->parser->parse(self::valid() + ['onWorkFailed' => ['retryOn' => ['failed', 'timeout'], 'retries' => 1, 'backoffMinutes' => [2, 3]]])->onWorkFailed;
+
+        self::assertNotNull($policy);
+        self::assertSame(1, $policy->retries);
+        self::assertSame([2, 3], $policy->backoffMinutes);
+        self::assertTrue($policy->retries('timeout'));
+        self::assertFalse($policy->retries('needs-person'));
+        self::assertNull($policy->repairKind);
+    }
+
+    public function test_a_retry_policy_reads_the_kind_of_its_repair_request(): void
+    {
+        $policy = $this->parser->parse(self::valid() + ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => ['kind' => 'repair']]])->onWorkFailed;
+
+        self::assertSame('repair', $policy?->repairKind);
     }
 
     public function test_an_evaluate_action_names_the_children(): void
@@ -173,6 +200,32 @@ final class TemplateParserTest extends TestCase
             ['kind' => 'tech-design-revise', 'document.tag' => 'design', 'document.status' => 'changes-requested'],
             $this->parser->parse($template)->rulesFor('build')[0]->then->params,
         );
+    }
+
+    public function test_a_request_carries_its_checks_apart_from_its_params(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['then']['request']['checks'] = ['A worktree per card', 'A preview URL per branch'];
+
+        foreach ([$this->parser->parse(...), $this->parser->parseStored(...)] as $parse) {
+            $then = $parse($template)->rulesFor('build')[0]->then;
+            self::assertSame(['A worktree per card', 'A preview URL per branch'], $then->checks);
+            self::assertSame(['kind' => 'implement', 'capability' => 'interactive', 'limit' => 3], $then->params);
+        }
+    }
+
+    public function test_a_request_with_no_checks_has_an_empty_list(): void
+    {
+        self::assertSame([], $this->parser->parse(self::valid())->rulesFor('build')[0]->then->checks);
+    }
+
+    public function test_app_rules_accept_a_request_with_checks(): void
+    {
+        $rules = $this->parser->parseAppRules(['rules' => [
+            ['id' => 'app-done', 'slot' => '@terminal', 'when' => ['all' => []], 'then' => ['request' => ['kind' => 'teardown', 'checks' => ['A teardown command']]]],
+        ]]);
+
+        self::assertSame(['A teardown command'], $rules[0]->then->checks);
     }
 
     public function test_a_document_condition_takes_a_tag_and_an_optional_status(): void
@@ -230,6 +283,17 @@ final class TemplateParserTest extends TestCase
         yield 'rules not a list' => [static fn (array $t): array => ['rules' => ['a' => 1]] + $t, 'rules: must be a list'];
         yield 'manual moves not a list' => [static fn (array $t): array => ['manualMoves' => 3] + $t, 'manualMoves: must be a list'];
         yield 'wrongly typed backoff' => [static fn (array $t): array => ['backoffMinutes' => [10, '60']] + $t, 'backoffMinutes: must be a list of positive integers'];
+        yield 'retry policy with no list' => [static fn (array $t): array => ['onWorkFailed' => ['retries' => 1, 'backoffMinutes' => [2]]] + $t, 'onWorkFailed: must be a map with a list "retryOn"'];
+        yield 'retry policy with a bad code' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['Not A Code'], 'retries' => 1, 'backoffMinutes' => [2]]] + $t, 'onWorkFailed.retryOn: each entry must be a refusal code'];
+        yield 'repair that is not a map' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => 'repair']] + $t, 'onWorkFailed.repair: must be a map with a string "kind"'];
+        yield 'repair with no kind' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => []]] + $t, 'onWorkFailed.repair: must be a map with a string "kind"'];
+        yield 'repair with a bad kind' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => ['kind' => 'Not A Kind']]] + $t, 'onWorkFailed.repair.kind: must be a work request kind'];
+        yield 'repair kind that a rule asks for' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => ['kind' => 'implement']]] + $t, 'onWorkFailed.repair.kind: the rule "start" already asks for the kind "implement"'];
+        yield 'repair kind that a forge write falls back to' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => ['kind' => 'merge']]] + $t, 'onWorkFailed.repair.kind: the rule "merge" already asks for the kind "merge"'];
+        yield 'retry policy with a negative count' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => -1, 'backoffMinutes' => [2]]] + $t, 'onWorkFailed.retries: must be a non-negative integer'];
+        yield 'retry policy with no delays' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1]] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
+        yield 'retry policy with a zero delay' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [0]]] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
+        yield 'retry policy with a text delay' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => 'x']] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
         yield 'wrongly typed work timeout' => [static fn (array $t): array => ['workTimeoutMinutes' => 0] + $t, 'workTimeoutMinutes: must be a positive integer'];
 
         yield 'duplicate slot key' => [static function (array $t): array {
@@ -295,6 +359,11 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'manualMoves[0].from: unknown slot "shipping"'];
+        yield 'unknown manual move actor' => [static function (array $t): array {
+            $t['manualMoves'][2]['by'] = 'anyone';
+
+            return $t;
+        }, 'manualMoves[2].by: must be one of parent-run'];
         yield 'wildcard rule slot' => [static function (array $t): array {
             $t['rules'][0]['slot'] = '*';
 
@@ -369,6 +438,12 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[0] (start) then.request: parameter "limit" must be a positive integer'];
+        yield 'refill without a limit' => [static function (array $t): array {
+            unset($t['rules'][0]['then']['request']['limit']);
+            $t['rules'][0]['then']['request']['refill'] = ['pr.checks_passed' => []];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "refill" needs a "limit"'];
         yield 'zero request limit' => [static function (array $t): array {
             $t['rules'][0]['then']['request']['limit'] = 0;
 
@@ -419,6 +494,36 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[2] (merge) then.forge-write: unknown parameter "document"'];
+        yield 'an empty checks list' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = [];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'checks as a string' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = 'A worktree';
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'checks as a map' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = ['worktree' => 'A worktree'];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'a checks entry that is empty' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = ['A worktree', ''];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'a checks entry that is not a string' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['checks'] = ['A worktree', 3];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "checks" must be a non-empty list of non-empty strings'];
+        yield 'checks on another action' => [static function (array $t): array {
+            $t['rules'][1]['then']['move']['checks'] = ['A worktree'];
+
+            return $t;
+        }, 'rules[1] (to-review) then.move: unknown parameter "checks"'];
         yield 'until outside a pause' => [static function (array $t): array {
             $t['rules'][4]['then']['release']['until'] = ['pr.open' => []];
 
@@ -507,6 +612,72 @@ final class TemplateParserTest extends TestCase
                 'version: must be an integer',
                 'rules[2] (merge) when: unknown condition "pr.foo"',
             ], $e->errors);
+        }
+    }
+
+    public function test_app_rules_accept_a_request_with_a_prompt_in_the_backlog(): void
+    {
+        $rules = $this->parser->parseAppRules(['rules' => [
+            ['id' => 'app-groom', 'slot' => '@backlog', 'when' => ['card.has_open_blocker' => []], 'then' => ['request' => ['kind' => 'groom', 'prompt' => 'groom-card']]],
+            ['id' => 'app-done', 'slot' => '@terminal', 'when' => ['all' => []], 'then' => ['request' => ['kind' => 'teardown']]],
+        ]]);
+
+        self::assertSame(['app-groom', 'app-done'], array_map(static fn ($rule) => $rule->id, $rules));
+        self::assertSame([RuleOrigin::App, RuleOrigin::App], array_map(static fn ($rule) => $rule->origin, $rules));
+        self::assertSame('@backlog', $rules[0]->slot);
+        self::assertSame(['kind' => 'groom', TemplateParser::PROMPT => 'groom-card'], $rules[0]->then->params);
+    }
+
+    public function test_template_rules_have_the_template_origin(): void
+    {
+        foreach ($this->parser->parse(self::valid())->rules as $rule) {
+            self::assertSame(RuleOrigin::Template, $rule->origin);
+        }
+    }
+
+    /** @return iterable<string, array{array<mixed>, list<string>}> */
+    public static function appRuleRefusals(): iterable
+    {
+        $rule = static fn (array $then, ?string $slot = null): array => ['rules' => [array_filter(['id' => 'app-rule', 'slot' => $slot, 'when' => ['all' => []], 'then' => $then], static fn ($v) => null !== $v)]];
+
+        yield 'a slot key' => [$rule(['request' => ['kind' => 'groom']], 'next'), ['rules[0] (app-rule) slot: unknown slot "next"']];
+        yield 'a prompt name with a capital' => [$rule(['request' => ['kind' => 'groom', 'prompt' => 'Groom']]), ['rules[0] (app-rule) then.request: parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters']];
+        yield 'a prompt name with a path' => [$rule(['request' => ['kind' => 'groom', 'prompt' => '../secret']]), ['rules[0] (app-rule) then.request: parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters']];
+        yield 'a prompt name too long' => [$rule(['request' => ['kind' => 'groom', 'prompt' => str_repeat('a', 41)]]), ['rules[0] (app-rule) then.request: parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters']];
+        yield 'a prompt on another action' => [$rule(['release' => ['reason' => 'x', 'prompt' => 'groom']]), ['rules[0] (app-rule) then.release: unknown parameter "prompt"']];
+        yield 'a move to a slot' => [$rule(['move' => ['to' => 'next']]), ['rules[0] (app-rule) then.move.to: unknown slot "next"']];
+        yield 'no rules key' => [[], ['rules: is missing']];
+        yield 'rules not a list' => [['rules' => ['a' => 1]], ['rules: must be a list']];
+        yield 'another top-level key' => [['rules' => [], 'slots' => []], ['slots: unknown key, app rules hold only "rules"']];
+    }
+
+    /**
+     * @param array<mixed> $source
+     * @param list<string> $errors
+     */
+    #[DataProvider('appRuleRefusals')]
+    public function test_app_rules_refuse_an_invalid_source(array $source, array $errors): void
+    {
+        try {
+            $this->parser->parseAppRules($source);
+            self::fail('The parser must refuse the app rules.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame($errors, $e->errors);
+        }
+    }
+
+    public function test_a_template_refuses_a_prompt(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['then']['request']['prompt'] = 'groom';
+
+        foreach ([$this->parser->parse(...), $this->parser->parseStored(...)] as $parse) {
+            try {
+                $parse($template);
+                self::fail('A template rule must not name a prompt.');
+            } catch (InvalidTemplate $e) {
+                self::assertSame(['rules[0] (start) then.request: unknown parameter "prompt"'], $e->errors);
+            }
         }
     }
 }

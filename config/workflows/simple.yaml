@@ -17,4 +17,9 @@ rules:
     - id: teardown
       slot: '@terminal'
       when: { all: [] }
-      then: { request: { kind: teardown, onTimeout: expire } }
+      then:
+          request:
+              kind: teardown
+              onTimeout: expire
+              checks:
+                  - A command that removes the worktree and the preview of a finished card

@@ -235,3 +235,17 @@ func TestParseDropsAWorkRequestAsAnUnknownType(t *testing.T) {
 		t.Fatalf("err = %v, want an unknown type", err)
 	}
 }
+
+// The prompt of an app prompt arrives as written, and a null decodes as "".
+func TestParseWorkRequestReadsThePrompt(t *testing.T) {
+	for payload, want := range map[string]string{
+		workRequestPayload: "",
+		strings.Replace(workRequestPayload, `"resumeSessionId":null`, `"resumeSessionId":null,"prompt":null`, 1):                     "",
+		strings.Replace(workRequestPayload, `"resumeSessionId":null`, `"resumeSessionId":null,"prompt":"Review {cardNumber}.\n"`, 1): "Review {cardNumber}.\n",
+	} {
+		w, err := ParseWorkRequest([]byte(payload))
+		if err != nil || w.Prompt != want {
+			t.Fatalf("prompt = %q, err = %v, want %q", w.Prompt, err, want)
+		}
+	}
+}

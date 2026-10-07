@@ -17,6 +17,8 @@ use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Template\RuleOrigin;
+use App\Module\Workflow\Template\TemplateParser;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -33,10 +35,44 @@ final class RequestWorkTest extends KernelTestCase
 
         $outcome = $this->action()->run($rule, $card, FactsMother::facts(), $this->state($card, $rule->id));
 
-        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertOpenedWork($outcome);
         $live = $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.'));
         self::assertCount(1, $live);
         self::assertSame(['product-design', 'interactive', 'start-product-design', $card->number], [$live[0]->kind, $live[0]->capability, $live[0]->ruleId, $live[0]->cardNumber]);
+    }
+
+    public function test_an_app_rule_that_names_a_prompt_sends_the_text_of_the_prompt(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-prompt'), 'next');
+        $rule = $this->rule(ActionType::Request, ['kind' => 'groom', TemplateParser::PROMPT => 'groom-card'], 'app-groom', RuleOrigin::App);
+
+        $outcome = $this->action()->run($rule, $card, FactsMother::facts(), $this->state($card, $rule->id));
+
+        self::assertOpenedWork($outcome);
+        self::assertSame("Groom the card.\n", $this->liveRequest($card)->prompt);
+    }
+
+    public function test_a_template_rule_sends_no_prompt(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-no-prompt'), 'next');
+        $rule = $this->rule(ActionType::Request, ['kind' => 'groom', TemplateParser::PROMPT => 'groom-card']);
+
+        $this->action()->run($rule, $card, FactsMother::facts(), $this->state($card));
+
+        self::assertNull($this->liveRequest($card)->prompt);
+    }
+
+    public function test_an_app_rule_with_no_prompt_sends_none(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-app-no-prompt'), 'next');
+        $rule = $this->rule(ActionType::Request, ['kind' => 'groom'], 'app-groom', RuleOrigin::App);
+
+        $this->action()->run($rule, $card, FactsMother::facts(), $this->state($card, $rule->id));
+
+        self::assertNull($this->liveRequest($card)->prompt);
     }
 
     public function test_a_live_request_of_the_kind_is_already_live_and_opens_no_second_one(): void
@@ -71,7 +107,7 @@ final class RequestWorkTest extends KernelTestCase
         $state = $this->state($card);
         $state->fires = 2;
 
-        self::assertEquals(ActionOutcome::done(), $this->action()->run($rule, $card, FactsMother::facts(), $state));
+        self::assertOpenedWork($this->action()->run($rule, $card, FactsMother::facts(), $state));
 
         $this->em()->getConnection()->executeStatement('DELETE FROM work_requests');
         $state->fires = 3;
@@ -204,7 +240,7 @@ final class RequestWorkTest extends KernelTestCase
 
         $outcome = $this->action()->run($this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design']), $card, $facts, $this->state($card));
 
-        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertOpenedWork($outcome);
         self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
     }
 
@@ -219,7 +255,7 @@ final class RequestWorkTest extends KernelTestCase
         ]));
         $rule = $this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design', 'document.status' => 'changes-requested']);
 
-        self::assertEquals(ActionOutcome::done(), $this->action()->run($rule, $card, $facts, $this->state($card)));
+        self::assertOpenedWork($this->action()->run($rule, $card, $facts, $this->state($card)));
         self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
     }
 

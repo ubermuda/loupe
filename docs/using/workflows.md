@@ -56,6 +56,13 @@ workflow makes no move and asks for no work on it.
 [The board](board.md#managed-and-unmanaged-cards) describes both states, and
 the Workflow panel of the card page.
 
+A move in the template can name who may make it. A move with
+`by: parent-run` is open to an open worker run of the parent epic, and not
+to a person. The run may be of any work kind, such as a breakdown or a fix.
+An interactive run does not count. A move with no `by` is open to anyone. The
+**Who** column of the manual moves on the Workflow settings page shows who may
+make each move.
+
 ## Pauses and retries
 
 The workflow pauses a card when a rule asks for it, and when work keeps failing.
@@ -64,13 +71,53 @@ as a new head commit. Otherwise it retries after 10 minutes, after 1 hour and
 after 6 hours. After the last retry the card pauses, and the owner's inbox gets
 an item that names the reason.
 
+A bridge can settle a work request as refused, for example when its worker run
+fails. In Lifecycle, the workflow then retries the work up to three times,
+after 2, 3 and 5 minutes, when the refusal code is `failed` or `timeout`. A
+retry never counts toward the work limit of a fix rule. When the third retry
+also fails, the workflow starts a repair, as the next paragraphs say. Any other
+refusal code, such as `unfinished` or `work-remains`, pauses the card at once
+with "the worker stopped and needs a person". The board marks a card whose
+latest worker run failed or ended with no result, until a later run ends in
+another state.
+
+When the retries run out, the workflow opens one `repair` work request for the
+card. The request names the failed rule in `{ruleId}`, and the last refusal
+code in `{reason}`. A repair worker reads the failed run, fixes the cause, and
+reports. When the repair ends done, the failed rule gets one last try. When the
+repair fails, or the last try fails too, the card pauses with "too many
+attempts were refused". A failed repair records the code `repair-failed`.
+
+Each escalation starts one repair at most. A repair request is never retried
+and never repaired. A release of the pause starts a new escalation, so the
+next failure can start one more repair. A bridge with no `repair` entry lets
+the request expire after the work timeout, and the card then pauses with "no
+bridge took the work". [The development
+lifecycle](../contributing/lifecycle.md) shows a `repair` entry.
+
+The template sets this behaviour in its `onWorkFailed` block:
+
+```yaml
+onWorkFailed:
+    retryOn: [failed, timeout]
+    retries: 3
+    backoffMinutes: [2, 3, 5]
+    repair: { kind: repair }
+```
+
+`retryOn` lists the refusal codes that retry, and `retries` counts the retries
+before the repair. `backoffMinutes` gives the wait before each retry. `repair`
+names the kind of the repair request. A template with no `repair` key pauses
+the card when the retries run out. A template with no `onWorkFailed` block
+neither retries nor pauses after a refused request.
+
 A work request that no bridge takes within 2 hours pauses the card with "no
 bridge took the work". A teardown request is the exception: it expires with no
 pause.
 
 A person ends a pause with **Retry now** in the Workflow panel of the card. The
-button shows for a pause after too many retries, after the work limit, or after
-no bridge took the work. It needs the permission to manage the project. A
+button shows for a pause after too many retries, after the work limit, after
+no bridge took the work, or after the worker stopped. It needs the permission to manage the project. A
 release is refused on an unmanaged card. It is also refused on a pause that a
 rule made, because that pause ends only on its own release condition. After a
 release the paused rule runs again with a fresh budget of retries and work. The
@@ -90,7 +137,11 @@ write off, the rule asks a bridge for the same work instead. See
 
 Lifecycle has the slots Next, Product design, Tech design, Implementation and In
 review. A person can move a card from the Backlog to Next, Product design or
-Tech design, and from Next back to the Backlog or on to a design slot.
+Tech design, and from Next back to the Backlog or on to a design slot. A person
+can also move a card from Implementation back to Tech design, for example when
+the card has no tech design yet. A card whose tech design is approved goes
+back to Implementation at once when it has no open blocker. A worker run of an
+epic can move a child of that epic from the Backlog to Implementation.
 
 | Slot | The workflow |
 |---|---|
@@ -107,19 +158,21 @@ An upgrade retags the existing documents. The tag `product` becomes
 
 A pull request is ready to merge when it is reviewable, an approval covers its
 head, its base is the default branch or the card's epic branch, and it has no
-conflict. A merge from the base after the approval keeps the approval. New
-commits need a new approval.
+conflict. A child pull request into its epic branch also waits while any
+worker run of the epic is open. A merge from the base after the approval keeps
+the approval. New commits need a new approval.
 
 Some rules act from any slot:
 
 1. A card whose pull requests all finished, with one merged, moves to the
-   terminal column once no child is open.
+   terminal column once no child is open. A merged epic also waits while any
+   worker run of it is open.
 2. A card in the Backlog whose pull request reopens moves to Implementation.
 3. A child in the Backlog whose last blocker finished moves to Implementation.
-   It waits while a breakdown of its epic runs. When that breakdown ends, the
-   epic evaluates its children again. The wait reads the open worker runs of
-   the epic. An older bridge that sends no run key reports a run only after it
-   ends, so its breakdown does not hold the children.
+   It waits while any worker run of its epic is open. When the last such run
+   ends, the epic evaluates its children again, in any column. The wait reads
+   the open worker runs of the epic. An older bridge that sends no run key
+   reports a run only after it ends, so its run does not hold the children.
 4. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
 5. A child that reaches a terminal column with a pull request merged into its
@@ -149,6 +202,24 @@ and a card that reaches a terminal column asks for a teardown.
 In both templates, a card whose pull requests all closed with none merged stays
 in its column. A person or an agent moves it.
 
+## Rules the app adds
+
+Loupe adds its own rules to the rules of every template. The **Workflow** page
+lists them in their own group, **Rules the app adds**, below the rules of the
+template. The group shows only when the app adds at least one rule. An app rule
+watches the Backlog, a terminal column, or every column, because each template
+names its own slots. No template rule can take the id of an app rule.
+
+A request of an app rule can carry a prompt that ships with Loupe. A bridge that
+sets `appPrompts: true` runs it for a kind that its `work:` map does not hold.
+See [Command-line bridge](../extending/cli-bridge.md#work-requests).
+
+The app adds one rule, `discovery`. It watches the Backlog. It asks for work of
+kind `discovery` when the card carries a requested
+[discovery run](workshop.md#run-discovery), and it sends the discovery prompt
+with the request. A request that no bridge takes expires, and the run fails with
+the reason that no bridge took the work.
+
 ## Kinds of work
 
 A rule that asks for work names its kind. A bridge runs a kind only when its
@@ -168,8 +239,15 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 | `merge` | A merge, with the merge write off |
 | `teardown` | The removal of the card's worktree |
 | `epic-preview` | A refresh of the epic preview after a child merges into the epic branch |
+| `repair` | A repair of the cause after the work of a rule failed and its retries ran out |
 
 Simple asks for `teardown` alone.
+
+Each request of a shipped template carries a `checks` list. The list names what
+that work needs from the project, such as a worktree per card or a test command.
+A [discovery run](workshop.md#run-discovery) reads the lists through the
+`workflow_get` MCP tool, and checks the project against them. A project bound
+before this release gets the lists through a migration.
 
 ## What a request carries
 
@@ -179,14 +257,20 @@ request opened. The bridge can fill a prompt or a command with each value.
 A rule that reads a pull request tries the open pull requests of the card from
 the bottom of a stack first, then the oldest opened. It acts on the first one
 that makes its condition true. The fix limit counts per pull request: when the
-rule moves to another pull request, its count starts again.
+rule moves to another pull request, its count starts again. The count also
+starts again while that pull request is healthy: its checks passed, it has no
+conflict, and no review asks for changes. A fix that works therefore does not
+use up the limit. A card that paused at the fix limit continues on its own when
+its pull request turns healthy. The `refill` parameter of the fix rules in the
+Lifecycle template sets this. It reads the pull request that the rule acts on,
+so a rule whose condition reads no pull request never refills.
 
 | Value | What it holds |
 |---|---|
 | Pull request number | the number of the pull request that the rule acts on |
 | Pull request link | the link to that pull request, as the card holds it |
 | Head commit | the head commit of that pull request. A later push leaves it behind |
-| Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |
+| Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request. A `repair` request holds the refusal code of the failed work |
 | Document | the id of the document that a revision works on |
 
 A request rule names its document with the optional `document` parameter. It is

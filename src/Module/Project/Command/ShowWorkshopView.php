@@ -9,6 +9,7 @@ use App\Module\Project\Stats\ProjectStats;
 use App\Module\Project\Workshop\WorkshopAttentionItem;
 use App\Module\Project\Workshop\WorkshopCardsInMotion;
 use App\Module\Project\Workshop\WorkshopConnection;
+use App\Module\Project\Workshop\WorkshopReadiness;
 use App\Outbox\ActivityEntry;
 
 final readonly class ShowWorkshopView
@@ -25,6 +26,10 @@ final readonly class ShowWorkshopView
         public array $activity,
         /** @var list<WorkshopConnection> */
         public array $connections,
+        /** Null once the owner hides the guide. */
+        public ?WorkshopReadiness $readiness,
+        /** Nobody waits on the owner and no card is in motion. */
+        public bool $quiet,
     ) {
     }
 }

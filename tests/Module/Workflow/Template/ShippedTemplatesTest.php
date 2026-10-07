@@ -102,7 +102,8 @@ final class ShippedTemplatesTest extends KernelTestCase
         $facts = FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [self::approved('product-design')]));
 
         self::assertSame(['tech-design-write'], $this->firingRuleIds($facts));
-        self::assertContainsEquals(new ActionCall(ActionType::Request, ['kind' => 'tech-design']), $this->actions($facts));
+        $requests = array_values(array_filter($this->actions($facts), static fn (ActionCall $action): bool => ActionType::Request === $action->type));
+        self::assertSame([['kind' => 'tech-design']], array_map(static fn (ActionCall $action): array => $action->params, $requests));
     }
 
     public function test_an_approved_tech_design_next_to_an_approved_product_design_moves_to_implementation(): void
@@ -208,7 +209,19 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertCount(1, $rules);
         self::assertSame('@terminal', $rules[0]->slot);
         self::assertTrue($rules[0]->when->evaluate(FactsMother::facts(card: FactsMother::card(slot: '@terminal'))));
-        self::assertEquals(new ActionCall(ActionType::Request, ['kind' => 'teardown', 'onTimeout' => 'expire']), $rules[0]->then);
+        self::assertSame(ActionType::Request, $rules[0]->then->type);
+        self::assertSame(['kind' => 'teardown', 'onTimeout' => 'expire'], $rules[0]->then->params);
+    }
+
+    #[DataProvider('shippedKeys')]
+    public function test_every_request_names_what_its_work_needs_from_the_project(string $key): void
+    {
+        $requests = array_values(array_filter($this->template($key)->rules, static fn ($rule): bool => ActionType::Request === $rule->then->type));
+
+        self::assertNotEmpty($requests);
+        foreach ($requests as $rule) {
+            self::assertNotSame([], $rule->then->checks, $rule->id);
+        }
     }
 
     public function test_the_ready_pull_request_of_an_epic_asks_for_the_merge_write(): void
@@ -269,25 +282,39 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals($toImplementation, $this->actions($inBacklog));
     }
 
-    public function test_a_child_in_the_backlog_waits_while_the_breakdown_of_its_epic_runs(): void
+    public function test_a_child_in_the_backlog_waits_while_any_run_of_its_epic_is_open(): void
     {
         $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
         $child = FactsMother::card(slot: '@backlog', isChild: true);
 
         self::assertNotContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['breakdown']))));
-        self::assertContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['implement']))));
+        self::assertNotContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['implement']))));
         self::assertContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child)));
     }
 
-    public function test_an_epic_in_implementation_evaluates_its_children_once_no_breakdown_runs(): void
+    public function test_an_epic_in_any_column_evaluates_its_children_once_no_worker_run_of_it_is_open(): void
     {
         $evaluate = new ActionCall(ActionType::Evaluate, ['cards' => 'children']);
         $epic = FactsMother::card(slot: 'implementation', type: 'epic', childCount: 2, openChildCount: 2);
 
         self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic, run: FactsMother::run(activeWorkerKinds: ['breakdown']))));
-        self::assertContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic, run: FactsMother::run(activeWorkerKinds: ['fix']))));
+        self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic, run: FactsMother::run(activeWorkerKinds: ['fix']))));
+        self::assertContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic)));
+        self::assertContainsEquals($evaluate, $this->actions(FactsMother::facts(card: FactsMother::card(slot: 'tech-design', type: 'epic', childCount: 2, openChildCount: 2))));
         self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: FactsMother::card(slot: 'implementation'))));
-        self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: FactsMother::card(slot: 'in-review', type: 'epic', childCount: 2, openChildCount: 2))));
+    }
+
+    public function test_a_merged_epic_waits_for_its_open_run_and_a_merged_card_does_not(): void
+    {
+        $toTerminal = new ActionCall(ActionType::Move, ['to' => '@terminal']);
+        $merged = FactsMother::pullRequest(state: PullRequestState::Merged, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+        $epic = FactsMother::card(slot: 'in-review', type: 'epic', childCount: 2);
+        $feature = FactsMother::card(slot: 'in-review');
+        $open = FactsMother::run(activeWorkerKinds: ['fix']);
+
+        self::assertNotContainsEquals($toTerminal, $this->actions(FactsMother::facts(card: $epic, pullRequest: $merged, pullRequests: [$merged], run: $open)));
+        self::assertContainsEquals($toTerminal, $this->actions(FactsMother::facts(card: $epic, pullRequest: $merged, pullRequests: [$merged])));
+        self::assertContainsEquals($toTerminal, $this->actions(FactsMother::facts(card: $feature, pullRequest: $merged, pullRequests: [$merged], run: $open)));
     }
 
     /** @param list<string> $pair */
@@ -352,6 +379,12 @@ final class ShippedTemplatesTest extends KernelTestCase
             FactsMother::facts(card: FactsMother::card(slot: 'in-review', isChild: true), pullRequest: $approvedIntoEpic, pullRequests: [$approvedIntoEpic]),
             ['merge-ready', 'merge-ready-epic-child'],
             'merge-ready-epic-child',
+        ];
+
+        yield 'an approved pull request into the epic branch waits while a run of its epic is open' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'in-review', isChild: true), pullRequest: $approvedIntoEpic, pullRequests: [$approvedIntoEpic], run: FactsMother::run(parentActiveKinds: ['fix'])),
+            ['merge-ready', 'merge-ready-epic-child'],
+            null,
         ];
 
         $approvedIntoDefault = FactsMother::pullRequest(checks: ChecksState::Passed, approvalsCoveringHead: 1);

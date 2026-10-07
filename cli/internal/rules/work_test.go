@@ -349,6 +349,7 @@ func TestCapabilities(t *testing.T) {
 	}{
 		"workers only":     {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n", []string{"work-requests"}},
 		"with interactive": {workFile, []string{"work-requests", "interactive"}},
+		"app prompts only": {"projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\n", []string{"work-requests"}},
 		"with subjects": {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    subject: review\n    prompt: x\n" +
 			"  y:\n    subject: analysis\n    prompt: x\n  z:\n    subject: analysis\n    prompt: x\n  w:\n    subject: card\n    prompt: x\n",
 			[]string{"work-requests", "subject-analysis", "subject-review"}},
@@ -468,5 +469,81 @@ func TestWorkGapsLeavesOutTheContextPlaceholders(t *testing.T) {
 	w.WorkRequestID = ""
 	if gaps := s.WorkGaps(w); gaps != nil {
 		t.Fatalf("gaps = %v, want none, because the sync command names no work request", gaps)
+	}
+}
+
+// A bridge that opts in runs the app prompt of a kind its work map does not
+// hold, with the defaults of the file and the flags. A local entry wins.
+func TestMatchWorkRunsTheAppPromptOfAnUnmappedKind(t *testing.T) {
+	withPrompt := func(kind, prompt string) api.WorkRequest {
+		w := workRequest(kind)
+		w.Prompt = prompt
+		w.Context.Reason = "conflict"
+
+		return w
+	}
+	for name, tc := range map[string]struct {
+		body   string
+		w      api.WorkRequest
+		skip   Skip
+		prompt string
+	}{
+		"an unmapped kind runs the prompt": {"appPrompts: true\n" + workFile, withPrompt("review", "Review {cardNumber} in {project} for {reason}."), Run, "Review 87 in loupe for conflict."},
+		"a local entry wins":               {"appPrompts: true\n" + workFile, withPrompt("implement", "Ignore {cardNumber}."), Run, "Implement 87 " + cardID + " loupe " + projectID + " implement impl.rule " + workRequestID + "."},
+		"no opt-in":                        {workFile, withPrompt("review", "Review {cardNumber}."), NoRule, ""},
+		"an opt-out":                       {"appPrompts: false\n" + workFile, withPrompt("review", "Review {cardNumber}."), NoRule, ""},
+		"no prompt":                        {"appPrompts: true\n" + workFile, withPrompt("review", ""), NoRule, ""},
+		"a blank prompt":                   {"appPrompts: true\n" + workFile, withPrompt("review", " \n\t"), NoRule, ""},
+		"an unknown placeholder":           {"appPrompts: true\n" + workFile, withPrompt("review", "Review {cardNumber} on {branch}."), NoRule, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, dir := file(t, "defaults:\n  model: opus\n"+tc.body)
+			s, err := Parse([]byte(text), Defaults{PermissionMode: "acceptEdits", Model: "sonnet"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkLoupe(t, s)
+
+			m := s.MatchWork(tc.w)
+			if m.Skip != tc.skip {
+				t.Fatalf("match = %+v", m)
+			}
+			if tc.skip != Run {
+				return
+			}
+			if want := directive.Render(tc.prompt, nil); m.Prompt != want {
+				t.Fatalf("prompt = %q, want %q", m.Prompt, want)
+			}
+			if tc.w.Kind != "review" {
+				return
+			}
+			if m.Rule != "work:review" || m.Action != "" || m.Project != "loupe" || m.Dir != dir || m.Pool != DefaultPool ||
+				m.PermissionMode != "acceptEdits" || m.Model != "opus" || m.Schema == "" || m.Experiment != nil || m.Before != nil || m.Command != nil {
+				t.Fatalf("match = %+v", m)
+			}
+		})
+	}
+}
+
+// Dead work runs no app prompt either.
+func TestDeadWorkRunsNoAppPrompt(t *testing.T) {
+	s := checked(t, "appPrompts: true\n"+workFile)
+	s.KillProjectWork("loupe", api.ReasonProjectGone)
+	w := workRequest("review")
+	w.Prompt = "Review {cardNumber}."
+
+	if m := s.MatchWork(w); m.Skip != NoRule {
+		t.Fatalf("match = %+v", m)
+	}
+}
+
+// A person's resume names the kind and carries no prompt, and still finds the
+// worker settings of an app prompt.
+func TestMatchKindContinuesTheRunOfAnAppPrompt(t *testing.T) {
+	if m := checked(t, "appPrompts: true\n"+workFile).MatchKind(workRequest("review")); m.Skip != Run || m.Action != "" || m.Pool != DefaultPool || m.Rule != "work:review" {
+		t.Fatalf("match = %+v", m)
+	}
+	if m := checked(t, workFile).MatchKind(workRequest("review")); m.Skip != NoRule {
+		t.Fatalf("no opt-in: match = %+v", m)
 	}
 }

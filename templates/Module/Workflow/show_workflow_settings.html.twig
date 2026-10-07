@@ -53,38 +53,18 @@
         {% endif %}
     </section>
 
-    <section class="lp-workflow-section">
+    <section class="lp-workflow-section" data-workflow-template-rules>
         <h2 class="lp-section-title">{{ 'workflow.settings.rules.heading'|trans }}</h2>
-        <twig:DataTable :columns="[
-            {label: 'workflow.settings.rules.id'|trans},
-            {label: 'workflow.settings.rules.applies_to'|trans},
-            {label: 'workflow.settings.rules.action'|trans},
-            {label: 'workflow.settings.rules.conditions'|trans},
-        ]">
-            {% for rule in template.rules %}
-            <div class="lp-data-table__row" data-rule-id="{{ rule.id }}"{% if rule.missingConditions is not empty %} data-rule-missing{% endif %}>
-                <span class="lp-data-table__cell lp-data-table__title">{{ rule.id }}</span>
-                <span class="lp-data-table__cell">{{ rule.appliesToKey|trans }}</span>
-                <span class="lp-data-table__cell">{{ rule.actionKey|trans({'%target%': rule.targetKey is null ? '' : rule.targetKey|trans, '%kind%': rule.kind ?? ''}) }}</span>
-                <div class="lp-data-table__cell" data-rule-conditions>
-                    {% for group in rule.whenGroups %}
-                    {% include '@Workflow/_condition_group.html.twig' with {group: group} only %}
-                    {% endfor %}
-                    {% if rule.untilGroups is not empty %}
-                    <div data-rule-until>{{ 'workflow.settings.rules.until'|trans }}
-                        {% for group in rule.untilGroups %}
-                        {% include '@Workflow/_condition_group.html.twig' with {group: group} only %}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    {% for key in rule.missingConditions %}
-                    <span class="lp-tag lp-tag--amber">{{ 'workflow.settings.rules.missing_condition'|trans({'%condition%': key}) }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endfor %}
-        </twig:DataTable>
+        {% include '@Workflow/_rule_table.html.twig' with {rules: template.rules} only %}
     </section>
+
+    {% if template.appRules is not empty %}
+    <section class="lp-workflow-section" data-workflow-app-rules>
+        <h2 class="lp-section-title">{{ 'workflow.settings.app_rules.heading'|trans }}</h2>
+        <p class="lp-workspace-desc">{{ 'workflow.settings.app_rules.description'|trans }}</p>
+        {% include '@Workflow/_rule_table.html.twig' with {rules: template.appRules} only %}
+    </section>
+    {% endif %}
 
     <section class="lp-workflow-section">
         <h2 class="lp-section-title">{{ 'workflow.settings.moves.heading'|trans }}</h2>
@@ -93,11 +73,13 @@
         <twig:DataTable :columns="[
             {label: 'workflow.settings.moves.from'|trans},
             {label: 'workflow.settings.moves.to'|trans},
+            {label: 'workflow.settings.moves.by'|trans},
         ]">
             {% for move in template.manualMoves %}
             <div class="lp-data-table__row" data-manual-move>
                 <span class="lp-data-table__cell">{{ move.fromKey|trans }}</span>
                 <span class="lp-data-table__cell">{{ move.toKey|trans }}</span>
+                <span class="lp-data-table__cell" data-manual-move-by>{{ move.byKey|trans }}</span>
             </div>
             {% endfor %}
         </twig:DataTable>
@@ -109,6 +91,9 @@
     <section class="lp-workflow-section" data-workflow-timings>
         <h2 class="lp-section-title">{{ 'workflow.settings.timings.heading'|trans }}</h2>
         <p class="lp-workspace-desc">{{ 'workflow.settings.timings.backoff'|trans({'%minutes%': template.backoffMinutes|join(', ')}) }}</p>
+        {% if template.workFailedBackoffMinutes is not null %}
+            <p class="lp-workspace-desc">{{ 'workflow.settings.timings.work_failed_backoff'|trans({'%minutes%': template.workFailedBackoffMinutes|join(', ')}) }}</p>
+        {% endif %}
         <p class="lp-workspace-desc">{{ 'workflow.settings.timings.work_timeout'|trans({'%minutes%': template.workTimeoutMinutes}) }}</p>
     </section>
     {% endif %}

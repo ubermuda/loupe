@@ -47,4 +47,12 @@ final readonly class RuleSubject
 
         return null === $paused ? $bound->facts : $facts->withPullRequest($paused);
     }
+
+    /** The facts of the stored subject, while the card still links it, else null. A refill never reads another pull request. */
+    public function stored(Facts $facts, ?Uuid $stored): ?Facts
+    {
+        $subject = null === $stored ? null : array_find($facts->pullRequests, static fn (PullRequestFacts $pullRequest): bool => true === $stored->equals($pullRequest->id));
+
+        return null === $subject ? null : $facts->withPullRequest($subject);
+    }
 }

@@ -8,7 +8,7 @@
 2. Read the repository profile at `.loupe/lifecycle.md` in the repository root. When the file, or a section a step needs, is missing, stop with `STAGE RESULT: blocked: no <section> in .loupe/lifecycle.md`.
 3. Pick the forge adapter as the next section says.
 
-The profile has these sections: `Instruction files`, `Environment`, `Gate`, `Code review`, `Changelog`, `Pull request`, `Board` and `Merge`. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
+The profile has these sections: `Instruction files`, `Environment`, `Gate`, `Code review`, `Changelog`, `Pull request`, `Board`, `Merge` and `Repair`. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
 
 ## Pick the forge adapter
 
@@ -52,8 +52,37 @@ git branch --show-current
 
 1. A linked document tagged `plan` whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
 2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch for it. `<base>` is the base branch of that pull request. Run `git branch --show-current`. When HEAD is detached, or on another `card-<number>-` branch and `git status --porcelain` prints nothing, run `git fetch origin <head>` and `git switch <head>`. When no local branch has that name, run `git switch --track -c <head> origin/<head>` instead. When the current branch then differs from the head branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
-3. Sync that branch with `git fetch origin <head>` and `git merge --ff-only origin/<head>`. When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push. When the switch or the sync brought commits, run the refresh of the profile `Environment` section, when it names one. Then resume at the gate.
+3. Sync that branch as "Sync with the pull request branch" says. Then resume at the gate.
 4. Before you create a pull request, list the open pull requests for the branch with the forge adapter. Link one it lists, and create none.
+
+## Sync with the pull request branch
+
+The implementation stage and the fix round sync the worker folder with this procedure. Run it in the worker folder, on the head branch `<head>` of the pull request. `<base>` is the base branch of that pull request.
+
+1. Run `git fetch origin <head> <base>`. When the fetch fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Then run `git merge --ff-only origin/<head>`. When the merge succeeds, go on at item 7.
+2. The branches diverged. When `git status --porcelain` prints a line, stop with `STAGE RESULT: blocked: local branch diverged from origin`. An earlier run left that work half done, and a person must judge it.
+3. The commits that `git rev-list HEAD ^origin/<head> ^origin/<base>` lists are local work. Treat them as your own work. They go out with your next push, unless item 5 resets them. The list leaves out the base commits that a sync brought in.
+4. Test each of these commits with the script below. A commit is a sync when it has two parents, one of them is an ancestor of `origin/<base>`, and git can make the same merge again with no conflict. `git merge-tree` needs git 2.38 or later. A merge that holds a conflict resolution or a hand edit is not a sync, so the procedure keeps it. The script prints one `content` line for each commit that is not a sync. On a push retry, skip this item and item 5, and merge.
+5. When the script prints nothing, every local commit is a sync of the base. Run `git reset --hard origin/<head>`. The gate merges the base again, and the approval of the pull request still covers the head.
+6. Otherwise run `git merge origin/<head>`. The fix round resolves a conflict with the method of "Resolve a conflict with the base" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`. Use `origin/<head>` in place of `origin/<base>`, start at its third command, and stop at its commit. The implementation stage resolves only a mechanical conflict, as the gate does. When a conflict cannot be resolved, run `git merge --abort`, and stop with `STAGE RESULT: blocked: local branch diverged from origin`. This stop form replaces the stop form of that section.
+7. When the branch switch before the sync or the sync itself moved HEAD, run the refresh of the profile `Environment` section once, when it names one.
+
+```bash
+for c in $(git rev-list HEAD ^origin/<head> ^origin/<base>); do
+  set -- $(git rev-list --parents -n 1 "$c")
+  if [ $# -eq 3 ] && { git merge-base --is-ancestor "$2" origin/<base> || git merge-base --is-ancestor "$3" origin/<base>; } \
+    && [ "$(git merge-tree --write-tree "$2" "$3" 2>/dev/null)" = "$(git rev-parse "$c^{tree}")" ]; then :; else echo "content $c"; fi
+done
+```
+
+Never rebase, and never force-push. The reset changes only the local branch, and the merge loses no commit of the pull request branch.
+
+## Push without force
+
+1. Push with the command of the stage. Never pass `--force`, `--force-with-lease` or `--no-verify`.
+2. When the forge rejects the push because the remote branch holds commits that HEAD does not, run "Sync with the pull request branch" again as a push retry. Then run the gate again, and push again.
+3. Push three times at most. When the third push is rejected for that reason, stop with `STAGE RESULT: blocked: local branch diverged from origin`.
+4. A push that a hook or a branch protection rejects is not a divergence. Never route around it.
 
 ## The gate
 
@@ -72,7 +101,7 @@ Then run the commands of the profile `Gate` section in order. Run each long comm
 
 ## Open the pull request
 
-Push the branch, and create the pull request with the forge adapter, against `<base>`. Follow the profile `Pull request` section for the title, the body and the ready state.
+Push the branch as "Push without force" says, and create the pull request with the forge adapter, against `<base>`. Follow the profile `Pull request` section for the title, the body and the ready state.
 
 A pull request into an epic branch is not a stacked pull request. Write `Child of epic #<parent number>, merges into <base>.` in the body. The merge stage merges it into the epic branch, and the epic pull request carries the work to the profile base branch.
 
@@ -80,7 +109,7 @@ A branch that holds the commits of another open pull request stacks on it. The t
 
 Put the card URL in the body. The card page route is `/projects/{projectId}/board/cards/{cardId}`, so the URL is `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
 
-Then write the changelog entry that the profile `Changelog` section names, run its check, commit, and push.
+Then write the changelog entry that the profile `Changelog` section names, run its check, commit, and push as "Push without force" says.
 
 ## After the push
 

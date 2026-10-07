@@ -2498,6 +2498,86 @@
                 <source>project.connect.tool.project_current</source>
                 <target>Report which project this connection acts on.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.project_update">
+                <source>project.connect.tool.project_update</source>
+                <target>Change the name, description, domain or search language of the project. A new name also changes the slug.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.project_origins_set">
+                <source>project.connect.tool.project_origins_set</source>
+                <target>Replace the list of site origins the sign-in widget may run on.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.readiness_guide_set">
+                <source>project.connect.tool.readiness_guide_set</source>
+                <target>Show or hide the readiness checklist on the Workshop.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.readiness_get">
+                <source>project.connect.tool.readiness_get</source>
+                <target>Read the readiness checks of the project and the state of its latest discovery run.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.discovery_start">
+                <source>project.connect.tool.discovery_start</source>
+                <target>Start a read-only discovery run on a new Backlog card. A live bridge must serve the project, and the project needs a workflow with board automation on.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.readiness_report_submit">
+                <source>project.connect.tool.readiness_report_submit</source>
+                <target>Submit the readiness report of a discovery run. Loupe writes it as a document for review, and creates a card in Next for each proposal the owner ticks.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.workflow_get">
+                <source>project.connect.tool.workflow_get</source>
+                <target>Read the workflow of the project: its template, its columns with their slots, and what each kind of work needs from the project.</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.title">
+                <source>readiness.report.title</source>
+                <target>Readiness report for %project%</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.description">
+                <source>readiness.report.description</source>
+                <target>The report of a discovery run. Tick the proposals to keep, then approve the report.</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.summary">
+                <source>readiness.report.summary</source>
+                <target>Summary</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.workflow">
+                <source>readiness.report.workflow</source>
+                <target>Workflow: %workflow%</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.findings">
+                <source>readiness.report.findings</source>
+                <target>Findings</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.ready">
+                <source>readiness.report.ready</source>
+                <target>Ready</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.gaps">
+                <source>readiness.report.gaps</source>
+                <target>Gaps</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.none">
+                <source>readiness.report.none</source>
+                <target>None.</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.proposals">
+                <source>readiness.report.proposals</source>
+                <target>Proposals</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.type">
+                <source>readiness.report.type</source>
+                <target>Card type: %type%</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.covered">
+                <source>readiness.report.covered</source>
+                <target>Card %number% covers this.</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.decision">
+                <source>readiness.report.decision</source>
+                <target>Decision</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.decision_prompt">
+                <source>readiness.report.decision_prompt</source>
+                <target>Tick the proposals that become cards in Next when you approve this report.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.tag_list">
                 <source>project.connect.tool.tag_list</source>
                 <target>List every tag in the project with how many documents carry it.</target>
@@ -2553,6 +2633,26 @@
             <trans-unit id="project.connect.tool.card_run_close">
                 <source>project.connect.tool.card_run_close</source>
                 <target>Close the interactive run a session opened on a card. A second call changes nothing.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.column_create">
+                <source>project.connect.tool.column_create</source>
+                <target>Add a column after the last column of the board. Its slug comes from its name, and it is not terminal.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.column_update">
+                <source>project.connect.tool.column_update</source>
+                <target>Rename a column or set whether it is terminal. A rename changes the slug, so the old slug stops working.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.column_reorder">
+                <source>project.connect.tool.column_reorder</source>
+                <target>Put the columns of the board in a new order. Backlog always comes first.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.column_delete">
+                <source>project.connect.tool.column_delete</source>
+                <target>Delete a column of the board. A column that holds cards moves them to another column first.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.automation_settings_update">
+                <source>project.connect.tool.automation_settings_update</source>
+                <target>Turn the automation settings of the board on or off. A setting you leave out keeps its value.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.worker_run_list">
                 <source>project.connect.tool.worker_run_list</source>
@@ -2641,6 +2741,10 @@
             <trans-unit id="project.connect.tool.inbox_withdraw">
                 <source>project.connect.tool.inbox_withdraw</source>
                 <target>Withdraw an open item that is no longer needed, with a reason the owner reads.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.inbox_settings_update">
+                <source>project.connect.tool.inbox_settings_update</source>
+                <target>Turn the inbox wait switches on or off. A switch you leave out keeps its value.</target>
             </trans-unit>
 
             <!-- First-run wizard -->
@@ -6338,6 +6442,7 @@
             <trans-unit id="board.card.history.pause_kind.retries"><source>board.card.history.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.work_limit"><source>board.card.history.pause_kind.work_limit</source><target>a rule reached its work limit</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.work_timeout"><source>board.card.history.pause_kind.work_timeout</source><target>no bridge took the work in time</target></trans-unit>
+            <trans-unit id="board.card.history.pause_kind.work_stopped"><source>board.card.history.pause_kind.work_stopped</source><target>the worker stopped and needs a person</target></trans-unit>
             <trans-unit id="board.card.history.changed"><source>board.card.history.changed</source><target>%actor% changed the card.</target></trans-unit>
             <trans-unit id="board.card.history.reason"><source>board.card.history.reason</source><target>Because %reason%.</target></trans-unit>
             <trans-unit id="board.card.history.run_state_unknown"><source>board.card.history.run_state_unknown</source><target>Unknown</target></trans-unit>
@@ -6729,6 +6834,10 @@
             <trans-unit id="board.automation.flash.saved">
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
+            </trans-unit>
+            <trans-unit id="board.automation.error.epic_branch_pattern_invalid">
+                <source>board.automation.error.epic_branch_pattern_invalid</source>
+                <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
             </trans-unit>
             <trans-unit id="board.fix_run_comment.intro">
                 <source>board.fix_run_comment.intro</source>
@@ -7409,6 +7518,8 @@
             <trans-unit id="workflow.waiting.not.card_has_open_blocker"><source>workflow.waiting.not.card_has_open_blocker</source><target>Waiting: a blocking card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_is_child"><source>workflow.waiting.card_is_child</source><target>Waiting: the card is not a child of an epic.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_is_child"><source>workflow.waiting.not.card_is_child</source><target>Waiting: the card is a child of an epic.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_discovery_requested"><source>workflow.waiting.card_discovery_requested</source><target>Waiting: the card has no requested discovery.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_discovery_requested"><source>workflow.waiting.not.card_discovery_requested</source><target>Waiting: the card has a requested discovery.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_child_merged_into_epic_branch"><source>workflow.waiting.card_child_merged_into_epic_branch</source><target>Waiting: no child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_child_merged_into_epic_branch"><source>workflow.waiting.not.card_child_merged_into_epic_branch</source><target>Waiting: a child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_has_children"><source>workflow.waiting.card_has_children</source><target>Waiting: the card has no child cards.</target></trans-unit>
@@ -7462,6 +7573,7 @@
             <trans-unit id="workflow.source.board"><source>workflow.source.board</source><target>Board</target></trans-unit>
             <trans-unit id="workflow.source.forge"><source>workflow.source.forge</source><target>Forge</target></trans-unit>
             <trans-unit id="workflow.source.bridge"><source>workflow.source.bridge</source><target>Bridge</target></trans-unit>
+            <trans-unit id="workflow.source.readiness"><source>workflow.source.readiness</source><target>Readiness</target></trans-unit>
             <trans-unit id="workflow.slot.next"><source>workflow.slot.next</source><target>Next</target></trans-unit>
             <trans-unit id="workflow.slot.product_design"><source>workflow.slot.product_design</source><target>Product design</target></trans-unit>
             <trans-unit id="workflow.slot.tech_design"><source>workflow.slot.tech_design</source><target>Tech design</target></trans-unit>
@@ -7487,7 +7599,10 @@
             <trans-unit id="workflow.settings.rules.conditions"><source>workflow.settings.rules.conditions</source><target>Conditions</target></trans-unit>
             <trans-unit id="workflow.settings.rules.not"><source>workflow.settings.rules.not</source><target>not</target></trans-unit>
             <trans-unit id="workflow.settings.rules.until"><source>workflow.settings.rules.until</source><target>Until:</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.refill"><source>workflow.settings.rules.refill</source><target>Starts the limit again while:</target></trans-unit>
             <trans-unit id="workflow.settings.rules.missing_condition"><source>workflow.settings.rules.missing_condition</source><target>Condition no longer exists: %condition%</target></trans-unit>
+            <trans-unit id="workflow.settings.app_rules.heading"><source>workflow.settings.app_rules.heading</source><target>Rules the app adds</target></trans-unit>
+            <trans-unit id="workflow.settings.app_rules.description"><source>workflow.settings.app_rules.description</source><target>The app adds these rules to the workflow of every project, after the rules of its template.</target></trans-unit>
             <trans-unit id="workflow.settings.where.backlog"><source>workflow.settings.where.backlog</source><target>the Backlog</target></trans-unit>
             <trans-unit id="workflow.settings.where.any_terminal"><source>workflow.settings.where.any_terminal</source><target>a terminal column</target></trans-unit>
             <trans-unit id="workflow.settings.where.any"><source>workflow.settings.where.any</source><target>any column</target></trans-unit>
@@ -7498,12 +7613,16 @@
             <trans-unit id="workflow.settings.action.release"><source>workflow.settings.action.release</source><target>Release the pause</target></trans-unit>
             <trans-unit id="workflow.settings.action.evaluate"><source>workflow.settings.action.evaluate</source><target>Evaluate the children again</target></trans-unit>
             <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
-            <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A person may move a managed card along these paths.</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A managed card may move along these paths outside the rules.</target></trans-unit>
             <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
             <trans-unit id="workflow.settings.moves.to"><source>workflow.settings.moves.to</source><target>To</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.by"><source>workflow.settings.moves.by</source><target>Who</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.by.anyone"><source>workflow.settings.moves.by.anyone</source><target>Anyone</target></trans-unit>
+            <trans-unit id="workflow.settings.moves.by.parent_run"><source>workflow.settings.moves.by.parent_run</source><target>A run of the parent epic</target></trans-unit>
             <trans-unit id="workflow.settings.moves.none"><source>workflow.settings.moves.none</source><target>This template allows no manual moves.</target></trans-unit>
             <trans-unit id="workflow.settings.timings.heading"><source>workflow.settings.timings.heading</source><target>Retry timings</target></trans-unit>
             <trans-unit id="workflow.settings.timings.backoff"><source>workflow.settings.timings.backoff</source><target>Retry delays: %minutes% minutes</target></trans-unit>
+            <trans-unit id="workflow.settings.timings.work_failed_backoff"><source>workflow.settings.timings.work_failed_backoff</source><target>Retries after failed work: %minutes% minutes</target></trans-unit>
             <trans-unit id="workflow.settings.timings.work_timeout"><source>workflow.settings.timings.work_timeout</source><target>Work timeout: %minutes% minutes</target></trans-unit>
             <trans-unit id="workflow.bind.error.already_bound"><source>workflow.bind.error.already_bound</source><target>This project already runs a workflow template.</target></trans-unit>
             <trans-unit id="workflow.bind.error.unknown_template"><source>workflow.bind.error.unknown_template</source><target>No workflow template has this key.</target></trans-unit>
@@ -7518,6 +7637,7 @@
             <trans-unit id="workflow.panel.pause_kind.retries"><source>workflow.panel.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
             <trans-unit id="workflow.panel.pause_kind.work_limit"><source>workflow.panel.pause_kind.work_limit</source><target>the rule reached its work limit</target></trans-unit>
             <trans-unit id="workflow.panel.pause_kind.work_timeout"><source>workflow.panel.pause_kind.work_timeout</source><target>no bridge took the work in time</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.work_stopped"><source>workflow.panel.pause_kind.work_stopped</source><target>the worker stopped and needs a person</target></trans-unit>
             <trans-unit id="workflow.panel.release.left_slot"><source>workflow.panel.release.left_slot</source><target>The pause ends when the card leaves its slot.</target></trans-unit>
             <trans-unit id="workflow.panel.release.facts_changed"><source>workflow.panel.release.facts_changed</source><target>The pause ends when the facts that the rule reads change.</target></trans-unit>
             <trans-unit id="workflow.panel.release.next_evaluation"><source>workflow.panel.release.next_evaluation</source><target>The workflow ends the pause when it next evaluates the card.</target></trans-unit>
@@ -7548,6 +7668,7 @@
             <trans-unit id="workflow.panel.action.release"><source>workflow.panel.action.release</source><target>End the pause of the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.evaluate"><source>workflow.panel.action.evaluate</source><target>Evaluate the children of the card again</target></trans-unit>
             <trans-unit id="workflow.pause.no-bridge-took-work"><source>workflow.pause.no-bridge-took-work</source><target>No bridge took the requested work in time.</target></trans-unit>
+            <trans-unit id="workflow.pause.repair-failed"><source>workflow.pause.repair-failed</source><target>The repair worker could not fix the failure.</target></trans-unit>
             <trans-unit id="workflow.pause.work-limit-reached"><source>workflow.pause.work-limit-reached</source><target>The rule requested the most work that it may request for this card.</target></trans-unit>
             <trans-unit id="workflow.refusal.move-refused"><source>workflow.refusal.move-refused</source><target>The board refused the move.</target></trans-unit>
             <trans-unit id="workflow.refusal.epic-children-open"><source>workflow.refusal.epic-children-open</source><target>The epic still has open child cards.</target></trans-unit>
@@ -7563,6 +7684,78 @@
             <trans-unit id="workflow.refusal.invalid-work-request"><source>workflow.refusal.invalid-work-request</source><target>The app refused to open the work request.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-not-found"><source>workflow.refusal.document-not-found</source><target>The card has no document with the tag that the rule names.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-ambiguous"><source>workflow.refusal.document-ambiguous</source><target>The card has more than one document with the tag that the rule names.</target></trans-unit>
+            <trans-unit id="project.edit.nav.readiness"><source>project.edit.nav.readiness</source><target>Agent readiness</target></trans-unit>
+            <trans-unit id="readiness.guide.title"><source>readiness.guide.title</source><target>Ready for agents</target></trans-unit>
+            <trans-unit id="readiness.guide.count"><source>readiness.guide.count</source><target>%done% of %total%</target></trans-unit>
+            <trans-unit id="readiness.guide.heading"><source>readiness.guide.heading</source><target>Get %project% ready for agents</target></trans-unit>
+            <trans-unit id="readiness.guide.description"><source>readiness.guide.description</source><target>Work through these checks, and agents can pick up cards on this project.</target></trans-unit>
+            <trans-unit id="readiness.guide.hide"><source>readiness.guide.hide</source><target>Hide this guide</target></trans-unit>
+            <trans-unit id="readiness.discovery.title"><source>readiness.discovery.title</source><target>Run discovery</target></trans-unit>
+            <trans-unit id="readiness.discovery.body"><source>readiness.discovery.body</source><target>Discovery reads the repository and the workflow, then writes a readiness report for this project.</target></trans-unit>
+            <trans-unit id="readiness.row.agent.label"><source>readiness.row.agent.label</source><target>Agent connected</target></trans-unit>
+            <trans-unit id="readiness.row.agent.done"><source>readiness.row.agent.done</source><target>Connected</target></trans-unit>
+            <trans-unit id="readiness.row.agent.open"><source>readiness.row.agent.open</source><target>No agent yet</target></trans-unit>
+            <trans-unit id="readiness.row.agent.action"><source>readiness.row.agent.action</source><target>Connect</target></trans-unit>
+            <trans-unit id="readiness.row.workflow.label"><source>readiness.row.workflow.label</source><target>Workflow</target></trans-unit>
+            <trans-unit id="readiness.row.workflow.done"><source>readiness.row.workflow.done</source><target>Chosen</target></trans-unit>
+            <trans-unit id="readiness.row.workflow.open"><source>readiness.row.workflow.open</source><target>Not chosen</target></trans-unit>
+            <trans-unit id="readiness.row.bridge.label"><source>readiness.row.bridge.label</source><target>Bridge running</target></trans-unit>
+            <trans-unit id="readiness.row.bridge.done"><source>readiness.row.bridge.done</source><target>Running</target></trans-unit>
+            <trans-unit id="readiness.row.bridge.open"><source>readiness.row.bridge.open</source><target>Not running</target></trans-unit>
+            <trans-unit id="readiness.row.bridge.action"><source>readiness.row.bridge.action</source><target>Start</target></trans-unit>
+            <trans-unit id="readiness.row.github.label"><source>readiness.row.github.label</source><target>GitHub App</target></trans-unit>
+            <trans-unit id="readiness.row.github.done"><source>readiness.row.github.done</source><target>Installed</target></trans-unit>
+            <trans-unit id="readiness.row.github.open"><source>readiness.row.github.open</source><target>Not installed</target></trans-unit>
+            <trans-unit id="readiness.row.github.action"><source>readiness.row.github.action</source><target>Install</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.label"><source>readiness.row.agent_account.label</source><target>Agent GitHub account</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.no_login"><source>readiness.row.agent_account.no_login</source><target>No login recorded yet</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.no_push"><source>readiness.row.agent_account.no_push</source><target>No running bridge pushes as %login% yet</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.done"><source>readiness.row.agent_account.done</source><target>Agents push as %login%</target></trans-unit>
+            <trans-unit id="readiness.row.agent_account.action"><source>readiness.row.agent_account.action</source><target>Set up</target></trans-unit>
+            <trans-unit id="readiness.row.repository.label"><source>readiness.row.repository.label</source><target>Repository</target></trans-unit>
+            <trans-unit id="readiness.row.repository.open"><source>readiness.row.repository.open</source><target>Not run</target></trans-unit>
+            <trans-unit id="readiness.row.repository.action"><source>readiness.row.repository.action</source><target>Run discovery</target></trans-unit>
+            <trans-unit id="readiness.row.repository.no_bridge"><source>readiness.row.repository.no_bridge</source><target>Discovery waits for a running bridge</target></trans-unit>
+            <trans-unit id="readiness.row.repository.no_workflow"><source>readiness.row.repository.no_workflow</source><target>Discovery waits for a workflow</target></trans-unit>
+            <trans-unit id="readiness.row.repository.automation_off"><source>readiness.row.repository.automation_off</source><target>Discovery waits for board automation</target></trans-unit>
+            <trans-unit id="readiness.row.repository.running"><source>readiness.row.repository.running</source><target>Running on card #%number%</target></trans-unit>
+            <trans-unit id="readiness.row.repository.card"><source>readiness.row.repository.card</source><target>Open card</target></trans-unit>
+            <trans-unit id="readiness.row.repository.failed"><source>readiness.row.repository.failed</source><target>Discovery failed: %reason%</target></trans-unit>
+            <trans-unit id="readiness.row.repository.retry"><source>readiness.row.repository.retry</source><target>Run again</target></trans-unit>
+            <trans-unit id="readiness.row.repository.reported"><source>readiness.row.repository.reported</source><target>The report waits for your review</target></trans-unit>
+            <trans-unit id="readiness.row.repository.done"><source>readiness.row.repository.done</source><target>Reviewed</target></trans-unit>
+            <trans-unit id="readiness.discovery.error.no_bridge"><source>readiness.discovery.error.no_bridge</source><target>No bridge serves this project now. Start a bridge that serves this project, then run discovery again.</target></trans-unit>
+            <trans-unit id="readiness.discovery.error.no_workflow"><source>readiness.discovery.error.no_workflow</source><target>This project has no workflow. Choose a workflow for this project, then run discovery again.</target></trans-unit>
+            <trans-unit id="readiness.discovery.error.automation_off"><source>readiness.discovery.error.automation_off</source><target>Board automation is off for this project. Switch on "Run the workflow of the board" on the Automation tab of the project settings, then run discovery again.</target></trans-unit>
+            <trans-unit id="readiness.discovery.error.running"><source>readiness.discovery.error.running</source><target>Discovery already runs on card #%number%. Wait until that run ends.</target></trans-unit>
+            <trans-unit id="readiness.settings.title"><source>readiness.settings.title</source><target>Agent readiness</target></trans-unit>
+            <trans-unit id="readiness.settings.description"><source>readiness.settings.description</source><target>Check what this project needs before agents can work on it.</target></trans-unit>
+            <trans-unit id="readiness.settings.discovery.title"><source>readiness.settings.discovery.title</source><target>Discovery</target></trans-unit>
+            <trans-unit id="readiness.settings.guide.title"><source>readiness.settings.guide.title</source><target>Workshop guide</target></trans-unit>
+            <trans-unit id="readiness.settings.guide.hidden_at"><source>readiness.settings.guide.hidden_at</source><target>Hidden on %date%</target></trans-unit>
+            <trans-unit id="readiness.settings.submit"><source>readiness.settings.submit</source><target>Save</target></trans-unit>
+            <trans-unit id="readiness.settings.flash.saved"><source>readiness.settings.flash.saved</source><target>Readiness settings saved.</target></trans-unit>
+            <trans-unit id="readiness.form.update_readiness_settings_form.show_guide.label"><source>readiness.form.update_readiness_settings_form.show_guide.label</source><target>Show the readiness checklist on the Workshop</target></trans-unit>
+            <trans-unit id="readiness.settings.agent_account.title"><source>readiness.settings.agent_account.title</source><target>Agent GitHub account</target></trans-unit>
+            <trans-unit id="readiness.settings.agent_account.description"><source>readiness.settings.agent_account.description</source><target>Give the agents a GitHub user of their own, so that you can review and approve their pull requests.</target></trans-unit>
+            <trans-unit id="readiness.settings.agent_account.link"><source>readiness.settings.agent_account.link</source><target>Set up the agent account</target></trans-unit>
+            <trans-unit id="readiness.agent_account.title"><source>readiness.agent_account.title</source><target>Agent GitHub account</target></trans-unit>
+            <trans-unit id="readiness.agent_account.description"><source>readiness.agent_account.description</source><target>The agents push and open pull requests as a GitHub user of their own. You can then review and approve their work, because GitHub does not let a user approve their own pull request.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.title"><source>readiness.agent_account.steps.title</source><target>Steps</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.create"><source>readiness.agent_account.steps.create</source><target>Create a separate GitHub user for the agents. Do not use your own account or the account that installed the GitHub App.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.invite"><source>readiness.agent_account.steps.invite</source><target>Invite that user to the repository with write access, and accept the invitation as that user.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.token"><source>readiness.agent_account.steps.token</source><target>Sign in as that user and create a token. Use a fine-grained token with Contents and Pull requests set to read and write on the repository, or a classic token with the repo scope.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.bridge"><source>readiness.agent_account.steps.bridge</source><target>On the machine of the bridge, run this command, paste the token and press Enter. Then restart the bridge, because it reads the account when it starts:</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.record"><source>readiness.agent_account.steps.record</source><target>Record the login of that user below. The check is done when a running bridge pushes as that login.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.steps.privacy"><source>readiness.agent_account.steps.privacy</source><target>Loupe does not create the account, and it never sees the token. The token stays on the machine of the bridge.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.login.title"><source>readiness.agent_account.login.title</source><target>Agent login</target></trans-unit>
+            <trans-unit id="readiness.agent_account.submit"><source>readiness.agent_account.submit</source><target>Save</target></trans-unit>
+            <trans-unit id="readiness.agent_account.flash.saved"><source>readiness.agent_account.flash.saved</source><target>Agent login saved.</target></trans-unit>
+            <trans-unit id="readiness.agent_account.error.installer_login"><source>readiness.agent_account.error.installer_login</source><target>The agents need an account other than the one that installed the GitHub App.</target></trans-unit>
+            <trans-unit id="readiness.form.update_agent_account_form.login.label"><source>readiness.form.update_agent_account_form.login.label</source><target>GitHub login of the agent account</target></trans-unit>
+            <trans-unit id="readiness.form.update_agent_account_form.login.help"><source>readiness.form.update_agent_account_form.login.help</source><target>Leave it empty to clear the recorded login.</target></trans-unit>
+            <trans-unit id="readiness.discovery.reason.no_taker"><source>readiness.discovery.reason.no_taker</source><target>No bridge took the work.</target></trans-unit>
+            <trans-unit id="readiness.discovery.reason.card_moved"><source>readiness.discovery.reason.card_moved</source><target>The discovery card left Backlog before the work ended.</target></trans-unit>
         </body>
     </file>
 </xliff>

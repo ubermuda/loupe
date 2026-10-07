@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
-use App\Module\Board\Mcp\CardRunCloseTool;
+use App\Module\Board\Mcp\AutomationSettingsUpdateTool;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Command\ListWorkerRunToolCallsHandler;
 use App\Module\Bridge\Mcp\BridgeCommandCancelTool;
@@ -96,7 +96,7 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         self::assertNotSame($key, $translator->trans($key));
     }
 
-    public function test_the_bridge_tools_are_advertised_after_the_board_run_tools(): void
+    public function test_the_bridge_tools_are_advertised_after_the_board_tools(): void
     {
         $advertised = self::getContainer()->get(AdvertisedTools::class);
         self::assertInstanceOf(AdvertisedTools::class, $advertised);
@@ -115,7 +115,7 @@ final class BridgeToolRegistrationTest extends KernelTestCase
             [BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, CardHoldTool::NAME, CardReleaseTool::NAME, CardPauseReleaseTool::NAME, BridgeCommandCancelTool::NAME],
             \array_slice($names, $bridgeList, 7),
         );
-        $close = array_search(CardRunCloseTool::NAME, $names, true);
+        $close = array_search(AutomationSettingsUpdateTool::NAME, $names, true);
         self::assertIsInt($close);
         self::assertSame($close + 1, $start);
     }
