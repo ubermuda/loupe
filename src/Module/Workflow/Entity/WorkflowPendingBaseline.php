@@ -11,7 +11,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
-/** The hold of the card went, so its next evaluation records the truth of its rules and fires none. */
+/** The board automation was off, so the first evaluation of the card after it is on records the truth of its rules and fires none. */
 #[ORM\Entity(repositoryClass: WorkflowPendingBaselineRepository::class)]
 #[ORM\Table(name: 'workflow_pending_baselines')]
 class WorkflowPendingBaseline

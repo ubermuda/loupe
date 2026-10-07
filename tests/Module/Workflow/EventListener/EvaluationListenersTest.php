@@ -22,9 +22,11 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardMove;
+use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkRequestChanged;
+use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -35,7 +37,7 @@ use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
-use App\Module\Workflow\EventListener\BaselineCardsOnCardHoldsReleased;
+use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\EventListener\EvaluateCardOnWorkRequestChanged;
 use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnDeleted;
 use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnTerminalChanged;
@@ -46,11 +48,14 @@ use App\Module\Workflow\EventListener\EvaluateCardsOnDocumentStatusChanged;
 use App\Module\Workflow\EventListener\EvaluateCardsOnPullRequestStateChanged;
 use App\Module\Workflow\EventListener\EvaluateCardsOnReviewSubmitted;
 use App\Module\Workflow\EventListener\EvaluateCardsOnWorkerRunChanged;
+use App\Module\Workflow\EventListener\RearmCardsOnCardHoldsReleased;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
+use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
@@ -60,6 +65,8 @@ use Symfony\Component\Uid\Uuid;
 final class EvaluationListenersTest extends KernelTestCase
 {
     use ActionScenario;
+
+    private const string RELEASED_AT = '2026-10-02 12:00:00';
 
     private Project $project;
 
@@ -211,24 +218,65 @@ final class EvaluationListenersTest extends KernelTestCase
         ]);
     }
 
-    public function test_a_release_marks_the_existing_cards_for_a_baseline_and_asks_for_them(): void
+    public function test_a_release_resets_the_rules_restarts_the_clock_of_the_open_requests_and_asks_for_the_cards(): void
     {
-        [$one, $two] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
-        $event = new CardHoldsReleased($this->projectId(), [$one->id ?? throw new \LogicException('A flushed card has an id.'), $two->id ?? throw new \LogicException('A flushed card has an id.'), Uuid::v7()]);
+        [$one, $two, $other] = [$this->card($this->project, 'next'), $this->card($this->project, 'next'), $this->card($this->project, 'next')];
+        $state = new WorkflowRuleState($one, $this->project, 'work', new \DateTimeImmutable('2026-10-02 09:00:00'));
+        $state->truth = true;
+        $state->attempts = 2;
+        $state->fires = 3;
+        $state->fingerprint = 'facts';
+        $state->dueAt = new \DateTimeImmutable('2026-10-02 13:00:00');
+        $state->lastRefusal = 'refused';
+        $state->lastRefusalAt = new \DateTimeImmutable('2026-10-02 11:00:00');
+        $subject = Uuid::v7();
+        $state->subjectPullRequestId = $subject;
+        $untouched = new WorkflowRuleState($other, $this->project, 'work', new \DateTimeImmutable('2026-10-02 09:00:00'));
+        $untouched->truth = true;
+        $open = $this->workRequest($one, 'open');
+        $claimed = $this->workRequest($two, 'claimed');
+        $claimed->state = WorkRequestState::Claimed;
+        $otherOpen = $this->workRequest($other, 'other');
+        $this->em()->persist($state);
+        $this->em()->persist($untouched);
+        $this->em()->flush();
+        $this->service(WorkflowPendingBaselineRepository::class)->markCards($this->projectId(), [$one->id ?? throw new \LogicException('A flushed card has an id.'), $other->id ?? throw new \LogicException('A flushed card has an id.')]);
 
-        $this->baselineListener()($event);
-        $this->baselineListener()($event);
+        $this->rearmListener()(new CardHoldsReleased($this->projectId(), [$one->id ?? throw new \LogicException('A flushed card has an id.'), $two->id ?? throw new \LogicException('A flushed card has an id.')]));
 
-        self::assertEqualsCanonicalizing($this->ids($one, $two), $this->pendingBaselines());
-        $ids = $this->ids($one, $two);
-        self::assertSame([...$ids, ...$ids], array_values(array_filter($this->sent(), static fn (string $id): bool => \in_array($id, $ids, true))));
+        $this->em()->refresh($state);
+        $this->em()->refresh($untouched);
+        $this->em()->refresh($open);
+        $this->em()->refresh($claimed);
+        $this->em()->refresh($otherOpen);
+        self::assertSame(
+            [false, 0, 0, 'facts', null, null, null, $subject->toRfc4122(), self::RELEASED_AT],
+            [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt, $state->lastRefusal, $state->lastRefusalAt, $state->subjectPullRequestId?->toRfc4122(), $state->updatedAt->format('Y-m-d H:i:s')],
+        );
+        self::assertTrue($untouched->truth);
+        self::assertSame(self::RELEASED_AT, $open->reopenedAt?->format('Y-m-d H:i:s'));
+        self::assertNull($claimed->reopenedAt);
+        self::assertNull($otherOpen->reopenedAt);
+        self::assertSame($this->ids($other), $this->pendingBaselines());
+        self::assertSame($this->ids($one, $two), $this->sent());
     }
 
-    private function baselineListener(): BaselineCardsOnCardHoldsReleased
+    private function workRequest(Card $card, string $kind): WorkRequest
     {
-        return new BaselineCardsOnCardHoldsReleased(
+        $request = new WorkRequest($this->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, $kind, null, $kind, new \DateTimeImmutable('2026-10-02 09:00:00'));
+        $this->em()->persist($request);
+
+        return $request;
+    }
+
+    private function rearmListener(): RearmCardsOnCardHoldsReleased
+    {
+        return new RearmCardsOnCardHoldsReleased(
+            $this->service(WorkflowRuleStateRepository::class),
+            $this->service(WorkRequestRepository::class),
             $this->service(WorkflowPendingBaselineRepository::class),
             $this->trigger(),
+            new MockClock(self::RELEASED_AT),
         );
     }
 

@@ -447,8 +447,11 @@ These actions make the card managed again:
 - A person deletes the column of the card, or the card.
 
 When a card is managed again, the workflow takes the card as it is at that
-time. A condition that became true while the card was unmanaged does not fire.
-The workflow acts only on the changes that come after.
+time. Each rule whose condition is true then fires, also when it was true
+before. A rule does not request work a second time while its request is live.
+Each rule gets a fresh work budget, and the timeout of an open work request
+starts again. A card that the workflow paused stays paused until its pause
+ends.
 
 #### The Workflow panel
 
