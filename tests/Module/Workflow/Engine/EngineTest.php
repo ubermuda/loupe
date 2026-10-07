@@ -1573,7 +1573,8 @@ final class EngineTest extends KernelTestCase
         $run = new WorkerRun(
             project: $card->project,
             bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('A flushed card has an id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('A flushed card has an id.'),
             cardNumber: $card->number,
             workKind: $workKind,
             state: $state,
