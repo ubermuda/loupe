@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 )
@@ -347,6 +350,12 @@ func CheckWorkRequest(w *api.WorkRequest) error {
 	if err := checkWorkContext(w.Context); err != nil {
 		return fmt.Errorf("work request %s: %w", w.WorkRequestID, err)
 	}
+	if w.Model != "" && !ModelWord(w.Model) {
+		return fmt.Errorf("work request has an invalid model %q", w.Model)
+	}
+	if w.Effort != "" && !slices.Contains(api.Efforts, w.Effort) {
+		return fmt.Errorf("work request has an invalid effort %q", w.Effort)
+	}
 
 	w.ProjectID = strings.ToLower(w.ProjectID)
 	w.WorkRequestID = strings.ToLower(w.WorkRequestID)
@@ -356,6 +365,17 @@ func CheckWorkRequest(w *api.WorkRequest) error {
 	w.Context.DocumentID = strings.ToLower(w.Context.DocumentID)
 
 	return nil
+}
+
+// ModelWord reports whether s is a model claude takes from a request: 1 to 64
+// characters, no whitespace or control character, and no leading hyphen,
+// which claude would read as an option.
+func ModelWord(s string) bool {
+	if s == "" || utf8.RuneCountInString(s) > 64 || s[0] == '-' || !utf8.ValidString(s) {
+		return false
+	}
+
+	return !strings.ContainsFunc(s, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) })
 }
 
 // checkSubject checks the subject of a work request or a command. The card

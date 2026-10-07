@@ -838,3 +838,15 @@ func TestCheckClaimComparesTheSubject(t *testing.T) {
 		}
 	}
 }
+
+// A person's resume or rerun takes its settings from the match as well, so
+// both paths carry the effort.
+func TestApplyCarriesTheEffortOfTheMatch(t *testing.T) {
+	for _, continues := range []string{"", "run-1"} {
+		p := pending{continues: continues}
+		p.apply(rules.Match{Model: "opus", Effort: "high"})
+		if p.spec.model != "opus" || p.spec.effort != "high" {
+			t.Fatalf("continues %q: spec = %+v", continues, p.spec)
+		}
+	}
+}

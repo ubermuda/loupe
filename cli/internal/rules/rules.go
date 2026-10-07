@@ -882,7 +882,9 @@ type Match struct {
 	Dir            string
 	PermissionMode string
 	Model          string
-	Prompt         string
+	// Effort is the claude --effort level the request asks for, or "".
+	Effort string
+	Prompt string
 	// Schema is the compact JSON Schema claude's final reply must match.
 	Schema string
 	// Pool is the worker pool the run takes a slot from. It is empty for an

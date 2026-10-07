@@ -47,7 +47,14 @@ type WorkRequest struct {
 	ResumeSessionID string `json:"resumeSessionId,omitempty"`
 	// Context is what the card held when the request opened.
 	Context WorkRequestContext `json:"context"`
+	// Model and Effort are what the run asks claude for. Model wins over the
+	// model of the work entry. A null decodes as "".
+	Model  string `json:"model,omitempty"`
+	Effort string `json:"effort,omitempty"`
 }
+
+// Efforts are the levels claude --effort takes.
+var Efforts = []string{"low", "medium", "high", "xhigh", "max"}
 
 // SubjectCard is the subject type of a card.
 const SubjectCard = "card"

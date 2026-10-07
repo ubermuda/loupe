@@ -74,6 +74,16 @@ func TestTheLaunchScriptPassesEachValueAsItIs(t *testing.T) {
 	}
 }
 
+func TestTheLaunchScriptPassesTheEffort(t *testing.T) {
+	spec := workerSpec{dir: t.TempDir(), sessionID: "s1", model: "opus", effort: "high", prompt: "go"}
+
+	got := runScript(t, spec)
+	want := []string{"--session-id", "s1", "--model", "opus", "--effort", "high", "--", "go"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("args = %q, want %q", got, want)
+	}
+}
+
 func TestTheLaunchScriptLeavesOutAnUnsetModelAndMode(t *testing.T) {
 	spec := workerSpec{dir: t.TempDir(), sessionID: "s1", prompt: "-starts with a dash"}
 

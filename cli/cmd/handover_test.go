@@ -680,6 +680,46 @@ func TestAHandoverAdoptsARunInItsBeforeCommand(t *testing.T) {
 	}
 }
 
+// The effort of a run crosses a handover in its before phase, so claude
+// starts with it under the next image.
+func TestAHandoverInTheBeforePhaseKeepsTheEffort(t *testing.T) {
+	h, f, _ := withBefore(t, "1m")
+	h.states()
+	f.block = make(chan struct{})
+	defer close(f.block)
+	h.router.onData([]byte(cardMoved(87)))
+	eventually(t, "the before command", func() bool {
+		h.router.mu.Lock()
+		defer h.router.mu.Unlock()
+
+		return len(h.router.live) == 1
+	})
+	h.router.mu.Lock()
+	for id, run := range h.router.live {
+		run.p.spec.effort = "high"
+		h.router.live[id] = run
+	}
+	h.router.mu.Unlock()
+	h.router.pause()
+	if err := h.router.drain(context.Background(), 5*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	st := roundTrip(t, h.router.freeze())
+	if len(st.Live) != 1 || st.Live[0].Effort != "high" {
+		t.Fatalf("live = %+v", st.Live)
+	}
+
+	h2, _, _ := withBefore(t, "1m")
+	h2.states()
+	h2.router.worker.adoptBefore = func(context.Context, string) procResult { return procResult{dir: t.TempDir()} }
+	h2.router.adopt(st)
+	h2.router.wg.Wait()
+
+	if calls := h2.worker.recorded(); len(calls) != 1 || calls[0].effort != "high" {
+		t.Fatalf("worker = %+v", calls)
+	}
+}
+
 // A real before command that a frozen image started finishes under the next
 // image, which starts claude in its folder and removes the run directory.
 func TestAnAdoptedBeforeCommandFinishesUnderTheNextImage(t *testing.T) {

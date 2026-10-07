@@ -93,6 +93,7 @@ type workerSpec struct {
 	dir            string
 	permissionMode string
 	model          string
+	effort         string
 	schema         string
 	sessionID      string
 	resume         bool
@@ -143,12 +144,15 @@ func defaultWorkerOps() workerOps {
 // reads it. It follows --, because claude reads a prompt that starts with - as
 // an option.
 func workerArgs(spec workerSpec) []string {
-	args := make([]string, 0, 14)
+	args := make([]string, 0, 16)
 	if spec.permissionMode != "" {
 		args = append(args, "--permission-mode", spec.permissionMode)
 	}
 	if spec.model != "" {
 		args = append(args, "--model", spec.model)
+	}
+	if spec.effort != "" {
+		args = append(args, "--effort", spec.effort)
 	}
 	args = append(args, "--verbose", "--output-format", "stream-json")
 	if spec.schema != "" {
@@ -204,6 +208,7 @@ type runRecord struct {
 	Dir            string `json:"dir"`
 	PermissionMode string `json:"permissionMode,omitempty"`
 	Model          string `json:"model,omitempty"`
+	Effort         string `json:"effort,omitempty"`
 	SessionID      string `json:"sessionId"`
 	Resume         bool   `json:"resume,omitempty"`
 	Prompt         string `json:"prompt"`
@@ -341,7 +346,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	rec := runRecord{
 		PID: cmd.Process.Pid, StartedAt: time.Now(), LaunchedAt: launched, StartTime: processStart(cmd.Process.Pid),
 		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
-		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
+		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model, Effort: spec.effort,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
 		Baseline: baseline,
 	}

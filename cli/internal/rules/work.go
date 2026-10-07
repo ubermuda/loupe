@@ -213,14 +213,16 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 		Project:        slug,
 		Dir:            s.dirs[slug],
 		PermissionMode: entry.PermissionMode,
-		Model:          entry.Model,
+		Model:          cmp.Or(w.Model, entry.Model),
+		Effort:         w.Effort,
 		Schema:         entry.schema,
 	}
 	switch entry.Action {
 	case "":
 		m.Prompt = directive.Render(entry.Prompt, v)
 		m.Pool = cmp.Or(entry.WorkerPool, DefaultPool)
-		if entry.experiment != nil {
+		// A model the request names is no draw, so the run joins no experiment.
+		if entry.experiment != nil && w.Model == "" {
 			m.Experiment = entry.experiment.clone()
 		}
 		if entry.Before != nil {

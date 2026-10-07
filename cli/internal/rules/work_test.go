@@ -249,6 +249,35 @@ func TestMatchWorkCarriesTheVariantsAsAnExperiment(t *testing.T) {
 	}
 }
 
+func TestMatchWorkTakesTheModelAndTheEffortOfTheRequest(t *testing.T) {
+	s := checked(t, workFile)
+
+	for _, kind := range []string{"implement", "pair"} {
+		w := workRequest(kind)
+		w.Model, w.Effort = "claude-opus-4-1", "xhigh"
+		if m := s.MatchWork(w); m.Skip != Run || m.Model != "claude-opus-4-1" || m.Effort != "xhigh" {
+			t.Fatalf("%s: match = %+v", kind, m)
+		}
+	}
+	if m := s.MatchWork(workRequest("pair")); m.Model != "opus" || m.Effort != "" {
+		t.Fatalf("no request model: match = %+v", m)
+	}
+}
+
+// A model the request names is no draw, so the run joins no experiment.
+func TestARequestModelRunsOutsideTheExperiment(t *testing.T) {
+	s := checked(t, workFile)
+	w := workRequest("split")
+	w.Model = "haiku"
+
+	if m := s.MatchWork(w); m.Skip != Run || m.Model != "haiku" || m.Experiment != nil {
+		t.Fatalf("match = %+v", m)
+	}
+	if m := s.MatchWork(workRequest("split")); m.Experiment == nil || m.Model != "" {
+		t.Fatalf("no request model: match = %+v", m)
+	}
+}
+
 func TestMatchWorkSkipsWhatItCannotRun(t *testing.T) {
 	s := checked(t, workFile)
 	other := workRequest("implement")
