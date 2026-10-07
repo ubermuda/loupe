@@ -51,6 +51,20 @@ final class ShippedTemplatesTest extends KernelTestCase
         }
     }
 
+    public function test_both_templates_declare_the_card_types_and_only_an_epic_has_children_and_a_lane(): void
+    {
+        foreach ($this->shipped()->keys() as $key) {
+            $template = $this->template($key);
+            self::assertSame(['feature', 'bug', 'security', 'tooling', 'docs', 'idea', 'epic'], array_map(static fn ($type) => $type->key, $template->types));
+            self::assertSame('feature', $template->defaultType);
+            foreach ($template->types as $type) {
+                self::assertSame('epic' === $type->key, $type->children);
+                self::assertSame('epic' === $type->key, $type->lane);
+                self::assertSame('board.card.type.'.$type->key, $type->label);
+            }
+        }
+    }
+
     public function test_simple_has_no_slot_and_allows_every_manual_move(): void
     {
         $simple = $this->template('simple');

@@ -9,6 +9,7 @@ use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\BoundWorkflowView;
 use App\Module\Workflow\Command\ShowWorkflowSettingsCommand;
 use App\Module\Workflow\Command\ShowWorkflowSettingsHandler;
+use App\Module\Workflow\Command\WorkflowCardTypeView;
 use App\Module\Workflow\Command\WorkflowConditionGroupView;
 use App\Module\Workflow\Command\WorkflowConditionView;
 use App\Module\Workflow\Command\WorkflowManualMoveView;
@@ -100,6 +101,15 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         self::assertSame([10, 60, 360], $template->backoffMinutes);
         self::assertSame(120, $template->workTimeoutMinutes);
         self::assertSame([2, 3, 5], $template->workFailedBackoffMinutes);
+        self::assertEquals([
+            new WorkflowCardTypeView('feature', 'board.card.type.feature', 'lime', false, false, true),
+            new WorkflowCardTypeView('bug', 'board.card.type.bug', 'amber', false, false, false),
+            new WorkflowCardTypeView('security', 'board.card.type.security', 'red', false, false, false),
+            new WorkflowCardTypeView('tooling', 'board.card.type.tooling', 'neutral', false, false, false),
+            new WorkflowCardTypeView('docs', 'board.card.type.docs', 'green', false, false, false),
+            new WorkflowCardTypeView('idea', 'board.card.type.idea', 'purple', false, false, false),
+            new WorkflowCardTypeView('epic', 'board.card.type.epic', 'blue', true, true, false),
+        ], $template->types);
     }
 
     public function test_the_rules_the_app_adds_are_listed_apart_from_the_template_rules(): void
@@ -166,6 +176,16 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         $this->em()->persist(new WorkflowBinding($project, 'test', 1, [
             'key' => 'test',
             'version' => 1,
+            'defaultType' => 'feature',
+            'types' => [
+                ['key' => 'feature', 'label' => 'board.card.type.feature', 'tone' => 'lime'],
+                ['key' => 'bug', 'label' => 'board.card.type.bug', 'tone' => 'amber'],
+                ['key' => 'security', 'label' => 'board.card.type.security', 'tone' => 'red'],
+                ['key' => 'tooling', 'label' => 'board.card.type.tooling', 'tone' => 'neutral'],
+                ['key' => 'docs', 'label' => 'board.card.type.docs', 'tone' => 'green'],
+                ['key' => 'idea', 'label' => 'board.card.type.idea', 'tone' => 'purple'],
+                ['key' => 'epic', 'label' => 'board.card.type.epic', 'tone' => 'blue', 'capabilities' => ['children', 'lane']],
+            ],
             'slots' => [],
             'manualMoves' => [],
             'backoffMinutes' => [10],

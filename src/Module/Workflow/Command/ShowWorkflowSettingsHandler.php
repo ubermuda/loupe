@@ -19,6 +19,7 @@ use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\Slot;
 use App\Module\Workflow\Template\Template;
+use App\Module\Workflow\Template\TemplateCardType;
 use App\Module\Workflow\Template\TemplateSource;
 
 final readonly class ShowWorkflowSettingsHandler
@@ -52,6 +53,10 @@ final readonly class ShowWorkflowSettingsHandler
             descriptionKey: \sprintf('workflow.template.%s.description', $template->key),
             version: $template->version,
             boundAt: $binding->boundAt,
+            types: array_map(
+                static fn (TemplateCardType $type): WorkflowCardTypeView => new WorkflowCardTypeView($type->key, $type->label, $type->tone->value, $type->children, $type->lane, $type->key === $template->defaultType),
+                $template->types,
+            ),
             slots: array_map(
                 static fn (Slot $slot): WorkflowSlotView => new WorkflowSlotView($slot->key, $slot->label, ($columns[$slot->key] ?? null)?->label),
                 $template->slots,

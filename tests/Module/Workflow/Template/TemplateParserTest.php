@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
+use App\Module\Board\Entity\LabelTone;
+use App\Module\Workflow\Condition\CardChildrenFinished;
 use App\Module\Workflow\Condition\CardDocument;
 use App\Module\Workflow\Condition\CardDocumentApproved;
 use App\Module\Workflow\Condition\CardHasOpenBlocker;
@@ -33,6 +35,7 @@ final class TemplateParserTest extends TestCase
     protected function setUp(): void
     {
         $this->parser = new TemplateParser(new Conditions([
+            new CardChildrenFinished(),
             new CardDocument(),
             new CardDocumentApproved(),
             new CardHasOpenBlocker(),
@@ -50,6 +53,12 @@ final class TemplateParserTest extends TestCase
         return [
             'key' => 'test',
             'version' => 1,
+            'defaultType' => 'feature',
+            'types' => [
+                ['key' => 'feature', 'label' => 'board.card.type.feature', 'tone' => 'lime'],
+                ['key' => 'bug', 'label' => 'board.card.type.bug', 'tone' => 'amber'],
+                ['key' => 'epic', 'label' => 'board.card.type.epic', 'tone' => 'blue', 'capabilities' => ['children', 'lane']],
+            ],
             'slots' => [
                 ['key' => 'build', 'label' => 'workflow.slot.build'],
                 ['key' => 'review', 'label' => 'workflow.slot.review'],
@@ -132,6 +141,79 @@ final class TemplateParserTest extends TestCase
         self::assertSame(ActionType::Pause, $wait->then->type);
         self::assertSame(['reason' => 'busy'], $wait->then->params);
         self::assertInstanceOf(Not::class, $wait->then->until);
+    }
+
+    public function test_it_reads_the_card_types_and_the_default_type(): void
+    {
+        $template = $this->parser->parse(self::valid());
+
+        self::assertSame(['feature', 'bug', 'epic'], array_map(static fn ($type) => $type->key, $template->types));
+        self::assertSame('feature', $template->defaultType);
+        $epic = $template->type('epic') ?? throw new \LogicException('The template declares an epic.');
+        self::assertSame('board.card.type.epic', $epic->label);
+        self::assertSame(LabelTone::Blue, $epic->tone);
+        self::assertTrue($epic->children);
+        self::assertTrue($epic->lane);
+        $bug = $template->type('bug') ?? throw new \LogicException('The template declares a bug.');
+        self::assertSame(LabelTone::Amber, $bug->tone);
+        self::assertFalse($bug->children);
+        self::assertFalse($bug->lane);
+        self::assertNull($template->type('chore'));
+    }
+
+    public function test_a_type_with_children_may_have_a_rule_that_reads_them(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+        $template['rules'][4]['when'] = ['card.type' => ['type' => 'epic']];
+        $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
+    public function test_a_type_without_children_under_a_not_or_in_another_branch_does_not_read_them(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [
+            ['not' => ['card.type' => ['type' => 'bug']]],
+            ['any' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]],
+        ]];
+        $template['rules'][4]['when'] = ['all' => [['not' => ['card.type' => ['type' => 'bug']]]]];
+        $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
+    public function test_many_any_lists_beside_a_child_read_parse_without_expanding_every_combination(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [
+            ['card.type' => ['type' => 'epic']],
+            ['card.children_finished' => []],
+            ...array_fill(0, 30, ['any' => [['pr.open' => []], ['card.type' => ['type' => 'epic']]]]),
+        ]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
+    public function test_a_pause_until_that_reads_children_only_for_epics_allows_a_rule_that_also_matches_bugs(): void
+    {
+        $template = self::valid();
+        $template['rules'][3]['when'] = ['any' => [['card.type' => ['type' => 'bug']], ['card.type' => ['type' => 'epic']]]];
+        $template['rules'][3]['then']['pause']['until'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
+    public function test_a_branch_that_names_a_second_type_never_holds_and_reads_nothing(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [
+            ['card.type' => ['type' => 'bug']],
+            ['any' => [['pr.open' => []], ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]]]],
+        ]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
     }
 
     public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
@@ -295,6 +377,121 @@ final class TemplateParserTest extends TestCase
         yield 'retry policy with a zero delay' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [0]]] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
         yield 'retry policy with a text delay' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => 'x']] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
         yield 'wrongly typed work timeout' => [static fn (array $t): array => ['workTimeoutMinutes' => 0] + $t, 'workTimeoutMinutes: must be a positive integer'];
+
+        yield 'missing types' => [static function (array $t): array {
+            unset($t['types']);
+
+            return $t;
+        }, 'types: is missing'];
+        yield 'empty types' => [static fn (array $t): array => ['types' => []] + $t, 'types: must be a non-empty list'];
+        yield 'missing default type' => [static function (array $t): array {
+            unset($t['defaultType']);
+
+            return $t;
+        }, 'defaultType: is missing'];
+        yield 'default type that is not a string' => [static fn (array $t): array => ['defaultType' => 3] + $t, 'defaultType: must be a non-empty string'];
+        yield 'default type that is not declared' => [static fn (array $t): array => ['defaultType' => 'chore'] + $t, 'defaultType: unknown type "chore"'];
+        yield 'type with no label' => [static function (array $t): array {
+            unset($t['types'][1]['label']);
+
+            return $t;
+        }, 'types[1]: must be a map with a string "key" and a string "label"'];
+        yield 'type with a bad tone' => [static function (array $t): array {
+            $t['types'][1]['tone'] = 'beige';
+
+            return $t;
+        }, 'types[1] (bug): "tone" must be one of neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink, orange'];
+        yield 'type with no tone' => [static function (array $t): array {
+            unset($t['types'][1]['tone']);
+
+            return $t;
+        }, 'types[1] (bug): "tone" must be one of neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink, orange'];
+        yield 'type with an unknown capability' => [static function (array $t): array {
+            $t['types'][1]['capabilities'] = ['children', 'swimming'];
+
+            return $t;
+        }, 'types[1] (bug): "capabilities" must be a list of children, lane'];
+        yield 'type with an unknown key' => [static function (array $t): array {
+            $t['types'][1]['colour'] = 'amber';
+
+            return $t;
+        }, 'types[1] (bug): unknown key "colour"'];
+        yield 'duplicate type key' => [static function (array $t): array {
+            $t['types'][] = ['key' => 'bug', 'label' => 'board.card.type.bug', 'tone' => 'red'];
+
+            return $t;
+        }, 'types[3] (bug): duplicate type key "bug"'];
+        yield 'card type condition naming an undeclared type' => [static function (array $t): array {
+            $t['rules'][0]['when']['all'][0] = ['card.type' => ['type' => 'chore']];
+
+            return $t;
+        }, 'rules[0] (start) when.all[0]: card.type: unknown type "chore"'];
+        yield 'pause until naming an undeclared type' => [static function (array $t): array {
+            $t['rules'][3]['then']['pause']['until'] = ['card.type' => ['type' => 'chore']];
+
+            return $t;
+        }, 'rules[3] (wait) then.pause.until: card.type: unknown type "chore"'];
+        yield 'request refill naming an undeclared type' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['refill'] = ['card.type' => ['type' => 'chore']];
+
+            return $t;
+        }, 'rules[0] (start) then.request.refill: card.type: unknown type "chore"'];
+        yield 'rule reading the children of a type without children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'nested all reading the children of a type without children' => [static function (array $t): array {
+            $t['rules'][1]['when']['any'][] = ['all' => [['card.children_finished' => []], ['card.type' => ['type' => 'feature']]]];
+
+            return $t;
+        }, 'rules[1] (to-review): the type "feature" may not have children, but the rule reads them'];
+        yield 'all inside all reading the children of a type without children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['all' => [['card.children_finished' => []]]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'any branch reading the children of the type around it' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['any' => [['card.children_finished' => []], ['pr.open' => []]]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'any branch naming a type that the list around it reads the children of' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.children_finished' => []], ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'two sibling any lists, one naming the type and one reading the children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [
+                ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]],
+                ['any' => [['card.children_finished' => []], ['pr.open' => []]]],
+            ]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'negated child read beside a type without children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['not' => ['card.children_finished' => []]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'pause until reading the children of a type without children' => [static function (array $t): array {
+            $t['rules'][3]['when'] = ['card.type' => ['type' => 'bug']];
+            $t['rules'][3]['then']['pause']['until'] = ['card.children_finished' => []];
+
+            return $t;
+        }, 'rules[3] (wait): the type "bug" may not have children, but the rule reads them'];
+        yield 'when reading the children of a type without children beside an until for another type' => [static function (array $t): array {
+            $t['rules'][3]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+            $t['rules'][3]['then']['pause']['until'] = ['card.type' => ['type' => 'epic']];
+
+            return $t;
+        }, 'rules[3] (wait): the type "bug" may not have children, but the rule reads them'];
+        yield 'evaluate of the children of a type without children' => [static function (array $t): array {
+            $t['rules'][4]['when'] = ['card.type' => ['type' => 'bug']];
+            $t['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
+
+            return $t;
+        }, 'rules[4] (done): the type "bug" may not have children, but the rule reads them'];
 
         yield 'duplicate slot key' => [static function (array $t): array {
             $t['slots'][] = ['key' => 'build', 'label' => 'workflow.slot.build'];

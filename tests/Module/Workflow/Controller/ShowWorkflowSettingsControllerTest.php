@@ -52,6 +52,13 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorNotExists('[data-workflow-template-rules] [data-rule-id="discovery"]');
         self::assertSelectorExists('[data-manual-move]');
         self::assertSame(['Anyone', 'A run of the parent epic'], array_values(array_unique($crawler->filter('[data-manual-move-by]')->extract(['_text']))));
+        self::assertSame(['feature', 'bug', 'security', 'tooling', 'docs', 'idea', 'epic'], $crawler->filter('[data-workflow-types] [data-card-type]')->extract(['data-card-type']));
+        self::assertSelectorTextContains('[data-workflow-types] [data-card-type="feature"]', 'Feature');
+        self::assertSelectorTextContains('[data-workflow-types] [data-card-type="feature"]', 'Default');
+        self::assertSelectorTextNotContains('[data-workflow-types] [data-card-type="bug"]', 'Default');
+        self::assertSelectorExists('[data-workflow-types] [data-card-type="bug"] .lp-tag--amber');
+        self::assertSelectorTextSame('[data-workflow-types] [data-card-type="bug"] [data-card-type-capabilities]', 'None');
+        self::assertSelectorTextSame('[data-workflow-types] [data-card-type="epic"] [data-card-type-capabilities]', 'Can have children, Gets a lane');
         self::assertSelectorTextContains('[data-workflow-timings]', '10, 60, 360');
         self::assertSelectorTextContains('[data-workflow-timings]', '120');
         self::assertSelectorTextContains('[data-workflow-timings]', 'Retries after failed work: 2, 3, 5 minutes');
@@ -80,6 +87,16 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         $this->em()->persist(new WorkflowBinding($project, 'test', 1, [
             'key' => 'test',
             'version' => 1,
+            'defaultType' => 'feature',
+            'types' => [
+                ['key' => 'feature', 'label' => 'board.card.type.feature', 'tone' => 'lime'],
+                ['key' => 'bug', 'label' => 'board.card.type.bug', 'tone' => 'amber'],
+                ['key' => 'security', 'label' => 'board.card.type.security', 'tone' => 'red'],
+                ['key' => 'tooling', 'label' => 'board.card.type.tooling', 'tone' => 'neutral'],
+                ['key' => 'docs', 'label' => 'board.card.type.docs', 'tone' => 'green'],
+                ['key' => 'idea', 'label' => 'board.card.type.idea', 'tone' => 'purple'],
+                ['key' => 'epic', 'label' => 'board.card.type.epic', 'tone' => 'blue', 'capabilities' => ['children', 'lane']],
+            ],
             'slots' => [],
             'manualMoves' => [],
             'backoffMinutes' => [10],
