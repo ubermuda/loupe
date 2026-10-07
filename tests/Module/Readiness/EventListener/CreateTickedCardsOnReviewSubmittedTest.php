@@ -17,6 +17,8 @@ use App\Module\Readiness\Entity\DiscoveryProposal;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryProposalRepository;
+use App\Module\Review\Command\ReviseDocumentCommand;
+use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Command\SubmitReviewCommand;
 use App\Module\Review\Command\SubmitReviewHandler;
 use App\Module\Review\Entity\DecisionSelection;
@@ -128,6 +130,21 @@ final class CreateTickedCardsOnReviewSubmittedTest extends KernelTestCase
         self::assertSame(['Add tests'], array_map(static fn (Card $card): string => $card->title, $this->createdCards()));
     }
 
+    public function test_a_pick_for_an_option_the_approved_version_removed_creates_no_card_and_a_moved_option_still_does(): void
+    {
+        $this->tick(0, 2);
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $markdown = $this->report->currentVersion()->markdownSource;
+        self::assertStringContainsString("- [ ] Add tests\n", $markdown);
+        $revise(new ReviseDocumentCommand($this->report, str_replace("- [ ] Add tests\n", '', $markdown), 'Dropped the first option.'));
+
+        $this->submitVerdict('approved', null, null, null, 2);
+
+        self::assertSame(['Add a linter'], array_map(static fn (Card $card): string => $card->title, $this->createdCards()));
+        self::assertSame(DiscoveryRunState::Done, $this->run->state);
+    }
+
     public function test_a_pick_of_another_decision_is_ignored(): void
     {
         $this->em()->persist(new DecisionSelection($this->report, 'other', 0, 'Add tests', 1));
@@ -198,12 +215,12 @@ final class CreateTickedCardsOnReviewSubmittedTest extends KernelTestCase
         return $this->submitVerdict('approved', null, $document, $project);
     }
 
-    private function submitVerdict(string $verdict, ?string $note, ?Document $document = null, ?Project $project = null): Review
+    private function submitVerdict(string $verdict, ?string $note, ?Document $document = null, ?Project $project = null, int $version = 1): Review
     {
         $handler = self::getContainer()->get(SubmitReviewHandler::class);
         self::assertInstanceOf(SubmitReviewHandler::class, $handler);
 
-        return $handler(new SubmitReviewCommand(($project ?? $this->project)->owner, $document ?? $this->report, $verdict, 1, $note));
+        return $handler(new SubmitReviewCommand(($project ?? $this->project)->owner, $document ?? $this->report, $verdict, $version, $note));
     }
 
     private function dispatch(Review $review): void
