@@ -8,6 +8,7 @@ use App\Module\Bridge\Command\PurgeExpiredWorkerRunsCommand;
 use App\Module\Bridge\Command\PurgeExpiredWorkerRunsHandler;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Repository\BridgeHostSampleRepository;
 use App\Module\Bridge\Repository\ExperimentPinRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
@@ -69,6 +70,20 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
         self::assertSame(1, ($this->handler())(new PurgeExpiredWorkerRunsCommand()));
 
         self::assertSame([(string) $kept->id], $em->getConnection()->fetchFirstColumn('SELECT run_id FROM bridge_worker_run_tool_calls'));
+    }
+
+    /** A sample past the window goes, and the count still names the runs alone. */
+    public function test_it_deletes_a_host_sample_past_the_window_and_keeps_one_inside_it(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $bridge = $this->seedBridge($em, $this->user($em, 'samples-sweep@example.com'));
+        $this->seedHostSample($bridge, '2026-01-01 00:00:00');
+        $this->seedHostSample($bridge, '2026-09-01 00:00:00');
+
+        self::assertSame(0, ($this->handler())(new PurgeExpiredWorkerRunsCommand()));
+
+        self::assertSame(['2026-09-01 00:00:00'], $em->getConnection()->fetchFirstColumn('SELECT sampled_at FROM bridge_host_samples'));
     }
 
     /** A pin that no run refreshed within the window goes, and the count still names the runs alone. */
@@ -168,6 +183,7 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
         return new PurgeExpiredWorkerRunsHandler(
             new WorkerRunRepository($registry),
             new ExperimentPinRepository($registry),
+            new BridgeHostSampleRepository($registry),
             new WorkerRunRetentionPolicy($flags, 180),
             new MockClock(new \DateTimeImmutable(self::NOW)),
         );

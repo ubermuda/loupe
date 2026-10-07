@@ -79,6 +79,11 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
             'idle_gap_ms' => null,
             'subagent_ms' => null,
             'peak_context_tokens' => null,
+            'mean_cpu_pct' => null,
+            'peak_mem_bytes' => null,
+            'peak_swap_bytes' => null,
+            'concurrent_runs' => null,
+            'on_battery' => null,
         ], $this->fact($run));
     }
 
@@ -191,12 +196,25 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
 
         $this->connection->executeStatement('DELETE FROM bridge_worker_run_facts');
         $writer->upsert($runIds);
-        $written = $this->connection->fetchAllAssociative('SELECT * FROM bridge_worker_run_facts ORDER BY run_id');
+        $written = $this->factsWithoutHostColumns();
         $this->connection->executeStatement('DELETE FROM bridge_worker_run_facts');
         $this->connection->executeStatement(Version20261006005345::BACKFILL_SQL);
 
         self::assertCount(5, $written);
-        self::assertSame($written, $this->connection->fetchAllAssociative('SELECT * FROM bridge_worker_run_facts ORDER BY run_id'));
+        self::assertSame($written, $this->factsWithoutHostColumns());
+    }
+
+    /**
+     * The host columns came after the backfill, and an old run keeps them null.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function factsWithoutHostColumns(): array
+    {
+        return array_map(
+            static fn (array $fact): array => array_diff_key($fact, array_flip(['mean_cpu_pct', 'peak_mem_bytes', 'peak_swap_bytes', 'concurrent_runs', 'on_battery'])),
+            $this->connection->fetchAllAssociative('SELECT * FROM bridge_worker_run_facts ORDER BY run_id'),
+        );
     }
 
     private function seedFactRun(

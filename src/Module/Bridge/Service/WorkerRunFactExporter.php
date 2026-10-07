@@ -58,6 +58,11 @@ final readonly class WorkerRunFactExporter implements UserDataExporterInterface
                 'idleGapMs' => $fact->idleGapMs,
                 'subagentMs' => $fact->subagentMs,
                 'peakContextTokens' => $fact->peakContextTokens,
+                'meanCpuPct' => $fact->meanCpuPct,
+                'peakMemBytes' => $fact->peakMemBytes,
+                'peakSwapBytes' => $fact->peakSwapBytes,
+                'concurrentRuns' => $fact->concurrentRuns,
+                'onBattery' => $fact->onBattery,
             ];
         }
     }

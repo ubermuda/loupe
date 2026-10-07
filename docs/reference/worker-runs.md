@@ -472,9 +472,32 @@ the tokens, the row holds the timing of the run. The MCP tools
 | `longestCallMs` | the longest `durationMs` of the calls |
 | `subagentMs` | the sum of `durationMs` of the `Agent` and `Task` calls of the main session |
 | `peakContextTokens` | the [peak context](#peak-context) the bridge sent |
+| `meanCpuPct` | the mean use of all cores, in percent, over the host samples of the bridge within the run |
+| `peakMemBytes` | the largest `memUsed` of those samples, in bytes |
+| `peakSwapBytes` | the largest `swapUsed` of those samples, in bytes |
+| `concurrentRuns` | the count of the runs of the same bridge whose time overlaps the run, the run itself included |
+| `onBattery` | `true` when one of those samples has `onAc` false, and `false` when every sample with a known power source has `onAc` true |
 
 `toolCalls`, `failedCalls`, `longestCallMs` and `subagentMs` are `null` for a
 run with no stored call.
+
+The host values read the [host samples](bridge-heartbeat.md#host-samples) of
+the bridge from the start of the run to its end. The fact table stores them in
+the columns `mean_cpu_pct`, `peak_mem_bytes`, `peak_swap_bytes`,
+`concurrent_runs` and `on_battery`. `meanCpuPct`, `peakMemBytes` and
+`peakSwapBytes` are `null` when the bridge sent no sample within the run, or
+while the run has no end. A
+bridge sends none while the `bridge.host_sampling_enabled` flag is off, or when
+its `rules.yaml` sets `collect: false`. A run shorter than the sample interval
+can also hold none. `onBattery` is also `null` when no sample knew the power
+source. A sample that arrives after the run ended updates these values.
+
+`concurrentRuns` needs no sample. It is `null` for a run with no bridge, no
+start or no end. A run with no end counts as an overlap only while it is
+`preparing`, `running` or `stopping`, so a lost run does not count forever.
+Loupe takes the count when the run ends, and does not change it when another
+run reports later. `bin/console app:bridge:rebuild-run-facts` counts every run
+again from the stored times.
 
 ## Resolving an experiment pin
 
@@ -680,6 +703,9 @@ whose last resolve is older than the run retention window. The next run of that
 card then picks a variant again. Every resolve refreshes a pin, so the sweep
 takes only the pins of idle cards.
 
+The same sweep also deletes each [host sample](bridge-heartbeat.md#host-samples)
+whose `sampledAt` is older than the window.
+
 Deleting a project deletes its run records, its tool calls, its usage, its run facts, its experiment pins,
 its experiment weights and its card holds with it. Deleting an account deletes
 the same data of every project it owned, and removes the account's name from a hold it placed in
@@ -690,7 +716,7 @@ row in `worker_run_usage.json`. It holds every tool call in
 `worker_run_tool_calls.json`, with its project, the `runKey` of its run, and the
 fields of [the tool call report](#reporting-the-tool-calls-of-a-run). It holds the fact row of each run in
 `worker_run_facts.json`, with its outcome, its duration, its cost, its token sums and the
-[run metrics](#run-metrics) of its timing and its peak context.
+[run metrics](#run-metrics) of its timing, its peak context and its host.
 A fact row stays after the retention sweep deletes its run. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of

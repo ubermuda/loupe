@@ -37,6 +37,25 @@ final class BridgeAccountPurgerTest extends KernelTestCase
         );
     }
 
+    /** The purger deletes bridges by SQL, so only the foreign key can take their samples. */
+    public function test_it_takes_the_host_samples_of_the_departing_account_alone(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'samples-purge-leaving@example.com');
+        $staying = $this->user($em, 'samples-purge-staying@example.com');
+        $shared = Uuid::v4();
+        $this->seedHostSample($this->seedBridge($em, $leaving, $shared), '2026-10-07 12:00:00');
+        $this->seedHostSample($this->seedBridge($em, $staying, $shared), '2026-10-07 12:00:00');
+
+        $this->purge($leaving);
+
+        self::assertSame(
+            [[(string) $staying->id, (string) $shared]],
+            $em->getConnection()->fetchAllNumeric('SELECT owner_id, bridge_id FROM bridge_host_samples'),
+        );
+    }
+
     /** A command whose project went by any other path would otherwise hold the users row. */
     public function test_it_takes_the_commands_of_the_departing_account_alone(): void
     {
