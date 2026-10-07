@@ -87,7 +87,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         ], $rules['tech-design-approved']->whenGroups);
 
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.next', 'workflow.settings.moves.by.anyone'), $template->manualMoves[0]);
-        self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.implementation', 'workflow.settings.moves.by.parent_run'), $template->manualMoves[6]);
+        self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.implementation', 'workflow.settings.moves.by.parent_run'), $template->manualMoves[7]);
         self::assertSame([10, 60, 360], $template->backoffMinutes);
         self::assertSame(120, $template->workTimeoutMinutes);
     }
