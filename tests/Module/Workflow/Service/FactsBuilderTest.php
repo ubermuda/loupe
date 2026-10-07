@@ -300,6 +300,24 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertSame([], $epicRun->parentActiveKinds);
     }
 
+    public function test_the_kinds_of_the_work_requested_for_the_parent_count_as_work_of_the_parent_once(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-parent-requests');
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $child = $this->card($project, 'backlog');
+        $child->parent = $epic;
+        $this->em()->flush();
+        $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->workerRun($epic, 'implement', WorkerRunState::Succeeded);
+        $this->workRequest($epic, 'breakdown', WorkRequestState::Open);
+        $this->workRequest($epic, 'plan', WorkRequestState::Claimed);
+        $this->workRequest($epic, 'design', WorkRequestState::Done, settledAt: '2026-10-02 10:00:00');
+
+        self::assertEqualsCanonicalizing(['breakdown', 'plan'], $this->facts($child)->run->parentActiveKinds);
+        self::assertSame([], $this->facts($epic)->run->parentActiveKinds);
+    }
+
     public function test_a_pull_request_maps_its_forge_state(): void
     {
         self::bootKernel();

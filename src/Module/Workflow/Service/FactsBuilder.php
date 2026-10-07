@@ -107,11 +107,26 @@ final readonly class FactsBuilder
                 ))),
                 lastRefusalCode: WorkRequestState::Refused === $settled?->state ? $settled->reason : null,
                 activeWorkerKinds: $this->workerRuns->findOpenWorkKindsOfCard($cardId),
-                parentActiveKinds: null === $card->parent ? [] : $this->workerRuns->findOpenWorkKindsOfCard($card->parent->id ?? throw new \LogicException('A stored card has an id.')),
+                parentActiveKinds: null === $card->parent ? [] : $this->activeKindsOf($card->parent),
             ),
             provided: array_map(static fn (array $result): object => $result[0], $provided),
             fingerprints: array_map(static fn (array $result): mixed => $result[1], array_filter($provided, static fn (array $result): bool => !$result[0] instanceof Unreadable)),
         );
+    }
+
+    /**
+     * The kinds of the open worker runs and the live work requests of a card, once each.
+     *
+     * @return list<string>
+     */
+    private function activeKindsOf(Card $card): array
+    {
+        $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
+
+        return array_values(array_unique([
+            ...$this->workerRuns->findOpenWorkKindsOfCard($cardId),
+            ...array_map(static fn ($request): string => $request->kind, $this->workRequests->findLiveForCard($cardId)),
+        ]));
     }
 
     /**
