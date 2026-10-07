@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Insights\Controller;
 
+use App\Module\Insights\Command\ListReportsHandler;
 use App\Module\Insights\Entity\AnalysisState;
 use App\Module\Insights\Entity\Proposal;
 use App\Module\Insights\Entity\ProposalState;
@@ -72,6 +73,27 @@ final class DismissProposalControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertNotSame('', trim($crawler->filter('[data-proposal="'.$proposal->id.'"] [data-field-errors="reason"]')->text()));
         self::assertSame(ProposalState::Proposed, $this->stored($proposal)->state);
+    }
+
+    public function test_a_refused_dismiss_on_a_later_page_shows_its_error_on_that_page(): void
+    {
+        $client = static::createClient();
+        $proposal = $this->proposal('dismiss-controller-page');
+        $project = $proposal->analysis->project;
+        $projectId = (string) $project->id;
+        for ($i = 0; $i < ListReportsHandler::LIMIT; ++$i) {
+            $this->seedAnalysis($this->em(), $project);
+        }
+        $owner = $project->owner;
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/analytics/proposals/'.$proposal->id.'/dismiss?page=2', [
+            'dismiss_proposal_'.$proposal->id => ['reason' => str_repeat('a', Proposal::MAX_DISMISS_REASON_LENGTH + 1), '_token' => 'csrf-token'],
+        ], [], ['HTTP_REFERER' => 'http://localhost/']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertNotSame('', trim($crawler->filter('[data-proposal="'.$proposal->id.'"] [data-field-errors="reason"]')->text()));
     }
 
     public function test_a_second_dismiss_redirects_back_with_an_error(): void

@@ -70,7 +70,7 @@ class DismissProposalController extends AppController
             'id' => (string) $project->id,
             'project' => $project,
             ListReportsController::REFUSED_DISMISS_FORM => $form->createView(),
-        ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+        ], ['page' => max(1, $request->query->getInt('page', 1))])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     /** @return array<string, int|string> the Reports page the form came from */
