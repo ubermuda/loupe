@@ -25,7 +25,6 @@ final class CardParentFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'parent-form-edit@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
@@ -53,7 +52,6 @@ final class CardParentFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'parent-form-create@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
@@ -76,7 +74,6 @@ final class CardParentFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'parent-form-not-epic@example.com');
         $project = $this->project($em, $owner);
         $feature = $this->card($em, $project, 'A plain feature');
@@ -97,7 +94,6 @@ final class CardParentFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'parent-form-child-epic@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
@@ -119,7 +115,6 @@ final class CardParentFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'parent-form-epic-done@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'The epic', 'in-progress'), CardType::Epic);
@@ -142,7 +137,6 @@ final class CardParentFormTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'parent-form-delete@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);

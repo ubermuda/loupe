@@ -14,8 +14,7 @@ text inside it, so an item points at a *rendered* thing. The fix is usually in
 a template, a stylesheet or a component, not where the words appear in the
 codebase.
 
-The feedback tools belong to the board. They are off when the board is off.
-The `loupe-board` skill covers cards.
+The feedback tools belong to the board. The `loupe-board` skill covers cards.
 
 ## The loop
 

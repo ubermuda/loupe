@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller\Api;
 
 use App\Controller\AppController;
-use App\Exception\DomainErrors;
 use App\Module\Board\Command\DeleteFeedbackCommand;
 use App\Module\Board\Command\DeleteFeedbackHandler;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
@@ -49,8 +48,6 @@ final class DeleteFeedbackController extends AppController
             $cardDeleted = ($this->handler)(new DeleteFeedbackCommand($project, $commentId));
         } catch (CommentNotFound) {
             return $this->json(['error' => 'not_found'], JsonResponse::HTTP_NOT_FOUND);
-        } catch (DomainErrors $error) {
-            return $this->json(['error' => $error->errors['board'] ?? throw $error], JsonResponse::HTTP_CONFLICT);
         }
 
         return $this->json(['cardDeleted' => $cardDeleted]);

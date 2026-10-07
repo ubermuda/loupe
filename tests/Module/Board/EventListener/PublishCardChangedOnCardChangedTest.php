@@ -24,7 +24,6 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\EventListener\PublishCardChangedOnCardChanged;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -60,9 +59,6 @@ use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
 use Symfony\Component\Mercure\MockHub;
 use Symfony\Component\Mercure\Update;
 use Symfony\Component\Uid\Uuid;
-use Symfony\Contracts\Service\ResetInterface;
-use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /**
  * Drives every write path that changes a card face and reads what reaches the
@@ -99,7 +95,6 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-        $this->setBoardEnabled();
 
         $owner = new User(fullName: 'Riley', email: 'card-changed-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -403,17 +398,6 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         }
 
         return $messages;
-    }
-
-    private function setBoardEnabled(): void
-    {
-        $flags = $this->service(FeatureFlagRepository::class);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
-        $this->em->flush();
-
-        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
-        self::assertInstanceOf(ResetInterface::class, $reader);
-        $reader->reset();
     }
 
     /**

@@ -8,7 +8,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
@@ -34,7 +33,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class GitHubAppInstallFlowTest extends WebTestCase
 {
@@ -318,9 +316,6 @@ final class GitHubAppInstallFlowTest extends WebTestCase
     /** A connect claims like a delivery, so a rename GitHub reports here reaches the card links too. */
     public function test_a_repository_renamed_since_its_last_delivery_repoints_the_card_links(): void
     {
-        $flags = static::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $owner = $this->signedUpUser('renamed');
         $project = $this->projectOf($owner);
         $column = new BoardColumn($project, 'Work', 'work', 0);

@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -17,7 +16,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class BoardCardsApiTest extends WebTestCase
 {
@@ -27,7 +25,6 @@ final class BoardCardsApiTest extends WebTestCase
     {
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'cards-api-create@example.com');
-        $this->enableBoard();
 
         $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, [
             'title' => 'Footer overlaps the launcher',
@@ -57,7 +54,6 @@ final class BoardCardsApiTest extends WebTestCase
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'cards-api-list@example.com');
         $em = $this->em();
-        $this->enableBoard();
 
         $em->persist(new Card($project, $this->column($project, 'backlog'), 'Footer overlaps the launcher', '', 1));
         $em->persist(new Card($project, $this->column($project, 'backlog'), 'Rotate the signing key', '', 2));
@@ -84,7 +80,6 @@ final class BoardCardsApiTest extends WebTestCase
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'cards-api-epics@example.com');
         $em = $this->em();
-        $this->enableBoard();
 
         $em->persist(new Card($project, $this->column($project, 'backlog'), 'Checkout review', '', 1, type: CardType::Epic));
         $em->persist(new Card($project, $this->column($project, 'backlog'), 'Footer overlaps', '', 2));
@@ -111,7 +106,6 @@ final class BoardCardsApiTest extends WebTestCase
     {
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'cards-api-types@example.com');
-        $this->enableBoard();
 
         $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, ['title' => 'Review: /pricing', 'type' => 'site-review']);
         self::assertResponseStatusCodeSame(201);
@@ -136,7 +130,6 @@ final class BoardCardsApiTest extends WebTestCase
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'cards-api-wildcard@example.com');
         $em = $this->em();
-        $this->enableBoard();
 
         $backlog = $this->column($project, 'backlog');
         $em->persist(new Card($project, $backlog, 'Rotate the signing key', '', 1));
@@ -155,19 +148,6 @@ final class BoardCardsApiTest extends WebTestCase
             json_decode((string) $client->getResponse()->getContent(), true)['cards'],
             'number',
         ));
-    }
-
-    public function test_both_endpoints_are_absent_while_the_board_is_switched_off(): void
-    {
-        $client = static::createClient();
-        [$raw] = $this->projectWithToken($client, 'cards-api-flag@example.com');
-        $this->setBoardEnabled(false);
-
-        $this->api($client, Request::METHOD_GET, '/api/board/cards', $raw);
-        self::assertResponseStatusCodeSame(404);
-
-        $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, ['title' => 'Nope']);
-        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_an_account_token_cannot_reach_the_board(): void
@@ -190,7 +170,6 @@ final class BoardCardsApiTest extends WebTestCase
     {
         $client = static::createClient();
         [$raw] = $this->projectWithToken($client, 'cards-api-cors@example.com');
-        $this->enableBoard();
 
         $this->api($client, Request::METHOD_GET, '/api/board/cards', $raw);
 
@@ -231,19 +210,6 @@ final class BoardCardsApiTest extends WebTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
         return $em;
-    }
-
-    private function enableBoard(): void
-    {
-        $this->setBoardEnabled(true);
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $flags = static::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->em()->flush();
     }
 
     /** @param array<string, mixed>|null $json */

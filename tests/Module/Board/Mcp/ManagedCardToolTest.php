@@ -9,7 +9,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\CardRunOpenTool;
 use App\Module\Board\Mcp\CardUpdateTool;
 use App\Tests\Module\Workflow\WorkflowProjects;
@@ -17,7 +16,6 @@ use App\Tests\Support\McpTokenScenario;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ManagedCardToolTest extends KernelTestCase
 {
@@ -29,9 +27,6 @@ final class ManagedCardToolTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $project = $this->workflowProject('managed-tool');
         $this->bindLifecycle($project);
         $this->actAsMcpTokenBoundTo($project);

@@ -7,10 +7,8 @@ namespace App\Tests\Module\Board\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\CardActivityLinks;
 use App\Module\Project\Entity\Project;
 use App\Outbox\ActivityLink;
@@ -19,7 +17,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class CardActivityLinksTest extends KernelTestCase
 {
@@ -36,7 +33,6 @@ final class CardActivityLinksTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-        self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
 
         $owner = new User(fullName: 'Owner', email: 'card-activity-links@example.com', password: 'x');
         $this->project = new Project($owner, 'Card activity links');
@@ -113,15 +109,13 @@ final class CardActivityLinksTest extends KernelTestCase
     {
         $container = self::getContainer();
         $cards = $container->get(CardRepository::class);
-        $board = $container->get(BoardAvailability::class);
         $urls = $container->get(UrlGeneratorInterface::class);
         $translator = $container->get(TranslatorInterface::class);
         self::assertInstanceOf(CardRepository::class, $cards);
-        self::assertInstanceOf(BoardAvailability::class, $board);
         self::assertInstanceOf(UrlGeneratorInterface::class, $urls);
         self::assertInstanceOf(TranslatorInterface::class, $translator);
 
-        return new CardActivityLinks($cards, $columns, $board, $urls, $translator);
+        return new CardActivityLinks($cards, $columns, $urls, $translator);
     }
 
     /** @param array<string, string> $fields */

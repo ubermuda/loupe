@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Mcp;
 
-use App\Mcp\FlagGatedToolInterface;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\SiteReview\Command\MarkSiteReviewCommentAddressedOutcome;
 use App\Module\SiteReview\Command\MarkSiteReviewCommentsAddressedCommand;
 use App\Module\SiteReview\Command\MarkSiteReviewCommentsAddressedHandler;
@@ -21,27 +19,14 @@ use Symfony\Component\Uid\Uuid;
  * the human, and no MCP tool reaches the resolve route.
  */
 #[McpTool(name: self::NAME, description: 'Mark feedback items as addressed after you fix them. Feedback is what a reviewer leaves on a page with the site-review widget, and each item belongs to a card. Pass the feedback ids from feedback_list or card_get. Only the feedback of the project bound to your MCP token is reachable. An item that is unknown, already addressed or resolved is skipped, not fatal. The skip reason is best-effort: the write settles the status, and the reason comes from a separate read that can be stale when another writer changes the same item at that moment.')]
-final readonly class FeedbackMarkAddressedTool implements FlagGatedToolInterface
+final readonly class FeedbackMarkAddressedTool
 {
     public const string NAME = 'feedback_mark_addressed';
 
     public function __construct(
-        private BoardFlagGate $gate,
         private SiteReviewSubjectResolver $subjects,
         private MarkSiteReviewCommentsAddressedHandler $markCommentsAddressed,
     ) {
-    }
-
-    #[\Override]
-    public function gatedToolName(): string
-    {
-        return self::NAME;
-    }
-
-    #[\Override]
-    public function requiredFlag(): string
-    {
-        return BoardInstallFlags::FLAG_BOARD_ENABLED;
     }
 
     /**
@@ -54,8 +39,6 @@ final readonly class FeedbackMarkAddressedTool implements FlagGatedToolInterface
      */
     public function __invoke(array $feedbackIds): array
     {
-        $this->gate->requireEnabled();
-
         $addressed = [];
         $skipped = [];
 

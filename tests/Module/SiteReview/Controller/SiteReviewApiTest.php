@@ -7,7 +7,6 @@ namespace App\Tests\Module\SiteReview\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -150,9 +149,6 @@ final class SiteReviewApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($client, 'api-ctx-label@example.com');
         $em = $this->em();
 
-        $flags = static::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $card = new Card($project, $this->column($project, 'backlog'), 'Footer overlaps the launcher', 'body', 1);
         $em->persist($card);
         $em->flush();
@@ -316,7 +312,6 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertIsArray($data);
         self::assertSame('#1 Review: /pricing', $data['context']['label'] ?? null);
         self::assertStringContainsString((string) $review->id, $data['context']['url'] ?? '');
-        self::assertTrue($data['feedbackAvailable']);
         self::assertSame((string) $project->id, $data['projectId']);
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review?context='.urlencode('epic:'.$epic->id), $raw);
@@ -362,27 +357,6 @@ final class SiteReviewApiTest extends WebTestCase
             self::assertArrayHasKey('context', $data, $case);
             self::assertNull($data['context'], $case);
         }
-    }
-
-    public function test_the_boot_load_says_whether_feedback_can_be_saved(): void
-    {
-        $client = static::createClient();
-        $client->disableReboot();
-        [$raw] = $this->projectWithToken($client, 'api-feedback-flag@example.com');
-        $flags = static::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-
-        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertTrue($data['feedbackAvailable']);
-
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = false;
-        $this->em()->flush();
-        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertFalse($data['feedbackAvailable']);
     }
 
     public function test_the_boot_load_reports_drawing_on_for_an_untouched_instance(): void
@@ -630,7 +604,7 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame(
             // context is always present and null on a page with no marker, so
             // the widget never has to tell an absent key from a resolved one.
-            ['projectId' => (string) $project->id, 'feedbackAvailable' => true, 'drawingEnabled' => true, 'context' => null, 'comments' => []],
+            ['projectId' => (string) $project->id, 'drawingEnabled' => true, 'context' => null, 'comments' => []],
             json_decode((string) $client->getResponse()->getContent(), true),
         );
 

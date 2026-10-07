@@ -9,7 +9,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\ListProjectColumnsCommand;
 use App\Module\Board\Command\ListProjectColumnsHandler;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Service\BoardAvailability;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -28,7 +27,6 @@ final class ListProjectColumnsController extends AppController
 {
     public function __construct(
         private readonly ListProjectColumnsHandler $listColumns,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -38,11 +36,6 @@ final class ListProjectColumnsController extends AppController
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('Columns endpoint reached without an authenticated User.');
-        }
-
-        // The same status as the board's other API routes, with a body the CLI can name.
-        if (!$this->board->isEnabled()) {
-            return $this->json(['error' => 'board_disabled'], JsonResponse::HTTP_NOT_FOUND);
         }
 
         $view = ($this->listColumns)(new ListProjectColumnsCommand($user, $handle));

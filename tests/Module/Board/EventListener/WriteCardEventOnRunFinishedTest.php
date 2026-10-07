@@ -39,7 +39,6 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        $this->enableBoard();
         $this->project = $this->makeProject('run-finished');
         $this->card = new Card($this->project, $this->column($this->project, 'backlog'), 'Plan it', '', 1);
         $this->em->persist($this->card);

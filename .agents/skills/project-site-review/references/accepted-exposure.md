@@ -27,9 +27,7 @@ cards from the site-review widget' records the choice, the alternatives and what
 each cost, including the observation that it reverses the reasoning behind
 `/sites` refusing the widget's scope. Read it before you reopen this.
 
-What bounds it. `board.enabled` ships on, because site review writes its notes
-to cards. All four endpoints re-check it, so an instance that switches the board off
-exposes nothing through them. Creation takes no
+What bounds it. Creation takes no
 `status` and no `pullRequestUrls`, so a caller cannot file into a column or
 attach a URL of their choosing. A card records `CardReporter::Reviewer`, which
 says the app could not name who raised it. The write joins the

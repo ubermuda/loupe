@@ -7,7 +7,6 @@ namespace App\Module\Board\EventListener;
 use App\Module\Board\Messenger\PostPullRequestNotice;
 use App\Module\Board\Repository\PullRequestNoticeRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\StaleApprovalNoticeBody;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Event\PullRequestStateChanged;
@@ -23,7 +22,6 @@ use Symfony\Component\Messenger\MessageBusInterface;
 final readonly class QueueStaleApprovalNoticeOnPullRequestStateChanged
 {
     public function __construct(
-        private BoardAvailability $board,
         private BoardAutomation $boardAutomation,
         private PullRequestCommenters $commenters,
         private PullRequestNoticeRepository $pullRequestNotices,
@@ -50,10 +48,6 @@ final readonly class QueueStaleApprovalNoticeOnPullRequestStateChanged
 
     private function queue(PullRequestStateChanged $event): void
     {
-        if (!$this->board->isEnabled()) {
-            return;
-        }
-
         $pullRequest = $event->pullRequest;
         $settings = $this->boardAutomation->settingsOf($pullRequest->project);
         if (!$settings->enabled || !$settings->commentOnStaleApproval) {
