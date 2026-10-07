@@ -45,7 +45,10 @@ final class AppRulesTest extends KernelTestCase
         foreach ($shipped->keys() as $key) {
             $template = $this->parser()->parse($shipped->source($key));
 
-            self::assertEquals([...$template->rules, ...$this->shippedAppRules()->rules()], $this->shippedAppRules()->appendTo($template)->rules);
+            $joined = $this->shippedAppRules()->appendTo($template);
+
+            self::assertEquals([...$template->rules, ...$this->shippedAppRules()->rules()], $joined->rules);
+            self::assertEquals($template->onWorkFailed, $joined->onWorkFailed);
         }
     }
 

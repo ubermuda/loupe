@@ -8,8 +8,8 @@ final readonly class BoundWorkflowView
 {
     /**
      * @param list<WorkflowSlotView>       $slots
-     * @param list<WorkflowRuleView>       $rules          the rules of the template
-     * @param list<WorkflowRuleView>       $appRules       the rules the app adds to every template
+     * @param list<WorkflowRuleView>       $rules                    the rules of the template
+     * @param list<WorkflowRuleView>       $appRules                 the rules the app adds to every template
      * @param list<WorkflowManualMoveView> $manualMoves
      * @param list<int>                    $backoffMinutes
      * @param ?list<int>                   $workFailedBackoffMinutes null when the template has no onWorkFailed block

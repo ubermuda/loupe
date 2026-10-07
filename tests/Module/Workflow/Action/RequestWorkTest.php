@@ -49,7 +49,7 @@ final class RequestWorkTest extends KernelTestCase
 
         $outcome = $this->action()->run($rule, $card, FactsMother::facts(), $this->state($card, $rule->id));
 
-        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertOpenedWork($outcome);
         self::assertSame("Groom the card.\n", $this->liveRequest($card)->prompt);
     }
 

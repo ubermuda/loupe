@@ -58,6 +58,7 @@ final class AppRules
             $template->manualMoves,
             $template->backoffMinutes,
             $template->workTimeoutMinutes,
+            $template->onWorkFailed,
         );
     }
 
