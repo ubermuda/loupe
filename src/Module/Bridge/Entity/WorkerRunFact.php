@@ -124,6 +124,9 @@ class WorkerRunFact
         /** The time of the Agent and Task calls of the main session. */
         #[ORM\Column(name: 'subagent_ms', type: Types::BIGINT, nullable: true)]
         public readonly ?int $subagentMs,
+
+        #[ORM\Column(name: 'peak_context_tokens', type: Types::BIGINT, nullable: true)]
+        public readonly ?int $peakContextTokens,
     ) {
     }
 }

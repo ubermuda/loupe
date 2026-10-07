@@ -77,6 +77,9 @@ type workerResult struct {
 	streamed bool
 	calls    []stream.Call
 	timing   stream.Timing
+	// peakContextTokens is the largest input context of the main session,
+	// and nil when unknown.
+	peakContextTokens *int64
 }
 
 // workerProc is a started worker: its shell's pid, which leads its process
@@ -378,7 +381,7 @@ func workerOutcome(dir string, killed bool, waitErr error) workerResult {
 	stderr, stderrErr := readCapped(filepath.Join(dir, "stderr"), maxOutput)
 	res := decodeWorkerOutput(out.Result, head.buf.Bytes(), head.dropped, stderr.text())
 	if stdoutErr == nil {
-		res.streamed, res.calls, res.timing = true, out.Calls, out.Timing
+		res.streamed, res.calls, res.timing, res.peakContextTokens = true, out.Calls, out.Timing, out.PeakContextTokens
 	}
 	if readErr := errors.Join(cmp.Or(stdoutErr, headErr), stderrErr); readErr != nil {
 		res.output = strings.TrimLeft(res.output+"\n"+readErr.Error(), "\n")

@@ -194,6 +194,9 @@ session spent in tool calls, and `modelTimeMs` is the rest of the duration.
 of the subagents of the main session. `toolCalls`, `failedCalls` and
 `longestCallMs` count the calls. A run whose bridge sent no tool calls holds
 `null` in each of them. `worker_run_tool_calls` reads the calls of one run.
+`peakContextTokens` is the largest context the main session held during the
+run, in tokens. It shows how close a worker came to its context limit. A run
+whose bridge sent no value holds `null`.
 [Run metrics](../reference/worker-runs.md#run-metrics) defines each value.
 
 A tool call holds its tool, its start, its duration, its error flag, and

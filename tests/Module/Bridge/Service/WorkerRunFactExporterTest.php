@@ -30,6 +30,7 @@ final class WorkerRunFactExporterTest extends KernelTestCase
         $this->seedToolCall($kept);
         $kept->toolTimeMs = 4000;
         $kept->idleGapMs = 6000;
+        $kept->peakContextTokens = 77_000;
         $em->flush();
         $swept = $this->seedRun($em, $project, cardNumber: 2);
         $this->seedRun($em, $this->project($em, $this->user($em, 'facts-export-other@example.com'), 'Other Facts'));
@@ -73,6 +74,7 @@ final class WorkerRunFactExporterTest extends KernelTestCase
             'longestCallMs' => 1500,
             'idleGapMs' => 6000,
             'subagentMs' => 0,
+            'peakContextTokens' => 77_000,
         ], $rows[0]);
         self::assertSame((string) $swept->id, $rows[1]['runId']);
         self::assertNull($rows[1]['costMicroUsd']);

@@ -245,6 +245,7 @@ final readonly class ReportWorkerRunStateHandler
     {
         if (WorkerRunState::Stopped === $command->state) {
             $run->recordStop($command->endedAt ?? $command->at, $command->output);
+            $this->fillPeakContext($run, $command);
             if (null !== $command->usage) {
                 $this->usageRecorder->record($run, $command->usage);
             }
@@ -270,9 +271,17 @@ final readonly class ReportWorkerRunStateHandler
             $command->resumeSkipped,
             $command->resultReason,
         );
+        $this->fillPeakContext($run, $command);
 
         if (null !== $command->usage) {
             $this->usageRecorder->record($run, $command->usage);
+        }
+    }
+
+    private function fillPeakContext(WorkerRun $run, ReportWorkerRunStateCommand $command): void
+    {
+        if (null !== $command->peakContextTokens) {
+            $run->peakContextTokens = $command->peakContextTokens;
         }
     }
 

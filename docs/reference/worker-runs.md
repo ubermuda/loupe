@@ -221,6 +221,20 @@ reported counts, and a second report from the same source changes nothing. The
 Send any timestamp in any offset. The server converts each one to UTC and
 stores it to the second.
 
+### Peak context
+
+An outcome or a `stopped` report can carry `peakContextTokens`, an integer of 0
+or more. It is the largest context of the main session during the run: the
+largest `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`
+over the assistant lines of the stream whose `parent_tool_use_id` is null. The
+lines of subagents do not count. A line counts only when it holds all three
+fields, so a field that is missing reads as unknown, never as zero.
+
+The bridge leaves the field out when no line counts, for example for a command
+run. The server stores a value from the outcome or the `stopped` report, and a
+report with no value keeps the stored value. A run with no value has an unknown
+peak.
+
 ### How a report moves the run
 
 A run moves forward only. The open states rank `queued`, then `resumed`, then
@@ -457,6 +471,7 @@ the tokens, the row holds the timing of the run. The MCP tools
 | `failedCalls` | the count of the calls with `isError` true |
 | `longestCallMs` | the longest `durationMs` of the calls |
 | `subagentMs` | the sum of `durationMs` of the `Agent` and `Task` calls of the main session |
+| `peakContextTokens` | the [peak context](#peak-context) the bridge sent |
 
 `toolCalls`, `failedCalls`, `longestCallMs` and `subagentMs` are `null` for a
 run with no stored call.
@@ -670,12 +685,12 @@ its experiment weights and its card holds with it. Deleting an account deletes
 the same data of every project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
-`requestedModel` and `switchedFrom`, its `workRequestId`, `workKind` and `ruleId`, and its `toolTimeMs` and `idleGapMs`. It holds every usage
+`requestedModel` and `switchedFrom`, its `workRequestId`, `workKind` and `ruleId`, and its `toolTimeMs`, `idleGapMs` and `peakContextTokens`. It holds every usage
 row in `worker_run_usage.json`. It holds every tool call in
 `worker_run_tool_calls.json`, with its project, the `runKey` of its run, and the
 fields of [the tool call report](#reporting-the-tool-calls-of-a-run). It holds the fact row of each run in
 `worker_run_facts.json`, with its outcome, its duration, its cost, its token sums and the
-[run metrics](#run-metrics) of its timing.
+[run metrics](#run-metrics) of its timing and its peak context.
 A fact row stays after the retention sweep deletes its run. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of

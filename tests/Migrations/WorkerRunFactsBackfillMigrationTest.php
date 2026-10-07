@@ -78,6 +78,7 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
             'longest_call_ms' => null,
             'idle_gap_ms' => null,
             'subagent_ms' => null,
+            'peak_context_tokens' => null,
         ], $this->fact($run));
     }
 
