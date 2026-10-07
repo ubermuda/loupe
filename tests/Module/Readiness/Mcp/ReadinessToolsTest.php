@@ -9,9 +9,12 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Entity\DiscoveryRun;
+use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\EventListener\FailDiscoveryOnRequestWithdrawn;
 use App\Module\Readiness\Mcp\DiscoveryStartTool;
 use App\Module\Readiness\Mcp\ReadinessGetTool;
+use App\Module\Readiness\Mcp\ReadinessReportSubmitTool;
+use App\Module\Review\Entity\Document;
 use App\Tests\Module\Readiness\DiscoveryScenario;
 use App\Tests\Support\AgentCredential;
 use App\Tests\Support\McpRefusalMessages;
@@ -137,6 +140,78 @@ final class ReadinessToolsTest extends KernelTestCase
         $this->discoveryStart()();
     }
 
+    public function test_readiness_report_submit_stores_the_report_and_returns_the_document(): void
+    {
+        $project = $this->workflowProject('report-submit-tool');
+        $run = $this->discoveryRun($this->discoveryCard($project));
+        $this->actAsMcpTokenBoundTo($project);
+
+        $answer = $this->reportSubmit()(
+            (string) $run->id,
+            'lifecycle',
+            [['check' => 'Tests run', 'status' => 'gap', 'evidence' => 'None found.']],
+            [['key' => 'tests', 'title' => 'Add tests', 'type' => 'feature', 'body' => 'Write them.']],
+            'A short summary.',
+        );
+
+        $document = $this->em()->find(Document::class, $answer['documentId']);
+        self::assertNotNull($document);
+        self::assertSame($document, $run->reportDocument);
+        self::assertSame(DiscoveryRunState::Reported, $run->state);
+        self::assertStringEndsWith('/projects/'.$project->id.'/documents/'.$document->id.'/review', $answer['url']);
+    }
+
+    public function test_readiness_report_submit_names_the_fix_for_each_refusal(): void
+    {
+        $project = $this->workflowProject('report-submit-tool-refusals');
+        $run = $this->discoveryRun($this->discoveryCard($project));
+        $this->actAsMcpTokenBoundTo($project);
+        $finding = ['check' => 'Tests run', 'status' => 'ready', 'evidence' => 'Yes.'];
+        $proposal = ['key' => 'a', 'title' => 'A', 'type' => 'feature', 'body' => 'B'];
+
+        $cases = [
+            'Call readiness_get or discovery_start for the runId' => [Uuid::v4()->toRfc4122(), [$finding], [$proposal]],
+            'A proposal type must be one of feature, bug' => [(string) $run->id, [$finding], [['type' => 'epic'] + $proposal]],
+            'Two proposals have the same key' => [(string) $run->id, [$finding], [$proposal, $proposal]],
+            'Each finding needs a check, a status and an evidence text, all as strings' => [(string) $run->id, [['check' => 'x']], []],
+            'Each proposal needs a key, a title, a type and a body as strings' => [(string) $run->id, [$finding], [['key' => 'a']]],
+            'An openCardNumber names a card that does not exist' => [(string) $run->id, [$finding], [['openCardNumber' => 999] + $proposal]],
+        ];
+        foreach ($cases as $message => [$runId, $findings, $proposals]) {
+            try {
+                $this->reportSubmit()($runId, 'lifecycle', $findings, $proposals);
+                self::fail('The tool accepted the report that should name: '.$message);
+            } catch (ToolCallException $e) {
+                self::assertStringContainsString($message, $e->getMessage());
+            }
+        }
+        self::assertSame(DiscoveryRunState::Requested, $run->state);
+    }
+
+    public function test_readiness_report_submit_refuses_a_second_report_for_the_run(): void
+    {
+        $project = $this->workflowProject('report-submit-tool-twice');
+        $run = $this->discoveryRun($this->discoveryCard($project));
+        $this->actAsMcpTokenBoundTo($project);
+        $this->reportSubmit()((string) $run->id, 'lifecycle', []);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('This run has a report already');
+
+        $this->reportSubmit()((string) $run->id, 'lifecycle', []);
+    }
+
+    public function test_readiness_report_submit_refuses_an_unbound_token(): void
+    {
+        $project = $this->workflowProject('report-submit-tool-unbound');
+        $this->actAsUnboundMcpToken($project->owner);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage(McpRefusalMessages::NO_PROJECT_REACHED);
+
+        $this->reportSubmit()(Uuid::v4()->toRfc4122(), 'lifecycle', []);
+    }
+
     private function liveProject(string $name): Project
     {
         $project = $this->workflowProject($name);
@@ -165,6 +240,14 @@ final class ReadinessToolsTest extends KernelTestCase
     {
         $tool = self::getContainer()->get(DiscoveryStartTool::class);
         self::assertInstanceOf(DiscoveryStartTool::class, $tool);
+
+        return $tool;
+    }
+
+    private function reportSubmit(): ReadinessReportSubmitTool
+    {
+        $tool = self::getContainer()->get(ReadinessReportSubmitTool::class);
+        self::assertInstanceOf(ReadinessReportSubmitTool::class, $tool);
 
         return $tool;
     }

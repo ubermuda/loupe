@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Readiness\Repository;
 
+use App\Module\Board\Entity\CardType;
+use App\Module\Readiness\Entity\DiscoveryProposal;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
+use App\Module\Readiness\Repository\DiscoveryProposalRepository;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
+use App\Module\Review\Entity\Document;
 use App\Tests\Module\Readiness\DiscoveryScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -98,6 +102,56 @@ final class DiscoveryRunRepositoryTest extends KernelTestCase
         $reported = $this->discoveryRun($this->discoveryCard($run->project), DiscoveryRunState::Reported);
         self::assertFalse($reported->fail('lost', $at));
         self::assertSame([DiscoveryRunState::Reported, null, null], [$reported->state, $reported->failureReason, $reported->endedAt]);
+    }
+
+    public function test_a_run_is_found_by_its_report_document_and_by_no_other(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('discovery-by-report');
+        $run = $this->discoveryRun($this->discoveryCard($project), DiscoveryRunState::Reported);
+        $other = $this->discoveryRun($this->discoveryCard($project), DiscoveryRunState::Reported);
+        $document = new Document($project->owner, $project, 'Report');
+        $document->addVersion('x', '<p>x</p>');
+        $this->em()->persist($document);
+        $run->reportDocument = $document;
+        $this->em()->flush();
+
+        self::assertSame($run, $this->repository()->findByReportDocument($document));
+        self::assertNotSame($other, $this->repository()->findByReportDocument($document));
+        $unlinked = new Document($project->owner, $project, 'Plain');
+        $unlinked->addVersion('x', '<p>x</p>');
+        $this->em()->persist($unlinked);
+        $this->em()->flush();
+        self::assertNull($this->repository()->findByReportDocument($unlinked));
+    }
+
+    public function test_the_fresh_state_reads_the_row_and_not_the_loaded_run(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('discovery-fresh');
+        $run = $this->discoveryRun($this->discoveryCard($project));
+        self::assertSame(['state' => DiscoveryRunState::Requested, 'hasReport' => false], $this->repository()->freshStateOf($run));
+
+        $this->em()->getConnection()->executeStatement("UPDATE discovery_runs SET state = 'failed' WHERE id = :id", ['id' => (string) $run->id]);
+
+        self::assertSame(DiscoveryRunState::Requested, $run->state);
+        self::assertSame(['state' => DiscoveryRunState::Failed, 'hasReport' => false], $this->repository()->freshStateOf($run));
+    }
+
+    public function test_the_proposals_of_a_run_list_in_tick_box_order_with_the_covered_ones_last(): void
+    {
+        self::bootKernel();
+        $run = $this->discoveryRun($this->discoveryCard($this->workflowProject('discovery-proposals')));
+        $other = $this->discoveryRun($this->discoveryCard($run->project));
+        foreach ([['c', null], ['b', 1], ['a', 0]] as [$key, $position]) {
+            $this->em()->persist(new DiscoveryProposal($run, $position, $key, $key, CardType::Docs, ''));
+        }
+        $this->em()->persist(new DiscoveryProposal($other, 0, 'z', 'z', CardType::Docs, ''));
+        $this->em()->flush();
+        $repository = self::getContainer()->get(DiscoveryProposalRepository::class);
+        self::assertInstanceOf(DiscoveryProposalRepository::class, $repository);
+
+        self::assertSame(['a', 'b', 'c'], array_map(static fn (DiscoveryProposal $proposal): string => $proposal->key, $repository->findForRun($run)));
     }
 
     private function repository(): DiscoveryRunRepository

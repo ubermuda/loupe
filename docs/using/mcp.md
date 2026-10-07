@@ -263,6 +263,7 @@ Roughly in the order an agent uses them:
 | `readiness_guide_set` | Show or hide the readiness checklist on the Workshop |
 | `readiness_get` | Read the readiness checks of the project, each with its status, and the state of the latest discovery run. It works while the Workshop guide is hidden |
 | `discovery_start` | Start a read-only [discovery run](workshop.md#run-discovery) on a new Backlog card. A running bridge must serve the project, the project needs a workflow with board automation on, and one run can be open at a time |
+| `readiness_report_submit` | Submit the report of a [discovery run](workshop.md#review-the-report): the findings, and the cards it proposes. Loupe writes the report as a document for review. When the owner approves it, each ticked proposal becomes a card in Next. A run takes one report |
 | `document_create` | Submit Markdown as a new document, or as a draft with `draft`; returns a review URL, the language it was stored in and its status |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_publish` | Send a draft to review, so it reaches the reviewer's inbox |
