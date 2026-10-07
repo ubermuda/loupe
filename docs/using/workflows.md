@@ -65,13 +65,12 @@ after 6 hours. After the last retry the card pauses, and the owner's inbox gets
 an item that names the reason.
 
 A bridge can settle a work request as refused, for example when its worker run
-fails. In Lifecycle, the workflow then retries the work once, after 10 minutes,
-when the refusal code is `failed`, `timeout`, `unfinished`, `work-remains`,
-`tool-unavailable` or `worktree-failed`. A retry of an unfinished run resumes
-its session. A retry never counts toward the work limit of a fix rule. When the
-retry also fails, the card pauses with "too many attempts were refused". Any
-other refusal code pauses the card at once with "the worker stopped and needs a
-person". The board marks a card whose latest worker run failed or ended with no
+fails. In Lifecycle, the workflow then retries the work up to three times,
+after 2, 3 and 5 minutes, when the refusal code is `failed` or `timeout`. A
+retry never counts toward the work limit of a fix rule. When the third retry
+also fails, the card pauses with "too many attempts were refused". Any other
+refusal code, such as `unfinished` or `work-remains`, pauses the card at once
+with "the worker stopped and needs a person". The board marks a card whose latest worker run failed or ended with no
 result, until a later run ends in another state.
 
 A work request that no bridge takes within 2 hours pauses the card with "no

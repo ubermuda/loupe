@@ -56,6 +56,7 @@ final readonly class ShowWorkflowSettingsHandler
             ),
             backoffMinutes: $template->backoffMinutes,
             workTimeoutMinutes: $template->workTimeoutMinutes,
+            workFailedBackoffMinutes: $template->onWorkFailed?->backoffMinutes,
         ));
     }
 

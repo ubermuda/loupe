@@ -109,6 +109,9 @@
     <section class="lp-workflow-section" data-workflow-timings>
         <h2 class="lp-section-title">{{ 'workflow.settings.timings.heading'|trans }}</h2>
         <p class="lp-workspace-desc">{{ 'workflow.settings.timings.backoff'|trans({'%minutes%': template.backoffMinutes|join(', ')}) }}</p>
+        {% if template.workFailedBackoffMinutes is not null %}
+            <p class="lp-workspace-desc">{{ 'workflow.settings.timings.work_failed_backoff'|trans({'%minutes%': template.workFailedBackoffMinutes|join(', ')}) }}</p>
+        {% endif %}
         <p class="lp-workspace-desc">{{ 'workflow.settings.timings.work_timeout'|trans({'%minutes%': template.workTimeoutMinutes}) }}</p>
     </section>
     {% endif %}

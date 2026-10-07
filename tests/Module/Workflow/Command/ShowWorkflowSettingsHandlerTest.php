@@ -88,6 +88,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.next'), $template->manualMoves[0]);
         self::assertSame([10, 60, 360], $template->backoffMinutes);
         self::assertSame(120, $template->workTimeoutMinutes);
+        self::assertSame([2, 3, 5], $template->workFailedBackoffMinutes);
     }
 
     public function test_a_slot_whose_column_was_deleted_has_no_column(): void
@@ -159,6 +160,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.open', false, '')]),
         ], $template->rules[2]->untilGroups);
         self::assertSame([], $template->rules[0]->untilGroups);
+        self::assertNull($template->workFailedBackoffMinutes);
     }
 
     private function show(Project $project): WorkflowSettingsView

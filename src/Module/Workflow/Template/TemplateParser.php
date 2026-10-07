@@ -525,8 +525,14 @@ final readonly class TemplateParser
 
             return null;
         }
+        $backoffMinutes = self::backoffMinutes($value['backoffMinutes'] ?? null);
+        if (null === $backoffMinutes) {
+            $errors[] = 'onWorkFailed.backoffMinutes: must be a list of positive integers';
 
-        return new WorkFailurePolicy($retryOn, $retries);
+            return null;
+        }
+
+        return new WorkFailurePolicy($retryOn, $retries, $backoffMinutes);
     }
 
     /** @return ?list<int> */
