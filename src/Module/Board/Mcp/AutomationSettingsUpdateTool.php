@@ -53,6 +53,8 @@ final readonly class AutomationSettingsUpdateTool
                 changeBase: $changeBase ?? $current->changeBase,
                 epicDraftSwitch: $epicDraftSwitch ?? $current->epicDraftSwitch,
                 closeEpicPullRequests: $closeEpicPullRequests ?? $current->closeEpicPullRequests,
+                openEpicPullRequests: $current->openEpicPullRequests,
+                epicBranchPattern: $current->epicBranchPattern,
             ));
             $saved = $this->automation->settingsOf($project);
 

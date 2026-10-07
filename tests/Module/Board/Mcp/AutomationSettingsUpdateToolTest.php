@@ -66,6 +66,24 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertTrue($stored->changeBase);
     }
 
+    public function test_an_update_keeps_the_epic_settings_the_tool_does_not_take(): void
+    {
+        $project = $this->makeProject('automation-update-epic');
+        $this->em->persist(new BoardAutomationSettings($project, openEpicPullRequests: true, epicBranchPattern: 'feature/{number}'));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        ($this->tool)(syncBehind: true);
+
+        $this->em->clear();
+        $repository = self::getContainer()->get(BoardAutomationSettingsRepository::class);
+        self::assertInstanceOf(BoardAutomationSettingsRepository::class, $repository);
+        $stored = $repository->findOneBy(['project' => $project->id]);
+        self::assertInstanceOf(BoardAutomationSettings::class, $stored);
+        self::assertTrue($stored->openEpicPullRequests);
+        self::assertSame('feature/{number}', $stored->epicBranchPattern);
+    }
+
     public function test_a_project_with_no_stored_settings_starts_from_the_defaults(): void
     {
         $this->actAsMcpTokenBoundTo($this->makeProject('automation-update-defaults'));
