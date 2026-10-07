@@ -61,6 +61,7 @@ final class ReadinessToolsTest extends KernelTestCase
         self::assertFalse($answer['guideHidden']);
         self::assertSame('Discovery failed: No bridge took the work.', $answer['rows'][5]['status']);
         self::assertSame([
+            'runId' => (string) $run->id,
             'state' => 'failed',
             'cardId' => (string) $run->card->id,
             'cardNumber' => $run->card->number,
