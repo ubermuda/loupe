@@ -95,6 +95,7 @@ final class McpEndpointAuthTest extends WebTestCase
             'analytics_settings_update',
             'board_columns',
             'bridge_command_cancel',
+            'bridge_host_samples',
             'bridge_list',
             'card_create',
             'card_get',

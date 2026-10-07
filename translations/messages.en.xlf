@@ -2566,6 +2566,10 @@
                 <source>project.connect.tool.worker_run_tool_calls</source>
                 <target>Read the tool calls of one worker run in order, with the duration, the result and the signatures of each call.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.bridge_host_samples">
+                <source>project.connect.tool.bridge_host_samples</source>
+                <target>Read the CPU, memory, swap and battery samples of the machine that ran one worker run, during that run.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.metric_list">
                 <source>project.connect.tool.metric_list</source>
                 <target>List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes.</target>

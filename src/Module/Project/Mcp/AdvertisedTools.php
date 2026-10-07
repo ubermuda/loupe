@@ -63,6 +63,7 @@ final class AdvertisedTools
         'worker_run_list',
         'worker_run_get',
         'worker_run_tool_calls',
+        'bridge_host_samples',
         'metric_list',
         'metric_query',
         'analysis_get',

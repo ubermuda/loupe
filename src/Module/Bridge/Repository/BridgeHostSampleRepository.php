@@ -33,6 +33,10 @@ class BridgeHostSampleRepository extends ServiceEntityRepository
 
     private const string COLUMNS = 'bridge_id, sampled_at, cpu_pct, mem_used, mem_total, swap_used, battery_pct, on_ac';
 
+    private const string WINDOW = 'owner_id = :owner AND bridge_id = :bridge AND sampled_at BETWEEN :from AND :to';
+
+    private const array WINDOW_TYPES = ['from' => Types::DATETIME_IMMUTABLE, 'to' => Types::DATETIME_IMMUTABLE];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, BridgeHostSample::class);
@@ -104,25 +108,40 @@ class BridgeHostSampleRepository extends ServiceEntityRepository
      *
      * @return list<BridgeHostSampleReport>
      */
-    public function findForBridgeBetween(Uuid $ownerId, Uuid $bridgeId, \DateTimeImmutable $from, \DateTimeImmutable $to, int $limit): array
+    public function findForBridgeBetween(Uuid $ownerId, Uuid $bridgeId, \DateTimeImmutable $from, \DateTimeImmutable $to, int $limit, int $offset = 0): array
     {
         /** @var list<SampleRow> $rows */
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
             'SELECT '.self::COLUMNS.' FROM bridge_host_samples
-                WHERE owner_id = :owner AND bridge_id = :bridge AND sampled_at BETWEEN :from AND :to
+                WHERE '.self::WINDOW.'
                 ORDER BY sampled_at
-                LIMIT :limit',
-            [
-                'owner' => $ownerId->toRfc4122(),
-                'bridge' => $bridgeId->toRfc4122(),
-                'from' => $from->setTimezone(new \DateTimeZone('UTC')),
-                'to' => $to->setTimezone(new \DateTimeZone('UTC')),
-                'limit' => $limit,
-            ],
-            ['from' => Types::DATETIME_IMMUTABLE, 'to' => Types::DATETIME_IMMUTABLE, 'limit' => Types::INTEGER],
+                LIMIT :limit OFFSET :offset',
+            [...self::windowParams($ownerId, $bridgeId, $from, $to), 'limit' => $limit, 'offset' => $offset],
+            [...self::WINDOW_TYPES, 'limit' => Types::INTEGER, 'offset' => Types::INTEGER],
         );
 
         return array_map(self::report(...), $rows);
+    }
+
+    /** The count of samples findForBridgeBetween() pages through. */
+    public function countForBridgeBetween(Uuid $ownerId, Uuid $bridgeId, \DateTimeImmutable $from, \DateTimeImmutable $to): int
+    {
+        return (int) $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM bridge_host_samples WHERE '.self::WINDOW,
+            self::windowParams($ownerId, $bridgeId, $from, $to),
+            self::WINDOW_TYPES,
+        );
+    }
+
+    /** @return array{owner: string, bridge: string, from: \DateTimeImmutable, to: \DateTimeImmutable} */
+    private static function windowParams(Uuid $ownerId, Uuid $bridgeId, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        return [
+            'owner' => $ownerId->toRfc4122(),
+            'bridge' => $bridgeId->toRfc4122(),
+            'from' => $from->setTimezone(new \DateTimeZone('UTC')),
+            'to' => $to->setTimezone(new \DateTimeZone('UTC')),
+        ];
     }
 
     /** @param SampleRow $row */
