@@ -54,12 +54,13 @@ The guide is a checklist named Ready for agents. It counts the rows that are don
 - Bridge running is done when a bridge that serves the project sends heartbeats. Start opens the Connect page.
 - GitHub App is done when a repository connects to the project through the GitHub App. Install starts the install when the instance has a GitHub App.
 - Agent GitHub account is done when the owner records the login of the agent account, and a running bridge of the project pushes as that login. The row says which part is missing. Set up opens the [agent account page](../getting-started/agent-github-account.md).
-- Repository always shows Not run. A later release adds the discovery that fills it.
+- Repository shows the latest [discovery](#run-discovery) of the project. It is done when the owner reviewed the discovery report.
 
 When Needs you is empty and nothing is in motion, the guide is the only content of the Workshop.
 Its heading names the project, for example "Get Acme ready for agents".
-A Run discovery panel comes first and says that discovery has not run yet. The checklist and the Hide this guide control follow it.
+A Run discovery panel comes first and shows the status of the Repository row. The checklist and the Hide this guide control follow it.
 Open cards with no worker run, such as cards in Backlog or Next, do not change this layout.
+The worker run of the discovery card does not change it either, so the guide stays in front while discovery runs.
 
 When an item needs you or a card is in motion, the Workshop shows its normal layout.
 The checklist then sits at the top of the right column. Its × control hides the guide.
@@ -67,3 +68,33 @@ The checklist then sits at the top of the right column. Its × control hides the
 A hidden guide stays hidden. To show it again, use the [Agent readiness](projects.md#agent-readiness) tab of Project settings.
 An agent can also show it again with the `readiness_guide_set` MCP tool.
 When an instance upgrades, a project that has a card outside Backlog starts with the guide hidden.
+
+## Run discovery
+
+Discovery reads the repository and the workflow of the project, and writes a readiness report.
+The worker only reads. It changes no file and opens no pull request.
+
+To start it, select **Run discovery** in the Repository row.
+Loupe creates a new tooling card in the Backlog, named "Discover what Acme needs for agents".
+The card tracks the run, and Loupe moves it. Each run gets a new card.
+The [`discovery` rule](workflows.md#rules-the-app-adds) then asks a bridge for the work.
+An agent can start discovery with the `discovery_start` MCP tool, and read the checklist with `readiness_get`.
+
+Discovery needs a running bridge that serves the project.
+The project must also have a workflow, and **Run the workflow of the board** must be on, on the [Automation](board.md#automation) tab.
+Otherwise the workflow cannot ask a bridge for the work, so Loupe refuses the start.
+The bridge must set `appPrompts: true` in its `rules.yaml`, and its CLI must support app prompts.
+See [Command-line bridge](../extending/cli-bridge.md#work-requests).
+
+The Repository row shows the state of the latest run:
+
+| Status | What it means | Action |
+|---|---|---|
+| Not run | Discovery never ran on this project | Run discovery |
+| Discovery waits for a running bridge | Discovery never ran, and no bridge serves the project now | None. The Bridge running row links to the setup |
+| Discovery waits for a workflow | Discovery never ran, and the project has no workflow | None. Choose a workflow for the project |
+| Discovery waits for board automation | Discovery never ran, and the workflow of the board is off | None. Switch on **Run the workflow of the board** |
+| Running on card #N | A run is open. A second start is refused until it ends | Open card |
+| Discovery failed: reason | The run ended with no report. "No bridge took the work." means that no bridge claimed the request in time. "The discovery card left Backlog before the work ended." means that the work stopped because the card moved | Run again, when discovery can start |
+| The report waits for your review | The worker reported | None |
+| Reviewed | The owner reviewed the report. The row is done | None |

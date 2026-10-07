@@ -30,7 +30,8 @@
         <section class="lp-readiness-discovery" aria-labelledby="readiness-discovery-title">
             <h2 class="lp-workshop-section__title" id="readiness-discovery-title">{{ 'readiness.discovery.title'|trans }}</h2>
             <p>{{ 'readiness.discovery.body'|trans }}</p>
-            <span class="lp-readiness-discovery__status">{{ 'readiness.discovery.status'|trans }}</span>
+            {% set discovery = readiness.row('repository') %}
+            {% if discovery is not null %}<span class="lp-readiness-discovery__status">{{ discovery.status|trans(discovery.statusParameters) }}</span>{% endif %}
         </section>
         {% include '@Project/_readiness_checklist.html.twig' with {project: workshop.project, readiness: readiness, layout: 'full'} only %}
         <form class="lp-readiness-guide__hide" method="post" action="{{ path('app_readiness_guide_hide', {id: workshop.project.id}) }}">

@@ -34,6 +34,8 @@ final class AdvertisedTools
         'project_update',
         'project_origins_set',
         'readiness_guide_set',
+        'readiness_get',
+        'discovery_start',
         'document_create',
         'document_list',
         'document_get',

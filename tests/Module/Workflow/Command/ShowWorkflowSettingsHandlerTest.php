@@ -92,7 +92,9 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.document_approved', false, 'tag: tech-design'), new WorkflowConditionView('card.document_changes_requested', true, 'tag: tech-design'), new WorkflowConditionView('card.has_open_blocker', true, '')]),
         ], $rules['tech-design-approved']->whenGroups);
 
-        self::assertSame([], $template->appRules);
+        self::assertEquals([
+            new WorkflowRuleView('discovery', 'workflow.settings.where.backlog', 'workflow.settings.action.request', null, 'discovery', [new WorkflowConditionGroupView('workflow.source.readiness', [new WorkflowConditionView('card.discovery_requested', false, '')])], [], []),
+        ], $template->appRules);
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.next', 'workflow.settings.moves.by.anyone'), $template->manualMoves[0]);
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.implementation', 'workflow.settings.moves.by.parent_run'), $template->manualMoves[7]);
         self::assertSame([10, 60, 360], $template->backoffMinutes);

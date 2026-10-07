@@ -10,7 +10,14 @@ final readonly class WorkshopReadiness
     public function __construct(
         /** @var list<WorkshopReadinessRow> */
         public array $rows,
+        /** The card of the latest discovery run. Its open run does not end the quiet Workshop. */
+        public ?int $discoveryCardNumber = null,
     ) {
+    }
+
+    public function row(string $key): ?WorkshopReadinessRow
+    {
+        return array_find($this->rows, static fn (WorkshopReadinessRow $row): bool => $key === $row->key);
     }
 
     public function doneCount(): int

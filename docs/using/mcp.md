@@ -261,6 +261,8 @@ Roughly in the order an agent uses them:
 | `project_update` | Change the project's name, description, domain or search language. A new name also changes the slug |
 | `project_origins_set` | Replace the list of site origins the sign-in widget may run on |
 | `readiness_guide_set` | Show or hide the readiness checklist on the Workshop |
+| `readiness_get` | Read the readiness checks of the project, each with its status, and the state of the latest discovery run. It works while the Workshop guide is hidden |
+| `discovery_start` | Start a read-only [discovery run](workshop.md#run-discovery) on a new Backlog card. A running bridge must serve the project, the project needs a workflow with board automation on, and one run can be open at a time |
 | `document_create` | Submit Markdown as a new document, or as a draft with `draft`; returns a review URL, the language it was stored in and its status |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_publish` | Send a draft to review, so it reaches the reviewer's inbox |

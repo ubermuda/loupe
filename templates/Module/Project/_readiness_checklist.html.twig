@@ -14,10 +14,15 @@
     </div>
     <ul class="lp-readiness-checklist__list">
         {% for row in readiness.rows %}
-        <li class="lp-readiness-row" data-readiness-row="{{ row.key }}" data-readiness-done="{{ row.done ? 1 : 0 }}">
+        <li class="lp-readiness-row" data-readiness-row="{{ row.key }}" data-readiness-done="{{ row.done ? 1 : 0 }}"{% if row.discoveryState is not null %} data-readiness-discovery-state="{{ row.discoveryState }}"{% endif %}>
             <span class="lp-readiness-row__mark">{% if row.done %}<twig:ux:icon name="lucide:circle-check" />{% else %}<twig:ux:icon name="lucide:circle" />{% endif %}</span>
             <span class="lp-readiness-row__text"><strong>{{ row.label|trans }}</strong><small>{{ row.detail is not null ? row.detail|trans : row.status|trans(row.statusParameters) }}</small></span>
-            {% if row.actionUrl %}
+            {% if row.actionUrl and row.actionCsrfTokenId %}
+            <form class="lp-readiness-row__action" method="post" action="{{ row.actionUrl }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token(row.actionCsrfTokenId) }}">
+                <button type="submit" class="lp-workshop-text-link" data-readiness-action>{{ row.actionLabel|trans }} <twig:ux:icon name="lucide:chevron-right" /></button>
+            </form>
+            {% elseif row.actionUrl %}
             <a class="lp-workshop-text-link lp-readiness-row__action" href="{{ row.actionUrl }}">{{ row.actionLabel|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>
             {% endif %}
         </li>
