@@ -67,7 +67,9 @@ Call `worker_run_stop` with the `runId` and a `reason` that a person reads. A st
 
 Call `card_hold` with one of `cardId` or `number`. No bridge then starts a worker on the card. A hold stops no live run, so call `worker_run_stop` as well when a run must end now. A queued run waits, and starts when the hold ends.
 
-Call `card_release` to end the hold. A person ends it too when they select **Manage again**, move the card to another column, or delete the card.
+Call `card_release` to end the hold. A person ends it too when they select **Manage again**, delete the column of the card, or delete the card.
+
+At the end of a hold, each workflow rule whose condition is true fires, also when it was true before the hold. Each rule gets a fresh work budget, and an open work request gets a new timeout. A live request is not opened twice, and a workflow pause stays.
 
 ## Release a workflow pause
 
