@@ -6,7 +6,6 @@ namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -302,7 +301,7 @@ final class SiteReviewApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($client, 'api-target-ok@example.com');
         $em = $this->em();
         $review = new Card($project, $this->column($project, 'in-progress'), 'Review: /pricing', '', 1);
-        $epic = new Card($project, $this->column($project, 'backlog'), 'Review: /checkout', '', 2, type: CardType::Epic);
+        $epic = new Card($project, $this->column($project, 'backlog'), 'Review: /checkout', '', 2, type: 'epic');
         $em->persist($review);
         $em->persist($epic);
         $em->flush();
@@ -332,7 +331,7 @@ final class SiteReviewApiTest extends WebTestCase
         [, $other] = $this->projectWithToken($client, 'api-target-other@example.com', 'other-site');
         $em = $this->em();
         $closed = new Card($project, $this->column($project, 'done'), 'Shipped', '', 1);
-        $closedEpic = new Card($project, $this->column($project, 'done'), 'Old review', '', 2, type: CardType::Epic);
+        $closedEpic = new Card($project, $this->column($project, 'done'), 'Old review', '', 2, type: 'epic');
         $feature = new Card($project, $this->column($project, 'backlog'), 'Not an epic', '', 3);
         $foreign = new Card($other, $this->column($other, 'backlog'), 'Elsewhere', '', 1);
         foreach ([$closed, $closedEpic, $feature, $foreign] as $card) {

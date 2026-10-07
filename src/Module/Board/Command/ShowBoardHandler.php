@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -15,6 +14,7 @@ use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
 use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Bridge\Service\CardRunWarnings;
 
@@ -33,6 +33,7 @@ final readonly class ShowBoardHandler
         private CardPullRequestStates $pullRequestStates,
         private CardMarkers $markers,
         private BoardAutomation $automation,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -59,7 +60,8 @@ final readonly class ShowBoardHandler
         }
 
         $backlog ??= throw new \LogicException('Every board has a Backlog.');
-        [$lanes, $otherCards] = $this->boardLanes->sort($columns, $this->cards->findLaneEpics($project));
+        $types = $this->catalog->forProject($project);
+        [$lanes, $otherCards] = $this->boardLanes->sort($columns, $this->cards->findLaneEpics($project, $types->withLane()));
 
         $counts = $this->cards->childProgressForProject($project);
         $progress = [];
@@ -70,7 +72,7 @@ final readonly class ShowBoardHandler
                 ? $view->count
                 : array_sum(array_map(static fn (BoardLaneView $lane): int => \count($lane->cells[$columnId] ?? []), [...$lanes, $otherCards]));
             foreach ($view->cards as $card) {
-                if (CardType::Epic === $card->type) {
+                if ($types->get($card->type)->children) {
                     $epicCounts = $counts[(string) $card->id] ?? ['done' => 0, 'total' => 0];
                     $progress[(string) $card->id] = new CardProgress($epicCounts['done'], $epicCounts['total']);
                 }

@@ -16,13 +16,14 @@
          id="board-card-{{ card.id }}"
          data-card-digest="{{ card_digest(card, pendingComments, documentCount, progress, runWarning, badges) }}"{% endif %}
          data-card-id="{{ card.id }}"
-         data-card-type="{{ card.type.value }}"
+         data-card-type="{{ card.type }}"
+         data-card-lane="{{ card_type(card).lane ? 'true' : 'false' }}"
          data-card-title="{{ card.title }}">
     {# The identifier and the card's type lead the card face, as the design draws
        them. The number is the handle a person quotes. #}
     <div class="lp-board-card__identity">
         <span class="lp-board-card__number">#{{ card.number }}</span>
-        {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+        {% include '@Board/_card_type_tag.html.twig' with {card: card} only %}
         {% if card.parent and not inLane %}
         <span class="lp-board-card__parent" data-card-parent-tag title="{{ card.parent.title }}">
             <twig:ux:icon name="lucide:arrow-up" class="w-3 h-3 shrink-0" aria-hidden="true" />

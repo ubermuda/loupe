@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 
 final readonly class SearchCardsCommand
@@ -13,7 +12,7 @@ final readonly class SearchCardsCommand
         public Project $project,
         public string $query,
         public int $limit,
-        public ?CardType $type = null,
+        public ?string $type = null,
     ) {
     }
 }

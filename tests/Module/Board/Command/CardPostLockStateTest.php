@@ -15,7 +15,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
@@ -26,6 +25,7 @@ use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -95,7 +95,7 @@ final class CardPostLockStateTest extends KernelTestCase
         self::assertInstanceOf(CardHolds::class, $cardHolds);
         $pullRequestTracking = self::getContainer()->get(PullRequestTracking::class);
         self::assertInstanceOf(PullRequestTracking::class, $pullRequestTracking);
-        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards), $pullRequestTracking, $this->em, $this->audit->auditor, new EventDispatcher(), $interactiveRuns, $cardHolds);
+        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards, new ShippedCardTypes()), new ShippedCardTypes(), $pullRequestTracking, $this->em, $this->audit->auditor, new EventDispatcher(), $interactiveRuns, $cardHolds);
 
         $owner = new User(fullName: 'Riley', email: 'board-post-lock-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -235,7 +235,7 @@ final class CardPostLockStateTest extends KernelTestCase
             project: $this->project,
             title: $title,
             body: 'Body of '.$title,
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, $column),
         ));
 

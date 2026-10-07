@@ -55,7 +55,7 @@ final readonly class CardExporter implements UserDataExporterInterface
                 'body' => $card->body,
                 'status' => $card->column->slug,
                 'column' => $this->translator->trans($card->column->label),
-                'type' => $card->type->value,
+                'type' => $card->type,
                 'reporter' => $card->reporter->value,
                 'position' => $card->position,
                 'completedAt' => $card->completedAt?->format(\DateTimeInterface::ATOM),

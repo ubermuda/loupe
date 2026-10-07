@@ -11,7 +11,6 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -149,7 +148,7 @@ final class CardCrudControllerTest extends WebTestCase
         $client->submitForm('Create card', [
             'create_card_form[title]' => 'Ship the board',
             'create_card_form[body]' => "It needs **columns**.\n",
-            'create_card_form[type]' => CardType::Tooling->value,
+            'create_card_form[type]' => 'tooling',
             'create_card_form[column]' => (string) $this->column($project, 'next')->id,
             'create_card_form[pullRequestUrls]' => "https://github.com/loupe/loupe/pull/12\n\nnot-a-known-forge\n",
         ]);
@@ -160,7 +159,7 @@ final class CardCrudControllerTest extends WebTestCase
         $created = $cards->findOneBy(['title' => 'Ship the board']);
         self::assertInstanceOf(Card::class, $created);
         self::assertSame('next', $created->column->slug);
-        self::assertSame(CardType::Tooling, $created->type);
+        self::assertSame('tooling', $created->type);
         // A form is a person writing the card down, whatever an agent does later.
         self::assertSame(CardReporter::Human, $created->reporter);
         self::assertCount(2, $created->pullRequests);
@@ -245,7 +244,7 @@ final class CardCrudControllerTest extends WebTestCase
         $client->submitForm('Save card', [
             'create_card_form[title]' => 'After',
             'create_card_form[body]' => 'Rewritten.',
-            'create_card_form[type]' => CardType::Bug->value,
+            'create_card_form[type]' => 'bug',
             'create_card_form[column]' => (string) $this->column($project, 'in-progress')->id,
             'create_card_form[pullRequestUrls]' => 'https://github.com/loupe/loupe/pull/99',
         ]);

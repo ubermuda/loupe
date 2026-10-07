@@ -9,7 +9,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -85,7 +84,7 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
             project: $this->project,
             title: 'A card',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, $column),
             documentIds: [(string) $document->id],
         ));

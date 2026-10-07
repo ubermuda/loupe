@@ -13,7 +13,7 @@
    data-card-digest="{{ card_digest(card, feedbackCount, documentCount, progress, runWarning, badges) }}"
    data-card-title="{{ card.title }}">
     <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong>{% if badges is not empty %}{% include '@Board/_card_badges.html.twig' with {badges: badges} only %}{% endif %}</span>
-    <span>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</span>
+    <span>{% include '@Board/_card_type_tag.html.twig' with {card: card} only %}</span>
     <span data-column-tag="{{ column.id }}">{% include '@Board/_column_tag.html.twig' with {column: column} only %}</span>
     {% if card.parent %}
     <span data-card-parent title="{{ card.parent.title }}">#{{ card.parent.number }}</span>

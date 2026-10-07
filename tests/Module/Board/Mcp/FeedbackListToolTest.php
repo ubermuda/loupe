@@ -47,7 +47,7 @@ final class FeedbackListToolTest extends KernelTestCase
     {
         $project = $this->makeProject('feedback-list');
         $this->actAsMcpTokenBoundTo($project);
-        $card = $this->card(($this->createTool)('Fix the header', 'Body', 'site-review')['cardId']);
+        $card = $this->card(($this->createTool)('Fix the header', 'Body', 'feature')['cardId']);
 
         $first = $this->feedback($project, 0, 'The logo is blurry', $card, context: 'card:preview');
         $first->addAnchor('header .logo', 'Logo', 'Acme', 'the ', ' mark');
@@ -99,7 +99,7 @@ final class FeedbackListToolTest extends KernelTestCase
     {
         $project = $this->makeProject('feedback-list-status');
         $this->actAsMcpTokenBoundTo($project);
-        $card = $this->card(($this->createTool)('Card', 'Body', 'site-review')['cardId']);
+        $card = $this->card(($this->createTool)('Card', 'Body', 'feature')['cardId']);
 
         $this->feedback($project, 0, 'Pending one', $card);
         $this->feedback($project, 1, 'Addressed one', $card, SiteReviewCommentStatus::Addressed);
@@ -125,12 +125,12 @@ final class FeedbackListToolTest extends KernelTestCase
     {
         $theirs = $this->makeProject('feedback-list-theirs');
         $this->actAsMcpTokenBoundTo($theirs);
-        $theirCard = $this->card(($this->createTool)('Theirs', 'Body', 'site-review')['cardId']);
+        $theirCard = $this->card(($this->createTool)('Theirs', 'Body', 'feature')['cardId']);
         $this->feedback($theirs, 0, 'Not yours', $theirCard);
 
         $mine = $this->makeProject('feedback-list-mine');
         $this->actAsMcpTokenBoundTo($mine);
-        $myCard = $this->card(($this->createTool)('Mine', 'Body', 'site-review')['cardId']);
+        $myCard = $this->card(($this->createTool)('Mine', 'Body', 'feature')['cardId']);
         $this->feedback($mine, 0, 'Yours', $myCard);
         $this->em->flush();
 

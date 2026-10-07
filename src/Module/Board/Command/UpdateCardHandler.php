@@ -24,6 +24,7 @@ use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -56,6 +57,7 @@ final readonly class UpdateCardHandler
         private CardLinkSync $cardLinkSync,
         private CardParentResolver $parents,
         private CardParentPolicy $parentPolicy,
+        private CardTypeCatalog $catalog,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -147,7 +149,7 @@ final readonly class UpdateCardHandler
                 $oldParent = $card->parent;
                 $parent = null === $command->parentCardId ? $oldParent : $newParent;
                 $parentChanged = $parent?->id?->toRfc4122() !== $oldParent?->id?->toRfc4122();
-                $refusal = $this->parentPolicy->refusal($card, $command->type ?? $card->type, $parent, $parentChanged);
+                $refusal = $this->parentPolicy->refusal($card->project, $card, $command->type ?? $card->type, $parent, $parentChanged);
                 if (null !== $refusal) {
                     return $refusal;
                 }
@@ -166,7 +168,8 @@ final readonly class UpdateCardHandler
                 return new CardManaged($card->number);
             }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
-            $lanesBefore = $card->drawsLane();
+            $types = $this->catalog->forProject($card->project);
+            $lanesBefore = $card->drawsLane($types);
 
             // Only a card with children can be refused, and only an epic has
             // children. The app itself closes an epic by the same path.
@@ -240,7 +243,7 @@ final readonly class UpdateCardHandler
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
-            $lanesAfter = $card->drawsLane();
+            $lanesAfter = $card->drawsLane($types);
 
             if (null !== $trackedBefore) {
                 $this->pullRequestTracking->apply($card->project, $trackedBefore, $this->pullRequestTracking->referencesOf($card));

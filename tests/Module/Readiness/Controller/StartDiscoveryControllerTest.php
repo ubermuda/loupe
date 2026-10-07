@@ -13,6 +13,7 @@ use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
 use App\Module\Workflow\Entity\WorkflowBinding;
+use App\Module\Workflow\Template\ShippedTemplates;
 use App\Tests\Module\Readiness\ReadinessScenario;
 use App\Tests\Support\AgentCredential;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -147,7 +148,9 @@ final class StartDiscoveryControllerTest extends WebTestCase
         self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
         $seeder->seed($project);
         if ($bound) {
-            $this->em()->persist(new WorkflowBinding($project, 'simple', 1, []));
+            $shipped = static::getContainer()->get(ShippedTemplates::class);
+            self::assertInstanceOf(ShippedTemplates::class, $shipped);
+            $this->em()->persist(new WorkflowBinding($project, 'simple', 1, $shipped->source('simple')));
         }
         $this->em()->flush();
 

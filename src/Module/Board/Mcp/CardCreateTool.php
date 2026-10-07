@@ -19,7 +19,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Add a card to the project board. Give it a title, a Markdown body and a type (feature, bug, security, tooling, docs, idea, epic, site-review). An epic groups the child cards that together build one feature. Pass parentCardId to put the new card under an epic of this project. Only an epic can be a parent, and an epic cannot have a parent. laneEnabled says whether the board draws a lane for an epic, and it defaults to true. With no status, the card lands in Backlog, whose slug is backlog. The board does not draw Backlog as a column, and Backlog has its own page. To place the card elsewhere, pass status, the slug of a column. Each board has its own columns, and board_columns lists them. A terminal column is where finished work goes, and a card created in one gets a completion time. Pass pullRequestUrls to link the pull requests that carry the work; a URL from an unrecognised forge is kept as given rather than rejected. Pass documentIds to link the documents the work is written up in; unlike a pull request URL, an id naming no document of this project is refused rather than kept. The card records reporter agent unless you pass human, which says a person raised it and you are only writing it down. Passing reviewer is refused: the site-review widget writes that value, and it means somebody the app could not name raised the card. origin is the old name for reporter and still works for one release, so move to reporter; when you send both, reporter wins. Pass relatedCards to link other cards of this project. Each entry takes a cardId and a kind: relates-to (the default), blocks or blocked-by. A link to the card itself, to a card outside this project, or to one card twice is refused. The response carries a number, the short label that counts from 1 inside this project. Say "card 42" and name a branch after it. It is not the cardId, and another project has its own card 42. card_get and card_update accept it, so use the cardId or the number to read or change it.')]
+#[McpTool(name: self::NAME, description: 'Add a card to the project board. Give it a title, a Markdown body and a type. board_columns lists the types this project declares, with the capabilities of each, and a type it does not declare is refused. A type with the children capability groups the child cards that together build one feature. Pass parentCardId to put the new card under a card of such a type in this project. Only a card of a type with the children capability can be a parent, and such a card cannot have a parent. laneEnabled says whether the board draws a lane for a card of a type with the lane capability, and it defaults to true. With no status, the card lands in Backlog, whose slug is backlog. The board does not draw Backlog as a column, and Backlog has its own page. To place the card elsewhere, pass status, the slug of a column. Each board has its own columns, and board_columns lists them. A terminal column is where finished work goes, and a card created in one gets a completion time. Pass pullRequestUrls to link the pull requests that carry the work; a URL from an unrecognised forge is kept as given rather than rejected. Pass documentIds to link the documents the work is written up in; unlike a pull request URL, an id naming no document of this project is refused rather than kept. The card records reporter agent unless you pass human, which says a person raised it and you are only writing it down. Passing reviewer is refused: the site-review widget writes that value, and it means somebody the app could not name raised the card. origin is the old name for reporter and still works for one release, so move to reporter; when you send both, reporter wins. Pass relatedCards to link other cards of this project. Each entry takes a cardId and a kind: relates-to (the default), blocks or blocked-by. A link to the card itself, to a card outside this project, or to one card twice is refused. The response carries a number, the short label that counts from 1 inside this project. Say "card 42" and name a branch after it. It is not the cardId, and another project has its own card 42. card_get and card_update accept it, so use the cardId or the number to read or change it.')]
 final readonly class CardCreateTool
 {
     public const string NAME = 'card_create';
@@ -40,15 +40,15 @@ final readonly class CardCreateTool
      *
      * @param string       $title           the card title
      * @param string       $body            what the card asks for, in Markdown
-     * @param string       $type            one of feature, bug, security, tooling, docs, idea, epic, site-review
+     * @param string       $type            a type key from board_columns
      * @param string|null  $status          the slug of the column the card lands in, from board_columns; defaults to backlog
      * @param string|null  $reporter        who raised the card, agent or human; defaults to agent
      * @param string[]     $pullRequestUrls pull request URLs to link to the card
      * @param string[]     $documentIds     ids of documents in this project to link; any other id is refused
      * @param string|null  $origin          the old name for reporter, accepted for one release; reporter wins when both are sent
      * @param array<mixed> $relatedCards    cards of this project to link, each with a cardId and a kind
-     * @param string|null  $parentCardId    the id of an epic of this project that the card belongs to; omit it for no parent
-     * @param bool|null    $laneEnabled     whether the board draws a lane for this epic; defaults to true
+     * @param string|null  $parentCardId    the id of a card of this project, of a type with the children capability, that the card belongs to; omit it for no parent
+     * @param bool|null    $laneEnabled     whether the board draws a lane for this card, when its type has the lane capability; defaults to true
      *
      * @return CardSummary
      */
@@ -63,7 +63,7 @@ final readonly class CardCreateTool
                 project: $project,
                 title: $title,
                 body: $body,
-                type: $this->subjects->requireType($type),
+                type: $this->subjects->requireType($project, $type),
                 column: $this->subjects->optionalColumn($project, $status),
                 // The MCP request authenticates as the project owner, so the
                 // tool cannot tell an agent's card from one a person dictated.

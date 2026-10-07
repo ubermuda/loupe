@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Workflow\Action;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\EvaluateChildren;
@@ -25,7 +24,7 @@ final class EvaluateChildrenTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('evaluate-children');
         $epic = $this->card($project, 'in-progress');
-        $epic->type = CardType::Epic;
+        $epic->type = 'epic';
         $waiting = $this->card($project, 'backlog');
         $waiting->parent = $epic;
         $done = $this->card($project, 'done');

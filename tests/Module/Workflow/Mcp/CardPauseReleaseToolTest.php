@@ -12,7 +12,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
@@ -209,7 +208,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
             project: $project,
             title: 'Card',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($project, 'tech-design'),
             reporter: CardReporter::Human,
         ));
