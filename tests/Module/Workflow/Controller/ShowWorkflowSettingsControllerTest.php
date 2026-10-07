@@ -57,9 +57,8 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-workflow-types] [data-card-type="feature"]', 'Default');
         self::assertSelectorTextNotContains('[data-workflow-types] [data-card-type="bug"]', 'Default');
         self::assertSelectorExists('[data-workflow-types] [data-card-type="bug"] .lp-tag--amber');
-        self::assertSelectorTextContains('[data-workflow-types] [data-card-type="bug"]', 'None');
-        self::assertSelectorTextContains('[data-workflow-types] [data-card-type="epic"]', 'Can have children');
-        self::assertSelectorTextContains('[data-workflow-types] [data-card-type="epic"]', 'Gets a lane');
+        self::assertSelectorTextSame('[data-workflow-types] [data-card-type="bug"] [data-card-type-capabilities]', 'None');
+        self::assertSelectorTextSame('[data-workflow-types] [data-card-type="epic"] [data-card-type-capabilities]', 'Can have children, Gets a lane');
         self::assertSelectorTextContains('[data-workflow-timings]', '10, 60, 360');
         self::assertSelectorTextContains('[data-workflow-timings]', '120');
         self::assertSelectorTextContains('[data-workflow-timings]', 'Retries after failed work: 2, 3, 5 minutes');
