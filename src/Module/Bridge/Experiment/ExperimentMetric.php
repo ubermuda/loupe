@@ -39,14 +39,14 @@ final readonly class ExperimentMetric
         return $this->byVariant[$variant] ?? null;
     }
 
-    /** How the template shows a value of this row. A part has no metric key, so it takes the format of its parent. */
+    /** How the template shows a value of this row. A part row, such as a fix reason, has no metric key and shows a decimal. */
     public function format(): string
     {
-        $metric = Metric::from($this->key);
+        $metric = Metric::tryFrom($this->key);
 
         return match (true) {
+            null === $metric => 'decimal',
             Metric::Duration === $metric => 'minutes',
-            Metric::HoursToMerge === $metric => 'decimal',
             default => match ($metric->valueType()) {
                 MetricValueType::Money => 'currency',
                 MetricValueType::Ratio, MetricValueType::Boolean => 'percent',

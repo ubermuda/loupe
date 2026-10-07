@@ -97,7 +97,8 @@ final readonly class ShowExperimentHandler
         }
         $definition = $this->experimentDefinitions->findOneBy(['project' => $project, 'experiment' => $experiment]);
         $weights = null === $definition ? [] : array_column($definition->weights, 'weight', 'name');
-        $declared = $definition?->metrics;
+        // An empty declaration names no metric, so the defaults apply.
+        $declared = $definition?->metrics ?: null;
         $metricKeys = null === $declared ? self::DEFAULT_METRICS : array_values(array_unique(array_filter($declared, static fn (string $key): bool => null !== Metric::tryFrom($key))));
         $unknownMetrics = null === $declared ? [] : array_values(array_unique(array_filter($declared, static fn (string $key): bool => null === Metric::tryFrom($key))));
 
