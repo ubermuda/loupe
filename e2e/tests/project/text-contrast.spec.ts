@@ -148,6 +148,14 @@ test('secondary text and active navigation counts remain legible on their render
         expect.soft(await contrast(text), selector).toBeGreaterThanOrEqual(4.5);
     }
     await page.goto(`/projects/${projectId}`);
+    // The harness project outlives a run, so an earlier run may have hidden the readiness guide already.
+    const hideGuide = page.locator(
+        '[data-readiness-layout="full"] [data-readiness-hide]',
+    );
+    if ((await hideGuide.count()) > 0) {
+        await hideGuide.click();
+    }
+    await expect(page.locator('.lp-workshop-summary')).toBeVisible();
     const descriptions = page.locator('.lp-workshop-stat__copy');
     expect(await descriptions.count()).toBeGreaterThan(0);
     for (const description of await descriptions.all()) {

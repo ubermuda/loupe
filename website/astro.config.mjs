@@ -66,6 +66,7 @@ export default defineConfig({
           items: [
             { label: 'First steps', slug: 'getting-started' },
             { slug: 'getting-started/cli' },
+            { slug: 'getting-started/agent-github-account' },
           ],
         },
         {

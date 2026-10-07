@@ -226,6 +226,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
             McpBoundProjectVoter::WORKER_RUN_WRITE => ['project', 'worker_run'],
             McpBoundProjectVoter::ANALYSIS_READ => ['project'],
             McpBoundProjectVoter::ANALYSIS_WRITE => ['project'],
+            McpBoundProjectVoter::PROJECT_WRITE => ['project'],
         ];
 
         foreach ($accepts as $attribute => $accepted) {
@@ -261,6 +262,19 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $this->subjectOfType('project', $project)));
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::ANALYSIS_READ, $this->subjectOfType('project', $project)));
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::ANALYSIS_WRITE, $this->subjectOfType('project', $project)));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::PROJECT_WRITE, $this->subjectOfType('project', $project)));
+    }
+
+    public function test_denies_another_project_of_the_same_owner_for_the_project_attribute(): void
+    {
+        $owner = $this->user('project-voter-cross@example.com');
+        $project = $this->project($owner);
+        $this->actAsMcpTokenBoundTo($this->project($owner));
+
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::PROJECT_WRITE, $project));
+
+        $record = $this->auditedVote(McpBoundProjectVoter::PROJECT_WRITE, $project)->record('project.mcp_access_denied');
+        self::assertSame('project', $record->subject?->type);
     }
 
     private function subjectOfType(string $subjectType, Project $project): ProjectScopedSubject

@@ -8,13 +8,14 @@ use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\Uid\Uuid;
 
-/** Reads the template copy a project stored when it was bound. */
+/** Reads the template copy a project stored when it was bound, with the app rules after its own. */
 #[AsAlias(TemplateSource::class)]
 final readonly class ProjectTemplateCopy implements TemplateSource
 {
     public function __construct(
         private WorkflowBindingRepository $workflowBindings,
         private TemplateParser $parser,
+        private AppRules $appRules,
     ) {
     }
 
@@ -23,6 +24,6 @@ final readonly class ProjectTemplateCopy implements TemplateSource
     {
         $binding = $this->workflowBindings->findOneByProjectId($projectId) ?? throw new TemplateMissing($projectId);
 
-        return $this->parser->parseStored($binding->definition);
+        return $this->appRules->appendTo($this->parser->parseStored($binding->definition));
     }
 }

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\ListCardsHandler;
 use App\Module\Board\Command\SearchBoardHandler;
+use App\Module\Board\Mcp\AutomationSettingsUpdateTool;
 use App\Module\Board\Mcp\BoardColumnsTool;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetHistoryTool;
@@ -16,6 +17,10 @@ use App\Module\Board\Mcp\CardRunCloseTool;
 use App\Module\Board\Mcp\CardRunOpenTool;
 use App\Module\Board\Mcp\CardSearchTool;
 use App\Module\Board\Mcp\CardUpdateTool;
+use App\Module\Board\Mcp\ColumnCreateTool;
+use App\Module\Board\Mcp\ColumnDeleteTool;
+use App\Module\Board\Mcp\ColumnReorderTool;
+use App\Module\Board\Mcp\ColumnUpdateTool;
 use App\Module\Board\Mcp\FeedbackListTool;
 use App\Module\Board\Mcp\FeedbackMarkAddressedTool;
 use App\Module\Project\Mcp\AdvertisedTools;
@@ -67,6 +72,11 @@ final class BoardToolRegistrationTest extends KernelTestCase
         yield 'feedback_mark_addressed' => [FeedbackMarkAddressedTool::NAME, FeedbackMarkAddressedTool::class];
         yield 'card_run_open' => [CardRunOpenTool::NAME, CardRunOpenTool::class];
         yield 'card_run_close' => [CardRunCloseTool::NAME, CardRunCloseTool::class];
+        yield 'column_create' => [ColumnCreateTool::NAME, ColumnCreateTool::class];
+        yield 'column_update' => [ColumnUpdateTool::NAME, ColumnUpdateTool::class];
+        yield 'column_reorder' => [ColumnReorderTool::NAME, ColumnReorderTool::class];
+        yield 'column_delete' => [ColumnDeleteTool::NAME, ColumnDeleteTool::class];
+        yield 'automation_settings_update' => [AutomationSettingsUpdateTool::NAME, AutomationSettingsUpdateTool::class];
     }
 
     /** @param class-string $toolClass */
@@ -95,6 +105,24 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertLessThan($order[FeedbackMarkAddressedTool::NAME], $order[FeedbackListTool::NAME]);
         self::assertSame($order[CardUpdateTool::NAME] + 1, $order[CardRunOpenTool::NAME]);
         self::assertSame($order[CardRunOpenTool::NAME] + 1, $order[CardRunCloseTool::NAME]);
+        self::assertSame($order[CardRunCloseTool::NAME] + 1, $order[ColumnCreateTool::NAME]);
+        self::assertSame($order[ColumnCreateTool::NAME] + 1, $order[ColumnUpdateTool::NAME]);
+        self::assertSame($order[ColumnUpdateTool::NAME] + 1, $order[ColumnReorderTool::NAME]);
+        self::assertSame($order[ColumnReorderTool::NAME] + 1, $order[ColumnDeleteTool::NAME]);
+        self::assertSame($order[ColumnDeleteTool::NAME] + 1, $order[AutomationSettingsUpdateTool::NAME]);
+    }
+
+    public function test_the_column_tools_name_a_column_by_slug_and_reorder_takes_strings(): void
+    {
+        self::assertSame(['label'], $this->registry->getTool(ColumnCreateTool::NAME)->tool->inputSchema['required']);
+        self::assertSame(['slug'], $this->registry->getTool(ColumnUpdateTool::NAME)->tool->inputSchema['required']);
+        self::assertSame(['slug'], $this->registry->getTool(ColumnDeleteTool::NAME)->tool->inputSchema['required']);
+
+        $reorder = $this->registry->getTool(ColumnReorderTool::NAME)->tool->inputSchema;
+        self::assertSame(['order'], $reorder['required']);
+        self::assertSame(['type' => 'string'], $reorder['properties']['order']['items']);
+
+        self::assertArrayNotHasKey('required', $this->registry->getTool(AutomationSettingsUpdateTool::NAME)->tool->inputSchema);
     }
 
     public function test_the_run_tools_require_a_session_id(): void

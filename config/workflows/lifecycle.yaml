@@ -26,12 +26,23 @@ rules:
     - id: product-design-session
       slot: product-design
       when: { not: { card.document: { tag: product-design } } }
-      then: { request: { kind: product-design, capability: interactive } }
+      then:
+          request:
+              kind: product-design
+              capability: interactive
+              checks:
+                  - An interactive session that the owner can join
+                  - The Loupe plugin skills are installed for the agent
 
     - id: product-design-revise
       slot: product-design
       when: { card.document_changes_requested: { tag: product-design } }
-      then: { request: { kind: product-design-revise, document: { tag: product-design, status: changes-requested } } }
+      then:
+          request:
+              kind: product-design-revise
+              document: { tag: product-design, status: changes-requested }
+              checks:
+                  - The Loupe plugin skills are installed for the agent
 
     - id: product-design-approved
       slot: product-design
@@ -44,12 +55,25 @@ rules:
     - id: tech-design-write
       slot: tech-design
       when: { not: { card.document: { tag: tech-design } } }
-      then: { request: { kind: tech-design } }
+      then:
+          request:
+              kind: tech-design
+              checks:
+                  - The agent can read the whole repository
+                  - Agent instructions such as AGENTS.md or CLAUDE.md describe the architecture
+                  - The Loupe plugin skills are installed for the agent
 
     - id: tech-design-revise
       slot: tech-design
       when: { card.document_changes_requested: { tag: tech-design } }
-      then: { request: { kind: tech-design-revise, document: { tag: tech-design, status: changes-requested } } }
+      then:
+          request:
+              kind: tech-design-revise
+              document: { tag: tech-design, status: changes-requested }
+              checks:
+                  - The agent can read the whole repository
+                  - Agent instructions such as AGENTS.md or CLAUDE.md describe the architecture
+                  - The Loupe plugin skills are installed for the agent
 
     - id: tech-design-approved
       slot: tech-design
@@ -66,12 +90,26 @@ rules:
           all:
               - not: { card.type: { type: epic } }
               - not: { pr.linked: {} }
-      then: { request: { kind: implement } }
+      then:
+          request:
+              kind: implement
+              checks:
+                  - A worktree per card, so two cards never share one checkout
+                  - A preview URL per branch, with the review widget on it
+                  - The .loupe/lifecycle.md sections that the stage skills read
+                  - A build command and a test command that an agent can run
+                  - A review step before a push
+                  - The agent pushes as its own GitHub account
 
     - id: breakdown
       slot: implementation
       when: { card.type: { type: epic } }
-      then: { request: { kind: breakdown } }
+      then:
+          request:
+              kind: breakdown
+              checks:
+                  - The Epics section of .loupe/lifecycle.md, when the project uses epic branches
+                  - Permission to push an epic branch
 
     - id: reviewable
       slot: implementation
@@ -94,7 +132,19 @@ rules:
                     - pr.checks_failed: {}
                     - pr.conflicting: {}
                     - pr.changes_requested: {}
-      then: { request: { kind: fix, limit: 3 } }
+      then:
+          request:
+              kind: fix
+              limit: 3
+              checks:
+                  - The worktree of the card is still available, or the agent can make it again
+                  - The gate commands of .loupe/lifecycle.md
+                  - Read access to the CI check logs
+              refill:
+                  all:
+                      - pr.checks_passed: {}
+                      - not: { pr.conflicting: {} }
+                      - not: { pr.changes_requested: {} }
 
     - id: fix-in-review
       slot: in-review
@@ -105,7 +155,19 @@ rules:
                     - pr.checks_failed: {}
                     - pr.conflicting: {}
                     - pr.changes_requested: {}
-      then: { request: { kind: fix, limit: 3 } }
+      then:
+          request:
+              kind: fix
+              limit: 3
+              checks:
+                  - The worktree of the card is still available, or the agent can make it again
+                  - The gate commands of .loupe/lifecycle.md
+                  - Read access to the CI check logs
+              refill:
+                  all:
+                      - pr.checks_passed: {}
+                      - not: { pr.conflicting: {} }
+                      - not: { pr.changes_requested: {} }
 
     - id: back-to-draft
       slot: in-review
@@ -238,7 +300,12 @@ rules:
     - id: teardown
       slot: '@terminal'
       when: { all: [] }
-      then: { request: { kind: teardown, onTimeout: expire } }
+      then:
+          request:
+              kind: teardown
+              onTimeout: expire
+              checks:
+                  - A command that removes the worktree and the preview of a finished card
 
     - id: epic-preview
       slot: '@terminal'
@@ -247,7 +314,12 @@ rules:
               - card.is_child: {}
               - pr.base_is_epic_branch: {}
               - pr.all_finished_one_merged: {}
-      then: { request: { kind: epic-preview, onTimeout: expire } }
+      then:
+          request:
+              kind: epic-preview
+              onTimeout: expire
+              checks:
+                  - A preview URL per epic branch
 
     - id: child-unblocked
       slot: '@backlog'

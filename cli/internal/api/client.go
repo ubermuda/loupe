@@ -522,6 +522,9 @@ type Heartbeat struct {
 	WorkClaims []WorkClaim `json:"workClaims,omitzero"`
 	// Name sends no key when nil, which keeps the stored name, and "" clears it.
 	Name *string `json:"name,omitempty"`
+	// PushLogin is the GitHub login that workers push as. It follows Name:
+	// nil keeps the stored login, and "" clears it.
+	PushLogin *string `json:"pushLogin,omitempty"`
 }
 
 // HeartbeatReply is what the server answers to a heartbeat. Paused is nil when

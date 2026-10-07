@@ -201,6 +201,24 @@ and a card that reaches a terminal column asks for a teardown.
 In both templates, a card whose pull requests all closed with none merged stays
 in its column. A person or an agent moves it.
 
+## Rules the app adds
+
+Loupe adds its own rules to the rules of every template. The **Workflow** page
+lists them in their own group, **Rules the app adds**, below the rules of the
+template. The group shows only when the app adds at least one rule. An app rule
+watches the Backlog, a terminal column, or every column, because each template
+names its own slots. No template rule can take the id of an app rule.
+
+A request of an app rule can carry a prompt that ships with Loupe. A bridge that
+sets `appPrompts: true` runs it for a kind that its `work:` map does not hold.
+See [Command-line bridge](../extending/cli-bridge.md#work-requests).
+
+The app adds one rule, `discovery`. It watches the Backlog. It asks for work of
+kind `discovery` when the card carries a requested
+[discovery run](workshop.md#run-discovery), and it sends the discovery prompt
+with the request. A request that no bridge takes expires, and the run fails with
+the reason that no bridge took the work.
+
 ## Kinds of work
 
 A rule that asks for work names its kind. A bridge runs a kind only when its
@@ -224,6 +242,12 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 
 Simple asks for `teardown` alone.
 
+Each request of a shipped template carries a `checks` list. The list names what
+that work needs from the project, such as a worktree per card or a test command.
+A [discovery run](workshop.md#run-discovery) reads the lists through the
+`workflow_get` MCP tool, and checks the project against them. A project bound
+before this release gets the lists through a migration.
+
 ## What a request carries
 
 A request for work carries the context of its card, as the card was when the
@@ -232,7 +256,13 @@ request opened. The bridge can fill a prompt or a command with each value.
 A rule that reads a pull request tries the open pull requests of the card from
 the bottom of a stack first, then the oldest opened. It acts on the first one
 that makes its condition true. The fix limit counts per pull request: when the
-rule moves to another pull request, its count starts again.
+rule moves to another pull request, its count starts again. The count also
+starts again while that pull request is healthy: its checks passed, it has no
+conflict, and no review asks for changes. A fix that works therefore does not
+use up the limit. A card that paused at the fix limit continues on its own when
+its pull request turns healthy. The `refill` parameter of the fix rules in the
+Lifecycle template sets this. It reads the pull request that the rule acts on,
+so a rule whose condition reads no pull request never refills.
 
 | Value | What it holds |
 |---|---|

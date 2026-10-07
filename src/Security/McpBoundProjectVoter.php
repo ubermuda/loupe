@@ -33,7 +33,7 @@ use Ubermuda\AuditBundle\AuditSubject;
  * policy and one audit shape serve every module that puts subjects on the MCP
  * surface.
  *
- * @extends Voter<'document.mcp_read'|'document.mcp_write'|'comment.mcp_read'|'comment.mcp_write'|'series.mcp_write'|'site_review.mcp_read'|'site_review.mcp_write'|'card.mcp_read'|'card.mcp_write'|'inbox_item.mcp_read'|'inbox_item.mcp_write'|'worker_run.mcp_read'|'worker_run.mcp_write'|'analysis.mcp_read'|'analysis.mcp_write', ProjectScopedSubject>
+ * @extends Voter<'document.mcp_read'|'document.mcp_write'|'comment.mcp_read'|'comment.mcp_write'|'series.mcp_write'|'site_review.mcp_read'|'site_review.mcp_write'|'card.mcp_read'|'card.mcp_write'|'inbox_item.mcp_read'|'inbox_item.mcp_write'|'worker_run.mcp_read'|'worker_run.mcp_write'|'analysis.mcp_read'|'analysis.mcp_write'|'project.mcp_write', ProjectScopedSubject>
  */
 final class McpBoundProjectVoter extends Voter
 {
@@ -52,6 +52,7 @@ final class McpBoundProjectVoter extends Voter
     public const string WORKER_RUN_WRITE = 'worker_run.mcp_write';
     public const string ANALYSIS_READ = 'analysis.mcp_read';
     public const string ANALYSIS_WRITE = 'analysis.mcp_write';
+    public const string PROJECT_WRITE = 'project.mcp_write';
 
     /**
      * Every attribute this policy covers, with the audit operation a refusal
@@ -80,6 +81,7 @@ final class McpBoundProjectVoter extends Voter
         self::WORKER_RUN_WRITE => ['operation' => 'bridge.mcp_access_denied', 'subjectTypes' => ['project', 'worker_run']],
         self::ANALYSIS_READ => ['operation' => 'insights.mcp_access_denied', 'subjectTypes' => ['project']],
         self::ANALYSIS_WRITE => ['operation' => 'insights.mcp_access_denied', 'subjectTypes' => ['project']],
+        self::PROJECT_WRITE => ['operation' => 'project.mcp_access_denied', 'subjectTypes' => ['project']],
     ];
 
     public function __construct(

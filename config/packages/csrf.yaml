@@ -32,6 +32,8 @@ framework:
             - billing-portal
             - wizard-skip
             - wizard-finish
+            - readiness-guide-hide
+            - readiness-discovery-start
             - request-data-export
             - request-account-deletion
             - confirm-account-deletion

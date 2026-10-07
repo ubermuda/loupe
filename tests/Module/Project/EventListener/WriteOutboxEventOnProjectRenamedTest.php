@@ -89,6 +89,11 @@ final class WriteOutboxEventOnProjectRenamedTest extends KernelTestCase
         self::assertSame(CardReporter::Human->value, ProjectEventType::ACTOR_HUMAN);
     }
 
+    public function test_the_agent_actor_is_the_value_the_board_writes(): void
+    {
+        self::assertSame(CardReporter::Agent->value, ProjectEventType::ACTOR_AGENT);
+    }
+
     /** The rename proves the listener runs, so the unchanged count proves the second save wrote nothing. */
     public function test_a_save_that_keeps_the_slug_writes_no_row(): void
     {

@@ -21,6 +21,7 @@ final readonly class OpenWorkRequestCommand
         public WorkRequestContext $context,
         public ?string $model = null,
         public ?string $effort = null,
+        public ?string $prompt = null,
     ) {
     }
 }

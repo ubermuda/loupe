@@ -78,7 +78,9 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
             'model' => null,
             'effort' => null,
+            'prompt' => null,
         ]], $this->outboxPayloads());
+        self::assertNull($stored->prompt);
 
         $record = $audit->record('bridge.work_request_opened');
         self::assertSame(AuditOutcome::Success, $record->outcome);
@@ -104,6 +106,20 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertInstanceOf(WorkRequest::class, $stored);
         self::assertEquals($context, $stored->context);
         self::assertSame($context->toArray(), $this->outboxPayloads()[0]['context']);
+    }
+
+    public function test_the_prompt_is_stored_and_written_to_the_outbox(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-prompt');
+
+        $request = $this->open($project, Uuid::v7(), kind: 'groom', prompt: "Groom the card.\n");
+
+        $this->em()->clear();
+        $stored = $this->em()->find(WorkRequest::class, $request->id);
+        self::assertInstanceOf(WorkRequest::class, $stored);
+        self::assertSame("Groom the card.\n", $stored->prompt);
+        self::assertSame("Groom the card.\n", $this->outboxPayloads()[0]['prompt']);
     }
 
     public function test_the_model_and_the_effort_are_stored_and_written_to_the_outbox(): void
@@ -490,10 +506,11 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         WorkRequestContext $context = new WorkRequestContext(),
         ?string $model = null,
         ?string $effort = null,
+        ?string $prompt = null,
     ): WorkRequest {
         $handler = $this->handler();
 
-        return $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, $kind, $capability, $ruleId, $context, $model, $effort));
+        return $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, $kind, $capability, $ruleId, $context, $model, $effort, $prompt));
     }
 
     private function unfinishedRunOf(
