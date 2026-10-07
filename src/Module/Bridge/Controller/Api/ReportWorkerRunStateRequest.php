@@ -140,6 +140,27 @@ final class ReportWorkerRunStateRequest
         /** Null from a bridge that predates command rules, which runs workers alone. */
         #[Assert\Choice(choices: self::BRIDGE_KINDS)]
         public ?string $kind = null,
+
+        /** The four harness fields are null from a bridge that predates harnesses. A null keeps the stored value. */
+        #[Assert\Length(max: WorkerRun::MAX_HARNESS_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::HARNESS_PATTERN)]
+        public ?string $harness = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_ACCOUNT_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::ACCOUNT_PATTERN)]
+        public ?string $account = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_MODEL_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::MODEL_PATTERN)]
+        public ?string $model = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_HARNESS_SESSION_ID_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::HARNESS_SESSION_ID_PATTERN)]
+        public ?string $harnessSessionId = null,
     ) {
     }
 

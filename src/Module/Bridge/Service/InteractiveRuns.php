@@ -50,40 +50,59 @@ final readonly class InteractiveRuns
     /**
      * Records a session that the bridge launched, and whether this call created
      * the run. The bridge gives each launch a new session, so any run the
-     * session already has on the card comes back unchanged. A retry that
-     * arrives after a move closed the session thus never opens it again.
+     * session already has on the card keeps its state, and takes only the
+     * harness fields. A retry that arrives after a move closed the session
+     * thus never opens it again.
      *
      * @return array{WorkerRun, bool}
      */
-    public function recordLaunch(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, Uuid $bridgeId, ?Uuid $workRequestId = null, ?string $ruleId = null): array
-    {
+    public function recordLaunch(
+        Project $project,
+        Uuid $cardId,
+        int $cardNumber,
+        Uuid $sessionId,
+        string $name,
+        Uuid $bridgeId,
+        ?Uuid $workRequestId = null,
+        ?string $ruleId = null,
+        ?string $harness = null,
+        ?string $account = null,
+        ?string $model = null,
+        ?string $harnessSessionId = null,
+    ): array {
         return $this->openUnlessFound(
             $project, $cardId, $cardNumber, $sessionId, $name, $bridgeId,
             fn (): ?WorkerRun => $this->workerRuns->findLatestInteractive($project, $cardId, $sessionId),
             $workRequestId,
             $ruleId,
+            static fn (WorkerRun $run): bool => $run->recordHarness($harness, $account, $model, $harnessSessionId),
         );
     }
 
     /**
-     * @param \Closure(): ?WorkerRun $find the run that stops the open, read under the project lock
+     * @param \Closure(): ?WorkerRun           $find          the run that stops the open, read under the project lock
+     * @param (\Closure(WorkerRun): bool)|null $recordHarness sets the harness fields, and says whether one changed
      *
      * @return array{WorkerRun, bool}
      */
-    private function openUnlessFound(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, ?Uuid $bridgeId, \Closure $find, ?Uuid $workRequestId = null, ?string $ruleId = null): array
+    private function openUnlessFound(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, ?Uuid $bridgeId, \Closure $find, ?Uuid $workRequestId = null, ?string $ruleId = null, ?\Closure $recordHarness = null): array
     {
         if ('' === trim($name) || mb_strlen($name) > WorkerRun::MAX_WORK_KIND_LENGTH) {
             throw new \InvalidArgumentException(\sprintf('An interactive run needs a name of 1 to %d characters.', WorkerRun::MAX_WORK_KIND_LENGTH));
         }
 
         /** @var array{WorkerRun, bool} $outcome */
-        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $find, $workRequestId, $ruleId): array {
+        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $find, $workRequestId, $ruleId, $recordHarness): array {
             // The project lock serialises two opens of one session, which would
             // otherwise both miss the read and trip the unique index.
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
             $found = $find();
             if (null !== $found) {
+                if (null !== $recordHarness && $recordHarness($found)) {
+                    $this->em->flush();
+                }
+
                 return [$found, false];
             }
 
@@ -103,6 +122,9 @@ final readonly class InteractiveRuns
                 workRequestId: $workRequestId,
                 ruleId: $ruleId,
             );
+            if (null !== $recordHarness) {
+                $recordHarness($run);
+            }
             $this->em->persist($run);
             $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $now, $now));
             $this->em->flush();
@@ -121,8 +143,9 @@ final readonly class InteractiveRuns
 
     /**
      * Records a session that the bridge failed to launch, and whether this call
-     * created the row. Any run the session already has on the card comes back
-     * unchanged: a retry of the report, or a session that started after all.
+     * created the row. Any run the session already has on the card keeps its
+     * state, and takes only the harness fields: a retry of the report, or a
+     * session that started after all.
      *
      * @return array{WorkerRun, bool}
      */
@@ -137,13 +160,21 @@ final readonly class InteractiveRuns
         \DateTimeImmutable $at,
         ?Uuid $workRequestId = null,
         ?string $ruleId = null,
+        ?string $harness = null,
+        ?string $account = null,
+        ?string $model = null,
+        ?string $harnessSessionId = null,
     ): array {
         /** @var array{WorkerRun, bool, bool} $outcome */
-        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $failureReason, $at, $workRequestId, $ruleId): array {
+        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $failureReason, $at, $workRequestId, $ruleId, $harness, $account, $model, $harnessSessionId): array {
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
             $existing = $this->workerRuns->findLatestInteractive($project, $cardId, $sessionId);
             if (null !== $existing) {
+                if ($existing->recordHarness($harness, $account, $model, $harnessSessionId)) {
+                    $this->em->flush();
+                }
+
                 return [$existing, false, false];
             }
 
@@ -167,6 +198,7 @@ final readonly class InteractiveRuns
                 workRequestId: $workRequestId,
                 ruleId: $ruleId,
             );
+            $run->recordHarness($harness, $account, $model, $harnessSessionId);
             $this->em->persist($run);
             $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::NotStarted, $at, $now));
             $this->em->flush();

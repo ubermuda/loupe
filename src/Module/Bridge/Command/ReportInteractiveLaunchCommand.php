@@ -25,6 +25,11 @@ final readonly class ReportInteractiveLaunchCommand
         public ?string $failureReason = null,
         public ?Uuid $workRequestId = null,
         public ?string $ruleId = null,
+        /** The four harness fields: a null keeps the value the run holds, because a value can arrive in a later report. */
+        public ?string $harness = null,
+        public ?string $account = null,
+        public ?string $model = null,
+        public ?string $harnessSessionId = null,
     ) {
     }
 }
