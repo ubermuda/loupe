@@ -52,10 +52,34 @@ runs:
         npm ci
         npm ci --prefix e2e
 
+    # The publish job in ci.yml pushes the image under a hash of the Dockerfile and
+    # the files it copies. A hit skips buildx and the build. Any failure is a miss
+    # and falls back to the build below.
+    - if: inputs.docker == 'true'
+      id: prebuilt
+      shell: bash
+      env:
+        REGISTRY_TOKEN: ${{ github.token }}
+      run: |
+        tag=$(docker compose config --images php-fpm | grep -E -- '-php-fpm$')
+        test "$(printf '%s\n' "$tag" | grep -c .)" = 1
+        hash=$(cat docker/dev/php-fpm/Dockerfile docker/dev/php-fpm/*.conf docker/dev/php-fpm/*.ini | sha256sum | cut -c1-16)
+        repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+        image="ghcr.io/$repo/php-fpm:$hash"
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        if echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null 2>&1 \
+          && docker pull "$image" >/dev/null 2>&1 && docker tag "$image" "$tag"; then
+          echo "hit=true" >> "$GITHUB_OUTPUT"
+          echo "Pulled $image"
+        else
+          echo "hit=false" >> "$GITHUB_OUTPUT"
+          echo "No pre-built image $image, building"
+        fi
+
     # A Docker Hub pull first asks auth.docker.io for a token, and that request
     # can time out on a runner. BuildKit and the compose images come from
     # mirror.gcr.io instead. The second buildx step is the Docker Hub fallback.
-    - if: inputs.docker == 'true'
+    - if: inputs.docker == 'true' && steps.prebuilt.outputs.hit != 'true'
       id: buildx-mirror
       continue-on-error: true
       uses: docker/setup-buildx-action@v4
@@ -65,7 +89,7 @@ runs:
           [registry."docker.io"]
             mirrors = ["mirror.gcr.io"]
 
-    - if: inputs.docker == 'true' && steps.buildx-mirror.outcome == 'failure'
+    - if: inputs.docker == 'true' && steps.prebuilt.outputs.hit != 'true' && steps.buildx-mirror.outcome == 'failure'
       uses: docker/setup-buildx-action@v4
       with:
         buildkitd-config-inline: |
@@ -73,30 +97,16 @@ runs:
             mirrors = ["mirror.gcr.io"]
 
     # Compose builds a service's image only when it is absent, so a build tagged
-    # with the name compose expects is the image `up` then finds. Ask compose for
-    # the name, because it derives from COMPOSE_PROJECT_NAME. `--images php-fpm`
-    # also prints the images php-fpm depends on, so take the one named after the
-    # service, and refuse any other count.
-    - if: inputs.docker == 'true'
-      id: php-fpm-image
-      shell: bash
-      run: |
-        tag=$(docker compose config --images php-fpm | grep -E -- '-php-fpm$')
-        echo "php-fpm image name: $tag"
-        test "$(printf '%s\n' "$tag" | grep -c .)" = 1
-        echo "tag=$tag" >> "$GITHUB_OUTPUT"
-
-    # Only main exports the layer cache, and every branch reads it. A branch export
-    # can hang on the cache service until the job times out.
-    - if: inputs.docker == 'true'
+    # with the name compose expects is the image `up` then finds. The publish job
+    # exports the layer cache, and every branch reads it.
+    - if: inputs.docker == 'true' && steps.prebuilt.outputs.hit != 'true'
       uses: docker/build-push-action@v7
       with:
         context: .
         file: docker/dev/php-fpm/Dockerfile
-        tags: ${{ steps.php-fpm-image.outputs.tag }}
+        tags: ${{ steps.prebuilt.outputs.tag }}
         load: true
         cache-from: type=gha
-        cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
 
     - if: inputs.docker == 'true'
       id: compose-images
