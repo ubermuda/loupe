@@ -152,6 +152,42 @@ final class WorkerRunFactWriterTest extends KernelTestCase
         );
     }
 
+    public function test_a_later_overlapping_run_recomputes_the_count_of_an_ended_run(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'facts-writer-recount@example.com');
+        $project = $this->project($em, $owner, 'Facts Writer Recount');
+        $bridge = $this->seedBridge($em, $owner);
+        $ended = $this->seedRun($em, $project, bridgeId: $bridge->id);
+        $this->writer()->upsert([self::id($ended)]);
+        self::assertSame(1, $this->hostColumns()[(string) $ended->id]['concurrent_runs']);
+
+        $late = $this->seedRun($em, $project, cardNumber: 2, bridgeId: $bridge->id, endedAt: new \DateTimeImmutable('2026-01-01 10:10:00'));
+        $em->getConnection()->executeStatement("UPDATE bridge_worker_runs SET started_at = '2026-01-01 10:04:00' WHERE id = ?", [(string) $late->id]);
+        $this->writer()->upsert([self::id($late)]);
+
+        self::assertSame(2, $this->hostColumns()[(string) $ended->id]['concurrent_runs']);
+    }
+
+    public function test_a_run_of_another_owner_on_the_same_bridge_id_leaves_an_ended_run_alone(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'facts-writer-recount-mine@example.com');
+        $other = $this->user($em, 'facts-writer-recount-theirs@example.com');
+        $bridge = $this->seedBridge($em, $owner);
+        $this->seedBridge($em, $other, $bridge->id);
+        $this->seedRun($em, $this->project($em, $owner, 'Facts Writer Recount Mine'), bridgeId: $bridge->id);
+        $theirs = $this->seedRun($em, $this->project($em, $other, 'Facts Writer Recount Theirs'), bridgeId: $bridge->id);
+        $connection = $em->getConnection();
+        $connection->executeStatement('DELETE FROM bridge_worker_run_facts');
+
+        $this->writer()->upsert([self::id($theirs)]);
+
+        self::assertSame([(string) $theirs->id], $connection->fetchFirstColumn('SELECT run_id FROM bridge_worker_run_facts'));
+    }
+
     public function test_a_run_with_no_end_has_no_host_metrics(): void
     {
         self::bootKernel();
