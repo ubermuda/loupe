@@ -6757,6 +6757,10 @@
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
             </trans-unit>
+            <trans-unit id="board.automation.error.epic_branch_pattern_invalid">
+                <source>board.automation.error.epic_branch_pattern_invalid</source>
+                <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
+            </trans-unit>
             <trans-unit id="board.fix_run_comment.intro">
                 <source>board.fix_run_comment.intro</source>
                 <target>Loupe queued a fix run for this pull request.</target>
