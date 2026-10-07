@@ -5987,6 +5987,12 @@
             <trans-unit id="bridge.experiments.metric.cost"><source>bridge.experiments.metric.cost</source><target>Cost per merged card</target></trans-unit>
             <trans-unit id="bridge.experiments.metric.output-tokens"><source>bridge.experiments.metric.output-tokens</source><target>Output tokens per merged card</target></trans-unit>
             <trans-unit id="bridge.experiments.metric.hours-to-merge"><source>bridge.experiments.metric.hours-to-merge</source><target>Hours from open to merge</target></trans-unit>
+            <trans-unit id="bridge.experiments.metrics.unknown"><source>bridge.experiments.metrics.unknown</source><target>The bridge rule declares metrics that this server does not know: %metrics%.</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.input-tokens"><source>bridge.experiments.metric.input-tokens</source><target>Input tokens per merged card</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.cache-read-tokens"><source>bridge.experiments.metric.cache-read-tokens</source><target>Cache read tokens per merged card</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.cache-write-tokens"><source>bridge.experiments.metric.cache-write-tokens</source><target>Cache write tokens per merged card</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.duration"><source>bridge.experiments.metric.duration</source><target>Run time per merged card (minutes)</target></trans-unit>
+            <trans-unit id="bridge.experiments.metric.runs"><source>bridge.experiments.metric.runs</source><target>Runs per merged card</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.conflict"><source>bridge.experiments.fix_reason.conflict</source><target>Conflict</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.checks-failed"><source>bridge.experiments.fix_reason.checks-failed</source><target>Checks failed</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.changes-requested"><source>bridge.experiments.fix_reason.changes-requested</source><target>Changes requested</target></trans-unit>
