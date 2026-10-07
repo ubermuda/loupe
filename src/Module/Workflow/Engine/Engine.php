@@ -438,7 +438,7 @@ final readonly class Engine
 
         switch ($outcome->kind) {
             case ActionOutcomeKind::Done:
-                if (!$retrying) {
+                if (!$retrying || (null === $outcome->requestId && !$outcome->alreadyLive)) {
                     $state->attempts = 0;
                 }
                 $state->dueAt = null;
@@ -446,6 +446,8 @@ final readonly class Engine
                 $state->lastRefusalAt = null;
                 if (null !== $outcome->requestId) {
                     $state->workRequestId = $outcome->requestId;
+                } elseif (!$outcome->alreadyLive) {
+                    $state->workRequestId = null;
                 }
                 if ((ActionType::Request === $type || ActionType::ForgeWrite === $type) && !$outcome->alreadyLive) {
                     ++$state->fires;
