@@ -31,6 +31,8 @@ final class AdvertisedTools
      */
     private const array ORDER = [
         'project_current',
+        'readiness_get',
+        'discovery_start',
         'document_create',
         'document_list',
         'document_get',

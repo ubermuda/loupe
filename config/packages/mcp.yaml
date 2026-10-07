@@ -1,4 +1,6 @@
 mcp:
+    # One page holds every tool, so a client that ignores nextCursor still sees them all.
+    pagination_limit: 100
     client_transports:
         http: true
     http:

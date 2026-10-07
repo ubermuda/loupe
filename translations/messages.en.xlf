@@ -2498,6 +2498,14 @@
                 <source>project.connect.tool.project_current</source>
                 <target>Report which project this connection acts on.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.readiness_get">
+                <source>project.connect.tool.readiness_get</source>
+                <target>Read the readiness checks of the project and the state of its latest discovery run.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.discovery_start">
+                <source>project.connect.tool.discovery_start</source>
+                <target>Start a read-only discovery run on a new Backlog card. A live bridge must serve the project.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.tag_list">
                 <source>project.connect.tool.tag_list</source>
                 <target>List every tag in the project with how many documents carry it.</target>
