@@ -36,8 +36,8 @@ Find why the work of one workflow rule failed on a card, and fix the cause. The 
 
 The repair request names the rule, and never the run. Find the run yourself.
 
-1. Call `worker_run_list` with `cardNumber`, `rule` set to the rule of the prompt, and `states` set to `failed`, `not-started`, `no-result`, `timed-out`, `unfinished`, `blocked`, `gave-up` and `lost`. Each of these states can settle a work request as refused.
-2. The rows come newest first. Take the first row. When the filter returns no row, read the runs of the card with no `rule` filter, and take the newest row whose `ruleId` is the rule of the prompt.
+1. Call `worker_run_list` with `cardNumber`, and `states` set to `failed`, `not-started`, `no-result`, `timed-out`, `unfinished`, `blocked`, `gave-up` and `lost`. Each of these states can settle a work request as refused. The tool has no rule filter.
+2. The rows come newest first. Take the first row whose `ruleId` is the rule of the prompt and whose `workKind` is not `repair`. A repair run carries the rule id of the rule it repaired. Read every page while `hasMore` is true and no row matches.
 3. Read that run with `worker_run_get`. The `output` holds up to 4000 characters. A failed `before` command puts its reason first.
 4. Ignore the runs of other rules. Their failures are not the cause you repair.
 
