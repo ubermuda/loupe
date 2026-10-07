@@ -237,7 +237,8 @@ starts again while that pull request is healthy: its checks passed, it has no
 conflict, and no review asks for changes. A fix that works therefore does not
 use up the limit. A card that paused at the fix limit continues on its own when
 its pull request turns healthy. The `refill` parameter of the fix rules in the
-Lifecycle template sets this.
+Lifecycle template sets this. It reads the pull request that the rule acts on,
+so a rule whose condition reads no pull request never refills.
 
 | Value | What it holds |
 |---|---|
