@@ -114,7 +114,7 @@ final readonly class DevAnalysesSeeder
         $report->addVersion(self::EXPERIMENT_REPORT, $this->renderer->render(self::EXPERIMENT_REPORT));
         $this->em->persist($report);
 
-        $analysis = new Analysis($project, AnalysisTopic::Experiment, new AnalysisScope(MetricRange::NinetyDays, $experiment), null, AnalysisSettings::DEFAULT_MODEL, AnalysisSettings::DEFAULT_EFFORT, new \DateTimeImmutable('-1 day'));
+        $analysis = new Analysis($project, AnalysisTopic::Experiment, new AnalysisScope(MetricRange::All, $experiment), null, AnalysisSettings::DEFAULT_MODEL, AnalysisSettings::DEFAULT_EFFORT, new \DateTimeImmutable('-1 day'));
         $this->em->persist($analysis);
         $this->em->flush();
         $analysis->start();
