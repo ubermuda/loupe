@@ -400,6 +400,24 @@ final class EngineTest extends KernelTestCase
         self::assertNull($this->activePause($card));
     }
 
+    public function test_a_last_try_whose_action_refuses_pauses_the_card_with_no_further_try(): void
+    {
+        $rule = ['id' => 'work', 'slot' => 'one', 'when' => self::ALWAYS, 'then' => ['request' => ['kind' => 'work', 'document' => ['tag' => 'missing']]]];
+        $card = $this->boundCard([$rule], backoffMinutes: [10, 60, 360], onWorkFailed: self::REPAIR);
+        $this->evaluate($card);
+        $state = $this->ruleState($card, 'work');
+        $state->attempts = 2;
+        $state->repaired = true;
+        $state->dueAt = new \DateTimeImmutable('2026-10-02 12:50:00');
+        $this->em()->flush();
+
+        $this->evaluate($card, '2026-10-02 12:51:00');
+
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        self::assertSame([CardPauseKind::Retries, 'document-not-found'], [$pause->kind, $pause->reason]);
+    }
+
     public function test_a_refused_repair_pauses_the_card_with_the_repair_failed_code(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: self::REPAIR);

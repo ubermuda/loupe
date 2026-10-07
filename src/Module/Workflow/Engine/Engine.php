@@ -514,7 +514,8 @@ final readonly class Engine
                 $state->lastRefusal = $code;
                 $state->lastRefusalAt = $run->now;
                 $backoff = $run->template->backoffMinutes[$state->attempts - 1] ?? null;
-                if (null !== $backoff) {
+                // The last try after a repair gets no further try.
+                if (null !== $backoff && !$state->repaired) {
                     $state->dueAt = $run->now->add(new \DateInterval(\sprintf('PT%dM', $backoff)));
 
                     return true;
