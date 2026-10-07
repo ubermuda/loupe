@@ -9,11 +9,14 @@ use App\Module\Bridge\Event\BridgeNameChanged;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeHostSampleRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Bridge\Service\HostSampling;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Bridge\Service\WorkerRunFactWriter;
 use App\Module\Bridge\Service\WorkRequestLease;
+use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -37,6 +40,8 @@ final readonly class RecordBridgeHeartbeatHandler
         private WorkRequestRepository $workRequests,
         private BridgeHostSampleRepository $bridgeHostSamples,
         private HostSampling $hostSampling,
+        private WorkerRunRepository $workerRuns,
+        private WorkerRunFactWriter $factWriter,
         private WorkRequestLease $lease,
         private ProjectRepository $projects,
         private WorkerRunChangedPublisher $runsChanged,
@@ -57,7 +62,7 @@ final readonly class RecordBridgeHeartbeatHandler
 
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
-        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims, $renamedIn] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects, $samples): array {
+        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims, $renamedIn, $samplesInserted] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects, $samples): array {
             $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
@@ -109,10 +114,11 @@ final readonly class RecordBridgeHeartbeatHandler
                 }
             }
 
+            $samplesInserted = 0;
             if ([] !== $samples) {
                 // The sample rows point at the bridge row, so a new bridge must reach the table first.
                 $this->em->flush();
-                $this->bridgeHostSamples->insertNew($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'), $command->bridgeId, $samples);
+                $samplesInserted = $this->bridgeHostSamples->insertNew($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'), $command->bridgeId, $samples);
             }
 
             $lostClaims = [];
@@ -129,8 +135,20 @@ final readonly class RecordBridgeHeartbeatHandler
             return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged, $workRequests, $lostClaims,
                 // A project the bridge stopped following can still hold a notice that names it.
                 $heldName === $bridge->name ? [] : array_values(array_unique([...$followed, ...$projects])),
+                $samplesInserted,
             ];
         });
+
+        // After the commit, because the writer locks run rows and the bridge lock must not wait on them.
+        if ($samplesInserted > 0 && [] !== $samples) {
+            $times = array_map(static fn (BridgeHostSampleReport $sample): int => $sample->sampledAt->getTimestamp(), $samples);
+            $this->factWriter->upsert($this->workerRuns->findEndedIdsOnBridgeBetween(
+                $command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'),
+                $command->bridgeId,
+                new \DateTimeImmutable('@'.min($times)),
+                new \DateTimeImmutable('@'.max($times)),
+            ));
+        }
 
         if ($pauseChanged) {
             foreach ($this->projects->findOwnedBy($command->owner, $projects) as $project) {

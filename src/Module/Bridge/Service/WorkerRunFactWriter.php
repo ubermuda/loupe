@@ -9,9 +9,10 @@ use Doctrine\DBAL\Connection;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Writes the fact row of each run from the run, its usage rows and its tool
- * call rows. The four tool call columns stay null for a run with no rows. The
- * migration that made the table holds a frozen copy of this select.
+ * Writes the fact row of each run from the run, its usage rows, its tool call
+ * rows and the host samples of its bridge. The four tool call columns stay
+ * null for a run with no rows. The migration that made the table holds a
+ * frozen copy of this select, from before the host columns.
  */
 final readonly class WorkerRunFactWriter
 {
@@ -21,7 +22,8 @@ final readonly class WorkerRunFactWriter
             experiment, variant, model, bridge_id, outcome, started_at, ended_at, received_at,
             duration_ms, cost_micro_usd, tokens_in, tokens_out, tokens_cache_read, tokens_cache_write,
             usage_source, tool_time_ms, model_time_ms, tool_calls, failed_calls, longest_call_ms,
-            idle_gap_ms, subagent_ms, peak_context_tokens
+            idle_gap_ms, subagent_ms, peak_context_tokens, mean_cpu_pct, peak_mem_bytes, peak_swap_bytes,
+            concurrent_runs, on_battery
         )
         SELECT
             r.id,
@@ -55,8 +57,21 @@ final readonly class WorkerRunFactWriter
             tc.longest_call_ms,
             r.idle_gap_ms,
             tc.subagent_ms,
-            r.peak_context_tokens
+            r.peak_context_tokens,
+            hs.mean_cpu_pct,
+            hs.peak_mem_bytes,
+            hs.peak_swap_bytes,
+            CASE WHEN r.bridge_id IS NULL OR r.started_at IS NULL OR r.ended_at IS NULL THEN NULL ELSE (
+                SELECT COUNT(*)
+                FROM bridge_worker_runs o
+                JOIN projects op ON op.id = o.project_id
+                WHERE o.bridge_id = r.bridge_id
+                    AND op.owner_id = p.owner_id
+                    AND (o.id = r.id OR (o.started_at < r.ended_at AND COALESCE(o.ended_at, 'infinity') > r.started_at))
+            ) END,
+            hs.on_battery
         FROM bridge_worker_runs r
+        JOIN projects p ON p.id = r.project_id
         LEFT JOIN (
             SELECT
                 run_id,
@@ -88,6 +103,17 @@ final readonly class WorkerRunFactWriter
             WHERE run_id IN (:ids)
             GROUP BY run_id
         ) tc ON tc.run_id = r.id
+        LEFT JOIN LATERAL (
+            SELECT
+                AVG((SELECT AVG(c::double precision) FROM json_array_elements_text(s.cpu_pct) c)) AS mean_cpu_pct,
+                MAX(s.mem_used) AS peak_mem_bytes,
+                MAX(s.swap_used) AS peak_swap_bytes,
+                BOOL_OR(NOT s.on_ac) AS on_battery
+            FROM bridge_host_samples s
+            WHERE s.owner_id = p.owner_id
+                AND s.bridge_id = r.bridge_id
+                AND s.sampled_at BETWEEN r.started_at AND r.ended_at
+        ) hs ON true
         WHERE r.id IN (:ids)
         ON CONFLICT (run_id) DO UPDATE SET
             project_id = EXCLUDED.project_id,
@@ -119,7 +145,12 @@ final readonly class WorkerRunFactWriter
             longest_call_ms = EXCLUDED.longest_call_ms,
             idle_gap_ms = EXCLUDED.idle_gap_ms,
             subagent_ms = EXCLUDED.subagent_ms,
-            peak_context_tokens = EXCLUDED.peak_context_tokens
+            peak_context_tokens = EXCLUDED.peak_context_tokens,
+            mean_cpu_pct = EXCLUDED.mean_cpu_pct,
+            peak_mem_bytes = EXCLUDED.peak_mem_bytes,
+            peak_swap_bytes = EXCLUDED.peak_swap_bytes,
+            concurrent_runs = EXCLUDED.concurrent_runs,
+            on_battery = EXCLUDED.on_battery
         SQL;
 
     public function __construct(

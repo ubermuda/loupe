@@ -127,6 +127,24 @@ class WorkerRunFact
 
         #[ORM\Column(name: 'peak_context_tokens', type: Types::BIGINT, nullable: true)]
         public readonly ?int $peakContextTokens,
+
+        /** The five host columns read the host samples of the bridge within the run, and stay null while the run has no end. */
+        #[ORM\Column(name: 'mean_cpu_pct', nullable: true)]
+        public readonly ?float $meanCpuPct,
+
+        #[ORM\Column(name: 'peak_mem_bytes', type: Types::BIGINT, nullable: true)]
+        public readonly ?int $peakMemBytes,
+
+        #[ORM\Column(name: 'peak_swap_bytes', type: Types::BIGINT, nullable: true)]
+        public readonly ?int $peakSwapBytes,
+
+        /** The runs of the bridge whose window overlaps this one, this one included. A run with no end counts as still open. */
+        #[ORM\Column(name: 'concurrent_runs', nullable: true)]
+        public readonly ?int $concurrentRuns,
+
+        /** Null when no sample within the run knew the power state. */
+        #[ORM\Column(name: 'on_battery', nullable: true)]
+        public readonly ?bool $onBattery,
     ) {
     }
 }

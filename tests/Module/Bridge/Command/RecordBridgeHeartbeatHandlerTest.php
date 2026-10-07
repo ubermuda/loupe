@@ -459,6 +459,31 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_host_samples'));
     }
 
+    /** The run ended before its samples arrived, so the heartbeat must rewrite its fact row. */
+    public function test_samples_rewrite_the_fact_of_an_ended_run_on_the_bridge(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $this->storeHostSampling('true');
+        $owner = $this->user($em, 'heartbeat-samples-facts@example.com');
+        $project = $this->project($em, $owner, 'Sampled Facts');
+        $bridge = $this->seedBridge($em, $owner);
+        $inside = $this->seedRun($em, $project, bridgeId: $bridge->id);
+        $outside = $this->seedRun($em, $project, cardNumber: 2, bridgeId: $bridge->id, endedAt: new \DateTimeImmutable('2026-01-01 12:05:00'));
+        $em->getConnection()->executeStatement("UPDATE bridge_worker_runs SET started_at = '2026-01-01 12:00:00' WHERE id = ?", [(string) $outside->id]);
+        $em->getConnection()->executeStatement('UPDATE bridge_worker_run_facts SET peak_mem_bytes = 1 WHERE run_id = ?', [(string) $outside->id]);
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridge->id, [], 'b4e39aa7', hostSamples: [
+            self::sample('2026-01-01 10:01:00'),
+            self::sample('2026-01-01 10:20:00'),
+        ]));
+
+        self::assertEquals(
+            [(string) $inside->id => 1000, (string) $outside->id => 1],
+            $em->getConnection()->fetchAllKeyValue('SELECT run_id, peak_mem_bytes FROM bridge_worker_run_facts'),
+        );
+    }
+
     private static function sample(string $at): BridgeHostSampleReport
     {
         return new BridgeHostSampleReport(new \DateTimeImmutable($at, new \DateTimeZone('UTC')), [10.0, 30.0], 1000, 4000, 0, null, true);
