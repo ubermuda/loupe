@@ -23,7 +23,6 @@ manualMoves:
     - { from: next, to: product-design }
     - { from: next, to: tech-design }
     - { from: implementation, to: tech-design }
-    - { from: '@backlog', to: implementation, by: parent-run }
 backoffMinutes: [10, 60, 360]
 workTimeoutMinutes: 120
 onWorkFailed:
@@ -245,7 +244,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - pr.open: {}
-              - not: { run.work_active: { kind: breakdown } }
+              - not: { run.work_active: {} }
       then: { move: { to: in-review } }
 
     - id: epic-to-done
@@ -257,7 +256,7 @@ rules:
               - card.children_finished: {}
               - not: { pr.linked: {} }
               - not: { card.child_merged_into_epic_branch: {} }
-              - not: { run.work_active: { kind: breakdown } }
+              - not: { run.work_active: {} }
       then: { move: { to: '@terminal' } }
 
     - id: breakdown-ended
@@ -336,6 +335,7 @@ rules:
       when:
           all:
               - card.is_child: {}
+              - card.document_approved: { tag: tech-design }
               - not: { card.has_open_blocker: {} }
               - not: { pr.linked: {} }
               - not: { parent.work_active: {} }

@@ -198,6 +198,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         $this->pullRequest($cards['backlog epic']);
         $cards['backlog parent'] = $this->card($project, 'backlog', CardType::Epic);
         $cards['backlog child'] = $this->card($project, 'backlog', parent: $cards['backlog parent']);
+        $this->approvedDocument($cards['backlog child'], 'tech-design');
         $cards['next'] = $this->card($project, 'next');
         $cards['product design'] = $this->card($project, 'product-design');
         $cards['approved design'] = $this->card($project, 'tech-design');
