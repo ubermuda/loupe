@@ -79,8 +79,8 @@ export default defineConfig({
     fullyParallel: false,
     timeout: collectingCoverage ? 120_000 : 30_000,
     expect: { timeout: collectingCoverage ? 20_000 : 5_000 },
-    // A spec that flips a global flag or shares a fixed account goes in a
-    // `workers: 1` project below, never in `chromium`.
+    // A spec that flips a global flag, or shares a fixed account with another
+    // file, goes in a `workers: 1` project below, never in `chromium`.
     workers: 4,
     forbidOnly: !!process.env.CI,
     retries: 0,

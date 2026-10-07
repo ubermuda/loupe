@@ -44,6 +44,7 @@ jobs:
           required=$(gh api repos/${{ github.repository }}/rules/branches/main \
             --jq '.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context')
           legs=$(awk '/^  e2e-shard:/{j=1} j&&/include:/{i=1} j&&/^    steps:/{exit} i&&/- name:/{print "e2e-" $3}' .github/workflows/ci.yml)
+          [ -n "$legs" ] || { echo "::error::No e2e legs found in ci.yml."; exit 1; }
           missing=0
           for leg in $legs; do
             grep -qxF "$leg" <<<"$required" && continue

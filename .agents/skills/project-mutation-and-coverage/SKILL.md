@@ -71,9 +71,9 @@ The e2e timing artifact comes from every CI run, green or red. `bin/e2e-timing.m
 reads its Playwright JSON report. Time between two tests on one worker counts as
 idle, so worker start-up shows as idle time.
 
-The e2e job runs as three shards on three runners, so a run holds one timing
-artifact per shard and `just ci-report e2e-timing` prints one summary for each.
-The three ran against separate clocks, so read the wall times side by side and
+The e2e job runs as eight legs on eight runners, so a run holds one timing
+artifact per leg and `just ci-report e2e-timing` prints one summary for each.
+The legs ran against separate clocks, so read the wall times side by side and
 never add them.
 
 The PHPUnit timing artifact comes from every CI run as well. `bin/phpunit-timing.php`
