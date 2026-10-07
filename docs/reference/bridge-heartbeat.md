@@ -365,6 +365,8 @@ another bridge claimed. Each request carries these fields:
 | `createdAt` | the time the request opened, as an RFC 3339 date |
 | `resumeSessionId` | the session of an unfinished run of the card and kind that the run resumes, or `null` for a fresh start |
 | `context` | what the card held when the request opened. See the table below |
+| `model` | the model the run uses over the model of the work entry, or `null`. A run with a request model joins no experiment |
+| `effort` | the effort level the run passes to `claude --effort`: `low`, `medium`, `high`, `xhigh` or `max`, or `null` |
 
 The `context` object always holds five keys. Each one is `null` when the card
 held no such value. A server from before the context sends no `context` key.
