@@ -136,10 +136,13 @@ final readonly class Engine
             return $run;
         }
         $this->settleWorkRequests($run, $cardId);
-        $this->readSettledRequests($run);
         // A pause ends the pass, so it is never released in the pass that made it.
         if (!$run->ended && (!$this->stillPaused($run) || $this->releasedByRule($run))) {
-            $this->runRules($run, $template->rules);
+            // After the release, so a refusal that settled during a pause counts in the pass that ends it.
+            $this->readSettledRequests($run);
+            if (!$run->ended) {
+                $this->runRules($run, $template->rules);
+            }
         }
         $this->em->flush();
 

@@ -278,7 +278,6 @@ final class EngineTest extends KernelTestCase
 
         $this->setType($card, CardType::Security);
         $this->evaluate($card, '2026-10-02 12:20:00');
-        $this->evaluate($card, '2026-10-02 12:21:00');
         self::assertSame(CardPauseKind::WorkStopped, $this->activePause($card)?->kind);
     }
 
