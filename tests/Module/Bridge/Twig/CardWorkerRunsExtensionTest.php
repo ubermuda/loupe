@@ -91,7 +91,7 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         self::assertSame([], self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) $cardId));
     }
 
-    public function test_a_card_whose_latest_outcome_gave_up_or_is_blocked_has_a_warning(): void
+    public function test_a_card_whose_latest_outcome_gave_up_failed_or_is_blocked_has_a_warning(): void
     {
         self::bootKernel();
         $em = $this->em();
@@ -125,7 +125,7 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $warnings = self::getContainer()->get(CardWorkerRunsExtension::class)->cardRunWarnings($project);
 
         ksort($warnings);
-        $expected = [(string) $gaveUp, (string) $blocked, (string) $stillRunning];
+        $expected = [(string) $gaveUp, (string) $blocked, (string) $stillRunning, (string) $failed];
         sort($expected);
         self::assertSame($expected, array_keys($warnings));
 

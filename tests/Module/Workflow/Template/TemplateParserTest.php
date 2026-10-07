@@ -19,6 +19,7 @@ use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\InvalidTemplate;
+use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\TemplateParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -55,6 +56,7 @@ final class TemplateParserTest extends TestCase
             'manualMoves' => [
                 ['from' => '@backlog', 'to' => 'build'],
                 ['from' => '*', 'to' => '*'],
+                ['from' => '@backlog', 'to' => 'review', 'by' => 'parent-run'],
             ],
             'backoffMinutes' => [10, 60],
             'workTimeoutMinutes' => 120,
@@ -111,6 +113,8 @@ final class TemplateParserTest extends TestCase
         self::assertSame(120, $template->workTimeoutMinutes);
         self::assertSame('@backlog', $template->manualMoves[0]->from);
         self::assertSame('build', $template->manualMoves[0]->to);
+        self::assertNull($template->manualMoves[0]->by);
+        self::assertSame(ManualMoveActor::ParentRun, $template->manualMoves[2]->by);
 
         $ids = static fn (array $rules): array => array_map(static fn ($rule) => $rule->id, $rules);
         self::assertSame(['start', 'to-review', 'wait'], $ids($template->rulesFor('build')));
@@ -126,6 +130,27 @@ final class TemplateParserTest extends TestCase
         self::assertSame(ActionType::Pause, $wait->then->type);
         self::assertSame(['reason' => 'busy'], $wait->then->params);
         self::assertInstanceOf(Not::class, $wait->then->until);
+    }
+
+    public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
+    {
+        self::assertNull($this->parser->parse(self::valid())->onWorkFailed);
+
+        $policy = $this->parser->parse(self::valid() + ['onWorkFailed' => ['retryOn' => ['failed', 'timeout'], 'retries' => 1, 'backoffMinutes' => [2, 3]]])->onWorkFailed;
+
+        self::assertNotNull($policy);
+        self::assertSame(1, $policy->retries);
+        self::assertSame([2, 3], $policy->backoffMinutes);
+        self::assertTrue($policy->retries('timeout'));
+        self::assertFalse($policy->retries('needs-person'));
+        self::assertNull($policy->repairKind);
+    }
+
+    public function test_a_retry_policy_reads_the_kind_of_its_repair_request(): void
+    {
+        $policy = $this->parser->parse(self::valid() + ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => ['kind' => 'repair']]])->onWorkFailed;
+
+        self::assertSame('repair', $policy?->repairKind);
     }
 
     public function test_an_evaluate_action_names_the_children(): void
@@ -230,6 +255,17 @@ final class TemplateParserTest extends TestCase
         yield 'rules not a list' => [static fn (array $t): array => ['rules' => ['a' => 1]] + $t, 'rules: must be a list'];
         yield 'manual moves not a list' => [static fn (array $t): array => ['manualMoves' => 3] + $t, 'manualMoves: must be a list'];
         yield 'wrongly typed backoff' => [static fn (array $t): array => ['backoffMinutes' => [10, '60']] + $t, 'backoffMinutes: must be a list of positive integers'];
+        yield 'retry policy with no list' => [static fn (array $t): array => ['onWorkFailed' => ['retries' => 1, 'backoffMinutes' => [2]]] + $t, 'onWorkFailed: must be a map with a list "retryOn"'];
+        yield 'retry policy with a bad code' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['Not A Code'], 'retries' => 1, 'backoffMinutes' => [2]]] + $t, 'onWorkFailed.retryOn: each entry must be a refusal code'];
+        yield 'repair that is not a map' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => 'repair']] + $t, 'onWorkFailed.repair: must be a map with a string "kind"'];
+        yield 'repair with no kind' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => []]] + $t, 'onWorkFailed.repair: must be a map with a string "kind"'];
+        yield 'repair with a bad kind' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => ['kind' => 'Not A Kind']]] + $t, 'onWorkFailed.repair.kind: must be a work request kind'];
+        yield 'repair kind that a rule asks for' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => ['kind' => 'implement']]] + $t, 'onWorkFailed.repair.kind: the rule "start" already asks for the kind "implement"'];
+        yield 'repair kind that a forge write falls back to' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [2], 'repair' => ['kind' => 'merge']]] + $t, 'onWorkFailed.repair.kind: the rule "merge" already asks for the kind "merge"'];
+        yield 'retry policy with a negative count' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => -1, 'backoffMinutes' => [2]]] + $t, 'onWorkFailed.retries: must be a non-negative integer'];
+        yield 'retry policy with no delays' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1]] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
+        yield 'retry policy with a zero delay' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [0]]] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
+        yield 'retry policy with a text delay' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => 'x']] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
         yield 'wrongly typed work timeout' => [static fn (array $t): array => ['workTimeoutMinutes' => 0] + $t, 'workTimeoutMinutes: must be a positive integer'];
 
         yield 'duplicate slot key' => [static function (array $t): array {
@@ -295,6 +331,11 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'manualMoves[0].from: unknown slot "shipping"'];
+        yield 'unknown manual move actor' => [static function (array $t): array {
+            $t['manualMoves'][2]['by'] = 'anyone';
+
+            return $t;
+        }, 'manualMoves[2].by: must be one of parent-run'];
         yield 'wildcard rule slot' => [static function (array $t): array {
             $t['rules'][0]['slot'] = '*';
 

@@ -93,11 +93,13 @@
         <twig:DataTable :columns="[
             {label: 'workflow.settings.moves.from'|trans},
             {label: 'workflow.settings.moves.to'|trans},
+            {label: 'workflow.settings.moves.by'|trans},
         ]">
             {% for move in template.manualMoves %}
             <div class="lp-data-table__row" data-manual-move>
                 <span class="lp-data-table__cell">{{ move.fromKey|trans }}</span>
                 <span class="lp-data-table__cell">{{ move.toKey|trans }}</span>
+                <span class="lp-data-table__cell" data-manual-move-by>{{ move.byKey|trans }}</span>
             </div>
             {% endfor %}
         </twig:DataTable>
@@ -109,6 +111,9 @@
     <section class="lp-workflow-section" data-workflow-timings>
         <h2 class="lp-section-title">{{ 'workflow.settings.timings.heading'|trans }}</h2>
         <p class="lp-workspace-desc">{{ 'workflow.settings.timings.backoff'|trans({'%minutes%': template.backoffMinutes|join(', ')}) }}</p>
+        {% if template.workFailedBackoffMinutes is not null %}
+            <p class="lp-workspace-desc">{{ 'workflow.settings.timings.work_failed_backoff'|trans({'%minutes%': template.workFailedBackoffMinutes|join(', ')}) }}</p>
+        {% endif %}
         <p class="lp-workspace-desc">{{ 'workflow.settings.timings.work_timeout'|trans({'%minutes%': template.workTimeoutMinutes}) }}</p>
     </section>
     {% endif %}

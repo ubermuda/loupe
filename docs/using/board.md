@@ -565,8 +565,8 @@ Loupe moves an epic on its own:
   `implementation` column.
 - When a child with a parent waits in Backlog and its last blocker
   moves to a terminal column, the child moves to the `implementation` column.
-  The child waits while a breakdown of its epic runs. When the breakdown ends,
-  the epic evaluates its children again, and a child with no open blocker moves.
+  The child waits while a run of its epic is open. When the run ends, the epic
+  evaluates its children again, and a child with no open blocker moves.
 
 A board with no `implementation` column skips the moves back. An epic with no
 children never moves on its own.
