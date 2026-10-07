@@ -225,14 +225,11 @@ final readonly class Engine
         $rule = $run->rule($pause->ruleId);
         if (\in_array($code, ['facts-changed', self::SUBJECT_CHANGED], true) && null !== $rule) {
             // A false truth makes the rule fire again at once, with a fresh backoff.
-            $this->write($run, $this->state($run, $rule), static function (WorkflowRuleState $state) use ($code): void {
+            // The subject and its count stay, so runRule() resets the count only when the new subject gets its request.
+            $this->write($run, $this->state($run, $rule), static function (WorkflowRuleState $state): void {
                 $state->truth = false;
                 $state->attempts = 0;
                 $state->dueAt = null;
-                // The old subject stays, so a request still live for it holds back the new one.
-                if (self::SUBJECT_CHANGED === $code) {
-                    $state->fires = 0;
-                }
             });
         }
 

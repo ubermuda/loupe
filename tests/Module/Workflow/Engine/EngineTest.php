@@ -553,6 +553,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame('subject-changed', $pause->releaseReason);
         self::assertSame([$first], $this->liveRequests($card));
         self::assertTrue($base->id?->equals($this->ruleState($card, 'fix')->subjectPullRequestId));
+        self::assertSame(1, $this->ruleState($card, 'fix')->fires, 'The base keeps its count while its request is live.');
 
         $this->finish($first);
         $this->evaluate($card, '2026-10-02 12:40:00');
