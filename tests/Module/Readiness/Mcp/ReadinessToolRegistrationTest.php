@@ -6,9 +6,9 @@ namespace App\Tests\Module\Readiness\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Project\Mcp\AdvertisedTools;
-use App\Module\Project\Mcp\ProjectCurrentTool;
 use App\Module\Readiness\Mcp\DiscoveryStartTool;
 use App\Module\Readiness\Mcp\ReadinessGetTool;
+use App\Module\Readiness\Mcp\ReadinessGuideSetTool;
 use Mcp\Capability\Registry;
 use Mcp\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -62,13 +62,15 @@ final class ReadinessToolRegistrationTest extends KernelTestCase
         self::assertNotSame($key, $translator->trans($key), $toolClass);
     }
 
-    public function test_the_tools_are_advertised_after_project_current(): void
+    public function test_the_tools_are_advertised_after_readiness_guide_set(): void
     {
         $advertised = self::getContainer()->get(AdvertisedTools::class);
         self::assertInstanceOf(AdvertisedTools::class, $advertised);
 
         $names = array_column($advertised->enabled(), 'name');
+        $guide = array_search(ReadinessGuideSetTool::NAME, $names, true);
+        self::assertIsInt($guide);
 
-        self::assertSame([ProjectCurrentTool::NAME, ReadinessGetTool::NAME, DiscoveryStartTool::NAME], \array_slice($names, 0, 3));
+        self::assertSame([ReadinessGuideSetTool::NAME, ReadinessGetTool::NAME, DiscoveryStartTool::NAME], \array_slice($names, $guide, 3));
     }
 }
