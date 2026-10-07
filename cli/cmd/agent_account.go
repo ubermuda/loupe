@@ -151,17 +151,19 @@ func githubUser(ctx context.Context, token string) (string, int64, error) {
 
 // checkAgentAccount asks GitHub for the login of the stored token, which the
 // heartbeat reports. No account, or a token GitHub refuses, gives "", so a
-// revoked token never shows as set up.
+// revoked token never shows as set up. A renamed user updates a, so workers
+// commit as the login that the heartbeat reports.
 func checkAgentAccount(ctx context.Context, a *config.AgentAccount, log *slog.Logger) string {
 	if a == nil {
 		return ""
 	}
-	login, _, err := githubUser(ctx, a.Token)
+	login, id, err := githubUser(ctx, a.Token)
 	if err != nil {
 		log.Warn("agent_account_check_failed", "login", a.Login, "error", err.Error())
 
 		return ""
 	}
+	a.Login, a.ID = login, id
 
 	return login
 }

@@ -129,6 +129,9 @@ func TestCheckAgentAccount(t *testing.T) {
 	if got := checkAgentAccount(context.Background(), account, log); got != "loupe-bot" {
 		t.Fatalf("a good token gives %q", got)
 	}
+	if account.Login != "loupe-bot" || account.ID != 7 {
+		t.Fatalf("a renamed user leaves the account at %q %d", account.Login, account.ID)
+	}
 
 	stubGitHub(t, http.StatusUnauthorized, `{}`)
 	if got := checkAgentAccount(context.Background(), account, log); got != "" {
