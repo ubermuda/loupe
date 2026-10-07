@@ -72,8 +72,8 @@ final class RequestSessionUsageCollectionHandlerTest extends KernelTestCase
         self::assertSame('collect-session-usage', $payloads[0]['kind']);
         self::assertSame((string) $run->id, $payloads[0]['runId']);
         self::assertSame((string) $run->sessionId, $payloads[0]['sessionId']);
-        self::assertSame($run->startedAt?->format(\DateTimeInterface::ATOM), $payloads[0]['startedAt']);
-        self::assertSame($run->endedAt?->format(\DateTimeInterface::ATOM), $payloads[0]['endedAt']);
+        self::assertSame($run->startedAt?->format('Y-m-d\TH:i:s.uP'), $payloads[0]['startedAt']);
+        self::assertSame($run->endedAt?->format('Y-m-d\TH:i:s.uP'), $payloads[0]['endedAt']);
     }
 
     public function test_a_launched_run_asks_only_its_own_bridge(): void

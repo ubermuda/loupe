@@ -35,7 +35,7 @@ func (r *router) collectSessionUsage(c api.Command) (state, reason string) {
 	if err != nil {
 		return api.CommandRefused, usageNotRead + err.Error()
 	}
-	usage, err := transcript.Between(path, windowEdge(*c.StartedAt), windowEdge(*c.EndedAt))
+	usage, err := transcript.Between(path, *c.StartedAt, windowEnd(*c.EndedAt))
 	if err != nil {
 		return api.CommandRefused, usageNotRead + err.Error()
 	}
@@ -54,13 +54,13 @@ func (r *router) collectSessionUsage(c api.Command) (state, reason string) {
 	return api.CommandDone, ""
 }
 
-// windowEdge is an edge of a window the server sends. A whole second can be a
-// time the server cut to the second, so the edge moves to the end of it. The
-// next run of the session then starts where this one ends, and no reply counts twice.
-func windowEdge(edge time.Time) time.Time {
-	if edge.Nanosecond() == 0 {
-		return edge.Add(time.Second)
+// windowEnd is the end of a window the server sends. An exact time stays as it
+// is. A whole second can be a time an older server cut, so the end moves to the
+// end of that second and no reply of the run is lost.
+func windowEnd(end time.Time) time.Time {
+	if end.Nanosecond() == 0 {
+		return end.Add(time.Second)
 	}
 
-	return edge
+	return end
 }

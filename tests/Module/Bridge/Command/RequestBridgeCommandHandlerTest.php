@@ -79,8 +79,8 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'workRequestId' => null,
             'workKind' => 'plan',
             'ruleId' => null,
-            'startedAt' => '2026-01-01T10:00:00+00:00',
-            'endedAt' => '2026-01-01T10:05:00+00:00',
+            'startedAt' => '2026-01-01T10:00:00.000000+00:00',
+            'endedAt' => '2026-01-01T10:05:00.000000+00:00',
             'expiresAt' => '2026-09-29T12:15:00+00:00',
             'cause' => 'person',
             'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
@@ -347,6 +347,23 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         self::assertSame(['opus', 'high'], [$heartbeat['model'], $heartbeat['effort']]);
         $event = $this->outboxPayloads()[0];
         self::assertSame(['opus', 'high'], [$event['model'], $event['effort']]);
+    }
+
+    public function test_a_command_carries_the_start_and_the_end_of_its_run_with_the_fraction(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('command-times', state: WorkerRunState::Unfinished, context: new WorkRequestContext());
+        $run->startedAt = new \DateTimeImmutable('2026-01-01 10:00:05.300125 UTC');
+        $run->endedAt = new \DateTimeImmutable('2026-01-01 10:00:12.400250 UTC');
+        $this->em()->flush();
+
+        $command = $this->request($run, BridgeCommandKind::ResumeRun, $owner);
+
+        $this->em()->clear();
+        $stored = $this->em()->find(BridgeCommand::class, $command->id);
+        self::assertInstanceOf(BridgeCommand::class, $stored);
+        $payload = BridgeCommandPayload::of($stored);
+        self::assertSame(['2026-01-01T10:00:05.300125+00:00', '2026-01-01T10:00:12.400250+00:00'], [$payload['startedAt'], $payload['endedAt']]);
     }
 
     public function test_a_command_takes_no_context_from_a_work_request_of_another_project_or_card(): void
