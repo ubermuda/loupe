@@ -137,7 +137,7 @@ enum WorkerRunState: string
     /** The outcomes that warn on the card while they are its latest. */
     public function isWarning(): bool
     {
-        return self::GaveUp === $this || self::Blocked === $this;
+        return \in_array($this, [self::GaveUp, self::Blocked, self::Failed, self::NoResult], true);
     }
 
     /** The server infers these on its own, and a bridge never reports them. */

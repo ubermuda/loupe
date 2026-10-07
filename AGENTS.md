@@ -34,6 +34,7 @@ A skill's name prefix says which side of the product you stand on. A `loupe-*` s
 | `loupe-stage-implementation` | A card entering the Implementation column, or a prompt that names the skill: build the approved tech design into a ready pull request, or break an epic down into child cards |
 | `loupe-stage-fix-round` | One round of review feedback on a card's current stage, a document review or a pull request review, from a fix request or run by hand |
 | `loupe-stage-merge` | A card's pull request that is ready to merge or behind its base, or a prompt that names the skill |
+| `loupe-stage-repair` | A repair work request after a rule's work failed and its retries ran out, or a prompt that names the skill |
 | `symfony-authorization` | Generic Symfony authorization mechanics: Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters: `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
 | `project-comments` | Writing or reviewing code comments and docblocks anywhere in `src/`, `assets/` or `tests/` |

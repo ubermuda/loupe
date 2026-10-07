@@ -86,10 +86,10 @@ final class ManagedCardMoveTest extends KernelTestCase
         self::assertCount(1, $this->heldEvents());
     }
 
-    public function test_a_breakdown_run_may_set_the_parent_and_move_the_child_in_one_update(): void
+    public function test_a_breakdown_run_may_set_the_parent_and_move_the_child_from_the_backlog_in_one_update(): void
     {
         $epic = $this->card('in-progress', CardType::Epic);
-        $child = $this->card('next');
+        $child = $this->card('backlog');
 
         $this->updateCard()(new UpdateCardCommand(
             card: $child,

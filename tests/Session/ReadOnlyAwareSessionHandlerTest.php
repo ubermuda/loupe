@@ -32,6 +32,8 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         yield 'GET on a route marked for another frame' => [self::marked('board-frame', Request::create('/board'), 'other-frame'), 'nonLocking'];
         yield 'GET on a frame route with no frame header' => [self::marked('board-frame', Request::create('/board')), 'nonLocking'];
         yield 'GET on a route marked for other frames' => [self::marked(['board-frame', 'board-count'], Request::create('/board'), 'other-frame'), 'nonLocking'];
+        yield 'POST that claims to be a frame prefetch' => [self::prefetch(Request::create('/board', Request::METHOD_POST)), 'locking'];
+        yield 'full-page prefetch' => [self::prefetch(Request::create('/reset/token'), frame: null), 'nonLocking'];
     }
 
     #[DataProvider('requests')]
@@ -65,6 +67,8 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         yield 'POST on a route marked read-only' => [self::marked(true, Request::create('/count', Request::METHOD_POST))];
         yield 'frame route with its frame header' => [self::marked('board-frame', Request::create('/board'), 'board-frame')];
         yield 'route marked for several frames, with one of them' => [self::marked(['board-frame', 'board-count'], Request::create('/board'), 'board-count')];
+        yield 'Turbo frame prefetch of an unmarked route' => [self::prefetch(Request::create('/board'))];
+        yield 'frame prefetch with the standard header' => [self::prefetch(Request::create('/board'), 'Sec-Purpose')];
     }
 
     #[DataProvider('readOnlyRequests')]
@@ -212,6 +216,17 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
     private static function marked(string|array|bool $mark, Request $request, ?string $frame = null): Request
     {
         $request->attributes->set(ReadOnlyAwareSessionHandler::READ_ONLY, $mark);
+
+        if (null !== $frame) {
+            $request->headers->set('Turbo-Frame', $frame);
+        }
+
+        return $request;
+    }
+
+    private static function prefetch(Request $request, string $header = 'X-Sec-Purpose', ?string $frame = 'card-drawer-frame'): Request
+    {
+        $request->headers->set($header, 'prefetch');
 
         if (null !== $frame) {
             $request->headers->set('Turbo-Frame', $frame);

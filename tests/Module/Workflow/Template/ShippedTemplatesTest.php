@@ -269,25 +269,39 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals($toImplementation, $this->actions($inBacklog));
     }
 
-    public function test_a_child_in_the_backlog_waits_while_the_breakdown_of_its_epic_runs(): void
+    public function test_a_child_in_the_backlog_waits_while_any_run_of_its_epic_is_open(): void
     {
         $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
         $child = FactsMother::card(slot: '@backlog', isChild: true);
 
         self::assertNotContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['breakdown']))));
-        self::assertContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['implement']))));
+        self::assertNotContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['implement']))));
         self::assertContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child)));
     }
 
-    public function test_an_epic_in_implementation_evaluates_its_children_once_no_breakdown_runs(): void
+    public function test_an_epic_in_any_column_evaluates_its_children_once_no_worker_run_of_it_is_open(): void
     {
         $evaluate = new ActionCall(ActionType::Evaluate, ['cards' => 'children']);
         $epic = FactsMother::card(slot: 'implementation', type: 'epic', childCount: 2, openChildCount: 2);
 
         self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic, run: FactsMother::run(activeWorkerKinds: ['breakdown']))));
-        self::assertContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic, run: FactsMother::run(activeWorkerKinds: ['fix']))));
+        self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic, run: FactsMother::run(activeWorkerKinds: ['fix']))));
+        self::assertContainsEquals($evaluate, $this->actions(FactsMother::facts(card: $epic)));
+        self::assertContainsEquals($evaluate, $this->actions(FactsMother::facts(card: FactsMother::card(slot: 'tech-design', type: 'epic', childCount: 2, openChildCount: 2))));
         self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: FactsMother::card(slot: 'implementation'))));
-        self::assertNotContainsEquals($evaluate, $this->actions(FactsMother::facts(card: FactsMother::card(slot: 'in-review', type: 'epic', childCount: 2, openChildCount: 2))));
+    }
+
+    public function test_a_merged_epic_waits_for_its_open_run_and_a_merged_card_does_not(): void
+    {
+        $toTerminal = new ActionCall(ActionType::Move, ['to' => '@terminal']);
+        $merged = FactsMother::pullRequest(state: PullRequestState::Merged, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+        $epic = FactsMother::card(slot: 'in-review', type: 'epic', childCount: 2);
+        $feature = FactsMother::card(slot: 'in-review');
+        $open = FactsMother::run(activeWorkerKinds: ['fix']);
+
+        self::assertNotContainsEquals($toTerminal, $this->actions(FactsMother::facts(card: $epic, pullRequest: $merged, pullRequests: [$merged], run: $open)));
+        self::assertContainsEquals($toTerminal, $this->actions(FactsMother::facts(card: $epic, pullRequest: $merged, pullRequests: [$merged])));
+        self::assertContainsEquals($toTerminal, $this->actions(FactsMother::facts(card: $feature, pullRequest: $merged, pullRequests: [$merged], run: $open)));
     }
 
     /** @param list<string> $pair */

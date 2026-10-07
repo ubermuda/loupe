@@ -51,6 +51,14 @@ class WorkflowRuleState
     #[ORM\Column(type: UuidType::NAME, nullable: true)]
     public ?Uuid $subjectPullRequestId = null;
 
+    /** The work request the rule opened last, which the engine reads when it settles. */
+    #[ORM\Column(type: UuidType::NAME, nullable: true)]
+    public ?Uuid $workRequestId = null;
+
+    /** True while the engine has started the repair of the current escalation. */
+    #[ORM\Column(options: ['default' => false])]
+    public bool $repaired = false;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Card::class)]
@@ -78,5 +86,7 @@ class WorkflowRuleState
         $this->lastRefusal = null;
         $this->lastRefusalAt = null;
         $this->subjectPullRequestId = null;
+        $this->workRequestId = null;
+        $this->repaired = false;
     }
 }
