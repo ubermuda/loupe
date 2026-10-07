@@ -19,14 +19,17 @@ Enter a title and Markdown.
 When Board is enabled, select the cards to link.
 Select **Create document**.
 Loupe opens the first version with Draft status.
-You can review a draft with **Finish review**, or edit it with **Revise**.
+A draft stays out of review and the inbox.
+You can edit a draft with **Revise**, and it stays a draft.
+Select **Publish** to send the draft to review.
+You can also review a draft with **Finish review**.
 
 New document, Revise, and Finish review keep unsent drafts during in-app navigation in the same tab.
 Closing a dialog keeps its draft. Select **Discard draft** to remove it.
 Reloading or closing the browser tab discards these local drafts; copy important text first.
 If another tab completes the review, the document shows your unsent review separately so you can copy or discard it.
 Restored review and revision drafts retain their original version checks. They cannot silently apply to a newer version.
-Documents submitted through the agent tools start with In review status.
+Documents submitted through the agent tools start with In review status, unless the agent asks for a draft.
 
 ## Revising
 
@@ -37,7 +40,8 @@ Unchanged sections keep their approvals.
 The Linked cards field keeps the current selection until you change it.
 Clear a checkbox to remove that card link.
 The picker offers open cards and keeps linked cards available after they finish.
-The document returns to Needs review.
+A document with changes requested, or an approved document, returns to Needs review.
+A draft stays a draft.
 
 If another revision arrives while you edit, Loupe keeps your draft and refuses the submission.
 Compare your draft with the current version before you submit a new revision.

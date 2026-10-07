@@ -16,9 +16,12 @@ use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Project\Entity\Project;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Module\Bridge\WorkSubject\RecordingWorkSubjectHandler;
 use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\DriverManager;
@@ -50,7 +53,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $stored = $this->em()->find(WorkRequest::class, $request->id);
         self::assertInstanceOf(WorkRequest::class, $stored);
         self::assertSame((string) $project->id, (string) $stored->project->id);
-        self::assertSame((string) $cardId, (string) $stored->cardId);
+        self::assertSame((string) $cardId, (string) $stored->subjectId);
         self::assertSame(7, $stored->cardNumber);
         self::assertSame('implement', $stored->kind);
         self::assertSame('interactive', $stored->capability);
@@ -63,10 +66,11 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             'projectId' => (string) $project->id,
             'subject' => ['type' => 'work-request', 'id' => (string) $request->id],
             'workRequestId' => (string) $request->id,
+            'subjectType' => 'card',
+            'subjectId' => (string) $cardId,
             'kind' => 'implement',
             'capability' => 'interactive',
             'state' => 'open',
-            'cardId' => (string) $cardId,
             'cardNumber' => 7,
             'ruleId' => 'implement-on-entry',
             'createdAt' => self::NOW,
@@ -80,9 +84,10 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertSame(AuditOutcome::Success, $record->outcome);
         self::assertSame((string) $request->id, $record->subject?->id);
         self::assertSame('implement', $record->context['kind']);
-        self::assertSame((string) $cardId, $record->context['cardId']);
+        self::assertSame('card', $record->context['subjectType']);
+        self::assertSame((string) $cardId, $record->context['subjectId']);
 
-        self::assertEquals([new WorkRequestChanged($project->id ?? throw new \LogicException(), $cardId, $request->id ?? throw new \LogicException(), WorkRequestState::Open)], $changes->events());
+        self::assertEquals([new WorkRequestChanged($project->id ?? throw new \LogicException(), WorkSubject::CARD, $cardId, $request->id ?? throw new \LogicException(), WorkRequestState::Open)], $changes->events());
         self::assertSame([$depth], $changes->transactionDepths());
     }
 
@@ -261,7 +266,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             self::assertNotSame($this->em()->getConnection()->fetchOne('SELECT pg_backend_pid()'), $other->fetchOne('SELECT pg_backend_pid()'));
             $tryLock = static fn (Uuid $card, string $kind): bool => (bool) $other->fetchOne(
                 'SELECT pg_try_advisory_xact_lock(hashtext(?))',
-                ['work_request:'.$card->toRfc4122().':'.$kind],
+                ['work_request:card:'.$card->toRfc4122().':'.$kind],
             );
             self::assertFalse($tryLock($cardId, 'implement'));
             self::assertTrue($tryLock($cardId, 'design'));
@@ -280,10 +285,10 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         $this->open($project, $cardId);
         $blind = $this->createStub(WorkRequestRepository::class);
         $blind->method('hasLive')->willReturn(false);
-        $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(WorkRequestAnnouncer::class), $this->service(WorkerRunRepository::class));
+        $handler = new OpenWorkRequestHandler($blind, $this->service(OutboxWriter::class), $this->em(), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(WorkRequestAnnouncer::class), $this->service(WorkerRunRepository::class), new WorkSubjectHandlers([]));
 
         try {
-            $handler(new OpenWorkRequestCommand($project, $cardId, 7, 'implement', null, 'implement-on-entry', new WorkRequestContext()));
+            $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, 'implement', null, 'implement-on-entry', new WorkRequestContext()));
             self::fail('Expected a refusal.');
         } catch (DomainErrors $e) {
             self::assertSame(['card' => OpenWorkRequestHandler::LIVE], $e->errors);
@@ -339,6 +344,66 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
         self::assertSame([], $this->outboxPayloads());
     }
 
+    /** @return iterable<string, array{WorkSubject, ?int}> */
+    public static function mismatchedCardNumbers(): iterable
+    {
+        yield 'a card with no number' => [WorkSubject::card(Uuid::v7()), null];
+        yield 'another subject with a card number' => [new WorkSubject('analysis', Uuid::v7()), 7];
+    }
+
+    #[DataProvider('mismatchedCardNumbers')]
+    public function test_a_card_number_goes_with_a_card_subject_alone(WorkSubject $subject, ?int $cardNumber): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-card-number');
+
+        try {
+            $this->handler()(new OpenWorkRequestCommand($project, $subject, $cardNumber, 'implement', null, 'implement-on-entry', new WorkRequestContext()));
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['cardNumber' => OpenWorkRequestHandler::INVALID_CARD_NUMBER], $e->errors);
+        }
+
+        self::assertSame(0, $this->countRequests());
+    }
+
+    public function test_a_request_about_another_subject_opens_with_no_card(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-other-subject');
+        $subjectId = Uuid::v7();
+        $card = $this->open($project, $subjectId);
+
+        $request = $this->handler()(new OpenWorkRequestCommand($project, new WorkSubject('analysis', $subjectId), null, 'implement', null, 'insights.analysis', new WorkRequestContext()));
+
+        self::assertNotSame($card, $request);
+        self::assertSame('analysis', $request->subjectType);
+        self::assertSame($subjectId, $request->subjectId);
+        self::assertNull($request->cardNumber);
+        $payloads = $this->outboxPayloads();
+        self::assertCount(2, $payloads);
+        self::assertSame('analysis', $payloads[1]['subjectType']);
+        self::assertSame((string) $subjectId, $payloads[1]['subjectId']);
+        self::assertNull($payloads[1]['cardNumber']);
+        self::assertArrayNotHasKey('cardId', $payloads[1]);
+    }
+
+    public function test_a_subject_type_that_no_module_handles_is_refused(): void
+    {
+        $this->boot();
+        $project = $this->scenario('open-unknown-subject');
+
+        try {
+            $this->handler()(new OpenWorkRequestCommand($project, new WorkSubject('report', Uuid::v7()), null, 'implement', null, 'insights.analysis', new WorkRequestContext()));
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['subjectType' => OpenWorkRequestHandler::UNKNOWN_SUBJECT_TYPE], $e->errors);
+        }
+
+        self::assertSame(0, $this->countRequests());
+        self::assertSame([], $this->outboxPayloads());
+    }
+
     /** Nothing in production calls the handler yet, so the compiled container holds none. */
     private function handler(): OpenWorkRequestHandler
     {
@@ -350,6 +415,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             $this->service(Auditor::class),
             $this->service(WorkRequestAnnouncer::class),
             $this->service(WorkerRunRepository::class),
+            new WorkSubjectHandlers([new RecordingWorkSubjectHandler()]),
         );
     }
 
@@ -392,7 +458,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
     ): WorkRequest {
         $handler = $this->handler();
 
-        return $handler(new OpenWorkRequestCommand($project, $cardId, 7, $kind, $capability, $ruleId, $context, $prompt));
+        return $handler(new OpenWorkRequestCommand($project, WorkSubject::card($cardId), 7, $kind, $capability, $ruleId, $context, $prompt));
     }
 
     private function unfinishedRunOf(
@@ -405,7 +471,7 @@ final class OpenWorkRequestHandlerTest extends KernelTestCase
             $request->project,
             receivedAt: $request->createdAt->modify('+1 minute'),
             workKind: $request->kind,
-            cardId: $request->cardId,
+            cardId: $request->subjectId,
             state: $state,
             workRequestId: $request->id,
             endedAt: $endedAt,

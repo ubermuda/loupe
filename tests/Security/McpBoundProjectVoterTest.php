@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\Comment;
@@ -108,7 +109,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
 
     private function runIn(Project $project): WorkerRun
     {
-        $run = new WorkerRun($project, Uuid::v7(), Uuid::v7(), 1, 'plan', WorkerRunState::Running);
+        $run = new WorkerRun($project, Uuid::v7(), WorkSubject::CARD, Uuid::v7(), 1, 'plan', WorkerRunState::Running);
         $this->em->persist($run);
         $this->em->flush();
 

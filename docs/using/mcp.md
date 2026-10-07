@@ -258,8 +258,9 @@ Roughly in the order an agent uses them:
 | Tool | Purpose |
 |---|---|
 | `project_current` | Report which project this connection acts on, with its id, slug and name |
-| `document_create` | Submit Markdown as a new document; returns a review URL and the language it was stored in |
+| `document_create` | Submit Markdown as a new document, or as a draft with `draft`; returns a review URL, the language it was stored in and its status |
 | `document_revise` | Submit a new version, described by what changed |
+| `document_publish` | Send a draft to review, so it reaches the reviewer's inbox |
 | `document_get` / `document_list` | Read a document, or enumerate the project's, with search and filters |
 | `document_get_review` | Verdict, threaded comments, answered decision blocks, and approved sections |
 | `document_reply_to_comment` | Reply to a reviewer's thread |
@@ -303,6 +304,14 @@ Roughly in the order an agent uses them:
 | `card_release` | Make an unmanaged card managed again. The queued runs on the card then start |
 | `card_pause_release` | End the workflow pause of a card, by `cardId` or `number`, so the paused rule runs again with a fresh budget. It ends a pause of kind `retries`, `work-limit` or `work-timeout`. It does not end a hold, which `card_release` ends |
 | `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
+
+### Staging a draft
+
+Pass `draft: true` to `document_create` to keep a document out of review.
+A draft does not reach the reviewer's inbox, and `document_revise` keeps it a draft.
+Call `document_publish` to send it to review.
+For a document that is not a draft, `document_publish` changes nothing and returns `published: false`.
+It refuses an archived document.
 
 ### Finding a document without reading every one
 

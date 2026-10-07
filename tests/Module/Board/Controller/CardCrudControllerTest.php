@@ -16,6 +16,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\MercureCookies;
@@ -362,7 +363,8 @@ final class CardCrudControllerTest extends WebTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('card id after flush'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('card id after flush'),
             cardNumber: $card->number,
             workKind: 'plan the card',
             state: WorkerRunState::Failed,
@@ -422,7 +424,8 @@ final class CardCrudControllerTest extends WebTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('card id after flush'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('card id after flush'),
             cardNumber: $card->number,
             workKind: 'queued rule',
             state: WorkerRunState::Queued,

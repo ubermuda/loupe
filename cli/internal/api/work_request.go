@@ -23,9 +23,10 @@ const (
 	WorkRequestCancelled = "cancelled"
 )
 
-// WorkRequest is one piece of agent work on a card that the server offers to
-// the bridges. It arrives as a bridge.work_request event, in each heartbeat
-// reply, and in the answer to a claim. A null capability decodes as "".
+// WorkRequest is one piece of agent work on a subject, such as a card, that
+// the server offers to the bridges. It arrives as a bridge.work_request event,
+// in each heartbeat reply, and in the answer to a claim. A null capability
+// decodes as "".
 type WorkRequest struct {
 	Type          string             `json:"type"`
 	ProjectID     string             `json:"projectId"`
@@ -34,10 +35,13 @@ type WorkRequest struct {
 	Kind          string             `json:"kind"`
 	Capability    string             `json:"capability"`
 	State         string             `json:"state"`
-	CardID        string             `json:"cardId"`
-	CardNumber    int                `json:"cardNumber"`
-	RuleID        string             `json:"ruleId"`
-	CreatedAt     time.Time          `json:"createdAt"`
+	// SubjectType and SubjectID name what the work is about.
+	SubjectType string `json:"subjectType"`
+	SubjectID   string `json:"subjectId"`
+	// CardNumber is the label a person sees, for a card subject only.
+	CardNumber int       `json:"cardNumber,omitempty"`
+	RuleID     string    `json:"ruleId"`
+	CreatedAt  time.Time `json:"createdAt"`
 	// ResumeSessionID is the session of an unfinished run of the card and
 	// kind, which the run of this request resumes. A null decodes as "".
 	ResumeSessionID string `json:"resumeSessionId,omitempty"`
@@ -47,6 +51,14 @@ type WorkRequest struct {
 	Prompt string `json:"prompt,omitempty"`
 	// Context is what the card held when the request opened.
 	Context WorkRequestContext `json:"context"`
+}
+
+// SubjectCard is the subject type of a card.
+const SubjectCard = "card"
+
+// OnCard reports whether the work is about a card.
+func (w WorkRequest) OnCard() bool {
+	return w.SubjectType == SubjectCard
 }
 
 // WorkRequestContext is the pull request a work request acts on and why, and

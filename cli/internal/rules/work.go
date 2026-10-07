@@ -25,7 +25,14 @@ const (
 )
 
 // workPlaceholders are the names a work entry can fill.
-var workPlaceholders = append([]string{"cardId", "cardNumber", "projectId", "project", "kind", "ruleId", "workRequestId"}, contextPlaceholders...)
+var workPlaceholders = append([]string{"cardId", "cardNumber", "projectId", "project", "kind", "ruleId", "workRequestId", "subjectType", "subjectId"}, contextPlaceholders...)
+
+// cardPlaceholders have no value for a subject that is no card.
+var cardPlaceholders = []string{"cardId", "cardNumber"}
+
+// subjectCapabilityPrefix starts the capability of a subject type that is no
+// card, so the server offers that work only to a bridge with an entry for it.
+const subjectCapabilityPrefix = "subject-"
 
 // contextPlaceholders fill from the context of the request. An empty value is
 // a real state, such as a card with no pull request.
@@ -45,6 +52,9 @@ type WorkEntry struct {
 	Variants []Variant `yaml:"variants"`
 	Run      []string  `yaml:"run"`
 	Timeout  string    `yaml:"timeout"`
+	// Subject is the subject type the entry runs. The check fills card when
+	// it is empty.
+	Subject string `yaml:"subject"`
 
 	schema         string
 	experiment     *Experiment
@@ -110,6 +120,7 @@ func checkWork(kind string, w *WorkEntry) error {
 		errs = append(errs, beforeErrs...)
 		w.beforeTimeout = timeout
 	}
+	errs = append(errs, checkSubject(w)...)
 
 	if w.Variants != nil {
 		if w.Model != "" {
@@ -126,6 +137,42 @@ func checkWork(kind string, w *WorkEntry) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// checkSubject checks the subject of the entry, and fills card when it is
+// empty. A subject that is no card has no card placeholders, and its
+// capability must fit the shape the server takes.
+func checkSubject(w *WorkEntry) []error {
+	w.Subject = cmp.Or(w.Subject, api.SubjectCard)
+	if w.Subject == api.SubjectCard {
+		return nil
+	}
+	if !event.KindPattern.MatchString(subjectCapabilityPrefix + w.Subject) {
+		return []error{fmt.Errorf("subject %q is not 1 to 32 lowercase letters, digits and hyphens that start with a letter, such as analysis", w.Subject)}
+	}
+	var errs []error
+	if w.Action == ActionInteractive {
+		errs = append(errs, fmt.Errorf("action %s opens a session on a card, and this entry runs subject %s", ActionInteractive, w.Subject))
+	}
+	fields := map[string][]string{"prompt": {w.Prompt}, "run": w.Run}
+	if w.Before != nil {
+		fields["before.run"] = w.Before.Run
+	}
+	for _, field := range slices.Sorted(maps.Keys(fields)) {
+		var used []string
+		for _, text := range fields[field] {
+			for _, name := range directive.Placeholders(text) {
+				if slices.Contains(cardPlaceholders, name) && !slices.Contains(used, name) {
+					used = append(used, name)
+				}
+			}
+		}
+		for _, name := range used {
+			errs = append(errs, fmt.Errorf("%s uses {%s}, which names a card, and this entry runs subject %s", field, name, w.Subject))
+		}
+	}
+
+	return errs
 }
 
 // MatchWork matches a work request against the work map. It checks the
@@ -153,9 +200,10 @@ func validAppPrompt(prompt string) bool {
 }
 
 // MatchKind matches the run of a kind of work against the work map, as a
-// person's command names that run. It reads the project, the card, the kind
-// and the ids of w, and checks none of them, so the caller checks them first.
-// A kind the map does not hold runs as an app prompt when the set has
+// person's command names that run. It reads the project, the subject, the
+// kind and the ids of w, and checks none of them, so the caller checks them
+// first. A request whose subject type differs from the entry's skips as
+// NoRule. A kind the map does not hold runs as an app prompt when the set has
 // appPrompts. A continued run carries no prompt and needs none.
 func (s *Set) MatchKind(w api.WorkRequest) Match {
 	slug, ok := s.slugs[w.ProjectID]
@@ -166,7 +214,7 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 	s.mu.RLock()
 	dead := s.deadWork[slug] != ""
 	s.mu.RUnlock()
-	if (!ok && !s.appPrompts) || dead {
+	if (!ok && !s.appPrompts) || dead || (ok && entry.Subject != w.SubjectType) {
 		return Match{Skip: NoRule, Project: slug}
 	}
 
@@ -217,16 +265,23 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 }
 
 // workValues are the values a work entry fills its placeholders with. A
-// context value the request lacks fills as empty.
+// context value the request lacks fills as empty, and so does a card value
+// of a subject that is no card.
 func workValues(w api.WorkRequest, slug string) map[string]string {
 	pullRequestNumber := ""
 	if w.Context.PullRequestNumber > 0 {
 		pullRequestNumber = strconv.Itoa(w.Context.PullRequestNumber)
 	}
+	cardID, cardNumber := "", ""
+	if w.OnCard() {
+		cardID, cardNumber = w.SubjectID, strconv.Itoa(w.CardNumber)
+	}
 
 	return map[string]string{
-		"cardId":            w.CardID,
-		"cardNumber":        strconv.Itoa(w.CardNumber),
+		"cardId":            cardID,
+		"cardNumber":        cardNumber,
+		"subjectType":       w.SubjectType,
+		"subjectId":         w.SubjectID,
 		"projectId":         w.ProjectID,
 		"project":           slug,
 		"kind":              w.Kind,
@@ -290,17 +345,28 @@ func (s *Set) WorkDead(slug string) string {
 }
 
 // Capabilities lists what the work map lets the bridge claim: work-requests
-// for any entry or for app prompts, and interactive too for an interactive
-// entry. It is nil for a set with no work.
+// for any entry or for app prompts, interactive too for an interactive entry,
+// and subject- with the subject type for each entry whose subject is no card.
+// It is nil for a set with no work.
 func (s *Set) Capabilities() []string {
 	if !s.HasWork() {
 		return nil
 	}
 	out := []string{CapabilityWorkRequests}
-	for _, kind := range slices.Sorted(maps.Keys(s.work)) {
-		if s.work[kind].Action == ActionInteractive {
-			return append(out, CapabilityInteractive)
+	interactive := false
+	var subjects []string
+	for _, entry := range s.work {
+		interactive = interactive || entry.Action == ActionInteractive
+		if entry.Subject != api.SubjectCard && !slices.Contains(subjects, entry.Subject) {
+			subjects = append(subjects, entry.Subject)
 		}
+	}
+	if interactive {
+		out = append(out, CapabilityInteractive)
+	}
+	slices.Sort(subjects)
+	for _, subject := range subjects {
+		out = append(out, subjectCapabilityPrefix+subject)
 	}
 
 	return out

@@ -11,13 +11,14 @@ import (
 
 const testBridge = "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90"
 
-// reported is one run the router handed to the queue, with the project it named.
+// reported is one outcome the router handed to the queue, with the project it
+// named.
 type reported struct {
 	handle string
-	run    api.WorkerRun
+	run    api.RunStateReport
 }
 
-// reports wires the real queue to the router, and collects the old reports it
+// reports wires the real queue to the router, and collects the outcomes it
 // sends.
 func (h *harness) reports(t *testing.T) chan reported {
 	t.Helper()
@@ -27,26 +28,22 @@ func (h *harness) reports(t *testing.T) chan reported {
 	t.Cleanup(q.Close)
 	h.router.bridgeID = testBridge
 	h.router.reports = q
-	h.router.runs = newRunReports(&postRecorder{
-		fakeRunClient: fakeRunClient{
-			state:     func(string) (bool, error) { return false, api.ErrRunStatesUnsupported },
-			inventory: func() error { return api.ErrRunStatesUnsupported },
-		},
-		sent: sent,
-	}, h.router.log)
+	h.router.runs = newRunReports(&outcomeRecorder{sent: sent}, h.router.log)
 
 	return sent
 }
 
-// postRecorder is a server older than the run state endpoints. It takes every
-// old report, and hands each one to sent with the project it named.
-type postRecorder struct {
+// outcomeRecorder takes every report, and hands each outcome to sent with the
+// project it named.
+type outcomeRecorder struct {
 	fakeRunClient
 	sent chan reported
 }
 
-func (p *postRecorder) ReportWorkerRun(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
-	p.sent <- reported{handle: handle, run: run}
+func (p *outcomeRecorder) ReportRunState(_ context.Context, handle, _ string, report api.RunStateReport) (bool, error) {
+	if api.IsOutcome(report.State) {
+		p.sent <- reported{handle: handle, run: report}
+	}
 
 	return true, nil
 }
@@ -67,10 +64,10 @@ func TestEachFinishedRunReachesLoupe(t *testing.T) {
 	if got.handle != testProject {
 		t.Fatalf("handle = %q, want the project the event named", got.handle)
 	}
-	if got.run.BridgeID != testBridge || got.run.CardID != cardUUID(87) || got.run.CardNumber != 87 {
+	if got.run.BridgeID != testBridge || got.run.SubjectType != api.SubjectCard || got.run.SubjectID != cardUUID(87) || got.run.CardNumber != 87 {
 		t.Fatalf("run = %+v", got.run)
 	}
-	if got.run.RuleName != "work:plan" || got.run.Output != "wrote a plan" {
+	if got.run.Rule != "work:plan" || got.run.Output != "wrote a plan" {
 		t.Fatalf("run = %+v", got.run)
 	}
 	if got.run.ExitCode == nil || *got.run.ExitCode != 0 || got.run.FailureReason != nil {

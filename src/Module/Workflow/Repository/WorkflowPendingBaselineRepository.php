@@ -51,6 +51,14 @@ class WorkflowPendingBaselineRepository extends ServiceEntityRepository
         );
     }
 
+    public function isMarked(Uuid $cardId): bool
+    {
+        return false !== $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1 FROM workflow_pending_baselines WHERE card_id = :card',
+            ['card' => $cardId->toRfc4122()],
+        );
+    }
+
     /** Deletes the mark of the card. Answers whether it had one. */
     public function consume(Uuid $cardId): bool
     {

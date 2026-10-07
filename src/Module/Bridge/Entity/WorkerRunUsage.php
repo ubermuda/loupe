@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Entity;
 
 use App\Module\Bridge\Repository\WorkerRunUsageRepository;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -15,11 +16,11 @@ use Symfony\Component\Uid\Uuid;
 /**
  * The tokens one model spent in one run. A row outlives its run, so the
  * retention sweep keeps the spend of a card, and it carries the project, the
- * card, the rule and the usage source of the run for that reason.
+ * subject, the rule and the usage source of the run for that reason.
  */
 #[ORM\Entity(repositoryClass: WorkerRunUsageRepository::class)]
-// The spend of one card.
-#[ORM\Index(name: 'idx_bridge_worker_run_usage_card', columns: ['project_id', 'card_id'])]
+// The spend of one subject, such as a card.
+#[ORM\Index(name: 'idx_bridge_worker_run_usage_subject', columns: ['project_id', 'subject_type', 'subject_id'])]
 #[ORM\Table(name: 'bridge_worker_run_usage')]
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_usage_model', columns: ['run_id', 'model'])]
 class WorkerRunUsage
@@ -42,9 +43,12 @@ class WorkerRunUsage
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
-        /** A scalar, never a foreign key, like the card of the run. */
-        #[ORM\Column(name: 'card_id', type: UuidType::NAME)]
-        public readonly Uuid $cardId,
+        #[ORM\Column(name: 'subject_type', length: WorkSubject::MAX_TYPE_LENGTH)]
+        public readonly string $subjectType,
+
+        /** A scalar, never a foreign key, like the subject of the run. */
+        #[ORM\Column(name: 'subject_id', type: UuidType::NAME)]
+        public readonly Uuid $subjectId,
 
         /** The work kind of the run. Null for a run of an old bridge rule. */
         #[ORM\Column(name: 'work_kind', length: WorkerRun::MAX_WORK_KIND_LENGTH, nullable: true)]

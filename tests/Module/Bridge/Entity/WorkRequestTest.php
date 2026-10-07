@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Entity;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -134,7 +135,7 @@ final class WorkRequestTest extends TestCase
     {
         $project = new Project(new User('Riley Chen', 'riley@example.com', 'x'), 'Requests');
 
-        return new WorkRequest($project, Uuid::v7(), 7, 'implement', null, 'implement-on-entry', new \DateTimeImmutable(self::NOW));
+        return new WorkRequest($project, WorkSubject::CARD, Uuid::v7(), 7, 'implement', null, 'implement-on-entry', new \DateTimeImmutable(self::NOW));
     }
 
     private function claimed(): WorkRequest

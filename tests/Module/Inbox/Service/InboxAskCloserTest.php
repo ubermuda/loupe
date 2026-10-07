@@ -15,6 +15,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Messenger\ResumeAskingSession;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Inbox\Command\AnswerInboxItemCommand;
 use App\Module\Inbox\Command\AnswerInboxItemHandler;
 use App\Module\Inbox\Command\AskInboxCommand;
@@ -565,7 +566,8 @@ final class InboxAskCloserTest extends KernelTestCase
         $this->em->persist(new WorkerRun(
             project: $project ?? $this->managedProject(),
             bridgeId: $interactive ? null : Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('The card has no id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('The card has no id.'),
             cardNumber: $card->number,
             workKind: 'plan',
             state: $interactive ? WorkerRunState::Running : WorkerRunState::Succeeded,

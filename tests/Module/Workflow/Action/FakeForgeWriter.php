@@ -8,10 +8,11 @@ use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Service\PullRequestBaseChanger;
 use App\Module\Forge\Service\PullRequestBranchUpdater;
 use App\Module\Forge\Service\PullRequestMerger;
+use App\Module\Forge\Service\PullRequestOpener;
 use App\Module\Forge\Service\PullRequestStateWriter;
 
 /** Records each write to a `github` pull request, and throws the failure it holds. */
-final class FakeForgeWriter implements PullRequestMerger, PullRequestBaseChanger, PullRequestBranchUpdater, PullRequestStateWriter
+final class FakeForgeWriter implements PullRequestMerger, PullRequestBaseChanger, PullRequestBranchUpdater, PullRequestStateWriter, PullRequestOpener
 {
     /** @var list<list<int|string|bool>> the call, the pull request number, then the arguments */
     public array $calls = [];
@@ -20,6 +21,8 @@ final class FakeForgeWriter implements PullRequestMerger, PullRequestBaseChanger
 
     /** @var list<int> the numbers that fail, and every number when empty */
     public array $failingNumbers = [];
+
+    public int $openedNumber = 900;
 
     #[\Override]
     public function supports(string $forge): bool
@@ -55,6 +58,20 @@ final class FakeForgeWriter implements PullRequestMerger, PullRequestBaseChanger
     public function close(ForgePullRequest $pullRequest): void
     {
         $this->record(['close', $pullRequest->number]);
+    }
+
+    #[\Override]
+    public function open(ForgePullRequest $from, string $head, string $base, string $title, string $body): int
+    {
+        $this->record(['open', $from->number, $head, $base, $title, $body]);
+
+        return $this->openedNumber;
+    }
+
+    #[\Override]
+    public function url(ForgePullRequest $from, int $number): string
+    {
+        return 'https://github.com/'.$from->repository.'/pull/'.$number;
     }
 
     /** @param list<int|string|bool> $call */

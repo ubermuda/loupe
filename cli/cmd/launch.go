@@ -281,7 +281,8 @@ func (r *router) runLaunch(l launch) {
 	r.launching--
 	cardID, number := cardOf(p.event)
 	if r.reporting() && number >= 1 {
-		report.BridgeID, report.CardID, report.CardNumber, report.WorkKind, report.At = r.bridgeID, cardID, number, p.rule, time.Now()
+		report.BridgeID, report.WorkKind, report.At = r.bridgeID, p.rule, time.Now()
+		report.SubjectType, report.SubjectID, report.CardNumber = api.SubjectCard, cardID, number
 		if p.isWork() {
 			report.WorkRequestID, report.WorkKind, report.RuleID = p.work.WorkRequestID, p.work.Kind, p.work.RuleID
 		}

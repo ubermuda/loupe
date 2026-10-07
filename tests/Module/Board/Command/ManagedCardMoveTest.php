@@ -18,6 +18,7 @@ use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
@@ -188,7 +189,8 @@ final class ManagedCardMoveTest extends KernelTestCase
         $run = new WorkerRun(
             project: $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $this->idOf($epic),
+            subjectType: WorkSubject::CARD,
+            subjectId: $this->idOf($epic),
             cardNumber: $epic->number,
             workKind: 'breakdown',
             state: WorkerRunState::Running,

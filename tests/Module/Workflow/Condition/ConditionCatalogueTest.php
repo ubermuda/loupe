@@ -18,6 +18,7 @@ final class ConditionCatalogueTest extends KernelTestCase
         sort($keys);
 
         self::assertSame([
+            'card.child_merged_into_epic_branch',
             'card.children_finished',
             'card.document',
             'card.document_approved',

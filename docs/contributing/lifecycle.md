@@ -125,12 +125,22 @@ The workflow makes three moves on its own:
 1. When the last open blocker of a child in Backlog finishes, the child moves to
    Implementation, which asks for its implementation.
 2. When every child of an epic is done, the epic moves to In review when it has
-   a pull request, and to Done when it has none. While a breakdown request is
+   a pull request, and to Done when it has none. An epic with a child merged
+   into its epic branch never moves straight to Done. While a breakdown request is
    active, the epic stays in Implementation. A breakdown that stops to ask the
    owner ends its request, so the epic can move on. A child that the resumed
    breakdown creates then brings the epic back.
 3. When a done epic gets an open child again, the epic moves back to
    Implementation.
+
+A child pull request merges into the epic branch, `epic/<number>`. The board
+setting **Epic branch pattern** must name that branch. After the first child
+merge, the app opens a draft epic pull request from the epic branch to the
+default branch, and links it to the epic. The board setting **Open the epic
+pull request** turns this on. After each child merge, the workflow asks for
+`epic-preview` work on the child. Its worker refreshes the epic preview
+`.worktrees/epic-<number>`, and copies the preview links of the merged children
+to the epic pull request.
 
 ## Rule file
 
@@ -223,6 +233,14 @@ work:
       Loupe asks for sync work.
       Loupe instance https://loupe.ac.
 
+  epic-preview:
+    permissionMode: bypassPermissions
+    prompt: |
+      Use the loupe-stage-merge skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Loupe asks for epic preview work.
+      Loupe instance https://loupe.ac.
+
   teardown:
     action: command
     run: [bin/worktrees/bridge-teardown.sh, "{cardNumber}"]
@@ -240,6 +258,10 @@ fields.
 
 The breakdown writes no code, so its entry has no `before` command. Its worker
 runs in the main checkout, and changes only the board.
+
+The `epic-preview` entry has no `before` command either. It runs the
+`loupe-stage-merge` skill from the main checkout, and the skill works in the
+epic preview `.worktrees/epic-<number>`.
 
 The example has no `rebase-stacked` entry, because no stage skill changes the
 base of a pull request. Turn on the board setting **Change the base of a pull

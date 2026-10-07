@@ -129,9 +129,9 @@ final class TemplateParserTest extends TestCase
         self::assertInstanceOf(Not::class, $wait->then->until);
     }
 
-    public function test_a_state_write_needs_no_fallback(): void
+    public function test_a_state_write_and_the_epic_opening_need_no_fallback(): void
     {
-        foreach (['draft', 'ready', 'close'] as $write) {
+        foreach (['draft', 'ready', 'close', 'open-epic'] as $write) {
             $template = self::valid();
             $template['rules'][2]['then'] = ['forge-write' => ['write' => $write]];
 
@@ -369,7 +369,7 @@ final class TemplateParserTest extends TestCase
             $t['rules'][2]['then']['forge-write']['write'] = 'squash';
 
             return $t;
-        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close'];
+        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close, open-epic'];
         yield 'merge with no fallback' => [static function (array $t): array {
             unset($t['rules'][2]['then']['forge-write']['fallback']);
 

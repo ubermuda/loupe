@@ -13,6 +13,7 @@ use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,15 +24,17 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * Opens a work request on a card, and writes the outbox event that offers it to
- * the bridges. The retry of a request whose run ended unfinished names the
- * session of that run, so the bridge resumes it.
+ * Opens a work request on a subject, such as a card, and writes the outbox
+ * event that offers it to the bridges. The retry of a request whose run ended
+ * unfinished names the session of that run, so the bridge resumes it.
  */
 final readonly class OpenWorkRequestHandler
 {
     public const string INVALID_KIND = 'bridge.work_request.error.invalid_kind';
     public const string INVALID_CAPABILITY = 'bridge.work_request.error.invalid_capability';
     public const string INVALID_RULE = 'bridge.work_request.error.invalid_rule';
+    public const string INVALID_CARD_NUMBER = 'bridge.work_request.error.invalid_card_number';
+    public const string UNKNOWN_SUBJECT_TYPE = 'bridge.work_request.error.unknown_subject_type';
     public const string LIVE = 'bridge.work_request.error.live';
 
     /** Longer than the largest retry backoff of the seeded templates, six hours, so a later request starts fresh. */
@@ -45,6 +48,7 @@ final readonly class OpenWorkRequestHandler
         private Auditor $auditor,
         private WorkRequestAnnouncer $announcer,
         private WorkerRunRepository $workerRuns,
+        private WorkSubjectHandlers $subjects,
     ) {
     }
 
@@ -60,20 +64,27 @@ final readonly class OpenWorkRequestHandler
         if (1 !== preg_match(WorkRequest::RULE_ID_PATTERN, $command->ruleId)) {
             $errors['ruleId'] = self::INVALID_RULE;
         }
+        if (!$this->subjects->has($command->subject->type)) {
+            $errors['subjectType'] = self::UNKNOWN_SUBJECT_TYPE;
+        }
+        if ($command->subject->isCard() === (null === $command->cardNumber)) {
+            $errors['cardNumber'] = self::INVALID_CARD_NUMBER;
+        }
         if ([] !== $errors) {
             throw new DomainErrors($errors);
         }
 
         try {
             $request = $this->em->wrapInTransaction(function () use ($command): ?WorkRequest {
-                $this->workRequests->lockLive($command->cardId, $command->kind);
-                if ($this->workRequests->hasLive($command->cardId, $command->kind)) {
+                $this->workRequests->lockLive($command->subject, $command->kind);
+                if ($this->workRequests->hasLive($command->subject, $command->kind)) {
                     return null;
                 }
 
                 $request = new WorkRequest(
                     project: $command->project,
-                    cardId: $command->cardId,
+                    subjectType: $command->subject->type,
+                    subjectId: $command->subject->id,
                     cardNumber: $command->cardNumber,
                     kind: $command->kind,
                     capability: $command->capability,
@@ -93,7 +104,7 @@ final readonly class OpenWorkRequestHandler
             });
         } catch (UniqueConstraintViolationException $e) {
             // A backstop behind the lock. The failed flush closed the entity manager.
-            if (!str_contains($e->getMessage(), WorkRequest::LIVE_CARD_KIND_INDEX)) {
+            if (!str_contains($e->getMessage(), WorkRequest::LIVE_SUBJECT_KIND_INDEX)) {
                 throw $e;
             }
             $request = null;
@@ -109,7 +120,8 @@ final readonly class OpenWorkRequestHandler
             [
                 'workRequestId' => (string) $request->id,
                 'projectId' => (string) $command->project->id,
-                'cardId' => (string) $request->cardId,
+                'subjectType' => $request->subjectType,
+                'subjectId' => (string) $request->subjectId,
                 'kind' => $request->kind,
                 'capability' => $request->capability,
                 'ruleId' => $request->ruleId,
@@ -124,14 +136,18 @@ final readonly class OpenWorkRequestHandler
     /**
      * The session of the run of the previous request of the rule, when that run
      * ended unfinished, recently, and no other run of the card came after it.
+     * Only the work of a card resumes.
      */
     private function sessionToResume(OpenWorkRequestCommand $command): ?Uuid
     {
-        $previous = $this->workRequests->findLatestOfCardKindRule($command->cardId, $command->kind, $command->ruleId);
+        if (!$command->subject->isCard()) {
+            return null;
+        }
+        $previous = $this->workRequests->findLatestOfCardKindRule($command->subject->id, $command->kind, $command->ruleId);
         if (null === $previous) {
             return null;
         }
-        $run = $this->workerRuns->findLatestOfCard($command->project, $command->cardId);
+        $run = $this->workerRuns->findLatestOfCard($command->project, $command->subject->id);
         if (null === $run
             || WorkerRunState::Unfinished !== $run->state
             || null === $run->workRequestId

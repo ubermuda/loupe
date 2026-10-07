@@ -207,7 +207,7 @@ func TestAPersonsResumeContinuesTheSessionOfTheRun(t *testing.T) {
 	}
 	for _, s := range sent {
 		r := s.report
-		if r.WorkKind != "plan" || r.WorkRequestID != workID(1) || r.RuleID != "plan-on-next" || r.CardNumber != 87 || r.CardID != cardUUID(87) {
+		if r.WorkKind != "plan" || r.WorkRequestID != workID(1) || r.RuleID != "plan-on-next" || r.CardNumber != 87 || r.SubjectType != api.SubjectCard || r.SubjectID != cardUUID(87) {
 			t.Fatalf("%s report = %+v", r.State, r)
 		}
 	}
@@ -393,5 +393,33 @@ func TestAPersonsResumeWaitsForTheWorkerOfItsCard(t *testing.T) {
 	calls := h.worker.recorded()
 	if len(calls) != 2 || calls[1].sessionID != testSession || !calls[1].resume {
 		t.Fatalf("workers = %+v", calls)
+	}
+}
+
+// A resume of a run about a subject that is no card reads no card, and the
+// run it queues names the subject.
+func TestAResumeOfAnotherSubjectReadsNoCard(t *testing.T) {
+	h := newHarnessWith(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectId}.\n", rules.Defaults{})
+	rec := h.states()
+	h.transcripts(true)
+	reads := &cardReads{err: errors.New("card read failed (HTTP 404)")}
+	h.router.readCard = reads.read
+	c := resumeOf(endedRunKey)
+	c.SubjectType, c.SubjectID, c.CardNumber, c.WorkKind, c.WorkRequestID = "analysis", analysisID, 0, "analyse", workID(1)
+
+	if state, reason := h.resume(c); state != api.CommandDone {
+		t.Fatalf("resume = %s %q, want done", state, reason)
+	}
+	if len(reads.calls) != 0 {
+		t.Fatalf("card reads = %v", reads.calls)
+	}
+	sent := rec.states()
+	if len(sent) == 0 || sent[0].report.State != api.RunQueued || sent[0].report.Continues != endedRunKey {
+		t.Fatalf("states = %+v", sent)
+	}
+	for _, s := range sent {
+		if r := s.report; r.SubjectType != "analysis" || r.SubjectID != analysisID || r.CardNumber != 0 {
+			t.Fatalf("report = %+v", r)
+		}
 	}
 }

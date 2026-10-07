@@ -11,7 +11,7 @@ import (
 
 const workRequestPayload = `{"type":"bridge.work_request","projectId":"0192F3A1-4B2C-7D3E-8F10-A2B3C4D5E6F7",` +
 	`"subject":{"type":"work-request","id":"0199A0E2-9D4C-7C5E-9F2A-3B1C6D7E8F90"},"workRequestId":"0199A0E2-9D4C-7C5E-9F2A-3B1C6D7E8F90",` +
-	`"kind":"implement","capability":"interactive","state":"open","cardId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7","cardNumber":42,` +
+	`"kind":"implement","capability":"interactive","state":"open","subjectType":"card","subjectId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7","cardNumber":42,` +
 	`"ruleId":"impl.rule-1","createdAt":"2026-10-01T12:30:00+00:00","resumeSessionId":null}`
 
 func TestParseWorkRequest(t *testing.T) {
@@ -27,7 +27,8 @@ func TestParseWorkRequest(t *testing.T) {
 		Kind:          "implement",
 		Capability:    "interactive",
 		State:         api.WorkRequestOpen,
-		CardID:        "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7",
+		SubjectType:   api.SubjectCard,
+		SubjectID:     "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7",
 		CardNumber:    42,
 		RuleID:        "impl.rule-1",
 		CreatedAt:     w.CreatedAt,
@@ -60,8 +61,14 @@ func TestParseWorkRequestRejectsEachMalformedField(t *testing.T) {
 		"kind with a brace":     {`"kind":"implement"`, `"kind":"impl{x}"`},
 		"capability":            {`"capability":"interactive"`, `"capability":"Interactive"`},
 		"state":                 {`"state":"open"`, `"state":"running"`},
-		"cardId":                {`"cardId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7"`, `"cardId":null`},
+		"no subjectType":        {`"subjectType":"card",`, ``},
+		"subjectType capital":   {`"subjectType":"card"`, `"subjectType":"Card"`},
+		"subjectType too long":  {`"subjectType":"card"`, `"subjectType":"` + strings.Repeat("a", 41) + `"`},
+		"subjectId null":        {`"subjectId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7"`, `"subjectId":null`},
+		"subjectId not a uuid":  {`"subjectId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7"`, `"subjectId":"42"`},
 		"cardNumber zero":       {`"cardNumber":42`, `"cardNumber":0`},
+		"cardNumber null":       {`"cardNumber":42`, `"cardNumber":null`},
+		"card number off card":  {`"subjectType":"card"`, `"subjectType":"analysis"`},
 		"ruleId empty":          {`"ruleId":"impl.rule-1"`, `"ruleId":""`},
 		"ruleId with a capital": {`"ruleId":"impl.rule-1"`, `"ruleId":"Impl"`},
 		"ruleId with a space":   {`"ruleId":"impl.rule-1"`, `"ruleId":"impl rule"`},
@@ -92,7 +99,8 @@ func TestCheckWorkRequestFoldsTheIDs(t *testing.T) {
 		WorkRequestID: "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
 		Kind:          "review",
 		State:         api.WorkRequestOpen,
-		CardID:        "0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7",
+		SubjectType:   api.SubjectCard,
+		SubjectID:     "0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7",
 		CardNumber:    7,
 		RuleID:        "r",
 		CreatedAt:     time.Date(2026, 10, 1, 12, 30, 0, 0, time.UTC),
@@ -100,8 +108,20 @@ func TestCheckWorkRequestFoldsTheIDs(t *testing.T) {
 	if err := CheckWorkRequest(&w); err != nil {
 		t.Fatal(err)
 	}
-	if w.ProjectID != "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7" || w.Subject.ID != w.WorkRequestID || w.CardID != "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7" {
+	if w.ProjectID != "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7" || w.Subject.ID != w.WorkRequestID || w.SubjectID != "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7" {
 		t.Fatalf("work request = %+v", w)
+	}
+}
+
+// A subject that is no card carries no card number, as null or absent.
+func TestParseWorkRequestTakesASubjectThatIsNoCard(t *testing.T) {
+	for _, number := range []string{`"cardNumber":null,`, `"cardNumber":0,`, ``} {
+		payload := strings.Replace(workRequestPayload, `"subjectType":"card","subjectId":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7","cardNumber":42,`,
+			`"subjectType":"analysis","subjectId":"0192F3A1-8888-7D3E-8F10-A2B3C4D5E6F7",`+number, 1)
+		w, err := ParseWorkRequest([]byte(payload))
+		if err != nil || w.SubjectType != "analysis" || w.SubjectID != "0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7" || w.CardNumber != 0 || w.OnCard() {
+			t.Fatalf("%s: work request = %+v, err = %v", number, w, err)
+		}
 	}
 }
 

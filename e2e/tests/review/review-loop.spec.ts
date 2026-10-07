@@ -211,6 +211,53 @@ test('New document creates a draft that can be reviewed', async ({
     });
 });
 
+test('A revised draft stays a draft until Publish sends it to review', async ({
+    page,
+    review,
+}) => {
+    await page.goto(review.dashboardUrl);
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', {
+        name: 'New document',
+        exact: true,
+    });
+    await dialog.getByLabel('Title', { exact: true }).fill('A staged draft');
+    await dialog.getByLabel('Markdown', { exact: true }).fill(DRAFT_MARKDOWN);
+    await dialog
+        .getByRole('button', { name: 'Create document', exact: true })
+        .click();
+    await expect(
+        page.getByRole('heading', { name: 'A staged draft', exact: true }),
+    ).toBeVisible({ timeout: 20000 });
+
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const reviseDialog = page.getByRole('dialog', { name: 'Revise document' });
+    await reviseDialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Draft scope\n\nA second pass.');
+    await reviseDialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Second pass.');
+    await reviseDialog
+        .getByRole('button', { name: 'Save new version' })
+        .click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
+        timeout: 20000,
+    });
+    await expect(page.locator('.lp-review-doc__byline')).toContainText('Draft');
+
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(page.locator('.lp-review-doc__byline')).toContainText(
+        'In review',
+        { timeout: 20000 },
+    );
+    await expect(
+        page.getByRole('button', { name: 'Publish', exact: true }),
+    ).toHaveCount(0);
+});
+
 test('Revise saves a new version and preserves the previous text', async ({
     page,
     review,

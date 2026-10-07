@@ -10,6 +10,7 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
@@ -53,7 +54,7 @@ final readonly class WorkRequestOpener
         try {
             ($this->openWorkRequest)(new OpenWorkRequestCommand(
                 project: $card->project,
-                cardId: $card->id ?? throw new \LogicException('A stored card has an id.'),
+                subject: WorkSubject::card($card->id ?? throw new \LogicException('A stored card has an id.')),
                 cardNumber: $card->number,
                 kind: $kind,
                 capability: $capability,

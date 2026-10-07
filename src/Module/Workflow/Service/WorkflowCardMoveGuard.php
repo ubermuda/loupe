@@ -78,7 +78,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
 
         return WorkerRunKind::Worker === $run?->kind
             && self::BREAKDOWN_KIND === $run->workKind
-            && $card->parent->id->equals($run->cardId);
+            && true === $run->cardId()?->equals($card->parent->id);
     }
 
     /** A column no slot links matches the wildcard alone. */

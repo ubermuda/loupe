@@ -2,7 +2,7 @@
 
 Read this before you write or revise a product document. The `loupe-documents` rules apply to every section. Start the body with the first `##` heading, because Loupe shows the title itself (rule 1).
 
-Use the sections below, in this order, as `##` headings. Write each section as a numbered list, so a reviewer can cite an entry (rule 2). Open each entry with a short lead sentence (rule 4). Follow `loupe-documents` `references/design-structure.md` for At a glance, the decisions and the tables (rule 15).
+Use the sections below, in this order, as `##` headings. Write each section as a numbered list, so a reviewer can cite an entry (rule 2). Open each entry with a short lead sentence (rule 4). Follow `loupe-documents` `references/design-structure.md` for the reader rule, At a glance, the decisions and the tables (rule 15). The reader rule is its section "Write for a reader who knows the product".
 
 A Light session uses these sections: At a glance, Problem, Current behaviour, Proposed behaviour, Out of scope, Assumptions, Decisions log, For tech design, Scenarios, Open questions, and Docs and landing page impact. Its At a glance is two sentences, and it skips Priorities and How others do it. A Full session uses every section. Leave out a section with nothing real to say. Problem, Proposed behaviour, Decisions log, Scenarios, and Docs and landing page impact always stay.
 
@@ -67,7 +67,7 @@ The writer decides the use of this section. The interactive session writes a fen
 Put each open choice in its own decision fence (rule 12). Read `loupe-documents` `references/decision-fences.md` before you write one. Give each choice a `###` heading with a stable ID, such as `### D1: Export format`, so At a glance can link to it.
 
 1. Put the "**Decision needed:**" lead-in, the context and your recommendation above the fence (rule 5). Give the recommendation a confidence: high, moderate or low.
-2. When the choice has two or more real options, put the pros and cons table and the worked example of `design-structure.md` above the fence.
+2. When the choice has two or more real options, put the pros and cons table and the worked example of `design-structure.md` above the fence. A product document gets no "How each option works" list, because the code belongs to the tech design.
 3. Give the fence one short question paragraph, then flat one-line options.
 4. Choose a fence id from the subject, such as `export-format`. Never change an id after the document is published, because a changed id discards the answer.
 

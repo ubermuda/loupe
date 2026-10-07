@@ -13,6 +13,7 @@ use App\Module\Board\Mcp\CardUpdateTool;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -146,7 +147,8 @@ final class CardUpdateToolTest extends KernelTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v4(),
-            cardId: Uuid::fromString($created['cardId']),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::fromString($created['cardId']),
             cardNumber: $created['number'],
             workKind: 'implement',
             state: WorkerRunState::Running,

@@ -9,6 +9,7 @@ use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\EventListener\WithdrawWorkRequestsOnCardDeleted;
 use App\Tests\Module\Workflow\Action\ActionScenario;
@@ -58,7 +59,7 @@ final class WithdrawWorkRequestsOnCardDeletedTest extends KernelTestCase
 
     private function request(Project $project, Uuid $cardId, string $kind, WorkRequestState $state): WorkRequest
     {
-        $request = new WorkRequest($project, $cardId, 7, $kind, null, 'rule', new \DateTimeImmutable('2026-10-02 12:00:00'));
+        $request = new WorkRequest($project, WorkSubject::CARD, $cardId, 7, $kind, null, 'rule', new \DateTimeImmutable('2026-10-02 12:00:00'));
         $request->state = $state;
         $this->em()->persist($request);
         $this->em()->flush();

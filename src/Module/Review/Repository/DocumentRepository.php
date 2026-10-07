@@ -327,6 +327,25 @@ class DocumentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Reads the stored status and archive time back, past the loaded entity,
+     * for the same reason as archiveStateOf().
+     *
+     * @return array{status: DocumentStatus, archivedAt: ?\DateTimeImmutable}
+     */
+    public function publishStateOf(Document $document): array
+    {
+        /** @var array{status: DocumentStatus, archivedAt: ?\DateTimeImmutable} $state */
+        $state = $this->createQueryBuilder('d')
+            ->select('d.status', 'd.archivedAt')
+            ->andWhere('d = :document')
+            ->setParameter('document', $document)
+            ->getQuery()
+            ->getSingleResult();
+
+        return $state;
+    }
+
+    /**
      * Route-binding lookup: both ids arrive as raw strings from the router
      * (EntityValueResolver expr variables are never entities).
      */

@@ -28,7 +28,8 @@ final readonly class WorkRequestAnnouncer
             $projects[$projectId->toRfc4122()] = $request->project;
             $this->events->dispatch(new WorkRequestChanged(
                 $projectId,
-                $request->cardId,
+                $request->subjectType,
+                $request->subjectId,
                 $request->id ?? throw new \LogicException('A persisted work request has an id.'),
                 $request->state,
             ));

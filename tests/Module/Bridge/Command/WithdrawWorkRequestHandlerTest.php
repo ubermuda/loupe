@@ -11,8 +11,11 @@ use App\Module\Bridge\Event\WorkRequestChanged;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Module\Bridge\WorkSubject\RecordingWorkSubjectHandler;
 use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -62,7 +65,7 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
 
         self::assertCount(1, $changes->events());
         self::assertSame((string) $request->id, (string) $changes->events()[0]->workRequestId);
-        self::assertSame((string) $request->cardId, (string) $changes->events()[0]->cardId);
+        self::assertSame((string) $request->subjectId, (string) $changes->events()[0]->subjectId);
         self::assertSame($to, $changes->events()[0]->state);
     }
 
@@ -114,8 +117,45 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
         $this->withdraw($request, WorkRequestState::Done);
     }
 
+    public function test_an_expiry_tells_the_handler_of_its_subject(): void
+    {
+        $this->boot();
+        $subjects = new RecordingWorkSubjectHandler();
+        $request = $this->request('withdraw-subject-expired', WorkRequestState::Open, new WorkSubject(RecordingWorkSubjectHandler::TYPE, Uuid::v7()));
+
+        self::assertTrue($this->withdraw($request, WorkRequestState::Expired, $subjects));
+        self::assertFalse($this->withdraw($request, WorkRequestState::Expired, $subjects));
+
+        self::assertCount(1, $subjects->expired);
+        self::assertSame((string) $request->id, (string) $subjects->expired[0]->id);
+        self::assertSame(WorkRequestState::Expired, $subjects->expired[0]->state);
+        self::assertSame([], $subjects->settled);
+    }
+
+    public function test_a_cancellation_tells_no_subject_handler(): void
+    {
+        $this->boot();
+        $subjects = new RecordingWorkSubjectHandler();
+        $request = $this->request('withdraw-subject-cancelled', WorkRequestState::Open, new WorkSubject(RecordingWorkSubjectHandler::TYPE, Uuid::v7()));
+
+        self::assertTrue($this->withdraw($request, WorkRequestState::Cancelled, $subjects));
+
+        self::assertSame([], $subjects->expired);
+    }
+
+    public function test_an_expiry_on_a_card_tells_no_subject_handler(): void
+    {
+        $this->boot();
+        $subjects = new RecordingWorkSubjectHandler();
+        $request = $this->request('withdraw-card-expired', WorkRequestState::Open);
+
+        self::assertTrue($this->withdraw($request, WorkRequestState::Expired, $subjects));
+
+        self::assertSame([], $subjects->expired);
+    }
+
     /** Nothing in production calls the handler yet, so the compiled container holds none. */
-    private function handler(): WithdrawWorkRequestHandler
+    private function handler(?RecordingWorkSubjectHandler $subjects = null): WithdrawWorkRequestHandler
     {
         return new WithdrawWorkRequestHandler(
             $this->service(WorkRequestRepository::class),
@@ -124,6 +164,7 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
             new MockClock(self::NOW),
             $this->service(Auditor::class),
             $this->service(WorkRequestAnnouncer::class),
+            new WorkSubjectHandlers(null === $subjects ? [] : [$subjects]),
         );
     }
 
@@ -148,11 +189,11 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
         self::getContainer()->set('clock', new MockClock(self::NOW));
     }
 
-    private function request(string $name, WorkRequestState $state): WorkRequest
+    private function request(string $name, WorkRequestState $state, ?WorkSubject $subject = null): WorkRequest
     {
         $em = $this->em();
         $project = $this->project($em, $this->user($em, $name.'@example.com'), 'Project '.substr(md5($name), 0, 8));
-        $request = $this->seedWorkRequest($em, $project, state: $state);
+        $request = $this->seedWorkRequest($em, $project, state: $state, subject: $subject);
         if (WorkRequestState::Claimed === $state) {
             $request->bridgeId = Uuid::v4();
             $request->claimToken = Uuid::v4();
@@ -163,9 +204,9 @@ final class WithdrawWorkRequestHandlerTest extends KernelTestCase
         return $request;
     }
 
-    private function withdraw(WorkRequest $request, WorkRequestState $state): bool
+    private function withdraw(WorkRequest $request, WorkRequestState $state, ?RecordingWorkSubjectHandler $subjects = null): bool
     {
-        $handler = $this->handler();
+        $handler = $this->handler($subjects);
 
         return $handler(new WithdrawWorkRequestCommand($request->id ?? throw new \LogicException('A flushed request has an id.'), $state));
     }
