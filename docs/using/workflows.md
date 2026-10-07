@@ -57,7 +57,7 @@ workflow makes no move and asks for no work on it.
 the Workflow panel of the card page.
 
 A move in the template can name who may make it. A move with
-`by: parent-run` is open to a worker run of the card's parent epic, and not
+`by: parent-run` is open to an open worker run of the parent epic, and not
 to a person. The run may be of any work kind, such as a breakdown or a fix.
 An interactive run does not count. A move with no `by` is open to anyone. The
 **Who** column of the manual moves on the Workflow settings page shows who may

@@ -150,9 +150,10 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'breakdown')), 'no stored run');
         self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a run of a card that is not the parent');
         self::assertFalse($guard->allows($orphan, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a card with no parent');
+        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', state: WorkerRunState::Succeeded)), 'a run that ended');
     }
 
-    private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null): CardEventCause
+    private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null, WorkerRunState $state = WorkerRunState::Running): CardEventCause
     {
         $run = new WorkerRun(
             project: $project ?? $this->project,
@@ -161,7 +162,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
             subjectId: $this->idOf($card),
             cardNumber: $card->number,
             workKind: $rule,
-            state: WorkerRunState::Running,
+            state: $state,
             kind: $kind,
         );
         $this->em()->persist($run);

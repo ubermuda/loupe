@@ -72,7 +72,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         return false;
     }
 
-    /** An interactive run takes any name, so only a stored worker run counts. */
+    /** An interactive run takes any name, so only an open stored worker run counts. */
     private function isParentRun(Card $card, ?CardEventCause $cause): bool
     {
         if ('run' !== $cause?->type || null === $card->parent?->id) {
@@ -81,6 +81,7 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
         $run = $this->workerRuns->findOneByIdAndProjectId((string) ($cause->fields['run'] ?? ''), (string) $card->project->id);
 
         return WorkerRunKind::Worker === $run?->kind
+            && $run->state->isOpen()
             && true === $run->cardId()?->equals($card->parent->id);
     }
 
