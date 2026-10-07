@@ -221,6 +221,12 @@ final readonly class TemplateParser
     private static function childlessTypesReadingChildren(Rule $rule, array $types): array
     {
         $evaluatesChildren = ActionType::Evaluate === $rule->then->type && 'children' === ($rule->then->params['cards'] ?? null);
+        $namesChildless = array_any($rule->when->leaves(), static fn (ConditionLeaf $leaf): bool => $leaf->condition instanceof CardHasType
+            && false === ($types[ParameterValue::string($leaf->params, 'type')] ?? null)?->children);
+        // The conjunctions grow with the product of the `any` sizes, so expand only a rule that can fail the check.
+        if (!$namesChildless || (!$evaluatesChildren && !\in_array(FactKey::Children, $rule->when->reads(), true))) {
+            return [];
+        }
         $found = [];
         foreach (self::conjunctions($rule->when) as $members) {
             if (!$evaluatesChildren && !array_any($members, static fn (Expression $member): bool => \in_array(FactKey::Children, $member->reads(), true))) {
