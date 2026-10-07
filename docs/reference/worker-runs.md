@@ -493,7 +493,8 @@ The endpoint needs a token with the `agent` scope.
 {
   "candidate": "sonnet",
   "variants": ["opus", "sonnet"],
-  "weights": [3, 1]
+  "weights": [3, 1],
+  "metrics": ["merge-rate", "cost"]
 }
 ```
 
@@ -502,10 +503,17 @@ The endpoint needs a token with the `agent` scope.
 | `variants` | required. The variants the rule offers now, as a list of 1 to 32 unique names. Each name matches `^[a-z0-9][a-z0-9_-]{0,63}$` |
 | `candidate` | required. The variant the bridge drew for the card. It must be one of `variants` |
 | `weights` | optional. The weight of each variant, in the order of `variants`. Each weight is an integer from 1 to 1000000 |
+| `metrics` | optional. The metric keys the Comparison tab of the experiment shows, in this order, as a list of 1 to 16 unique keys. Each key matches `^[a-z][a-z0-9:-]{0,63}$` |
 
 The server keeps the latest valid `weights` of each experiment in a project. It
 ignores a `weights` list that breaks its rule, and still resolves the pin. A
 fault in `weights` never changes the answer, and never refuses the request.
+
+The server stores the valid `metrics` with the weights, so a request with no
+valid `weights` stores no metrics. A request with valid weights and no valid
+`metrics` resets the list, and the Comparison tab then shows the default
+metrics. The server keeps a key that it does not know, and the page shows a
+note for it. A fault in `metrics` never refuses the request.
 
 The server answers the variant the card runs with:
 
@@ -695,7 +703,7 @@ A fact row stays after the retention sweep deletes its run. It holds every exper
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of
 each experiment in `experiment_definitions.json`, with its project, its
-experiment, its `weights` as a list of `name` and `weight` objects, and when the
-bridge sent them. It holds
+experiment, its `weights` as a list of `name` and `weight` objects, its
+`metrics` as a list of keys or null, and when the bridge sent them. It holds
 every card hold in `bridge_card_holds.json`, with its project, its card, the run it stopped and
 when it began. The run is null after the retention sweep deletes it.

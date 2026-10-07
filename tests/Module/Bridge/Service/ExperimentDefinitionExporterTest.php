@@ -19,12 +19,14 @@ final class ExperimentDefinitionExporterTest extends KernelTestCase
         $em = $this->em();
         $exporting = $this->user($em, 'definitions-export-mine@example.com');
         $other = $this->user($em, 'definitions-export-other@example.com');
-        $em->persist(new ExperimentDefinition(
+        $definition = new ExperimentDefinition(
             project: $this->project($em, $exporting, 'Weighted Project'),
             experiment: 'plan-model',
             weights: [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]],
             reportedAt: new \DateTimeImmutable('2026-09-14T11:00:00+00:00'),
-        ));
+        );
+        $definition->metrics = ['merge-rate', 'cost'];
+        $em->persist($definition);
         $em->persist(new ExperimentDefinition($this->project($em, $other, 'Other Project'), 'plan-model', [['name' => 'opus', 'weight' => 1]]));
         $em->flush();
         $em->clear();
@@ -35,6 +37,7 @@ final class ExperimentDefinitionExporterTest extends KernelTestCase
             'project' => 'Weighted Project',
             'experiment' => 'plan-model',
             'weights' => [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]],
+            'metrics' => ['merge-rate', 'cost'],
             'reportedAt' => '2026-09-14T11:00:00+00:00',
         ]], $rows);
     }

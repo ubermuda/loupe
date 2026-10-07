@@ -62,4 +62,43 @@ final class ResolveExperimentPinRequestTest extends TestCase
         self::assertNull($request->choice());
         self::assertNull($request->weights());
     }
+
+    public function test_valid_metrics_keep_their_order(): void
+    {
+        $request = new ResolveExperimentPinRequest('sonnet', ['opus', 'sonnet'], [1, 1], ['merge-rate', 'cost', 'unknown:key']);
+
+        self::assertSame(['merge-rate', 'cost', 'unknown:key'], $request->metrics());
+    }
+
+    public function test_sixteen_metrics_are_kept(): void
+    {
+        $metrics = array_map(static fn (int $i): string => 'm'.$i, range(1, ResolveExperimentPinRequest::MAX_METRICS));
+
+        self::assertSame($metrics, new ResolveExperimentPinRequest(metrics: $metrics)->metrics());
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidMetrics(): iterable
+    {
+        yield 'absent' => [null];
+        yield 'empty' => [[]];
+        yield 'a string' => ['cost'];
+        yield 'not a list' => [['a' => 'cost']];
+        yield 'too many' => [array_map(static fn (int $i): string => 'm'.$i, range(1, ResolveExperimentPinRequest::MAX_METRICS + 1))];
+        yield 'a number' => [['cost', 1]];
+        yield 'null in the list' => [['cost', null]];
+        yield 'a capital' => [['Cost']];
+        yield 'a digit first' => [['1cost']];
+        yield 'too long' => [['c'.str_repeat('o', 64)]];
+        yield 'a repeat' => [['cost', 'cost']];
+    }
+
+    #[DataProvider('invalidMetrics')]
+    public function test_invalid_metrics_give_null(mixed $metrics): void
+    {
+        $request = new ResolveExperimentPinRequest('sonnet', ['opus', 'sonnet'], [1, 1], $metrics);
+
+        self::assertNotNull($request->weights());
+        self::assertNull($request->metrics());
+    }
 }
