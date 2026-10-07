@@ -6345,6 +6345,7 @@
             <trans-unit id="board.card.history.pause_kind.retries"><source>board.card.history.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.work_limit"><source>board.card.history.pause_kind.work_limit</source><target>a rule reached its work limit</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.work_timeout"><source>board.card.history.pause_kind.work_timeout</source><target>no bridge took the work in time</target></trans-unit>
+            <trans-unit id="board.card.history.pause_kind.work_stopped"><source>board.card.history.pause_kind.work_stopped</source><target>the worker stopped and needs a person</target></trans-unit>
             <trans-unit id="board.card.history.changed"><source>board.card.history.changed</source><target>%actor% changed the card.</target></trans-unit>
             <trans-unit id="board.card.history.reason"><source>board.card.history.reason</source><target>Because %reason%.</target></trans-unit>
             <trans-unit id="board.card.history.run_state_unknown"><source>board.card.history.run_state_unknown</source><target>Unknown</target></trans-unit>
@@ -7357,6 +7358,7 @@
             <trans-unit id="workflow.panel.pause_kind.retries"><source>workflow.panel.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
             <trans-unit id="workflow.panel.pause_kind.work_limit"><source>workflow.panel.pause_kind.work_limit</source><target>the rule reached its work limit</target></trans-unit>
             <trans-unit id="workflow.panel.pause_kind.work_timeout"><source>workflow.panel.pause_kind.work_timeout</source><target>no bridge took the work in time</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.work_stopped"><source>workflow.panel.pause_kind.work_stopped</source><target>the worker stopped and needs a person</target></trans-unit>
             <trans-unit id="workflow.panel.release.left_slot"><source>workflow.panel.release.left_slot</source><target>The pause ends when the card leaves its slot.</target></trans-unit>
             <trans-unit id="workflow.panel.release.facts_changed"><source>workflow.panel.release.facts_changed</source><target>The pause ends when the facts that the rule reads change.</target></trans-unit>
             <trans-unit id="workflow.panel.release.next_evaluation"><source>workflow.panel.release.next_evaluation</source><target>The workflow ends the pause when it next evaluates the card.</target></trans-unit>

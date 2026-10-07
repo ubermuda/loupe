@@ -76,6 +76,8 @@ final readonly class ReleaseWorkflowPauseHandler
                 $state->dueAt = null;
                 $state->lastRefusal = null;
                 $state->lastRefusalAt = null;
+                $state->workRequestId = null;
+                $state->repaired = false;
                 $state->updatedAt = $pause->releasedAt ?? throw new \LogicException('A released pause has a release time.');
             }
             $this->cardEvents->record($card, CardEventKind::PauseReleased, $command->actorKind, $command->actor, [

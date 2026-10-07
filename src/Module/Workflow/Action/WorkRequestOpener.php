@@ -47,7 +47,7 @@ final readonly class WorkRequestOpener
         }
 
         try {
-            ($this->openWorkRequest)(new OpenWorkRequestCommand(
+            $request = ($this->openWorkRequest)(new OpenWorkRequestCommand(
                 project: $card->project,
                 subject: WorkSubject::card($card->id ?? throw new \LogicException('A stored card has an id.')),
                 cardNumber: $card->number,
@@ -62,7 +62,7 @@ final readonly class WorkRequestOpener
                 : ActionOutcome::refused('invalid-work-request');
         }
 
-        return ActionOutcome::done();
+        return ActionOutcome::done($request->id);
     }
 
     /** A link URL or a head of another shape stays out, because a bridge fills commands with these values. */

@@ -188,6 +188,113 @@ final class EngineTest extends KernelTestCase
         ]);
     }
 
+    public function test_a_refused_request_is_retried_when_due_and_the_card_pauses_when_the_retries_run_out(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $this->evaluate($card);
+        $first = $this->liveRequests($card)[0];
+
+        $this->refuse($first, 'failed', '2026-10-02 12:20:00');
+        $this->evaluate($card, '2026-10-02 12:21:00');
+        $state = $this->ruleState($card, 'work');
+        self::assertSame([1, 'failed', '2026-10-02 12:31:00', 0], [$state->attempts, $state->lastRefusal, $state->dueAt?->format('Y-m-d H:i:s'), $state->fires]);
+        self::assertNull($this->activePause($card));
+        self::assertSame([], $this->liveRequests($card));
+
+        $this->evaluate($card, '2026-10-02 12:25:00');
+        self::assertSame([], $this->liveRequests($card), 'The retry waits for its backoff.');
+
+        $this->evaluate($card, '2026-10-02 12:31:00');
+        $live = $this->liveRequests($card);
+        self::assertCount(1, $live);
+        self::assertNotSame($first, $live[0]);
+        $state = $this->ruleState($card, 'work');
+        self::assertSame([1, 1, $live[0]->id?->toRfc4122()], [$state->attempts, $state->fires, $state->workRequestId?->toRfc4122()]);
+
+        $this->evaluate($card, '2026-10-02 12:32:00');
+        self::assertSame(1, $this->ruleState($card, 'work')->attempts, 'The evaluation of a live retry counts nothing.');
+
+        $this->refuse($live[0], 'failed', '2026-10-02 12:40:00');
+        $this->evaluate($card, '2026-10-02 12:41:00');
+
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        self::assertSame([CardPauseKind::Retries, 'failed', 'work'], [$pause->kind, $pause->reason, $pause->ruleId]);
+        self::assertSame(2, $this->ruleState($card, 'work')->attempts);
+
+        $this->evaluate($card, '2026-10-02 12:50:00');
+        self::assertCount(1, $this->paused, 'A counted refusal pauses the card once.');
+    }
+
+    public function test_a_refusal_code_that_the_template_does_not_retry_pauses_the_card_at_once(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $this->evaluate($card);
+
+        $this->refuse($this->liveRequests($card)[0], 'needs-person', '2026-10-02 12:20:00');
+        $this->evaluate($card, '2026-10-02 12:21:00');
+
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        self::assertSame([CardPauseKind::WorkStopped, 'needs-person', 'work'], [$pause->kind, $pause->reason, $pause->ruleId]);
+        self::assertSame(0, $this->ruleState($card, 'work')->attempts);
+    }
+
+    public function test_a_work_stopped_pause_that_a_person_releases_does_not_pause_the_card_again_on_the_old_refusal(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $this->evaluate($card);
+        $this->refuse($this->liveRequests($card)[0], 'needs-person', '2026-10-02 12:20:00');
+        $this->evaluate($card, '2026-10-02 12:21:00');
+        self::assertNotNull($this->activePause($card));
+
+        $this->releaseByPerson($card);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($this->activePause($card));
+        self::assertCount(1, $this->liveRequests($card), 'The rule fired a new request with a fresh budget.');
+    }
+
+    public function test_a_done_request_clears_the_attempts_of_a_retry(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 2]);
+        $this->evaluate($card);
+        $this->refuse($this->liveRequests($card)[0], 'failed', '2026-10-02 12:20:00');
+        $this->evaluate($card, '2026-10-02 12:21:00');
+        $this->evaluate($card, '2026-10-02 12:31:00');
+
+        $this->finish($this->liveRequests($card)[0]);
+        $this->evaluate($card, '2026-10-02 12:40:00');
+
+        $state = $this->ruleState($card, 'work');
+        self::assertSame([0, null, null], [$state->attempts, $state->workRequestId, $state->dueAt]);
+        self::assertNull($this->activePause($card));
+    }
+
+    public function test_a_retry_does_not_use_a_request_of_the_work_limit(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', self::ALWAYS, limit: 1)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 2]);
+        $this->evaluate($card);
+        $this->refuse($this->liveRequests($card)[0], 'failed', '2026-10-02 12:20:00');
+        $this->evaluate($card, '2026-10-02 12:21:00');
+        $this->evaluate($card, '2026-10-02 12:31:00');
+
+        self::assertNull($this->activePause($card));
+        self::assertCount(1, $this->liveRequests($card));
+    }
+
+    public function test_a_template_with_no_failure_block_ignores_a_refused_request(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $this->refuse($this->liveRequests($card)[0], 'failed', '2026-10-02 12:20:00');
+
+        $this->evaluate($card, '2026-10-02 12:21:00');
+
+        self::assertNull($this->activePause($card));
+        self::assertSame(0, $this->ruleState($card, 'work')->attempts);
+    }
+
     public function test_a_retries_pause_stays_with_the_same_facts_and_releases_when_they_change_and_the_rule_fires_again(): void
     {
         $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)], backoffMinutes: []);
@@ -1376,7 +1483,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame('done', $epic->column->slug);
     }
 
-    public function test_a_lifecycle_epic_whose_breakdown_stopped_to_ask_the_owner_moves_to_done_and_a_new_child_brings_it_back(): void
+    public function test_a_lifecycle_epic_whose_breakdown_stopped_for_a_person_pauses_with_the_work_stopped_kind(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-breakdown-blocked');
@@ -1387,14 +1494,12 @@ final class EngineTest extends KernelTestCase
         $breakdown = $this->liveRequests($epic);
         self::assertCount(1, $breakdown);
 
-        $breakdown[0]->state = WorkRequestState::Claimed;
-        $breakdown[0]->settle(WorkRequestState::Refused, 'needs-person', new \DateTimeImmutable('2026-10-02 12:20:00'));
-        $this->em()->flush();
+        $this->refuse($breakdown[0], 'needs-person', '2026-10-02 12:20:00');
         $this->evaluate($epic, '2026-10-02 12:25:00');
-        self::assertSame('done', $epic->column->slug);
 
-        $this->childOf($epic, 'next');
-        $this->evaluate($epic, '2026-10-02 12:30:00');
+        $pause = $this->activePause($epic);
+        self::assertNotNull($pause);
+        self::assertSame([CardPauseKind::WorkStopped, 'needs-person', 'breakdown'], [$pause->kind, $pause->reason, $pause->ruleId]);
         self::assertSame('in-progress', $epic->column->slug);
     }
 
@@ -1805,8 +1910,9 @@ final class EngineTest extends KernelTestCase
      *
      * @param list<array<string, mixed>> $rules
      * @param list<int>                  $backoffMinutes
+     * @param array<string, mixed>       $onWorkFailed
      */
-    private function boundCard(array $rules, array $backoffMinutes = [10, 60]): Card
+    private function boundCard(array $rules, array $backoffMinutes = [10, 60], array $onWorkFailed = []): Card
     {
         self::bootKernel();
         $project = $this->workflowProject('engine');
@@ -1817,6 +1923,7 @@ final class EngineTest extends KernelTestCase
             'manualMoves' => [],
             'backoffMinutes' => $backoffMinutes,
             'workTimeoutMinutes' => 120,
+            ...([] === $onWorkFailed ? [] : ['onWorkFailed' => $onWorkFailed]),
             'rules' => $rules,
         ]));
         $this->em()->persist(new WorkflowSlotLink($project, 'one', $this->column($project, 'next')));
@@ -2065,6 +2172,13 @@ final class EngineTest extends KernelTestCase
     private function releaseByPerson(Card $card): void
     {
         $this->service(ReleaseWorkflowPauseHandler::class)(new ReleaseWorkflowPauseCommand($card, $card->project->owner, CardReporter::Human, null));
+    }
+
+    private function refuse(WorkRequest $request, string $code, string $at): void
+    {
+        $request->state = WorkRequestState::Claimed;
+        $request->settle(WorkRequestState::Refused, $code, new \DateTimeImmutable($at));
+        $this->em()->flush();
     }
 
     private function finish(WorkRequest $request): void

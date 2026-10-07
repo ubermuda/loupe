@@ -63,7 +63,7 @@ final class ForgeWriteTest extends KernelTestCase
         $card = $this->card($this->project(), 'in-review');
         $this->pullRequest($card);
 
-        self::assertEquals(ActionOutcome::done(), $this->write($card, 'merge', fallback: 'merge'));
+        self::assertOpenedWork($this->write($card, 'merge', fallback: 'merge'));
 
         self::assertSame([], $this->writer->calls);
         self::assertSame(['merge'], $this->liveKinds($card));
@@ -75,7 +75,7 @@ final class ForgeWriteTest extends KernelTestCase
         $pullRequest = $this->pullRequest($card, headSha: 'abc1234');
         $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(conflicting: true));
 
-        self::assertEquals(ActionOutcome::done(), $this->write($card, 'update-branch', fallback: 'sync', writers: false, facts: $facts));
+        self::assertOpenedWork($this->write($card, 'update-branch', fallback: 'sync', writers: false, facts: $facts));
 
         $live = $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.'));
         self::assertCount(1, $live);
@@ -116,8 +116,8 @@ final class ForgeWriteTest extends KernelTestCase
         $this->pullRequest($card, base: 'parent');
         $this->pullRequest($this->card($card->project, 'done'), state: PullRequestState::Merged, base: 'main', head: 'parent');
 
-        self::assertEquals(ActionOutcome::done(), $this->write($card, 'merge', fallback: 'merge', writers: false));
-        self::assertEquals(ActionOutcome::done(), $this->write($card, 'change-base', fallback: 'rebase-stacked', writers: false));
+        self::assertOpenedWork($this->write($card, 'merge', fallback: 'merge', writers: false));
+        self::assertOpenedWork($this->write($card, 'change-base', fallback: 'rebase-stacked', writers: false));
 
         self::assertSame(['merge', 'rebase-stacked'], $this->liveKinds($card));
     }
@@ -168,7 +168,7 @@ final class ForgeWriteTest extends KernelTestCase
         $card = $this->card($this->project(syncBehind: true), 'in-review');
         $pullRequest = $this->pullRequest($card, headSha: null);
 
-        self::assertEquals(ActionOutcome::done(), $this->write($card, 'update-branch', fallback: 'sync', writers: false));
+        self::assertOpenedWork($this->write($card, 'update-branch', fallback: 'sync', writers: false));
         self::assertSame(['sync'], $this->liveKinds($card));
 
         self::assertEquals(ActionOutcome::refused('no-head'), $this->write($card, 'update-branch'));
@@ -203,8 +203,8 @@ final class ForgeWriteTest extends KernelTestCase
         $card = $this->card($this->project(epicDraftSwitch: true), 'in-review');
         $this->pullRequest($card);
 
-        self::assertEquals(ActionOutcome::done(), $this->write($card, 'draft', fallback: 'draft-switch', writers: false));
-        self::assertEquals(ActionOutcome::done(), $this->write($card, 'close', fallback: 'close-epic'));
+        self::assertOpenedWork($this->write($card, 'draft', fallback: 'draft-switch', writers: false));
+        self::assertOpenedWork($this->write($card, 'close', fallback: 'close-epic'));
 
         self::assertSame([], $this->writer->calls);
         self::assertSame(['close-epic', 'draft-switch'], $this->liveKinds($card));

@@ -136,6 +136,7 @@ final readonly class Engine
             return $run;
         }
         $this->settleWorkRequests($run, $cardId);
+        $this->readSettledRequests($run);
         // A pause ends the pass, so it is never released in the pass that made it.
         if (!$run->ended && (!$this->stillPaused($run) || $this->releasedByRule($run))) {
             $this->runRules($run, $template->rules);
@@ -175,6 +176,67 @@ final readonly class Engine
                 $state->dueAt = null;
                 $state->lastRefusal = null;
                 $state->lastRefusalAt = null;
+                $state->workRequestId = null;
+                $state->repaired = false;
+            });
+        }
+    }
+
+    /**
+     * Reads how the last request of each rule settled. A done request clears the attempts. A refused one earns a retry,
+     * or pauses the card when its code earns none or the retries are used up. A template with no onWorkFailed block reads nothing.
+     */
+    private function readSettledRequests(Evaluation $run): void
+    {
+        $policy = $run->template->onWorkFailed;
+        if (null === $policy) {
+            return;
+        }
+        foreach ($run->template->rules as $rule) {
+            $state = $run->states[$rule->id] ?? null;
+            if ($run->ended || null === $state || null === $state->workRequestId || !$run->applies($rule) || $this->waits($run, $rule)) {
+                continue;
+            }
+            $request = $this->workRequests->find($state->workRequestId);
+            if (null === $request || !$this->ruleSubject->bind($rule, $run->facts)->truth) {
+                continue;
+            }
+            if (WorkRequestState::Done === $request->state) {
+                $this->write($run, $state, static function (WorkflowRuleState $state): void {
+                    $state->attempts = 0;
+                    $state->dueAt = null;
+                    $state->lastRefusal = null;
+                    $state->lastRefusalAt = null;
+                    $state->workRequestId = null;
+                    $state->repaired = false;
+                });
+                continue;
+            }
+            // A refusal the engine counted already leaves lastRefusalAt at or after the settle.
+            if (WorkRequestState::Refused !== $request->state || (null !== $state->lastRefusalAt && null !== $request->settledAt && $state->lastRefusalAt >= $request->settledAt)) {
+                continue;
+            }
+
+            $code = $request->reason ?? 'failed';
+            $this->write($run, $state, function (WorkflowRuleState $state) use ($run, $rule, $policy, $code): void {
+                $state->lastRefusal = $code;
+                $state->lastRefusalAt = $run->now;
+                if (!$policy->retries($code)) {
+                    $this->pause($run, CardPauseKind::WorkStopped, $code, $rule->id);
+
+                    return;
+                }
+                ++$state->attempts;
+                // The failed run did no work of its own, so a retry never uses a request of the work limit.
+                $state->fires = max(0, $state->fires - 1);
+                $backoff = $run->template->backoffMinutes[$state->attempts - 1] ?? null;
+                if ($state->attempts > $policy->retries || null === $backoff) {
+                    $state->dueAt = null;
+                    $this->pause($run, CardPauseKind::Retries, $code, $rule->id);
+
+                    return;
+                }
+                $state->dueAt = $run->now->add(new \DateInterval(\sprintf('PT%dM', $backoff)));
             });
         }
     }
@@ -234,6 +296,8 @@ final readonly class Engine
                 $state->truth = false;
                 $state->attempts = 0;
                 $state->dueAt = null;
+                $state->workRequestId = null;
+                $state->repaired = false;
             });
         }
 
@@ -272,7 +336,7 @@ final readonly class Engine
                 default => null,
             },
             CardPauseKind::WorkLimit => $applies ? null : 'left-slot',
-            CardPauseKind::Retries, CardPauseKind::WorkTimeout => match (true) {
+            CardPauseKind::Retries, CardPauseKind::WorkTimeout, CardPauseKind::WorkStopped => match (true) {
                 !$applies => 'facts-changed',
                 null !== $rule->when->unreadable($run->facts) => null,
                 !$bound->truth,
@@ -320,6 +384,8 @@ final readonly class Engine
             $state->dueAt = null;
             $state->lastRefusal = null;
             $state->lastRefusalAt = null;
+            $state->workRequestId = null;
+            $state->repaired = false;
             // The subject stays, so a later true pass on another pull request starts a fresh budget.
             $state->fingerprint = $fingerprint;
 
@@ -347,6 +413,8 @@ final readonly class Engine
         }
 
         $type = $rule->then->type;
+        // A retry keeps its attempts while its request runs, so the count reaches the limit of the template.
+        $retrying = null !== $state->workRequestId && $state->attempts > 0;
         $outcome = $this->actions->get($type)->run($rule, $run->card, $bound->facts, $state);
         // The live request still serves the old subject, so the change waits until it settles.
         if ($newSubject && $outcome->alreadyLive) {
@@ -360,10 +428,15 @@ final readonly class Engine
 
         switch ($outcome->kind) {
             case ActionOutcomeKind::Done:
-                $state->attempts = 0;
+                if (!$retrying) {
+                    $state->attempts = 0;
+                }
                 $state->dueAt = null;
                 $state->lastRefusal = null;
                 $state->lastRefusalAt = null;
+                if (null !== $outcome->requestId) {
+                    $state->workRequestId = $outcome->requestId;
+                }
                 if ((ActionType::Request === $type || ActionType::ForgeWrite === $type) && !$outcome->alreadyLive) {
                     ++$state->fires;
                 }
@@ -472,7 +545,7 @@ final readonly class Engine
     /** @return list<mixed> */
     private static function snapshot(WorkflowRuleState $state): array
     {
-        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122()];
+        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122(), $state->workRequestId?->toRfc4122(), $state->repaired];
     }
 
     private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Template;
 
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Expression\AllOf;
@@ -87,6 +88,8 @@ final readonly class TemplateParser
             $backoffMinutes = [];
         }
 
+        $onWorkFailed = self::onWorkFailed($source['onWorkFailed'] ?? null, $errors);
+
         $slots = $this->slots(self::topLevelList($source, 'slots', $errors), $errors);
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
         $manualMoves = $this->manualMoves(self::topLevelList($source, 'manualMoves', $errors), $slotKeys, $errors);
@@ -96,7 +99,7 @@ final readonly class TemplateParser
             throw new InvalidTemplate($errors);
         }
 
-        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes);
+        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, $onWorkFailed);
     }
 
     /**
@@ -491,6 +494,39 @@ final readonly class TemplateParser
         $errors[] = self::topLevelError($source, $key, 'must be a list');
 
         return [];
+    }
+
+    /**
+     * A template with no block retries nothing and pauses nothing for a settled refusal.
+     *
+     * @param list<string> $errors
+     */
+    private static function onWorkFailed(mixed $value, array &$errors): ?WorkFailurePolicy
+    {
+        if (null === $value) {
+            return null;
+        }
+        $retryOn = \is_array($value) ? ($value['retryOn'] ?? null) : null;
+        $retries = \is_array($value) ? ($value['retries'] ?? null) : null;
+        if (!\is_array($value) || !\is_array($retryOn) || !array_is_list($retryOn)) {
+            $errors[] = 'onWorkFailed: must be a map with a list "retryOn"';
+
+            return null;
+        }
+        foreach ($retryOn as $code) {
+            if (!\is_string($code) || 1 !== preg_match(ActionOutcome::CODE_PATTERN, $code)) {
+                $errors[] = 'onWorkFailed.retryOn: each entry must be a refusal code';
+
+                return null;
+            }
+        }
+        if (!\is_int($retries) || $retries < 0) {
+            $errors[] = 'onWorkFailed.retries: must be a non-negative integer';
+
+            return null;
+        }
+
+        return new WorkFailurePolicy($retryOn, $retries);
     }
 
     /** @return ?list<int> */
