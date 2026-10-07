@@ -168,7 +168,7 @@ final readonly class InteractiveRuns
         ?string $model = null,
         ?string $harnessSessionId = null,
     ): array {
-        /** @var array{WorkerRun, bool, bool, bool} $outcome */
+        /** @var array{WorkerRun, bool, bool} $outcome */
         $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $failureReason, $at, $workRequestId, $ruleId, $harness, $account, $model, $harnessSessionId): array {
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
@@ -179,11 +179,8 @@ final readonly class InteractiveRuns
                     $this->em->flush();
                 }
 
-                return [$existing, false, false, $changed];
+                return [$existing, false, $changed];
             }
-
-            // Read before the write: the new outcome is the latest of its card.
-            $warned = null !== $this->workerRuns->findWarningRowOfCard($project, $cardId);
 
             $now = $this->clock->now();
             $run = new WorkerRun(
@@ -208,19 +205,15 @@ final readonly class InteractiveRuns
             $this->em->flush();
             $this->searchIndexer->index($run);
 
-            return [$run, true, $warned, true];
+            return [$run, true, true];
         });
 
         // A retry that only names the harness reloads the Runs page and announces nothing.
-        if ($outcome[3]) {
+        if ($outcome[2]) {
             $this->publisher->runsChanged($outcome[0]->project);
         }
         if ($outcome[1]) {
             $this->announce([$outcome[0]]);
-        }
-        // A launch failure is no warning, so only one before it changes.
-        if ($outcome[2]) {
-            $this->publisher->cardWarningChanged($outcome[0]->project, $cardId);
         }
 
         return [$outcome[0], $outcome[1]];

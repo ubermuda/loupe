@@ -69,16 +69,9 @@ git branch --show-current
 
 When it prints nothing, HEAD is detached. When it prints the base branch of the profile `Gate` section, treat it the same way. When it prints another `card-<number>-` branch and `git status --porcelain` prints nothing, treat it the same way too. Run `git fetch origin <head branch>` and `git switch <head branch>`. When no local branch has that name, run `git switch --track -c <head branch> origin/<head branch>` instead. When the current branch then differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
 
-Sync the branch:
+Sync the branch as "Sync with the pull request branch" in `../../loupe-stage-implementation/references/commands.md` says. It recovers a branch that diverged from the pull request branch, or stops with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
 
-```bash
-git fetch origin <head branch>
-git merge --ff-only origin/<head branch>
-```
-
-When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
-
-When the switch or the sync brought commits, run the refresh of the profile `Environment` section, when it names one. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a folder name or a card number.
+The sync runs the refresh of the profile `Environment` section when the switch or the sync moved HEAD. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a folder name or a card number.
 
 ## Resolve a conflict with the base
 
@@ -116,4 +109,4 @@ git commit -F "$m" --cleanup=verbatim
 
 Put the resolution and nothing else in the merge commit. The owner's approval covers a sync and a conflict resolution. It does not cover a rebase or new content. A fix for a check or a review goes in a later commit of its own, and it needs a new approval.
 
-Then run the gate, and push without force. Never merge or approve the pull request.
+Then run the gate, and push as "Push without force" in `../../loupe-stage-implementation/references/commands.md` says. Never merge or approve the pull request.

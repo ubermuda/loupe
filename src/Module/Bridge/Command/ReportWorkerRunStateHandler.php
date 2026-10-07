@@ -56,20 +56,16 @@ final readonly class ReportWorkerRunStateHandler
 
     public function __invoke(ReportWorkerRunStateCommand $command): ReportWorkerRunStateResult
     {
-        /** @var array{ReportWorkerRunStateResult, bool, bool, bool, bool} $outcome */
+        /** @var array{ReportWorkerRunStateResult, bool, bool, bool} $outcome */
         $outcome = $this->em->wrapInTransaction(function () use ($command): array {
             // The project lock serialises two first reports of one run, which
             // would otherwise both miss the read and trip the unique index.
             $project = $this->lockedProject($command);
             if (null === $project) {
-                return [new ReportWorkerRunStateResult(null, newState: false), false, false, false, false];
+                return [new ReportWorkerRunStateResult(null, newState: false), false, false, false];
             }
 
             $run = $this->workerRuns->findOneByRunKey($project, $command->bridgeId, $command->runKey);
-            // Read before the write: a new outcome is the latest of its card.
-            $subject = $run?->subject() ?? $command->subject;
-            $warned = $command->state->isOutcome() && $subject->isCard()
-                && null !== $this->workerRuns->findWarningRowOfCard($project, $subject->id);
             // Read after the run lock, so a reopening never predates a timeout
             // that the sweep wrote while this report waited.
             $receivedAt = $this->clock->now();
@@ -116,12 +112,10 @@ final readonly class ReportWorkerRunStateHandler
             $reopens = WorkerRunState::TimedOut === $run->state && $moves && $repeat;
             $newState = $reopens || !$repeat;
             $closes = false;
-            $warningChanged = false;
             if ($newState) {
                 if ($moves) {
                     $this->apply($run, $command);
                     $closes = !$command->state->isOpen();
-                    $warningChanged = $command->state->isOutcome() && $subject->isCard() && ($warned || $command->state->isWarning());
                 }
                 // A retry carries its first time, which precedes the timeout.
                 $at = $reopens ? $receivedAt : $command->at;
@@ -131,19 +125,16 @@ final readonly class ReportWorkerRunStateHandler
             $this->em->flush();
             $this->searchIndexer->index($run);
 
-            return [new ReportWorkerRunStateResult($run, $newState), $closes, $warningChanged, $poolMoved || $harnessChanged, $created];
+            return [new ReportWorkerRunStateResult($run, $newState), $closes, $poolMoved || $harnessChanged, $created];
         });
 
-        [$result, $closes, $warningChanged, $shownChanged, $created] = $outcome;
+        [$result, $closes, $shownChanged, $created] = $outcome;
         // A repeat of a state the run already held changes nothing a page shows, unless it moves the pool or names the harness.
         if (($result->newState || $shownChanged) && null !== $result->run) {
             $this->publisher->runsChanged($result->run->project);
             foreach (WorkerRunChanged::ofRuns([$result->run]) as $event) {
                 $this->events->dispatch($event);
             }
-        }
-        if ($warningChanged && null !== $result->run) {
-            $this->publisher->cardWarningChanged($result->run->project, $result->run->subjectId);
         }
         if ($closes && null !== $result->run) {
             $this->audit($result->run);
