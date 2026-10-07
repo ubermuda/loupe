@@ -191,8 +191,17 @@ final readonly class TemplateParser
                     $valid = false;
                 }
             }
+            $byValue = \is_array($entry) ? ($entry['by'] ?? null) : null;
+            $by = null;
+            if (null !== $byValue) {
+                $by = \is_string($byValue) ? ManualMoveActor::tryFrom($byValue) : null;
+                if (null === $by) {
+                    $errors[] = \sprintf('%s.by: must be one of %s', $where, implode(', ', array_column(ManualMoveActor::cases(), 'value')));
+                    $valid = false;
+                }
+            }
             if ($valid) {
-                $moves[] = new ManualMove($from, $to);
+                $moves[] = new ManualMove($from, $to, $by);
             }
         }
 

@@ -50,6 +50,7 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorNotExists('[data-rule-missing]');
         self::assertSelectorNotExists('[data-workflow-app-rules]');
         self::assertSelectorExists('[data-manual-move]');
+        self::assertSame(['Anyone', 'A run of the parent epic'], array_values(array_unique($crawler->filter('[data-manual-move-by]')->extract(['_text']))));
         self::assertSelectorTextContains('[data-workflow-timings]', '10, 60, 360');
         self::assertSelectorTextContains('[data-workflow-timings]', '120');
         self::assertCount(1, $crawler->filter('main [data-workflow-template]'));
