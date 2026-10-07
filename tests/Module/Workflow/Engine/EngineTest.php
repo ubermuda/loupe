@@ -255,6 +255,44 @@ final class EngineTest extends KernelTestCase
         self::assertCount(1, $this->liveRequests($card), 'The rule fired a new request with a fresh budget.');
     }
 
+    public function test_a_refusal_that_settles_while_another_pause_holds_the_card_is_counted_after_it_ends(): void
+    {
+        $card = $this->boundCard([
+            [
+                'id' => 'hold',
+                'slot' => 'one',
+                'when' => ['card.type' => ['type' => 'bug']],
+                'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['card.type' => ['type' => 'security']]]],
+            ],
+            self::requestRule('work', self::ALWAYS),
+        ], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $this->evaluate($card);
+        $request = $this->liveRequests($card)[0];
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        self::assertSame(CardPauseKind::Rule, $this->activePause($card)?->kind);
+
+        $this->refuse($request, 'needs-person', '2026-10-02 12:10:00');
+        $this->evaluate($card, '2026-10-02 12:11:00');
+        self::assertNull($this->ruleState($card, 'work')->lastRefusal, 'The refusal waits while the rule pause holds the card.');
+
+        $this->setType($card, CardType::Security);
+        $this->evaluate($card, '2026-10-02 12:20:00');
+        $this->evaluate($card, '2026-10-02 12:21:00');
+        self::assertSame(CardPauseKind::WorkStopped, $this->activePause($card)?->kind);
+    }
+
+    public function test_releasing_a_hold_clears_the_tracked_request(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $this->evaluate($card);
+        $this->refuse($this->liveRequests($card)[0], 'needs-person', '2026-10-02 12:20:00');
+        $this->hold($card);
+        $this->releaseHold($card, '2026-10-02 12:30:00');
+
+        self::assertNull($this->ruleState($card, 'work')->workRequestId);
+    }
+
     public function test_a_done_request_clears_the_attempts_of_a_retry(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 2]);

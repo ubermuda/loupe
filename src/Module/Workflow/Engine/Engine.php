@@ -189,7 +189,8 @@ final readonly class Engine
     private function readSettledRequests(Evaluation $run): void
     {
         $policy = $run->template->onWorkFailed;
-        if (null === $policy) {
+        // A second pause is refused, so a refusal waits until the active pause ends.
+        if (null === $policy || null !== $this->cardPauses->findActiveForCard($run->card)) {
             return;
         }
         foreach ($run->template->rules as $rule) {
