@@ -172,7 +172,9 @@ can open it.
 
 An analysis needs a bridge with a work entry for the `analysis` subject.
 [Work requests](../extending/cli-bridge.md#work-requests) shows the entry. The
-`loupe-analysis` skill of the Loupe plugin does the work.
+`loupe-analysis` skill of the Loupe plugin does the work. For the **Experiment**
+topic, the agent reads the comparison, looks for causes other than the variant,
+and recommends a variant or more runs.
 
 ### Start an analysis
 
