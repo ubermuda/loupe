@@ -24,6 +24,7 @@ framework:
             - board-card-delete
             - worker-run-close
             - worker-run-command
+            - insights-proposal-accept
             - bridge-pause
             - card-agents
             - workflow-pause-release

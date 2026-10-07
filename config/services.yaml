@@ -298,27 +298,6 @@ when@test:
             autowire: true
             public: true
 
-        # No controller or tool calls these yet, so the compiler would remove them.
-        App\Module\Insights\Command\UpdateAnalyticsSettingsHandler:
-            autowire: true
-            public: true
-
-        App\Module\Insights\Command\StartAnalysisHandler:
-            autowire: true
-            public: true
-
-        App\Module\Insights\Command\ReportAnalysisHandler:
-            autowire: true
-            public: true
-
-        App\Module\Insights\Command\AcceptProposalHandler:
-            autowire: true
-            public: true
-
-        App\Module\Insights\Command\DismissProposalHandler:
-            autowire: true
-            public: true
-
         App\Module\Bridge\Command\SetBridgePauseHandler:
             autowire: true
             public: true

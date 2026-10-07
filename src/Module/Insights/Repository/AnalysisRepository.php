@@ -45,6 +45,18 @@ class AnalysisRepository extends ServiceEntityRepository
         return $this->findOneBy(['id' => Uuid::fromString($id), 'project' => $project]);
     }
 
+    /** @return list<Analysis> newest first */
+    public function findByProject(Project $project): array
+    {
+        return array_values($this->createQueryBuilder('a')
+            ->andWhere('a.project = :project')
+            ->setParameter('project', $project)
+            ->orderBy('a.createdAt', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->getQuery()
+            ->getResult());
+    }
+
     /**
      * The cost of the runs of the analysis in micro US dollars, read on each
      * call because a fact row can change after the analysis ends. Null when no

@@ -27,6 +27,23 @@ class ProposalRepository extends ServiceEntityRepository
         return array_values($this->findBy(['analysis' => $analysis], ['position' => 'ASC']));
     }
 
+    /** Null for a malformed id and for a proposal of another project alike. */
+    public function findOneByIdAndProjectId(string $proposalId, string $projectId): ?Proposal
+    {
+        if (!Uuid::isValid($proposalId) || !Uuid::isValid($projectId)) {
+            return null;
+        }
+
+        return $this->createQueryBuilder('p')
+            ->join('p.analysis', 'a')
+            ->andWhere('p.id = :proposalId')
+            ->andWhere('a.project = :projectId')
+            ->setParameter('proposalId', Uuid::fromString($proposalId), UuidType::NAME)
+            ->setParameter('projectId', Uuid::fromString($projectId), UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** Locked until the transaction ends, and read fresh even when the proposal is already managed. */
     public function findOneLocked(Uuid $id): ?Proposal
     {
