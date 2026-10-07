@@ -27,7 +27,7 @@ final readonly class RecordAgentGitHubLoginHandler
 
         if (null !== $login) {
             foreach ($this->gitHubInstallations->findByProject($project) as $installation) {
-                if (0 === strcasecmp($installation->accountLogin, $login)) {
+                if (null === $installation->removedAt && 0 === strcasecmp($installation->accountLogin, $login)) {
                     throw new DomainErrors(['login' => 'readiness.agent_account.error.installer_login']);
                 }
             }

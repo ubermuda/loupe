@@ -111,6 +111,25 @@ final class EditAgentAccountControllerTest extends WebTestCase
         self::assertNull($this->reload($project)->agentGitHubLogin);
     }
 
+    public function test_the_login_of_a_removed_installation_is_accepted(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user('agent-account-removed@example.com');
+        $project = $this->project($owner, 'Agent account removed');
+        $installation = new GitHubInstallation($project, 9_200_002, 'Acme', GitHubRepositorySelection::Selected);
+        $installation->removedAt = new \DateTimeImmutable();
+        $this->em()->persist($installation);
+        $this->em()->flush();
+        $this->em()->clear();
+        $client->loginUser($owner);
+
+        $client->request(Request::METHOD_GET, $this->url($project));
+        $client->submitForm('Save', ['update_agent_account_form[login]' => 'acme']);
+
+        self::assertResponseRedirects($this->url($project));
+        self::assertSame('acme', $this->reload($project)->agentGitHubLogin);
+    }
+
     public function test_the_readiness_settings_page_links_the_page(): void
     {
         $client = static::createClient();
