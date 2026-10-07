@@ -165,6 +165,10 @@ final readonly class Engine
                 $state->truth = $bound->truth;
                 $state->fingerprint = $this->fingerprint->of($bound->facts, $rule->when->reads());
                 if ($bound->truth) {
+                    // Another pull request gets its own request budget.
+                    if ($bound->binds && null !== $state->subjectPullRequestId && null !== $bound->subject && !$state->subjectPullRequestId->equals($bound->subject)) {
+                        $state->fires = 0;
+                    }
                     $state->subjectPullRequestId = $bound->subject;
                 }
                 $state->attempts = 0;
