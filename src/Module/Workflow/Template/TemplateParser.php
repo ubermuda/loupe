@@ -221,24 +221,10 @@ final readonly class TemplateParser
     private static function childlessTypesReadingChildren(Rule $rule, array $types): array
     {
         $evaluatesChildren = ActionType::Evaluate === $rule->then->type && 'children' === ($rule->then->params['cards'] ?? null);
-        $namesChildless = array_any($rule->when->leaves(), static fn (ConditionLeaf $leaf): bool => $leaf->condition instanceof CardHasType
-            && false === ($types[ParameterValue::string($leaf->params, 'type')] ?? null)?->children);
-        // The conjunctions grow with the product of the `any` sizes, so expand only a rule that can fail the check.
-        if (!$namesChildless || (!$evaluatesChildren && !\in_array(FactKey::Children, $rule->when->reads(), true))) {
-            return [];
-        }
         $found = [];
-        foreach (self::conjunctions($rule->when) as $members) {
-            if (!$evaluatesChildren && !array_any($members, static fn (Expression $member): bool => \in_array(FactKey::Children, $member->reads(), true))) {
-                continue;
-            }
-            $named = array_values(array_unique(array_map(
-                static fn (ConditionLeaf $leaf): string => ParameterValue::string($leaf->params, 'type'),
-                array_filter($members, static fn (Expression $member): bool => $member instanceof ConditionLeaf && $member->condition instanceof CardHasType),
-            )));
-            // A card has one type, so a conjunction that names two can never hold.
-            $type = 1 === \count($named) ? ($types[$named[0]] ?? null) : null;
-            if (null !== $type && !$type->children) {
+        foreach (self::typeReads($rule->when) as [$key, $readsChildren]) {
+            $type = null === $key ? null : ($types[$key] ?? null);
+            if (null !== $type && !$type->children && ($readsChildren || $evaluatesChildren)) {
                 $found[$type->key] = true;
             }
         }
@@ -247,30 +233,42 @@ final readonly class TemplateParser
     }
 
     /**
-     * The expression as the `any` of these conjunctions. A `not` stays one member, because it turns the type leaves under it around.
+     * Each way the expression can hold, as the one type it names and whether it reads the children.
+     * The set stays small, because a pair repeats and a way that names two types never holds.
+     * A `not` names no type, because it turns the type leaves under it around.
      *
-     * @return list<list<Expression>>
+     * @return array<string, array{?string, bool}>
      */
-    private static function conjunctions(Expression $expression): array
+    private static function typeReads(Expression $expression): array
     {
         if ($expression instanceof AnyOf) {
-            return array_merge(...array_map(self::conjunctions(...), $expression->children));
+            return array_merge(...array_map(self::typeReads(...), $expression->children));
         }
-        if (!$expression instanceof AllOf) {
-            return [[$expression]];
-        }
-        $result = [[]];
-        foreach ($expression->children as $child) {
-            $next = [];
-            foreach ($result as $members) {
-                foreach (self::conjunctions($child) as $more) {
-                    $next[] = [...$members, ...$more];
+        if ($expression instanceof AllOf) {
+            $ways = self::typeRead(null, false);
+            foreach ($expression->children as $child) {
+                $next = [];
+                foreach ($ways as [$type, $reads]) {
+                    foreach (self::typeReads($child) as [$childType, $childReads]) {
+                        if (null === $type || null === $childType || $type === $childType) {
+                            $next += self::typeRead($type ?? $childType, $reads || $childReads);
+                        }
+                    }
                 }
+                $ways = $next;
             }
-            $result = $next;
-        }
 
-        return $result;
+            return $ways;
+        }
+        $type = $expression instanceof ConditionLeaf && $expression->condition instanceof CardHasType ? ParameterValue::string($expression->params, 'type') : null;
+
+        return self::typeRead($type, \in_array(FactKey::Children, $expression->reads(), true));
+    }
+
+    /** @return array<string, array{?string, bool}> */
+    private static function typeRead(?string $type, bool $readsChildren): array
+    {
+        return [json_encode([$type, $readsChildren], \JSON_THROW_ON_ERROR) => [$type, $readsChildren]];
     }
 
     /**

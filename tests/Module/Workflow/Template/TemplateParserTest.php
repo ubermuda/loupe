@@ -184,6 +184,18 @@ final class TemplateParserTest extends TestCase
         self::assertCount(5, $this->parser->parse($template)->rules);
     }
 
+    public function test_many_any_lists_beside_a_child_read_parse_without_expanding_every_combination(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [
+            ['card.type' => ['type' => 'epic']],
+            ['card.children_finished' => []],
+            ...array_fill(0, 30, ['any' => [['pr.open' => []], ['card.type' => ['type' => 'epic']]]]),
+        ]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
     public function test_a_branch_that_names_a_second_type_never_holds_and_reads_nothing(): void
     {
         $template = self::valid();
