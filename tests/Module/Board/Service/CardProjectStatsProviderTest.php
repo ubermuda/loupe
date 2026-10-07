@@ -33,7 +33,6 @@ final class CardProjectStatsProviderTest extends KernelTestCase
 
     public function test_it_counts_every_column_except_done(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('stats');
         $this->seedOnePerStatus($project);
 
@@ -45,7 +44,6 @@ final class CardProjectStatsProviderTest extends KernelTestCase
 
     public function test_a_project_whose_cards_are_all_done_has_only_completed_work(): void
     {
-        $this->enableBoard();
         $finished = $this->makeProject('stats-done');
         $this->em->persist(new Card(project: $finished, column: $this->column($finished, 'done'), title: 'Shipped', body: '', number: 1));
         $busy = $this->makeProject('stats-still-going');
@@ -62,7 +60,6 @@ final class CardProjectStatsProviderTest extends KernelTestCase
 
     public function test_it_counts_each_project_separately(): void
     {
-        $this->enableBoard();
         $busy = $this->makeProject('stats-busy');
         $quiet = $this->makeProject('stats-quiet');
         $this->em->persist(new Card(project: $busy, column: $this->column($busy, 'backlog'), title: 'One', body: '', number: 1));
@@ -77,7 +74,6 @@ final class CardProjectStatsProviderTest extends KernelTestCase
 
     public function test_completion_follows_terminal_columns_instead_of_names(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('stats-custom-terminal');
         $this->seedOnePerStatus($project);
         $this->column($project, 'next')->terminal = true;
@@ -93,33 +89,11 @@ final class CardProjectStatsProviderTest extends KernelTestCase
         self::assertSame(2, $stats[(string) $project->id]->completedCardCount);
     }
 
-    public function test_it_reports_nothing_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $project = $this->makeProject('stats-flag-off');
-        $this->seedOnePerStatus($project);
-        // Guard: the assertion below also passes on a fixture that wrote no
-        // card at all, which would prove nothing about the flag.
-        $this->assertCardRowCount($project, 4);
-
-        self::assertSame([], $this->provider->statsFor([$project]));
-    }
-
     private function seedOnePerStatus(Project $project): void
     {
         foreach (['backlog', 'next', 'in-progress', 'done'] as $index => $slug) {
             $this->em->persist(new Card(project: $project, column: $this->column($project, $slug), title: $slug, body: '', number: $index + 1));
         }
         $this->em->flush();
-    }
-
-    private function assertCardRowCount(Project $project, int $expected): void
-    {
-        $stored = $this->em->getConnection()->fetchOne(
-            'SELECT COUNT(*) FROM board_cards WHERE project_id = :id',
-            ['id' => (string) $project->id],
-        );
-
-        self::assertSame($expected, (int) $stored);
     }
 }

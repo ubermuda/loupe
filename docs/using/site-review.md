@@ -105,13 +105,6 @@ On such a page, every note goes to that card. The widget does not ask for a
 choice, and it does not change the choice you keep for other pages. When the
 card is closed or deleted, the widget refuses notes and says so.
 
-### The board must be on
-
-Notes need the board. When `board.enabled` is off, the widget shows "Turn on the
-board to use site review". The text box turns read-only and Save stays disabled,
-so you can still copy a draft out. The board ships on. See
-[Turning the board off](board.md#turning-the-board-off).
-
 ## Retrying a save
 
 A failed save keeps the draft open. Press **Save** again to retry it.

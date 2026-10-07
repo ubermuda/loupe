@@ -19,7 +19,6 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\MoveBacklogCardFormType;
 use App\Module\Board\Form\MoveBacklogCardRequest;
 use App\Module\Board\Security\CardVoter;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogPageChange;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -50,7 +49,6 @@ final class MoveBacklogCardController extends AppController
         private readonly ListBacklogCardsHandler $listBacklogCards,
         private readonly ListBacklogPageIdsHandler $listBacklogPageIds,
         private readonly FormFactoryInterface $formFactory,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -59,8 +57,6 @@ final class MoveBacklogCardController extends AppController
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
     ): Response {
-        $this->board->requireEnabled();
-
         // Read before the move, which gives the card its new column.
         $backlog = $card->column;
         $listQuery = BacklogListQuery::fromQuery($request->query);

@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Inbox\Entity\InboxCardWaitEndReason;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -180,7 +181,8 @@ final class WaitItemPageTest extends WebTestCase
         $run = new WorkerRun(
             project: $this->project,
             bridgeId: Uuid::v7(),
-            cardId: $this->card->id ?? throw new \LogicException('Card has no id.'),
+            subjectType: WorkSubject::CARD,
+            subjectId: $this->card->id ?? throw new \LogicException('Card has no id.'),
             cardNumber: 4,
             workKind: 'implement',
             state: WorkerRunState::Blocked,

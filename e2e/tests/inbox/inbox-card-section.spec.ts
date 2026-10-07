@@ -44,10 +44,9 @@ test.use({
     viewport: { width: 1600, height: 900 },
 });
 
-// Both flags are global, so each goes back to its shipped value for later specs.
+// The flag is global, so it goes back to its shipped value for later specs.
 test.afterAll(async ({ request }) => {
     await setFlag(request, 'inbox.enabled', false);
-    await setFlag(request, 'board.enabled', true);
 });
 
 test('card and inbox show linked PRs with readable status and safe actions', async ({
@@ -56,7 +55,6 @@ test('card and inbox show linked PRs with readable status and safe actions', asy
     await suppressToolbar(page);
     await suppressWidget(page);
     await setFlag(page.request, 'inbox.enabled', true);
-    await setFlag(page.request, 'board.enabled', true);
     await registerAndLogin(page, `e2e+inbox+pulls+${RUN}@example.com`);
     const project = await page.request.post('/dev/seed/document', {
         form: { title: 'Linked PR project', markdown: '# Review' },
@@ -126,7 +124,6 @@ test('an inbox card link reveals its matching request in Conversation', async ({
     await suppressToolbar(page);
     await suppressWidget(page);
     await setFlag(page.request, 'inbox.enabled', true);
-    await setFlag(page.request, 'board.enabled', true);
     await registerAndLogin(page, `e2e+inbox+target+${RUN}@example.com`);
     const project = await page.request.post('/dev/seed/document', {
         form: { title: 'Request navigation project', markdown: '# Requests' },
@@ -198,7 +195,6 @@ for (const target of ['document', 'pull-request']) {
         await suppressToolbar(page);
         await suppressWidget(page);
         await setFlag(page.request, 'inbox.enabled', true);
-        await setFlag(page.request, 'board.enabled', true);
         await registerAndLogin(
             page,
             `e2e+inbox+review+${target}+${RUN}@example.com`,
@@ -400,7 +396,6 @@ test('an unavailable pull request keeps its unsent review recoverable', async ({
     await suppressToolbar(page);
     await suppressWidget(page);
     await setFlag(page.request, 'inbox.enabled', true);
-    await setFlag(page.request, 'board.enabled', true);
     await registerAndLogin(page, `e2e+inbox+unavailable+${RUN}@example.com`);
     const seeded = await page.request.post('/dev/seed/document', {
         form: { title: 'Unavailable review project', markdown: '# Review' },
@@ -483,7 +478,6 @@ for (const surface of ['page', 'drawer']) {
         await suppressToolbar(page);
         await suppressWidget(page);
         await setFlag(page.request, 'inbox.enabled', true);
-        await setFlag(page.request, 'board.enabled', true);
         await registerAndLogin(
             page,
             `e2e+inbox+card+${surface}+${RUN}@example.com`,

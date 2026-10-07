@@ -10,7 +10,6 @@
 import {
     test as base,
     expect,
-    type APIRequestContext,
     type Locator,
     type Page,
 } from '@playwright/test';
@@ -21,17 +20,6 @@ const PASSWORD = 'E2eEpicDeck1!';
 const READY = '#board[data-board-drag-ready="true"]';
 // A live count waits for the move, the card placement and the lane head placement in turn.
 const LIVE_UPDATE = { timeout: 15000 };
-
-async function setFlag(
-    request: APIRequestContext,
-    name: string,
-    enabled: boolean,
-): Promise<void> {
-    const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name, enabled: enabled ? 1 : 0 },
-    });
-    expect(response.ok()).toBeTruthy();
-}
 
 interface Card {
     id: string;
@@ -165,9 +153,6 @@ interface Board {
 // the hub request: a custom header there makes the EventSource preflight.
 const test = base.extend<{ board: Board }>({
     board: async ({ browser, request }, use, testInfo) => {
-        await setFlag(request, 'board.enabled', true);
-        await setFlag(request, 'live_updates.enabled', true);
-
         const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
         const email = `e2e+epic-deck+${tag}+${RUN}@example.com`;
         const registered = await request.post('/dev/register-and-verify', {
@@ -194,12 +179,6 @@ const test = base.extend<{ board: Board }>({
 // The fixture and the card_create calls fill most of the default budget on a
 // loaded machine, and two tests also wait for the hub to connect.
 test.slow();
-
-// The flags are global, so they go back to their shipped value, on, for later specs.
-test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'live_updates.enabled', true);
-});
 
 /** The deck count changes through the hub, which keeps no history, so a move waits for it. */
 async function openLive(page: Page, url: string): Promise<void> {

@@ -7,7 +7,6 @@ namespace App\Module\Board\Controller;
 use App\Controller\AppController;
 use App\Module\Board\Command\ShowBoardManifestCommand;
 use App\Module\Board\Command\ShowBoardManifestHandler;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use App\Session\ReadOnlyAwareSessionHandler;
@@ -29,14 +28,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class ShowBoardManifestController extends AppController
 {
     public function __construct(
-        private readonly BoardAvailability $board,
         private readonly ShowBoardManifestHandler $handler,
     ) {
     }
 
     public function __invoke(#[MapEntity(id: 'projectId')] Project $project): JsonResponse
     {
-        $this->board->requireEnabled();
         $manifest = ($this->handler)(new ShowBoardManifestCommand($project));
 
         return $this->json([

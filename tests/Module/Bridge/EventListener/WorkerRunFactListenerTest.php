@@ -17,6 +17,7 @@ use App\Module\Bridge\ValueObject\WorkerRunModelUsage;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Doctrine\DBAL\Exception\DriverException;
@@ -156,7 +157,7 @@ final class WorkerRunFactListenerTest extends KernelTestCase
 
     private function unsavedRun(Project $project): WorkerRun
     {
-        return new WorkerRun($project, Uuid::v7(), Uuid::v7(), 1, 'plan', WorkerRunState::Queued);
+        return new WorkerRun($project, Uuid::v7(), WorkSubject::CARD, Uuid::v7(), 1, 'plan', WorkerRunState::Queued);
     }
 
     private function listener(): WorkerRunFactListener
@@ -194,7 +195,7 @@ final class WorkerRunFactListenerTest extends KernelTestCase
             bridgeId: Uuid::fromString('0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90'),
             state: $state,
             at: new \DateTimeImmutable('2026-09-23 10:0'.$state->rank().':00'),
-            cardId: $cardId ?? Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506172'),
+            subject: WorkSubject::card($cardId ?? Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506172')),
             cardNumber: 1,
             workRequestId: null,
             workKind: 'plan',

@@ -27,7 +27,6 @@ final class AuthorizeMercureTopicsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'mercure-renew-owner@example.com');
         $stranger = $this->user($em, 'mercure-renew-stranger@example.com');
@@ -58,7 +57,6 @@ final class AuthorizeMercureTopicsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'mercure-stranger-owner@example.com');
         $stranger = $this->user($em, 'mercure-stranger@example.com');
@@ -81,7 +79,6 @@ final class AuthorizeMercureTopicsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
 
         $owner = $this->user($em, 'mercure-csrf@example.com');
         $project = $this->project($em, $owner);
@@ -102,7 +99,6 @@ final class AuthorizeMercureTopicsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $this->setHubFlags($em, liveUpdates: false, agentPush: true);
 
         $owner = $this->user($em, 'mercure-renew-off@example.com');

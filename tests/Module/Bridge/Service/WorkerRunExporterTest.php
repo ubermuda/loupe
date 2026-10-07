@@ -13,6 +13,7 @@ use App\Module\Bridge\Service\WorkerRunExporter;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -31,7 +32,8 @@ final class WorkerRunExporterTest extends TestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: $bridgeId,
-            cardId: $cardId,
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId,
             cardNumber: 7,
             workKind: 'plan',
             state: WorkerRunState::Succeeded,
@@ -69,7 +71,8 @@ final class WorkerRunExporterTest extends TestCase
             'runKey' => (string) $runKey,
             'state' => 'succeeded',
             'sessionId' => (string) $sessionId,
-            'cardId' => (string) $cardId,
+            'subjectType' => 'card',
+            'subjectId' => (string) $cardId,
             'cardNumber' => 7,
             'workRequestId' => '0199a0e2-0000-7000-8000-000000000042',
             'workKind' => 'plan',
@@ -135,7 +138,8 @@ final class WorkerRunExporterTest extends TestCase
         $run = new WorkerRun(
             project: new Project($owner, 'My project'),
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'plan',
             state: WorkerRunState::NotStarted,
@@ -162,7 +166,8 @@ final class WorkerRunExporterTest extends TestCase
         $resume = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'plan',
             state: WorkerRunState::Queued,
@@ -187,7 +192,8 @@ final class WorkerRunExporterTest extends TestCase
         $run = new WorkerRun(
             project: new Project($owner, 'My project'),
             bridgeId: null,
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'Pairing on the tech design',
             state: WorkerRunState::Closed,
@@ -212,7 +218,8 @@ final class WorkerRunExporterTest extends TestCase
         return new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'plan',
             state: WorkerRunState::Queued,

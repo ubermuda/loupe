@@ -20,7 +20,6 @@ final readonly class CardActivityLinks implements ActivityLinkProviderInterface
     public function __construct(
         private CardRepository $cards,
         private BoardColumnRepository $boardColumns,
-        private BoardAvailability $board,
         private UrlGeneratorInterface $urls,
         private TranslatorInterface $translator,
     ) {
@@ -29,9 +28,6 @@ final readonly class CardActivityLinks implements ActivityLinkProviderInterface
     #[\Override]
     public function linksFor(Project $project, array $events): array
     {
-        if (!$this->board->isEnabled()) {
-            return [];
-        }
         $cardIds = [];
         $moves = [];
         foreach ($events as $event) {

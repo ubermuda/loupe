@@ -211,6 +211,53 @@ test('New document creates a draft that can be reviewed', async ({
     });
 });
 
+test('A revised draft stays a draft until Publish sends it to review', async ({
+    page,
+    review,
+}) => {
+    await page.goto(review.dashboardUrl);
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', {
+        name: 'New document',
+        exact: true,
+    });
+    await dialog.getByLabel('Title', { exact: true }).fill('A staged draft');
+    await dialog.getByLabel('Markdown', { exact: true }).fill(DRAFT_MARKDOWN);
+    await dialog
+        .getByRole('button', { name: 'Create document', exact: true })
+        .click();
+    await expect(
+        page.getByRole('heading', { name: 'A staged draft', exact: true }),
+    ).toBeVisible({ timeout: 20000 });
+
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const reviseDialog = page.getByRole('dialog', { name: 'Revise document' });
+    await reviseDialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Draft scope\n\nA second pass.');
+    await reviseDialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Second pass.');
+    await reviseDialog
+        .getByRole('button', { name: 'Save new version' })
+        .click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
+        timeout: 20000,
+    });
+    await expect(page.locator('.lp-review-doc__byline')).toContainText('Draft');
+
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(page.locator('.lp-review-doc__byline')).toContainText(
+        'In review',
+        { timeout: 20000 },
+    );
+    await expect(
+        page.getByRole('button', { name: 'Publish', exact: true }),
+    ).toHaveCount(0);
+});
+
 test('Revise saves a new version and preserves the previous text', async ({
     page,
     review,
@@ -882,6 +929,42 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
         'In review',
     );
     await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+});
+
+test('a standing verdict changes in one step', async ({ page, review }) => {
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page
+        .getByRole('radio', { name: 'Request changes', exact: true })
+        .check();
+    await page
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Clarify the retry policy.');
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Submit review' }),
+        `${review.reviewUrl}/submit`,
+    );
+    await expect(
+        page.locator('.lp-verdict-bar--changes-requested'),
+    ).toBeVisible();
+
+    await page
+        .locator('.lp-verdict-bar')
+        .getByRole('button', { name: 'Change verdict', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', { name: 'Finish review' });
+    await dialog.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await submitRedirectingForm(
+        page,
+        dialog.getByRole('button', { name: 'Submit review' }),
+        `${review.reviewUrl}/submit`,
+    );
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(page.locator('.lp-review-doc__byline')).toContainText(
+        'Approved',
+    );
 });
 
 test('requesting changes asks for a note and keeps it across Cancel', async ({

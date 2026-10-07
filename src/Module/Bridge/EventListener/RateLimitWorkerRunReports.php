@@ -21,7 +21,6 @@ final readonly class RateLimitWorkerRunReports
 {
     /** The routes share one budget, because one bridge sends all of them. */
     public const array ROUTES = [
-        'api_project_worker_run_report',
         'api_project_worker_run_state_report',
         'api_project_worker_run_session_usage_report',
         'api_project_worker_run_tool_calls_report',

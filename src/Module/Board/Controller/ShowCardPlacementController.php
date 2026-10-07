@@ -8,7 +8,6 @@ use App\Controller\AppController;
 use App\Module\Board\Command\ShowCardPlacementCommand;
 use App\Module\Board\Command\ShowCardPlacementHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use App\Session\ReadOnlyAwareSessionHandler;
@@ -37,7 +36,6 @@ use Symfony\UX\Turbo\TurboBundle;
 final class ShowCardPlacementController extends AppController
 {
     public function __construct(
-        private readonly BoardAvailability $board,
         private readonly ShowCardPlacementHandler $handler,
     ) {
     }
@@ -47,8 +45,6 @@ final class ShowCardPlacementController extends AppController
         #[MapEntity(id: 'projectId')] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] ?Card $card,
     ): Response {
-        $this->board->requireEnabled();
-
         return new Response(
             $this->renderView('@Board/_card_placement.stream.html.twig', [
                 'cardId' => $cardId,

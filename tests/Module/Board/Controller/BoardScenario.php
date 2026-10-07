@@ -10,7 +10,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
@@ -18,7 +17,6 @@ use App\Outbox\AgentPush;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /** Fixtures the board's WebTestCase classes share. */
 trait BoardScenario
@@ -34,25 +32,6 @@ trait BoardScenario
      * @var array<string, int>
      */
     private array $nextCardNumber = [];
-
-    private function enableBoard(): void
-    {
-        $this->setBoardEnabled(true);
-    }
-
-    private function disableBoard(): void
-    {
-        $this->setBoardEnabled(false);
-    }
-
-    /** The container is read fresh, so this stays correct after a request has rebooted the kernel. */
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        self::getContainer()->get(EntityManagerInterface::class)->flush();
-    }
 
     /** Both flags ship on through a migration, so each row exists to flip. */
     private function setHubFlags(EntityManagerInterface $em, bool $liveUpdates, bool $agentPush): void

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Condition;
 
+use App\Module\Workflow\Condition\CardDocument;
 use App\Module\Workflow\Condition\Conditions;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Translation\TranslatorBagInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ConditionCatalogueTest extends KernelTestCase
 {
@@ -16,7 +18,9 @@ final class ConditionCatalogueTest extends KernelTestCase
         sort($keys);
 
         self::assertSame([
+            'card.child_merged_into_epic_branch',
             'card.children_finished',
+            'card.document',
             'card.document_approved',
             'card.document_changes_requested',
             'card.has_children',
@@ -71,6 +75,16 @@ final class ConditionCatalogueTest extends KernelTestCase
             self::assertSame($sources[explode('.', $key)[0]], $source, $key);
             self::assertTrue($catalogue->defines($source), \sprintf('"%s" has no English string.', $source));
         }
+    }
+
+    public function test_a_document_status_reads_as_its_label_in_the_waiting_sentence(): void
+    {
+        $translator = static::getContainer()->get('translator');
+        self::assertInstanceOf(TranslatorInterface::class, $translator);
+        $params = ['tag' => 'design', 'status' => 'in-review'];
+
+        self::assertSame('Waiting: the card has no design document with the status "In review".', new CardDocument()->waitingFor($params)->trans($translator));
+        self::assertSame('Waiting: the card has a design document with the status "In review".', new CardDocument()->waitingFor($params, negated: true)->trans($translator));
     }
 
     /** @return list<string> the keys of the shipped conditions, without the ones the test container adds */

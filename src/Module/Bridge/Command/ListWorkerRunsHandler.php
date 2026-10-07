@@ -54,7 +54,10 @@ final readonly class ListWorkerRunsHandler
         $histories = $this->workerRunStateChanges->findForRuns($runs);
         $cardIds = [];
         foreach ($runs as $run) {
-            $cardIds[(string) $run->cardId] = $run->cardId;
+            $cardId = $run->cardId();
+            if (null !== $cardId) {
+                $cardIds[(string) $cardId] = $cardId;
+            }
         }
         $titles = $this->cardTitles->titlesFor($command->project, array_values($cardIds));
         $controls = $this->controls->forRuns($command->project, $runs);
@@ -63,7 +66,7 @@ final readonly class ListWorkerRunsHandler
 
         return new ListWorkerRunsView(
             items: array_map(
-                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? [], $titles[(string) $run->cardId] ?? null, $controls[(string) $run->id] ?? null, $facts[(string) $run->id] ?? null),
+                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? [], $titles[(string) $run->cardId()] ?? null, $controls[(string) $run->id] ?? null, $facts[(string) $run->id] ?? null),
                 $runs,
             ),
             filteredTotal: $total,

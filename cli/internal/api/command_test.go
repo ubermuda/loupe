@@ -21,7 +21,7 @@ func TestHeartbeatReadsThePauseAndTheCommands(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, `{"cliRange":"^1.0","paused":true,"commands":[{"type":"bridge.command","projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",`+
 			`"subject":{"type":"bridge-command","id":%[1]q},"commandId":%[1]q,"kind":"stop-run","bridgeId":%[2]q,"runKey":null,"sessionId":null,`+
-			`"cardId":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7","cardNumber":42,"workRequestId":"0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7","workKind":"plan","ruleId":"plan-on-entry",`+
+			`"subjectType":"card","subjectId":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7","cardNumber":42,"workRequestId":"0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7","workKind":"plan","ruleId":"plan-on-entry",`+
 			`"expiresAt":"2026-09-29T10:15:00+00:00"}]}`, ackCommandID, ackBridgeID)
 	}))
 	t.Cleanup(server.Close)
@@ -36,7 +36,7 @@ func TestHeartbeatReadsThePauseAndTheCommands(t *testing.T) {
 	c := reply.Commands[0]
 	want := time.Date(2026, 9, 29, 10, 15, 0, 0, time.UTC)
 	if c.Type != "bridge.command" || c.CommandID != ackCommandID || c.Subject.ID != ackCommandID || c.Kind != CommandStopRun ||
-		c.BridgeID != ackBridgeID || c.RunKey != "" || c.SessionID != "" || c.CardNumber != 42 || c.WorkKind != "plan" ||
+		c.BridgeID != ackBridgeID || c.RunKey != "" || c.SessionID != "" || c.CardNumber != 42 || c.SubjectType != SubjectCard || c.SubjectID != "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7" || c.WorkKind != "plan" ||
 		c.WorkRequestID != "0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7" || c.RuleID != "plan-on-entry" || !c.ExpiresAt.Equal(want) {
 		t.Fatalf("command = %+v", c)
 	}
@@ -156,7 +156,7 @@ func TestAckCommandNamesEachFailure(t *testing.T) {
 	}{
 		"command gone": {http.StatusNotFound, `{"error":"command_not_found"}`, true, ""},
 		"old server":   {http.StatusNotFound, ``, false, "HTTP 404"},
-		"other code":   {http.StatusNotFound, `{"error":"board_disabled"}`, false, "HTTP 404"},
+		"other code":   {http.StatusNotFound, `{"error":"project_not_found"}`, false, "HTTP 404"},
 		"invalid":      {http.StatusUnprocessableEntity, `{"error":"invalid_state"}`, false, "invalid_state"},
 		"server error": {http.StatusInternalServerError, `boom`, false, "HTTP 500"},
 	} {

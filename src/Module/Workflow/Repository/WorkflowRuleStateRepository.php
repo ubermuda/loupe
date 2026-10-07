@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Repository;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
@@ -37,6 +38,12 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
         }
 
         return $states;
+    }
+
+    /** @return list<WorkflowRuleState> */
+    public function findRefusedInProject(Project $project, string $refusal): array
+    {
+        return $this->findBy(['project' => $project, 'lastRefusal' => $refusal]);
     }
 
     /**

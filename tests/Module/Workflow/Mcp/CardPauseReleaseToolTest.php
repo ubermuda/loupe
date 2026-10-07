@@ -13,7 +13,6 @@ use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
@@ -28,7 +27,6 @@ use Mcp\Server;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class CardPauseReleaseToolTest extends KernelTestCase
 {
@@ -40,7 +38,6 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-        $this->setBoardEnabled(true);
         $this->project = $this->workflowProject('mcp-pause-release');
         $this->bindLifecycle($this->project);
         $this->actAsMcpTokenBoundTo($this->project);
@@ -179,21 +176,6 @@ final class CardPauseReleaseToolTest extends KernelTestCase
         $this->tool()((string) $card->id, $card->number);
     }
 
-    public function test_the_tool_refuses_while_the_board_is_off(): void
-    {
-        $card = $this->card($this->project);
-        $this->pause($card, CardPauseKind::Retries);
-        $this->setBoardEnabled(false);
-
-        try {
-            $this->tool()((string) $card->id);
-            self::fail('Expected a refusal.');
-        } catch (ToolCallException $e) {
-            self::assertSame('The board is switched off on this instance.', $e->getMessage());
-        }
-        self::assertNotNull($this->service(CardPauseRepository::class)->findActiveForCard($card));
-    }
-
     public function test_the_tool_is_published_after_card_release(): void
     {
         self::assertInstanceOf(Server::class, self::getContainer()->get('mcp.server'));
@@ -207,15 +189,6 @@ final class CardPauseReleaseToolTest extends KernelTestCase
         $release = array_search('card_release', $names, true);
         self::assertIsInt($release);
         self::assertSame(CardPauseReleaseTool::NAME, $names[$release + 1] ?? null);
-    }
-
-    public function test_the_tool_is_hidden_while_the_board_is_off(): void
-    {
-        $this->setBoardEnabled(false);
-
-        $names = array_column($this->service(AdvertisedTools::class)->enabled(), 'name');
-        self::assertContains('card_release', $names);
-        self::assertNotContains(CardPauseReleaseTool::NAME, $names);
     }
 
     public function test_the_tool_has_a_connect_page_description(): void
@@ -246,12 +219,6 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     {
         return $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-write', $kind))
             ?? throw new \LogicException('The card had no pause.');
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $this->service(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->em()->flush();
     }
 
     /**

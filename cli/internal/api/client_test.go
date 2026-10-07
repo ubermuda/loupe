@@ -96,7 +96,6 @@ func TestColumnsNamesEachFailure(t *testing.T) {
 		text   string
 	}{
 		{http.StatusNotFound, `{"error":"project_not_found"}`, ErrProjectNotFound, "loupe"},
-		{http.StatusNotFound, `{"error":"board_disabled"}`, ErrBoardDisabled, "loupe"},
 		{http.StatusNotFound, `<html>Not Found</html>`, ErrEndpointMissing, "loupe"},
 		{http.StatusNotFound, `{"message":"No route found"}`, ErrEndpointMissing, "loupe"},
 		{http.StatusNotFound, ``, ErrEndpointMissing, "loupe"},

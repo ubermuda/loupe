@@ -46,7 +46,7 @@ final class WorkerRunFactExporterTest extends KernelTestCase
             'runId' => (string) $kept->id,
             'project' => 'Facts Export',
             'subjectType' => 'card',
-            'subjectId' => (string) $kept->cardId,
+            'subjectId' => (string) $kept->subjectId,
             'cardNumber' => 1,
             'kind' => 'worker',
             'workKind' => 'review',

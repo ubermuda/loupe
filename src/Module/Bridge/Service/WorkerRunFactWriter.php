@@ -26,8 +26,8 @@ final readonly class WorkerRunFactWriter
         SELECT
             r.id,
             r.project_id,
-            'card',
-            r.card_id,
+            r.subject_type,
+            r.subject_id,
             r.card_number,
             r.kind,
             r.work_kind,

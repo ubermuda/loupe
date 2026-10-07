@@ -9,6 +9,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Security\ProjectScopedSubject;
 use Doctrine\DBAL\Types\Types;
@@ -36,16 +37,25 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_bridge_worker_runs_session', columns: ['session_id'])]
 // The sweep that times out a quiet bridge's runs reads the open states.
 #[ORM\Index(name: 'idx_bridge_worker_runs_state', columns: ['state'])]
+// The board and the workflow engine read the runs of one card.
+#[ORM\Index(name: 'idx_bridge_worker_runs_subject', columns: ['project_id', 'subject_type', 'subject_id'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
-// A bridge that sends no run key reports a finished worker run once, and
-// retries it when it never saw the response. The start then identifies the run.
+// Guards the worker runs with no run key, which only the removed finished-run report wrote.
 // The predicate is written the way Postgres stores it, so migrate-diff stays quiet.
-#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'card_id', 'started_at'], options: ['where' => "((run_key IS NULL) AND ((kind)::text = 'worker'::text))"])]
+#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'subject_type', 'subject_id', 'started_at'], options: ['where' => "((run_key IS NULL) AND ((kind)::text = 'worker'::text))"])]
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_key', columns: ['project_id', 'bridge_id', 'run_key'])]
-// One session holds one open interactive run on a card.
-#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_interactive_open', columns: ['project_id', 'card_id', 'session_id'], options: ['where' => "(((kind)::text = 'interactive'::text) AND ((state)::text = 'running'::text))"])]
+// One session holds one open interactive run on a subject.
+#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_interactive_open', columns: ['project_id', 'subject_type', 'subject_id', 'session_id'], options: ['where' => "(((kind)::text = 'interactive'::text) AND ((state)::text = 'running'::text))"])]
 class WorkerRun implements ProjectScopedSubject
 {
+    /** A process killed by a signal reports a negative code, so the range is symmetric around the 0 to 255 of a normal exit. */
+    public const int MIN_EXIT_CODE = -255;
+
+    public const int MAX_EXIT_CODE = 255;
+
+    /** The card number column is a 32-bit integer, and Postgres refuses more at the flush. */
+    public const int MAX_CARD_NUMBER = 2147483647;
+
     /** Mirrors the cap the bridge applies to a worker's output before it reports. */
     public const int MAX_OUTPUT_LENGTH = 4000;
 
@@ -156,12 +166,16 @@ class WorkerRun implements ProjectScopedSubject
         #[ORM\Column(name: 'bridge_id', type: UuidType::NAME, nullable: true)]
         public readonly ?Uuid $bridgeId,
 
-        /** A scalar, never a foreign key, so a deleted card leaves its run history intact. */
-        #[ORM\Column(name: 'card_id', type: UuidType::NAME)]
-        public readonly Uuid $cardId,
+        #[ORM\Column(name: 'subject_type', length: WorkSubject::MAX_TYPE_LENGTH)]
+        public readonly string $subjectType,
 
-        #[ORM\Column(name: 'card_number')]
-        public readonly int $cardNumber,
+        /** A scalar, never a foreign key, so a deleted card leaves its run history intact. For a card subject, the card id. */
+        #[ORM\Column(name: 'subject_id', type: UuidType::NAME)]
+        public readonly Uuid $subjectId,
+
+        /** The card number a person sees, for a card subject. A label, never an id. */
+        #[ORM\Column(name: 'card_number', nullable: true)]
+        public readonly ?int $cardNumber,
 
         /** The kind of the work request, or the name of an interactive run. Null for a run of an old bridge rule. */
         #[ORM\Column(name: 'work_kind', length: self::MAX_WORK_KIND_LENGTH, nullable: true)]
@@ -223,6 +237,17 @@ class WorkerRun implements ProjectScopedSubject
         #[ORM\Column(name: 'rule_id', length: self::MAX_RULE_ID_LENGTH, nullable: true)]
         public readonly ?string $ruleId = null,
     ) {
+    }
+
+    public function subject(): WorkSubject
+    {
+        return new WorkSubject($this->subjectType, $this->subjectId);
+    }
+
+    /** The card the run is about, or null when its subject is no card. */
+    public function cardId(): ?Uuid
+    {
+        return WorkSubject::CARD === $this->subjectType ? $this->subjectId : null;
     }
 
     /** For a state that carries no data of its own. */

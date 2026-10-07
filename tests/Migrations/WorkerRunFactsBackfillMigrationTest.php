@@ -10,6 +10,7 @@ use App\Module\Bridge\Service\WorkerRunFactWriter;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Doctrine\DBAL\Connection;
@@ -49,7 +50,7 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
 
         self::assertSame([
             'subject_type' => 'card',
-            'subject_id' => (string) $run->cardId,
+            'subject_id' => (string) $run->subjectId,
             'card_number' => 7,
             'kind' => 'worker',
             'work_kind' => 'implement',
@@ -207,7 +208,8 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
         $run = new WorkerRun(
             project: $this->project,
             bridgeId: $bridgeId ?? Uuid::v7(),
-            cardId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: Uuid::v7(),
             cardNumber: 7,
             workKind: 'implement',
             state: $state,
@@ -231,7 +233,7 @@ final class WorkerRunFactsBackfillMigrationTest extends KernelTestCase
         WorkerRunUsageSource $source = WorkerRunUsageSource::Reported,
     ): void {
         $run->usageSource = $source;
-        $this->em->persist(new WorkerRunUsage($run, $run->project, $run->cardId, $run->workKind, $model, $source, 100, $outputTokens, 300, 40, $costUsd));
+        $this->em->persist(new WorkerRunUsage($run, $run->project, $run->subjectType, $run->subjectId, $run->workKind, $model, $source, 100, $outputTokens, 300, 40, $costUsd));
         $this->em->flush();
     }
 

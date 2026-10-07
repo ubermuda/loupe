@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Command;
 
-use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\AddFeedbackCommand;
 use App\Module\Board\Command\AddFeedbackHandler;
@@ -20,7 +19,6 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\SiteReview\Command\CommentNotFound;
@@ -31,9 +29,6 @@ use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
-use Symfony\Contracts\Service\ResetInterface;
-use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class DeleteFeedbackHandlerTest extends KernelTestCase
 {
@@ -61,8 +56,6 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         $add = self::getContainer()->get(AddFeedbackHandler::class);
         self::assertInstanceOf(AddFeedbackHandler::class, $add);
         $this->add = $add;
-
-        $this->setBoardEnabled(true);
     }
 
     public function test_the_note_that_created_its_card_takes_the_card_with_it(): void
@@ -276,23 +269,6 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         self::assertSame(1, $this->rows('site_review_comments', $foreign));
     }
 
-    public function test_nothing_is_deleted_while_the_board_is_off(): void
-    {
-        $project = $this->project('delete-feedback-off');
-        $link = $this->addNote($project);
-        $this->setBoardEnabled(false);
-
-        try {
-            ($this->handler)($this->command($project, $link));
-            self::fail('The delete should have been refused.');
-        } catch (DomainErrors $e) {
-            self::assertSame(['board' => DeleteFeedbackHandler::BOARD_DISABLED], $e->errors);
-        }
-
-        self::assertSame(1, $this->rows('board_cards', $project));
-        self::assertSame(1, $this->rows('site_review_comments', $project));
-    }
-
     public function test_deleting_a_card_deletes_its_comments_and_their_anchors(): void
     {
         $project = $this->project('delete-card-comments');
@@ -389,17 +365,5 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         $this->em->flush();
 
         return $card;
-    }
-
-    private function setBoardEnabled(bool $enabled): void
-    {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
-        $this->em->flush();
-
-        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
-        self::assertInstanceOf(ResetInterface::class, $reader);
-        $reader->reset();
     }
 }

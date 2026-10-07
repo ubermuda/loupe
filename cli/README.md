@@ -580,9 +580,8 @@ A resume prompt ends with a different footer, described in
 
 Before it subscribes, the bridge reads each mapped project from the columns
 endpoint. An unknown project slug stops the bridge. The error lists the valid
-slugs. The error also says when the board is switched off on the instance, and
-when the server is too old for this bridge version because it has no such
-endpoint. Upgrade Loupe before you upgrade the bridge.
+slugs. The error also says when the server is too old for this bridge version
+because it has no such endpoint. Upgrade Loupe before you upgrade the bridge.
 
 `loupe bridge reload` runs the same checks. A check that fails there keeps the
 old file, and the bridge runs on.
@@ -594,8 +593,8 @@ bridge accepts that.
 ### The work map
 
 `work:` at the top of the rule file maps each kind of work request to what the
-bridge runs. A work request is one piece of work on one card that the server
-offers to the bridges. One bridge claims it, runs it, and posts the result.
+bridge runs. A work request is one piece of work on one subject, such as a
+card, that the server offers to the bridges. One bridge claims it, runs it, and posts the result.
 [Workflows](../docs/using/workflows.md#kinds-of-work) lists the kinds that the
 shipped templates ask for.
 [Work requests](../docs/reference/bridge-heartbeat.md#work-requests) gives the
@@ -629,12 +628,14 @@ Each key is a kind, as the server names it in the request. A kind is 1 to 40
 lowercase letters, digits and hyphens, and starts with a letter. The bridge
 finds the project of a request in `projects` through the project id. It
 ignores a request for a project the file does not map, and logs one
-`project_unmapped` line. It skips a request of a kind the map does not hold.
+`project_unmapped` line. It skips a request of a kind the map does not hold,
+and a request about another subject type than the entry names.
 
 Each entry takes these fields:
 
 | Field | Required | Purpose |
 |---|---|---|
+| `subject` | no | The subject type the entry runs, such as `analysis`. Omitted, it is `card`. A type is 1 to 32 lowercase letters, digits and hyphens, and starts with a letter. An entry about a subject that is no card cannot use `{cardId}` or `{cardNumber}`, and cannot set `action: interactive` |
 | `action` | no | Omitted, the entry runs a worker. `interactive` opens an interactive session, as [Opening an interactive session](#opening-an-interactive-session) says. `command` runs a command with no agent, as [The command action](#the-command-action) says |
 | `prompt` | yes, except on a command entry | The prompt, with placeholders. A command entry cannot set it |
 | `model` | no | An alias such as `opus` or a full model name, with no whitespace. A worker entry defaults to `defaults.model`, then to `--model`. An interactive entry takes no default. A command entry cannot set it |
@@ -653,8 +654,10 @@ An interactive prompt gets none.
 
 | Placeholder | Value |
 |---|---|
-| `{cardId}` | the id of the card |
-| `{cardNumber}` | the number of the card |
+| `{cardId}` | the id of the card, for a card subject only |
+| `{cardNumber}` | the number of the card, for a card subject only |
+| `{subjectType}` | the subject type of the request, such as `card` or `analysis` |
+| `{subjectId}` | the id of the subject. For a card subject, it is the id of the card |
 | `{projectId}` | the id of the project |
 | `{project}` | the slug of the project in `projects` |
 | `{kind}` | the kind of the request |
@@ -724,7 +727,9 @@ this machine holds its transcript. Each log line names the rule `work:<kind>`,
 such as `work:implement`.
 
 The bridge reports the capability `work-requests` when the map has an entry,
-and `interactive` when an entry has `action: interactive`. A
+and `interactive` when an entry has `action: interactive`. It reports
+`subject-<type>` for each subject type other than `card` that an entry names,
+such as `subject-analysis`, so the server offers that work to this bridge. A
 `project.renamed` event, or a mapped project that is gone, marks the work of
 that project dead, and the bridge logs `work_dead`. Fix the file and run
 `loupe bridge reload`. A column rename leaves the work map alone.

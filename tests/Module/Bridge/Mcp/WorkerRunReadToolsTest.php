@@ -410,7 +410,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertTrue($row['takesReruns']);
         self::assertSame([['name' => 'default', 'size' => 2, 'inUse' => 1, 'queued' => 0]], $row['workerPools']);
         self::assertSame('2026-09-30T11:00:00+00:00', $row['workerPoolsReportedAt']);
-        self::assertSame([['runId' => (string) $open->id, 'cardNumber' => 3, 'workKind' => 'plan', 'state' => 'running']], $row['openRuns']);
+        self::assertSame([['runId' => (string) $open->id, 'subjectType' => 'card', 'subjectId' => (string) $open->subjectId, 'cardNumber' => 3, 'workKind' => 'plan', 'state' => 'running']], $row['openRuns']);
         self::assertSame('quiet', $bridges[$quiet->id->toRfc4122()]['liveness']);
         self::assertNull($bridges[$quiet->id->toRfc4122()]['name']);
         self::assertSame('laptop', $bridges[$quiet->id->toRfc4122()]['requestedName']);
@@ -430,7 +430,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
 
     private function continuing(WorkerRun $run, \DateTimeImmutable $receivedAt): WorkerRun
     {
-        $next = $this->seedRun($this->em(), $run->project, receivedAt: $receivedAt, bridgeId: $run->bridgeId, cardId: $run->cardId, state: WorkerRunState::Unfinished, runKey: Uuid::v7());
+        $next = $this->seedRun($this->em(), $run->project, receivedAt: $receivedAt, bridgeId: $run->bridgeId, cardId: $run->subjectId, state: WorkerRunState::Unfinished, runKey: Uuid::v7());
         $next->continuesRun = $run;
         $this->em()->flush();
 

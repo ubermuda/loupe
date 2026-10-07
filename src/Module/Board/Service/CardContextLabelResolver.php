@@ -33,7 +33,6 @@ final readonly class CardContextLabelResolver implements ContextLabelResolverInt
 
     public function __construct(
         private CardRepository $cards,
-        private BoardAvailability $board,
         private UrlGeneratorInterface $urls,
     ) {
     }
@@ -42,7 +41,7 @@ final readonly class CardContextLabelResolver implements ContextLabelResolverInt
     public function resolve(string $context, Project $project): ?ContextLabel
     {
         $epic = str_starts_with($context, self::EPIC);
-        if ((!$epic && !str_starts_with($context, self::CARD)) || !$this->board->isEnabled()) {
+        if (!$epic && !str_starts_with($context, self::CARD)) {
             return null;
         }
 

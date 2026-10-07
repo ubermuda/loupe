@@ -1297,6 +1297,18 @@
                 <source>review.archive.flash.unarchived</source>
                 <target>“%title%” is back in the list.</target>
             </trans-unit>
+            <trans-unit id="review.publish.submit">
+                <source>review.publish.submit</source>
+                <target>Publish</target>
+            </trans-unit>
+            <trans-unit id="review.publish.flash.published">
+                <source>review.publish.flash.published</source>
+                <target>“%title%” is now in review.</target>
+            </trans-unit>
+            <trans-unit id="review.publish.error.archived">
+                <source>review.publish.error.archived</source>
+                <target>An archived document cannot be sent to review. Restore it first.</target>
+            </trans-unit>
             <trans-unit id="review.archive.flash.rejected">
                 <source>review.archive.flash.rejected</source>
                 <target>That did not go through — the page had gone stale. Try again.</target>
@@ -1414,6 +1426,10 @@
             <trans-unit id="review.document.verdict.undo">
                 <source>review.document.verdict.undo</source>
                 <target>Undo</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.change">
+                <source>review.document.verdict.change</source>
+                <target>Change verdict</target>
             </trans-unit>
             <trans-unit id="review.document.verdict.approved">
                 <source>review.document.verdict.approved</source>
@@ -2437,6 +2453,10 @@
             <trans-unit id="project.connect.tool.document_revise">
                 <source>project.connect.tool.document_revise</source>
                 <target>Submit a new Markdown version of a document. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.document_publish">
+                <source>project.connect.tool.document_publish</source>
+                <target>Send a draft document to review, so it reaches the reviewer's inbox. A document that is not a draft stays as it is.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.document_rename">
                 <source>project.connect.tool.document_rename</source>
@@ -5972,6 +5992,7 @@
             <trans-unit id="bridge.worker_runs.details.title"><source>bridge.worker_runs.details.title</source><target>Run attempt</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.close"><source>bridge.worker_runs.details.close</source><target>Close</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.card"><source>bridge.worker_runs.details.card</source><target>Card</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.subject"><source>bridge.worker_runs.details.subject</source><target>Subject</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.continues"><source>bridge.worker_runs.details.continues</source><target>Resumes run</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.worker_pool"><source>bridge.worker_runs.details.worker_pool</source><target>Worker pool</target></trans-unit>
@@ -6359,12 +6380,9 @@
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
             <trans-unit id="board.card.badge.paused"><source>board.card.badge.paused</source><target>Paused</target></trans-unit>
             <trans-unit id="board.card.badge.unmanaged"><source>board.card.badge.unmanaged</source><target>Unmanaged</target></trans-unit>
-            <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for a fix.</target></trans-unit>
-            <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>
-            <trans-unit id="board.card.automation.synced"><source>board.card.automation.synced</source><target>The automation updated the pull request branch with its base.</target></trans-unit>
-            <trans-unit id="board.card.automation.reason.conflict"><source>board.card.automation.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
-            <trans-unit id="board.card.automation.reason.checks_failed"><source>board.card.automation.reason.checks_failed</source><target>the checks fail</target></trans-unit>
-            <trans-unit id="board.card.automation.reason.changes_requested"><source>board.card.automation.reason.changes_requested</source><target>a reviewer requested changes</target></trans-unit>
+            <trans-unit id="board.card.history.reason.conflict"><source>board.card.history.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
+            <trans-unit id="board.card.history.reason.checks_failed"><source>board.card.history.reason.checks_failed</source><target>the checks fail</target></trans-unit>
+            <trans-unit id="board.card.history.reason.changes_requested"><source>board.card.history.reason.changes_requested</source><target>a reviewer requested changes</target></trans-unit>
             <trans-unit id="board.card.linked_work.title"><source>board.card.linked_work.title</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
             <trans-unit id="board.card.linked_cards.title"><source>board.card.linked_cards.title</source><target>Linked cards</target></trans-unit>
@@ -6508,7 +6526,6 @@
             <trans-unit id="activity.event_type.document.review_submitted"><source>activity.event_type.document.review_submitted</source><target>Document review submitted</target></trans-unit>
             <trans-unit id="project.workshop.activity.empty"><source>project.workshop.activity.empty</source><target>No recorded activity yet.</target></trans-unit>
             <trans-unit id="project.workshop.cards.empty"><source>project.workshop.cards.empty</source><target>Nothing in motion. A card shows here when a bridge queues it or a session works on it.</target></trans-unit>
-            <trans-unit id="project.workshop.cards.disabled"><source>project.workshop.cards.disabled</source><target>The board is disabled on this instance.</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.disabled"><source>project.workshop.needs_you.disabled</source><target>The inbox is disabled on this instance.</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.clear">
                 <source>project.workshop.needs_you.clear</source>
@@ -6792,6 +6809,22 @@
             <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.help">
                 <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.help</source>
                 <target>Loupe closes the pull requests of an epic that a person moves back to the Backlog. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.label">
+                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.label</source>
+                <target>Open the epic pull request</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.help">
+                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.help</source>
+                <target>Loupe opens a draft pull request from the epic branch to the default branch after the first child merges, and links it to the epic. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
+                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
+                <target>Epic branch pattern</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.help">
+                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.help</source>
+                <target>The branch that the breakdown pushes for an epic. {number} stands for the epic card number. The pattern must match the epic branch of your repository profile. Leave it empty when the project uses no epic branches.</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
@@ -7241,10 +7274,16 @@
             <trans-unit id="workflow.waiting.not.card_has_open_blocker"><source>workflow.waiting.not.card_has_open_blocker</source><target>Waiting: a blocking card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_is_child"><source>workflow.waiting.card_is_child</source><target>Waiting: the card is not a child of an epic.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_is_child"><source>workflow.waiting.not.card_is_child</source><target>Waiting: the card is a child of an epic.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_child_merged_into_epic_branch"><source>workflow.waiting.card_child_merged_into_epic_branch</source><target>Waiting: no child pull request merged into the epic branch.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_child_merged_into_epic_branch"><source>workflow.waiting.not.card_child_merged_into_epic_branch</source><target>Waiting: a child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_has_children"><source>workflow.waiting.card_has_children</source><target>Waiting: the card has no child cards.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_has_children"><source>workflow.waiting.not.card_has_children</source><target>Waiting: the card has child cards.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_children_finished"><source>workflow.waiting.card_children_finished</source><target>Waiting: a child card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_children_finished"><source>workflow.waiting.not.card_children_finished</source><target>Waiting: no child card is open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_document"><source>workflow.waiting.card_document</source><target>Waiting: the card has no %tag% document.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_document"><source>workflow.waiting.not.card_document</source><target>Waiting: the card has a %tag% document.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_document_status"><source>workflow.waiting.card_document_status</source><target>Waiting: the card has no %tag% document with the status "%status%".</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_document_status"><source>workflow.waiting.not.card_document_status</source><target>Waiting: the card has a %tag% document with the status "%status%".</target></trans-unit>
             <trans-unit id="workflow.waiting.card_document_approved"><source>workflow.waiting.card_document_approved</source><target>Waiting: no %tag% document is approved.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_document_approved"><source>workflow.waiting.not.card_document_approved</source><target>Waiting: a %tag% document is approved.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_document_changes_requested"><source>workflow.waiting.card_document_changes_requested</source><target>Waiting: no reviewer asked for changes on a %tag% document.</target></trans-unit>
@@ -7375,6 +7414,10 @@
             <trans-unit id="workflow.refusal.no-pull-request"><source>workflow.refusal.no-pull-request</source><target>The card has no pull request.</target></trans-unit>
             <trans-unit id="workflow.refusal.unsupported-write"><source>workflow.refusal.unsupported-write</source><target>The forge cannot do this write.</target></trans-unit>
             <trans-unit id="workflow.refusal.no-parent-base"><source>workflow.refusal.no-parent-base</source><target>The parent pull request has no base branch.</target></trans-unit>
+            <trans-unit id="workflow.refusal.open-epic-off"><source>workflow.refusal.open-epic-off</source><target>The board setting "Open the epic pull request" is off. Turn it on, or open and link the epic pull request by hand.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-merged-child"><source>workflow.refusal.no-merged-child</source><target>No child pull request merged into the epic branch.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-default-branch"><source>workflow.refusal.no-default-branch</source><target>The forge did not give the default branch of the repository.</target></trans-unit>
+            <trans-unit id="workflow.refusal.link-refused"><source>workflow.refusal.link-refused</source><target>The board refused the pull request link.</target></trans-unit>
             <trans-unit id="workflow.refusal.no-head"><source>workflow.refusal.no-head</source><target>The pull request has no head commit.</target></trans-unit>
             <trans-unit id="workflow.refusal.invalid-work-request"><source>workflow.refusal.invalid-work-request</source><target>The app refused to open the work request.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-not-found"><source>workflow.refusal.document-not-found</source><target>The card has no document with the tag that the rule names.</target></trans-unit>

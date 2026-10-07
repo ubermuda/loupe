@@ -13,7 +13,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
@@ -22,7 +21,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /**
  * relatedCards over real HTTP, so the MCP server validates the arguments
@@ -88,9 +86,6 @@ final class CardLinkToolSchemaTest extends WebTestCase
         self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
         $seeder->seed($project);
 
-        $flags = static::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $this->em()->flush();
 
         $raw = $scenario->accessTokenFor($client, $user, 'mcp', $project);

@@ -9,7 +9,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -34,7 +33,6 @@ final class CreateCardController extends AppController
     public function __construct(
         private readonly CreateCardHandler $handler,
         private readonly AuthenticatedProjectResolver $projectResolver,
-        private readonly BoardAvailability $board,
         private readonly UrlGeneratorInterface $urls,
     ) {
     }
@@ -45,10 +43,6 @@ final class CreateCardController extends AppController
         if (null === $project) {
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
-
-        // A widget holding a cached copy of the script must not reach a board
-        // that this instance switched off.
-        $this->board->requireEnabled();
 
         $title = trim($payload->title ?? '');
         if ('' === $title) {

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Controller;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -36,16 +37,99 @@ final class WorkerRunStatesApiTest extends WebTestCase
         $runId = (string) Uuid::v4();
         $cardId = (string) Uuid::v7();
 
-        $this->put($client, $this->path($project->id, $runId), $raw, $this->payload(['cardId' => $cardId, 'cardNumber' => 7]));
+        $this->put($client, $this->path($project->id, $runId), $raw, $this->payload(['subjectId' => $cardId, 'cardNumber' => 7]));
 
         self::assertResponseStatusCodeSame(201);
         $run = $this->onlyRun();
         self::assertSame($this->idOf($client), (string) $run->id);
         self::assertSame($runId, (string) $run->runKey);
-        self::assertSame($cardId, (string) $run->cardId);
+        self::assertSame('card', $run->subjectType);
+        self::assertSame($cardId, (string) $run->subjectId);
         self::assertSame(7, $run->cardNumber);
         self::assertSame(WorkerRunState::Queued, $run->state);
         self::assertNull($run->startedAt);
+    }
+
+    public function test_a_run_about_another_subject_has_no_card_number(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-other-subject@example.com');
+        $project = $this->project($em, $owner, 'Run States Other Subject');
+        $raw = $this->agentToken($client, $owner);
+        $subjectId = (string) Uuid::v7();
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['subjectType' => 'analysis', 'subjectId' => $subjectId, 'cardNumber' => null]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame('analysis', $run->subjectType);
+        self::assertSame($subjectId, (string) $run->subjectId);
+        self::assertNull($run->cardNumber);
+    }
+
+    /** The bridge leaves cardNumber out for a subject that is no card. */
+    public function test_a_run_about_another_subject_may_omit_the_card_number(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-no-card-number@example.com');
+        $project = $this->project($em, $owner, 'Run States No Card Number');
+        $raw = $this->agentToken($client, $owner);
+        $payload = $this->payload(['subjectType' => 'analysis']);
+        unset($payload['cardNumber']);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $payload);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertNull($this->onlyRun()->cardNumber);
+    }
+
+    /**
+     * Postgres writes the vector after Doctrine loads the row, so the
+     * assertion reads it through a query the page runs.
+     */
+    public function test_the_search_vector_covers_the_card_number_and_the_output(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-search@example.com');
+        $project = $this->project($em, $owner, 'Run States Search');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(array_merge(self::outcome(), [
+            'cardNumber' => 137,
+            'output' => 'migration applied cleanly',
+        ])));
+
+        self::assertResponseStatusCodeSame(201);
+        $id = $this->idOf($client);
+        foreach (['137', 'migration', 'cleanly', 'plan'] as $term) {
+            self::assertTrue($this->vectorMatches($id, $term), $term);
+        }
+        self::assertFalse($this->vectorMatches($id, 'nothinglikethis'));
+    }
+
+    /** A run with no card number still gets a vector of its other words. */
+    public function test_the_search_vector_of_a_run_about_another_subject_covers_its_output(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-search-other@example.com');
+        $project = $this->project($em, $owner, 'Run States Search Other');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(array_merge(self::outcome(), [
+            'subjectType' => 'analysis',
+            'cardNumber' => null,
+            'output' => 'migration applied cleanly',
+        ])));
+
+        self::assertResponseStatusCodeSame(201);
+        $id = $this->idOf($client);
+        foreach (['migration', 'cleanly', 'plan'] as $term) {
+            self::assertTrue($this->vectorMatches($id, $term), $term);
+        }
     }
 
     /** A retry of a report whose response the bridge never saw holds a state the run already has. */
@@ -811,6 +895,14 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a missing moment' => [['at' => null]];
         yield 'a bridge id that is not a uuid' => [['bridgeId' => 'nope']];
         yield 'a card number of zero' => [['cardNumber' => 0]];
+        yield 'a card number past a 32-bit integer' => [['cardNumber' => WorkerRun::MAX_CARD_NUMBER + 1]];
+        yield 'a card subject with no card number' => [['cardNumber' => null]];
+        yield 'another subject with a card number' => [['subjectType' => 'analysis', 'cardNumber' => 7]];
+        yield 'a missing subject type' => [['subjectType' => null]];
+        yield 'a subject type in capitals' => [['subjectType' => 'Card']];
+        yield 'a subject type above the limit' => [['subjectType' => 'a'.str_repeat('b', 40)]];
+        yield 'a missing subject id' => [['subjectId' => null]];
+        yield 'a subject id that is not a uuid' => [['subjectId' => 'nope']];
         yield 'a blank work kind' => [['workKind' => ' ']];
         yield 'a work kind with a colon' => [['workKind' => 'work:fix']];
         yield 'a work kind above the limit' => [['workKind' => 'a'.str_repeat('b', 40)]];
@@ -933,7 +1025,62 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame([], $this->allRuns());
     }
 
-    public function test_state_reports_share_the_run_report_limit(): void
+    public function test_an_mcp_token_is_refused_by_the_firewall(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-mcp@example.com');
+        $project = $this->project($em, $owner, 'Run States Mcp');
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload());
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame([], $this->allRuns());
+    }
+
+    public function test_a_request_without_a_token_is_refused(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'run-states-anonymous@example.com'), 'Run States Anonymous');
+
+        $client->request(
+            Request::METHOD_PUT,
+            $this->path($project->id, (string) Uuid::v4()),
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode($this->payload(), \JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseStatusCodeSame(401);
+        self::assertSame([], $this->allRuns());
+    }
+
+    /** The bridge reports every run through the state endpoint, so the old endpoint records nothing. */
+    public function test_the_old_run_report_endpoint_is_gone(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-old-endpoint@example.com');
+        $project = $this->project($em, $owner, 'Run States Old Endpoint');
+        $raw = $this->agentToken($client, $owner);
+
+        $client->request(
+            Request::METHOD_POST,
+            '/api/projects/'.$project->id.'/worker-runs',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw, 'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
+            content: json_encode($this->payload(), \JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame([], $this->allRuns());
+    }
+
+    /**
+     * With the token unresolved, the listener would key on the address, and the
+     * second report below would pass. A 429 proves the firewall ran first.
+     */
+    public function test_state_reports_share_the_run_report_limit_per_token(): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -944,13 +1091,20 @@ final class WorkerRunStatesApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'run-states-limit@example.com');
         $project = $this->project($em, $owner, 'Run States Limit');
-        $raw = $this->agentToken($client, $owner);
+        $other = $this->user($em, 'run-states-limit-other@example.com');
+        $otherProject = $this->project($em, $other, 'Run States Limit Other');
+        $first = $this->agentToken($client, $owner);
+        // Two access tokens of one grant share a bucket, so the second budget needs a second account.
+        $second = $this->agentToken($client, $other);
 
-        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload());
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $first, $this->payload(), '203.0.113.7');
         self::assertResponseStatusCodeSame(201);
 
-        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload());
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $first, $this->payload(), '198.51.100.4');
         self::assertResponseStatusCodeSame(429);
+
+        $this->put($client, $this->path($otherProject->id, (string) Uuid::v4()), $second, $this->payload(), '203.0.113.7');
+        self::assertResponseStatusCodeSame(201);
     }
 
     /** @return array<string, mixed> */
@@ -984,7 +1138,8 @@ final class WorkerRunStatesApiTest extends WebTestCase
             'bridgeId' => '0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90',
             'state' => 'queued',
             'at' => '2026-09-23T10:00:00+00:00',
-            'cardId' => '0199a0e2-b1f3-7a44-9c11-2d3e4f506172',
+            'subjectType' => 'card',
+            'subjectId' => '0199a0e2-b1f3-7a44-9c11-2d3e4f506172',
             'cardNumber' => 1,
             'workKind' => 'plan',
         ], $overrides);
@@ -993,7 +1148,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
     /**
      * @param array<string, mixed> $payload
      */
-    private function put(KernelBrowser $client, string $path, string $raw, array $payload): void
+    private function put(KernelBrowser $client, string $path, string $raw, array $payload, string $clientIp = '127.0.0.1'): void
     {
         $client->request(
             Request::METHOD_PUT,
@@ -1002,6 +1157,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
                 'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
                 'CONTENT_TYPE' => 'application/json',
                 'HTTP_ACCEPT' => 'application/json',
+                'REMOTE_ADDR' => $clientIp,
             ],
             content: json_encode($payload, \JSON_THROW_ON_ERROR),
         );
@@ -1040,5 +1196,16 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertInstanceOf(WorkerRunStateChangeRepository::class, $repository);
 
         return $repository->findForRun($run);
+    }
+
+    private function vectorMatches(string $id, string $term): bool
+    {
+        return (bool) $this->em()->getConnection()->fetchOne(
+            \sprintf(
+                'SELECT search_vector @@ websearch_to_tsquery(\'%s\', :term) FROM bridge_worker_runs WHERE id = :id',
+                WorkerRunSearchIndexer::LANGUAGE->value,
+            ),
+            ['term' => $term, 'id' => $id],
+        );
     }
 }

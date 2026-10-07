@@ -35,27 +35,8 @@ final class FeedbackMarkAddressedToolTest extends KernelTestCase
         $this->tool = $tool;
     }
 
-    public function test_the_tool_refuses_while_the_flag_is_off(): void
-    {
-        $this->disableBoard();
-        $project = $this->makeProject('feedback-mark-flag-off');
-        $pending = $this->feedback($project, SiteReviewCommentStatus::Pending);
-        $this->em->flush();
-        $this->actAsMcpTokenBoundTo($project);
-
-        try {
-            ($this->tool)([(string) $pending->id]);
-            self::fail('The tool ran with the board off.');
-        } catch (ToolCallException $e) {
-            self::assertSame('The board is switched off on this instance.', $e->getMessage());
-        }
-
-        self::assertSame(SiteReviewCommentStatus::Pending, $this->statusOf($pending));
-    }
-
     public function test_a_batch_reports_one_outcome_per_id(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('feedback-mark');
         $pending = $this->feedback($project, SiteReviewCommentStatus::Pending);
         $addressed = $this->feedback($project, SiteReviewCommentStatus::Addressed);
@@ -90,7 +71,6 @@ final class FeedbackMarkAddressedToolTest extends KernelTestCase
      */
     public function test_a_resolve_the_identity_map_has_not_seen_is_not_overwritten(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('feedback-mark-race');
         $pending = $this->feedback($project, SiteReviewCommentStatus::Pending);
         $this->em->flush();
@@ -107,7 +87,6 @@ final class FeedbackMarkAddressedToolTest extends KernelTestCase
     /** A second agent got there first, and the reason comes from the row it wrote. */
     public function test_a_concurrent_address_is_reported_as_addressed_not_resolved(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('feedback-mark-concurrent');
         $pending = $this->feedback($project, SiteReviewCommentStatus::Pending);
         $this->em->flush();
@@ -122,7 +101,6 @@ final class FeedbackMarkAddressedToolTest extends KernelTestCase
 
     public function test_an_unbound_token_is_refused_even_for_an_empty_batch(): void
     {
-        $this->enableBoard();
         $project = $this->makeProject('feedback-mark-unbound');
         $this->actAsUnboundMcpToken($project->owner);
 

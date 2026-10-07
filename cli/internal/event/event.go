@@ -26,7 +26,8 @@ type Event struct {
 	FromSlug string `json:"fromSlug"`
 	ToSlug   string `json:"toSlug"`
 	// SessionID and CardID belong to the event that a run of a work request
-	// reports with, and that a handover carries. Parse reads neither.
+	// reports with, and that a handover carries. Parse reads neither. CardID
+	// is empty when the work is about a subject that is no card.
 	SessionID string `json:"sessionId,omitempty"`
 	CardID    string `json:"cardId,omitempty"`
 }
@@ -237,7 +238,6 @@ func CheckCommand(c api.Command) (api.Command, error) {
 		{"projectId", c.ProjectID, false},
 		{"commandId", c.CommandID, false},
 		{"bridgeId", c.BridgeID, false},
-		{"cardId", c.CardID, false},
 		{"runKey", c.RunKey, true},
 		{"sessionId", c.SessionID, true},
 		{"workRequestId", c.WorkRequestID, true},
@@ -259,8 +259,8 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	default:
 		return c, fmt.Errorf("command has an unknown kind %q", c.Kind)
 	}
-	if c.CardNumber <= 0 {
-		return c, fmt.Errorf("command has an invalid cardNumber %d", c.CardNumber)
+	if err := checkSubject(c.SubjectType, c.SubjectID, c.CardNumber); err != nil {
+		return c, fmt.Errorf("command %s %w", c.CommandID, err)
 	}
 	if c.WorkKind != "" && !KindPattern.MatchString(c.WorkKind) {
 		return c, fmt.Errorf("command has an invalid workKind %q", c.WorkKind)
@@ -283,7 +283,7 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	c.CommandID = strings.ToLower(c.CommandID)
 	c.Subject.ID = strings.ToLower(c.Subject.ID)
 	c.BridgeID = strings.ToLower(c.BridgeID)
-	c.CardID = strings.ToLower(c.CardID)
+	c.SubjectID = strings.ToLower(c.SubjectID)
 	c.RunKey = strings.ToLower(c.RunKey)
 	c.SessionID = strings.ToLower(c.SessionID)
 	c.WorkRequestID = strings.ToLower(c.WorkRequestID)
@@ -313,7 +313,6 @@ func CheckWorkRequest(w *api.WorkRequest) error {
 	for _, f := range []struct{ name, value string }{
 		{"projectId", w.ProjectID},
 		{"workRequestId", w.WorkRequestID},
-		{"cardId", w.CardID},
 	} {
 		if !uuidPattern.MatchString(f.value) {
 			return fmt.Errorf("work request has a %s that is not a uuid", f.name)
@@ -333,8 +332,8 @@ func CheckWorkRequest(w *api.WorkRequest) error {
 	default:
 		return fmt.Errorf("work request has an unknown state %q", w.State)
 	}
-	if w.CardNumber <= 0 {
-		return fmt.Errorf("work request has an invalid cardNumber %d", w.CardNumber)
+	if err := checkSubject(w.SubjectType, w.SubjectID, w.CardNumber); err != nil {
+		return fmt.Errorf("work request %s %w", w.WorkRequestID, err)
 	}
 	if !ruleIDPattern.MatchString(w.RuleID) {
 		return fmt.Errorf("work request has an invalid ruleId %q", w.RuleID)
@@ -352,9 +351,24 @@ func CheckWorkRequest(w *api.WorkRequest) error {
 	w.ProjectID = strings.ToLower(w.ProjectID)
 	w.WorkRequestID = strings.ToLower(w.WorkRequestID)
 	w.Subject.ID = strings.ToLower(w.Subject.ID)
-	w.CardID = strings.ToLower(w.CardID)
+	w.SubjectID = strings.ToLower(w.SubjectID)
 	w.ResumeSessionID = strings.ToLower(w.ResumeSessionID)
 	w.Context.DocumentID = strings.ToLower(w.Context.DocumentID)
+
+	return nil
+}
+
+// checkSubject checks the subject of a work request or a command. The card
+// number is a label that only a card subject carries.
+func checkSubject(subjectType, subjectID string, cardNumber int) error {
+	switch {
+	case !KindPattern.MatchString(subjectType) || !uuidPattern.MatchString(subjectID):
+		return errors.New("has an invalid subject")
+	case subjectType == api.SubjectCard && cardNumber <= 0:
+		return fmt.Errorf("has an invalid cardNumber %d", cardNumber)
+	case subjectType != api.SubjectCard && cardNumber != 0:
+		return fmt.Errorf("names a card number and a %s subject", subjectType)
+	}
 
 	return nil
 }

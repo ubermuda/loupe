@@ -24,7 +24,11 @@ test('a resume that gave up shows its place in the series and the run it resumes
     const { projectId } = await seed.json();
     const token = await agentAccessToken(page);
     const bridgeId = crypto.randomUUID();
-    const card = { cardId: crypto.randomUUID(), cardNumber: 7 };
+    const card = {
+        subjectType: 'card',
+        subjectId: crypto.randomUUID(),
+        cardNumber: 7,
+    };
     const report = async (runId: string, data: Record<string, unknown>) => {
         const response = await page.request.put(
             `/api/projects/${projectId}/worker-runs/${runId}`,
@@ -111,24 +115,28 @@ test('completed reports retain outcomes and escaped output at enlarged text size
         'Long output '.repeat(200);
     const reports = [
         {
+            state: 'succeeded',
             exitCode: 0,
             hasResult: true,
             failureReason: null,
             outcome: 'Succeeded',
         },
         {
+            state: 'no-result',
             exitCode: 0,
             hasResult: false,
             failureReason: null,
             outcome: 'No result',
         },
         {
+            state: 'failed',
             exitCode: 1,
             hasResult: false,
             failureReason: null,
             outcome: 'Failed',
         },
         {
+            state: 'not-started',
             exitCode: null,
             hasResult: null,
             failureReason: 'Worker executable unavailable',
@@ -137,24 +145,38 @@ test('completed reports retain outcomes and escaped output at enlarged text size
     ];
     const ids: string[] = [];
     for (const [index, report] of reports.entries()) {
-        const response = await page.request.post(
-            `/api/projects/${projectId}/worker-runs`,
-            {
-                headers: { Authorization: `Bearer ${token}` },
-                data: {
-                    bridgeId: crypto.randomUUID(),
-                    sessionId: crypto.randomUUID(),
-                    cardId: crypto.randomUUID(),
-                    cardNumber: index + 1,
-                    startedAt: '2026-09-17T12:00:00+00:00',
-                    endedAt: '2026-09-17T12:00:21+00:00',
-                    exitCode: report.exitCode,
-                    hasResult: report.hasResult,
-                    failureReason: report.failureReason,
-                    output,
+        const runId = crypto.randomUUID();
+        const run = {
+            bridgeId: crypto.randomUUID(),
+            workKind: 'implement',
+            sessionId: crypto.randomUUID(),
+            subjectType: 'card',
+            subjectId: crypto.randomUUID(),
+            cardNumber: index + 1,
+            startedAt: '2026-09-17T12:00:00+00:00',
+        };
+        const put = (data: Record<string, unknown>) =>
+            page.request.put(
+                `/api/projects/${projectId}/worker-runs/${runId}`,
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                    data: { ...run, ...data },
                 },
-            },
-        );
+            );
+        // A worker that started reports running first, as the bridge does.
+        if (report.exitCode !== null) {
+            const running = await put({ state: 'running', at: run.startedAt });
+            expect(running.status()).toBe(201);
+        }
+        const response = await put({
+            state: report.state,
+            at: '2026-09-17T12:00:21+00:00',
+            endedAt: '2026-09-17T12:00:21+00:00',
+            exitCode: report.exitCode,
+            hasResult: report.hasResult,
+            failureReason: report.failureReason,
+            output,
+        });
         expect(response.status()).toBe(201);
         ids.push((await response.json()).id);
     }

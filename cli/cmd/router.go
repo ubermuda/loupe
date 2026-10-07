@@ -331,9 +331,12 @@ func keyFor(e event.Event) string {
 	return e.Subject.ID
 }
 
-// cardOf is the card a run of the event reports against. A number below 1
-// means the event names no card.
+// cardOf is the card the event names, and "", 0 for an event that names no
+// card, such as a work request about another subject.
 func cardOf(e event.Event) (string, int) {
+	if e.CardNumber < 1 {
+		return "", 0
+	}
 	if e.Type == event.WorkRequestType {
 		return e.CardID, e.CardNumber
 	}
@@ -341,10 +344,24 @@ func cardOf(e event.Event) (string, int) {
 	return e.Subject.ID, e.CardNumber
 }
 
+// subjectOf is what a run of p reports against: the subject of the work
+// request it runs or continues, else the card of its event. An empty type
+// means the run names no subject the server records.
+func subjectOf(p pending) (subjectType, subjectID string, cardNumber int) {
+	if w := p.workOrOrigin(); w.SubjectType != "" {
+		return w.SubjectType, w.SubjectID, w.CardNumber
+	}
+	if id, number := cardOf(p.event); number > 0 {
+		return api.SubjectCard, id, number
+	}
+
+	return "", "", 0
+}
+
 // label names an event's aggregate to a reader: its card number when the event
 // carries one, and its subject id otherwise.
 func label(e event.Event) (string, any) {
-	if e.Type == event.CommandType || e.Type == event.WorkRequestType || e.CardNumber > 0 {
+	if e.CardNumber > 0 {
 		return "card", e.CardNumber
 	}
 
@@ -1362,15 +1379,15 @@ func (r *router) logDropped(dropped []pending, attrs ...any) {
 
 // outcome is how a run ended, as Loupe takes it. A worker that never ran sends
 // no exit code and says why instead, because the server keeps the two faults
-// apart. A run with no card logs its skip here, once. endedAt is derived from
-// the start, so it never precedes startedAt, whatever the wall clock does.
+// apart. A run with no subject logs its skip here, once. endedAt is derived
+// from the start, so it never precedes startedAt, whatever the wall clock does.
 func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 	if !r.reporting() {
 		return api.RunStateReport{}
 	}
-	if _, cardNumber := cardOf(p.event); cardNumber < 1 {
+	if subjectType, _, _ := subjectOf(p); subjectType == "" {
 		r.log.Warn("report_skipped", append(about(p.event, p.rule),
-			"message", "Loupe records a run against a card, and this event names none",
+			"message", "Loupe records a run against a card or a work request, and this event names neither",
 		)...)
 
 		return api.RunStateReport{}
@@ -1498,10 +1515,10 @@ func (r *router) emit(p pending, report api.RunStateReport) {
 // emitLocked hands one state of p's run to the queue, and keeps held in step
 // with it. The caller holds mu, so the states of a run keep their order and an
 // inventory never lists a run whose closed state went before it. A run with no
-// card sends nothing.
+// subject sends nothing.
 func (r *router) emitLocked(p pending, report api.RunStateReport) {
-	cardID, cardNumber := cardOf(p.event)
-	if !r.reporting() || cardNumber < 1 || (p.isWork() && p.claimToken == "") {
+	subjectType, subjectID, cardNumber := subjectOf(p)
+	if !r.reporting() || subjectType == "" || (p.isWork() && p.claimToken == "") {
 		return
 	}
 	switch report.State {
@@ -1522,7 +1539,7 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		report.Continues = p.continues
 	}
 	report.BridgeID, report.At = r.bridgeID, time.Now()
-	report.CardID, report.CardNumber, report.Rule = cardID, cardNumber, p.rule
+	report.SubjectType, report.SubjectID, report.CardNumber, report.Rule = subjectType, subjectID, cardNumber, p.rule
 	if w := p.workOrOrigin(); w.Kind != "" {
 		report.WorkRequestID, report.WorkKind, report.RuleID = w.WorkRequestID, w.Kind, w.RuleID
 	}

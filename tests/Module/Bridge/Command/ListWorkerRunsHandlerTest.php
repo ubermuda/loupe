@@ -76,7 +76,7 @@ final class ListWorkerRunsHandlerTest extends KernelTestCase
         self::assertCount(3, $view->items);
         $titles = [];
         foreach ($view->items as $item) {
-            $titles[$item->run->cardNumber][] = $item->cardTitle;
+            $titles[$item->run->cardNumber ?? 0][] = $item->cardTitle;
         }
         ksort($titles);
         self::assertSame([1 => ['Fix the login', 'Fix the login'], 2 => [null]], $titles);

@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -15,7 +14,6 @@ use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class DocumentWorkLinksControllerTest extends WebTestCase
 {
@@ -25,7 +23,6 @@ final class DocumentWorkLinksControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'document-links@example.test');
         $project = $this->project($em, $owner);
         $first = $this->card($em, $project, 'First card');
@@ -98,7 +95,6 @@ final class DocumentWorkLinksControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'document-finished-links@example.test');
         $project = $this->project($em, $owner);
         $linked = $this->card($em, $project, 'Linked finished card', 'done');
@@ -120,22 +116,12 @@ final class DocumentWorkLinksControllerTest extends WebTestCase
         self::assertResponseRedirects($url);
         $client->followRedirect();
         self::assertSame(1, static::getContainer()->get(CardDocumentRepository::class)->count(['card' => $linkedId]));
-
-        static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = false;
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
-        $crawler = $client->request(Request::METHOD_GET, $url);
-        self::assertSelectorNotExists('input[name="revise_document_form[workLinkIds][]"]');
-        $client->submit($crawler->selectButton('Save new version')->form(['revise_document_form[description]' => 'Revise with the board disabled.']));
-        self::assertResponseRedirects($url);
-        $client->followRedirect();
-        self::assertSame(1, static::getContainer()->get(CardDocumentRepository::class)->count(['card' => $linkedId]));
     }
 
     public function test_creation_handler_refuses_foreign_card_links_without_partial_writes(): void
     {
         static::bootKernel();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
         $owner = $this->user($em, 'document-foreign-links@example.test');
         $project = $this->project($em, $owner);
         $otherProject = $this->project($em, $owner, 'other-project');

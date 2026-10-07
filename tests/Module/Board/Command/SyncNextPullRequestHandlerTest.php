@@ -8,15 +8,12 @@ use App\Module\Board\Command\SyncNextPullRequestCommand;
 use App\Module\Board\Command\SyncNextPullRequestHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardEventRepository;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
@@ -58,7 +55,6 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         $this->clock = new MockClock('2026-09-30 12:00:00');
         $this->updater = new FakePullRequestBranchUpdater();
 
-        $this->enableBoard();
         $this->project = $this->makeProject('sync-next');
         $this->settings(enabled: true, syncBehind: true);
     }
@@ -78,7 +74,6 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertEquals($this->clock->now(), $pullRequest->syncRequestedAt);
         self::assertNull($pullRequest->syncFailedReason);
 
-        self::assertNull($this->automationOf($card));
         self::assertSame([], $this->cardEvents($card));
     }
 
@@ -458,16 +453,6 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertSame([], $this->updater->updates);
     }
 
-    public function test_nothing_syncs_while_the_board_is_off(): void
-    {
-        $this->disableBoard();
-        $this->behind(5);
-
-        $this->handle();
-
-        self::assertSame([], $this->updater->updates);
-    }
-
     private function settings(bool $enabled, bool $syncBehind): void
     {
         $repository = self::getContainer()->get(BoardAutomationSettingsRepository::class);
@@ -516,16 +501,6 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         return $card;
     }
 
-    private function automationOf(Card $card): ?CardAutomation
-    {
-        $automation = $this->service(CardAutomationRepository::class)->findOneBy(['card' => $card]);
-        if (null !== $automation) {
-            $this->em->refresh($automation);
-        }
-
-        return $automation;
-    }
-
     /** @return list<CardEvent> */
     private function cardEvents(Card $card): array
     {
@@ -536,7 +511,6 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
     {
         $handler = new SyncNextPullRequestHandler(
             projects: $this->service(ProjectRepository::class),
-            board: $this->service(BoardAvailability::class),
             boardAutomationSettings: $this->service(BoardAutomationSettingsRepository::class),
             forgePullRequests: $this->service(ForgePullRequestRepository::class),
             updaters: new PullRequestBranchUpdaters([$this->updater]),

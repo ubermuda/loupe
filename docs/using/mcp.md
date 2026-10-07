@@ -258,8 +258,9 @@ Roughly in the order an agent uses them:
 | Tool | Purpose |
 |---|---|
 | `project_current` | Report which project this connection acts on, with its id, slug and name |
-| `document_create` | Submit Markdown as a new document; returns a review URL and the language it was stored in |
+| `document_create` | Submit Markdown as a new document, or as a draft with `draft`; returns a review URL, the language it was stored in and its status |
 | `document_revise` | Submit a new version, described by what changed |
+| `document_publish` | Send a draft to review, so it reaches the reviewer's inbox |
 | `document_get` / `document_list` | Read a document, or enumerate the project's, with search and filters |
 | `document_get_review` | Verdict, threaded comments, answered decision blocks, and approved sections |
 | `document_reply_to_comment` | Reply to a reviewer's thread |
@@ -278,7 +279,7 @@ Roughly in the order an agent uses them:
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
-| `card_get` | Read one card, with the pull requests and their stored state, what the automation did, and the feedback linked to it |
+| `card_get` | Read one card, with the pull requests and their stored state, and the feedback linked to it |
 | `card_get_history` | Read a page of one card's history, newest first: its creation, its moves and the automation's actions |
 | `card_update` | Change a card, or move it to another column |
 | `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
@@ -301,6 +302,14 @@ Roughly in the order an agent uses them:
 | `card_release` | Make an unmanaged card managed again. The queued runs on the card then start |
 | `card_pause_release` | End the workflow pause of a card, by `cardId` or `number`, so the paused rule runs again with a fresh budget. It ends a pause of kind `retries`, `work-limit` or `work-timeout`. It does not end a hold, which `card_release` ends |
 | `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
+
+### Staging a draft
+
+Pass `draft: true` to `document_create` to keep a document out of review.
+A draft does not reach the reviewer's inbox, and `document_revise` keeps it a draft.
+Call `document_publish` to send it to review.
+For a document that is not a draft, `document_publish` changes nothing and returns `published: false`.
+It refuses an archived document.
 
 ### Finding a document without reading every one
 
@@ -456,13 +465,6 @@ agent never learns of a tool this instance would refuse — switch it on in
 **Admin → Feature flags**. A client holding a tool list from before the flag
 changed and calling it anyway gets a plain refusal, not a broken call.
 
-The `card_*` tools, `board_columns`, `feedback_list` and
-`feedback_mark_addressed` are behind the `board.enabled` feature flag, which
-ships **on**. Site review writes each note to a card, so it needs the board. An
-operator can switch the flag off. The gate then behaves the same way as the one
-above: the tools are absent from `tools/list` and from the Connect page, and a
-client that calls one anyway gets a plain refusal.
-
 Each board has its own columns. `board_columns` lists them in board order, and
 `card_list` returns the same list in `columns` beside its cards. The `status`
 argument of `card_create`, `card_update` and `card_list` takes a column slug. An
@@ -505,10 +507,9 @@ epic. It defaults to `true`.
 
 `card_list` takes `parentCardId` as a filter, which reads the children of one
 epic. The full card, from `card_get` or from `card_list` with `full`, carries
-`state` on each entry of `pullRequests`, the last state Loupe read, and
-`automation`, what the board automation did on the card.
-[The board](board.md#the-mcp-tools) lists their
-keys. It also carries four more keys. `parent` holds `cardId`, `number`, `title` and `status`, or
+`state` on each entry of `pullRequests`, the last state Loupe read.
+[The board](board.md#the-mcp-tools) lists its keys. It also carries four more
+keys. `parent` holds `cardId`, `number`, `title` and `status`, or
 null. `laneEnabled` is a boolean. `children` lists the children of an epic with
 the same four keys. `progress` holds `done` and `total` for an epic, and null
 for any other card. A child counts as done when it sits in a terminal column.

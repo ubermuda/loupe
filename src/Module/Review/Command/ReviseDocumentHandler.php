@@ -168,8 +168,10 @@ final readonly class ReviseDocumentHandler
 
             $sections = $this->carryForwardApprovals($document, $newVersion);
 
-            // Transition document status back to in-review.
-            $document->status = DocumentStatus::InReview;
+            // A draft stays out of review until someone publishes it.
+            if (DocumentStatus::Draft !== $document->status) {
+                $document->status = DocumentStatus::InReview;
+            }
 
             // Flush: the new version is persisted explicitly above; version → comments cascade persists the copies.
             try {

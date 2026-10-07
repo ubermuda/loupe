@@ -26,6 +26,7 @@ final readonly class PageSearchProvider implements SearchProviderInterface
         }
         $routes = [
             'app_project_workshop' => 'nav.link.workshop',
+            'app_project_board' => 'nav.link.board',
             'app_project_documents' => 'nav.link.documents',
             'app_project_agents' => 'nav.link.agents',
             'app_project_worker_runs' => 'search.page.activity_runs',
@@ -37,9 +38,6 @@ final readonly class PageSearchProvider implements SearchProviderInterface
             'app_projects' => 'nav.switcher.all_projects',
             'app_account_profile' => 'nav.link.account',
         ];
-        if ($this->flags->isEnabled('board.enabled')) {
-            $routes['app_project_board'] = 'nav.link.board';
-        }
         if ($this->flags->isEnabled('inbox.enabled')) {
             $routes['app_project_inbox'] = 'nav.link.inbox';
         }

@@ -339,7 +339,7 @@ func adoptedRun(dir string) handoverState {
 		Held:    map[string]api.InventoryRun{"run-9": {RunID: "run-9", ProjectID: testProject, State: api.RunRunning}},
 		Live: []handoverRun{{
 			RunID: "run-9", Key: cardUUID(9), Rule: "work:plan", Event: e, SessionID: testSession, Began: time.Now(), Dir: dir,
-			Origin: &api.WorkRequest{Kind: "plan", ProjectID: testProject, CardID: cardUUID(9), CardNumber: 9},
+			Origin: &api.WorkRequest{Kind: "plan", ProjectID: testProject, SubjectType: api.SubjectCard, SubjectID: cardUUID(9), CardNumber: 9},
 		}},
 	}
 }

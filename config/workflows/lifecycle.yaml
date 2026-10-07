@@ -18,10 +18,7 @@ workTimeoutMinutes: 120
 rules:
     - id: product-design-session
       slot: product-design
-      when:
-          all:
-              - not: { card.document_approved: { tag: product-design } }
-              - not: { card.document_changes_requested: { tag: product-design } }
+      when: { not: { card.document: { tag: product-design } } }
       then: { request: { kind: product-design, capability: interactive } }
 
     - id: product-design-revise
@@ -39,10 +36,7 @@ rules:
 
     - id: tech-design-write
       slot: tech-design
-      when:
-          all:
-              - not: { card.document_approved: { tag: tech-design } }
-              - not: { card.document_changes_requested: { tag: tech-design } }
+      when: { not: { card.document: { tag: tech-design } } }
       then: { request: { kind: tech-design } }
 
     - id: tech-design-revise
@@ -183,6 +177,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - not: { pr.linked: {} }
+              - not: { card.child_merged_into_epic_branch: {} }
               - not: { run.work_active: { kind: breakdown } }
       then: { move: { to: '@terminal' } }
 
@@ -201,6 +196,15 @@ rules:
               - card.type: { type: epic }
               - not: { card.children_finished: {} }
       then: { move: { to: implementation } }
+
+    - id: epic-open-pull-request
+      slot: implementation
+      when:
+          all:
+              - card.type: { type: epic }
+              - card.child_merged_into_epic_branch: {}
+              - not: { pr.open: {} }
+      then: { forge-write: { write: open-epic } }
 
     - id: epic-draft
       slot: implementation
@@ -221,6 +225,15 @@ rules:
       slot: '@terminal'
       when: { all: [] }
       then: { request: { kind: teardown, onTimeout: expire } }
+
+    - id: epic-preview
+      slot: '@terminal'
+      when:
+          all:
+              - card.is_child: {}
+              - pr.base_is_epic_branch: {}
+              - pr.all_finished_one_merged: {}
+      then: { request: { kind: epic-preview, onTimeout: expire } }
 
     - id: child-unblocked
       slot: '@backlog'

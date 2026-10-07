@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Command\ReportWorkerRunStateCommand;
 use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
@@ -108,7 +109,7 @@ final class CardWaitItemFromTriggerTest extends KernelTestCase
             bridgeId: Uuid::fromString('0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90'),
             state: $state,
             at: new \DateTimeImmutable(),
-            cardId: $cardId,
+            subject: WorkSubject::card($cardId),
             cardNumber: 7,
             workKind: 'implement',
             sessionId: $outcome ? Uuid::v4() : null,

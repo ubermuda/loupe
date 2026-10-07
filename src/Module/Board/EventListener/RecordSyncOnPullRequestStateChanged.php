@@ -6,7 +6,6 @@ namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Command\RecordPullRequestSyncCommand;
 use App\Module\Board\Command\RecordPullRequestSyncHandler;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -20,14 +19,13 @@ final readonly class RecordSyncOnPullRequestStateChanged
 {
     public function __construct(
         private RecordPullRequestSyncHandler $record,
-        private BoardAvailability $board,
     ) {
     }
 
     public function __invoke(PullRequestStateChanged $event): void
     {
         $head = $event->current->headSha;
-        if (!$this->board->isEnabled() || null === $head || $event->previous->headSha === $head || $event->pullRequest->syncedSha !== $head) {
+        if (null === $head || $event->previous->headSha === $head || $event->pullRequest->syncedSha !== $head) {
             return;
         }
 

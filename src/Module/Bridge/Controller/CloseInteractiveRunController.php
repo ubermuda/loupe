@@ -39,7 +39,7 @@ class CloseInteractiveRunController extends AppController
 
         return $this->redirectToRoute('app_project_card_worker_runs', [
             'id' => (string) $project->id,
-            'cardId' => (string) $run->cardId,
+            'cardId' => (string) $run->subjectId,
         ], Response::HTTP_SEE_OTHER);
     }
 }

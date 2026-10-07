@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Action;
 
+use App\Exception\DomainErrors;
+use App\Module\Board\Command\UpdateCardCommand;
+use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\ForgePullRequestWrites;
 use App\Module\Forge\Service\PullRequestBranchUpdaters;
+use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
@@ -22,14 +29,18 @@ use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\ForgeWriteKind;
 use App\Module\Workflow\Template\Rule;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Writes to the primary pull request of a card through the forge. A state write goes to each
  * pull request of the card. A write the project did not opt into, or that no writer of the forge supports, opens the fallback
- * work instead. A state write with no fallback then does nothing.
+ * work instead. A state write with no fallback then does nothing. The epic opening acts on an epic with no pull request:
+ * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
  */
 final readonly class ForgeWrite implements Action
 {
+    public const string OPEN_EPIC_OFF = 'open-epic-off';
+
     public function __construct(
         private CardPullRequests $cardPullRequests,
         private BoardAutomation $boardAutomation,
@@ -37,7 +48,10 @@ final readonly class ForgeWrite implements Action
         private ForgePullRequestRepository $forgePullRequests,
         private PullRequestBranchUpdaters $branchUpdaters,
         private PullRequestStateWriters $stateWriters,
+        private PullRequestOpeners $pullRequestOpeners,
         private WorkRequestOpener $opener,
+        private UpdateCardHandler $updateCard,
+        private UrlGeneratorInterface $urlGenerator,
 
         #[Autowire(param: 'app.workflow.merge_method')]
         private string $mergeMethod,
@@ -59,6 +73,9 @@ final readonly class ForgeWrite implements Action
         $fallback = fn (): ActionOutcome => null === $fallbackKind ? ActionOutcome::done() : $this->opener->open($rule, $card, $facts, $fallbackKind, null);
 
         $pullRequests = $this->cardPullRequests->forCard($card);
+        if (ForgeWriteKind::OpenEpic === $write) {
+            return $this->openEpic($rule, $card, $pullRequests);
+        }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
             if ([] === $pullRequests) {
                 return ActionOutcome::done();
@@ -99,8 +116,71 @@ final readonly class ForgeWrite implements Action
             ForgeWriteKind::UpdateBranch => $settings->syncBehind,
             ForgeWriteKind::Draft, ForgeWriteKind::Ready => $settings->epicDraftSwitch,
             ForgeWriteKind::Close => $settings->closeEpicPullRequests,
+            ForgeWriteKind::OpenEpic => $settings->openEpicPullRequests,
             ForgeWriteKind::Comment => false,
         };
+    }
+
+    /**
+     * Opens the pull request from the epic branch to the default branch, in the repository of the child pull request that merged into it last.
+     *
+     * @param list<ForgePullRequest> $pullRequests
+     */
+    private function openEpic(Rule $rule, Card $card, array $pullRequests): ActionOutcome
+    {
+        $settings = $this->boardAutomation->settingsOf($card->project);
+        $epicBranch = $settings->epicBranchOf($card->number);
+        if (CardType::Epic !== $card->type || null === $epicBranch) {
+            return ActionOutcome::done();
+        }
+        // A refusal waits, and turning the write on re-arms it. A done rule never fires again.
+        if (!self::optedIn(ForgeWriteKind::OpenEpic, $settings)) {
+            return ActionOutcome::refused(self::OPEN_EPIC_OFF);
+        }
+        foreach ($pullRequests as $pullRequest) {
+            if (PullRequestState::Open === $pullRequest->state && $epicBranch === $pullRequest->headBranch) {
+                return ActionOutcome::done();
+            }
+        }
+
+        $child = $this->cardPullRequests->lastChildMergedInto($card, $epicBranch);
+        if (null === $child) {
+            return ActionOutcome::refused('no-merged-child');
+        }
+        if (null === $child->defaultBranch) {
+            return ActionOutcome::refused('no-default-branch');
+        }
+        $opener = $this->pullRequestOpeners->for($child->forge);
+        if (null === $opener) {
+            return ActionOutcome::done();
+        }
+
+        $cardUrl = $this->urlGenerator->generate('app_board_card', [
+            'projectId' => (string) $card->project->id,
+            'cardId' => (string) $card->id,
+        ], UrlGeneratorInterface::ABSOLUTE_URL);
+        $body = \sprintf('The children of the epic %s merge into `%s`. This pull request carries them to `%s`.', $cardUrl, $epicBranch, $child->defaultBranch);
+        try {
+            $number = $opener->open($child, $epicBranch, $child->defaultBranch, $card->title, $body);
+        } catch (PullRequestWriteFailed $e) {
+            return ActionOutcome::refused($e->cause);
+        }
+
+        if ($this->cardPullRequests->links($card, $child->forge, $child->repository, $number)) {
+            return ActionOutcome::done();
+        }
+        try {
+            ($this->updateCard)(new UpdateCardCommand(
+                card: $card,
+                actor: CardReporter::System,
+                pullRequestUrls: [...$this->cardPullRequests->currentUrls($card), $opener->url($child, $number)],
+                cause: CardEventCause::workflowRule($rule->id),
+            ));
+        } catch (DomainErrors) {
+            return ActionOutcome::refused('link-refused');
+        }
+
+        return ActionOutcome::done();
     }
 
     /**

@@ -22,9 +22,8 @@ type stateSent struct {
 // stateRecorder is a server with the run state endpoints. It keeps every state
 // and inventory in the order the queue sent them.
 type stateRecorder struct {
-	mu    sync.Mutex
-	sent  []any
-	posts int
+	mu   sync.Mutex
+	sent []any
 }
 
 func (s *stateRecorder) ReportRunState(_ context.Context, handle, runID string, report api.RunStateReport) (bool, error) {
@@ -41,14 +40,6 @@ func (s *stateRecorder) ReportRunInventory(_ context.Context, _ string, runs []a
 	s.sent = append(s.sent, runs)
 
 	return nil
-}
-
-func (s *stateRecorder) ReportWorkerRun(context.Context, string, api.WorkerRun) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.posts++
-
-	return true, nil
 }
 
 func (s *stateRecorder) ReportInteractiveLaunch(_ context.Context, handle, sessionID string, report api.InteractiveLaunchReport) (bool, error) {
@@ -218,7 +209,7 @@ func TestARunReportsEachStateUnderOneRunID(t *testing.T) {
 			t.Fatalf("report %s names run %q in %q, want %q in %q", s.report.State, s.runID, s.handle, runID, testProject)
 		}
 		r := s.report
-		if r.BridgeID != testBridgeID || r.CardID != cardUUID(87) || r.CardNumber != 87 || r.Rule != "work:plan" || r.WorkKind != "plan" || r.WorkRequestID == "" || r.RuleID != "plan-rule" || r.At.IsZero() {
+		if r.BridgeID != testBridgeID || r.SubjectType != api.SubjectCard || r.SubjectID != cardUUID(87) || r.CardNumber != 87 || r.Rule != "work:plan" || r.WorkKind != "plan" || r.WorkRequestID == "" || r.RuleID != "plan-rule" || r.At.IsZero() {
 			t.Fatalf("report = %+v", r)
 		}
 	}
@@ -235,9 +226,6 @@ func TestARunReportsEachStateUnderOneRunID(t *testing.T) {
 	}
 	if done.HasResult == nil || !*done.HasResult {
 		t.Fatalf("succeeded = %+v, want a result", done)
-	}
-	if rec.posts != 0 {
-		t.Fatalf("posted %d old reports to a server with run states", rec.posts)
 	}
 }
 

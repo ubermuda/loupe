@@ -15,7 +15,6 @@ use App\Module\Board\Messenger\PostFixRunComment;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Event\WorkerRunQueued;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
@@ -53,7 +52,6 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertInstanceOf(InMemoryTransport::class, $transport);
         $this->transport = $transport;
 
-        $this->enableBoard();
         $this->project = $this->makeProject('fix-run-comment');
     }
 
@@ -146,18 +144,6 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertSame([], $this->transport->getSent());
     }
 
-    public function test_nothing_is_queued_while_the_board_is_off(): void
-    {
-        $this->commentOnFixQueued(true);
-        $event = $this->linkedEvent();
-        $this->disableBoard();
-
-        $this->listener()($event);
-
-        self::assertSame([], $this->comments());
-        self::assertSame([], $this->transport->getSent());
-    }
-
     public function test_nothing_is_queued_for_a_card_without_a_numbered_pull_request(): void
     {
         $this->commentOnFixQueued(true);
@@ -203,7 +189,6 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         $container = self::getContainer();
 
         $listener = new QueueFixRunCommentOnWorkerRunQueued(
-            $container->get(BoardAvailability::class),
             $container->get(ProjectRepository::class),
             $container->get(BoardAutomation::class),
             $container->get(PullRequestCommenters::class),

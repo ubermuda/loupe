@@ -13,7 +13,6 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\ConfigureBoardColumnFormType;
 use App\Module\Board\Form\ConfigureBoardColumnRequest;
 use App\Module\Board\Security\BoardColumnVoter;
-use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,7 +34,6 @@ final class ConfigureBoardColumnController extends AppController
     public function __construct(
         private readonly ConfigureBoardColumnHandler $configureColumn,
         private readonly FormFactoryInterface $formFactory,
-        private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -44,8 +42,6 @@ final class ConfigureBoardColumnController extends AppController
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(columnId, projectId)')] BoardColumn $column,
     ): Response {
-        $this->board->requireEnabled();
-
         $project = $column->project;
         $data = new ConfigureBoardColumnRequest();
         $form = $this->formFactory->createNamed(ConfigureBoardColumnFormType::nameFor($column), ConfigureBoardColumnFormType::class, $data);
