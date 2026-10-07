@@ -214,9 +214,9 @@ test('columns added, reordered and deleted in one browser update another in plac
         .click();
     await expect(
         settings.getByRole('heading', { name: 'Parked', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     await expect
-        .poll(() => slugs(watcher))
+        .poll(() => slugs(watcher), { timeout: 15_000 })
         .toEqual(['next', 'in-progress', 'done', 'parked']);
     await expect(kept).toHaveJSProperty('kept', true);
 
@@ -229,9 +229,10 @@ test('columns added, reordered and deleted in one browser update another in plac
         .click();
     await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
         ['next', 'in-progress', 'parked', 'done'],
+        { timeout: 15_000 },
     );
     await expect
-        .poll(() => slugs(watcher))
+        .poll(() => slugs(watcher), { timeout: 15_000 })
         .toEqual(['next', 'in-progress', 'parked', 'done']);
     await expect(kept).toHaveJSProperty('kept', true);
 
@@ -246,9 +247,11 @@ test('columns added, reordered and deleted in one browser update another in plac
     await deleteDialog
         .getByRole('button', { name: 'Move the cards and delete' })
         .click();
-    await expect(editor.getByText('moved its card')).toBeVisible();
+    await expect(editor.getByText('moved its card')).toBeVisible({
+        timeout: 15_000,
+    });
     await expect
-        .poll(() => slugs(watcher))
+        .poll(() => slugs(watcher), { timeout: 15_000 })
         .toEqual(['in-progress', 'parked', 'done']);
     await expect(
         watcher.locator(

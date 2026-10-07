@@ -655,7 +655,7 @@ An interactive prompt gets none.
 | `{kind}` | the kind of the request |
 | `{ruleId}` | the id of the rule that opened the request |
 | `{workRequestId}` | the id of the request |
-| `{pullRequestNumber}` | the number of the primary pull request of the card when the request opened |
+| `{pullRequestNumber}` | the number of the pull request that the rule acts on, when the request opened |
 | `{pullRequestUrl}` | the link to that pull request, as the card holds it |
 | `{headSha}` | the head commit of that pull request when the request opened |
 | `{reason}` | why the pull request needs work: `conflict`, `checks-failed` or `changes-requested` |

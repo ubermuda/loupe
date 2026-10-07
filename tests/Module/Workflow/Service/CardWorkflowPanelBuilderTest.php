@@ -10,12 +10,18 @@ use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -293,6 +299,26 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame('Pause the card', $progress->nextAction);
     }
 
+    public function test_a_rule_pause_shows_its_until_for_the_pull_request_it_paused(): void
+    {
+        $this->define([
+            ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], 'then' => ['pause' => ['reason' => 'red', 'until' => ['pr.checks_passed' => []]]]],
+        ]);
+        $card = $this->card('tech-design');
+        $base = $this->linkedPullRequest($card, 4, 'main', 'base-branch', PullRequestChecks::Passed, '2026-10-01 09:00');
+        $this->linkedPullRequest($card, 5, 'base-branch', 'upper-branch', PullRequestChecks::Failed, '2026-10-01 10:00');
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'red', 'hold', CardPauseKind::Rule));
+        $state = new WorkflowRuleState($card, $this->project, 'hold');
+        $state->truth = true;
+        $state->subjectPullRequestId = $base->id;
+        $this->em()->persist($state);
+        $this->em()->flush();
+
+        $pause = $this->builder()->build($card)->pause ?? self::fail('The card is paused.');
+
+        self::assertSame($this->service(TranslatorInterface::class)->trans('workflow.panel.release.met'), $pause->release);
+    }
+
     /** @param list<array<string, mixed>> $rules */
     private function define(array $rules): void
     {
@@ -322,6 +348,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             $this->service(TranslatorInterface::class),
             new MockClock('2026-10-02 12:00'),
             $logger,
+            new RuleSubject(),
         );
     }
 
@@ -361,5 +388,21 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             column: $this->column($this->project, $column),
             reporter: CardReporter::Human,
         ));
+    }
+
+    private function linkedPullRequest(Card $card, int $number, string $base, string $head, PullRequestChecks $checks, string $openedAt): ForgePullRequest
+    {
+        $this->em()->persist(new CardPullRequest($card, 'https://github.com/acme/widgets/pull/'.$number, Forge::GitHub, 'acme/widgets', $number));
+        $pullRequest = new ForgePullRequest($card->project, 'github', 'acme/widgets', $number);
+        $pullRequest->state = PullRequestState::Open;
+        $pullRequest->baseBranch = $base;
+        $pullRequest->headBranch = $head;
+        $pullRequest->defaultBranch = 'main';
+        $pullRequest->checks = $checks;
+        $pullRequest->openedAt = new \DateTimeImmutable($openedAt);
+        $this->em()->persist($pullRequest);
+        $this->em()->flush();
+
+        return $pullRequest;
     }
 }

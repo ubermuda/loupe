@@ -14,6 +14,7 @@ use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
+use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
@@ -41,6 +42,7 @@ final readonly class CardWorkflowPanelBuilder
         private TranslatorInterface $translator,
         private ClockInterface $clock,
         private LoggerInterface $logger,
+        private RuleSubject $ruleSubject,
     ) {
     }
 
@@ -79,7 +81,7 @@ final readonly class CardWorkflowPanelBuilder
     private function pause(CardPause $pause, ?Template $template, ?Facts $facts, bool $managed): CardWorkflowPause
     {
         $release = match ($pause->kind) {
-            CardPauseKind::Rule => $this->ruleRelease($template, $facts, $pause->ruleId),
+            CardPauseKind::Rule => $this->ruleRelease($pause, $template, $facts),
             CardPauseKind::WorkLimit => $this->translator->trans('workflow.panel.release.left_slot'),
             CardPauseKind::Retries, CardPauseKind::WorkTimeout => $this->translator->trans('workflow.panel.release.facts_changed'),
         };
@@ -95,14 +97,16 @@ final readonly class CardWorkflowPanelBuilder
         );
     }
 
-    private function ruleRelease(?Template $template, ?Facts $facts, string $ruleId): string
+    private function ruleRelease(CardPause $pause, ?Template $template, ?Facts $facts): string
     {
-        $until = null === $template ? null : self::rule($template, $ruleId)?->then->until;
-        if (null === $until || null === $facts || null !== $until->unreadable($facts)) {
+        $rule = null === $template ? null : self::rule($template, $pause->ruleId);
+        $until = $rule?->then->until;
+        if (null === $rule || null === $until || null === $facts || null !== $until->unreadable($facts)) {
             return $this->translator->trans('workflow.panel.release.next_evaluation');
         }
 
-        $leaf = $until->firstFalseLeaf($facts);
+        $stored = ($this->workflowRuleStates->findForCard($pause->card)[$rule->id] ?? null)?->subjectPullRequestId;
+        $leaf = $until->firstFalseLeaf($this->ruleSubject->paused($rule, $facts, $stored));
 
         return null === $leaf
             ? $this->translator->trans('workflow.panel.release.met')
@@ -114,18 +118,19 @@ final readonly class CardWorkflowPanelBuilder
         $rules = $template->rulesFor($facts->card->slot);
         $falseRules = array_values(array_filter(
             $rules,
-            static fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$rule->when->evaluate($facts),
+            fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$this->ruleSubject->bind($rule, $facts)->truth,
         ));
         $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
         $waiting = null;
         if (null !== $blocking) {
+            $bound = $this->ruleSubject->bind($blocking, $facts);
             $unreadable = $blocking->when->unreadable($facts);
             // The engine reads the until of a pause only once its when is true.
-            if (null === $unreadable && $blocking->when->evaluate($facts)) {
+            if (null === $unreadable && $bound->truth) {
                 $unreadable = $blocking->then->until?->unreadable($facts);
             }
             $waiting = null === $unreadable
-                ? $blocking->when->firstFalseLeaf($facts)?->waitingFor()->trans($this->translator)
+                ? $blocking->when->firstFalseLeaf($bound->facts)?->waitingFor()->trans($this->translator)
                 : $this->unreadableReason($unreadable);
         }
 
