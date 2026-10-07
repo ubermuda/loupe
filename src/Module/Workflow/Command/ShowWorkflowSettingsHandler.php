@@ -56,7 +56,7 @@ final readonly class ShowWorkflowSettingsHandler
                     self::placeKey($template, $move->from),
                     self::placeKey($template, $move->to),
                     match ($move->by) {
-                        null => 'workflow.settings.moves.by.person',
+                        null => 'workflow.settings.moves.by.anyone',
                         ManualMoveActor::ParentRun => 'workflow.settings.moves.by.parent_run',
                     },
                 ),

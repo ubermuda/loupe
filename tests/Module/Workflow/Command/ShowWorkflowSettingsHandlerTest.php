@@ -86,7 +86,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.document_approved', false, 'tag: tech-design'), new WorkflowConditionView('card.document_changes_requested', true, 'tag: tech-design'), new WorkflowConditionView('card.has_open_blocker', true, '')]),
         ], $rules['tech-design-approved']->whenGroups);
 
-        self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.next', 'workflow.settings.moves.by.person'), $template->manualMoves[0]);
+        self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.next', 'workflow.settings.moves.by.anyone'), $template->manualMoves[0]);
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.implementation', 'workflow.settings.moves.by.parent_run'), $template->manualMoves[6]);
         self::assertSame([10, 60, 360], $template->backoffMinutes);
         self::assertSame(120, $template->workTimeoutMinutes);
@@ -124,7 +124,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             new WorkflowRuleView('merged', 'workflow.settings.where.any', 'workflow.settings.action.move', 'workflow.settings.where.any_terminal', null, [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.in_slot', true, 'slot: @terminal'), new WorkflowConditionView('card.children_finished', false, '')]), new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.all_finished_one_merged', false, '')])], [], []),
             new WorkflowRuleView('teardown', 'workflow.settings.where.any_terminal', 'workflow.settings.action.request', null, 'teardown', [], [], []),
         ], $template->rules);
-        self::assertEquals([new WorkflowManualMoveView('workflow.settings.where.any', 'workflow.settings.where.any', 'workflow.settings.moves.by.person')], $template->manualMoves);
+        self::assertEquals([new WorkflowManualMoveView('workflow.settings.where.any', 'workflow.settings.where.any', 'workflow.settings.moves.by.anyone')], $template->manualMoves);
     }
 
     public function test_a_stored_copy_that_names_a_condition_this_instance_lacks_still_shows(): void

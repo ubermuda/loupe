@@ -53,14 +53,15 @@ A card is managed by default. A managed card follows the template, and a person
 may make only the moves that the template lists. Any other move offers to make
 the card unmanaged first. An unmanaged card is outside the workflow: the
 workflow makes no move and asks for no work on it.
+[The board](board.md#managed-and-unmanaged-cards) describes both states, and
+the Workflow panel of the card page.
 
 A move in the template can name who may make it. A move with
 `by: parent-run` is open to a worker run of the card's parent epic, and not
 to a person. The run may be of any work kind, such as a breakdown or a fix.
-An interactive run does not count. The **Who** column of the manual moves
-on the Workflow settings page shows who may make each move.
-[The board](board.md#managed-and-unmanaged-cards) describes both states, and
-the Workflow panel of the card page.
+An interactive run does not count. A move with no `by` is open to anyone. The
+**Who** column of the manual moves on the Workflow settings page shows who may
+make each move.
 
 ## Pauses and retries
 
