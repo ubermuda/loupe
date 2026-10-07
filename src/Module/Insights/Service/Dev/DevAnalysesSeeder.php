@@ -28,8 +28,9 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * Writes a finished cost analysis with its report, two proposals and a costed
- * run, and a waiting one, so the Reports page of a dev project shows each
- * state. The waiting analysis opens no work request, so no bridge claims it.
+ * run, a waiting one, and a finished experiment analysis, so the Reports page
+ * of a dev project shows each state. The waiting analysis opens no work
+ * request, so no bridge claims it.
  */
 #[When('dev')]
 final readonly class DevAnalysesSeeder
@@ -47,6 +48,18 @@ final readonly class DevAnalysesSeeder
         2. Run the lint stage on a smaller model.
         MARKDOWN;
 
+    private const string EXPERIMENT_REPORT = <<<'MARKDOWN'
+        # Experiment report: implement
+
+        ## Summary
+
+        The sonnet variant costs about 60% less per merged card, and the cost gap is clear. Its merge rate is lower and it needs more fix rounds, but neither gap is clear yet. Run more cards before a decision.
+
+        ## Proposals
+
+        1. Run 10 more cards on each variant.
+        MARKDOWN;
+
     public function __construct(
         private EntityManagerInterface $em,
         private AnalysisRepository $analyses,
@@ -55,13 +68,24 @@ final readonly class DevAnalysesSeeder
     ) {
     }
 
-    /** False when the project already holds an analysis, so a second run adds nothing. */
-    public function seed(Project $project): bool
+    /**
+     * Each part writes only when the project holds no analysis of its topic, so
+     * a second run adds nothing and a project seeded before the experiment part
+     * gains it.
+     */
+    public function seed(Project $project, string $experiment): void
     {
-        if ([] !== $this->analyses->findByProject($project)) {
-            return false;
+        $topics = array_map(static fn (Analysis $analysis): AnalysisTopic => $analysis->topic, $this->analyses->findByProject($project));
+        if (!\in_array(AnalysisTopic::Cost, $topics, true)) {
+            $this->seedCost($project);
         }
+        if (!\in_array(AnalysisTopic::Experiment, $topics, true)) {
+            $this->seedExperiment($project, $experiment);
+        }
+    }
 
+    private function seedCost(Project $project): void
+    {
         $report = new Document($project->owner, $project, 'Cost report: last 90 days');
         $report->addVersion(self::REPORT, $this->renderer->render(self::REPORT));
         $this->em->persist($report);
@@ -82,8 +106,23 @@ final readonly class DevAnalysesSeeder
         $this->em->persist(new Analysis($project, AnalysisTopic::Cost, new AnalysisScope(MetricRange::ThirtyDays), null, AnalysisSettings::DEFAULT_MODEL, AnalysisSettings::DEFAULT_EFFORT, new \DateTimeImmutable('-10 minutes')));
         $this->em->flush();
         $this->documentSearch->index($report);
+    }
 
-        return true;
+    private function seedExperiment(Project $project, string $experiment): void
+    {
+        $report = new Document($project->owner, $project, 'Experiment report: '.$experiment);
+        $report->addVersion(self::EXPERIMENT_REPORT, $this->renderer->render(self::EXPERIMENT_REPORT));
+        $this->em->persist($report);
+
+        $analysis = new Analysis($project, AnalysisTopic::Experiment, new AnalysisScope(MetricRange::All, $experiment), null, AnalysisSettings::DEFAULT_MODEL, AnalysisSettings::DEFAULT_EFFORT, new \DateTimeImmutable('-1 day'));
+        $this->em->persist($analysis);
+        $this->em->flush();
+        $analysis->start();
+        $analysis->complete($report->id ?? throw new \LogicException('A stored document has an id.'), new \DateTimeImmutable('-1 day +25 minutes'));
+        $this->seedRun($analysis, new \DateTimeImmutable('-1 day +25 minutes'));
+        $this->em->persist(new Proposal($analysis, ProposalKind::Card, 'Run 10 more cards on each variant before a decision', "The cost gap is clear: $1.74 against $4.33 per merged card.\nThe merge rate and the fix rounds give no clear answer with 6 finished cards per variant.", null, null, 0));
+        $this->em->flush();
+        $this->documentSearch->index($report);
     }
 
     /** WorkerRunFactListener writes the fact row on flush, and AnalysisRepository::costOf() sums it. */

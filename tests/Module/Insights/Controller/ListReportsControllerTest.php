@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Insights\Controller;
 
+use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Insights\Command\ListReportsHandler;
 use App\Module\Insights\Entity\Analysis;
+use App\Module\Insights\Entity\AnalysisScope;
 use App\Module\Insights\Entity\AnalysisState;
+use App\Module\Insights\Entity\AnalysisTopic;
 use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Entity\ProposalState;
 use App\Tests\Module\Insights\InsightsScenario;
@@ -161,7 +164,7 @@ final class ListReportsControllerTest extends WebTestCase
         self::assertStringEndsWith('/extending/cli-bridge/#work-requests', (string) $empty->filter('a')->attr('href'));
         self::assertCount(1, $crawler->filter('[data-start-analysis-form]'));
         self::assertSame('sonnet', $crawler->filter('[data-start-analysis-form] input[name="start_analysis_form[model]"]')->attr('placeholder'));
-        self::assertSame(['cost', 'host'], $crawler->filter('select[name="start_analysis_form[topic]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
+        self::assertSame(['cost', 'experiment', 'host'], $crawler->filter('select[name="start_analysis_form[topic]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertSame(['', 'low', 'medium', 'high', 'xhigh', 'max'], $crawler->filter('select[name="start_analysis_form[effort]"] option')->each(static fn ($option): string => (string) $option->attr('value')));
         self::assertCount(1, $crawler->filter('[data-analytics-settings-form] input[name="analytics_settings_form[collectFullText]"]'));
     }
@@ -187,6 +190,65 @@ final class ListReportsControllerTest extends WebTestCase
 
         $second = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?page=2');
         self::assertSame([$oldestId], $second->filter('[data-analysis]')->each(static fn ($row): string => (string) $row->attr('data-analysis')));
+    }
+
+    public function test_an_experiment_analysis_shows_its_experiment_next_to_the_range(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('reports-experiment');
+        $cost = $this->seedAnalysis($em, $project);
+        $experiment = $this->seedAnalysis($em, $project);
+        $experiment->topic = AnalysisTopic::Experiment;
+        $experiment->scope = new AnalysisScope(MetricRange::All, 'model-test');
+        $em->flush();
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports');
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-analysis="'.$experiment->id.'"]');
+        self::assertSame('Experiment', trim($row->filter('[data-analysis-topic]')->text()));
+        self::assertSame('model-test', trim($row->filter('[data-analysis-experiment]')->text()));
+        self::assertCount(0, $crawler->filter('[data-analysis="'.$cost->id.'"] [data-analysis-experiment]'));
+    }
+
+    public function test_the_form_offers_the_experiments_and_the_query_preselects_one(): void
+    {
+        $client = static::createClient();
+        $project = $this->scenarioProject('reports-preselect');
+        $this->seedExperiment($project, 'model-test');
+        $this->seedExperiment($project, 'prompt-test');
+        $projectId = (string) $project->id;
+        $this->em()->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?topic=experiment&experiment=prompt-test');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['cost', 'experiment', 'host'], $crawler->filter('#start_analysis_form_topic option')->each(static fn ($option): string => (string) $option->attr('value')));
+        self::assertSame(['', 'model-test', 'prompt-test'], $crawler->filter('#start_analysis_form_experiment option')->each(static fn ($option): string => (string) $option->attr('value')));
+        self::assertSame('experiment', $crawler->filter('#start_analysis_form_topic option[selected]')->attr('value'));
+        self::assertSame('prompt-test', $crawler->filter('#start_analysis_form_experiment option[selected]')->attr('value'));
+    }
+
+    public function test_the_query_ignores_a_topic_or_an_experiment_the_form_does_not_offer(): void
+    {
+        $client = static::createClient();
+        $project = $this->scenarioProject('reports-preselect-invalid');
+        $this->seedExperiment($project, 'model-test');
+        $projectId = (string) $project->id;
+        $this->em()->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/reports?topic=time&experiment=no-such-experiment');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('cost', $crawler->filter('#start_analysis_form_topic option[selected]')->attr('value'));
+        self::assertCount(0, $crawler->filter('#start_analysis_form_experiment option[selected][value="no-such-experiment"]'));
+        self::assertCount(0, $crawler->filter('#start_analysis_form_experiment option[selected][value="model-test"]'));
     }
 
     public function test_another_users_project_is_refused(): void

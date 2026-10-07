@@ -78,6 +78,7 @@ final class AdvertisedTools
         'bridge_host_samples',
         'metric_list',
         'metric_query',
+        'experiment_get',
         'analysis_get',
         'analysis_report',
         'analytics_settings_get',

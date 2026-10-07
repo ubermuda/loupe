@@ -19,6 +19,8 @@ final readonly class StartAnalysisCommand
         public ?string $model = null,
         /** Null takes the effort of the project settings. */
         public ?string $effort = null,
+        /** The experiment an experiment analysis compares. Any other topic ignores it. */
+        public ?string $experiment = null,
     ) {
     }
 }

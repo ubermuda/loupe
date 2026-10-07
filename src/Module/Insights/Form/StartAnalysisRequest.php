@@ -20,6 +20,8 @@ class StartAnalysisRequest
         public ?string $model = null,
         /** Null takes the project default. */
         public ?string $effort = null,
+        /** The experiment an experiment analysis compares. */
+        public ?string $experiment = null,
     ) {
     }
 }

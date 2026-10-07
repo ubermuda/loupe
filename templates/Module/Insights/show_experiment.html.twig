@@ -7,6 +7,8 @@
         {{ value|format_currency('USD') }}
     {%- elseif format == 'integer' -%}
         {{ value|number_format(0) }}
+    {%- elseif format == 'minutes' -%}
+        {{ (value / 60000)|number_format(1) }}
     {%- else -%}
         {{ value|number_format(1) }}
     {%- endif -%}
@@ -38,7 +40,6 @@
 {% endblock %}
 
 {% block body %}
-{% set formats = {'merge-rate': 'percent', 'stop-rate': 'percent', 'fix-rounds': 'decimal', 'cost': 'currency', 'output-tokens': 'integer', 'hours-to-merge': 'decimal'} %}
 {% set knownReasons = ['conflict', 'checks-failed', 'changes-requested'] %}
 {% set headline = report.headline %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
@@ -105,7 +106,7 @@
             </thead>
             <tbody>
                 {% for metric in report.metrics %}
-                    {% set format = formats[metric.key] %}
+                    {% set format = metric.format %}
                     {{ _self.metric_row(metric, ('bridge.experiments.metric.' ~ metric.key)|trans, format, report.variants, false) }}
                     {% for part in metric.parts %}
                         {{ _self.metric_row(part, part.key in knownReasons ? ('bridge.experiments.fix_reason.' ~ part.key)|trans : 'bridge.experiments.fix_reason.other'|trans({'%reason%': part.key}), format, report.variants, true) }}
@@ -114,6 +115,9 @@
             </tbody>
         </table>
     </div>
+    {% if report.unknownMetrics is not empty %}
+        <p class="lp-experiment-note" data-experiment-unknown-metrics>{{ 'bridge.experiments.metrics.unknown'|trans({'%metrics%': report.unknownMetrics|join(', ')}) }}</p>
+    {% endif %}
     <p class="lp-experiment-note">{{ 'bridge.experiments.metrics.note'|trans({'%count%': constant('App\\Module\\Bridge\\Experiment\\Stats::MIN_FINISHED_CARDS')}) }}</p>
 
     <p class="lp-experiment-note" data-experiment-left-out>
@@ -122,5 +126,11 @@
             <a href="{{ path('app_project_analytics_experiment_cards', {id: project.id, experiment: report.experiment, 'left-out': 1}) }}">{{ 'bridge.experiments.left_out_link'|trans }}</a>
         {% endif %}
     </p>
+
+    {% if is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), project) %}
+        <p class="lp-experiment-note">
+            <a class="lp-btn lp-btn--outline lp-btn--sm" href="{{ path('app_project_analytics_reports', {id: project.id, topic: 'experiment', experiment: report.experiment}) }}" data-experiment-analyse>{{ 'bridge.experiments.analyse'|trans }}</a>
+        </p>
+    {% endif %}
 </div>
 {% endblock %}

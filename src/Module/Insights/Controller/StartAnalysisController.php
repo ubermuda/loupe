@@ -6,6 +6,8 @@ namespace App\Module\Insights\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Bridge\Command\ListExperimentsCommand;
+use App\Module\Bridge\Command\ListExperimentsHandler;
 use App\Module\Insights\Command\StartAnalysisCommand;
 use App\Module\Insights\Command\StartAnalysisHandler;
 use App\Module\Insights\Form\StartAnalysisFormType;
@@ -29,6 +31,7 @@ class StartAnalysisController extends AppController
 {
     public function __construct(
         private readonly StartAnalysisHandler $startAnalysis,
+        private readonly ListExperimentsHandler $listExperiments,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -36,7 +39,9 @@ class StartAnalysisController extends AppController
     public function __invoke(Project $project, Request $request): Response
     {
         $data = new StartAnalysisRequest();
-        $form = $this->createForm(StartAnalysisFormType::class, $data);
+        $form = $this->createForm(StartAnalysisFormType::class, $data, [
+            'experiments' => array_column(($this->listExperiments)(new ListExperimentsCommand($project))->experiments, 'name'),
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -47,6 +52,7 @@ class StartAnalysisController extends AppController
                     range: $data->range ?? throw new \LogicException('The range is required after validation.'),
                     model: $data->model,
                     effort: $data->effort,
+                    experiment: $data->experiment,
                 ));
                 $this->addFlash('success', $this->translator->trans('insights.reports.flash.started'));
 

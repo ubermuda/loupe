@@ -230,7 +230,7 @@ It installs one skill for each part of working a Loupe project:
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
 | `loupe:loupe-workers` | Reading worker runs and bridges, and stopping, resuming or cancelling a run |
-| `loupe:loupe-analysis` | Running an analysis: a cost report with proposals, from the runs of the project |
+| `loupe:loupe-analysis` | Running an analysis: a cost report, or a comparison of the variants of an experiment, with proposals |
 | `loupe:loupe-discovery` | A read-only discovery run that writes the readiness report of a project |
 | `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
 | `loupe:loupe-stage-product-design` | One review round on a product document |
@@ -312,7 +312,8 @@ Roughly in the order an agent uses them:
 | `bridge_host_samples` | Read a page of the host samples of the bridge that ran one worker run, oldest first, from the start of the run to its end, or to now while the run is open. Each sample gives its time, the use of each core, the memory and swap in use, the total memory, the battery charge and the power source. The samples cover the whole machine, so they cover every run on that bridge at that time. `perPage` defaults to 100, with a maximum of 500 |
 | `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes |
 | `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it |
-| `analysis_get` | Read one analysis, with its topic, its range, its model and effort, its state and reason, its cost so far and its proposals |
+| `experiment_get` | Read the comparison of one experiment: the variants, each metric with its likely range per variant and whether it gives a clear answer, and one page of the cards, with the reasons a card is left out |
+| `analysis_get` | Read one analysis, with its topic, its range, the experiment that an experiment analysis compares, its model and effort, its state and reason, its cost so far and its proposals |
 | `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
 | `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, and whether the bridge sends the full text of each tool call |
 | `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort clears the project value, so the instance default applies |

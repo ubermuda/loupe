@@ -307,6 +307,124 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         self::assertFalse($view->headline->qualitySettled);
     }
 
+    public function test_a_declaration_picks_the_known_metrics_in_its_order(): void
+    {
+        $definition = new ExperimentDefinition($this->project, self::EXPERIMENT, [['name' => 'a', 'weight' => 1]]);
+        $definition->metrics = ['duration', 'foo', 'input-tokens', 'duration', 'runs', 'bar', 'foo'];
+        $this->em->persist($definition);
+        $one = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($one, 'a', at: '+1 hour'), costUsd: '1.000000');
+        // A started run with no usage makes the input tokens of its card unknown.
+        $two = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($two, 'a', at: '+2 hours'), costUsd: '1.000000');
+        $this->experimentRun($two, 'a', at: '+3 hours', state: WorkerRunState::Failed);
+        foreach ([$one, $two] as $card) {
+            $this->outcomes[(string) $card] = new CardOutcome(merged: true);
+        }
+        $this->em->flush();
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertSame(['duration', 'input-tokens', 'runs'], array_keys($view->metrics));
+        self::assertSame(['foo', 'bar'], $view->unknownMetrics);
+        self::assertEquals(new Interval(100.0, 100.0, 100.0), $view->metrics['input-tokens']->for('a'));
+        self::assertEquals(Stats::bootstrapMean([300_000, 600_000], 'model-test:duration:a'), $view->metrics['duration']->for('a'));
+        self::assertEquals(Stats::bootstrapMean([1, 2], 'model-test:runs:a'), $view->metrics['runs']->for('a'));
+    }
+
+    public function test_the_headline_reads_the_cost_that_a_declaration_leaves_out(): void
+    {
+        $definition = new ExperimentDefinition($this->project, self::EXPERIMENT, [['name' => 'a', 'weight' => 1], ['name' => 'b', 'weight' => 1]]);
+        $definition->metrics = ['fix-rounds'];
+        $this->em->persist($definition);
+        foreach (['a' => '2.000000', 'b' => '1.000000'] as $variant => $cost) {
+            $card = Uuid::v7();
+            $this->seedUsage($this->em, $this->experimentRun($card, $variant), costUsd: $cost);
+            $this->outcomes[(string) $card] = new CardOutcome(fixRounds: ['conflict' => 1], merged: true);
+        }
+        $this->em->flush();
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertSame([ExperimentMetric::FIX_ROUNDS], array_keys($view->metrics));
+        self::assertSame(['conflict'], array_map(static fn (ExperimentMetric $part): string => $part->key, $view->metrics[ExperimentMetric::FIX_ROUNDS]->parts));
+        self::assertSame([], $view->unknownMetrics);
+        self::assertNotNull($view->headline);
+        self::assertSame('b', $view->headline->cheaperVariant);
+        self::assertSame(0.5, $view->headline->saving);
+    }
+
+    public function test_an_experiment_with_no_declaration_shows_the_default_metrics(): void
+    {
+        $card = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($card, 'a'), costUsd: '1.000000');
+        $this->outcomes[(string) $card] = new CardOutcome(merged: true);
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertSame(ShowExperimentHandler::DEFAULT_METRICS, array_keys($view->metrics));
+        self::assertSame([], $view->unknownMetrics);
+    }
+
+    public function test_an_empty_declaration_shows_the_default_metrics(): void
+    {
+        $definition = new ExperimentDefinition($this->project, self::EXPERIMENT, [['name' => 'a', 'weight' => 1]]);
+        $definition->metrics = [];
+        $this->em->persist($definition);
+        $card = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($card, 'a'), costUsd: '1.000000');
+        $this->outcomes[(string) $card] = new CardOutcome(merged: true);
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertSame(ShowExperimentHandler::DEFAULT_METRICS, array_keys($view->metrics));
+        self::assertNull($view->declaredMetrics);
+        self::assertSame([], $view->unknownMetrics);
+    }
+
+    public function test_a_run_with_usage_and_no_output_tokens_keeps_its_card_out_of_the_output_token_sample(): void
+    {
+        $noTokens = Uuid::v7();
+        $run = $this->experimentRun($noTokens, 'a', at: '+1 hour');
+        $this->seedUsage($this->em, $run, costUsd: '1.000000');
+        // The fact writer gives a run with usage zero tokens, so the test writes the null.
+        $this->em->getConnection()->executeStatement('UPDATE bridge_worker_run_facts SET tokens_out = NULL WHERE run_id = :run', ['run' => $run->id?->toRfc4122()]);
+        $withTokens = Uuid::v7();
+        $tokenRun = $this->experimentRun($withTokens, 'a', at: '+2 hours');
+        $this->seedUsage($this->em, $tokenRun, costUsd: '1.000000');
+        $this->seedUsage($this->em, $tokenRun, model: 'claude-sonnet-5', costUsd: '2.000000');
+        foreach ([$noTokens, $withTokens] as $card) {
+            $this->outcomes[(string) $card] = new CardOutcome(merged: true);
+        }
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertEquals(new Interval(40.0, 40.0, 40.0), $view->metrics[ExperimentMetric::OUTPUT_TOKENS]->for('a'));
+        self::assertEquals(Stats::bootstrapMean([1.0, 3.0], 'model-test:cost:a'), $view->metrics[ExperimentMetric::COST]->for('a'));
+    }
+
+    public function test_the_cards_tab_shows_an_unknown_cost_for_a_card_with_an_unpriced_run(): void
+    {
+        $unknown = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($unknown, 'a', at: '+1 hour'), costUsd: '1.000000');
+        $this->seedUsage($this->em, $this->experimentRun($unknown, 'a', at: '+2 hours'), model: 'unpriced-model', costUsd: null);
+        $known = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($known, 'a', at: '+3 hours'), costUsd: '2.000000');
+
+        $view = $this->show(withMetrics: false);
+
+        self::assertNotNull($view);
+        self::assertSame([], $view->metrics);
+        self::assertNull($this->card($view, $unknown)->costMicros);
+        self::assertSame(2_000_000, $this->card($view, $known)->costMicros);
+        self::assertSame(2_000_000, $view->variants[0]->costMicros);
+    }
+
     public function test_too_few_finished_cards_give_no_clear_answer(): void
     {
         foreach (['a' => '2.000000', 'b' => '0.500000'] as $variant => $cost) {

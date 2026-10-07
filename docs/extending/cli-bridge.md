@@ -466,10 +466,32 @@ The `model` of the `defaults:` block does not fill an entry with variants. A
 variant's weight sets its share of the cards, so weights of 3 and 1 give the
 first variant three cards in four.
 
+An entry with variants can also list its `metrics`. Each key is a metric key
+that the `metric_list` MCP tool names, such as `cost` or `merge-rate`:
+
+```yaml
+work:
+  implement:
+    prompt: Implement card {cardNumber}.
+    variants:
+      - {name: opus, weight: 1, model: opus}
+      - {name: sonnet, weight: 1, model: claude-sonnet-5-5}
+    metrics: [merge-rate, cost, duration]
+```
+
+The Comparison tab of the experiment shows the declared metrics in that order.
+An entry with no `metrics` shows the default six. The bridge sends the list
+with each pin request, so the latest list wins. The bridge does not know the
+metrics of the server, so it checks the shape of each key only. The server
+shows a note for a key that it does not know.
+
 The bridge refuses the file, at start and on a reload, when:
 
 - an entry sets both `model` and `variants`
-- an interactive entry or a command entry sets `variants`
+- an interactive entry or a command entry sets `variants` or `metrics`
+- an entry sets `metrics` and no `variants`
+- an entry lists more than 16 metrics, or one metric twice
+- a metric key does not match `^[a-z][a-z0-9:-]{0,63}$`
 - an entry has no variants, or more than 32
 - a variant has a weight below 1 or above 1,000,000
 - a variant has no model, or a model longer than 100 characters, with
@@ -768,7 +790,7 @@ work:
 placeholders that a prompt takes. The command runs in the project's `dir`, with
 the bridge's environment. `timeout` defaults to `10m`, and the check refuses
 more than `60m`. The check refuses `prompt`, `model`, `permissionMode`,
-`variants`, `workerPool` and `before` on a command entry.
+`variants`, `metrics`, `workerPool` and `before` on a command entry.
 
 A command takes no worker slot. It holds its card, so it waits for a worker of
 the card that runs, and a worker that arrives later waits for it. Commands on
@@ -807,7 +829,7 @@ work:
 ```
 
 The key is the kind of work. A worker entry takes `prompt`, `model`,
-`permissionMode`, `before`, `workerPool` and `variants`. A command entry takes
+`permissionMode`, `before`, `workerPool`, `variants` and `metrics`. A command entry takes
 `run` and `timeout`. The rule check
 refuses a field that the action does not use.
 
@@ -1093,7 +1115,7 @@ work:
 ```
 
 An interactive entry takes `prompt`, `model` and `permissionMode`. The check
-refuses `before`, `variants` and `workerPool` on it. It also refuses the action
+refuses `before`, `variants`, `metrics` and `workerPool` on it. It also refuses the action
 on Windows, because the launch script is a POSIX shell script. The action works
 on macOS and Linux.
 

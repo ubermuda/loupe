@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Insights\Mcp;
 
+use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Insights\Entity\Analysis;
+use App\Module\Insights\Entity\AnalysisScope;
 use App\Module\Insights\Entity\AnalysisState;
+use App\Module\Insights\Entity\AnalysisTopic;
 use App\Module\Insights\Entity\ProposalKind;
 use App\Module\Insights\Mcp\AnalysisGetTool;
 use App\Module\Insights\Mcp\AnalysisReportTool;
@@ -48,6 +51,22 @@ final class AnalysisToolsTest extends KernelTestCase
             'costUsd' => null,
             'proposals' => [],
         ], $this->getTool()((string) $analysis->id));
+    }
+
+    public function test_get_answers_the_experiment_of_an_experiment_analysis(): void
+    {
+        $em = $this->em();
+        $project = $this->scenarioProject('analysis-get-experiment');
+        $analysis = $this->seedAnalysis($em, $project);
+        $analysis->topic = AnalysisTopic::Experiment;
+        $analysis->scope = new AnalysisScope(MetricRange::All, 'model-test');
+        $em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $payload = $this->getTool()((string) $analysis->id);
+
+        self::assertSame('experiment', $payload['topic']);
+        self::assertSame(['range' => 'all', 'experiment' => 'model-test'], $payload['scope']);
     }
 
     public function test_get_answers_the_cost_of_the_runs_and_the_proposals(): void
