@@ -71,7 +71,7 @@ When it prints nothing, HEAD is detached. When it prints the base branch of the 
 
 Sync the branch as "Sync with the pull request branch" in `../../loupe-stage-implementation/references/commands.md` says. It recovers a branch that diverged from the pull request branch, or stops with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
 
-When the switch brought commits, run the refresh of the profile `Environment` section, when it names one. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a folder name or a card number.
+The sync runs the refresh of the profile `Environment` section when the switch or the sync moved HEAD. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a folder name or a card number.
 
 ## Resolve a conflict with the base
 
