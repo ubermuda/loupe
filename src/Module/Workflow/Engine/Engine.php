@@ -433,6 +433,11 @@ final readonly class Engine
         $bound = $this->ruleSubject->bind($rule, $run->facts);
         $fingerprint = $this->fingerprint->of($bound->facts, $rule->when->reads());
         if (!$bound->truth) {
+            // The reset forgets the repair, so its live request ends with it.
+            $tracked = $state->repaired && null !== $state->workRequestId ? $this->workRequests->find($state->workRequestId) : null;
+            if (null !== $tracked && $tracked->kind === $run->template->onWorkFailed?->repairKind) {
+                ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($state->workRequestId, WorkRequestState::Cancelled));
+            }
             $state->truth = false;
             $state->attempts = 0;
             $state->dueAt = null;

@@ -98,7 +98,12 @@ final readonly class TemplateParser
         $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $errors, $lenient);
         // The engine tells a repair request apart by its kind, so no rule may ask for that kind.
         foreach ($rules as $rule) {
-            if (null !== $onWorkFailed?->repairKind && ActionType::Request === $rule->then->type && $onWorkFailed->repairKind === ActionParams::optionalString($rule, 'kind')) {
+            $kind = match ($rule->then->type) {
+                ActionType::Request => ActionParams::optionalString($rule, 'kind'),
+                ActionType::ForgeWrite => ActionParams::optionalString($rule, 'fallback'),
+                default => null,
+            };
+            if (null !== $onWorkFailed?->repairKind && $onWorkFailed->repairKind === $kind) {
                 $errors[] = \sprintf('onWorkFailed.repair.kind: the rule "%s" already asks for the kind "%s"', $rule->id, $onWorkFailed->repairKind);
             }
         }

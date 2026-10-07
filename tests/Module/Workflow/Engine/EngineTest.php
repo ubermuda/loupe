@@ -465,6 +465,18 @@ final class EngineTest extends KernelTestCase
         self::assertNull($this->activePause($card));
     }
 
+    public function test_a_rule_that_turns_false_cancels_its_live_repair(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::NOT_EPIC)], onWorkFailed: self::REPAIR);
+        $repair = $this->repairing($card);
+
+        $this->setType($card, CardType::Epic);
+        $this->evaluate($card, '2026-10-02 12:45:00');
+
+        self::assertSame(WorkRequestState::Cancelled, $repair->state);
+        self::assertFalse($this->ruleState($card, 'work')->repaired);
+    }
+
     public function test_a_repair_that_no_bridge_takes_expires_and_pauses_the_card(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: self::REPAIR);
