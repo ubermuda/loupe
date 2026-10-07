@@ -30,7 +30,7 @@ final readonly class UpdateInboxSettingsHandler
         $project = $command->project;
         $projectId = (string) ($project->id ?? throw new \LogicException('A stored project has an id.'));
 
-        $this->em->wrapInTransaction(function () use ($command, $project, $projectId): void {
+        $settings = $this->em->wrapInTransaction(function () use ($command, $project, $projectId): InboxProjectSettings {
             // The lock also keeps two first saves from both inserting a row.
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
@@ -38,18 +38,23 @@ final readonly class UpdateInboxSettingsHandler
             if (null === $settings) {
                 $settings = new InboxProjectSettings($project);
                 $this->em->persist($settings);
+            } else {
+                // A row loaded before the lock can hold stale switches, and a null switch keeps the stored value.
+                $this->em->refresh($settings);
             }
-            $settings->documentInReview = $command->documentInReview;
-            $settings->runBlocked = $command->runBlocked;
-            $settings->runGaveUp = $command->runGaveUp;
-            $settings->runWaitingForPerson = $command->runWaitingForPerson;
-            $settings->pullRequestReady = $command->pullRequestReady;
-            $settings->pullRequestFixStopped = $command->pullRequestFixStopped;
-            $settings->cardPaused = $command->cardPaused;
+            $settings->documentInReview = $command->documentInReview ?? $settings->documentInReview;
+            $settings->runBlocked = $command->runBlocked ?? $settings->runBlocked;
+            $settings->runGaveUp = $command->runGaveUp ?? $settings->runGaveUp;
+            $settings->runWaitingForPerson = $command->runWaitingForPerson ?? $settings->runWaitingForPerson;
+            $settings->pullRequestReady = $command->pullRequestReady ?? $settings->pullRequestReady;
+            $settings->pullRequestFixStopped = $command->pullRequestFixStopped ?? $settings->pullRequestFixStopped;
+            $settings->cardPaused = $command->cardPaused ?? $settings->cardPaused;
             $this->em->flush();
 
             // The Doctrine transport commits the message with this transaction.
             $this->bus->dispatch(new ReconcileCardWaits($projectId, null));
+
+            return $settings;
         });
 
         $this->auditor->record(
@@ -57,13 +62,13 @@ final readonly class UpdateInboxSettingsHandler
             AuditOutcome::Success,
             [
                 'projectId' => $projectId,
-                'documentInReview' => $command->documentInReview,
-                'runBlocked' => $command->runBlocked,
-                'runGaveUp' => $command->runGaveUp,
-                'runWaitingForPerson' => $command->runWaitingForPerson,
-                'pullRequestReady' => $command->pullRequestReady,
-                'pullRequestFixStopped' => $command->pullRequestFixStopped,
-                'cardPaused' => $command->cardPaused,
+                'documentInReview' => $settings->documentInReview,
+                'runBlocked' => $settings->runBlocked,
+                'runGaveUp' => $settings->runGaveUp,
+                'runWaitingForPerson' => $settings->runWaitingForPerson,
+                'pullRequestReady' => $settings->pullRequestReady,
+                'pullRequestFixStopped' => $settings->pullRequestFixStopped,
+                'cardPaused' => $settings->cardPaused,
             ],
             new AuditSubject('project', $projectId),
         );

@@ -65,4 +65,5 @@ When an item needs you or a card is in motion, the Workshop shows its normal lay
 The checklist then sits at the top of the right column. Its × control hides the guide.
 
 A hidden guide stays hidden. To show it again, use the [Agent readiness](projects.md#agent-readiness) tab of Project settings.
+An agent can also show it again with the `readiness_guide_set` MCP tool.
 When an instance upgrades, a project that has a card outside Backlog starts with the guide hidden.

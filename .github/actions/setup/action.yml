@@ -86,6 +86,8 @@ runs:
         test "$(printf '%s\n' "$tag" | grep -c .)" = 1
         echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+    # Only main exports the layer cache, and every branch reads it. A branch export
+    # can hang on the cache service until the job times out.
     - if: inputs.docker == 'true'
       uses: docker/build-push-action@v7
       with:
@@ -94,7 +96,7 @@ runs:
         tags: ${{ steps.php-fpm-image.outputs.tag }}
         load: true
         cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
 
     - if: inputs.docker == 'true'
       id: compose-images
