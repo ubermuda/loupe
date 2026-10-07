@@ -70,8 +70,9 @@ after 2, 3 and 5 minutes, when the refusal code is `failed` or `timeout`. A
 retry never counts toward the work limit of a fix rule. When the third retry
 also fails, the card pauses with "too many attempts were refused". Any other
 refusal code, such as `unfinished` or `work-remains`, pauses the card at once
-with "the worker stopped and needs a person". The board marks a card whose latest worker run failed or ended with no
-result, until a later run ends in another state.
+with "the worker stopped and needs a person". The board marks a card whose
+latest worker run failed or ended with no result, until a later run ends in
+another state.
 
 A work request that no bridge takes within 2 hours pauses the card with "no
 bridge took the work". A teardown request is the exception: it expires with no
