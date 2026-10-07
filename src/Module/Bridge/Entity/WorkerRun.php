@@ -157,6 +157,10 @@ class WorkerRun implements ProjectScopedSubject
     #[ORM\Column(name: 'idle_gap_ms', type: Types::BIGINT, nullable: true)]
     public ?int $idleGapMs = null;
 
+    /** The largest context of the main session in one turn, in tokens. Null when unknown. */
+    #[ORM\Column(name: 'peak_context_tokens', type: Types::BIGINT, nullable: true)]
+    public ?int $peakContextTokens = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]

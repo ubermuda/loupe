@@ -57,6 +57,8 @@ final readonly class ReportWorkerRunStateCommand
         public ?string $switchedFrom = null,
         /** Stored when the report creates the run. A later report never changes it. */
         public WorkerRunKind $kind = WorkerRunKind::Worker,
+        /** Null keeps the peak the run holds. */
+        public ?int $peakContextTokens = null,
     ) {
     }
 }

@@ -33,6 +33,28 @@ final class WorkerRunFactWriterTest extends KernelTestCase
         );
     }
 
+    public function test_it_copies_the_peak_context_of_the_run(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'facts-writer-peak@example.com'), 'Facts Writer Peak');
+        $known = $this->seedRun($em, $project);
+        $unknown = $this->seedRun($em, $project, cardNumber: 2);
+        $connection = $em->getConnection();
+        $connection->executeStatement('DELETE FROM bridge_worker_run_facts');
+        $connection->executeStatement('UPDATE bridge_worker_runs SET peak_context_tokens = 3000000000 WHERE id = ?', [(string) $known->id]);
+
+        $this->writer()->upsert([
+            $known->id ?? throw new \LogicException('The run has no id.'),
+            $unknown->id ?? throw new \LogicException('The run has no id.'),
+        ]);
+
+        self::assertEquals(
+            [(string) $known->id => 3_000_000_000, (string) $unknown->id => null],
+            $connection->fetchAllKeyValue('SELECT run_id, peak_context_tokens FROM bridge_worker_run_facts'),
+        );
+    }
+
     private function writer(): WorkerRunFactWriter
     {
         $writer = self::getContainer()->get(WorkerRunFactWriter::class);

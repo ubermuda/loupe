@@ -540,6 +540,76 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame([], $this->usageOf($run));
     }
 
+    /** @return iterable<string, array{WorkerRunState, int}> */
+    public static function closingPeaks(): iterable
+    {
+        yield 'an outcome' => [WorkerRunState::Succeeded, 123_456];
+        yield 'a stop' => [WorkerRunState::Stopped, 98_765];
+        yield 'an outcome with an empty context' => [WorkerRunState::Failed, 0];
+    }
+
+    #[DataProvider('closingPeaks')]
+    public function test_the_report_that_closes_the_run_stores_its_peak_context(WorkerRunState $state, int $peak): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-peak-'.$state->value.'-'.$peak);
+        $runKey = Uuid::v4();
+        $this->report($owner, $project, $runKey, WorkerRunState::Running);
+
+        $run = $this->report($owner, $project, $runKey, $state, peakContextTokens: $peak)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame($state, $run->state);
+        self::assertSame($peak, $this->storedPeak($run, 'bridge_worker_runs', 'id'));
+        self::assertSame($peak, $this->storedPeak($run, 'bridge_worker_run_facts', 'run_id'));
+    }
+
+    public function test_a_closing_report_with_no_peak_keeps_the_peak_the_run_holds(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-peak-kept');
+        $runKey = Uuid::v4();
+        $running = $this->report($owner, $project, $runKey, WorkerRunState::Running)->run;
+        self::assertInstanceOf(WorkerRun::class, $running);
+        $running->peakContextTokens = 500;
+        $this->em()->flush();
+
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::Succeeded, $run->state);
+        self::assertSame(500, $this->storedPeak($run, 'bridge_worker_runs', 'id'));
+    }
+
+    public function test_an_outcome_with_no_peak_leaves_the_peak_unknown(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-peak-absent');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Succeeded)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertNull($this->storedPeak($run, 'bridge_worker_runs', 'id'));
+        self::assertNull($this->storedPeak($run, 'bridge_worker_run_facts', 'run_id'));
+    }
+
+    public function test_an_open_state_or_an_outcome_that_does_not_move_the_run_ignores_its_peak(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-peak-ignored');
+        $open = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Running, peakContextTokens: 10)->run;
+        $runKey = Uuid::v4();
+        $this->report($owner, $project, $runKey, WorkerRunState::Dropped);
+
+        $late = $this->report($owner, $project, $runKey, WorkerRunState::Failed, peakContextTokens: 20)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $open);
+        self::assertInstanceOf(WorkerRun::class, $late);
+        self::assertSame(WorkerRunState::Dropped, $late->state);
+        self::assertNull($this->storedPeak($open, 'bridge_worker_runs', 'id'));
+        self::assertNull($this->storedPeak($late, 'bridge_worker_runs', 'id'));
+    }
+
     public function test_a_stop_records_its_end_its_output_and_its_usage(): void
     {
         self::bootKernel();
@@ -914,6 +984,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?WorkerRunReason $resultReason = null,
         ?Uuid $workRequestId = null,
         ?string $ruleId = null,
+        ?int $peakContextTokens = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -959,7 +1030,19 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             variant: $experiment['variant'] ?? null,
             requestedModel: $experiment['requestedModel'] ?? null,
             switchedFrom: $experiment['switchedFrom'] ?? null,
+            peakContextTokens: $peakContextTokens,
         ));
+    }
+
+    private function storedPeak(WorkerRun $run, string $table, string $key): ?int
+    {
+        $peak = $this->em()->getConnection()->fetchOne(
+            \sprintf('SELECT peak_context_tokens FROM %s WHERE %s = ?', $table, $key),
+            [(string) $run->id],
+        );
+        self::assertNotFalse($peak, 'The row exists.');
+
+        return null === $peak ? null : (int) $peak;
     }
 
     private static function usage(WorkerRunUsageSource $source, string $model, int $inputTokens): WorkerRunUsageReport

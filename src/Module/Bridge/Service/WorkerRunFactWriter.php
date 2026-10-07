@@ -21,7 +21,7 @@ final readonly class WorkerRunFactWriter
             experiment, variant, model, bridge_id, outcome, started_at, ended_at, received_at,
             duration_ms, cost_micro_usd, tokens_in, tokens_out, tokens_cache_read, tokens_cache_write,
             usage_source, tool_time_ms, model_time_ms, tool_calls, failed_calls, longest_call_ms,
-            idle_gap_ms, subagent_ms
+            idle_gap_ms, subagent_ms, peak_context_tokens
         )
         SELECT
             r.id,
@@ -54,7 +54,8 @@ final readonly class WorkerRunFactWriter
             tc.failed_calls,
             tc.longest_call_ms,
             r.idle_gap_ms,
-            tc.subagent_ms
+            tc.subagent_ms,
+            r.peak_context_tokens
         FROM bridge_worker_runs r
         LEFT JOIN (
             SELECT
@@ -117,7 +118,8 @@ final readonly class WorkerRunFactWriter
             failed_calls = EXCLUDED.failed_calls,
             longest_call_ms = EXCLUDED.longest_call_ms,
             idle_gap_ms = EXCLUDED.idle_gap_ms,
-            subagent_ms = EXCLUDED.subagent_ms
+            subagent_ms = EXCLUDED.subagent_ms,
+            peak_context_tokens = EXCLUDED.peak_context_tokens
         SQL;
 
     public function __construct(
