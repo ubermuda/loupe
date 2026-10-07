@@ -339,7 +339,10 @@ The first helper entry is empty, which removes every helper that your git
 configuration names for `github.com`. The second helper answers with the login
 and `$GH_TOKEN`. The two `insteadOf` entries change a GitHub SSH remote,
 `git@github.com:` or `ssh://git@github.com/`, to HTTPS. A worker then pushes
-with the token, never with the SSH key of the machine. An inherited `GIT_CONFIG_COUNT` keeps its entries, and the
+with the token, never with the SSH key of the machine. A rule in your own git
+configuration that changes `https://github.com/` to SSH, with `insteadOf` or
+`pushInsteadOf`, still wins over these entries. Remove such a rule on the
+machine of the bridge. An inherited `GIT_CONFIG_COUNT` keeps its entries, and the
 bridge numbers its own entries after them. A before command and a command
 action keep the bridge's own environment, so they push as you.
 
