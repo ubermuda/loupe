@@ -179,6 +179,7 @@ rules:
               - not: { pr.conflicting: {} }
               - not: { pr.changes_requested: {} }
               - not: { pr.behind: {} }
+              - not: { parent.work_active: {} }
       then: { forge-write: { write: merge, fallback: merge } }
 
     - id: epic-to-review

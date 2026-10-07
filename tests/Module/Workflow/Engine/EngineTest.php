@@ -1906,6 +1906,34 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $child->column->slug);
     }
 
+    public function test_a_lifecycle_epic_child_waits_to_merge_while_a_run_of_its_epic_is_open_and_merges_when_it_ends(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-epic-child-merge-hold');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $run = $this->workerRun($epic, 'fix', WorkerRunState::Running);
+        $this->evaluate($epic);
+        self::assertFalse($this->ruleState($epic, 'breakdown-ended')->truth);
+
+        $child = $this->childOf($epic, 'in-review');
+        $pullRequest = $this->pullRequest($child, base: 'epic/'.$epic->number);
+        $pullRequest->checks = PullRequestChecks::Passed;
+        $this->em()->flush();
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertFalse($this->ruleState($child, 'merge-ready-epic-child')->truth);
+        self::assertSame([], array_filter($this->liveRequests($child), static fn (WorkRequest $request): bool => 'merge' === $request->kind));
+
+        $run->moveTo(WorkerRunState::Succeeded);
+        $this->em()->flush();
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+        self::assertContains('breakdown-ended', $this->firedRules());
+
+        self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertTrue($this->ruleState($child, 'merge-ready-epic-child')->truth);
+        $this->liveRequestOfKind($child, 'merge');
+    }
+
     public function test_a_lifecycle_child_with_an_open_blocker_stays_in_the_backlog_when_the_breakdown_of_its_epic_ends(): void
     {
         self::bootKernel();

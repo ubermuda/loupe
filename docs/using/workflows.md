@@ -158,8 +158,9 @@ An upgrade retags the existing documents. The tag `product` becomes
 
 A pull request is ready to merge when it is reviewable, an approval covers its
 head, its base is the default branch or the card's epic branch, and it has no
-conflict. A merge from the base after the approval keeps the approval. New
-commits need a new approval.
+conflict. A child pull request into its epic branch also waits while any
+worker run of the epic is open. A merge from the base after the approval keeps
+the approval. New commits need a new approval.
 
 Some rules act from any slot:
 
