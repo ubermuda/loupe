@@ -591,6 +591,8 @@ final class BridgeHeartbeatApiTest extends WebTestCase
     public function test_the_host_samples_are_stored_while_sampling_is_on(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock('2026-10-07 12:02:00'));
         $em = $this->em();
         $this->storeHostSampling('true');
         $owner = $this->user($em, 'heartbeat-samples-on@example.com');
@@ -651,6 +653,8 @@ final class BridgeHeartbeatApiTest extends WebTestCase
     public function test_a_repeated_sample_is_stored_once(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock('2026-10-07 12:02:00'));
         $em = $this->em();
         $this->storeHostSampling('true');
         $owner = $this->user($em, 'heartbeat-samples-repeat@example.com');

@@ -121,6 +121,8 @@ While the flag is off, it drops them and answers the heartbeat as usual. A
 bridge keeps the flag value it read at its last connect, so it can still send
 samples for a short time after the flag goes off. The server keeps one sample
 for each account, bridge and second, and skips a sample it already holds.
+It also drops a sample older than the `bridge.run_retention_days` window, or
+more than five minutes ahead of the server clock.
 
 A sample can arrive after the run it covers has ended. The server then updates
 the [host metrics](worker-runs.md#run-metrics) of each ended run of that bridge

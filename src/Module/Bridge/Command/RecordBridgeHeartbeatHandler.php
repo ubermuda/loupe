@@ -15,6 +15,7 @@ use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Bridge\Service\HostSampling;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunFactWriter;
+use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use App\Module\Bridge\Service\WorkRequestLease;
 use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Module\Project\Repository\ProjectRepository;
@@ -34,6 +35,9 @@ final readonly class RecordBridgeHeartbeatHandler
     /** The reply repeats the outbox offers, so it needs no more than a bridge can start soon. */
     public const int MAX_WORK_REQUEST_OFFERS = 100;
 
+    /** How far ahead of the server clock a sample may be, to allow for a small clock drift. */
+    private const string MAX_SAMPLE_LEAD = '+5 minutes';
+
     public function __construct(
         private BridgeRepository $bridges,
         private BridgeCommandRepository $bridgeCommands,
@@ -42,6 +46,7 @@ final readonly class RecordBridgeHeartbeatHandler
         private HostSampling $hostSampling,
         private WorkerRunRepository $workerRuns,
         private WorkerRunFactWriter $factWriter,
+        private WorkerRunRetentionPolicy $retention,
         private WorkRequestLease $lease,
         private ProjectRepository $projects,
         private WorkerRunChangedPublisher $runsChanged,
@@ -58,11 +63,11 @@ final readonly class RecordBridgeHeartbeatHandler
         $owned = $this->projects->findIdsOwnedBy($command->owner, $command->projects);
         $projects = array_values(array_filter($command->projects, static fn (string $id): bool => \in_array($id, $owned, true)));
         // A bridge keeps the flag value it read at connect, so it can still send samples after sampling went off.
-        $samples = $this->hostSampling->enabled() ? $command->hostSamples : [];
+        $samples = $this->hostSampling->enabled() ? $this->samplesInWindow($command->hostSamples) : [];
 
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
-        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims, $renamedIn, $samplesInserted] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects, $samples): array {
+        [$bridge, $created, $commands, $pauseChanged, $workRequests, $lostClaims, $renamedIn] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects, $samples): array {
             $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
@@ -114,11 +119,10 @@ final readonly class RecordBridgeHeartbeatHandler
                 }
             }
 
-            $samplesInserted = 0;
             if ([] !== $samples) {
                 // The sample rows point at the bridge row, so a new bridge must reach the table first.
                 $this->em->flush();
-                $samplesInserted = $this->bridgeHostSamples->insertNew($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'), $command->bridgeId, $samples);
+                $this->bridgeHostSamples->insertNew($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'), $command->bridgeId, $samples);
             }
 
             $lostClaims = [];
@@ -135,12 +139,12 @@ final readonly class RecordBridgeHeartbeatHandler
             return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now), $pauseChanged, $workRequests, $lostClaims,
                 // A project the bridge stopped following can still hold a notice that names it.
                 $heldName === $bridge->name ? [] : array_values(array_unique([...$followed, ...$projects])),
-                $samplesInserted,
             ];
         });
 
         // After the commit, because the writer locks run rows and the bridge lock must not wait on them.
-        if ($samplesInserted > 0 && [] !== $samples) {
+        // A resent batch inserts nothing and still recomputes, so a failed recompute gets a retry.
+        if ([] !== $samples) {
             $times = array_map(static fn (BridgeHostSampleReport $sample): int => $sample->sampledAt->getTimestamp(), $samples);
             $this->factWriter->upsert($this->workerRuns->findEndedIdsOnBridgeBetween(
                 $command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'),
@@ -172,5 +176,25 @@ final readonly class RecordBridgeHeartbeatHandler
         }
 
         return new RecordBridgeHeartbeatResult($bridge, CliCompatibility::RANGE, $commands, $workRequests, $lostClaims);
+    }
+
+    /**
+     * Drops the samples of a bridge with a wrong clock, so they neither escape the purge
+     * nor widen the recompute window to every run of the bridge.
+     *
+     * @param list<BridgeHostSampleReport> $samples
+     *
+     * @return list<BridgeHostSampleReport>
+     */
+    private function samplesInWindow(array $samples): array
+    {
+        $now = $this->clock->now();
+        $oldest = $now->sub(new \DateInterval('P'.$this->retention->retentionDays().'D'));
+        $latest = $now->modify(self::MAX_SAMPLE_LEAD);
+
+        return array_values(array_filter(
+            $samples,
+            static fn (BridgeHostSampleReport $sample): bool => $sample->sampledAt >= $oldest && $sample->sampledAt <= $latest,
+        ));
     }
 }

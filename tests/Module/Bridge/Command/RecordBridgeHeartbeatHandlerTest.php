@@ -12,6 +12,7 @@ use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Bridge\Service\HostSampling;
+use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Module\Bridge\ValueObject\CliInstallMethod;
@@ -430,6 +431,7 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
     public function test_the_first_heartbeat_stores_its_samples_under_the_owner(): void
     {
         self::bootKernel();
+        self::getContainer()->set('clock', new MockClock('2026-10-07 12:00:30'));
         $em = $this->em();
         $this->storeHostSampling('true');
         $owner = $this->user($em, 'heartbeat-samples-owner@example.com');
@@ -463,6 +465,7 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
     public function test_samples_rewrite_the_fact_of_an_ended_run_on_the_bridge(): void
     {
         self::bootKernel();
+        self::getContainer()->set('clock', new MockClock('2026-01-01 12:30:00'));
         $em = $this->em();
         $this->storeHostSampling('true');
         $owner = $this->user($em, 'heartbeat-samples-facts@example.com');
@@ -482,6 +485,83 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
             [(string) $inside->id => 1000, (string) $outside->id => 1],
             $em->getConnection()->fetchAllKeyValue('SELECT run_id, peak_mem_bytes FROM bridge_worker_run_facts'),
         );
+    }
+
+    public function test_a_sample_from_beyond_the_retention_window_is_dropped_and_widens_no_recompute(): void
+    {
+        self::bootKernel();
+        $now = new \DateTimeImmutable('2026-01-01 12:30:00', new \DateTimeZone('UTC'));
+        self::getContainer()->set('clock', new MockClock($now));
+        $em = $this->em();
+        $this->storeHostSampling('true');
+        $owner = $this->user($em, 'heartbeat-samples-old@example.com');
+        $project = $this->project($em, $owner, 'Old Samples');
+        $bridge = $this->seedBridge($em, $owner);
+        $run = $this->seedRun($em, $project, bridgeId: $bridge->id);
+        $em->getConnection()->executeStatement('UPDATE bridge_worker_run_facts SET peak_mem_bytes = 1 WHERE run_id = ?', [(string) $run->id]);
+        $days = $this->retention()->retentionDays();
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridge->id, [], 'b4e39aa7', hostSamples: [
+            self::sample($now->modify('-'.$days.' days -1 minute')->format('Y-m-d H:i:s')),
+            self::sample('2026-01-01 12:00:00'),
+        ]));
+        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT peak_mem_bytes FROM bridge_worker_run_facts WHERE run_id = ?', [(string) $run->id]));
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridge->id, [], 'b4e39aa7', hostSamples: [
+            self::sample($now->modify('-'.$days.' days +1 minute')->format('Y-m-d H:i:s')),
+        ]));
+
+        self::assertSame(
+            [$now->modify('-'.$days.' days +1 minute')->format('Y-m-d H:i:s'), '2026-01-01 12:00:00'],
+            $em->getConnection()->fetchFirstColumn('SELECT sampled_at FROM bridge_host_samples ORDER BY sampled_at'),
+        );
+    }
+
+    public function test_a_sample_more_than_five_minutes_ahead_of_the_server_clock_is_dropped(): void
+    {
+        self::bootKernel();
+        self::getContainer()->set('clock', new MockClock('2026-10-07 12:00:00'));
+        $em = $this->em();
+        $this->storeHostSampling('true');
+        $owner = $this->user($em, 'heartbeat-samples-future@example.com');
+        $bridgeId = Uuid::v4();
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hostSamples: [
+            self::sample('2026-10-07 12:04:59'),
+            self::sample('2026-10-07 12:05:01'),
+        ]));
+
+        self::assertSame(
+            ['2026-10-07 12:04:59'],
+            $em->getConnection()->fetchFirstColumn('SELECT sampled_at FROM bridge_host_samples'),
+        );
+    }
+
+    /** A recompute that failed after the commit must run again when the bridge resends the batch. */
+    public function test_a_resent_batch_recomputes_the_facts_again(): void
+    {
+        self::bootKernel();
+        self::getContainer()->set('clock', new MockClock('2026-01-01 12:30:00'));
+        $em = $this->em();
+        $this->storeHostSampling('true');
+        $owner = $this->user($em, 'heartbeat-samples-resend@example.com');
+        $project = $this->project($em, $owner, 'Resent Samples');
+        $bridge = $this->seedBridge($em, $owner);
+        $run = $this->seedRun($em, $project, bridgeId: $bridge->id);
+        $command = new RecordBridgeHeartbeatCommand($owner, $bridge->id, [], 'b4e39aa7', hostSamples: [self::sample('2026-01-01 10:01:00')]);
+        $this->handler()($command);
+        $em->getConnection()->executeStatement('UPDATE bridge_worker_run_facts SET peak_mem_bytes = NULL WHERE run_id = ?', [(string) $run->id]);
+
+        $this->handler()($command);
+
+        self::assertSame(1000, (int) $em->getConnection()->fetchOne('SELECT peak_mem_bytes FROM bridge_worker_run_facts WHERE run_id = ?', [(string) $run->id]));
+    }
+
+    private function retention(): WorkerRunRetentionPolicy
+    {
+        $retention = self::getContainer()->get(WorkerRunRetentionPolicy::class);
+        self::assertInstanceOf(WorkerRunRetentionPolicy::class, $retention);
+
+        return $retention;
     }
 
     private static function sample(string $at): BridgeHostSampleReport
