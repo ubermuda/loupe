@@ -9,9 +9,12 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Readiness\Command\FailDiscoveryRunCommand;
+use App\Module\Readiness\Command\FailDiscoveryRunHandler;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Engine\Engine;
+use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Tests\Module\Readiness\DiscoveryScenario;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -58,6 +61,27 @@ final class DiscoveryRuleTest extends KernelTestCase
         self::assertSame([], $this->requests($card));
     }
 
+    public function test_a_new_run_after_a_failed_one_opens_a_new_request(): void
+    {
+        self::bootKernel();
+        $card = $this->discoveryCard($this->boundProject('lifecycle'));
+        $this->discoveryRun($card, createdAt: '2026-10-02 12:00:00');
+        $this->evaluate($card, '2026-10-02 12:00:00');
+        $failDiscoveryRun = self::getContainer()->get(FailDiscoveryRunHandler::class);
+        self::assertInstanceOf(FailDiscoveryRunHandler::class, $failDiscoveryRun);
+
+        self::assertTrue($failDiscoveryRun(new FailDiscoveryRunCommand($card->id ?? throw new \LogicException('A flushed card has an id.'), 'lost')));
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $this->discoveryRun($card, createdAt: '2026-10-02 12:20:00');
+        $this->evaluate($card, '2026-10-02 12:20:00');
+
+        $requests = $this->requests($card);
+        self::assertSame([WorkRequestState::Cancelled, WorkRequestState::Open], array_map(static fn (WorkRequest $request): WorkRequestState => $request->state, $requests));
+        $ruleStates = self::getContainer()->get(WorkflowRuleStateRepository::class);
+        self::assertInstanceOf(WorkflowRuleStateRepository::class, $ruleStates);
+        self::assertSame(2, $ruleStates->findForCard($card)['discovery']->fires);
+    }
+
     public function test_a_requested_run_outside_the_backlog_opens_no_request(): void
     {
         self::bootKernel();
@@ -101,6 +125,6 @@ final class DiscoveryRuleTest extends KernelTestCase
         $repository = self::getContainer()->get(WorkRequestRepository::class);
         self::assertInstanceOf(WorkRequestRepository::class, $repository);
 
-        return array_values($repository->findBy(['subjectId' => $card->id]));
+        return array_values($repository->findBy(['subjectId' => $card->id], ['createdAt' => 'ASC', 'id' => 'ASC']));
     }
 }
