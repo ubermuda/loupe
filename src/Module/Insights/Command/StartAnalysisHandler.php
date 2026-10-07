@@ -128,10 +128,27 @@ final readonly class StartAnalysisHandler
         return $analysis;
     }
 
-    /** A failed transaction closes the entity manager, so the write goes through the connection. */
+    /**
+     * A failed transaction closes the entity manager, so the writes go through the connection.
+     * A failure after the request committed keeps the analysis live, because a bridge can still claim it.
+     */
     private function failUnflushed(Uuid $analysisId): void
     {
-        $this->em->getConnection()->executeStatement(
+        $connection = $this->em->getConnection();
+        $committed = $connection->fetchOne(
+            'SELECT id FROM work_requests WHERE subject_type = :type AND subject_id = :id ORDER BY created_at DESC LIMIT 1',
+            ['type' => Analysis::SUBJECT_TYPE, 'id' => $analysisId->toRfc4122()],
+        );
+        if (\is_string($committed)) {
+            $connection->executeStatement(
+                'UPDATE insights_analyses SET work_request_id = :request WHERE id = :id',
+                ['request' => $committed, 'id' => $analysisId->toRfc4122()],
+            );
+
+            return;
+        }
+
+        $connection->executeStatement(
             'UPDATE insights_analyses SET state = :failed, reason = :reason, finished_at = :now WHERE id = :id AND state = :waiting',
             [
                 'failed' => AnalysisState::Failed->value,

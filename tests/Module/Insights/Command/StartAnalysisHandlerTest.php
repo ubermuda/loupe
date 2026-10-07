@@ -9,6 +9,7 @@ use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Insights\Command\StartAnalysisCommand;
@@ -24,6 +25,7 @@ use App\Outbox\OutboxWriter;
 use App\Tests\Module\Insights\InsightsScenario;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Ubermuda\AuditBundle\Auditor;
@@ -185,6 +187,41 @@ final class StartAnalysisHandlerTest extends KernelTestCase
             'finished_at' => self::NOW,
             'work_request_id' => null,
         ]], $rows);
+    }
+
+    public function test_a_failure_after_the_work_request_committed_keeps_the_analysis_waiting(): void
+    {
+        $project = $this->scenarioProject('start-analysis-announce-fails');
+        $events = $this->createStub(EventDispatcherInterface::class);
+        $events->method('dispatch')->willThrowException(new \RuntimeException('hub gone'));
+        $announcer = new WorkRequestAnnouncer($events, $this->service(WorkerRunChangedPublisher::class));
+        $failing = new OpenWorkRequestHandler(
+            $this->service(WorkRequestRepository::class),
+            $this->service(OutboxWriter::class),
+            $this->em(),
+            new MockClock(self::NOW),
+            $this->service(Auditor::class),
+            $announcer,
+            $this->service(WorkerRunRepository::class),
+            $this->service(WorkSubjectHandlers::class),
+        );
+        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class));
+
+        try {
+            $handler(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All));
+            self::fail('Expected the failure to propagate.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('hub gone', $e->getMessage());
+        }
+
+        $row = $this->em()->getConnection()->fetchAssociative(
+            'SELECT a.state, a.reason, a.work_request_id, w.id AS request_id FROM insights_analyses a JOIN work_requests w ON w.subject_id = a.id WHERE a.project_id = ?',
+            [(string) $project->id],
+        );
+        self::assertIsArray($row);
+        self::assertSame(AnalysisState::Waiting->value, $row['state']);
+        self::assertNull($row['reason']);
+        self::assertSame($row['request_id'], $row['work_request_id']);
     }
 
     private function handler(): StartAnalysisHandler
