@@ -8,6 +8,7 @@ use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Security\ProjectScopedSubject;
+use App\Utils\GitHubLogin;
 use App\Utils\Slug;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -21,6 +22,9 @@ use Symfony\Component\Uid\Uuid;
 class Project implements ProjectScopedSubject
 {
     public const string SLUG_CONSTRAINT = 'uniq_project_owner_slug';
+    public const int MAX_NAME_LENGTH = 100;
+    public const int MAX_DOMAIN_LENGTH = 255;
+    public const int MAX_DESCRIPTION_LENGTH = 500;
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -60,12 +64,24 @@ class Project implements ProjectScopedSubject
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     public ?string $slug = null;
 
+    /** Set when the owner hides the readiness guide, or by the backfill for a board already in use. */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $readinessGuideHiddenAt = null;
+
+    /** The first time an MCP request resolved this project. ProjectRepository::markAgentSeen() writes it. */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $agentFirstSeenAt = null;
+
+    /** The GitHub user the agents of this project push as. The owner records it on the agent account page. */
+    #[ORM\Column(name: 'agent_github_login', length: GitHubLogin::MAX_LENGTH, nullable: true)]
+    public ?string $agentGitHubLogin = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: User::class)]
         public readonly User $owner,
 
-        #[ORM\Column(length: 100)]
+        #[ORM\Column(length: self::MAX_NAME_LENGTH)]
         public string $name {
             set(string $name) {
                 $this->slug = Slug::forName($name, $this->slug);
@@ -73,7 +89,7 @@ class Project implements ProjectScopedSubject
             }
         },
 
-        #[ORM\Column(length: 255, nullable: true)]
+        #[ORM\Column(length: self::MAX_DOMAIN_LENGTH, nullable: true)]
         public ?string $domain = null,
 
         #[ORM\Column]

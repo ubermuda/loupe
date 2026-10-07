@@ -231,6 +231,75 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         self::assertSame(ProjectRefusal::Unbound, $this->resolver->mcpResolution()->refusal);
     }
 
+    public function test_the_first_mcp_resolution_stamps_when_the_agent_first_reached_the_project(): void
+    {
+        $project = $this->project('agent-first-seen');
+        $this->em->flush();
+        $this->tokenStorage->setToken($this->credentialNaming($project, ApiScope::Mcp));
+
+        self::assertSame($project, $this->resolver->mcpResolution()->project);
+
+        self::assertNotNull($project->agentFirstSeenAt);
+        self::assertSame($project->agentFirstSeenAt->format('Y-m-d H:i:s'), $this->storedAgentFirstSeenAt($project));
+        $unitOfWork = $this->em->getUnitOfWork();
+        $unitOfWork->computeChangeSets();
+        self::assertSame([], $unitOfWork->getEntityChangeSet($project), 'the stamp must not leave the project dirty for a later flush');
+    }
+
+    public function test_a_project_whose_stamp_is_already_loaded_is_not_stamped_again(): void
+    {
+        $project = $this->project('agent-seen-twice');
+        $this->em->flush();
+        $this->tokenStorage->setToken($this->credentialNaming($project, ApiScope::Mcp));
+        $this->resolver->mcpResolution();
+        $this->em->getConnection()->executeStatement(
+            "UPDATE projects SET agent_first_seen_at = '2026-01-02 03:04:05' WHERE id = :id",
+            ['id' => (string) $project->id],
+        );
+        $project->agentFirstSeenAt = new \DateTimeImmutable('2026-01-02 03:04:05');
+
+        self::assertSame($project, $this->resolver->mcpResolution()->project);
+
+        self::assertSame('2026-01-02 03:04:05', $this->storedAgentFirstSeenAt($project));
+        self::assertNotNull($project->agentFirstSeenAt);
+        self::assertSame('2026-01-02 03:04:05', $project->agentFirstSeenAt->format('Y-m-d H:i:s'));
+    }
+
+    public function test_a_stamp_another_request_wrote_first_is_kept(): void
+    {
+        $project = $this->project('agent-seen-elsewhere');
+        $this->em->flush();
+        $this->em->getConnection()->executeStatement(
+            "UPDATE projects SET agent_first_seen_at = '2026-01-02 03:04:05' WHERE id = :id",
+            ['id' => (string) $project->id],
+        );
+        $this->tokenStorage->setToken($this->credentialNaming($project, ApiScope::Mcp));
+
+        $this->resolver->mcpResolution();
+
+        self::assertSame('2026-01-02 03:04:05', $this->storedAgentFirstSeenAt($project));
+    }
+
+    public function test_a_widget_resolution_does_not_stamp(): void
+    {
+        $project = $this->project('widget-not-agent');
+        $this->em->flush();
+        $this->tokenStorage->setToken($this->credentialNaming($project, ApiScope::SiteReview));
+
+        self::assertSame($project, $this->resolver->resolveWidgetProject());
+
+        self::assertNull($project->agentFirstSeenAt);
+        self::assertNull($this->storedAgentFirstSeenAt($project));
+    }
+
+    private function storedAgentFirstSeenAt(Project $project): ?string
+    {
+        $value = $this->em->getConnection()->fetchOne('SELECT agent_first_seen_at FROM projects WHERE id = :id', ['id' => (string) $project->id]);
+        self::assertTrue(null === $value || \is_string($value));
+
+        return $value;
+    }
+
     private function project(string $name): Project
     {
         $owner = new User(fullName: 'U', email: 'resolver-'.$name.'@example.com', password: 'x');

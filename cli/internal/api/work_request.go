@@ -45,6 +45,10 @@ type WorkRequest struct {
 	// ResumeSessionID is the session of an unfinished run of the card and
 	// kind, which the run of this request resumes. A null decodes as "".
 	ResumeSessionID string `json:"resumeSessionId,omitempty"`
+	// Prompt is the app prompt of the kind, with the placeholders of a work
+	// entry. A bridge that sets appPrompts runs it for a kind its work map does
+	// not hold. A null decodes as "".
+	Prompt string `json:"prompt,omitempty"`
 	// Context is what the card held when the request opened.
 	Context WorkRequestContext `json:"context"`
 	// Model and Effort are what the run asks claude for. Model wins over the

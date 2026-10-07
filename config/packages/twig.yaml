@@ -23,6 +23,7 @@ twig:
         '%kernel.project_dir%/templates/Module/Legal': 'Legal'
         '%kernel.project_dir%/templates/Module/OAuth': 'OAuth'
         '%kernel.project_dir%/templates/Module/Project': 'Project'
+        '%kernel.project_dir%/templates/Module/Readiness': 'Readiness'
         '%kernel.project_dir%/templates/Module/Review': 'Review'
         '%kernel.project_dir%/templates/Module/SiteReview': 'SiteReview'
         '%kernel.project_dir%/templates/Module/Workflow': 'Workflow'

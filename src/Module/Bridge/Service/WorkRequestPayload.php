@@ -21,7 +21,7 @@ final class WorkRequestPayload
     public static function of(WorkRequest $request): array
     {
         // Every key is a contract with the bridge, and every subscriber of the project reads this.
-        // Ids, names and context values of a strict shape only, and never the claim token.
+        // Ids, names, context values of a strict shape and the text of an app prompt, never the claim token.
         return [
             'type' => BridgeEventType::WORK_REQUEST,
             'projectId' => (string) $request->project->id,
@@ -40,6 +40,7 @@ final class WorkRequestPayload
             'context' => $request->context->toArray(),
             'model' => $request->model,
             'effort' => $request->effort,
+            'prompt' => $request->prompt,
         ];
     }
 }

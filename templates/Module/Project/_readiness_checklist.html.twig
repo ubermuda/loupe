@@ -1,0 +1,31 @@
+{#- The readiness checklist. Props: project, readiness, layout (full or sidebar). The sidebar carries its own hide control. -#}
+<section class="lp-readiness-checklist"{% if layout == 'sidebar' %} data-readiness-guide data-readiness-layout="sidebar"{% endif %} aria-labelledby="readiness-checklist-title">
+    <div class="lp-section-heading">
+        <div>
+            <h2 class="lp-workshop-section__title" id="readiness-checklist-title">{{ 'readiness.guide.title'|trans }}</h2>
+            <p class="lp-readiness-checklist__count">{{ 'readiness.guide.count'|trans({'%done%': readiness.doneCount, '%total%': readiness.total}) }}</p>
+        </div>
+        {% if layout == 'sidebar' %}
+        <form method="post" action="{{ path('app_readiness_guide_hide', {id: project.id}) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('readiness-guide-hide') }}">
+            <button type="submit" class="lp-workshop-icon-link" aria-label="{{ 'readiness.guide.hide'|trans }}" data-readiness-hide><twig:ux:icon name="lucide:x" /></button>
+        </form>
+        {% endif %}
+    </div>
+    <ul class="lp-readiness-checklist__list">
+        {% for row in readiness.rows %}
+        <li class="lp-readiness-row" data-readiness-row="{{ row.key }}" data-readiness-done="{{ row.done ? 1 : 0 }}"{% if row.discoveryState is not null %} data-readiness-discovery-state="{{ row.discoveryState }}"{% endif %}>
+            <span class="lp-readiness-row__mark">{% if row.done %}<twig:ux:icon name="lucide:circle-check" />{% else %}<twig:ux:icon name="lucide:circle" />{% endif %}</span>
+            <span class="lp-readiness-row__text"><strong>{{ row.label|trans }}</strong><small>{{ row.detail is not null ? row.detail|trans : row.status|trans(row.statusParameters) }}</small></span>
+            {% if row.actionUrl and row.actionCsrfTokenId %}
+            <form class="lp-readiness-row__action" method="post" action="{{ row.actionUrl }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token(row.actionCsrfTokenId) }}">
+                <button type="submit" class="lp-workshop-text-link" data-readiness-action>{{ row.actionLabel|trans }} <twig:ux:icon name="lucide:chevron-right" /></button>
+            </form>
+            {% elseif row.actionUrl %}
+            <a class="lp-workshop-text-link lp-readiness-row__action" href="{{ row.actionUrl }}">{{ row.actionLabel|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>

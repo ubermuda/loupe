@@ -49,6 +49,11 @@ type router struct {
 	projects []string
 	topic    string
 	worker   workerOps
+	// agent is the GitHub user that each claude worker pushes as, or nil.
+	// pushLogin is the login GitHub gave for its token at start, and "" when
+	// none was checked. Neither changes after start.
+	agent     *config.AgentAccount
+	pushLogin string
 	// bridgeID names the bridge in every report it sends. With none, as in
 	// most tests, the bridge sends no report.
 	bridgeID string
@@ -944,7 +949,9 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 			r.stopLiveLocked(r.live[p.runID])
 		}
 	}
-	res := r.worker.run(r.workerContext(), p.spec, onStart)
+	spec := p.spec
+	spec.agent = r.agent
+	res := r.worker.run(r.workerContext(), spec, onStart)
 	// A claude that never started made no run directory, so the files of the
 	// before command are what remains.
 	res.dir = cmp.Or(res.dir, beforeDir)
