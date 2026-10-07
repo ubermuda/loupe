@@ -538,10 +538,15 @@ final readonly class TemplateParser
 
             return null;
         }
+        $backoffMinutes = self::backoffMinutes($value['backoffMinutes'] ?? null);
+        if (null === $backoffMinutes) {
+            $errors[] = 'onWorkFailed.backoffMinutes: must be a list of positive integers';
 
+            return null;
+        }
         $repair = $value['repair'] ?? null;
         if (null === $repair) {
-            return new WorkFailurePolicy($retryOn, $retries);
+            return new WorkFailurePolicy($retryOn, $retries, $backoffMinutes);
         }
         $repairKind = \is_array($repair) ? ($repair['kind'] ?? null) : null;
         if (!\is_string($repairKind)) {
@@ -555,7 +560,7 @@ final readonly class TemplateParser
             return null;
         }
 
-        return new WorkFailurePolicy($retryOn, $retries, $repairKind);
+        return new WorkFailurePolicy($retryOn, $retries, $backoffMinutes, $repairKind);
     }
 
     /** @return ?list<int> */

@@ -190,9 +190,9 @@ final readonly class Engine
     }
 
     /**
-     * Reads how the last request of each rule settled. A done request clears the attempts. A refused one earns a retry,
-     * or pauses the card when its code earns none or the retries are used up. When they are used up, a template with
-     * a repair kind first opens one repair request. A template with no onWorkFailed block reads nothing.
+     * Reads how the last request of each rule settled. A done request clears the attempts. A refused one earns a retry after
+     * the next delay of the onWorkFailed block, or pauses the card when its code earns none or the retries or delays are used up.
+     * When they are used up, a template with a repair kind first opens one repair request. A template with no onWorkFailed block reads nothing.
      */
     private function readSettledRequests(Evaluation $run): void
     {
@@ -267,7 +267,7 @@ final readonly class Engine
                 ++$state->attempts;
                 // The failed run did no work of its own, so a retry never uses a request of the work limit.
                 $state->fires = max(0, $state->fires - 1);
-                $backoff = $run->template->backoffMinutes[$state->attempts - 1] ?? null;
+                $backoff = $policy->backoffMinutes[$state->attempts - 1] ?? null;
                 if ($state->attempts > $policy->retries || null === $backoff) {
                     $state->dueAt = null;
                     if (null !== $policy->repairKind && !$state->repaired) {

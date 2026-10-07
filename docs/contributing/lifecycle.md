@@ -295,9 +295,8 @@ setting off, a request for `rebase-stacked` work waits for a bridge with that
 entry, and then pauses the card.
 
 The `fix` round fixes the conflict, each failing check and each open review
-item, pushes, and reports `waiting`. When the workflow retries a fix that ended
-`unfinished`, the request names the session to resume, and the bridge resumes
-it. The `merge` and `sync` entries take the one open pull request of the card.
+item, pushes, and reports `waiting`. A fix that ends `unfinished` pauses the
+card, because Lifecycle retries only `failed` and `timeout`. The `merge` and `sync` entries take the one open pull request of the card.
 The merge reads the pull request again before it merges: the same head, an
 approval, and every required check green. The approval must also cover every
 commit after it, read by time. A sync merge from the base passes, with or
@@ -393,9 +392,9 @@ sets `status` from its `STAGE RESULT:` form, as the table in
 says. The **Runs** tab of the Activity page, at `/projects/{id}/worker-runs`,
 shows the status and the summary.
 
-A run that ends `unfinished` refuses its work request, and the workflow retries
-it, on the same session. After the last retry the workflow pauses the card, and
-the owner's inbox gets an item. A **Blocked** run puts a warning on its card
+A run that ends `unfinished` refuses its work request. Lifecycle retries only
+`failed` and `timeout`, so the workflow pauses the card at once, and the
+owner's inbox gets an item. A **Blocked** run puts a warning on its card
 until a later run of the card ends another way.
 
 A worker that ends `not ready` or `blocked:` on a pull request posts a refusal

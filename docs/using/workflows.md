@@ -65,14 +65,14 @@ after 6 hours. After the last retry the card pauses, and the owner's inbox gets
 an item that names the reason.
 
 A bridge can settle a work request as refused, for example when its worker run
-fails. In Lifecycle, the workflow then retries the work once, after 10 minutes,
-when the refusal code is `failed`, `timeout`, `unfinished`, `work-remains`,
-`tool-unavailable` or `worktree-failed`. A retry of an unfinished run resumes
-its session. A retry never counts toward the work limit of a fix rule. When the
-retry also fails, the workflow starts a repair, as the next paragraphs say. Any
-other refusal code pauses the card at once with "the worker stopped and needs a
-person". The board marks a card whose latest worker run failed or ended with no
-result, until a later run ends in another state.
+fails. In Lifecycle, the workflow then retries the work up to three times,
+after 2, 3 and 5 minutes, when the refusal code is `failed` or `timeout`. A
+retry never counts toward the work limit of a fix rule. When the third retry
+also fails, the workflow starts a repair, as the next paragraphs say. Any other
+refusal code, such as `unfinished` or `work-remains`, pauses the card at once
+with "the worker stopped and needs a person". The board marks a card whose
+latest worker run failed or ended with no result, until a later run ends in
+another state.
 
 When the retries run out, the workflow opens one `repair` work request for the
 card. The request names the failed rule in `{ruleId}`, and the last refusal
@@ -92,13 +92,14 @@ The template sets this behaviour in its `onWorkFailed` block:
 
 ```yaml
 onWorkFailed:
-    retryOn: [failed, timeout, unfinished, work-remains, tool-unavailable, worktree-failed]
-    retries: 1
+    retryOn: [failed, timeout]
+    retries: 3
+    backoffMinutes: [2, 3, 5]
     repair: { kind: repair }
 ```
 
 `retryOn` lists the refusal codes that retry, and `retries` counts the retries
-before the repair. The delays come from the start of `backoffMinutes`. `repair`
+before the repair. `backoffMinutes` gives the wait before each retry. `repair`
 names the kind of the repair request. A template with no `repair` key pauses
 the card when the retries run out. A template with no `onWorkFailed` block
 neither retries nor pauses after a refused request.

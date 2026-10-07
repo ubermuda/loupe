@@ -7344,6 +7344,7 @@
             <trans-unit id="workflow.settings.moves.none"><source>workflow.settings.moves.none</source><target>This template allows no manual moves.</target></trans-unit>
             <trans-unit id="workflow.settings.timings.heading"><source>workflow.settings.timings.heading</source><target>Retry timings</target></trans-unit>
             <trans-unit id="workflow.settings.timings.backoff"><source>workflow.settings.timings.backoff</source><target>Retry delays: %minutes% minutes</target></trans-unit>
+            <trans-unit id="workflow.settings.timings.work_failed_backoff"><source>workflow.settings.timings.work_failed_backoff</source><target>Retries after failed work: %minutes% minutes</target></trans-unit>
             <trans-unit id="workflow.settings.timings.work_timeout"><source>workflow.settings.timings.work_timeout</source><target>Work timeout: %minutes% minutes</target></trans-unit>
             <trans-unit id="workflow.bind.error.already_bound"><source>workflow.bind.error.already_bound</source><target>This project already runs a workflow template.</target></trans-unit>
             <trans-unit id="workflow.bind.error.unknown_template"><source>workflow.bind.error.unknown_template</source><target>No workflow template has this key.</target></trans-unit>

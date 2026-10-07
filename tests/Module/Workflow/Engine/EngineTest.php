@@ -109,7 +109,7 @@ final class EngineTest extends KernelTestCase
 
     private const array PROVIDED_READY = [ProvidedFactsReady::KEY => []];
 
-    private const array REPAIR = ['retryOn' => ['failed', 'timeout'], 'retries' => 1, 'repair' => ['kind' => 'repair']];
+    private const array REPAIR = ['retryOn' => ['failed', 'timeout'], 'retries' => 1, 'backoffMinutes' => [10, 60], 'repair' => ['kind' => 'repair']];
 
     /** @var list<CardPaused> */
     private array $paused = [];
@@ -192,7 +192,7 @@ final class EngineTest extends KernelTestCase
 
     public function test_a_refused_request_is_retried_when_due_and_the_card_pauses_when_the_retries_run_out(): void
     {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [10, 60]]);
         $this->evaluate($card);
         $first = $this->liveRequests($card)[0];
 
@@ -231,7 +231,7 @@ final class EngineTest extends KernelTestCase
 
     public function test_a_refusal_code_that_the_template_does_not_retry_pauses_the_card_at_once(): void
     {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [10, 60]]);
         $this->evaluate($card);
 
         $this->refuse($this->liveRequests($card)[0], 'needs-person', '2026-10-02 12:20:00');
@@ -245,7 +245,7 @@ final class EngineTest extends KernelTestCase
 
     public function test_a_work_stopped_pause_that_a_person_releases_does_not_pause_the_card_again_on_the_old_refusal(): void
     {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [10, 60]]);
         $this->evaluate($card);
         $this->refuse($this->liveRequests($card)[0], 'needs-person', '2026-10-02 12:20:00');
         $this->evaluate($card, '2026-10-02 12:21:00');
@@ -268,7 +268,7 @@ final class EngineTest extends KernelTestCase
                 'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['card.type' => ['type' => 'security']]]],
             ],
             self::requestRule('work', self::ALWAYS),
-        ], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        ], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [10, 60]]);
         $this->evaluate($card);
         $request = $this->liveRequests($card)[0];
         $this->setType($card, CardType::Bug);
@@ -286,7 +286,7 @@ final class EngineTest extends KernelTestCase
 
     public function test_releasing_a_hold_clears_the_tracked_request(): void
     {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1]);
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [10, 60]]);
         $this->evaluate($card);
         $this->refuse($this->liveRequests($card)[0], 'needs-person', '2026-10-02 12:20:00');
         $this->hold($card);
@@ -297,7 +297,7 @@ final class EngineTest extends KernelTestCase
 
     public function test_a_done_request_clears_the_attempts_of_a_retry(): void
     {
-        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 2]);
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 2, 'backoffMinutes' => [10, 60]]);
         $this->evaluate($card);
         $this->refuse($this->liveRequests($card)[0], 'failed', '2026-10-02 12:20:00');
         $this->evaluate($card, '2026-10-02 12:21:00');
@@ -313,7 +313,7 @@ final class EngineTest extends KernelTestCase
 
     public function test_a_retry_does_not_use_a_request_of_the_work_limit(): void
     {
-        $card = $this->boundCard([self::requestRule('fix', self::ALWAYS, limit: 1)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 2]);
+        $card = $this->boundCard([self::requestRule('fix', self::ALWAYS, limit: 1)], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 2, 'backoffMinutes' => [10, 60]]);
         $this->evaluate($card);
         $this->refuse($this->liveRequests($card)[0], 'failed', '2026-10-02 12:20:00');
         $this->evaluate($card, '2026-10-02 12:21:00');
@@ -321,6 +321,39 @@ final class EngineTest extends KernelTestCase
 
         self::assertNull($this->activePause($card));
         self::assertCount(1, $this->liveRequests($card));
+    }
+
+    public function test_a_retry_waits_for_the_delay_of_the_failure_block_and_the_card_pauses_after_the_last_retry(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed', 'timeout'], 'retries' => 3, 'backoffMinutes' => [2, 3, 5]]);
+        $this->evaluate($card);
+
+        foreach (['12:12:00' => '12:10:00', '12:23:00' => '12:20:00', '12:35:00' => '12:30:00'] as $due => $refused) {
+            self::assertNull($this->activePause($card));
+            $this->refuse($this->liveRequests($card)[0], 'failed', '2026-10-02 '.$refused);
+            $this->evaluate($card, '2026-10-02 '.$refused);
+            self::assertSame('2026-10-02 '.$due, $this->ruleState($card, 'work')->dueAt?->format('Y-m-d H:i:s'));
+            $this->evaluate($card, '2026-10-02 '.$due);
+        }
+
+        $this->refuse($this->liveRequests($card)[0], 'failed', '2026-10-02 12:40:00');
+        $this->evaluate($card, '2026-10-02 12:40:00');
+
+        self::assertSame(CardPauseKind::Retries, $this->activePause($card)?->kind);
+        self::assertSame(4, $this->ruleState($card, 'work')->attempts);
+    }
+
+    public function test_a_refusal_code_outside_the_retry_list_pauses_the_card_with_no_retry(): void
+    {
+        $card = $this->boundCard([self::requestRule('work', self::ALWAYS)], onWorkFailed: ['retryOn' => ['failed', 'timeout'], 'retries' => 3, 'backoffMinutes' => [2, 3, 5]]);
+        $this->evaluate($card);
+
+        $this->refuse($this->liveRequests($card)[0], 'unfinished', '2026-10-02 12:20:00');
+        $this->evaluate($card, '2026-10-02 12:21:00');
+
+        $pause = $this->activePause($card);
+        self::assertSame([CardPauseKind::WorkStopped, 'unfinished'], [$pause?->kind, $pause?->reason]);
+        self::assertSame(0, $this->ruleState($card, 'work')->attempts);
     }
 
     public function test_a_template_with_no_failure_block_ignores_a_refused_request(): void
