@@ -977,7 +977,10 @@ The bridge reports each launch to
 card as the subject, with `subjectType` `card`, `subjectId` and `cardNumber`. An
 interactive run is about a card, so the server answers 422 to any other subject
 type. A good launch opens an interactive run in the state `running`, with the
-work kind and the bridge id.
+work kind and the bridge id. The report can also carry `harness`, `account`,
+`model` and `harnessSessionId`, with the rules of the
+[run state report](../reference/worker-runs.md#reporting-a-run-state). A retry
+of the launch report fills these fields on the run it finds.
 The session's `/loupe:product-design` skill calls `card_run_open` with the same
 session id, and takes over that run. So the
 [Runs tab](../using/worker-runs.md#interactive-sessions) of the Activity page

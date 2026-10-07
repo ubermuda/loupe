@@ -684,6 +684,57 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertCount(0, $this->publishedRunsChanged());
     }
 
+    /** An open Runs page shows the harness fields, so a repeat that fills one must reload it. */
+    public function test_a_repeat_that_names_the_harness_tells_the_runs_page(): void
+    {
+        self::bootKernel();
+        $this->recordRunsChanged();
+        [$owner, $project] = $this->scenario('handler-harness-publish');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, harness: 'codex');
+        self::assertCount(1, $this->publishedRunsChanged());
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, harness: 'codex');
+        self::assertCount(0, $this->publishedRunsChanged());
+
+        $repeat = $this->report($owner, $project, $runKey, WorkerRunState::Queued, harnessSessionId: 'thread-1');
+
+        self::assertFalse($repeat->newState);
+        self::assertCount(1, $this->publishedRunsChanged());
+    }
+
+    /** Codex names its thread only after it starts, and the model can come with the outcome. */
+    public function test_a_later_report_fills_the_harness_fields_and_a_null_keeps_them(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-harness');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, harness: 'codex', account: 'work');
+        $repeat = $this->report($owner, $project, $runKey, WorkerRunState::Queued, harnessSessionId: 'thread-1');
+        self::assertFalse($repeat->newState);
+        $this->report($owner, $project, $runKey, WorkerRunState::Running);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded, model: 'gpt-5')->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        $this->em()->clear();
+        $stored = $this->em()->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $stored);
+        self::assertSame(['codex', 'work', 'gpt-5', 'thread-1'], [$stored->harness, $stored->account, $stored->model, $stored->harnessSessionId]);
+    }
+
+    public function test_a_run_that_never_started_stores_its_harness(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-harness-not-started');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::NotStarted, harness: 'codex', account: 'work')->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(['codex', 'work'], [$run->harness, $run->account]);
+    }
+
     public function test_the_running_report_stores_the_experiment(): void
     {
         self::bootKernel();
@@ -949,6 +1000,10 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?WorkerRunReason $resultReason = null,
         ?Uuid $workRequestId = null,
         ?string $ruleId = null,
+        ?string $harness = null,
+        ?string $account = null,
+        ?string $model = null,
+        ?string $harnessSessionId = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -994,6 +1049,10 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             variant: $experiment['variant'] ?? null,
             requestedModel: $experiment['requestedModel'] ?? null,
             switchedFrom: $experiment['switchedFrom'] ?? null,
+            harness: $harness,
+            account: $account,
+            model: $model,
+            harnessSessionId: $harnessSessionId,
         ));
     }
 

@@ -83,6 +83,25 @@ class WorkerRun implements ProjectScopedSubject
 
     public const int MAX_REQUESTED_MODEL_LENGTH = 100;
 
+    public const int MAX_HARNESS_LENGTH = 40;
+
+    /** The name of a harness, such as claude-code or codex. */
+    public const string HARNESS_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
+
+    public const int MAX_ACCOUNT_LENGTH = 64;
+
+    /** The short name of a harness account. Never a path or a key. */
+    public const string ACCOUNT_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/D';
+
+    public const int MAX_MODEL_LENGTH = 100;
+
+    /** A model name has no control characters. */
+    public const string MODEL_PATTERN = '/^[^\p{C}]+$/uD';
+
+    public const int MAX_HARNESS_SESSION_ID_LENGTH = 100;
+
+    public const string HARNESS_SESSION_ID_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/D';
+
     public const int MAX_EXPERIMENT_NAME_LENGTH = 64;
 
     /** The name of an experiment or of one of its variants, bare for a route requirement. */
@@ -148,6 +167,22 @@ class WorkerRun implements ProjectScopedSubject
     /** The variant the card was pinned to before this run, when the rule no longer offered it. */
     #[ORM\Column(name: 'switched_from', length: self::MAX_EXPERIMENT_NAME_LENGTH, nullable: true)]
     public ?string $switchedFrom = null;
+
+    /** The harness that ran the run, such as claude-code or codex. Null from an older bridge. */
+    #[ORM\Column(name: 'harness', length: self::MAX_HARNESS_LENGTH, nullable: true)]
+    public ?string $harness = null;
+
+    /** The named harness account the run used. Null from an older bridge. */
+    #[ORM\Column(name: 'account', length: self::MAX_ACCOUNT_LENGTH, nullable: true)]
+    public ?string $account = null;
+
+    /** The model the harness ran. Null until the bridge names it. */
+    #[ORM\Column(name: 'model', length: self::MAX_MODEL_LENGTH, nullable: true)]
+    public ?string $model = null;
+
+    /** The harness's own id for the session, such as a Codex thread id. Loupe's own id stays in $sessionId. */
+    #[ORM\Column(name: 'harness_session_id', length: self::MAX_HARNESS_SESSION_ID_LENGTH, nullable: true)]
+    public ?string $harnessSessionId = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
@@ -253,6 +288,18 @@ class WorkerRun implements ProjectScopedSubject
         $this->state = WorkerRunState::Running;
         $this->sessionId = $sessionId;
         $this->startedAt = $startedAt;
+    }
+
+    /** A null keeps the stored value, because a value can arrive in a later report. Returns whether a field changed. */
+    public function recordHarness(?string $harness, ?string $account, ?string $model, ?string $harnessSessionId): bool
+    {
+        $before = [$this->harness, $this->account, $this->model, $this->harnessSessionId];
+        $this->harness = $harness ?? $this->harness;
+        $this->account = $account ?? $this->account;
+        $this->model = $model ?? $this->model;
+        $this->harnessSessionId = $harnessSessionId ?? $this->harnessSessionId;
+
+        return $before !== [$this->harness, $this->account, $this->model, $this->harnessSessionId];
     }
 
     /** A stop carries no exit code. A null output keeps the output the run holds. */

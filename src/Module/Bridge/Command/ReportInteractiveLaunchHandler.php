@@ -33,6 +33,10 @@ final readonly class ReportInteractiveLaunchHandler
                 $command->bridgeId,
                 $command->workRequestId,
                 $command->ruleId,
+                $command->harness,
+                $command->account,
+                $command->model,
+                $command->harnessSessionId,
             ),
             WorkerRunState::NotStarted => $this->interactiveRuns->recordLaunchFailure(
                 $project,
@@ -45,6 +49,10 @@ final readonly class ReportInteractiveLaunchHandler
                 $command->at,
                 $command->workRequestId,
                 $command->ruleId,
+                $command->harness,
+                $command->account,
+                $command->model,
+                $command->harnessSessionId,
             ),
             default => throw new \LogicException(\sprintf('A launch is running or not-started, never %s.', $command->state->value)),
         };

@@ -139,6 +139,35 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertSame([(string) $run->id], array_column($result['runs'], 'runId'));
     }
 
+    public function test_each_row_carries_the_harness_account_model_and_harness_session(): void
+    {
+        [$project] = $this->projects('list-harness-fields');
+        $this->seedRun($this->em(), $project, harness: 'codex', account: 'work', model: 'gpt-5', harnessSessionId: 'thread_abc123');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $row = $this->listTool()()['runs'][0];
+
+        self::assertSame(
+            ['harness' => 'codex', 'account' => 'work', 'model' => 'gpt-5', 'harnessSessionId' => 'thread_abc123'],
+            array_intersect_key($row, array_flip(['harness', 'account', 'model', 'harnessSessionId'])),
+        );
+    }
+
+    public function test_the_list_filters_by_harness_account_and_model(): void
+    {
+        [$project] = $this->projects('list-harness');
+        $em = $this->em();
+        $codex = $this->seedRun($em, $project, harness: 'codex', account: 'work', model: 'gpt-5');
+        $claude = $this->seedRun($em, $project, harness: 'claude-code', account: 'home', model: 'opus');
+        $this->seedRun($em, $project);
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame([(string) $codex->id], array_column($this->listTool()(harness: ' codex ')['runs'], 'runId'));
+        self::assertSame([(string) $claude->id], array_column($this->listTool()(account: 'home')['runs'], 'runId'));
+        self::assertSame([(string) $codex->id], array_column($this->listTool()(model: 'gpt-5')['runs'], 'runId'));
+        self::assertSame(3, $this->listTool()(harness: ' ', account: '', model: '')['total']);
+    }
+
     public function test_an_unknown_state_is_refused_with_the_valid_states(): void
     {
         [$project] = $this->projects('list-state');

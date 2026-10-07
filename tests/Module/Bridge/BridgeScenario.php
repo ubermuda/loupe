@@ -81,6 +81,10 @@ trait BridgeScenario
         ?Uuid $workRequestId = null,
         \DateTimeImmutable $endedAt = new \DateTimeImmutable('2026-01-01 10:05:00'),
         string $subjectType = WorkSubject::CARD,
+        ?string $harness = null,
+        ?string $account = null,
+        ?string $model = null,
+        ?string $harnessSessionId = null,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -103,6 +107,7 @@ trait BridgeScenario
             workRequestId: $workRequestId,
         );
         $run->workerPool = $workerPool;
+        $run->recordHarness($harness, $account, $model, $harnessSessionId);
         $em->persist($run);
         $em->flush();
         // What the report endpoint does after it writes the row. A run seeded
