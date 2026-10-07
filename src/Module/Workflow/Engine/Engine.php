@@ -202,7 +202,13 @@ final readonly class Engine
                 continue;
             }
             $request = $this->workRequests->find($state->workRequestId);
-            if (null === $request || !$this->ruleSubject->bind($rule, $run->facts)->truth) {
+            $bound = $this->ruleSubject->bind($rule, $run->facts);
+            if (null === $request || !$bound->truth) {
+                continue;
+            }
+            // The rule now acts on another pull request, so runRule() starts that work and the old refusal counts for nothing.
+            $stored = $state->subjectPullRequestId;
+            if ($bound->binds && null !== $stored && null !== $bound->subject && !$stored->equals($bound->subject)) {
                 continue;
             }
             if (WorkRequestState::Done === $request->state) {
