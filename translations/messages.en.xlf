@@ -4331,11 +4331,11 @@
             </trans-unit>
             <trans-unit id="landing.feature.cost_analysis.title">
                 <source>landing.feature.cost_analysis.title</source>
-                <target>Cost analysis</target>
+                <target>Cost and experiment analysis</target>
             </trans-unit>
             <trans-unit id="landing.feature.cost_analysis.text">
                 <source>landing.feature.cost_analysis.text</source>
-                <target>An agent reads the worker runs and explains where the cost goes. It proposes cards that cut the cost, and you create or dismiss each one.</target>
+                <target>An agent reads the worker runs and explains where the cost goes. It compares the variants of an experiment and recommends one. It proposes cards, and you create or dismiss each one.</target>
             </trans-unit>
             <trans-unit id="landing.tech.title">
                 <source>landing.tech.title</source>
