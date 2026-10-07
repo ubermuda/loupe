@@ -67,6 +67,7 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         yield 'frame route with its frame header' => [self::marked('board-frame', Request::create('/board'), 'board-frame')];
         yield 'route marked for several frames, with one of them' => [self::marked(['board-frame', 'board-count'], Request::create('/board'), 'board-count')];
         yield 'Turbo prefetch of an unmarked route' => [self::prefetch(Request::create('/board'))];
+        yield 'browser prefetch of an unmarked route' => [self::prefetch(Request::create('/board'), 'Sec-Purpose')];
     }
 
     #[DataProvider('readOnlyRequests')]
@@ -222,9 +223,9 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         return $request;
     }
 
-    private static function prefetch(Request $request): Request
+    private static function prefetch(Request $request, string $header = 'X-Sec-Purpose'): Request
     {
-        $request->headers->set('X-Sec-Purpose', 'prefetch');
+        $request->headers->set($header, 'prefetch');
 
         return $request;
     }

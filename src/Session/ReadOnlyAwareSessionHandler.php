@@ -99,7 +99,9 @@ final class ReadOnlyAwareSessionHandler implements \SessionHandlerInterface, \Se
             return SessionLockMode::ReadOnly;
         }
 
-        if ($request->isMethodSafe() && 'prefetch' === $request->headers->get('X-Sec-Purpose')) {
+        $prefetch = 'prefetch' === $request->headers->get('X-Sec-Purpose')
+            || 'prefetch' === $request->headers->get('Sec-Purpose');
+        if ($request->isMethodSafe() && $prefetch) {
             return SessionLockMode::ReadOnly;
         }
 
