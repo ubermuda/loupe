@@ -177,6 +177,7 @@ final readonly class RequestBridgeCommandHandler
                 !$run->state->isRerunnable() => self::NOT_RERUNNABLE,
                 default => null,
             },
+            BridgeCommandKind::CollectSessionUsage => self::NOT_CONTROLLABLE,
         };
     }
 }

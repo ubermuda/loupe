@@ -412,6 +412,17 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** Locked until the transaction ends. */
+    public function findInteractiveOfSessionForUpdate(Project $project, Uuid $runId, Uuid $sessionId): ?WorkerRun
+    {
+        return self::forUpdate($this->interactive($project)
+            ->andWhere('r.id = :runId')
+            ->andWhere('r.sessionId = :sessionId')
+            ->setParameter('runId', $runId, UuidType::NAME)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME))
+            ->getOneOrNullResult();
+    }
+
     public function findInteractiveById(Project $project, Uuid $runId): ?WorkerRun
     {
         return $this->interactive($project)
@@ -908,7 +919,8 @@ class WorkerRunRepository extends ServiceEntityRepository
 
     /**
      * How many closed worker runs of a card started and reported no usage, and
-     * whether any run of the card reported usage. An interactive run never reports it.
+     * whether any run of the card reported usage. An interactive run with no usage
+     * never counts as partial, because its bridge reports the usage only on request.
      *
      * @return array{partial: int, reported: bool}
      */
@@ -938,50 +950,6 @@ class WorkerRunRepository extends ServiceEntityRepository
         )->fetchAssociative();
 
         return ['partial' => (int) $row['partial'], 'reported' => true === $row['reported']];
-    }
-
-    /**
-     * Per card, the closed worker runs that started and reported no usage, by
-     * the same rule as {@see findUsageStateOfCard()}. A card with none has no key.
-     *
-     * @param list<Uuid> $cardIds
-     *
-     * @return array<string, int> card id => partial runs
-     */
-    public function countPartialRunsByCard(Project $project, array $cardIds, ?string $rule): array
-    {
-        if ([] === $cardIds) {
-            return [];
-        }
-
-        $sql = <<<'SQL'
-            SELECT card_id, COUNT(*) AS partial
-            FROM bridge_worker_runs
-            WHERE project_id = :project AND card_id IN (:cards)
-                AND started_at IS NOT NULL AND usage_source IS NULL AND kind = :worker AND state NOT IN (:unfinished)
-            SQL;
-        $parameters = [
-            'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
-            'cards' => array_map(static fn (Uuid $id): string => (string) $id, $cardIds),
-            'worker' => WorkerRunKind::Worker->value,
-            'unfinished' => [
-                ...array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()),
-                WorkerRunState::NotStarted->value,
-            ],
-        ];
-        if (null !== $rule) {
-            $sql .= ' AND work_kind = :rule';
-            $parameters['rule'] = $rule;
-        }
-
-        /** @var array<string, int|string> $counts */
-        $counts = $this->getEntityManager()->getConnection()->executeQuery(
-            $sql.' GROUP BY card_id',
-            $parameters,
-            ['cards' => ArrayParameterType::STRING, 'unfinished' => ArrayParameterType::STRING],
-        )->fetchAllKeyValue();
-
-        return array_map(intval(...), $counts);
     }
 
     /**

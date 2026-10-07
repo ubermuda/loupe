@@ -440,7 +440,7 @@ their rules. A live run keeps its variant through an [update](#updates).
 
 A card keeps its variant only in the kind that has the variants. Another kind
 with its own `model:` runs that model on the card. The
-[Experiments](../using/experiments.md) tab of the project's **Activity** page
+[Experiments](../using/experiments.md) tab of the project's **Analytics** page
 compares the variants of each experiment. To end an experiment, give the entry a
 plain `model:` again, and remove its `variants:`. Then run `loupe bridge reload`.
 
@@ -623,9 +623,10 @@ its fields, the failure events included.
 
 ## Pause, stop and resume
 
-The server can pause a bridge, stop or resume one of its runs, and run a
-failed command run again. Each heartbeat tells the server that the bridge takes
-these commands, with `capabilities: ["commands", "rerun-command"]`.
+The server can pause a bridge, stop or resume one of its runs, run a failed
+command run again, and ask for the usage of an interactive run. Each heartbeat
+tells the server that the bridge takes these commands, with
+`capabilities: ["commands", "rerun-command", "session-usage"]`.
 [Pause and commands](../reference/bridge-heartbeat.md#pause-and-commands)
 describes the protocol.
 
@@ -662,6 +663,13 @@ request id of a run from before the work map. A rerun or a resume carries the
 context of the run's work request, so the command and the `before` command fill
 the pull request and the document that the first run had. A bridge that does not report the
 `rerun-command` capability gets no rerun, and the web UI disables the control.
+
+A usage request asks for the token usage of one interactive Claude Code run,
+which has no worker process. The bridge reads the usage of the run's window
+from the transcript of the session on this machine, subagents included, and
+sends it as an estimate. It refuses the request when this machine holds no
+transcript of the session. Only a bridge that reports the `session-usage`
+capability gets a usage request.
 [Pause and commands](../../cli/README.md#pause-and-commands) in `cli/README.md`
 gives every field and log event.
 
@@ -1043,6 +1051,11 @@ reason.
 The prompt must close its own run, and the product design skill does. A prompt
 that calls neither `card_run_open` nor `card_run_close` leaves the run open,
 until the card moves or a person closes it.
+
+An interactive run has no worker process, so the bridge sees none of its usage
+as it runs. When the server asks, the bridge reads the usage of the run's
+window from the local transcript and sends it as an estimate. See
+[Pause, stop and resume](#pause-stop-and-resume).
 
 ## Columns endpoint
 

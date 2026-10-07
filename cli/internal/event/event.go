@@ -49,8 +49,7 @@ const (
 // bridge maps a project by slug, so the work of the old slug stops.
 const ProjectRenamedType = "project.renamed"
 
-// CommandType is published when the server asks a bridge to stop or resume a
-// run. No rule acts on it, so Parse drops it and ParseCommand reads it.
+// CommandType is published when the server asks a bridge to act on a run. No rule acts on it, so Parse drops it and ParseCommand reads it.
 const CommandType = "bridge.command"
 
 // WorkRequestType is published when the server offers a work request, and
@@ -208,6 +207,23 @@ func ParseCommand(data []byte) (api.Command, error) {
 	return CheckCommand(c)
 }
 
+// checkRunWindow checks that a request for the usage of a run names the
+// session, the run and a window that does not end before it starts.
+func checkRunWindow(c api.Command) error {
+	switch {
+	case c.SessionID == "":
+		return errors.New("a usage request names no sessionId")
+	case c.RunID == "":
+		return errors.New("a usage request names no runId")
+	case c.StartedAt == nil || c.EndedAt == nil:
+		return errors.New("a usage request has no startedAt or no endedAt")
+	case c.EndedAt.Before(*c.StartedAt):
+		return errors.New("a usage request ends before it starts")
+	}
+
+	return nil
+}
+
 // CheckCommand checks a command from either channel, and returns it with its
 // ids in lower case, as Parse does for an event.
 func CheckCommand(c api.Command) (api.Command, error) {
@@ -225,6 +241,7 @@ func CheckCommand(c api.Command) (api.Command, error) {
 		{"runKey", c.RunKey, true},
 		{"sessionId", c.SessionID, true},
 		{"workRequestId", c.WorkRequestID, true},
+		{"runId", c.RunID, true},
 	} {
 		if (f.value != "" || !f.optional) && !uuidPattern.MatchString(f.value) {
 			return c, fmt.Errorf("command has a %s that is not a uuid", f.name)
@@ -233,7 +250,13 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	if c.Subject.Type != "bridge-command" || !strings.EqualFold(c.Subject.ID, c.CommandID) {
 		return c, fmt.Errorf("command %s names another subject", c.CommandID)
 	}
-	if c.Kind != api.CommandStopRun && c.Kind != api.CommandResumeRun && c.Kind != api.CommandRerunCommand {
+	switch c.Kind {
+	case api.CommandStopRun, api.CommandResumeRun, api.CommandRerunCommand:
+	case api.CommandCollectSessionUsage:
+		if err := checkRunWindow(c); err != nil {
+			return c, fmt.Errorf("command %s: %w", c.CommandID, err)
+		}
+	default:
 		return c, fmt.Errorf("command has an unknown kind %q", c.Kind)
 	}
 	if c.CardNumber <= 0 {
@@ -264,6 +287,7 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	c.RunKey = strings.ToLower(c.RunKey)
 	c.SessionID = strings.ToLower(c.SessionID)
 	c.WorkRequestID = strings.ToLower(c.WorkRequestID)
+	c.RunID = strings.ToLower(c.RunID)
 	c.Context.DocumentID = strings.ToLower(c.Context.DocumentID)
 
 	return c, nil

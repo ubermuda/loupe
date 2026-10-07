@@ -26,9 +26,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_bridge_commands_bridge_state', columns: ['owner_id', 'bridge_id', 'state'])]
 #[ORM\Index(name: 'idx_bridge_commands_state_expires', columns: ['state', 'expires_at'])]
 #[ORM\Table(name: 'bridge_commands')]
-// One run holds one pending command. The predicate is written the way Postgres
-// stores it, so migrate-diff stays quiet.
-#[ORM\UniqueConstraint(name: self::PENDING_RUN_INDEX, columns: ['worker_run_id'], options: ['where' => "((state)::text = 'pending'::text)"])]
+// One run holds one pending command per bridge. The predicate is written the way
+// Postgres stores it, so migrate-diff stays quiet.
+#[ORM\UniqueConstraint(name: self::PENDING_RUN_INDEX, columns: ['worker_run_id', 'bridge_id'], options: ['where' => "((state)::text = 'pending'::text)"])]
 class BridgeCommand
 {
     public const string PENDING_RUN_INDEX = 'uniq_bridge_command_pending_run';
@@ -77,7 +77,7 @@ class BridgeCommand
         #[ORM\ManyToOne(targetEntity: WorkerRun::class)]
         public WorkerRun $workerRun,
 
-        #[ORM\Column(name: 'kind', length: 20, enumType: BridgeCommandKind::class)]
+        #[ORM\Column(name: 'kind', length: 32, enumType: BridgeCommandKind::class)]
         public BridgeCommandKind $kind,
 
         #[ORM\JoinColumn(name: 'requested_by_id', nullable: true, onDelete: 'SET NULL')]

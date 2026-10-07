@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\View;
 
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunFact;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -30,6 +31,7 @@ final readonly class WorkerRunListItem
      * @param list<WorkerRunStateChange> $history   the states the run reached, oldest first
      * @param ?string                    $cardTitle null when the card is gone or the board is off
      * @param ?WorkerRunControl          $control   null when the row offers no action and shows no notice
+     * @param ?WorkerRunFact             $fact      null when the run has no metrics row
      */
     public function __construct(
         public WorkerRun $run,
@@ -37,6 +39,7 @@ final readonly class WorkerRunListItem
         public array $history,
         public ?string $cardTitle,
         public ?WorkerRunControl $control = null,
+        public ?WorkerRunFact $fact = null,
     ) {
         $this->state = $run->state;
         $this->interactive = WorkerRunKind::Interactive === $run->kind;
@@ -71,6 +74,12 @@ final readonly class WorkerRunListItem
     public function duration(): ?string
     {
         return null === $this->durationSeconds ? null : self::formatDuration($this->durationSeconds);
+    }
+
+    /** The duration of the metrics row, or null when it has none. */
+    public function factDuration(): ?string
+    {
+        return null === $this->fact?->durationMs ? null : self::formatDuration(intdiv($this->fact->durationMs, 1000));
     }
 
     public static function formatDuration(int $seconds): string

@@ -145,12 +145,19 @@ func (r *router) handleCommand(c api.Command) (string, string) {
 	switch c.Kind {
 	case api.CommandStopRun:
 		return r.stopRun(c)
+	case api.CommandResumeRun:
+		return r.resumeRun(c)
 	case api.CommandRerunCommand:
 		return r.rerunCommand(c)
+	case api.CommandCollectSessionUsage:
+		return r.collectSessionUsage(c)
 	}
 
-	return r.resumeRun(c)
+	return api.CommandRefused, unknownCommandKind
 }
+
+// unknownCommandKind answers a kind this bridge does not know.
+const unknownCommandKind = "The bridge does not know the kind of the command."
 
 // The answers of a stop the bridge cannot act on. A resume in a handover
 // takes handingOver too.

@@ -140,6 +140,52 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertSame('a successful worker still printed this', $crawler->filter('[data-worker-run-id] dialog .lp-worker-run__output')->text());
     }
 
+    public function test_the_drawer_shows_the_metrics_row_of_a_run(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'drawer-metrics-owner@example.com');
+        $project = $this->project($em, $owner, 'Drawer metrics');
+        $priced = $this->seedRun($em, $project, cardNumber: 1);
+        $this->seedUsage($em, $priced, model: 'claude-opus-5-5', costUsd: '1.5', inputTokens: 12345);
+        $unpriced = (string) $this->seedRun($em, $project, cardNumber: 2)->id;
+        $cheap = $this->seedRun($em, $project, cardNumber: 4);
+        $this->seedUsage($em, $cheap, costUsd: '0.000042');
+        $cheapId = (string) $cheap->id;
+        $noFact = (string) $this->seedRun($em, $project, cardNumber: 3)->id;
+        $em->getConnection()->executeStatement('DELETE FROM bridge_worker_run_facts WHERE run_id = :id', ['id' => $noFact]);
+
+        $projectId = (string) $project->id;
+        $pricedId = (string) $priced->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $metrics = $crawler->filter('[data-worker-run-id="'.$pricedId.'"] [data-worker-run-metrics]');
+        self::assertCount(1, $metrics);
+        self::assertSame(
+            ['Cost' => '$1.50', 'Input tokens' => '12,345', 'Output tokens' => '20', 'Cache read tokens' => '300', 'Cache write tokens' => '40', 'Model' => 'claude-opus-5-5', 'Duration' => '5m 0s'],
+            array_combine(
+                $metrics->filter('dt')->each(static fn (Crawler $term): string => trim($term->text())),
+                $metrics->filter('dd')->each(static fn (Crawler $value): string => trim($value->text())),
+            ),
+        );
+
+        self::assertSame('$0.000042', trim($crawler->filter('[data-worker-run-id="'.$cheapId.'"] [data-worker-run-metrics] dd')->first()->text()));
+
+        $unpricedMetrics = $crawler->filter('[data-worker-run-id="'.$unpriced.'"] [data-worker-run-metrics]');
+        self::assertSame(['Cost', 'Duration'], $unpricedMetrics->filter('dt')->each(static fn (Crawler $term): string => trim($term->text())));
+        self::assertSame('unknown', trim($unpricedMetrics->filter('dd')->first()->text()));
+
+        $noFactRow = $crawler->filter('[data-worker-run-id="'.$noFact.'"]');
+        // The guard: the drawer renders, so the absent metrics are not an absent drawer.
+        self::assertCount(1, $noFactRow->filter('.lp-run-drawer__body'));
+        self::assertCount(0, $noFactRow->filter('[data-worker-run-metrics]'));
+    }
+
     public function test_a_run_shows_its_worker_pool_in_the_row_and_the_drawer(): void
     {
         $client = static::createClient();
@@ -165,7 +211,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $plainRow = $crawler->filter('[data-worker-run-id="'.$plain.'"]');
         // The guard: the row and its drawer render, so the absent pool is not an absent row.
         self::assertStringContainsString('review', $plainRow->text());
-        self::assertCount(1, $plainRow->filter('.lp-run-drawer__metadata'));
+        self::assertCount(1, $plainRow->filter('.lp-run-drawer__body'));
         self::assertCount(0, $plainRow->filter('[data-worker-pool]'));
         self::assertCount(0, $plainRow->filter('[data-worker-run-pool]'));
     }
@@ -207,7 +253,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         $plainRow = $crawler->filter('[data-worker-run-id="'.$plain.'"]');
         // The guard: the drawer renders, so the absent line is not an absent drawer.
-        self::assertCount(1, $plainRow->filter('.lp-run-drawer__metadata'));
+        self::assertCount(1, $plainRow->filter('.lp-run-drawer__body'));
         self::assertCount(0, $plainRow->filter('[data-worker-run-experiment]'));
     }
 
@@ -762,7 +808,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringStartsWith('running for ', trim($openRow->text()));
     }
 
-    /** A command run has no agent, so its row says so and its drawer shows no session. */
+    /** A command run has no agent, so its row says so and its drawer shows no session and no metrics. */
     public function test_a_command_run_shows_the_command_tag_and_no_session(): void
     {
         $client = static::createClient();
@@ -788,6 +834,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringNotContainsString('Session', $row->filter('.lp-run-drawer__metadata')->text());
         self::assertStringNotContainsString('bridge does not report', $row->filter('dialog')->text());
         self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$workerId.'"] [data-worker-run-command]'));
+        self::assertCount(1, $crawler->filter('[data-worker-run-id="'.$workerId.'"] [data-worker-run-metrics]'));
+        self::assertCount(0, $row->filter('[data-worker-run-metrics]'));
     }
 
     public function test_a_failed_command_run_offers_to_run_again(): void

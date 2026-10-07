@@ -109,12 +109,19 @@
                         <span class="lp-sidebar__link-label">{{ 'nav.link.workflow'|trans }}</span>
                     </a>
                     {% endif %}
-                    {% set activityActive = route in ['app_project_worker_runs', 'app_project_activity', 'app_project_worker_run_cost', 'app_project_experiments', 'app_project_experiment', 'app_project_experiment_cards'] %}
+                    {% set activityActive = route in ['app_project_worker_runs', 'app_project_activity'] %}
                     <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
                        class="lp-sidebar__link{% if activityActive %} lp-sidebar__link--active{% endif %}"
                        {% if activityActive %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:activity" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.activity'|trans }}</span>
+                    </a>
+                    {% set analyticsActive = route starts with 'app_project_analytics_' %}
+                    <a href="{{ path('app_project_analytics_metrics', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if analyticsActive %} lp-sidebar__link--active{% endif %}"
+                       {% if analyticsActive %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:chart-column" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.analytics'|trans }}</span>
                     </a>
                     <a href="{{ path('app_project_outbox', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_outbox' %} lp-sidebar__link--active{% endif %}"
