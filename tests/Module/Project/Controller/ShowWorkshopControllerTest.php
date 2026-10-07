@@ -9,7 +9,9 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -19,11 +21,14 @@ use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Project\Entity\Project;
+use App\Module\Readiness\Command\StartDiscoveryCommand;
+use App\Module\Readiness\Command\StartDiscoveryHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\AgentCredential;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -352,7 +357,8 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertSame(['worker_run.changed', 'board.card_changed', 'inbox.open_count_changed'], json_decode((string) $live->attr('data-worker-run-refresh-events-value'), true));
         self::assertSame('Get Guide project ready for agents', trim($crawler->filter('[data-workshop] h1')->text()));
         self::assertSelectorTextContains('[data-readiness-guide]', 'Run discovery');
-        self::assertSelectorTextContains('[data-readiness-guide]', 'Not run yet');
+        self::assertSelectorTextContains('.lp-readiness-discovery__status', 'Discovery waits for a running bridge');
+        self::assertSelectorExists('[data-readiness-row="repository"][data-readiness-discovery-state="none"]');
         self::assertSelectorNotExists('[data-readiness-guide] button:not([data-readiness-hide])');
         self::assertSelectorTextContains('.lp-readiness-checklist__count', '0 of 6');
         self::assertSame(['agent', 'workflow', 'bridge', 'github', 'agent_account', 'repository'], $crawler->filter('[data-readiness-row]')->extract(['data-readiness-row']));
@@ -365,6 +371,76 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertSelectorNotExists('.lp-workshop-recent');
         self::assertSelectorTextNotContains('[data-workshop]', 'Needs you');
         self::assertCount(1, $crawler->filter('#card-drawer-frame'));
+    }
+
+    public function test_a_live_bridge_offers_discovery_as_a_post_form_in_both_layouts(): void
+    {
+        $client = self::createClient();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()['inbox.enabled']->value = true;
+        $owner = $this->user($em, 'workshop-guide-discovery@example.com');
+        [$quiet, $busy] = $this->projects($em, $owner, 'Guide discovery', 'Guide discovery busy');
+        $this->liveBridge($em, $owner, $quiet, $busy);
+        $em->persist(new InboxItem($busy, 1, InboxItemKind::Question, 'A question', false));
+        $em->flush();
+        $em->clear();
+        $client->loginUser($owner);
+
+        foreach (['full' => $quiet, 'sidebar' => $busy] as $layout => $project) {
+            $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id);
+
+            self::assertResponseIsSuccessful();
+            $button = $crawler->filter('[data-readiness-guide][data-readiness-layout="'.$layout.'"] [data-readiness-row="repository"] button[data-readiness-action]');
+            self::assertCount(1, $button, $layout);
+            self::assertStringContainsString('Run discovery', $button->text());
+            $form = $button->closest('form');
+            self::assertSame('post', $form?->attr('method'));
+            self::assertSame('/projects/'.$project->id.'/readiness/discovery/start', $form->attr('action'));
+            self::assertCount(1, $form->filter('input[name="_csrf_token"]'));
+        }
+    }
+
+    public function test_the_open_run_of_the_discovery_card_keeps_the_workshop_quiet(): void
+    {
+        $client = self::createClient();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'workshop-guide-discovering@example.com');
+        [$project] = $this->projects($em, $owner, 'Guide discovering');
+        $this->liveBridge($em, $owner, $project);
+        $run = self::getContainer()->get(StartDiscoveryHandler::class)(new StartDiscoveryCommand($project, CardReporter::Human));
+        $this->openRun($em, $project, $run->card, WorkerRunState::Running, 'discovery', '-5 minutes');
+        $em->clear();
+        $client->loginUser($owner);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-readiness-guide][data-readiness-layout="full"]');
+        self::assertSelectorExists('[data-readiness-row="repository"][data-readiness-discovery-state="requested"]');
+        self::assertSelectorTextContains('.lp-readiness-discovery__status', 'Running on card #'.$run->card->number);
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$run->card->id, $crawler->filter('[data-readiness-row="repository"] a')->attr('href'));
+    }
+
+    public function test_the_discovery_card_still_shows_in_motion_when_another_card_moves(): void
+    {
+        $client = self::createClient();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'workshop-guide-discovering-busy@example.com');
+        [$project] = $this->projects($em, $owner, 'Guide discovering busy');
+        $this->liveBridge($em, $owner, $project);
+        $run = self::getContainer()->get(StartDiscoveryHandler::class)(new StartDiscoveryCommand($project, CardReporter::Human));
+        $this->openRun($em, $project, $run->card, WorkerRunState::Running, 'discovery', '-5 minutes');
+        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Running work', '', CardType::Feature));
+        $this->openRun($em, $project, $card, WorkerRunState::Running, 'implement', '-5 minutes');
+        $em->clear();
+        $client->loginUser($owner);
+
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.lp-workshop-supporting > [data-readiness-guide][data-readiness-layout="sidebar"]');
+        self::assertSelectorExists('[data-workshop-card="'.$run->card->number.'"]');
+        self::assertSelectorExists('[data-workshop-card="'.$card->number.'"]');
     }
 
     public function test_an_open_inbox_item_puts_the_guide_in_the_support_rail(): void
@@ -439,6 +515,12 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em->flush();
 
         return $projects;
+    }
+
+    private function liveBridge(EntityManagerInterface $em, User $owner, Project ...$projects): void
+    {
+        $em->persist(new Bridge(AgentCredential::managed($em, $owner, $owner->id), Uuid::v4(), array_values(array_map(static fn (Project $project): string => (string) $project->id, $projects)), 'b4e39aa7', new \DateTimeImmutable()));
+        $em->flush();
     }
 
     /** A null card stands for a card that no longer exists. */

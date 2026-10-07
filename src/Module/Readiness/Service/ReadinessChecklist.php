@@ -15,13 +15,20 @@ use App\Module\Project\Workshop\WorkshopConnectionsProviderInterface;
 use App\Module\Project\Workshop\WorkshopReadiness;
 use App\Module\Project\Workshop\WorkshopReadinessProviderInterface;
 use App\Module\Project\Workshop\WorkshopReadinessRow;
+use App\Module\Readiness\Entity\DiscoveryRun;
+use App\Module\Readiness\Entity\DiscoveryRunState;
+use App\Module\Readiness\EventListener\FailDiscoveryOnRequestExpired;
+use App\Module\Readiness\Repository\DiscoveryRunRepository;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[AsAlias(WorkshopReadinessProviderInterface::class)]
 final readonly class ReadinessChecklist implements WorkshopReadinessProviderInterface
 {
+    public const string START_TOKEN = 'readiness-discovery-start';
+
     public function __construct(
         private WorkshopConnectionsProviderInterface $connections,
         private WorkflowBindingRepository $workflowBindings,
@@ -30,16 +37,20 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
         private ForgeRepositoryRepository $forgeRepositories,
         private GitHubAppConfiguration $gitHubApp,
         private UrlGeneratorInterface $urls,
+        private DiscoveryRunRepository $discoveryRuns,
+        private TranslatorInterface $translator,
     ) {
     }
 
     #[\Override]
     public function forProject(Project $project): ?WorkshopReadiness
     {
-        if (null !== $project->readinessGuideHiddenAt) {
-            return null;
-        }
+        return null === $project->readinessGuideHiddenAt ? $this->rows($project) : null;
+    }
 
+    /** Every check, whether the guide shows or not. */
+    public function rows(Project $project): WorkshopReadiness
+    {
         $projectId = $project->id ?? throw new \LogicException('A stored project has an id.');
         $connect = $this->urls->generate('app_project_connect', ['id' => (string) $projectId]);
 
@@ -49,6 +60,7 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
         $bridge = [] !== $running;
         $github = $this->gitHubReady($project);
         $installUrl = $github || !$this->gitHubApp->isConfigured() ? null : $this->urls->generate('app_github_app_install', ['id' => (string) $projectId]);
+        $discovery = $this->discoveryRuns->latestForProject($project);
 
         return new WorkshopReadiness([
             new WorkshopReadinessRow(
@@ -83,8 +95,58 @@ final readonly class ReadinessChecklist implements WorkshopReadinessProviderInte
                 actionUrl: $installUrl,
             ),
             $this->agentAccountRow($project, $running),
-            new WorkshopReadinessRow('repository', 'readiness.row.repository.label', false, 'readiness.row.repository.open'),
-        ]);
+            $this->repositoryRow($project, $discovery, $bridge),
+        ], $discovery?->card->number);
+    }
+
+    /** A bridge that serves the project sent its heartbeat lately. */
+    public function bridgeLive(Project $project): bool
+    {
+        return [] !== $this->runningConnections($project);
+    }
+
+    private function repositoryRow(Project $project, ?DiscoveryRun $run, bool $bridge): WorkshopReadinessRow
+    {
+        $start = $this->urls->generate('app_readiness_discovery_start', ['id' => (string) $project->id]);
+        $row = static fn (string $status, bool $done = false, ?string $actionLabel = null, ?string $actionUrl = null, array $parameters = [], ?string $csrf = null): WorkshopReadinessRow => new WorkshopReadinessRow(
+            'repository',
+            'readiness.row.repository.label',
+            $done,
+            $status,
+            actionLabel: $actionLabel,
+            actionUrl: $actionUrl,
+            statusParameters: $parameters,
+            actionCsrfTokenId: $csrf,
+            discoveryState: $run?->state->value ?? 'none',
+        );
+
+        return match ($run?->state) {
+            null => $bridge
+                ? $row('readiness.row.repository.open', actionLabel: 'readiness.row.repository.action', actionUrl: $start, csrf: self::START_TOKEN)
+                : $row('readiness.row.repository.no_bridge'),
+            DiscoveryRunState::Requested => $row(
+                'readiness.row.repository.running',
+                actionLabel: 'readiness.row.repository.card',
+                actionUrl: $this->urls->generate('app_board_card', ['projectId' => (string) $project->id, 'cardId' => (string) $run->card->id]),
+                parameters: ['%number%' => (string) $run->card->number],
+            ),
+            DiscoveryRunState::Failed => $row(
+                'readiness.row.repository.failed',
+                actionLabel: $bridge ? 'readiness.row.repository.retry' : null,
+                actionUrl: $bridge ? $start : null,
+                parameters: ['%reason%' => $this->failureReason($run)],
+                csrf: $bridge ? self::START_TOKEN : null,
+            ),
+            DiscoveryRunState::Reported => $row('readiness.row.repository.reported'),
+            DiscoveryRunState::Done => $row('readiness.row.repository.done', done: true),
+        };
+    }
+
+    private function failureReason(DiscoveryRun $run): string
+    {
+        $reason = $run->failureReason ?? $run->state->value;
+
+        return FailDiscoveryOnRequestExpired::REASON === $reason ? $this->translator->trans('readiness.discovery.reason.no_taker') : $reason;
     }
 
     /** The agent account check alone, which its own page shows while the guide is hidden too. */

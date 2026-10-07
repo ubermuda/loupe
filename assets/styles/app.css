@@ -7627,6 +7627,9 @@
     .lp-readiness-row__action {
         @apply ml-auto;
     }
+    .lp-readiness-row__action > button {
+        @apply cursor-pointer;
+    }
 
     /* Responsive section navigation for project and account settings. */
     .lp-settings-layout {

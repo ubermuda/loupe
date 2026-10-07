@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Readiness\Service;
 
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardType;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
@@ -16,15 +18,22 @@ use App\Module\Project\Service\WorkflowTemplateChoices;
 use App\Module\Project\Workshop\WorkshopConnectionsProviderInterface;
 use App\Module\Project\Workshop\WorkshopReadiness;
 use App\Module\Project\Workshop\WorkshopReadinessRow;
+use App\Module\Readiness\Entity\DiscoveryRun;
+use App\Module\Readiness\Entity\DiscoveryRunState;
+use App\Module\Readiness\EventListener\FailDiscoveryOnRequestExpired;
+use App\Module\Readiness\Repository\DiscoveryRunRepository;
 use App\Module\Readiness\Service\ReadinessChecklist;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ReadinessChecklistTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
     use BridgeScenario;
 
     private static int $installationId = 9_100_000;
@@ -35,6 +44,93 @@ final class ReadinessChecklistTest extends KernelTestCase
         $project->readinessGuideHiddenAt = new \DateTimeImmutable();
 
         self::assertNull($this->checklist()->forProject($project));
+    }
+
+    public function test_the_rows_show_while_the_guide_is_hidden(): void
+    {
+        $project = $this->newProject('readiness-rows-hidden@example.com');
+        $project->readinessGuideHiddenAt = new \DateTimeImmutable();
+
+        self::assertSame(6, $this->checklist()->rows($project)->total());
+    }
+
+    public function test_discovery_with_no_run_waits_for_a_running_bridge(): void
+    {
+        $project = $this->newProject('readiness-discovery-wait@example.com');
+
+        $readiness = $this->readiness($this->checklist(), $project);
+        $row = $this->row($readiness, 'repository');
+
+        self::assertSame(['readiness.row.repository.no_bridge', 'none', false], [$row->status, $row->discoveryState, $row->done]);
+        self::assertNull($row->actionUrl);
+        self::assertNull($readiness->discoveryCardNumber);
+    }
+
+    public function test_discovery_with_no_run_and_a_live_bridge_offers_a_post_start(): void
+    {
+        $project = $this->newProject('readiness-discovery-start@example.com');
+        $this->seedBridge($this->em(), $project->owner, projects: [(string) $project->id]);
+
+        $row = $this->row($this->readiness($this->checklist(), $project), 'repository');
+
+        self::assertSame(['readiness.row.repository.open', 'readiness.row.repository.action', 'none'], [$row->status, $row->actionLabel, $row->discoveryState]);
+        self::assertSame('/projects/'.$project->id.'/readiness/discovery/start', $row->actionUrl);
+        self::assertSame(ReadinessChecklist::START_TOKEN, $row->actionCsrfTokenId);
+    }
+
+    public function test_a_requested_run_links_its_card(): void
+    {
+        $project = $this->newProject('readiness-discovery-running@example.com');
+        $this->seedBridge($this->em(), $project->owner, projects: [(string) $project->id]);
+        $run = $this->discoveryRun($project, DiscoveryRunState::Requested);
+
+        $readiness = $this->readiness($this->checklist(), $project);
+        $row = $this->row($readiness, 'repository');
+
+        self::assertSame(['readiness.row.repository.running', 'requested', false], [$row->status, $row->discoveryState, $row->done]);
+        self::assertSame(['%number%' => (string) $run->card->number], $row->statusParameters);
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$run->card->id, $row->actionUrl);
+        self::assertNull($row->actionCsrfTokenId);
+        self::assertSame($run->card->number, $readiness->discoveryCardNumber);
+    }
+
+    public function test_a_failed_run_with_a_known_code_shows_its_text_and_offers_a_new_run(): void
+    {
+        $project = $this->newProject('readiness-discovery-failed@example.com');
+        $this->seedBridge($this->em(), $project->owner, projects: [(string) $project->id]);
+        $this->discoveryRun($project, DiscoveryRunState::Failed, FailDiscoveryOnRequestExpired::REASON);
+
+        $row = $this->row($this->readiness($this->checklist(), $project), 'repository');
+
+        self::assertSame(['readiness.row.repository.failed', 'failed', 'readiness.row.repository.retry'], [$row->status, $row->discoveryState, $row->actionLabel]);
+        self::assertSame(['%reason%' => 'No bridge took the work.'], $row->statusParameters);
+        self::assertSame('/projects/'.$project->id.'/readiness/discovery/start', $row->actionUrl);
+        self::assertSame(ReadinessChecklist::START_TOKEN, $row->actionCsrfTokenId);
+    }
+
+    public function test_a_failed_run_with_no_live_bridge_shows_the_raw_reason_and_no_action(): void
+    {
+        $project = $this->newProject('readiness-discovery-failed-quiet@example.com');
+        $this->discoveryRun($project, DiscoveryRunState::Failed, 'lost');
+
+        $row = $this->row($this->readiness($this->checklist(), $project), 'repository');
+
+        self::assertSame(['%reason%' => 'lost'], $row->statusParameters);
+        self::assertNull($row->actionUrl);
+    }
+
+    public function test_a_reported_run_waits_for_review_and_a_done_run_marks_the_check_done(): void
+    {
+        $reported = $this->newProject('readiness-discovery-reported@example.com');
+        $this->discoveryRun($reported, DiscoveryRunState::Reported);
+        $done = $this->newProject('readiness-discovery-done@example.com');
+        $this->discoveryRun($done, DiscoveryRunState::Done);
+
+        $reportedRow = $this->row($this->readiness($this->checklist(), $reported), 'repository');
+        $doneRow = $this->row($this->readiness($this->checklist(), $done), 'repository');
+
+        self::assertSame(['readiness.row.repository.reported', 'reported', false], [$reportedRow->status, $reportedRow->discoveryState, $reportedRow->done]);
+        self::assertSame(['readiness.row.repository.done', 'done', true], [$doneRow->status, $doneRow->discoveryState, $doneRow->done]);
     }
 
     public function test_a_new_project_lists_six_open_checks_in_order(): void
@@ -205,6 +301,23 @@ final class ReadinessChecklistTest extends KernelTestCase
         self::assertFalse($this->row($this->readiness($this->checklist(), $project), 'github')->done);
     }
 
+    private function discoveryRun(Project $project, DiscoveryRunState $state, ?string $reason = null): DiscoveryRun
+    {
+        $em = $this->em();
+        $this->seedColumns($project);
+        $em->flush();
+        $card = new Card($project, $this->column($project, 'backlog'), 'Discovery', '', 1);
+        $card->type = CardType::Tooling;
+        $em->persist($card);
+        $run = new DiscoveryRun($project, $card);
+        $run->state = $state;
+        $run->failureReason = $reason;
+        $em->persist($run);
+        $em->flush();
+
+        return $run;
+    }
+
     private function seedPushingBridge(Project $project, string $login, \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable()): void
     {
         $bridge = $this->seedBridge($this->em(), $project->owner, projects: [(string) $project->id], lastSeenAt: $lastSeenAt);
@@ -233,6 +346,8 @@ final class ReadinessChecklistTest extends KernelTestCase
             $container->get(ForgeRepositoryRepository::class),
             new GitHubAppConfiguration($value, $value, $value, $value, $value, $value),
             $container->get(UrlGeneratorInterface::class),
+            $container->get(DiscoveryRunRepository::class),
+            $container->get(TranslatorInterface::class),
         );
     }
 
