@@ -221,7 +221,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs eleven skills, each covering one part of working a Loupe project:
+It installs twelve skills, each covering one part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -236,6 +236,7 @@ It installs eleven skills, each covering one part of working a Loupe project:
 | `loupe:loupe-stage-implementation` | Building an approved design into a pull request |
 | `loupe:loupe-stage-fix-round` | One round of review feedback, from a fix request or run by hand |
 | `loupe:loupe-stage-merge` | Merging a ready pull request, or updating one that is behind its base |
+| `loupe:loupe-stage-repair` | Fixing the cause of failed work, after its retries run out |
 
 The plugin carried an MCP server until version 0.2.0, as an HTTP endpoint plus a
 project API token you typed at install. Two things were wrong with it. A plugin
@@ -297,7 +298,7 @@ Roughly in the order an agent uses them:
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
 | `card_hold` | Make a card unmanaged, by `cardId` or `number`. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until `card_release`. A live run goes on |
 | `card_release` | Make an unmanaged card managed again. The queued runs on the card then start |
-| `card_pause_release` | End the workflow pause of a card, by `cardId` or `number`, so the paused rule runs again with a fresh budget. It ends a pause of kind `retries`, `work-limit` or `work-timeout`. It does not end a hold, which `card_release` ends |
+| `card_pause_release` | End the workflow pause of a card, by `cardId` or `number`, so the paused rule runs again with a fresh budget. It ends a pause of kind `retries`, `work-limit`, `work-timeout` or `work-stopped`. It does not end a hold, which `card_release` ends |
 | `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
 
 ### Staging a draft
@@ -513,7 +514,7 @@ for any other card. A child counts as done when it sits in a terminal column.
 
 The full card also carries `pause`, the active workflow pause of the card, or
 null. A pause holds `pauseId`, `kind`, `reason`, `ruleId` and `since`. The kind
-is `rule`, `retries`, `work-limit` or `work-timeout`. `card_list` takes `paused`
+is `rule`, `retries`, `work-limit`, `work-timeout` or `work-stopped`. `card_list` takes `paused`
 as a filter: `true` keeps the paused cards, and `false` keeps the cards with no
 pause. `card_pause_release` ends a pause of any kind except `rule`. Pass the
 `pauseId` you read, and the tool refuses with `pause-changed` when the active

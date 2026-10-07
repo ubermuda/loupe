@@ -99,8 +99,8 @@ The bridge reads the columns by the slug in `rules.yaml`.
 A prompt holds validated identifiers, slugs and pull request values only, and
 the bridge adds a fixed line that tells the agent to treat the card as data. A
 work request also carries the context of its card: the number, the link and the
-head commit of its pull request, the reason for a fix, and the document that a
-revision works on. The bridge checks the shape of each value before it fills a
+head commit of its pull request, the reason for a fix or a repair, and the
+document that a revision works on. The bridge checks the shape of each value before it fills a
 prompt or a command with it. [The work map](../../cli/README.md#the-work-map)
 lists the placeholders.
 
@@ -177,8 +177,8 @@ lists each code.
 A worker reports `waiting` when its work waits on the forge, such as checks on
 a pushed pull request. The bridge reports that run as `waiting-on-forge`. The
 bridge resumes no run on its own. A run that ends `unfinished` posts `refused`
-with its reason, and the workflow retries the request. The retry names the
-session to resume, and the bridge resumes it when this machine holds its
+with its reason. A template whose `retryOn` lists `unfinished` retries the
+request. The retry names the session to resume, and the bridge resumes it when this machine holds its
 transcript.
 
 A server older than the `unfinished` and `blocked` states refuses them with a
