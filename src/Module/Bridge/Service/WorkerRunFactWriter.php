@@ -12,7 +12,8 @@ use Symfony\Component\Uid\Uuid;
  * Writes the fact row of each run from the run, its usage rows, its tool call
  * rows and the host samples of its bridge. The four tool call columns stay
  * null for a run with no rows. The migration that made the table holds a
- * frozen copy of this select, from before the host columns.
+ * frozen copy of this select, from before the host columns. A run with no end
+ * counts as concurrent only while it runs, so a lost run does not count forever.
  */
 final readonly class WorkerRunFactWriter
 {
@@ -67,7 +68,10 @@ final readonly class WorkerRunFactWriter
                 JOIN projects op ON op.id = o.project_id
                 WHERE o.bridge_id = r.bridge_id
                     AND op.owner_id = p.owner_id
-                    AND (o.id = r.id OR (o.started_at < r.ended_at AND COALESCE(o.ended_at, 'infinity') > r.started_at))
+                    AND (o.id = r.id OR (
+                        o.started_at < r.ended_at
+                        AND (o.ended_at > r.started_at OR (o.ended_at IS NULL AND o.state IN ('preparing', 'running', 'stopping')))
+                    ))
             ) END,
             hs.on_battery
         FROM bridge_worker_runs r

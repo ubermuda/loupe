@@ -112,19 +112,22 @@ final class WorkerRunFactWriterTest extends KernelTestCase
         $handoff = $this->seedRun($em, $project, cardNumber: 3, bridgeId: $bridge->id, endedAt: new \DateTimeImmutable('2026-01-01 10:12:00'));
         $later = $this->seedRun($em, $project, cardNumber: 4, bridgeId: $bridge->id, endedAt: new \DateTimeImmutable('2026-01-01 11:05:00'));
         $open = $this->seedRun($em, $project, cardNumber: 5, bridgeId: $bridge->id);
+        $lost = $this->seedRun($em, $project, cardNumber: 6, bridgeId: $bridge->id);
         $connection = $em->getConnection();
         $connection->executeStatement("UPDATE bridge_worker_runs SET started_at = '2026-01-01 10:04:00' WHERE id = ?", [(string) $second->id]);
         // Starts the second the second run ends, so the two never run together.
         $connection->executeStatement("UPDATE bridge_worker_runs SET started_at = '2026-01-01 10:10:00' WHERE id = ?", [(string) $handoff->id]);
         $connection->executeStatement("UPDATE bridge_worker_runs SET started_at = '2026-01-01 11:00:00' WHERE id = ?", [(string) $later->id]);
         // Still open, so its window reaches every later end.
-        $connection->executeStatement("UPDATE bridge_worker_runs SET started_at = '2026-01-01 10:08:00', ended_at = NULL WHERE id = ?", [(string) $open->id]);
+        $connection->executeStatement("UPDATE bridge_worker_runs SET started_at = '2026-01-01 10:08:00', ended_at = NULL, state = 'running' WHERE id = ?", [(string) $open->id]);
+        // Lost with no end, so it ran for an unknown time and counts for nothing.
+        $connection->executeStatement("UPDATE bridge_worker_runs SET started_at = '2026-01-01 10:08:00', ended_at = NULL, state = 'lost' WHERE id = ?", [(string) $lost->id]);
 
         $this->writer()->upsert([self::id($first), self::id($second), self::id($handoff), self::id($later)]);
 
         self::assertEquals(
             [(string) $first->id => 2, (string) $second->id => 3, (string) $handoff->id => 2, (string) $later->id => 2],
-            array_map(static fn (array $row): mixed => $row['concurrent_runs'], array_diff_key($this->hostColumns(), [(string) $open->id => true])),
+            array_map(static fn (array $row): mixed => $row['concurrent_runs'], array_diff_key($this->hostColumns(), [(string) $open->id => true, (string) $lost->id => true])),
         );
     }
 

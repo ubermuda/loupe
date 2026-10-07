@@ -39,6 +39,8 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_bridge_worker_runs_state', columns: ['state'])]
 // The board and the workflow engine read the runs of one card.
 #[ORM\Index(name: 'idx_bridge_worker_runs_subject', columns: ['project_id', 'subject_type', 'subject_id'])]
+// The host metrics of a run count the runs of its bridge that overlap it.
+#[ORM\Index(name: 'idx_bridge_worker_runs_bridge_started', columns: ['bridge_id', 'started_at'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
 // Guards the worker runs with no run key, which only the removed finished-run report wrote.
 // The predicate is written the way Postgres stores it, so migrate-diff stays quiet.
