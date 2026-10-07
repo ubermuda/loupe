@@ -161,6 +161,12 @@ A request of an app rule can carry a prompt that ships with Loupe. A bridge that
 sets `appPrompts: true` runs it for a kind that its `work:` map does not hold.
 See [Command-line bridge](../extending/cli-bridge.md#work-requests).
 
+The app adds one rule, `discovery`. It watches the Backlog. It asks for work of
+kind `discovery` when the card carries a requested
+[discovery run](workshop.md#run-discovery), and it sends the discovery prompt
+with the request. A request that no bridge takes expires, and the run fails with
+the reason that no bridge took the work.
+
 ## Kinds of work
 
 A rule that asks for work names its kind. A bridge runs a kind only when its
