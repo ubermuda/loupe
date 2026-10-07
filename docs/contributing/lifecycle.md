@@ -27,6 +27,9 @@ The workflow also makes the moves that follow a pull request.
 | In review | `in-review` | | `fix`, `merge`, `sync`, `rebase-stacked` |
 | Done | `done` | terminal | `teardown` |
 
+A `repair` request belongs to no column. The workflow opens it in any column,
+when the work of a rule fails and its retries run out.
+
 The implementation worker ends when it opens the pull request, and it reports
 `waiting`. It does not wait for CI. The workflow reads the pull request after
 each push. When the required checks pass, it moves the card from
@@ -241,6 +244,17 @@ work:
       Loupe asks for epic preview work.
       Loupe instance https://loupe.ac.
 
+  repair:
+    permissionMode: bypassPermissions
+    before:
+      run: [bin/worktrees/bridge-before.sh, "--git-only", "{cardNumber}", "{cardId}"]
+      timeout: 15m
+    prompt: |
+      Use the loupe-stage-repair skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Rule {ruleId} failed with {reason}.
+      Loupe instance https://loupe.ac.
+
   teardown:
     action: command
     run: [bin/worktrees/bridge-teardown.sh, "{cardNumber}"]
@@ -262,6 +276,17 @@ runs in the main checkout, and changes only the board.
 The `epic-preview` entry has no `before` command either. It runs the
 `loupe-stage-merge` skill from the main checkout, and the skill works in the
 epic preview `.worktrees/epic-<number>`.
+
+The `repair` entry runs the `loupe-stage-repair` skill after the work of a
+rule fails and its retries run out. Its `before` command takes `--git-only`, so
+it makes or keeps `.worktrees/card-<number>` with git alone, and provisions no
+app. The failed step is often the provisioning of the app, so the repair must
+not depend on it. The
+worker finds the failed run of the rule with `worker_run_list` and
+`worker_run_get`. The `Repair` section of `.loupe/lifecycle.md` lists what it
+may change: the card branch, the card worktree, and a sync of the epic branch
+with `main`. When the repair ends done, the rule gets one last try.
+[Workflows](../using/workflows.md#pauses-and-retries) describes the escalation.
 
 The example has no `rebase-stacked` entry, because no stage skill changes the
 base of a pull request. Turn on the board setting **Change the base of a pull
@@ -291,7 +316,7 @@ probe showed that this mode reaches the Loupe write tools in `claude -p` with
 no allow rule. When a worker run reports a denied tool, add an
 `mcp__loupe__*` allow rule to `.claude/settings.local.json`.
 
-The `implement`, `breakdown`, `fix`, `merge` and `sync` entries use
+The `implement`, `breakdown`, `fix`, `merge`, `sync` and `repair` entries use
 `bypassPermissions`. The gate and the `gh` calls run arbitrary
 commands, and a worker in `acceptEdits` cannot approve them, because nobody
 answers a permission prompt. This choice has a cost. The worker can run any
@@ -305,7 +330,7 @@ that change from one setup to the next.
 
 1. The repository profile, `.loupe/lifecycle.md`, belongs to the repository. Its
    sections are `Instruction files`, `Environment`, `Gate`, `Code review`,
-   `Changelog`, `Pull request`, `Board` and `Merge`. The profile of this repository names
+   `Changelog`, `Pull request`, `Board`, `Merge` and `Repair`. The profile of this repository names
    `just cs`, the targeted checks, the Codex review, `changelog.d/`, the merge method and
    the column slugs that a stage moves a card to or reads. The slugs live there because a stage
    skill never reads the column list, which can be missing.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
+use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Condition\Conditions;
@@ -526,7 +527,23 @@ final readonly class TemplateParser
             return null;
         }
 
-        return new WorkFailurePolicy($retryOn, $retries);
+        $repair = $value['repair'] ?? null;
+        if (null === $repair) {
+            return new WorkFailurePolicy($retryOn, $retries);
+        }
+        $repairKind = \is_array($repair) ? ($repair['kind'] ?? null) : null;
+        if (!\is_string($repairKind)) {
+            $errors[] = 'onWorkFailed.repair: must be a map with a string "kind"';
+
+            return null;
+        }
+        if (1 !== preg_match(WorkRequest::KIND_PATTERN, $repairKind)) {
+            $errors[] = 'onWorkFailed.repair.kind: must be a work request kind';
+
+            return null;
+        }
+
+        return new WorkFailurePolicy($retryOn, $retries, $repairKind);
     }
 
     /** @return ?list<int> */

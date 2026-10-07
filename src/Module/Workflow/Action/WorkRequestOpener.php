@@ -30,7 +30,8 @@ final readonly class WorkRequestOpener
     ) {
     }
 
-    public function open(Rule $rule, Card $card, Facts $facts, string $kind, ?string $capability): ActionOutcome
+    /** A given reason replaces the fix reason of the pull request in the context. */
+    public function open(Rule $rule, Card $card, Facts $facts, string $kind, ?string $capability, ?string $reason = null): ActionOutcome
     {
         $documentId = null;
         $tag = ActionParams::optionalString($rule, TemplateParser::DOCUMENT_TAG);
@@ -54,7 +55,7 @@ final readonly class WorkRequestOpener
                 kind: $kind,
                 capability: $capability,
                 ruleId: $rule->id,
-                context: $this->context($card, $facts, $documentId),
+                context: $this->context($card, $facts, $documentId, $reason),
             ));
         } catch (DomainErrors $e) {
             return \in_array(OpenWorkRequestHandler::LIVE, $e->errors, true)
@@ -66,9 +67,9 @@ final readonly class WorkRequestOpener
     }
 
     /** A link URL or a head of another shape stays out, because a bridge fills commands with these values. */
-    private function context(Card $card, Facts $facts, ?string $documentId): WorkRequestContext
+    private function context(Card $card, Facts $facts, ?string $documentId, ?string $reason): WorkRequestContext
     {
-        $reason = $facts->pullRequest?->fixReason();
+        $reason ??= $facts->pullRequest?->fixReason();
         $pullRequest = $this->trackedPullRequests->subjectOf($this->trackedPullRequests->forCard($card), $facts->pullRequest);
         if (null === $pullRequest) {
             return new WorkRequestContext(reason: $reason, documentId: $documentId);

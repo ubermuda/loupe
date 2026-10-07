@@ -138,6 +138,14 @@ final class TemplateParserTest extends TestCase
         self::assertSame(1, $policy->retries);
         self::assertTrue($policy->retries('timeout'));
         self::assertFalse($policy->retries('needs-person'));
+        self::assertNull($policy->repairKind);
+    }
+
+    public function test_a_retry_policy_reads_the_kind_of_its_repair_request(): void
+    {
+        $policy = $this->parser->parse(self::valid() + ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'repair' => ['kind' => 'repair']]])->onWorkFailed;
+
+        self::assertSame('repair', $policy?->repairKind);
     }
 
     public function test_an_evaluate_action_names_the_children(): void
@@ -244,6 +252,9 @@ final class TemplateParserTest extends TestCase
         yield 'wrongly typed backoff' => [static fn (array $t): array => ['backoffMinutes' => [10, '60']] + $t, 'backoffMinutes: must be a list of positive integers'];
         yield 'retry policy with no list' => [static fn (array $t): array => ['onWorkFailed' => ['retries' => 1]] + $t, 'onWorkFailed: must be a map with a list "retryOn"'];
         yield 'retry policy with a bad code' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['Not A Code'], 'retries' => 1]] + $t, 'onWorkFailed.retryOn: each entry must be a refusal code'];
+        yield 'repair that is not a map' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'repair' => 'repair']] + $t, 'onWorkFailed.repair: must be a map with a string "kind"'];
+        yield 'repair with no kind' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'repair' => []]] + $t, 'onWorkFailed.repair: must be a map with a string "kind"'];
+        yield 'repair with a bad kind' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'repair' => ['kind' => 'Not A Kind']]] + $t, 'onWorkFailed.repair.kind: must be a work request kind'];
         yield 'retry policy with a negative count' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => -1]] + $t, 'onWorkFailed.retries: must be a non-negative integer'];
         yield 'wrongly typed work timeout' => [static fn (array $t): array => ['workTimeoutMinutes' => 0] + $t, 'workTimeoutMinutes: must be a positive integer'];
 

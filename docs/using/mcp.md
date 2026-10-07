@@ -221,7 +221,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs eleven skills, each covering one part of working a Loupe project:
+It installs twelve skills, each covering one part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -236,6 +236,7 @@ It installs eleven skills, each covering one part of working a Loupe project:
 | `loupe:loupe-stage-implementation` | Building an approved design into a pull request |
 | `loupe:loupe-stage-fix-round` | One round of review feedback, from a fix request or run by hand |
 | `loupe:loupe-stage-merge` | Merging a ready pull request, or updating one that is behind its base |
+| `loupe:loupe-stage-repair` | Fixing the cause of failed work, after its retries run out |
 
 The plugin carried an MCP server until version 0.2.0, as an HTTP endpoint plus a
 project API token you typed at install. Two things were wrong with it. A plugin
