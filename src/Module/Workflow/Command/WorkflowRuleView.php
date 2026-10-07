@@ -13,6 +13,7 @@ final readonly class WorkflowRuleView
      * @param ?string                          $kind              the work kind of a request, or the write of a forge write
      * @param list<WorkflowConditionGroupView> $whenGroups        the conditions of `when`, grouped by source in first-seen order
      * @param list<WorkflowConditionGroupView> $untilGroups       the conditions of the `until` of a pause, grouped the same way
+     * @param list<WorkflowConditionGroupView> $refillGroups      the conditions of the `refill` of a request with a limit, grouped the same way
      * @param list<string>                     $missingConditions the keys of the conditions this instance no longer has
      */
     public function __construct(
@@ -23,6 +24,7 @@ final readonly class WorkflowRuleView
         public ?string $kind,
         public array $whenGroups,
         public array $untilGroups,
+        public array $refillGroups,
         public array $missingConditions,
     ) {
     }

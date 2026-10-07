@@ -140,6 +140,11 @@ rules:
                   - The worktree of the card is still available, or the agent can make it again
                   - The gate commands of .loupe/lifecycle.md
                   - Read access to the CI check logs
+              refill:
+                  all:
+                      - pr.checks_passed: {}
+                      - not: { pr.conflicting: {} }
+                      - not: { pr.changes_requested: {} }
 
     - id: fix-in-review
       slot: in-review
@@ -158,6 +163,11 @@ rules:
                   - The worktree of the card is still available, or the agent can make it again
                   - The gate commands of .loupe/lifecycle.md
                   - Read access to the CI check logs
+              refill:
+                  all:
+                      - pr.checks_passed: {}
+                      - not: { pr.conflicting: {} }
+                      - not: { pr.changes_requested: {} }
 
     - id: back-to-draft
       slot: in-review

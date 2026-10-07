@@ -126,6 +126,7 @@ final class TemplateParserTest extends TestCase
         self::assertSame(ActionType::Request, $start->then->type);
         self::assertSame(['kind' => 'implement', 'capability' => 'interactive', 'limit' => 3], $start->then->params);
         self::assertNull($start->then->until);
+        self::assertNull($start->then->refill);
 
         $wait = $template->rulesFor(null)[0];
         self::assertSame(ActionType::Pause, $wait->then->type);
@@ -437,6 +438,12 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[0] (start) then.request: parameter "limit" must be a positive integer'];
+        yield 'refill without a limit' => [static function (array $t): array {
+            unset($t['rules'][0]['then']['request']['limit']);
+            $t['rules'][0]['then']['request']['refill'] = ['pr.checks_passed' => []];
+
+            return $t;
+        }, 'rules[0] (start) then.request: parameter "refill" needs a "limit"'];
         yield 'zero request limit' => [static function (array $t): array {
             $t['rules'][0]['then']['request']['limit'] = 0;
 

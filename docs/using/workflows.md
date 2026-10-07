@@ -256,7 +256,13 @@ request opened. The bridge can fill a prompt or a command with each value.
 A rule that reads a pull request tries the open pull requests of the card from
 the bottom of a stack first, then the oldest opened. It acts on the first one
 that makes its condition true. The fix limit counts per pull request: when the
-rule moves to another pull request, its count starts again.
+rule moves to another pull request, its count starts again. The count also
+starts again while that pull request is healthy: its checks passed, it has no
+conflict, and no review asks for changes. A fix that works therefore does not
+use up the limit. A card that paused at the fix limit continues on its own when
+its pull request turns healthy. The `refill` parameter of the fix rules in the
+Lifecycle template sets this. It reads the pull request that the rule acts on,
+so a rule whose condition reads no pull request never refills.
 
 | Value | What it holds |
 |---|---|

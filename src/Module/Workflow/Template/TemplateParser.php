@@ -429,6 +429,7 @@ final readonly class TemplateParser
         $params = [];
         $until = null;
         $checks = [];
+        $refill = null;
         $declared = self::actionParameters($type);
         if ($app && ActionType::Request === $type) {
             $declared[self::PROMPT] = false;
@@ -445,6 +446,14 @@ final readonly class TemplateParser
             $given = $value[$param];
             if ('until' === $param) {
                 $until = $this->expression($given, $where.'.until', $slotKeys, $errors, $lenient);
+                continue;
+            }
+            if ('refill' === $param) {
+                if (!\array_key_exists('limit', $value)) {
+                    $errors[] = $where.': parameter "refill" needs a "limit"';
+                } else {
+                    $refill = $this->expression($given, $where.'.refill', $slotKeys, $errors, $lenient);
+                }
                 continue;
             }
             if ('document' === $param) {
@@ -480,7 +489,7 @@ final readonly class TemplateParser
             }
         }
 
-        return \count($errors) === $errorCount ? new ActionCall($type, $params, $until, $checks) : null;
+        return \count($errors) === $errorCount ? new ActionCall($type, $params, $until, checks: $checks, refill: $refill) : null;
     }
 
     /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write and the epic opening need no fallback. */
@@ -488,7 +497,7 @@ final readonly class TemplateParser
     {
         return match ($type) {
             ActionType::Move => ['to' => true, 'from' => false],
-            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'onTimeout' => false, 'document' => false, 'checks' => false],
+            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'refill' => false, 'onTimeout' => false, 'document' => false, 'checks' => false],
             ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
             ActionType::Pause => ['reason' => true, 'until' => true],
             ActionType::Release => ['reason' => true],
