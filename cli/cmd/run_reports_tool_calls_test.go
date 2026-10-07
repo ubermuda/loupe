@@ -222,6 +222,23 @@ func TestAFinishedRunSendsItsToolCallsAfterItsOutcome(t *testing.T) {
 	}
 }
 
+// A run about a subject that is no card sends its tool calls too.
+func TestARunAboutAnotherSubjectSendsItsToolCalls(t *testing.T) {
+	h := newHarnessWith(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectType} {subjectId}.\n", rules.Defaults{})
+	rec := h.states()
+	f := h.withWork()
+	h.worker.result = streamedRun
+
+	h.offer(f, analysisRequest(1, "analyse"))
+
+	if got := rec.names(); !slices.Equal(got, []string{api.RunQueued, api.RunRunning, api.RunSucceeded, "tool-calls"}) {
+		t.Fatalf("sent %v", got)
+	}
+	if sent := rec.toolCalls()[0]; sent.runID != rec.states()[0].runID || len(sent.batch.Calls) != 1 {
+		t.Fatalf("tool calls = %+v", sent)
+	}
+}
+
 // collect: false sends no tool call and no timing.
 func TestCollectFalseSendsNoToolCall(t *testing.T) {
 	h := newHarnessWith(t, "collect: false\n"+defaultRules, rules.Defaults{})

@@ -1210,8 +1210,8 @@ func (r *router) settle(p pending, e endedRun) {
 // held, behind the outcome of the run. The reports hold the calls, so the run
 // directory can go. A run the server holds no record of sends none.
 func (r *router) sendToolCalls(p pending, res workerResult) {
-	_, cardNumber := cardOf(p.event)
-	if !res.streamed || !r.reporting() || !r.rules().Collect() || cardNumber < 1 || (p.isWork() && p.claimToken == "") {
+	subjectType, _, cardNumber := subjectOf(p)
+	if !res.streamed || !r.reporting() || !r.rules().Collect() || subjectType == "" || (p.isWork() && p.claimToken == "") {
 		return
 	}
 	timeout := r.checkTimeout
