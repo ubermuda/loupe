@@ -153,6 +153,11 @@ final class SubmitReadinessReportHandlerTest extends KernelTestCase
         $this->assertRefused(SubmitReadinessReportHandler::PROPOSAL_DUPLICATE, fn () => $this->submit(proposals: [$this->proposal('a', 'A'), $this->proposal(' a ', 'B')]));
     }
 
+    public function test_two_proposals_with_the_same_title_are_refused(): void
+    {
+        $this->assertRefused(SubmitReadinessReportHandler::PROPOSAL_DUPLICATE, fn () => $this->submit(proposals: [$this->proposal('a', 'Same title'), $this->proposal('b', 'same  title')]));
+    }
+
     public function test_a_proposal_with_no_title_or_a_title_too_long_for_a_card_is_refused(): void
     {
         $this->assertRefused(SubmitReadinessReportHandler::PROPOSAL_INVALID, fn () => $this->submit(proposals: [$this->proposal('a', " \n ")]));

@@ -164,6 +164,7 @@ final readonly class SubmitReadinessReportHandler
 
         $types = [];
         $keys = [];
+        $titles = [];
         foreach ($command->proposals as $proposal) {
             $key = trim($proposal->key);
             $title = ReadinessReportWriter::optionLabel($proposal->title);
@@ -174,10 +175,11 @@ final readonly class SubmitReadinessReportHandler
             if (null === $type || !\in_array($type, self::PROPOSAL_TYPES, true)) {
                 throw new DomainErrors(['proposals' => self::PROPOSAL_TYPE]);
             }
-            if (isset($keys[$key])) {
+            if (isset($keys[$key]) || isset($titles[mb_strtolower(ReadinessReportWriter::pickLabel($title))])) {
                 throw new DomainErrors(['proposals' => self::PROPOSAL_DUPLICATE]);
             }
             $keys[$key] = true;
+            $titles[mb_strtolower(ReadinessReportWriter::pickLabel($title))] = true;
             $types[] = $type;
 
             if (null !== $proposal->openCardNumber) {
