@@ -424,7 +424,7 @@ final readonly class Engine
 
         $type = $rule->then->type;
         // A retry keeps its attempts while its request runs, so the count reaches the limit of the template.
-        $retrying = null !== $state->workRequestId && $state->attempts > 0;
+        $retrying = !$newSubject && null !== $state->workRequestId && $state->attempts > 0;
         $outcome = $this->actions->get($type)->run($rule, $run->card, $bound->facts, $state);
         // The live request still serves the old subject, so the change waits until it settles.
         if ($newSubject && $outcome->alreadyLive) {
