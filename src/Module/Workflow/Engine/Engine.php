@@ -313,7 +313,8 @@ final readonly class Engine
                 && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($requestId, WorkRequestState::Expired))) {
                 $withdrawn = true;
                 // A repair always pauses, because nothing else ends its escalation.
-                $repair = null !== $run->template->onWorkFailed?->repairKind && $request->kind === $run->template->onWorkFailed->repairKind;
+                $state = $run->states[$rule->id] ?? null;
+                $repair = null !== $state && $state->repaired && null !== $state->workRequestId && $state->workRequestId->equals($requestId);
                 if ($repair || 'expire' !== ActionParams::optionalString($rule, 'onTimeout')) {
                     $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
                 }
