@@ -43,7 +43,7 @@ final readonly class UpdateAnalyticsSettingsHandler
         $project = $command->project;
         $projectId = (string) ($project->id ?? throw new \LogicException('A stored project has an id.'));
 
-        $this->em->wrapInTransaction(function () use ($command, $project): void {
+        $settings = $this->em->wrapInTransaction(function () use ($command, $project): InsightsProjectSettings {
             // The lock keeps two first saves from both inserting a row.
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
@@ -52,10 +52,18 @@ final readonly class UpdateAnalyticsSettingsHandler
                 $settings = new InsightsProjectSettings($project);
                 $this->em->persist($settings);
             }
-            $settings->defaultModel = $command->model;
-            $settings->defaultEffort = $command->effort;
-            $settings->collectFullText = $command->collectFullText;
+            if ($command->changeModel) {
+                $settings->defaultModel = $command->model;
+            }
+            if ($command->changeEffort) {
+                $settings->defaultEffort = $command->effort;
+            }
+            if ($command->changeCollectFullText) {
+                $settings->collectFullText = $command->collectFullText;
+            }
             $this->em->flush();
+
+            return $settings;
         });
 
         $this->auditor->record(
@@ -63,9 +71,9 @@ final readonly class UpdateAnalyticsSettingsHandler
             AuditOutcome::Success,
             [
                 'projectId' => $projectId,
-                'model' => $command->model,
-                'effort' => $command->effort,
-                'collectFullText' => $command->collectFullText,
+                'model' => $settings->defaultModel,
+                'effort' => $settings->defaultEffort,
+                'collectFullText' => $settings->collectFullText,
             ],
             new AuditSubject('project', $projectId),
         );

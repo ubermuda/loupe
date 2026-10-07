@@ -15,6 +15,10 @@ final readonly class UpdateAnalyticsSettingsCommand
         /** Null clears the project value, so the instance flag applies. */
         public ?string $effort,
         public bool $collectFullText,
+        /** A partial update keeps each value it does not change, under the same lock as the write. */
+        public bool $changeModel = true,
+        public bool $changeEffort = true,
+        public bool $changeCollectFullText = true,
     ) {
     }
 }

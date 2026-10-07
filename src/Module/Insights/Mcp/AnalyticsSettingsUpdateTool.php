@@ -41,14 +41,16 @@ final readonly class AnalyticsSettingsUpdateTool
     {
         try {
             $project = $this->subjects->requireWritableProject();
-            $current = ($this->showSettings)(new ShowAnalyticsSettingsCommand($project));
 
             try {
                 ($this->updateSettings)(new UpdateAnalyticsSettingsCommand(
                     project: $project,
-                    model: null === $defaultModel ? $current->defaultModel : ('' === $defaultModel ? null : $defaultModel),
-                    effort: null === $defaultEffort ? $current->defaultEffort : ('' === $defaultEffort ? null : $defaultEffort),
-                    collectFullText: $collectFullText ?? $current->collectFullText,
+                    model: '' === $defaultModel ? null : $defaultModel,
+                    effort: '' === $defaultEffort ? null : $defaultEffort,
+                    collectFullText: $collectFullText ?? false,
+                    changeModel: null !== $defaultModel,
+                    changeEffort: null !== $defaultEffort,
+                    changeCollectFullText: null !== $collectFullText,
                 ));
             } catch (DomainErrors $e) {
                 throw $this->errorMessages->forAgent($e, ['model' => 'defaultModel', 'effort' => 'defaultEffort']);

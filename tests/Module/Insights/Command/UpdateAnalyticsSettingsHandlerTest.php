@@ -33,6 +33,23 @@ final class UpdateAnalyticsSettingsHandlerTest extends KernelTestCase
         self::assertFalse($rows[0]->collectFullText);
     }
 
+    public function test_a_partial_update_keeps_the_values_it_does_not_change(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'analytics-settings-partial@example.com'), 'Analytics settings');
+
+        $this->handler()(new UpdateAnalyticsSettingsCommand($project, 'opus', 'high', true));
+        $this->handler()(new UpdateAnalyticsSettingsCommand($project, null, 'low', false, changeModel: false, changeCollectFullText: false));
+
+        $em->clear();
+        $rows = $this->repository()->findBy(['project' => (string) $project->id]);
+        self::assertCount(1, $rows);
+        self::assertSame('opus', $rows[0]->defaultModel);
+        self::assertSame('low', $rows[0]->defaultEffort);
+        self::assertTrue($rows[0]->collectFullText);
+    }
+
     /** @return iterable<string, array{?string, ?string, array<string, string>}> */
     public static function malformed(): iterable
     {
