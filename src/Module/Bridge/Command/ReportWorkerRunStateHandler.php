@@ -109,7 +109,7 @@ final readonly class ReportWorkerRunStateHandler
                 $run->workerPool = $command->workerPool;
             }
             // A Codex thread id or a model can arrive after the state it belongs to, so a repeat fills it too.
-            $run->recordHarness($command->harness, $command->account, $command->model, $command->harnessSessionId);
+            $harnessChanged = $run->recordHarness($command->harness, $command->account, $command->model, $command->harnessSessionId);
             // A retry of the state a timed-out run last held is the bridge
             // speaking again, so it reopens the run and says so in the history.
             $repeat = \in_array($command->state, $history, true);
@@ -131,12 +131,12 @@ final readonly class ReportWorkerRunStateHandler
             $this->em->flush();
             $this->searchIndexer->index($run);
 
-            return [new ReportWorkerRunStateResult($run, $newState), $closes, $warningChanged, $poolMoved, $created];
+            return [new ReportWorkerRunStateResult($run, $newState), $closes, $warningChanged, $poolMoved || $harnessChanged, $created];
         });
 
-        [$result, $closes, $warningChanged, $poolMoved, $created] = $outcome;
-        // A repeat of a state the run already held changes nothing a page shows, unless it moves the pool.
-        if (($result->newState || $poolMoved) && null !== $result->run) {
+        [$result, $closes, $warningChanged, $shownChanged, $created] = $outcome;
+        // A repeat of a state the run already held changes nothing a page shows, unless it moves the pool or names the harness.
+        if (($result->newState || $shownChanged) && null !== $result->run) {
             $this->publisher->runsChanged($result->run->project);
             foreach (WorkerRunChanged::ofRuns([$result->run]) as $event) {
                 $this->events->dispatch($event);

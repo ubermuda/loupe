@@ -684,6 +684,26 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertCount(0, $this->publishedRunsChanged());
     }
 
+    /** An open Runs page shows the harness fields, so a repeat that fills one must reload it. */
+    public function test_a_repeat_that_names_the_harness_tells_the_runs_page(): void
+    {
+        self::bootKernel();
+        $this->recordRunsChanged();
+        [$owner, $project] = $this->scenario('handler-harness-publish');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, harness: 'codex');
+        self::assertCount(1, $this->publishedRunsChanged());
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, harness: 'codex');
+        self::assertCount(0, $this->publishedRunsChanged());
+
+        $repeat = $this->report($owner, $project, $runKey, WorkerRunState::Queued, harnessSessionId: 'thread-1');
+
+        self::assertFalse($repeat->newState);
+        self::assertCount(1, $this->publishedRunsChanged());
+    }
+
     /** Codex names its thread only after it starts, and the model can come with the outcome. */
     public function test_a_later_report_fills_the_harness_fields_and_a_null_keeps_them(): void
     {
