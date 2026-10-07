@@ -499,6 +499,19 @@ class CardRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * The ids of the children of a card, as the database holds them now.
+     *
+     * @return list<string>
+     */
+    public function findChildIds(Uuid $parentId): array
+    {
+        return array_values(array_map(strval(...), $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT id FROM board_cards WHERE parent_card_id = :id',
+            ['id' => $parentId->toRfc4122()],
+        )));
+    }
+
     public function countChildren(Card $card): int
     {
         return (int) $this->getEntityManager()->getConnection()->fetchOne(

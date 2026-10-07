@@ -217,7 +217,7 @@ final class EvaluationListenersTest extends KernelTestCase
             $changed[] = $event;
         });
 
-        new EvaluateCardOnWorkRequestChanged($events, $this->trigger())(new WorkRequestChanged($this->projectId(), WorkSubject::CARD, $cardId, Uuid::v7(), WorkRequestState::Open));
+        new EvaluateCardOnWorkRequestChanged($events, $this->service(CardRepository::class), $this->trigger())(new WorkRequestChanged($this->projectId(), WorkSubject::CARD, $cardId, Uuid::v7(), WorkRequestState::Open));
 
         self::assertSame($this->ids($card), $this->sent());
         self::assertCount(1, $changed);
@@ -227,6 +227,23 @@ final class EvaluationListenersTest extends KernelTestCase
             $changed[0]->change,
             $changed[0]->contentChanged,
         ]);
+    }
+
+    public function test_a_work_request_change_of_an_epic_also_asks_for_its_children(): void
+    {
+        $epic = $this->card($this->project, 'next');
+        $epic->type = CardType::Epic;
+        [$child, $sibling] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
+        $this->card($this->project, 'next');
+        $child->parent = $epic;
+        $sibling->parent = $epic;
+        $this->em()->flush();
+
+        new EvaluateCardOnWorkRequestChanged(new EventDispatcher(), $this->service(CardRepository::class), $this->trigger())(
+            new WorkRequestChanged($this->projectId(), WorkSubject::CARD, $epic->id ?? throw new \LogicException('A flushed card has an id.'), Uuid::v7(), WorkRequestState::Open),
+        );
+
+        self::assertEqualsCanonicalizing($this->ids($epic, $child, $sibling), $this->sent());
     }
 
     public function test_a_release_resets_the_rules_restarts_the_clock_of_the_open_requests_and_asks_for_the_cards(): void
