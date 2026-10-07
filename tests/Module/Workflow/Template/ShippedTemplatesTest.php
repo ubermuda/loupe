@@ -381,6 +381,12 @@ final class ShippedTemplatesTest extends KernelTestCase
             'merge-ready-epic-child',
         ];
 
+        yield 'an approved pull request into the epic branch waits while a run of its epic is open' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'in-review', isChild: true), pullRequest: $approvedIntoEpic, pullRequests: [$approvedIntoEpic], run: FactsMother::run(parentActiveKinds: ['fix'])),
+            ['merge-ready', 'merge-ready-epic-child'],
+            null,
+        ];
+
         $approvedIntoDefault = FactsMother::pullRequest(checks: ChecksState::Passed, approvalsCoveringHead: 1);
         yield 'an approved pull request into the default branch merges through merge-ready' => [
             FactsMother::facts(card: FactsMother::card(slot: 'in-review', isChild: true), pullRequest: $approvedIntoDefault, pullRequests: [$approvedIntoDefault]),
