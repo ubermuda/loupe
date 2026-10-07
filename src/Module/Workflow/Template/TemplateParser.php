@@ -25,6 +25,7 @@ final readonly class TemplateParser
     private const array RULE_KEYS = ['id', 'slot', 'when', 'then'];
     private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic'];
     private const array ON_TIMEOUT = ['pause', 'expire'];
+    private const array EVALUATED_CARDS = ['children'];
 
     /** The parameters that hold the tag and the status of a request's `document` map. A template cannot write them. */
     public const string DOCUMENT_TAG = 'document.tag';
@@ -432,6 +433,7 @@ final readonly class TemplateParser
                 ),
                 'onTimeout' => \in_array($given, self::ON_TIMEOUT, true) ? null : \sprintf('parameter "onTimeout" must be one of %s', implode(', ', self::ON_TIMEOUT)),
                 self::PROMPT => \is_string($given) && 1 === preg_match(self::PROMPT_PATTERN, $given) ? null : 'parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters',
+                'cards' => \in_array($given, self::EVALUATED_CARDS, true) ? null : \sprintf('parameter "cards" must be one of %s', implode(', ', self::EVALUATED_CARDS)),
                 default => \is_string($given) && '' !== $given ? null : \sprintf('parameter "%s" must be a non-empty string', $param),
             };
             if (null !== $error) {
@@ -460,6 +462,7 @@ final readonly class TemplateParser
             ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
             ActionType::Pause => ['reason' => true, 'until' => true],
             ActionType::Release => ['reason' => true],
+            ActionType::Evaluate => ['cards' => true],
         };
     }
 

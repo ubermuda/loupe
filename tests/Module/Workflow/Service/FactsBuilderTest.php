@@ -15,8 +15,11 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -44,6 +47,7 @@ use App\Tests\Module\Workflow\Fact\ProvidedFacts;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class FactsBuilderTest extends KernelTestCase
 {
@@ -208,6 +212,8 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertSame([], $facts->pullRequests);
         self::assertSame([], $facts->run->activeWorkKinds);
         self::assertNull($facts->run->lastRefusalCode);
+        self::assertSame([], $facts->run->activeWorkerKinds);
+        self::assertSame([], $facts->run->parentActiveKinds);
     }
 
     public function test_the_card_facts_count_open_blockers_children_and_the_parent(): void
@@ -273,6 +279,27 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertNull($this->facts($card)->run->lastRefusalCode);
     }
 
+    public function test_the_run_facts_give_the_kinds_of_the_open_worker_runs_of_the_card_and_of_its_parent(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-worker-runs');
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $child = $this->card($project, 'backlog');
+        $child->parent = $epic;
+        $this->em()->flush();
+        $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->workerRun($epic, 'implement', WorkerRunState::Succeeded);
+        $this->workerRun($child, 'fix', WorkerRunState::Queued);
+
+        $childRun = $this->facts($child)->run;
+        self::assertSame(['fix'], $childRun->activeWorkerKinds);
+        self::assertSame(['breakdown'], $childRun->parentActiveKinds);
+
+        $epicRun = $this->facts($epic)->run;
+        self::assertSame(['breakdown'], $epicRun->activeWorkerKinds);
+        self::assertSame([], $epicRun->parentActiveKinds);
+    }
+
     public function test_a_pull_request_maps_its_forge_state(): void
     {
         self::bootKernel();
@@ -300,6 +327,7 @@ final class FactsBuilderTest extends KernelTestCase
             stacked: false,
             parentMerged: false,
             closedAt: null,
+            id: $pullRequest->id,
         ), $this->facts($card)->pullRequest);
 
         $pullRequest->checks = PullRequestChecks::Pending;
@@ -401,6 +429,26 @@ final class FactsBuilderTest extends KernelTestCase
         $this->em()->flush();
         $pullRequests = $this->cardPullRequests();
         self::assertSame($newest, $pullRequests->primary($pullRequests->forCard($card)));
+    }
+
+    public function test_the_pull_requests_list_the_unstacked_ones_first_and_then_the_oldest_opened(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-pr-order');
+        $card = $this->card($project, 'in-review');
+        $upper = $this->pullRequest($card, base: 'base-branch', head: 'upper-branch', openedAt: '2026-09-01');
+        $newerBase = $this->pullRequest($card, head: 'base-branch', openedAt: '2026-09-03');
+        $olderBase = $this->pullRequest($card, openedAt: '2026-09-02');
+        $unknownOpening = $this->pullRequest($card);
+
+        $facts = $this->facts($card);
+
+        self::assertSame(
+            [$unknownOpening->id, $olderBase->id, $newerBase->id, $upper->id],
+            array_map(static fn (PullRequestFacts $pullRequest) => $pullRequest->id, $facts->pullRequests),
+        );
+        self::assertTrue($facts->pullRequests[3]->stacked);
+        self::assertSame($newerBase->id, $facts->pullRequest?->id, 'The primary stays the open pull request opened last.');
     }
 
     public function test_an_untracked_or_foreign_link_gives_no_pull_request(): void
@@ -647,10 +695,25 @@ final class FactsBuilderTest extends KernelTestCase
             $this->cardPullRequests(),
             $this->service(ForgePullRequestRepository::class),
             $this->service(WorkRequestRepository::class),
+            $this->service(WorkerRunRepository::class),
             new FactProviders([$this->provider]),
             $this->service(BoardAutomation::class),
             $this->em()->getConnection(),
         );
+    }
+
+    private function workerRun(Card $card, string $workKind, WorkerRunState $state): void
+    {
+        $this->em()->persist(new WorkerRun(
+            project: $card->project,
+            bridgeId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('A flushed card has an id.'),
+            cardNumber: $card->number,
+            workKind: $workKind,
+            state: $state,
+        ));
+        $this->em()->flush();
     }
 
     private function cardPullRequests(): CardPullRequests
