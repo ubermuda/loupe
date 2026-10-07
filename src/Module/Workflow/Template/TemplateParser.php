@@ -221,10 +221,13 @@ final readonly class TemplateParser
     private static function childlessTypesReadingChildren(Rule $rule, array $types): array
     {
         $evaluatesChildren = ActionType::Evaluate === $rule->then->type && 'children' === ($rule->then->params['cards'] ?? null);
-        // The engine reads a pause `until` and a request `refill` on the same card, after the `when` held.
-        $evaluated = new AllOf(array_values(array_filter([$rule->when, $rule->then->until, $rule->then->refill])));
+        // The engine reads a pause `until` and a request `refill` on a card that the `when` matched.
+        $ways = self::typeReads($rule->when);
+        foreach (array_filter([$rule->then->until, $rule->then->refill]) as $expression) {
+            $ways += self::typeReads(new AllOf([$rule->when, $expression]));
+        }
         $found = [];
-        foreach (self::typeReads($evaluated) as [$key, $readsChildren]) {
+        foreach ($ways as [$key, $readsChildren]) {
             $type = null === $key ? null : ($types[$key] ?? null);
             if (null !== $type && !$type->children && ($readsChildren || $evaluatesChildren)) {
                 $found[$type->key] = true;

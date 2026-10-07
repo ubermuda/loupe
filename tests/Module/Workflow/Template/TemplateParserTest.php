@@ -480,6 +480,12 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[3] (wait): the type "bug" may not have children, but the rule reads them'];
+        yield 'when reading the children of a type without children beside an until for another type' => [static function (array $t): array {
+            $t['rules'][3]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+            $t['rules'][3]['then']['pause']['until'] = ['card.type' => ['type' => 'epic']];
+
+            return $t;
+        }, 'rules[3] (wait): the type "bug" may not have children, but the rule reads them'];
         yield 'evaluate of the children of a type without children' => [static function (array $t): array {
             $t['rules'][4]['when'] = ['card.type' => ['type' => 'bug']];
             $t['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
