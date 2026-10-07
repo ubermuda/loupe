@@ -240,7 +240,7 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist($state);
         $this->em()->persist($untouched);
         $this->em()->flush();
-        $this->service(WorkflowPendingBaselineRepository::class)->markCards($this->projectId(), $this->uuids($one, $other));
+        $this->service(WorkflowPendingBaselineRepository::class)->markCards($this->projectId(), [$one->id ?? throw new \LogicException('A flushed card has an id.'), $other->id ?? throw new \LogicException('A flushed card has an id.')]);
 
         $this->rearmListener()(new CardHoldsReleased($this->projectId(), [$one->id ?? throw new \LogicException('A flushed card has an id.'), $two->id ?? throw new \LogicException('A flushed card has an id.')]));
 
@@ -320,12 +320,6 @@ final class EvaluationListenersTest extends KernelTestCase
     private function ids(Card ...$cards): array
     {
         return array_values(array_map(static fn (Card $card): string => ($card->id ?? throw new \LogicException('A flushed card has an id.'))->toRfc4122(), $cards));
-    }
-
-    /** @return non-empty-list<Uuid> */
-    private function uuids(Card $card, Card ...$cards): array
-    {
-        return array_map(static fn (Card $card): Uuid => $card->id ?? throw new \LogicException('A flushed card has an id.'), [$card, ...$cards]);
     }
 
     private function projectId(): Uuid
