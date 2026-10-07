@@ -239,17 +239,32 @@ final readonly class TemplateParser
     }
 
     /**
-     * A `not` turns the type leaves under it around, so its lists are not walked.
+     * An `all` inside an `all` joins its list. A `not` turns the type leaves under it around, so its lists are not walked.
      *
-     * @return list<list<Expression>> the children of every `all` in the expression
+     * @return list<list<Expression>> the members of every conjunction in the expression
      */
     private static function allLists(Expression $expression): array
     {
-        return match (true) {
-            $expression instanceof AllOf => [$expression->children, ...array_merge(...array_map(self::allLists(...), $expression->children))],
-            $expression instanceof AnyOf => array_merge(...array_map(self::allLists(...), $expression->children)),
-            default => [],
-        };
+        if ($expression instanceof AnyOf) {
+            return array_merge(...array_map(self::allLists(...), $expression->children));
+        }
+        if (!$expression instanceof AllOf) {
+            return [];
+        }
+        $members = [];
+        $nested = [];
+        foreach ($expression->children as $child) {
+            if ($child instanceof AllOf) {
+                $lists = self::allLists($child);
+                array_push($members, ...array_shift($lists) ?? []);
+                array_push($nested, ...$lists);
+            } else {
+                $members[] = $child;
+                array_push($nested, ...self::allLists($child));
+            }
+        }
+
+        return [$members, ...$nested];
     }
 
     /**
