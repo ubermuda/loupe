@@ -2522,6 +2522,10 @@
                 <source>project.connect.tool.readiness_report_submit</source>
                 <target>Submit the readiness report of a discovery run. Loupe writes it as a document for review, and creates a card in Next for each proposal the owner ticks.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.workflow_get">
+                <source>project.connect.tool.workflow_get</source>
+                <target>Read the workflow of the project: its template, its columns with their slots, and what each kind of work needs from the project.</target>
+            </trans-unit>
             <trans-unit id="readiness.report.title">
                 <source>readiness.report.title</source>
                 <target>Readiness report for %project%</target>
