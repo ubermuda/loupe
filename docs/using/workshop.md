@@ -96,5 +96,24 @@ The Repository row shows the state of the latest run:
 | Discovery waits for board automation | Discovery never ran, and the workflow of the board is off | None. Switch on **Run the workflow of the board** |
 | Running on card #N | A run is open. A second start is refused until it ends | Open card |
 | Discovery failed: reason | The run ended with no report. "No bridge took the work." means that no bridge claimed the request in time. "The discovery card left Backlog before the work ended." means that the work stopped because the card moved | Run again, when discovery can start |
-| The report waits for your review | The worker reported | None |
-| Reviewed | The owner reviewed the report. The row is done | None |
+| The report waits for your review | The worker reported. The run is in the Reported state | None |
+| Reviewed | The owner approved the report. The run is in the Done state, and the row is done | None |
+
+## Review the report
+
+The worker submits its report with the `readiness_report_submit` MCP tool.
+Loupe writes the report as a document with the tag `readiness-report`, and links it to the discovery card.
+The document lists the checks that are ready, the checks that are gaps, and one section for each card the worker proposes.
+
+A proposal that has no open card gets a tick box in a **Decision** block at the end of the report.
+A proposal that names an open card shows "Card N covers this" and has no tick box.
+Tick the proposals you want, and approve the report.
+
+When you approve the report, Loupe creates one card for each ticked proposal.
+The cards go in the column of the `next` slot of the workflow.
+When the project has no such column, they go in the Backlog.
+Loupe then moves the discovery card to the first done column, and the run is Done.
+Proposals you leave unticked create no card.
+
+A second approval of the same report creates no second card.
+A verdict of changes requested creates no card, and the run stays Reported.

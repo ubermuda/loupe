@@ -7,6 +7,7 @@ namespace App\Module\Readiness\Repository;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
+use App\Module\Review\Entity\Document;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -56,5 +57,28 @@ class DiscoveryRunRepository extends ServiceEntityRepository
             ->addOrderBy('run.id', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    public function findByReportDocument(Document $document): ?DiscoveryRun
+    {
+        return $this->findOneBy(['reportDocument' => $document]);
+    }
+
+    /**
+     * Reads the state and the report straight from the row, because the loaded run can be stale.
+     * Doctrine cannot refresh a run, since its constructor properties are read-only.
+     *
+     * @return array{state: DiscoveryRunState, hasReport: bool}
+     */
+    public function freshStateOf(DiscoveryRun $run): array
+    {
+        $row = $this->createQueryBuilder('run')
+            ->select('run.state AS state', 'IDENTITY(run.reportDocument) AS reportDocumentId')
+            ->where('run.id = :id')
+            ->setParameter('id', $run->id, UuidType::NAME)
+            ->getQuery()
+            ->getSingleResult();
+
+        return ['state' => $row['state'], 'hasReport' => null !== $row['reportDocumentId']];
     }
 }

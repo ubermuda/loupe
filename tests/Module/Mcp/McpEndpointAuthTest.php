@@ -130,6 +130,7 @@ final class McpEndpointAuthTest extends WebTestCase
             'project_update',
             'readiness_get',
             'readiness_guide_set',
+            'readiness_report_submit',
             'series_list',
             'series_rename',
             'tag_list',

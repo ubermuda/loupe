@@ -2518,6 +2518,62 @@
                 <source>project.connect.tool.discovery_start</source>
                 <target>Start a read-only discovery run on a new Backlog card. A live bridge must serve the project, and the project needs a workflow with board automation on.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.readiness_report_submit">
+                <source>project.connect.tool.readiness_report_submit</source>
+                <target>Submit the readiness report of a discovery run. Loupe writes it as a document for review, and creates a card in Next for each proposal the owner ticks.</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.title">
+                <source>readiness.report.title</source>
+                <target>Readiness report for %project%</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.description">
+                <source>readiness.report.description</source>
+                <target>The report of a discovery run. Tick the proposals to keep, then approve the report.</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.summary">
+                <source>readiness.report.summary</source>
+                <target>Summary</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.workflow">
+                <source>readiness.report.workflow</source>
+                <target>Workflow: %workflow%</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.findings">
+                <source>readiness.report.findings</source>
+                <target>Findings</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.ready">
+                <source>readiness.report.ready</source>
+                <target>Ready</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.gaps">
+                <source>readiness.report.gaps</source>
+                <target>Gaps</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.none">
+                <source>readiness.report.none</source>
+                <target>None.</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.proposals">
+                <source>readiness.report.proposals</source>
+                <target>Proposals</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.type">
+                <source>readiness.report.type</source>
+                <target>Card type: %type%</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.covered">
+                <source>readiness.report.covered</source>
+                <target>Card %number% covers this.</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.decision">
+                <source>readiness.report.decision</source>
+                <target>Decision</target>
+            </trans-unit>
+            <trans-unit id="readiness.report.decision_prompt">
+                <source>readiness.report.decision_prompt</source>
+                <target>Tick the proposals that become cards in Next when you approve this report.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.tag_list">
                 <source>project.connect.tool.tag_list</source>
                 <target>List every tag in the project with how many documents carry it.</target>
