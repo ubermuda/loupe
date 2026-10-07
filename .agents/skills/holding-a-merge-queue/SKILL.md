@@ -87,7 +87,6 @@ bitten someone here:
 | fewer entries than required | runs have not registered yet |
 | zero entries | the branch is `CONFLICTING`, so `pull_request` has no merge commit to run against and **no check can ever run** |
 | every entry green | possibly true of a head or a base that has moved |
-| one short, nothing pending | a fan-in check such as `e2e` registers only when its shards finish, and `--required` hides the pending shards |
 
 A `DIRTY` pull request has no gate at all. Its rollup looks like a clean slate.
 

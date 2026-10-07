@@ -7,7 +7,7 @@ description: Use when writing, fixing, or debugging Playwright e2e tests under `
 
 ## General rules
 
-- **CI's `e2e` check gates the suite. Never run the whole suite on this machine.** Push and read the check. Locally the suite is slower, destructive, and prone to failures that belong to the environment rather than the diff (see `working-with-prs`). One spec stays allowed while you debug it: `just e2e tests/<area>/<spec>.spec.ts`. The `.agents/hooks/no-full-e2e.sh` hook refuses a full run and lets a named spec through.
+- **The CI checks `e2e-chromium`, `e2e-chromium-2` and `e2e-rest` gate the suite. Never run the whole suite on this machine.** Push and read the checks. Locally the suite is slower, destructive, and prone to failures that belong to the environment rather than the diff (see `working-with-prs`). One spec stays allowed while you debug it: `just e2e tests/<area>/<spec>.spec.ts`. The `.agents/hooks/no-full-e2e.sh` hook refuses a full run and lets a named spec through.
 - **CI splits the suite across three runners, and `E2E_SHARD` picks the half.** The jobs are `e2e-chromium`, `e2e-chromium-2` and `e2e-rest`. `chromium` runs that project alone, `rest` runs every other project with chromium dropped from the dependency chain. Unset runs everything. Playwright's own `--shard` cannot split the whole suite: it filters top-level projects only, and `install-reset` is the one top-level project here. It does split the `chromium` half, where that project is the only one left.
 - Never fix a failing test by manipulating the database (resetting passwords, deleting rows). A test that needs a specific DB state must create that state. A fix that needs a one-time DB operation breaks again on the next fresh environment.
 
