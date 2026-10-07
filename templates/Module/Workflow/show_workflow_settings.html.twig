@@ -77,6 +77,13 @@
                         {% endfor %}
                     </div>
                     {% endif %}
+                    {% if rule.refillGroups is not empty %}
+                    <div data-rule-refill>{{ 'workflow.settings.rules.refill'|trans }}
+                        {% for group in rule.refillGroups %}
+                        {% include '@Workflow/_condition_group.html.twig' with {group: group} only %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     {% for key in rule.missingConditions %}
                     <span class="lp-tag lp-tag--amber">{{ 'workflow.settings.rules.missing_condition'|trans({'%condition%': key}) }}</span>
                     {% endfor %}

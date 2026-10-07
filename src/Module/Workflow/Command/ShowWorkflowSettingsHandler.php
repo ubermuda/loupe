@@ -72,7 +72,7 @@ final readonly class ShowWorkflowSettingsHandler
     {
         $params = $rule->then->params;
         $type = $rule->then->type;
-        $expressions = array_values(array_filter([$rule->when, $rule->then->until]));
+        $expressions = array_values(array_filter([$rule->when, $rule->then->until, $rule->then->refill]));
         $missing = array_merge(...array_map(static fn (Expression $expression): array => $expression->missingKeys(), $expressions));
 
         return new WorkflowRuleView(
@@ -94,6 +94,7 @@ final readonly class ShowWorkflowSettingsHandler
             },
             whenGroups: self::groups($rule->when),
             untilGroups: null === $rule->then->until ? [] : self::groups($rule->then->until),
+            refillGroups: null === $rule->then->refill ? [] : self::groups($rule->then->refill),
             missingConditions: array_values(array_unique($missing)),
         );
     }

@@ -629,6 +629,117 @@ final class EngineTest extends KernelTestCase
         self::assertSame('left-slot', $pause->releaseReason);
     }
 
+    public function test_a_healthy_pull_request_refills_the_fix_budget_so_routine_fixes_never_pause_the_card(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 2, refill: true)]);
+        $pullRequest = $this->pullRequest($card);
+        $minute = 0;
+        for ($round = 1; $round <= 4; ++$round) {
+            $pullRequest->checks = PullRequestChecks::Failed;
+            $this->em()->flush();
+            $this->evaluate($card, \sprintf('2026-10-02 12:%02d:00', ++$minute));
+            $live = $this->liveRequests($card);
+            self::assertCount(1, $live, 'Round '.$round);
+            self::assertSame(1, $this->ruleState($card, 'fix')->fires);
+            $this->finish($live[0]);
+
+            $pullRequest->checks = PullRequestChecks::Pending;
+            $this->em()->flush();
+            $this->evaluate($card, \sprintf('2026-10-02 12:%02d:00', ++$minute));
+            self::assertSame(1, $this->ruleState($card, 'fix')->fires, 'A push alone refills nothing.');
+
+            $pullRequest->checks = PullRequestChecks::Passed;
+            $this->em()->flush();
+            $this->evaluate($card, \sprintf('2026-10-02 12:%02d:00', ++$minute));
+            self::assertSame(0, $this->ruleState($card, 'fix')->fires);
+        }
+        self::assertNull($this->activePause($card));
+    }
+
+    public function test_a_failing_loop_with_no_healthy_state_still_hits_the_fix_limit(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1, refill: true)]);
+        $pullRequest = $this->pullRequest($card);
+        $pullRequest->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $pullRequest->checks = PullRequestChecks::Pending;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $pullRequest->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+
+        self::assertSame(CardPauseKind::WorkLimit, $this->activePause($card)?->kind);
+    }
+
+    public function test_a_healthy_pull_request_does_not_refill_the_budget_of_another_one_that_is_broken(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 3, refill: true)]);
+        [$base, $upper] = $this->stack($card);
+        $base->checks = PullRequestChecks::Failed;
+        $upper->checks = PullRequestChecks::Passed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $base->checks = PullRequestChecks::Pending;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $base->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+
+        self::assertSame(2, $this->ruleState($card, 'fix')->fires);
+    }
+
+    public function test_a_work_limit_pause_lifts_when_the_pull_request_turns_healthy(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1, refill: true)]);
+        $pullRequest = $this->pullRequest($card);
+        $pullRequest->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $pullRequest->checks = PullRequestChecks::Pending;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $pullRequest->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+        $pause = $this->activePause($card);
+        self::assertSame(CardPauseKind::WorkLimit, $pause?->kind);
+
+        $pullRequest->checks = PullRequestChecks::Passed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame('refilled', $pause->releaseReason);
+        self::assertNull($this->activePause($card));
+        self::assertSame(0, $this->ruleState($card, 'fix')->fires);
+    }
+
+    public function test_a_work_limit_pause_with_no_refill_stays_when_the_pull_request_turns_healthy(): void
+    {
+        $card = $this->boundCard([self::requestRule('fix', ['all' => [['pr.open' => []], ['pr.checks_failed' => []]]], limit: 1)]);
+        $pullRequest = $this->pullRequest($card);
+        $pullRequest->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card);
+        $this->finish($this->liveRequests($card)[0]);
+        $pullRequest->checks = PullRequestChecks::Pending;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        $pullRequest->checks = PullRequestChecks::Failed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:20:00');
+        $pullRequest->checks = PullRequestChecks::Passed;
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame(CardPauseKind::WorkLimit, $this->activePause($card)?->kind);
+    }
+
     public function test_a_retries_pause_that_a_person_releases_fires_the_rule_again_with_a_fresh_budget(): void
     {
         $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)], backoffMinutes: []);
@@ -2160,6 +2271,25 @@ final class EngineTest extends KernelTestCase
         self::assertSame(['provided'], $this->firedRules());
     }
 
+    public function test_a_request_rule_waits_when_its_refill_source_is_off(): void
+    {
+        $rule = self::requestRule('provided', self::NOT_EPIC, limit: 3);
+        $rule['then']['request']['refill'] = self::PROVIDED_READY;
+        $card = $this->boundCard([$rule]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->provider()->on = false;
+
+        $this->evaluate($card);
+
+        self::assertSame([], $this->liveRequests($card));
+        self::assertNull($this->ruleStateOrNull($card, 'provided'));
+
+        $this->provider()->on = true;
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(['provided'], $this->firedRules());
+    }
+
     public function test_a_rule_pause_whose_until_is_unreadable_stays(): void
     {
         $card = $this->boundCard([[
@@ -2284,11 +2414,14 @@ final class EngineTest extends KernelTestCase
      *
      * @return array<string, mixed>
      */
-    private static function requestRule(string $id, array $when, ?int $limit = null): array
+    private static function requestRule(string $id, array $when, ?int $limit = null, bool $refill = false): array
     {
         $request = ['kind' => $id];
         if (null !== $limit) {
             $request['limit'] = $limit;
+        }
+        if ($refill) {
+            $request['refill'] = ['all' => [['pr.checks_passed' => []], ['not' => ['pr.conflicting' => []]], ['not' => ['pr.changes_requested' => []]]]];
         }
 
         return ['id' => $id, 'slot' => 'one', 'when' => $when, 'then' => ['request' => $request]];

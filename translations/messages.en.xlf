@@ -7327,6 +7327,7 @@
             <trans-unit id="workflow.settings.rules.conditions"><source>workflow.settings.rules.conditions</source><target>Conditions</target></trans-unit>
             <trans-unit id="workflow.settings.rules.not"><source>workflow.settings.rules.not</source><target>not</target></trans-unit>
             <trans-unit id="workflow.settings.rules.until"><source>workflow.settings.rules.until</source><target>Until:</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.refill"><source>workflow.settings.rules.refill</source><target>Starts the limit again while:</target></trans-unit>
             <trans-unit id="workflow.settings.rules.missing_condition"><source>workflow.settings.rules.missing_condition</source><target>Condition no longer exists: %condition%</target></trans-unit>
             <trans-unit id="workflow.settings.where.backlog"><source>workflow.settings.where.backlog</source><target>the Backlog</target></trans-unit>
             <trans-unit id="workflow.settings.where.any_terminal"><source>workflow.settings.where.any_terminal</source><target>a terminal column</target></trans-unit>
