@@ -54,6 +54,20 @@ final class AcceptProposalControllerTest extends WebTestCase
         self::assertSame(ProposalState::Proposed, $this->stored($proposal)->state);
     }
 
+    public function test_an_accept_from_a_later_page_returns_to_that_page(): void
+    {
+        $client = static::createClient();
+        $proposal = $this->proposal('accept-controller-page');
+        $projectId = (string) $proposal->analysis->project->id;
+        $owner = $proposal->analysis->project->owner;
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_POST, '/projects/'.$projectId.'/analytics/proposals/'.$proposal->id.'/accept?page=2', ['_csrf_token' => 'csrf-token'], [], ['HTTP_REFERER' => 'http://localhost/']);
+
+        self::assertResponseRedirects('/projects/'.$projectId.'/analytics/reports?page=2');
+    }
+
     public function test_a_proposal_of_another_project_is_not_found(): void
     {
         $client = static::createClient();

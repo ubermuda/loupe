@@ -52,7 +52,7 @@ class DismissProposalController extends AppController
                 ($this->dismissProposal)(new DismissProposalCommand($proposal, $data->reason));
                 $this->addFlash('success', $this->translator->trans('insights.reports.flash.dismissed'));
 
-                return $this->redirectToRoute('app_project_analytics_reports', ['id' => (string) $project->id]);
+                return $this->redirectToRoute('app_project_analytics_reports', self::reportsPage($project, $request));
             } catch (DomainErrors $e) {
                 if (!\in_array(DismissProposalHandler::REASON_TOO_LONG, $e->errors, true)) {
                     // The proposal is no longer open, so the page has no form to show the error on.
@@ -60,7 +60,7 @@ class DismissProposalController extends AppController
                         $this->addFlash('error', $this->translator->trans($key));
                     }
 
-                    return $this->redirectToRoute('app_project_analytics_reports', ['id' => (string) $project->id]);
+                    return $this->redirectToRoute('app_project_analytics_reports', self::reportsPage($project, $request));
                 }
                 $this->applyDomainErrors($form, $e);
             }
@@ -71,5 +71,13 @@ class DismissProposalController extends AppController
             'project' => $project,
             ListReportsController::REFUSED_DISMISS_FORM => $form->createView(),
         ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    /** @return array<string, int|string> the Reports page the form came from */
+    private static function reportsPage(Project $project, Request $request): array
+    {
+        $page = $request->query->getInt('page', 1);
+
+        return $page > 1 ? ['id' => (string) $project->id, 'page' => $page] : ['id' => (string) $project->id];
     }
 }

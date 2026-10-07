@@ -12,6 +12,7 @@ use App\Module\Insights\Entity\Proposal;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
@@ -37,6 +38,7 @@ class AcceptProposalController extends AppController
 
     public function __invoke(
         Project $project,
+        Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(proposalId, project)')] Proposal $proposal,
     ): Response {
         try {
@@ -48,6 +50,14 @@ class AcceptProposalController extends AppController
             }
         }
 
-        return $this->redirectToRoute('app_project_analytics_reports', ['id' => (string) $project->id]);
+        return $this->redirectToRoute('app_project_analytics_reports', self::reportsPage($project, $request));
+    }
+
+    /** @return array<string, int|string> the Reports page the form came from */
+    private static function reportsPage(Project $project, Request $request): array
+    {
+        $page = $request->query->getInt('page', 1);
+
+        return $page > 1 ? ['id' => (string) $project->id, 'page' => $page] : ['id' => (string) $project->id];
     }
 }
