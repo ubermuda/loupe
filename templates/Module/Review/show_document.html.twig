@@ -22,13 +22,10 @@
 
 {% block topbar_actions %}
 {% if not diffMode and not readOnly %}
+{% if document.status.value in ['draft', 'in-review'] %}
+{% include '@Review/_finish_review_button.html.twig' only %}
+{% elseif document.status.value in ['approved', 'changes-requested'] %}
 <div class="lp-review-topbar-actions">
-    {% if document.status.value in ['draft', 'in-review'] %}
-    <button type="button" class="lp-btn lp-btn--primary lp-review-topbar-actions__finish" data-controller="review-finish" data-action="click->review-finish#open">
-        <twig:ux:icon name="lucide:check" />
-        {{ 'review.document.finish.title'|trans }}
-    </button>
-    {% elseif document.status.value in ['approved', 'changes-requested'] %}
     <span class="lp-verdict-chip lp-verdict-chip--{{ document.status.value }}" title="{{ ('review.document.verdict.' ~ document.status.value ~ '_detail')|trans }}">
         <span class="lp-verdict-chip__dot" aria-hidden="true"></span>
         <span class="lp-verdict-chip__title">{{ ('review.document.verdict.' ~ document.status.value)|trans }}</span>
@@ -40,8 +37,8 @@
         {{ form_end(undoVerdictForm) }}
         {% endif %}
     </span>
-    {% endif %}
 </div>
+{% endif %}
 {% endif %}
 {% endblock %}
 

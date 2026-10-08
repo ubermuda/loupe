@@ -91,14 +91,14 @@ test('the History tab records a verdict and its withdrawal', async ({
     await reviewDialog.getByRole('button', { name: 'Submit review' }).click();
     // The allowance review-loop gives the same assertion. This one missed its
     // 5 second default once on a loaded machine, at a measured 2.8 seconds.
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible({
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible({
         timeout: 20000,
     });
     await page
-        .locator('.lp-verdict-bar')
+        .locator('.lp-verdict-chip')
         .getByRole('button', { name: 'Undo', exact: true })
         .click();
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
 
     // A visit rather than a click on the tab, which the undo re-render can
     // swallow. The click above already proved the tab navigates.

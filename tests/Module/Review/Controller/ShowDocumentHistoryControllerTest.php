@@ -70,6 +70,8 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
         self::assertSelectorCount(0, '.lp-review-margin-tabs');
         self::assertSelectorExists('#revise-document-title');
         self::assertSelectorExists('#finish-review-title');
+        self::assertSelectorExists('.lp-review-topbar-actions button[data-action="click->review-finish#open"]');
+        self::assertSelectorExists('.lp-review[data-action="review:finish@window->modal#open"]');
         self::assertSelectorExists('input[name="submit_review_form[versionNumber]"][value="3"]');
 
         self::assertSame(

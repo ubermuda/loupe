@@ -3842,12 +3842,13 @@
 
     /* Holds the verdict and its Change verdict and Undo links. The verdict's own
        colour is the fill. */
-    /* Below lg the review menu holds Finish review, so only the verdict chip stays in the bar. */
     .lp-review-topbar-actions {
         @apply ml-auto flex items-center gap-2.5;
     }
-    .lp-review-topbar-actions__finish {
-        @apply hidden lg:inline-flex;
+    /* Below lg the review menu holds Finish review, so only the verdict chip stays
+       in the bar. The wrapper hides, because the touch rule gives `.lp-btn` a display. */
+    .lp-review-topbar-actions--finish {
+        @apply hidden lg:flex;
     }
     .lp-verdict-chip {
         @apply inline-flex items-center gap-2 rounded-lg py-1 pl-3 pr-1.5 text-sm;
