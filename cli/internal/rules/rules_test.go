@@ -347,14 +347,13 @@ func TestParseRefusesAnInvalidAccount(t *testing.T) {
 		want string
 	}{
 		"no harness":                {"accounts:\n  claude:\n    model: opus\n" + claudeDefaults + oneWork, "line 2: accounts.claude: harness is required, such as claude-code"},
-		"codex":                     {"accounts:\n  claude:\n    harness: codex\n" + claudeDefaults + oneWork, "line 3: accounts.claude.harness: codex is not supported yet, and a later release of the CLI adds Codex"},
-		"an unknown harness":        {"accounts:\n  claude:\n    harness: gemini\n" + claudeDefaults + oneWork, `line 3: accounts.claude.harness "gemini" is not a harness; this CLI accepts claude-code`},
+		"an unknown harness":        {"accounts:\n  claude:\n    harness: gemini\n" + claudeDefaults + oneWork, `line 3: accounts.claude.harness "gemini" is not a harness; this CLI accepts claude-code and codex`},
 		"a bad account name":        {"accounts:\n  Claude:\n    harness: claude-code\ndefaults:\n  account: Claude\n" + oneWork, "line 2: accounts.Claude: an account name is 1 to 40"},
 		"a relative configDir":      {account("    configDir: claude-a\n"), "line 4: accounts.claude.configDir claude-a is not an absolute path"},
 		"a relative envFile":        {account("    envFile: a.env\n"), "line 4: accounts.claude.envFile a.env is not an absolute path"},
 		"a spaced model":            {account("    model: 'claude opus'\n"), `line 4: accounts.claude.model "claude opus" holds whitespace`},
 		"a spaced mode":             {account("    permissionMode: 'accept edits'\n"), `line 4: accounts.claude.permissionMode "accept edits" holds whitespace`},
-		"an unknown account field":  {account("    profile: x\n"), "field profile not found"},
+		"an unknown account field":  {account("    bogus: x\n"), "field bogus not found"},
 		"a relative global envFile": {"envFile: g.env\n" + oneRule, "line 1: envFile g.env is not an absolute path"},
 		"no defaults.account":       {claudeAccount + oneWork, "line 1: defaults.account is required, and names one of accounts: claude"},
 		"an empty accounts block":   {"accounts: {}\n" + oneWork, "defaults.account is required, and names one of accounts: none"},

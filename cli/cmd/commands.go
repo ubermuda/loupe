@@ -642,7 +642,7 @@ func (r *router) hasTranscript(sessionID string, run rules.RunSettings) bool {
 func (r *router) findSession(sessionID string, run rules.RunSettings) error {
 	find := r.findTranscript
 	if find == nil {
-		find = harnessOf(run.Harness, run.ConfigDir).HasSession
+		find = harnessOf(run.Harness, run.ConfigDir, run.Profile).HasSession
 	}
 
 	return find(sessionID)

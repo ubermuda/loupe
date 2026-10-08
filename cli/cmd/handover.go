@@ -141,6 +141,7 @@ type handoverRun struct {
 	Harness        string   `json:"harness,omitempty"`
 	Account        string   `json:"account,omitempty"`
 	ConfigDir      string   `json:"configDir,omitempty"`
+	Profile        string   `json:"profile,omitempty"`
 	EnvFiles       []string `json:"envFiles,omitempty"`
 	// Work is the work request of the run, and ClaimToken its claim. Origin
 	// is the work of the run a person's resume or rerun continues.
@@ -366,7 +367,7 @@ func (r *router) freeze() handoverState {
 		}
 		if !run.p.isCommand() {
 			s := run.p.spec
-			h.PermissionMode, h.Model, h.Effort, h.Harness, h.Account, h.ConfigDir, h.EnvFiles = s.permissionMode, s.model, s.effort, s.harnessName, s.account, s.configDir, s.envFiles
+			h.PermissionMode, h.Model, h.Effort, h.Harness, h.Account, h.ConfigDir, h.Profile, h.EnvFiles = s.permissionMode, s.model, s.effort, s.harnessName, s.account, s.configDir, s.profile, s.envFiles
 		}
 		st.Live = append(st.Live, h)
 	}
@@ -474,7 +475,7 @@ func (r *router) adoptLocked(run handoverRun) {
 	run.applyTo(&p)
 	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume
 	p.spec.useSettings(rules.RunSettings{
-		Account: run.Account, Harness: run.Harness, ConfigDir: run.ConfigDir, EnvFiles: run.EnvFiles,
+		Account: run.Account, Harness: run.Harness, ConfigDir: run.ConfigDir, Profile: run.Profile, EnvFiles: run.EnvFiles,
 		Model: run.Model, PermissionMode: run.PermissionMode,
 	})
 	p.spec.effort = run.Effort

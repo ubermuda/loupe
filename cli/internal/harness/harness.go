@@ -40,6 +40,20 @@ type Harness interface {
 	Check(ctx context.Context, spec CheckSpec) []Problem
 }
 
+// RunReader is a harness that reads a finished run from files in the run
+// directory, in place of a result line on stdout. The bridge uses it when the
+// harness implements it.
+type RunReader interface {
+	ReadRun(dir string, run RunInfo) Output
+}
+
+// RunInfo is what the bridge knows about a run when it reads it. SessionID is
+// the id the bridge gave the run, and Model is the model it asked for.
+type RunInfo struct {
+	SessionID string
+	Model     string
+}
+
 // CheckSpec is one account to check. Env holds what the account adds to the
 // environment, and Projects maps each project slug to its folder.
 type CheckSpec struct {
@@ -69,12 +83,17 @@ type Spec struct {
 	SessionID      string
 	Prompt         string
 	Env            []string
+	// RunDir is the run directory, which holds the files of a worker.
+	RunDir string
 }
 
 // Command is the argv after the program, and the environment of the process.
+// Files maps an absolute path to the content the bridge writes there, with
+// mode 0600, before the process starts.
 type Command struct {
-	Args []string
-	Env  []string
+	Args  []string
+	Env   []string
+	Files map[string]string
 }
 
 // Output is what a worker printed. Decoded says stdout held a valid document,
