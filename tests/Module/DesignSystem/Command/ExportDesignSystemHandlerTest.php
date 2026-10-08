@@ -130,6 +130,24 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         }
     }
 
+    public function test_each_wrapper_renders_the_element_of_its_component(): void
+    {
+        foreach (['Dialog' => 'dialog', 'Tabs' => 'nav', 'Pagination' => 'nav', 'Tooltip' => 'span'] as $name => $element) {
+            $jsx = (string) file_get_contents($this->directory.'/components/core/'.$name.'.jsx');
+
+            self::assertStringContainsString('<'.$element.' {...rest}', $jsx);
+        }
+    }
+
+    public function test_the_export_defines_every_keyframe_a_component_stylesheet_uses(): void
+    {
+        $css = (string) file_get_contents($this->directory.'/styles.css');
+
+        foreach (['lp-appear', 'lp-dialog-backdrop-in'] as $keyframes) {
+            self::assertStringContainsString('@keyframes '.$keyframes, $css);
+        }
+    }
+
     public function test_tokens_are_plain_root_blocks(): void
     {
         $css = (string) file_get_contents($this->directory.'/tokens/elevation.css');

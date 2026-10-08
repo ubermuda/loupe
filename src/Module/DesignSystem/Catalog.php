@@ -91,6 +91,9 @@ final readonly class Catalog
                 variants: ['document', 'search'],
                 states: ['open'],
                 enforced: true,
+                group: 'core',
+                summary: 'A modal window over the page, opened by the modal controller.',
+                element: 'dialog',
             ),
             new ComponentEntry(
                 name: 'Tabs',
@@ -99,6 +102,9 @@ final readonly class Catalog
                 variants: [],
                 states: ['hover', 'selected'],
                 enforced: true,
+                group: 'core',
+                summary: 'A row of tabs that switches between views of one page.',
+                element: 'nav',
             ),
             new ComponentEntry(
                 name: 'Pagination',
@@ -107,6 +113,9 @@ final readonly class Catalog
                 variants: [],
                 states: ['current', 'disabled'],
                 enforced: true,
+                group: 'core',
+                summary: 'The previous, next and page-number links of a long list.',
+                element: 'nav',
             ),
             new ComponentEntry(
                 name: 'Tooltip',
@@ -115,6 +124,9 @@ final readonly class Catalog
                 variants: [],
                 states: ['visible'],
                 enforced: true,
+                group: 'core',
+                summary: 'A short label that shows over an element on hover or focus.',
+                element: 'span',
             ),
         ];
     }

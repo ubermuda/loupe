@@ -13,7 +13,7 @@
 
 @source "../../templates/components/Ds";
 
-/* The flash animation. app.css defines the same keyframes for the app. */
+/* The flash and dialog animations. app.css defines the same keyframes for the app. */
 @keyframes lp-appear {
     from {
         opacity: 0;
@@ -22,5 +22,14 @@
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes lp-dialog-backdrop-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
     }
 }
