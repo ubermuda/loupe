@@ -498,6 +498,32 @@ After each run, the bridge checks that Codex used the provider that the profile
 names. A run on another provider fails with the message `codex ran on provider X
 but profile P names Y`.
 
+#### Prices from OpenRouter
+
+The bridge prices a Codex run only for a model that its price table lists. A
+model that the table lacks has an unknown cost. Add `openRouterPrices: true` at
+the top of `rules.yaml` to price the models of OpenRouter too:
+
+```yaml
+openRouterPrices: true
+```
+
+The key is off when absent. Once on, the bridge reads the public list at
+`https://openrouter.ai/api/v1/models`. It needs no key, and the host of the
+bridge needs egress to `openrouter.ai`. A fetch times out after 10 seconds.
+
+- The bridge saves the list in `openrouter-prices.json` in the config folder.
+- A saved list younger than 24 hours replaces the call, so the bridge makes at most one call a day.
+- The bridge checks the list at start, after a reload, and once an hour.
+- A failed fetch never stops the bridge. The bridge uses an older saved list when one exists. Otherwise the cost of the model stays unknown.
+- A model of the built-in table keeps its built-in price.
+- A reload that removes the key empties the fetched prices, and the cost of those models is unknown again.
+- A tier that omits the cache price keeps the cache price of the base tier.
+
+Some models charge more for a long prompt. The list gives such a model a price
+for each size of prompt. The bridge prices each reply at the price for the size
+of its own prompt. A free model costs 0, which is not the same as unknown.
+
 The bridge gives each run its own id, and Codex picks its own thread id. The
 bridge keeps the pair in the `codex-threads` folder of its config folder, so
 `resume` continues the right thread.
@@ -975,6 +1001,8 @@ runs a Homebrew binary also refuses the request of an older CLI. See
 | `update_rolled_back` | A version went on the skip list |
 | `update_recovered` | A start took over the handover of a bridge that died |
 | `auto_update_migrated` | A handover from an older CLI added `autoUpdate: true` |
+| `openrouter_prices_loaded` | The bridge loaded the OpenRouter price list. The event carries the model count |
+| `openrouter_prices_failed` | A fetch of the price list failed, once for each run of failures. Level `WARN` |
 
 [Output](../../cli/README.md#output) in `cli/README.md` lists every event with
 its fields, the failure events included.
