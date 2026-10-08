@@ -507,7 +507,8 @@ this line by hand under `[mcp_servers.loupe]` in the profile file, in
 default_tools_approval_mode = "approve"
 ```
 
-The `full` level needs no line. The bridge passes no approval override.
+A run at the `full` level works without the line. The account check still asks for it,
+because the check does not know the levels of the rules. The bridge passes no approval override.
 
 After each run, the bridge checks that Codex used the provider that the profile
 names. A run on another provider fails with the message `codex ran on provider X

@@ -243,7 +243,7 @@ func (h Harness) mcpProblems(ctx context.Context, binary, home, slug, dir string
 	if !got.Enabled {
 		return fail("loupe MCP server is disabled", "set enabled = true under [mcp_servers.loupe] in "+filepath.Join(home, "config.toml"))
 	}
-	if _, err := envfile.LookPath("loupe", env, dir); err != nil {
+	if _, err := envfile.LookPath(tr.Command, env, dir); err != nil {
 		return fail("loupe is not on PATH", err.Error())
 	}
 

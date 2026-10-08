@@ -531,7 +531,7 @@ func fakeCodexMcp(t *testing.T, body string, withLoupe bool) mcpFixture {
 }
 
 const (
-	stdioLoupe = `echo '{"enabled":true,"transport":{"type":"stdio","command":"/usr/local/bin/loupe","args":["mcp"]}}'`
+	stdioLoupe = `echo '{"enabled":true,"transport":{"type":"stdio","command":"loupe","args":["mcp"]}}'`
 	approveCfg = "[mcp_servers.loupe]\ndefault_tools_approval_mode = \"approve\"\n"
 )
 
@@ -594,6 +594,11 @@ func TestCheckLoupeMcpServer(t *testing.T) {
 		h, home := plain(t, approveCfg)
 		got := check(t, h, home, fakeCodexMcp(t, `echo '{"enabled":false,"transport":{"type":"stdio","command":"loupe","args":["mcp"]}}'`, true))
 		one(t, got, "loupe MCP server is disabled for project loupe", "config.toml")
+	})
+	t.Run("a configured loupe path that does not exist fails", func(t *testing.T) {
+		h, home := plain(t, approveCfg)
+		got := check(t, h, home, fakeCodexMcp(t, `echo '{"enabled":true,"transport":{"type":"stdio","command":"/nonexistent/loupe","args":["mcp"]}}'`, true))
+		one(t, got, "loupe is not on PATH for project loupe", "/nonexistent/loupe")
 	})
 	t.Run("loupe is not on PATH", func(t *testing.T) {
 		h, home := plain(t, approveCfg)
