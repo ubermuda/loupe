@@ -1,0 +1,34 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'github.connect.callback.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="lp-consent" data-testid="github-connect-callback"
+     data-target-origin="{{ connected.targetOrigin ?? '' }}"
+     data-message="{{ message|json_encode }}"
+     data-connected-apps-url="{{ connectedAppsUrl }}"
+     data-done-text="{{ 'github.connect.callback.close'|trans }}">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:plug" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <p class="lp-consent__lead" data-callback-text>{{ 'github.connect.callback.connected'|trans({'%login%': connected.login}) }}</p>
+    <a class="lp-btn lp-btn--ghost" href="{{ connectedAppsUrl }}">{{ 'github.connect.callback.connected_apps'|trans }}</a>
+</div>
+{# The target origin is the one the project allows; never "*". #}
+<script nonce="{{ csp_nonce('script') }}">
+    (() => {
+        const node = document.querySelector('[data-testid="github-connect-callback"]');
+        const target = node.dataset.targetOrigin;
+        if (!window.opener) {
+            location.replace(node.dataset.connectedAppsUrl);
+            return;
+        }
+        if (!target) {
+            node.querySelector('[data-callback-text]').textContent = node.dataset.doneText;
+            return;
+        }
+        window.opener.postMessage(JSON.parse(node.dataset.message), target);
+        window.close();
+    })();
+</script>
+{% endblock %}
