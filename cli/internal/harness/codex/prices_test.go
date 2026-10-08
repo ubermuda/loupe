@@ -77,3 +77,19 @@ func TestAFreeModelCostsZeroAndNotUnknown(t *testing.T) {
 		t.Fatalf("total = %+v, %v; the cost must be 0", total, err)
 	}
 }
+
+func TestOneUnpricedReplyKeepsTheModelCostUnknown(t *testing.T) {
+	withFetched(t, nil)
+	priced := tokens{Input: 100, Output: 10}.priceAt("gpt-5.5", 100)
+	unpriced := tokens{Input: 100, Output: 10}.priceAt("vendor/gone", 100)
+
+	if got := priced.plus(unpriced).model(); got.CostUSD != nil {
+		t.Fatalf("cost = %v, want unknown when one reply has no price", *got.CostUSD)
+	}
+	if got := unpriced.plus(priced).model(); got.CostUSD != nil {
+		t.Fatalf("cost = %v, want unknown in either order", *got.CostUSD)
+	}
+	if got := priced.plus(priced).model(); got.CostUSD == nil {
+		t.Fatal("two priced replies must give a known cost")
+	}
+}

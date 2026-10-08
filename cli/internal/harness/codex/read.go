@@ -42,12 +42,12 @@ func (t tokens) minus(o tokens) tokens {
 	return tokens{max(t.Input-o.Input, 0), max(t.Cached-o.Cached, 0), max(t.CacheWrite-o.CacheWrite, 0), max(t.Output-o.Output, 0)}
 }
 
-// spend is the tokens of one model with what they cost. priced is false when
-// the model has no price, so the cost is unknown and not zero.
+// spend is the tokens of one model with what they cost. unpriced is true when
+// any reply has no price, so the cost is unknown and not a partial sum.
 type spend struct {
 	tokens
-	cost   float64
-	priced bool
+	cost     float64
+	unpriced bool
 }
 
 // uncached is the input that the cache did not serve. Codex charges no cache
@@ -61,15 +61,15 @@ func (t tokens) uncached() int64 {
 func (t tokens) priceAt(name string, prompt int64) spend {
 	c := transcript.CostPrompt(name, prompt, t.uncached(), t.Output, t.Cached, 0, 0)
 	if c == nil {
-		return spend{tokens: t}
+		return spend{tokens: t, unpriced: true}
 	}
 
-	return spend{tokens: t, cost: *c, priced: true}
+	return spend{tokens: t, cost: *c}
 }
 
 // plus adds the spend of another reply of the same model.
 func (s spend) plus(o spend) spend {
-	return spend{tokens: s.tokens.plus(o.tokens), cost: s.cost + o.cost, priced: s.priced || o.priced}
+	return spend{tokens: s.tokens.plus(o.tokens), cost: s.cost + o.cost, unpriced: s.unpriced || o.unpriced}
 }
 
 func (s spend) model() transcript.Model {
@@ -79,7 +79,7 @@ func (s spend) model() transcript.Model {
 		CacheReadTokens:  s.Cached,
 		CacheWriteTokens: s.CacheWrite,
 	}
-	if s.priced {
+	if !s.unpriced {
 		cost := s.cost
 		m.CostUSD = &cost
 	}

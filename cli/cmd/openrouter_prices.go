@@ -46,6 +46,9 @@ func (r *router) loadPrices(ctx context.Context, set *rules.Set) {
 	p := &r.prices
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if cur := r.rules(); cur != nil {
+		set = cur
+	}
 	if !set.OpenRouterPrices() {
 		transcript.SetFetchedPrices(nil)
 
