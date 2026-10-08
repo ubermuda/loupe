@@ -1353,7 +1353,7 @@
             <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select an option to save it. Add a note if you need one.</target></trans-unit>
             <trans-unit id="review.decision.note.label"><source>review.decision.note.label</source><target>Note</target></trans-unit>
             <trans-unit id="review.decision.note.placeholder"><source>review.decision.note.placeholder</source><target>Add a note, or write your own answer</target></trans-unit>
-            <trans-unit id="review.decision.clear"><source>review.decision.clear</source><target>Clear</target></trans-unit>
+            <trans-unit id="review.decision.clear"><source>review.decision.clear</source><target>Clear choice</target></trans-unit>
             <trans-unit id="review.decision.recommended.high"><source>review.decision.recommended.high</source><target>Recommended, high confidence</target></trans-unit>
             <trans-unit id="review.decision.recommended.moderate"><source>review.decision.recommended.moderate</source><target>Recommended, moderate confidence</target></trans-unit>
             <trans-unit id="review.decision.recommended.low"><source>review.decision.recommended.low</source><target>Recommended, low confidence</target></trans-unit>

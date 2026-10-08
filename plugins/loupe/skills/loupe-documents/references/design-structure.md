@@ -55,7 +55,7 @@ Checked in the code: `TagDeleteHandler.php`, `CardRepository.php`.
 Give each open decision its own section, with a stable ID in the heading.
 
 1. Write the "**Decision needed:**" paragraph (rule 5). Name your recommendation and your confidence: high, moderate or low. Give the strongest argument against it.
-2. When the decision has two or more real options, add a table with the columns Option, Pros and Cons. Write one row for each option.
+2. When the decision has two or more real options, add a table with the columns Option, Pros and Cons. Write one row for each option. Wrap the table in an options fence, `<!-- options -->` above it and `<!-- /options -->` below it, so Loupe shows each row as a block (`decision-fences.md`). Put the name of the option in the first column.
 3. Add a worked example under the table. Take one real case from the project, such as a card, a rule or a page. Write one line that states the case, then a numbered list. Start the list with "Today" when the decision changes existing behaviour. Then add one entry for each option, in the order of the table rows. Use the same case in each entry.
 4. In a tech design, add a "How each option works" numbered list under the example. A product document gets none, because the code belongs to the tech design. Write one entry for each option, in the order of the table rows. Each entry names the code that the option changes. This list is the one place in a decision where a class, a field or a file may appear.
 5. Put the decision fence under the How list, or under the example when there is no How list. Use the same options in the same order as the table rows.
@@ -73,10 +73,14 @@ The example below is a tech design decision. In a product document, leave out it
 
 **Decision needed:** who may delete a tag. I recommend option 1, with moderate confidence. The strongest argument against it: a member can remove a tag that other members use.
 
+<!-- options -->
+
 | Option | Pros | Cons |
 |---|---|---|
 | 1. Any project member | Matches who may create a tag | A member can remove a tag in use |
 | 2. The project owner only | No surprise removals | The owner must do every clean-up |
+
+<!-- /options -->
 
 **Example:** a project has the tag `urgent` on 12 cards. A member deletes it.
 

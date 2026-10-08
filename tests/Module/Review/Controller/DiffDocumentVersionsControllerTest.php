@@ -106,6 +106,32 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
      * unchanged between them. A section removed whole is one such run across two
      * block wrappers, and the count the bar reports is the number of runs.
      */
+    public function test_a_recommended_option_in_a_diff_shows_a_named_badge(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-badge', 'owner-diff-badge@example.com');
+        $project = $this->project($em, $owner);
+
+        $fence = "<!-- decision: deploy-target -->\n\n- ( ) Ship to staging first (recommended: moderate)\n- ( ) Ship straight to production\n\n<!-- /decision -->\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Badge Diff');
+        $doc->addVersion("Where should this land?\n\n".$fence, '<p>v1</p>');
+        $doc->addVersion("Where should this land now?\n\n".$fence, '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.lp-diff-doc .lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"][title="Recommended, moderate confidence"]');
+    }
+
     public function test_every_run_of_changes_is_one_numbered_jump_target(): void
     {
         $client = static::createClient();

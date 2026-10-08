@@ -117,6 +117,7 @@ export default class extends Controller {
 
     decorate(block) {
         block.querySelector('[data-decision-note-controls]')?.remove();
+        block.querySelector('[data-decision-clear-control]')?.remove();
         const editable = this.hasFormTarget;
         const draft = block.dataset.decisionNoteDraft;
         delete block.dataset.decisionNoteDraft;
@@ -147,8 +148,13 @@ export default class extends Controller {
         clear.type = 'button';
         clear.value = this.clearLabelValue;
         clear.className = 'lp-btn lp-btn--ghost lp-btn--sm lp-decision__clear';
+        clear.dataset.decisionClearControl = '';
         clear.addEventListener('click', () => this.clear(block));
-        controls.append(clear);
+        // It sits in the block header beside the kind-of-answer chip, apart
+        // from the note field, and is no part of the legend's text.
+        const legend = block.querySelector(':scope > legend');
+        if (legend) legend.after(clear);
+        else block.prepend(clear);
         block.append(controls);
         const saved = this.stateKey({
             indexes: this.savedIndexes(block),

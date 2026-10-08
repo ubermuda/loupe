@@ -8,6 +8,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -20,6 +21,7 @@ use App\Module\Review\ValueObject\DiffView;
 use App\Module\Review\ValueObject\DocumentHeading;
 use App\Module\Review\ValueObject\SideBySideDiff;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -31,6 +33,8 @@ final readonly class DiffDocumentVersionsHandler
         private CommentRepository $comments,
         private MarkdownDiffer $markdownDiffer,
         private MarkdownRenderer $markdownRenderer,
+        private DecisionBlockService $decisionBlocks,
+        private TranslatorInterface $translator,
         private RenderedDiffBuilder $renderedDiffs,
         private SideBySideDiffBuilder $sideBySideDiffs,
         private SourceHeadingIndexBuilder $sourceHeadingIndexes,
@@ -86,7 +90,10 @@ final readonly class DiffDocumentVersionsHandler
                 $headings = $sourceHeadings->headings;
             } else {
                 $rendered = $this->renderedDiffs->build(
-                    $this->markdownRenderer->renderDiff($diff),
+                    $this->decisionBlocks->withBadgeLabels(
+                        $this->markdownRenderer->renderDiff($diff),
+                        DecisionBlockService::badgeLabels($this->translator),
+                    ),
                     $isCurrent ? $version->plainText() : null,
                 );
                 $changeCount = $rendered->changeCount;
