@@ -78,8 +78,8 @@ final readonly class TemplateParser
     {
         $errors = [];
         foreach (array_keys($source) as $key) {
-            if ('rules' !== $key) {
-                $errors[] = \sprintf('%s: unknown key, app rules hold only "rules"', $key);
+            if (!\in_array($key, ['rules', 'requests'], true)) {
+                $errors[] = \sprintf('%s: unknown key, app rules hold only "rules" and "requests"', $key);
             }
         }
         $rules = $this->rules(self::topLevelList($source, 'rules', $errors), [], $errors, lenient: false, app: true);
@@ -89,6 +89,70 @@ final readonly class TemplateParser
         }
 
         return $rules;
+    }
+
+    /**
+     * Parses the work the app asks a bridge for outside the engine. The key is optional.
+     *
+     * @param array<mixed> $source
+     *
+     * @return list<AppRequest>
+     *
+     * @throws InvalidTemplate
+     */
+    public function parseAppRequests(array $source): array
+    {
+        $given = $source['requests'] ?? [];
+        if (!\is_array($given) || !array_is_list($given)) {
+            throw new InvalidTemplate(['requests: must be a list']);
+        }
+
+        $errors = [];
+        $requests = [];
+        $seen = [];
+        foreach ($given as $index => $entry) {
+            $where = \sprintf('requests[%d]', $index);
+            if (!self::isMap($entry)) {
+                $errors[] = $where.': must be a map';
+                continue;
+            }
+            $errorCount = \count($errors);
+
+            $id = $entry['id'] ?? null;
+            if (!\is_string($id) || '' === $id) {
+                $errors[] = $where.' id: must be a non-empty string';
+            } else {
+                $where .= \sprintf(' (%s)', $id);
+                if (isset($seen[$id])) {
+                    $errors[] = \sprintf('%s: duplicate request id "%s"', $where, $id);
+                }
+                $seen[$id] = true;
+            }
+            $kind = $entry['kind'] ?? null;
+            if (!\is_string($kind) || '' === $kind) {
+                $errors[] = $where.': parameter "kind" must be a non-empty string';
+            }
+            $prompt = $entry['prompt'] ?? null;
+            if (!\is_string($prompt) || 1 !== preg_match(self::PROMPT_PATTERN, $prompt)) {
+                $errors[] = $where.': parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters';
+            }
+            $checks = self::checks($entry['checks'] ?? null, $where, $errors);
+            foreach (array_keys($entry) as $name) {
+                if (!\in_array($name, ['id', 'kind', 'prompt', 'checks'], true)) {
+                    $errors[] = \sprintf('%s: unknown key "%s"', $where, $name);
+                }
+            }
+
+            if (\count($errors) === $errorCount && \is_string($id) && \is_string($kind) && \is_string($prompt)) {
+                $requests[] = new AppRequest($id, $kind, $prompt, $checks);
+            }
+        }
+
+        if ([] !== $errors) {
+            throw new InvalidTemplate($errors);
+        }
+
+        return $requests;
     }
 
     /** @param array<mixed> $source */
