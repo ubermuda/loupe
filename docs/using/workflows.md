@@ -221,6 +221,8 @@ child and the epic, and it has three options:
    at once if it has no open blocker. If the design is back in review, the
    child waits until the epic design is approved again. When the epic has no
    tech design, nothing is linked and the card history records the refusal.
+   The implementation worker then builds the card body against the epic
+   design. The plan covers only the work that the card body describes.
 2. **Move the card to Tech design.** The child gets a tech design of its own.
 3. **Detach the card.** The card stops being a child of the epic.
 
