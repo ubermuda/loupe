@@ -53,9 +53,10 @@ final class CreateCardController extends AppController
         }
 
         $types = $this->catalog->forProject($project);
-        $type = $payload->type ?? $types->defaultKey;
-        if (!$types->has($type)) {
-            return $this->json(['error' => 'unknown_type', 'types' => $types->keys()], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        $allowed = $payload->parent ? $types->withChildren() : $types->keys();
+        $type = $payload->type ?? ($payload->parent ? ($allowed[0] ?? null) : $types->defaultKey);
+        if (null === $type || !\in_array($type, $allowed, true)) {
+            return $this->json(['error' => 'unknown_type', 'types' => $allowed], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $card = ($this->handler)(new CreateCardCommand(

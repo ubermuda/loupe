@@ -169,6 +169,18 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertNull($plain['context']);
     }
 
+    public function test_the_boot_load_lists_the_types_that_can_have_children(): void
+    {
+        $client = static::createClient();
+        [$raw] = $this->projectWithToken($client, 'api-parent-types@example.com');
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame([['key' => 'epic', 'label' => 'Epic']], $data['parentTypes']);
+    }
+
     public function test_a_comment_can_point_at_several_elements(): void
     {
         $client = static::createClient();
@@ -603,7 +615,7 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame(
             // context is always present and null on a page with no marker, so
             // the widget never has to tell an absent key from a resolved one.
-            ['projectId' => (string) $project->id, 'drawingEnabled' => true, 'context' => null, 'comments' => []],
+            ['projectId' => (string) $project->id, 'drawingEnabled' => true, 'parentTypes' => [['key' => 'epic', 'label' => 'Epic']], 'context' => null, 'comments' => []],
             json_decode((string) $client->getResponse()->getContent(), true),
         );
 

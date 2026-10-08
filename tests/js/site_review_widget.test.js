@@ -469,6 +469,101 @@ describe('the mode picker', () => {
         expect(targetText(root)).toBe('A new card for each note');
         expect(root.getElementById('lp-picker').style.display).toBe('none');
     });
+
+    describe('the mode under a card that can have children', () => {
+        const EPIC_ROW = '[data-mode="epic"]';
+
+        /** Boots with the given grouping types and opens the picker in that mode. */
+        async function openEpicPicker(parentTypes, calls = []) {
+            const fetchMock = bootWidget({
+                respond: (url, init) => {
+                    calls.push([url, init]);
+
+                    return init.method === 'POST'
+                        ? ok({
+                              cardId: 'c1',
+                              number: 9,
+                              label: '#9 Q4',
+                              url: null,
+                          })
+                        : url.includes('/api/board/cards')
+                          ? ok({ cards: [] })
+                          : ok({ comments: [], context: null, parentTypes });
+                },
+            });
+            await settle();
+            const root = openNote();
+            root.querySelector(EPIC_ROW).click();
+            await settle();
+
+            return { root, fetchMock };
+        }
+
+        const created = (fetchMock) =>
+            JSON.parse(
+                fetchMock.mock.calls.find(
+                    ([url, init]) =>
+                        url.endsWith('/api/board/cards') &&
+                        init.method === 'POST',
+                )[1].body,
+            );
+
+        it('hides the mode when no type can have children', async () => {
+            bootWidget({
+                respond: () =>
+                    ok({ comments: [], context: null, parentTypes: [] }),
+            });
+            await settle();
+
+            expect(openNote().querySelector(EPIC_ROW).style.display).toBe(
+                'none',
+            );
+        });
+
+        it('asks for the capability and shows no selector for one type', async () => {
+            const { root, fetchMock } = await openEpicPicker([
+                { key: 'epic', label: 'Epic' },
+            ]);
+
+            expect(
+                fetchMock.mock.calls.some(([url]) =>
+                    url.includes('/api/board/cards?parent=1'),
+                ),
+            ).toBe(true);
+            expect(root.getElementById('lp-picker-type').style.display).toBe(
+                'none',
+            );
+            root.getElementById('lp-picker-create').click();
+            await settle();
+            expect(created(fetchMock)).toEqual({
+                title: expect.any(String),
+                parent: true,
+            });
+        });
+
+        it('sends the type the reviewer chose from the selector', async () => {
+            const { root, fetchMock } = await openEpicPicker([
+                { key: 'initiative', label: 'Initiative' },
+                { key: 'epic', label: 'Epic' },
+            ]);
+
+            const select = root.getElementById('lp-picker-type');
+            expect(select.style.display).toBe('');
+            expect([...select.options].map((o) => o.textContent)).toEqual([
+                'Initiative',
+                'Epic',
+            ]);
+            expect(select.value).toBe('initiative');
+            select.value = 'epic';
+            root.getElementById('lp-picker-create').click();
+            await settle();
+
+            expect(created(fetchMock)).toMatchObject({
+                parent: true,
+                type: 'epic',
+            });
+        });
+    });
 });
 
 describe('a stale copy of the widget', () => {

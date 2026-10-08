@@ -158,9 +158,11 @@ class CardRepository extends ServiceEntityRepository
      * work in flight, and a finished card is the one answer a reviewer almost
      * never wants.
      *
+     * @param list<string> $types the types to list, or every type when empty
+     *
      * @return list<Card>
      */
-    public function searchOpenForProject(Project $project, string $query, int $limit, ?string $type = null): array
+    public function searchOpenForProject(Project $project, string $query, int $limit, array $types = []): array
     {
         $qb = $this->createQueryBuilder('c')
             ->join('c.column', 'k')
@@ -175,8 +177,8 @@ class CardRepository extends ServiceEntityRepository
             $qb->andWhere('LOWER(c.title) LIKE :q ESCAPE \'!\'')
                 ->setParameter('q', self::titleContains($query));
         }
-        if (null !== $type) {
-            $qb->andWhere('c.type = :type')->setParameter('type', $type);
+        if ([] !== $types) {
+            $qb->andWhere('c.type IN (:types)')->setParameter('types', $types);
         }
 
         /* @var list<Card> */
