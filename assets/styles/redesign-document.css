@@ -230,12 +230,12 @@
         width: var(--doc-margin);
     }
     /* The panel column scrolls on its own when the open panels are taller
-       than the window. */
+       than the window, or than a short document. */
     .lp-review .lp-review-panels__inner {
         @apply overflow-y-auto;
         position: sticky;
         top: calc(var(--spacing) * 4);
-        max-height: calc(100dvh - var(--spacing) * 24);
+        max-height: min(calc(100dvh - var(--spacing) * 24), 100%);
         scrollbar-width: thin;
     }
 }
