@@ -435,14 +435,15 @@ func (h Harness) session(runID string) (session, error) {
 }
 
 // tree is the session of the run id, with the sessions of its subagents. A
-// subagent started before since need not read.
-func (h Harness) tree(runID string, since time.Time) (*tree, error) {
+// subagent started before since, or at or after until when until is set,
+// need not read.
+func (h Harness) tree(runID string, since, until time.Time) (*tree, error) {
 	s, err := h.session(runID)
 	if err != nil {
 		return nil, err
 	}
 
-	return h.load(s, map[string]bool{}, since, time.Time{})
+	return h.load(s, map[string]bool{}, since, until)
 }
 
 // ReadRun reads a finished run from the stdout of Codex and the files it wrote.
@@ -477,12 +478,16 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 		out.CallsRead = true
 		out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since, end)
 	}
+	var counted map[string]spend
+	if treeErr == nil && !t.skipped {
+		counted = t.between(time.Time{}, end)
+	}
 	switch {
 	case treeErr == nil && t.skipped:
 		// The session total lacks a subagent, so the bridge reads the spend of
 		// the run window with SessionUsage instead.
-	case treeErr == nil && t.counted():
-		out.Usage = toUsage(t.between(time.Time{}, end))
+	case len(counted) > 0:
+		out.Usage = toUsage(counted)
 	case stdout.usage != nil:
 		name := cmp.Or(sess.model, run.Model, fallbackModel)
 		out.Usage = toUsage(map[string]spend{name: stdout.usage.priceAt(name, 0)})
@@ -528,7 +533,7 @@ func document(text string) json.RawMessage {
 // SessionUsage is what the thread and its subagents spent at or after from,
 // and before to when to is set.
 func (h Harness) SessionUsage(runID string, from, to time.Time) (transcript.Usage, error) {
-	t, err := h.tree(runID, from)
+	t, err := h.tree(runID, from, to)
 	if err != nil {
 		return nil, err
 	}

@@ -598,3 +598,24 @@ func TestAMissingSubagentOfALaterRunLeavesTheRunReadable(t *testing.T) {
 		t.Fatalf("output = %+v", got)
 	}
 }
+
+// A missing subagent after the end of a usage window does not block it.
+func TestAMissingSubagentAfterTheWindowLeavesTheUsageReadable(t *testing.T) {
+	const main = "aaaaaaaa-0000-0000-0000-00000000000b"
+	home := t.TempDir()
+	writeSession(t, home, main,
+		metaLine(main),
+		`{"timestamp":"2026-10-08T10:00:01.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":10},"last_token_usage":{"input_tokens":100,"output_tokens":10}}}}`,
+		started("2026-10-08T10:20:00.000Z", main, "", "/root/x", "aaaaaaaa-0000-0000-0000-00000000000c"),
+	)
+	h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+	if err := h.remember(runID, main); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := h.SessionUsage(runID, time.Time{}, at(t, "2026-10-08T10:10:00.000Z"))
+
+	if err != nil || len(got) != 1 {
+		t.Fatalf("SessionUsage = %+v, %v", got, err)
+	}
+}
