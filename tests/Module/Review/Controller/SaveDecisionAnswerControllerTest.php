@@ -71,7 +71,7 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         $client->loginUser($owner);
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
 
-        self::assertSelectorExists('.lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"]');
+        self::assertSelectorExists('.lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"][title="Recommended, moderate confidence"][tabindex="0"]');
     }
 
     /**

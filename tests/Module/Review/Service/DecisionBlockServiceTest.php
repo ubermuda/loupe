@@ -749,7 +749,7 @@ final class DecisionBlockServiceTest extends TestCase
         );
 
         self::assertStringContainsString(
-            'Ship to staging first</label><span class="lp-decision__badge" data-decision-recommended="high"></span></div>',
+            'Ship to staging first</label><span class="lp-decision__badge" data-decision-recommended="high" tabindex="0"><span class="lp-decision__star lp-decision__star--filled"></span><span class="lp-decision__star lp-decision__star--filled"></span><span class="lp-decision__star lp-decision__star--filled"></span></span></div>',
             $html,
         );
         self::assertSame(1, substr_count($html, 'lp-decision__badge'));
@@ -847,14 +847,136 @@ final class DecisionBlockServiceTest extends TestCase
         ]);
 
         self::assertStringContainsString(
-            '<span class="lp-decision__badge" data-decision-recommended="moderate" role="note" aria-label="Advised &amp; sure"></span>',
+            '<span class="lp-decision__badge" data-decision-recommended="moderate" tabindex="0" role="note" aria-label="Advised &amp; sure" title="Advised &amp; sure">',
             $marked,
         );
         self::assertSame(strip_tags($html), strip_tags($marked));
         self::assertStringContainsString(
-            '<span class="lp-decision__badge" data-decision-recommended="moderate"></span>',
+            '<span class="lp-decision__badge" data-decision-recommended="moderate" tabindex="0"><span',
             $this->decisions->withSelections($html, [], readOnly: false),
         );
+    }
+
+    #[DataProvider('starCounts')]
+    public function test_the_badge_fills_one_star_per_step_of_confidence(string $confidence, int $filled): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: a -->\n\n- ( ) One (recommended: {$confidence})\n- ( ) Two\n\n<!-- /decision -->\n",
+        );
+
+        self::assertSame(3, substr_count($html, 'class="lp-decision__star'));
+        self::assertSame($filled, substr_count($html, 'lp-decision__star--filled'));
+        self::assertStringNotContainsString('star', strip_tags($html));
+    }
+
+    /** @return iterable<string, array{string, int}> */
+    public static function starCounts(): iterable
+    {
+        yield 'high' => ['high', 3];
+        yield 'moderate' => ['moderate', 2];
+        yield 'low' => ['low', 1];
+    }
+
+    private const string OPTION_TABLE = <<<'MD'
+        | Option | Pros | Cons |
+        | --- | --- | --- |
+        | Ship it | Fast | Risky |
+        | Wait | Safe | Slow |
+        MD;
+
+    public function test_a_table_in_an_options_fence_becomes_an_option_table_with_cell_labels(): void
+    {
+        $html = $this->renderer->render("Before.\n\n<!-- options -->\n\n".self::OPTION_TABLE."\n\n<!-- /options -->\n\nAfter.\n");
+
+        self::assertStringContainsString('<table class="lp-option-table">', $html);
+        self::assertStringContainsString('<td data-label="Option">Ship it</td>', $html);
+        self::assertStringContainsString('<td data-label="Pros">Fast</td>', $html);
+        self::assertStringContainsString('<td data-label="Cons">Slow</td>', $html);
+        self::assertStringNotContainsString('data-label="Pros">Option', $html);
+        self::assertStringNotContainsString('LPDECISION', $html);
+        self::assertStringNotContainsString('options -->', $html);
+        self::assertSame(1, substr_count($html, '<table'));
+    }
+
+    public function test_an_option_table_adds_no_text_to_the_anchor_basis(): void
+    {
+        $marked = $this->renderer->render("<!-- options -->\n\n".self::OPTION_TABLE."\n\n<!-- /options -->\n");
+        $plain = $this->renderer->render(self::OPTION_TABLE."\n");
+
+        self::assertSame(trim(strip_tags($plain)), trim(strip_tags($marked)));
+        $document = \Dom\HTMLDocument::createFromString('<body>'.$marked.'</body>', \LIBXML_NOERROR);
+        self::assertSame(
+            preg_replace('~\s+~', '', strip_tags($marked)),
+            preg_replace('~\s+~', '', (string) $document->body?->textContent),
+        );
+    }
+
+    public function test_every_table_in_one_options_fence_is_marked(): void
+    {
+        $html = $this->renderer->render("<!-- options -->\n\n".self::OPTION_TABLE."\n\nBetween.\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n<!-- /options -->\n");
+
+        self::assertSame(2, substr_count($html, '<table class="lp-option-table">'));
+        self::assertStringContainsString('<td data-label="B">2</td>', $html);
+        self::assertStringNotContainsString('LPDECISION', $html);
+    }
+
+    public function test_a_table_outside_an_options_fence_stays_plain(): void
+    {
+        $html = $this->renderer->render(self::OPTION_TABLE."\n\n<!-- options -->\n\n".self::OPTION_TABLE."\n\n<!-- /options -->\n\n".self::OPTION_TABLE."\n");
+
+        self::assertSame(1, substr_count($html, 'lp-option-table'));
+        self::assertSame(3, substr_count($html, '<table'));
+    }
+
+    public function test_a_heading_with_markup_labels_its_cells_with_plain_text(): void
+    {
+        $html = $this->renderer->render("<!-- options -->\n\n| **Name** | `Cost` \"x\" |\n| --- | --- |\n| a | b |\n\n<!-- /options -->\n");
+
+        self::assertStringContainsString('<td data-label="Name">a</td>', $html);
+        self::assertStringContainsString('<td data-label="Cost &quot;x&quot;">b</td>', $html);
+    }
+
+    #[DataProvider('unmarkedOptionFences')]
+    public function test_a_malformed_options_fence_leaves_a_plain_table(string $markdown): void
+    {
+        $html = $this->renderer->render($markdown);
+
+        self::assertStringNotContainsString('lp-option-table', $html);
+        self::assertStringNotContainsString('data-label', $html);
+        self::assertStringNotContainsString('LPDECISION', $html);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function unmarkedOptionFences(): iterable
+    {
+        yield 'unclosed opener' => ["<!-- options -->\n\n".self::OPTION_TABLE."\n"];
+        yield 'stray closer' => [self::OPTION_TABLE."\n\n<!-- /options -->\n"];
+        yield 'one column' => ["<!-- options -->\n\n| A |\n| --- |\n| 1 |\n\n<!-- /options -->\n"];
+        yield 'no table inside' => ["<!-- options -->\n\nJust prose.\n\n<!-- /options -->\n\n".self::OPTION_TABLE."\n"];
+        yield 'quoted in a code block' => ["```\n<!-- options -->\n```\n\n".self::OPTION_TABLE."\n\n```\n<!-- /options -->\n```\n"];
+    }
+
+    public function test_a_fence_that_marks_nothing_shows_its_markers_like_stray_comments(): void
+    {
+        $html = $this->renderer->render("<!-- options -->\n\nJust prose.\n\n<!-- /options -->\n");
+
+        self::assertSame(2, substr_count($html, 'lp-doc-note'));
+    }
+
+    public function test_an_unclosed_opener_is_abandoned_and_the_next_pair_still_marks(): void
+    {
+        $html = $this->renderer->render("<!-- options -->\n\nLost.\n\n<!-- options -->\n\n".self::OPTION_TABLE."\n\n<!-- /options -->\n");
+
+        self::assertSame(1, substr_count($html, '<table class="lp-option-table">'));
+        self::assertSame(1, substr_count($html, 'lp-doc-note'));
+    }
+
+    public function test_a_one_column_table_beside_a_wide_one_stays_plain(): void
+    {
+        $html = $this->renderer->render("<!-- options -->\n\n| A |\n| --- |\n| 1 |\n\n".self::OPTION_TABLE."\n\n<!-- /options -->\n");
+
+        self::assertSame(2, substr_count($html, '<table'));
+        self::assertSame(1, substr_count($html, 'lp-option-table'));
     }
 
     /**
