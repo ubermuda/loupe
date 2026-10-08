@@ -58,7 +58,7 @@ final class CardHistoryTest extends KernelTestCase
             'kind' => 'created',
             'actor_kind' => 'human',
             'actor_user_id' => (string) $this->owner->id,
-            'detail' => ['column' => ['id' => (string) $this->column($this->project, 'backlog')->id, 'label' => 'board.card.status.backlog', 'slug' => 'backlog']],
+            'detail' => ['column' => ['id' => (string) $this->column($this->project, 'backlog')->id, 'label' => 'board.card.status.backlog', 'slug' => 'backlog'], 'type' => 'feature'],
         ]], $this->history($card));
     }
 
