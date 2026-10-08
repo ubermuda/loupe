@@ -46,12 +46,23 @@ final class RateLimitSiteReviewWritesTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function test_a_verdict_write_spends_the_same_allowance(): void
+    {
+        $listener = $this->listenerAuthenticatedAs('widget-token-1');
+
+        $listener($this->request('POST', '/api/board/cards/0198a2c0-0000-7000-8000-000000000001/verdicts', '203.0.113.7'));
+
+        $this->expectException(TooManyRequestsHttpException::class);
+        $listener($this->request('POST', '/api/board/cards/0198a2c0-0000-7000-8000-000000000001/verdicts', '203.0.113.7'));
+    }
+
     public function test_safe_methods_are_never_limited(): void
     {
         $listener = $this->listenerAuthenticatedAs('widget-token-1');
 
         $listener($this->write('203.0.113.7'));
         $listener($this->request('GET', '/api/site-review/comments', '203.0.113.7'));
+        $listener($this->request('GET', '/api/board/cards/0198a2c0-0000-7000-8000-000000000001/verdict', '203.0.113.7'));
         $this->addToAssertionCount(1);
     }
 
