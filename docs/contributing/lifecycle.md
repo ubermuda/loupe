@@ -345,6 +345,8 @@ that change from one setup to the next.
    `.agents/skills/loupe-stage-implementation/references/harnesses/generic.md`.
    The compatibility adapter for Claude Code is
    `.agents/skills/loupe-stage-implementation/references/harnesses/claude-code.md`.
+   The adapter for Codex is
+   `.agents/skills/loupe-stage-implementation/references/harnesses/codex.md`.
 3. A forge adapter maps the pull request operations to the commands of one
    forge. The adapter for GitHub is
    `.agents/skills/loupe-stage-implementation/references/forges/github.md`.

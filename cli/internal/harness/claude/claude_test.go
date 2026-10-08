@@ -245,7 +245,7 @@ func TestTheLaunchScriptLeavesOutAnUnsetModelAndMode(t *testing.T) {
 
 func TestTheLaunchScriptBody(t *testing.T) {
 	spec := harness.Spec{Dir: "/w", SessionID: "s1", Model: "opus", PermissionMode: "plan", Prompt: "go"}
-	want := "#!/bin/sh\nrm -f -- \"$0\"\ncd -- '/w' || exit 1\nexec '/bin/claude' --session-id 's1' --model 'opus' --permission-mode 'plan' -- 'go'\n"
+	want := "#!/bin/sh\nrm -f -- \"$0\"\nexport LOUPE_SESSION_ID='s1'\ncd -- '/w' || exit 1\nexec '/bin/claude' --session-id 's1' --model 'opus' --permission-mode 'plan' -- 'go'\n"
 	if got := New("").Interactive("/bin/claude", spec); got != want {
 		t.Fatalf("Interactive = %q, want %q", got, want)
 	}
@@ -271,9 +271,30 @@ func TestTheLaunchScriptExportsItsEnvironment(t *testing.T) {
 	}
 }
 
+// A session reads its id from LOUPE_SESSION_ID first, so the script sets it to
+// the run id, over a value an env file set.
+func TestTheLaunchScriptExportsTheSessionID(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "env")
+	program := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(program, []byte("#!/bin/sh\nprintf '%s' \"$LOUPE_SESSION_ID\" > "+shellQuote(out)+"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.Spec{Dir: t.TempDir(), SessionID: testSession, Prompt: "go", Env: []string{sessionVar + "from-file"}}
+	path := filepath.Join(t.TempDir(), "s1.sh")
+	if err := os.WriteFile(path, []byte(New("").Interactive(program, spec)), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := exec.Command("/bin/sh", path).CombinedOutput(); err != nil {
+		t.Fatalf("script: %v: %s", err, b)
+	}
+	if got, err := os.ReadFile(out); err != nil || string(got) != testSession {
+		t.Fatalf("LOUPE_SESSION_ID = %q, %v", got, err)
+	}
+}
+
 func TestTheLaunchScriptBodyWithAnEnvironment(t *testing.T) {
 	spec := harness.Spec{Dir: "/w", SessionID: "s1", Prompt: "go", Env: []string{"CLAUDE_CONFIG_DIR=/c"}}
-	want := "#!/bin/sh\nrm -f -- \"$0\"\nexport CLAUDE_CONFIG_DIR='/c'\ncd -- '/w' || exit 1\nexec '/bin/claude' --session-id 's1' -- 'go'\n"
+	want := "#!/bin/sh\nrm -f -- \"$0\"\nexport CLAUDE_CONFIG_DIR='/c'\nexport LOUPE_SESSION_ID='s1'\ncd -- '/w' || exit 1\nexec '/bin/claude' --session-id 's1' -- 'go'\n"
 	if got := New("").Interactive("/bin/claude", spec); got != want {
 		t.Fatalf("Interactive = %q, want %q", got, want)
 	}

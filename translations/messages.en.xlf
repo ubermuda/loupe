@@ -4437,6 +4437,14 @@
                 <source>landing.feature.site_review.text</source>
                 <target>An embeddable widget that brings the same select-and-comment flow to a live page. Each note lands on your board as a card. Quote a passage of text, or point one note at several elements to say how they relate.</target>
             </trans-unit>
+            <trans-unit id="landing.feature.harnesses.title">
+                <source>landing.feature.harnesses.title</source>
+                <target>Claude Code and Codex workers</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.harnesses.text">
+                <source>landing.feature.harnesses.text</source>
+                <target>Your bridge runs each stage worker on Claude Code or Codex, on your own subscriptions or on an API key such as OpenRouter. An experiment compares them on cost, speed and outcome.</target>
+            </trans-unit>
             <trans-unit id="landing.feature.cost_analysis.title">
                 <source>landing.feature.cost_analysis.title</source>
                 <target>Cost and experiment analysis</target>
@@ -4740,6 +4748,14 @@
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
                 <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Each board follows a workflow template, so Loupe moves a card through its stages and asks your bridge for the next piece of work. When you connect a repository through the GitHub App, Loupe follows the pull request of each card, shows its checks, conflicts and review on the board, and can carry it through to the merge.</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.harnesses.question">
+                <source>landing.faq.harnesses.question</source>
+                <target>Which agents does it run?</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.harnesses.answer">
+                <source>landing.faq.harnesses.answer</source>
+                <target>The bridge on your machine runs each stage worker on Claude Code or Codex. Each rule picks a named account, so one board can use a Claude subscription, a ChatGPT subscription and an OpenRouter key together. The keys stay on your machine. An experiment compares the accounts on the same stage.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>

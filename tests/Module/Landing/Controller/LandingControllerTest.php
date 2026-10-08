@@ -54,6 +54,18 @@ final class LandingControllerTest extends WebTestCase
         self::assertSelectorExists('a[href="/register"]');
     }
 
+    public function test_landing_page_names_the_worker_harnesses(): void
+    {
+        $client = static::createClient();
+        $this->setLandingEnabled($client, true);
+
+        $client->request(Request::METHOD_GET, '/');
+
+        self::assertResponseIsSuccessful();
+        self::assertAnySelectorTextContains('.lp-landing-feature__title', 'Claude Code and Codex workers');
+        self::assertAnySelectorTextContains('.lp-landing-faq__question', 'Which agents does it run?');
+    }
+
     /**
      * The flag is seeded off, so this is what a fresh or upgraded instance
      * does: exactly the redirect anonymous visitors got before the page

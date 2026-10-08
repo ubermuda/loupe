@@ -36,8 +36,8 @@ const maxOutput = 4000
 // maxStdout bounds the stdout the bridge reads from a before command.
 const maxStdout = 1 << 20
 
-// sessionEnv gives `loupe mcp` the claude session of a worker, so the server
-// can name the run that moves a card.
+// sessionEnv gives `loupe mcp` the run id of a worker, so the server can name
+// the run that moves a card.
 const sessionEnv = "LOUPE_SESSION_ID"
 
 // workerResult is one finished worker. err is set when the process never ran,

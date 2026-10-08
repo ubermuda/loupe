@@ -1,13 +1,15 @@
 ---
 title: "Command-line bridge"
-description: "A Go binary that claims the work requests of the workflow and runs a Claude Code worker for each one. Preview."
+description: "A Go binary that claims the work requests of the workflow and runs a Claude Code or Codex worker for each one. Preview."
 ---
 
 `cli/` holds a small Go binary that closes the loop. The
 [workflow](../using/workflows.md) of a board decides when work runs, and it
 opens a work request for each piece of work. The bridge claims a request and
-runs it. A worker is `claude -p --session-id <uuid> -- <prompt>`, with a new
-session id for each worker. It reads the card through the MCP, prints its
+runs it. A worker runs on the harness of its account. On a Claude Code account
+it is `claude -p --session-id <uuid> -- <prompt>`, with a new session id for
+each worker. On a Codex account it is `codex exec`, as
+[A Codex account](#a-codex-account) describes. It reads the card through the MCP, prints its
 answer and exits. The bridge reports the exit code and the worker's structured
 result, and posts the result of the request. An entry with
 `action: interactive` opens an interactive session in a terminal instead, as
@@ -164,9 +166,9 @@ The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
 what each state means. The server adds `timed-out` and `lost` on its own. It
 also sets `closed` on an interactive run, which no bridge holds.
 
-A clean exit does not prove that the work finished. The bridge runs each
-worker with `--verbose --output-format stream-json` and `--json-schema`, and
-every prompt asks for a structured result. claude prints one JSON line for each
+A clean exit does not prove that the work finished. Every prompt asks for a
+structured result. The bridge runs a Claude Code worker with
+`--verbose --output-format stream-json` and `--json-schema`. claude prints one JSON line for each
 step, and the bridge reads the first line of type `result`. A later `result`
 line comes from a turn that a background task notification starts, and the
 bridge ignores it. The bridge also reads the single JSON document of
@@ -202,8 +204,9 @@ subagent still runs, and exits 0. An operator who sets the variable, even to an
 empty value, keeps that value.
 
 Each outcome carries the tokens the worker process spent, per model, as the
-`usage` field of the [Worker run API](../reference/worker-runs.md#usage). A
-worker that ends on its own prints `modelUsage` in its result line. The bridge
+`usage` field of the [Worker run API](../reference/worker-runs.md#usage). The
+rest of this section covers a Claude Code worker.
+[Codex metrics](#codex-metrics) covers a Codex worker. A worker that ends on its own prints `modelUsage` in its result line. The bridge
 sends those counts with the source `reported`, and the cost claude computed.
 
 claude's counts cover the whole session, so a resume would count the earlier
@@ -732,7 +735,7 @@ takes no sample, whatever the flags say.
 ## Agent account
 
 `loupe agent-account set` stores the token of a separate GitHub user for
-agents in `config.json`. Each claude worker then pushes as that user. The token
+agents in `config.json`. Each worker then pushes as that user. The token
 stays on the machine, and Loupe never receives it. `show` prints the login and
 the id, and `clear` removes the account.
 
@@ -742,7 +745,7 @@ With no account, the bridge sends `""`. When the call fails, the bridge logs
 `agent_account_check_failed` and sends `""`, so a revoked token never shows as
 set up. The bridge does not check again until it restarts.
 
-Each claude worker gets these variables when an account is stored. The bridge
+Each worker gets these variables when an account is stored. The bridge
 first removes the inherited `GH_TOKEN`, `GITHUB_TOKEN`, `GIT_AUTHOR_NAME`,
 `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL`.
 
@@ -1078,9 +1081,9 @@ context of the run's work request, so the command and the `before` command fill
 the pull request and the document that the first run had. A bridge that does not report the
 `rerun-command` capability gets no rerun, and the web UI disables the control.
 
-A usage request asks for the token usage of one interactive Claude Code run,
-which has no worker process. The bridge reads the usage of the run's window
-from the transcript of the session on this machine, subagents included, and
+A usage request asks for the token usage of one interactive run, which has no
+worker process. The bridge reads the usage of the run's window from the
+transcript of the session on this machine, subagents included, and
 sends it as an estimate. It refuses the request when this machine holds no
 transcript of the session. Only a bridge that reports the `session-usage`
 capability gets a usage request.
@@ -1095,7 +1098,7 @@ folder as the last line of its output. The run reports the state `preparing`
 while the command runs. It holds the run's worker slot and its card, so no
 other run of the card starts first.
 
-The run fails, and claude does not start, when the command exits with a code
+The run fails, and the worker does not start, when the command exits with a code
 that is not 0, runs past its timeout, or prints a path that is not an existing
 directory. It also fails when the bridge cannot read the command's output. The command runs again before each resume. A resumed conversation
 starts in the folder its transcript records. It starts in the printed folder
@@ -1485,12 +1488,14 @@ each machine sets its own launcher. A file with an interactive entry and no
 
 For each launch, the bridge writes a script to
 `<temp dir>/loupe-sessions/<sessionId>.sh`, with mode `0700`. The script deletes
-itself, changes to the project's `dir`, and runs
-`claude --session-id <sessionId> -- '<prompt>'`. A terminal app can start with
-a short `PATH`. So the bridge finds `claude` on its own `PATH` at start, and
-writes the absolute path into the script. A launch on a `codex` account finds
-`codex` on the `PATH` of the bridge at the launch, and fails when it is missing. With an interactive entry and no
-`claude` on its `PATH`, the bridge refuses to start. At start, it also deletes
+itself, changes to the project's `dir`, and runs the harness. On a
+`claude-code` account it runs `claude --session-id <sessionId> -- '<prompt>'`.
+A terminal app can start with a short `PATH`. So the bridge finds `claude` on
+its own `PATH` at start, and writes the absolute path into the script. A launch
+on a `codex` account finds `codex` at the launch, on the `PATH` of the account,
+and fails when it is missing. The bridge refuses to start with no `claude` on
+its `PATH` when a rule runs on a `claude-code` account, or when `rules.yaml`
+names no account. At start, it also deletes
 scripts older than one day.
 
 The bridge runs the launcher with no shell, and never kills it. An exit with

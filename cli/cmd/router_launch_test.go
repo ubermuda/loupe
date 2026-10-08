@@ -120,7 +120,7 @@ func TestAnInteractiveMatchLaunchesASession(t *testing.T) {
 		t.Fatalf("scripts = %v", got)
 	}
 	body, _ := os.ReadFile(filepath.Join(h.router.scriptDir, testSession+".sh"))
-	want := "#!/bin/sh\nrm -f -- \"$0\"\ncd -- '" + h.dir + "' || exit 1\nexec '/usr/local/bin/claude' --session-id '" + testSession + "' --model 'opus' -- 'Design card 87.'\n"
+	want := "#!/bin/sh\nrm -f -- \"$0\"\nexport LOUPE_SESSION_ID='" + testSession + "'\ncd -- '" + h.dir + "' || exit 1\nexec '/usr/local/bin/claude' --session-id '" + testSession + "' --model 'opus' -- 'Design card 87.'\n"
 	if string(body) != want {
 		t.Fatalf("script = %q, want %q", body, want)
 	}
