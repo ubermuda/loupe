@@ -181,7 +181,7 @@ func fromRepository(dir, server string) (Resolution, error) {
 		return Resolution{}, nil
 	}
 
-	return Resolution{Scope: ScopeProject, Entry: Entry{Command: entry.Command, Args: entry.Args}}, nil
+	return Resolution{Scope: ScopeProject, Entry: Entry{Command: entry.Command, Args: entry.Args, Env: entry.Env}}, nil
 }
 
 // Add asks Claude Code to declare server as `loupe mcp` in scope, and confirms

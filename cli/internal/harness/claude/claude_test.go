@@ -683,3 +683,22 @@ func TestCheckReadsTheConfigOfTheAccountHome(t *testing.T) {
 		t.Fatalf("Check with the bridge HOME = %+v, want two problems", got)
 	}
 }
+
+func TestCheckReadsThePathOfTheRepositoryEntry(t *testing.T) {
+	isolate(t)
+	fake := filepath.Dir(checkClaude(t, "0", "[]"))
+	bin, project := t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(fake, "claude"), filepath.Join(bin, "claude")); err != nil {
+		t.Fatal(err)
+	}
+	addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+	entry := `{"mcpServers":{"loupe":{"command":"loupe","args":["mcp"],"env":{"PATH":"` + fake + `"}}}}`
+	if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(entry), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", Env: []string{"PATH=" + bin + ":/bin:/usr/bin"}, Projects: map[string]string{"loupe": project}}
+
+	if got := New("").Check(context.Background(), spec); len(got) != 0 {
+		t.Fatalf("Check = %+v, want ready through the PATH of the repository entry", got)
+	}
+}
