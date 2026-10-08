@@ -7407,8 +7407,8 @@
             <trans-unit id="workflow.waiting.not.run_worker_active"><source>workflow.waiting.not.run_worker_active</source><target>Waiting: a matching worker run is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.parent_document_approved"><source>workflow.waiting.parent_document_approved</source><target>Waiting: no %tag% document of the parent card is approved.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.parent_document_approved"><source>workflow.waiting.not.parent_document_approved</source><target>Waiting: a %tag% document of the parent card is approved.</target></trans-unit>
-            <trans-unit id="workflow.waiting.parent_work_active"><source>workflow.waiting.parent_work_active</source><target>Waiting: no matching worker run of the parent card is open.</target></trans-unit>
-            <trans-unit id="workflow.waiting.not.parent_work_active"><source>workflow.waiting.not.parent_work_active</source><target>Waiting: a matching worker run of the parent card is still open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.parent_work_active"><source>workflow.waiting.parent_work_active</source><target>Waiting: no matching worker run or work request of the parent card is open.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.parent_work_active"><source>workflow.waiting.not.parent_work_active</source><target>Waiting: a matching worker run or work request of the parent card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.run_last_refusal"><source>workflow.waiting.run_last_refusal</source><target>Waiting: the last run did not refuse with the code %code%.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.run_last_refusal"><source>workflow.waiting.not.run_last_refusal</source><target>Waiting: the last run refused with the code %code%.</target></trans-unit>
             <trans-unit id="workflow.source.board"><source>workflow.source.board</source><target>Board</target></trans-unit>
