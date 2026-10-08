@@ -44,7 +44,7 @@ func TestOpenRouterPricesAreOffUnlessTheKeyIsOn(t *testing.T) {
 		return openrouter.Prices{"a/b": {}}, nil
 	})
 	r.loadPrices(context.Background(), priceSet(t, ""))
-	r.refreshPrices(priceSet(t, "openRouterPrices: false\n"))
+	r.loadPrices(context.Background(), priceSet(t, "openRouterPrices: false\n"))
 
 	if calls.Load() != 0 || buf.Len() != 0 || transcript.Cost("a/b", 1, 1, 0, 0, 0) != nil {
 		t.Fatalf("calls = %d, log = %q", calls.Load(), buf)
@@ -149,7 +149,7 @@ func TestOpenRouterPricesEmptyWhenAReloadTurnsTheKeyOff(t *testing.T) {
 		t.Fatal("the table must hold a/b while the key is on")
 	}
 
-	r.refreshPrices(priceSet(t, "openRouterPrices: false\n"))
+	r.loadPrices(context.Background(), priceSet(t, "openRouterPrices: false\n"))
 	if transcript.Cost("a/b", 1, 1, 0, 0, 0) != nil {
 		t.Fatal("the table must be empty once the key is off")
 	}
