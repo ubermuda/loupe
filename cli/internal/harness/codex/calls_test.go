@@ -428,3 +428,41 @@ func TestEachSpawnTakesTheSubagentItStarted(t *testing.T) {
 		t.Fatalf("calls:\n%+v\nwant\n%+v", rows, want)
 	}
 }
+
+func TestOutputErrorReadsTheEndOfAScript(t *testing.T) {
+	for text, want := range map[string]*bool{
+		"Script completed\nWall time 0.1 seconds\nOutput:\n": nil,
+		"Script failed\nError: x":                            flag(true),
+		"Script error\nSyntaxError: x":                       flag(true),
+		"Process exited with code 0\nOutput:\n":              flag(false),
+	} {
+		if got := outputError(text); !reflect.DeepEqual(got, want) {
+			t.Errorf("outputError(%q) = %v, want %v", text, got, want)
+		}
+	}
+}
+
+// A run can stop after a subagent counted its tokens and before the main
+// thread counted any. The spend of the subagent still reads.
+func TestTheSpendOfASubagentReadsWhenTheMainThreadCountedNone(t *testing.T) {
+	const main, child = "aaaaaaaa-0000-0000-0000-000000000003", "aaaaaaaa-0000-0000-0000-000000000004"
+	home := t.TempDir()
+	writeSession(t, home, main,
+		metaLine(main),
+		started("2026-10-08T10:00:01.000Z", main, "", "/root/x", child),
+	)
+	writeSession(t, home, child,
+		metaLine(child),
+		`{"timestamp":"2026-10-08T10:00:02.000Z","type":"turn_context","payload":{"model":"gpt-6-sol"}}`,
+		`{"timestamp":"2026-10-08T10:00:03.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":10},"last_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":10}}}}`,
+	)
+	h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+	if err := h.remember(runID, main); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := h.SessionTotal(runID)
+	if err != nil || got["gpt-6-sol"].OutputTokens != 10 {
+		t.Fatalf("SessionTotal = %+v, %v", got, err)
+	}
+}

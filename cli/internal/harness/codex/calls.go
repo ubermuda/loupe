@@ -154,7 +154,7 @@ var exitPattern = regexp.MustCompile(`(?m)^Process exited with code (-?[0-9]+)$`
 // outputError reads the head of an output, which says when a script failed or
 // with what code a process exited. It is nil when the head says neither.
 func outputError(text string) *bool {
-	if strings.HasPrefix(text, "Script failed") {
+	if strings.HasPrefix(text, "Script failed") || strings.HasPrefix(text, "Script error") {
 		failed := true
 
 		return &failed
@@ -227,6 +227,11 @@ func (t *tree) between(from, to time.Time) map[string]spend {
 	}
 
 	return byModel
+}
+
+// counted says the thread or one of its subagents holds a token count.
+func (t *tree) counted() bool {
+	return len(t.events) > 0 || slices.ContainsFunc(t.children, (*tree).counted)
 }
 
 // last is the time of the last line of the thread and of its subagents.
