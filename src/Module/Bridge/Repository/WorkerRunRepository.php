@@ -593,6 +593,19 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setParameter('running', WorkerRunState::Running->value);
     }
 
+    private function continuationsOfCard(Uuid $cardId): QueryBuilder
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
+            ->andWhere('r.kind = :kind')
+            ->andWhere('r.continuesRun IS NOT NULL')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC');
+    }
+
     private function interactive(Project $project): QueryBuilder
     {
         return $this->createQueryBuilder('r')
@@ -849,6 +862,28 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->addOrderBy('r.id', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    /**
+     * The newest worker run of the card that resumes or reruns an earlier run, and that a worker ran or runs. It leaves out a run a person stops.
+     * A run that reported before the time does not count, and neither does a run that belongs to another rule.
+     */
+    public function findLatestContinuationOfCard(Uuid $cardId, ?\DateTimeImmutable $since = null, ?string $ruleId = null): ?WorkerRun
+    {
+        $open = array_filter(WorkerRunState::openStates(), static fn (WorkerRunState $state): bool => WorkerRunState::Stopping !== $state);
+        $states = [...$open, ...array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome())];
+        $qb = $this->continuationsOfCard($cardId)
+            ->andWhere('r.state IN (:states)')
+            ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, $states))
+            ->setMaxResults(1);
+        if (null !== $since) {
+            $qb->andWhere('r.receivedAt >= :since')->setParameter('since', $since);
+        }
+        if (null !== $ruleId) {
+            $qb->andWhere('r.ruleId IS NULL OR r.ruleId = :ruleId')->setParameter('ruleId', $ruleId);
+        }
+
+        return $qb->getQuery()->getOneOrNullResult();
     }
 
     /**
