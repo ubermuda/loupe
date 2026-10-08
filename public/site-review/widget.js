@@ -3197,8 +3197,7 @@
         empty_body: 'The review had no text.',
     };
     const VERDICT_ERRORS = {
-        message_required:
-            'Write a message, or keep a note open, before you send.',
+        message_required: 'Write a message before you send.',
         card_closed: 'This card is closed, so it takes no verdict.',
         card_not_found: 'This card is gone.',
         pull_request_not_on_card:
@@ -3241,10 +3240,8 @@
         verdictActions(data, kind).some(
             (action) => action.code === VERDICT_CONNECT_WRITE,
         );
-    const verdictCanSend = ({ kind, noteCount, message, ticked, sending }) =>
-        !sending &&
-        ticked > 0 &&
-        (kind === 'approve' || noteCount > 0 || message.trim() !== '');
+    const verdictCanSend = ({ kind, message, ticked, sending }) =>
+        !sending && ticked > 0 && (kind === 'approve' || message.trim() !== '');
     const notesOpenText = (kind, count) => {
         const one = count === 1;
         if (kind === 'approve') {

@@ -220,7 +220,7 @@ describe('confirm panel', () => {
     });
 
     it.each(['Request changes', 'Comment'])(
-        'keeps Send off for %s with no note and no message',
+        'keeps Send off for %s with no message',
         async (name) => {
             boot();
             await settle();
@@ -236,7 +236,7 @@ describe('confirm panel', () => {
         },
     );
 
-    it('lets a review with an open note go with no message', async () => {
+    it('keeps Send off for a review with an open note and no message', async () => {
         const notes = [
             {
                 id: 'n1',
@@ -253,6 +253,8 @@ describe('confirm panel', () => {
 
         expect(form().textContent).toContain('1 note goes with this review');
         expect(form().textContent).toContain('Heading is cut off');
+        expect(sendButton().disabled).toBe(true);
+        await write('See the notes');
         expect(sendButton().disabled).toBe(false);
     });
 
