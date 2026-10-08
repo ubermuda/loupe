@@ -1,0 +1,42 @@
+{% if this.visible %}
+<section class="lp-connect-block lp-settings-section lp-settings-panel-card" data-testid="github-account-section">
+    <h2 class="lp-section-title">{{ 'github.connect.heading'|trans }}</h2>
+    <p class="lp-connect-hint">{{ 'github.connect.intro'|trans }}</p>
+
+    {% if connection is not null %}
+    <div class="lp-identity-row" data-testid="github-account-row">
+        <twig:ux:icon name="simple-icons:github" class="lp-identity-row__glyph w-4 h-4" />
+        <span class="lp-identity-row__text">
+            <span class="lp-identity-row__name" data-testid="github-account-login">{{ connection.login }}</span>
+            <span class="lp-identity-row__meta lp-identity-row__meta--plain" data-testid="github-account-state">
+                {%- if connection.expired -%}
+                    {{ 'github.connect.state.expired'|trans }}
+                {%- else -%}
+                    {{ 'github.connect.state.connected'|trans({'%time%': connection.connectedAt|date('Y-m-d H:i')}) }}
+                {%- endif -%}
+            </span>
+        </span>
+        {% if connection.expired and appConfigured %}
+        <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_github_user_connect') }}" data-turbo="false">{{ 'github.connect.action.reconnect'|trans }}</a>
+        {% endif %}
+        <div data-controller="modal">
+            <button type="button" class="lp-btn lp-btn--danger-ghost lp-btn--sm" data-action="click->modal#open">{{ 'github.connect.action.disconnect'|trans }}</button>
+            <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="disconnect-github-title" data-action="cancel->modal#close">
+                <h2 class="lp-dialog-title" id="disconnect-github-title">{{ 'github.connect.disconnect.title'|trans }}</h2>
+                <p class="lp-dialog-desc">{{ 'github.connect.disconnect.description'|trans({'%login%': connection.login}) }}</p>
+                <form method="post" action="{{ path('app_github_user_disconnect') }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('github-account-disconnect') }}">
+                    <div class="lp-dialog-actions">
+                        <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'github.connect.disconnect.cancel'|trans }}</button>
+                        <button type="submit" class="lp-btn lp-btn--danger">{{ 'github.connect.disconnect.confirm'|trans }}</button>
+                    </div>
+                </form>
+            </dialog>
+        </div>
+    </div>
+    {% else %}
+    <p class="lp-connect-hint" data-testid="github-account-empty">{{ 'github.connect.empty'|trans }}</p>
+    <a class="lp-btn lp-btn--primary lp-btn--sm" href="{{ path('app_github_user_connect') }}" data-turbo="false" data-testid="github-account-connect">{{ 'github.connect.action.connect'|trans }}</a>
+    {% endif %}
+</section>
+{% endif %}
