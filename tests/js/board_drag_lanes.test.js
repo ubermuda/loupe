@@ -48,7 +48,8 @@ const MOVE_FORM = `<form data-board-drag-target="moveForm" action="/cards/${PROT
 </form>`;
 
 function card(id, type = 'feature') {
-    return `<article data-board-drag-target="card" data-card-id="${id}" data-card-type="${type}"></article>`;
+    const lane = 'epic' === type ? 'true' : 'false';
+    return `<article data-board-drag-target="card" data-card-id="${id}" data-card-type="${type}" data-card-lane="${lane}"></article>`;
 }
 
 /** Starts a drag of the card from its group, with the drop marker nowhere yet. */
@@ -77,7 +78,7 @@ const LANES = `
         ${card('lone-epic', 'epic')}${card('o1')}
     </div>`;
 
-it('offers every cell of every lane to a card that is not an epic', async () => {
+it('offers every cell of every lane to a card whose type gets no lane', async () => {
     const controller = await mount(LANES);
     drag(controller, 'mover');
 
@@ -90,7 +91,7 @@ it('offers every cell of every lane to a card that is not an epic', async () => 
     ).toBe(4);
 });
 
-it('offers an epic card the cells of "Other cards" only', async () => {
+it('offers a card whose type gets a lane the cells of "Other cards" only', async () => {
     const controller = await mount(LANES);
     drag(controller, 'lone-epic');
 

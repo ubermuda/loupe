@@ -8,7 +8,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Service\BoardCardReportSource;
@@ -122,8 +121,8 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $project = $this->makeProject('card-types');
         $other = $this->makeProject('card-types-other');
         $feature = $this->card($project, 1, 'done');
-        $bug = $this->card($project, 2, 'done', CardType::Bug);
-        $foreign = $this->card($other, 1, 'done', CardType::Docs);
+        $bug = $this->card($project, 2, 'done', 'bug');
+        $foreign = $this->card($other, 1, 'done', 'docs');
         $this->em->clear();
 
         $types = $this->source->typesFor($project, [$feature, $bug, $foreign, Uuid::v7()]);
@@ -171,7 +170,7 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function card(Project $project, int $number, string $column, CardType $type = CardType::Feature): Uuid
+    private function card(Project $project, int $number, string $column, string $type = 'feature'): Uuid
     {
         $card = new Card(project: $project, column: $this->column($project, $column), title: 'Card '.$number, body: '', number: $number, type: $type);
         $this->em->persist($card);

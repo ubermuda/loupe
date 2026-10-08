@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\CardParentAutocompleteField;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
@@ -27,7 +26,7 @@ final class CardParentFormTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'parent-form-edit@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), 'epic');
         $card = $this->card($em, $project, 'The child');
         [$epicId, $cardId] = [$epic->id, $card->id];
         $em->clear();
@@ -54,7 +53,7 @@ final class CardParentFormTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'parent-form-create@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), 'epic');
         $epicId = $epic->id;
         $em->clear();
 
@@ -96,7 +95,7 @@ final class CardParentFormTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'parent-form-child-epic@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), 'epic');
         $card = $this->card($em, $project, 'The child');
         $card->parent = $epic;
         $em->flush();
@@ -104,11 +103,11 @@ final class CardParentFormTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $this->submitEdit($client, $project, $cardId, ['type' => CardType::Epic->value]);
+        $crawler = $this->submitEdit($client, $project, $cardId, ['type' => 'epic']);
 
         self::assertResponseStatusCodeSame(422);
         self::assertStringContainsString('A card with a parent cannot become an epic.', $crawler->filter('main')->text());
-        self::assertSame(CardType::Feature, $this->reload($em, $cardId)->type);
+        self::assertSame('feature', $this->reload($em, $cardId)->type);
     }
 
     public function test_an_epic_with_an_open_child_is_not_saved_into_done(): void
@@ -117,7 +116,7 @@ final class CardParentFormTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'parent-form-epic-done@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'The epic', 'in-progress'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic', 'in-progress'), 'epic');
         $child = $this->card($em, $project, 'The child');
         $child->parent = $epic;
         $em->flush();
@@ -139,7 +138,7 @@ final class CardParentFormTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'parent-form-delete@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), 'epic');
         $child = $this->card($em, $project, 'The child');
         $child->parent = $epic;
         $em->flush();
@@ -164,10 +163,10 @@ final class CardParentFormTest extends WebTestCase
         $owner = $this->user($em, 'parent-form-candidates@example.com');
         $project = $this->project($em, $owner);
         $other = $this->project($em, $owner, 'Other project');
-        $self = $this->typed($em, $this->card($em, $project, 'The card itself'), CardType::Epic);
-        $epic = $this->typed($em, $this->card($em, $project, 'An epic'), CardType::Epic);
+        $self = $this->typed($em, $this->card($em, $project, 'The card itself'), 'epic');
+        $epic = $this->typed($em, $this->card($em, $project, 'An epic'), 'epic');
         $feature = $this->card($em, $project, 'A feature');
-        $foreign = $this->typed($em, $this->card($em, $other, 'A foreign epic'), CardType::Epic);
+        $foreign = $this->typed($em, $this->card($em, $other, 'A foreign epic'), 'epic');
         $factory = static::getContainer()->get(FormFactoryInterface::class);
         $extraOptions = ['projectId' => (string) $project->id, 'excludeCardId' => (string) $self->id];
 

@@ -49,7 +49,7 @@
                 <select id="backlog-type" name="type" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
                     <option value="">{{ 'board.backlog.filter.all_types'|trans }}</option>
                     {% for type in types %}
-                    <option value="{{ type.value }}"{{ listQuery.type == type ? ' selected' : '' }}>{{ ('board.card.type.' ~ type.value)|trans }}</option>
+                    <option value="{{ type.key }}"{{ listQuery.type == type.key ? ' selected' : '' }}>{{ type.label|trans }}</option>
                     {% endfor %}
                 </select>
 

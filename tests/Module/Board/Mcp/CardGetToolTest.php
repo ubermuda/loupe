@@ -239,7 +239,7 @@ final class CardGetToolTest extends KernelTestCase
     {
         $project = $this->makeProject('card-get-feedback');
         $this->actAsMcpTokenBoundTo($project);
-        $created = ($this->createTool)('Fix the header', 'Body', 'site-review');
+        $created = ($this->createTool)('Fix the header', 'Body', 'feature');
         $card = $this->em->find(Card::class, $created['cardId']);
         self::assertInstanceOf(Card::class, $card);
 

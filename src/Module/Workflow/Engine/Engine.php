@@ -29,6 +29,7 @@ use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\RuleAsks;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
@@ -61,6 +62,9 @@ final readonly class Engine
     private const string RUN_RESUMED = 'run-resumed';
     private const string SUBJECT_CHANGED = 'subject-changed';
     private const string REFILLED = 'refilled';
+    private const string NO_LONGER_HOLDS = 'no-longer-holds';
+    private const string LEFT_SLOT = 'left-slot';
+    private const string RULE_REMOVED = 'rule-removed';
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -82,6 +86,7 @@ final readonly class Engine
         private Actions $actions,
         private WorkRequestOpener $opener,
         private RuleSubject $ruleSubject,
+        private RuleAsks $ruleAsks,
         private EventDispatcherInterface $events,
         private LoggerInterface $logger,
     ) {
@@ -145,6 +150,7 @@ final readonly class Engine
             // Before the baseline, which replaces the fingerprint a retries pause compares against.
             $this->stillPaused($run);
             $this->baseline($run);
+            $this->withdrawRemovedAsks($run);
             $this->em->flush();
 
             return $run;
@@ -159,6 +165,7 @@ final readonly class Engine
                 $this->runRules($run, $template->rules);
             }
         }
+        $this->withdrawRemovedAsks($run);
         $this->em->flush();
 
         return $run;
@@ -172,7 +179,7 @@ final readonly class Engine
             if (!$run->applies($rule)) {
                 $state = $run->states[$rule->id] ?? null;
                 if (null !== $state) {
-                    $this->write($run, $state, static fn (WorkflowRuleState $state) => $state->reset());
+                    $this->write($run, $state, $this->forget(...));
                 }
                 continue;
             }
@@ -181,6 +188,9 @@ final readonly class Engine
             }
             $this->write($run, $this->state($run, $rule), function (WorkflowRuleState $state) use ($run, $rule): void {
                 $bound = $this->ruleSubject->bind($rule, $run->facts);
+                if (!$bound->truth) {
+                    $this->withdrawAsk($state, self::NO_LONGER_HOLDS);
+                }
                 if ($this->refills($run, $rule, $state->subjectPullRequestId)) {
                     $state->fires = 0;
                 }
@@ -474,6 +484,13 @@ final readonly class Engine
 
         return match ($pause->kind) {
             CardPauseKind::Rule => match (true) {
+                ActionType::Ask === $rule->then->type => match (true) {
+                    !$applies => 'facts-changed',
+                    null !== $rule->when->unreadable($run->facts) => null,
+                    !$bound->truth => 'facts-changed',
+                    $this->ruleAsks->isOn($run->card->project->id ?? throw new \LogicException('A persisted project has an id.')) => 'inbox-on',
+                    default => null,
+                },
                 null === $rule->then->until => 'rule-removed',
                 null !== $rule->then->until->unreadable($run->facts) => null,
                 $rule->then->until->evaluate($this->ruleSubject->paused($rule, $run->facts, $stored)) => 'until-met',
@@ -501,7 +518,7 @@ final readonly class Engine
             if (!$run->applies($rule)) {
                 $state = $run->states[$rule->id] ?? null;
                 if (null !== $state) {
-                    $this->write($run, $state, static fn (WorkflowRuleState $state) => $state->reset());
+                    $this->write($run, $state, $this->forget(...));
                 }
                 continue;
             }
@@ -537,6 +554,7 @@ final readonly class Engine
                 // The rules after this one read the cancelled request.
                 $run->facts = $this->facts($run->card, $run->now, $run->facts);
             }
+            $this->withdrawAsk($state, self::NO_LONGER_HOLDS);
             $state->truth = false;
             $state->attempts = 0;
             $state->dueAt = null;
@@ -632,6 +650,10 @@ final readonly class Engine
 
                 return false;
             case ActionOutcomeKind::Pause:
+                // The pause ends when its cause goes, and the rule must then fire again.
+                if (ActionType::Ask === $type) {
+                    $state->truth = false;
+                }
                 $this->pause(
                     $run,
                     $outcome->pauseKind ?? throw new \LogicException('A pause outcome carries a kind.'),
@@ -704,6 +726,32 @@ final readonly class Engine
             || (null !== $rule->then->until?->unreadable($run->facts) && $this->ruleSubject->bind($rule, $run->facts)->truth);
     }
 
+    /** Withdraws the ask of a state and clears its item id. An item that was answered is closed already, so the withdrawal changes nothing on it. */
+    private function withdrawAsk(WorkflowRuleState $state, string $reason): void
+    {
+        if (null === $state->askItemId) {
+            return;
+        }
+        $this->ruleAsks->withdraw($state->askItemId, $reason);
+        $state->askItemId = null;
+    }
+
+    private function forget(WorkflowRuleState $state): void
+    {
+        $this->withdrawAsk($state, self::LEFT_SLOT);
+        $state->reset();
+    }
+
+    /** Withdraws the ask of a rule that the template no longer has, because no pass reaches its state. */
+    private function withdrawRemovedAsks(Evaluation $run): void
+    {
+        foreach ($run->states as $ruleId => $state) {
+            if (null !== $state->askItemId && null === $run->rule($ruleId)) {
+                $this->write($run, $state, fn (WorkflowRuleState $state) => $this->withdrawAsk($state, self::RULE_REMOVED));
+            }
+        }
+    }
+
     private function state(Evaluation $run, Rule $rule): WorkflowRuleState
     {
         if (!isset($run->states[$rule->id])) {
@@ -728,7 +776,7 @@ final readonly class Engine
     /** @return list<mixed> */
     private static function snapshot(WorkflowRuleState $state): array
     {
-        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122(), $state->workRequestId?->toRfc4122(), $state->repaired];
+        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122(), $state->workRequestId?->toRfc4122(), $state->repaired, $state->askItemId?->toRfc4122()];
     }
 
     private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void

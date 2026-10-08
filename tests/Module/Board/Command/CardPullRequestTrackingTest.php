@@ -13,7 +13,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -155,7 +154,7 @@ final class CardPullRequestTrackingTest extends KernelTestCase
             project: $this->project,
             title: 'A card',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             pullRequestUrls: $pullRequestUrls,
         ));
     }

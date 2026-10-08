@@ -13,7 +13,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -67,10 +66,10 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_a_card_created_under_an_epic_carries_it(): void
     {
         $project = $this->makeProject('parent-create');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $this->parentEvents = [];
 
-        $child = ($this->createCard)(new CreateCardCommand($project, 'Child', '', CardType::Feature, parentCardId: (string) $epic->id));
+        $child = ($this->createCard)(new CreateCardCommand($project, 'Child', '', 'feature', parentCardId: (string) $epic->id));
         $this->em->clear();
 
         self::assertSame((string) $epic->id, (string) $this->reload($child)->parent?->id);
@@ -86,8 +85,8 @@ final class CardParentWriteTest extends KernelTestCase
         $project = $this->makeProject('parent-create-none');
         $this->parentEvents = [];
 
-        $epic = ($this->createCard)(new CreateCardCommand($project, 'Epic', '', CardType::Epic, laneEnabled: false));
-        $default = $this->cardIn($project, CardType::Epic);
+        $epic = ($this->createCard)(new CreateCardCommand($project, 'Epic', '', 'epic', laneEnabled: false));
+        $default = $this->cardIn($project, 'epic');
         $this->em->clear();
 
         self::assertNull($this->reload($epic)->parent);
@@ -99,15 +98,15 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_a_create_with_a_bad_parent_is_refused_and_writes_nothing(): void
     {
         $project = $this->makeProject('parent-create-refused');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $feature = $this->cardIn($project);
-        $theirs = $this->cardIn($this->makeProject('parent-create-theirs'), CardType::Epic);
+        $theirs = $this->cardIn($this->makeProject('parent-create-theirs'), 'epic');
         $this->em->clear();
 
         $refusals = [
-            'board.card.error.parent_unknown' => [CardType::Feature, (string) $theirs->id],
-            'board.card.error.parent_not_epic' => [CardType::Feature, (string) $feature->id],
-            'board.card.error.epic_cannot_have_parent' => [CardType::Epic, (string) $epic->id],
+            'board.card.error.parent_unknown' => ['feature', (string) $theirs->id],
+            'board.card.error.parent_not_epic' => ['feature', (string) $feature->id],
+            'board.card.error.epic_cannot_have_parent' => ['epic', (string) $epic->id],
         ];
         foreach ($refusals as $key => [$type, $parentId]) {
             try {
@@ -125,7 +124,7 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_an_update_sets_keeps_and_clears_the_parent(): void
     {
         $project = $this->makeProject('parent-update');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $card = $this->cardIn($project);
         $this->em->clear();
         $this->audit->forget();
@@ -158,11 +157,11 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_an_update_with_a_bad_parent_is_refused_and_changes_nothing(): void
     {
         $project = $this->makeProject('parent-update-refused');
-        $epic = $this->cardIn($project, CardType::Epic);
-        $otherEpic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
+        $otherEpic = $this->cardIn($project, 'epic');
         $feature = $this->cardIn($project);
         $card = $this->cardIn($project);
-        $theirs = $this->cardIn($this->makeProject('parent-update-theirs'), CardType::Epic);
+        $theirs = $this->cardIn($this->makeProject('parent-update-theirs'), 'epic');
         $this->em->clear();
 
         $refusals = [
@@ -191,7 +190,7 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_an_epic_is_never_its_own_parent(): void
     {
         $project = $this->makeProject('parent-self-epic');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $this->em->clear();
 
         $this->expectRefusal(['parent' => 'board.card.error.epic_cannot_have_parent'], fn () => $this->update($epic, parentCardId: (string) $epic->id));
@@ -200,56 +199,56 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_an_epic_that_changes_type_cannot_name_itself_as_parent(): void
     {
         $project = $this->makeProject('parent-self-retype');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $this->em->clear();
 
-        $this->expectRefusal(['parent' => 'board.card.error.parent_not_epic'], fn () => $this->update($epic, parentCardId: (string) $epic->id, type: CardType::Feature));
+        $this->expectRefusal(['parent' => 'board.card.error.parent_not_epic'], fn () => $this->update($epic, parentCardId: (string) $epic->id, type: 'feature'));
         $this->em->clear();
-        self::assertSame(CardType::Epic, $this->reload($epic)->type);
+        self::assertSame('epic', $this->reload($epic)->type);
         self::assertNull($this->reload($epic)->parent);
     }
 
     public function test_a_card_with_a_parent_cannot_become_an_epic(): void
     {
         $project = $this->makeProject('parent-child-to-epic');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $child = $this->cardIn($project, parent: $epic);
         $this->em->clear();
 
-        $this->expectRefusal(['type' => 'board.card.error.parent_card_cannot_be_epic'], fn () => $this->update($child, type: CardType::Epic));
+        $this->expectRefusal(['type' => 'board.card.error.parent_card_cannot_be_epic'], fn () => $this->update($child, type: 'epic'));
         // The same parent sent again with the type is still the kept parent.
-        $this->expectRefusal(['type' => 'board.card.error.parent_card_cannot_be_epic'], fn () => $this->update($child, parentCardId: (string) $epic->id, type: CardType::Epic));
+        $this->expectRefusal(['type' => 'board.card.error.parent_card_cannot_be_epic'], fn () => $this->update($child, parentCardId: (string) $epic->id, type: 'epic'));
         $this->em->clear();
-        self::assertSame(CardType::Feature, $this->reload($child)->type);
+        self::assertSame('feature', $this->reload($child)->type);
 
         // Clearing the parent in the same update lets it become an epic.
-        $this->update($child, parentCardId: '', type: CardType::Epic);
+        $this->update($child, parentCardId: '', type: 'epic');
         $this->em->clear();
-        self::assertSame(CardType::Epic, $this->reload($child)->type);
+        self::assertSame('epic', $this->reload($child)->type);
         self::assertNull($this->reload($child)->parent);
     }
 
     public function test_an_epic_with_children_keeps_its_type_and_an_empty_one_does_not(): void
     {
         $project = $this->makeProject('parent-type-locked');
-        $epic = $this->cardIn($project, CardType::Epic);
-        $empty = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
+        $empty = $this->cardIn($project, 'epic');
         $this->cardIn($project, parent: $epic);
         $this->em->clear();
 
-        $this->expectRefusal(['type' => 'board.card.error.epic_type_locked'], fn () => $this->update($epic, type: CardType::Feature));
+        $this->expectRefusal(['type' => 'board.card.error.epic_type_locked'], fn () => $this->update($epic, type: 'feature'));
         $this->em->clear();
-        self::assertSame(CardType::Epic, $this->reload($epic)->type);
+        self::assertSame('epic', $this->reload($epic)->type);
 
-        $this->update($empty, type: CardType::Feature);
+        $this->update($empty, type: 'feature');
         $this->em->clear();
-        self::assertSame(CardType::Feature, $this->reload($empty)->type);
+        self::assertSame('feature', $this->reload($empty)->type);
     }
 
     public function test_the_parent_type_is_read_again_under_the_lock(): void
     {
         $project = $this->makeProject('parent-stale-type');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $card = $this->cardIn($project);
         $this->em->clear();
         $loaded = $this->reload($card);
@@ -268,7 +267,7 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_the_card_parent_is_read_again_under_the_lock(): void
     {
         $project = $this->makeProject('parent-stale-own');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $card = $this->cardIn($project);
         $this->em->clear();
         $loaded = $this->reload($card);
@@ -278,14 +277,14 @@ final class CardParentWriteTest extends KernelTestCase
 
         $this->expectRefusal(
             ['type' => 'board.card.error.parent_card_cannot_be_epic'],
-            fn () => ($this->updateCard)(new UpdateCardCommand($loaded, CardReporter::Agent, type: CardType::Epic)),
+            fn () => ($this->updateCard)(new UpdateCardCommand($loaded, CardReporter::Agent, type: 'epic')),
         );
     }
 
     public function test_an_update_records_a_lane_change(): void
     {
         $project = $this->makeProject('parent-lane');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $this->em->clear();
         $this->audit->forget();
 
@@ -301,7 +300,7 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_an_epic_with_children_is_deleted_only_once_they_leave_it(): void
     {
         $project = $this->makeProject('parent-delete');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $first = $this->cardIn($project, parent: $epic);
         $second = $this->cardIn($project, parent: $epic);
         $this->em->clear();
@@ -322,7 +321,7 @@ final class CardParentWriteTest extends KernelTestCase
     public function test_a_child_is_deleted_with_no_refusal(): void
     {
         $project = $this->makeProject('parent-delete-child');
-        $epic = $this->cardIn($project, CardType::Epic);
+        $epic = $this->cardIn($project, 'epic');
         $child = $this->cardIn($project, parent: $epic);
         $this->em->clear();
 
@@ -355,7 +354,7 @@ final class CardParentWriteTest extends KernelTestCase
         Card $card,
         ?string $parentCardId = null,
         ?string $title = null,
-        ?CardType $type = null,
+        ?string $type = null,
         ?bool $laneEnabled = null,
     ): void {
         ($this->updateCard)(new UpdateCardCommand(
@@ -368,7 +367,7 @@ final class CardParentWriteTest extends KernelTestCase
         ));
     }
 
-    private function cardIn(Project $project, CardType $type = CardType::Feature, ?Card $parent = null): Card
+    private function cardIn(Project $project, string $type = 'feature', ?Card $parent = null): Card
     {
         return ($this->createCard)(new CreateCardCommand(
             $this->reloadProject($project),

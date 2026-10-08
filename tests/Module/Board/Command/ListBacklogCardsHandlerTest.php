@@ -13,7 +13,6 @@ use App\Module\Board\Command\ListBacklogCardsView;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\View\BacklogDirection;
 use App\Module\Board\View\BacklogListQuery;
@@ -86,18 +85,18 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
 
     public function test_the_type_filter_keeps_one_type(): void
     {
-        $this->card('A bug', type: CardType::Bug);
+        $this->card('A bug', type: 'bug');
         $this->card('A feature');
 
-        $view = $this->list(new BacklogListQuery(type: CardType::Bug));
+        $view = $this->list(new BacklogListQuery(type: 'bug'));
 
         self::assertSame(['A bug'], $this->titles($view));
     }
 
     public function test_the_epic_filter_reads_any_none_or_one_epic(): void
     {
-        $epic = $this->card('Big epic', type: CardType::Epic, column: $this->column($this->project, 'next'));
-        $other = $this->card('Other epic', type: CardType::Epic, column: $this->column($this->project, 'next'));
+        $epic = $this->card('Big epic', type: 'epic', column: $this->column($this->project, 'next'));
+        $other = $this->card('Other epic', type: 'epic', column: $this->column($this->project, 'next'));
         $this->card('Child', parent: $epic);
         $this->card('Other child', parent: $other);
         $this->card('Orphan');
@@ -139,9 +138,9 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
     public function test_the_type_sort_orders_by_type_then_by_age(): void
     {
         $this->card('Old feature');
-        $this->card('Bug', type: CardType::Bug);
+        $this->card('Bug', type: 'bug');
         $this->card('New feature');
-        $this->card('Docs', type: CardType::Docs);
+        $this->card('Docs', type: 'docs');
 
         self::assertSame(
             ['Bug', 'Docs', 'Old feature', 'New feature'],
@@ -156,8 +155,8 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
     public function test_the_epic_sort_orders_by_epic_number_and_puts_cards_with_no_epic_last(): void
     {
         $this->card('Orphan');
-        $low = $this->card('Low epic', type: CardType::Epic, column: $this->column($this->project, 'next'));
-        $high = $this->card('High epic', type: CardType::Epic, column: $this->column($this->project, 'next'));
+        $low = $this->card('Low epic', type: 'epic', column: $this->column($this->project, 'next'));
+        $high = $this->card('High epic', type: 'epic', column: $this->column($this->project, 'next'));
         $this->card('High child', parent: $high);
         $this->card('Low child', parent: $low);
         $this->card('Second orphan');
@@ -174,7 +173,7 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
 
     public function test_the_page_ids_follow_the_order_of_the_page_under_the_epic_sort(): void
     {
-        $epic = $this->card('Epic', type: CardType::Epic, column: $this->column($this->project, 'next'));
+        $epic = $this->card('Epic', type: 'epic', column: $this->column($this->project, 'next'));
         $this->card('Orphan');
         $this->card('Child', parent: $epic);
         $this->card('Second orphan');
@@ -195,20 +194,20 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
     public function test_the_list_pages_the_matches_and_clamps_a_page_past_the_end(): void
     {
         for ($index = 0; $index < ListBacklogCardsHandler::PER_PAGE + 2; ++$index) {
-            $this->card('Bug '.$index, type: CardType::Bug);
+            $this->card('Bug '.$index, type: 'bug');
         }
         $this->card('Feature');
 
-        $second = $this->list(new BacklogListQuery(page: 2, type: CardType::Bug));
+        $second = $this->list(new BacklogListQuery(page: 2, type: 'bug'));
         self::assertSame(['Bug 1', 'Bug 0'], $this->titles($second));
         self::assertSame(2, $second->totalPages);
         self::assertNull($second->clampedPage);
 
-        $past = $this->list(new BacklogListQuery(page: 7, type: CardType::Bug));
+        $past = $this->list(new BacklogListQuery(page: 7, type: 'bug'));
         self::assertSame(2, $past->clampedPage);
         self::assertSame([], $past->items);
 
-        $huge = $this->list(new BacklogListQuery(page: \PHP_INT_MAX, type: CardType::Idea));
+        $huge = $this->list(new BacklogListQuery(page: \PHP_INT_MAX, type: 'idea'));
         self::assertSame([], $huge->items);
         self::assertSame(0, $huge->filteredTotal);
     }
@@ -246,7 +245,7 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
         return array_map(static fn (Card $card): string => $card->title, $view->items);
     }
 
-    private function card(string $title, string $body = '', CardType $type = CardType::Feature, ?BoardColumn $column = null, ?Card $parent = null): Card
+    private function card(string $title, string $body = '', string $type = 'feature', ?BoardColumn $column = null, ?Card $parent = null): Card
     {
         return ($this->createCard)(new CreateCardCommand(
             project: $this->project,

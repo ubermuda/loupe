@@ -72,9 +72,9 @@ class InboxItem implements ProjectScopedSubject
     #[ORM\OrderBy(['linkedAt' => 'ASC'])]
     public Collection $documents;
 
-    /** Who wrote the item. Loupe opens every wait and notice item, and an agent every other kind. */
+    /** Who wrote the item. Loupe opens every wait, notice and workflow item, and an agent every other kind. */
     public InboxAskOrigin $origin {
-        get => \in_array($this->kind, [InboxItemKind::Wait, InboxItemKind::Notice], true) ? InboxAskOrigin::Loupe : InboxAskOrigin::Agent;
+        get => \in_array($this->kind, [InboxItemKind::Wait, InboxItemKind::Notice, InboxItemKind::Workflow], true) ? InboxAskOrigin::Loupe : InboxAskOrigin::Agent;
     }
 
     /**

@@ -61,7 +61,7 @@ final readonly class ReadinessReportWriter
             'gaps' => array_values(array_filter($findings, static fn (ReportFinding $finding): bool => self::GAP === $finding->status)),
             'proposals' => array_map(static fn (DiscoveryProposal $proposal): array => [
                 'title' => self::optionLabel($proposal->title),
-                'type' => $proposal->type->value,
+                'type' => $proposal->type,
                 'body' => $proposal->body,
                 'openCardNumber' => $proposal->openCardNumber,
             ], $proposals),

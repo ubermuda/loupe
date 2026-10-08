@@ -53,6 +53,30 @@
         {% endif %}
     </section>
 
+    <section class="lp-workflow-section" data-workflow-types>
+        <h2 class="lp-section-title">{{ 'workflow.settings.types.heading'|trans }}</h2>
+        <p class="lp-workspace-desc">{{ 'workflow.settings.types.description'|trans }}</p>
+        <twig:DataTable :columns="[
+            {label: 'workflow.settings.types.type'|trans},
+            {label: 'workflow.settings.types.capabilities'|trans},
+        ]">
+            {% for type in template.types %}
+            <div class="lp-data-table__row" data-card-type="{{ type.key }}">
+                <span class="lp-data-table__cell lp-data-table__title">
+                    {% include '_tone_tag.html.twig' with {label: type.labelKey|trans, tone: type.tone} only %}
+                    {%- if type.isDefault %} <span class="lp-tag lp-tag--neutral" data-card-type-default>{{ 'workflow.settings.types.default'|trans }}</span>{% endif -%}
+                </span>
+                <span class="lp-data-table__cell" data-card-type-capabilities>
+                    {%- set capabilities = [] -%}
+                    {%- if type.children %}{% set capabilities = capabilities|merge(['workflow.settings.types.capability.children'|trans]) %}{% endif -%}
+                    {%- if type.lane %}{% set capabilities = capabilities|merge(['workflow.settings.types.capability.lane'|trans]) %}{% endif -%}
+                    {{- capabilities is empty ? 'workflow.settings.types.capability.none'|trans : capabilities|join(', ') -}}
+                </span>
+            </div>
+            {% endfor %}
+        </twig:DataTable>
+    </section>
+
     <section class="lp-workflow-section" data-workflow-template-rules>
         <h2 class="lp-section-title">{{ 'workflow.settings.rules.heading'|trans }}</h2>
         {% include '@Workflow/_rule_table.html.twig' with {rules: template.rules} only %}
