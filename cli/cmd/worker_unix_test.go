@@ -227,7 +227,7 @@ func TestRunWorkerWithNoClaudeNeverStarts(t *testing.T) {
 // The account's variables beat the inherited ones, the bridge's own session id
 // beats both, and the run record names the account and its config folder.
 func TestRunWorkerTakesTheEnvironmentOfItsAccount(t *testing.T) {
-	workerClaude(t, `echo "{\"structured_output\":{\"status\":\"finished\",\"summary\":\"$SHARED $LOUPE_SESSION_ID\"}}"`)
+	workerClaude(t, `echo "{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"$SHARED $LOUPE_SESSION_ID\"}}"`)
 	t.Setenv("SHARED", "inherited")
 	spec := workerSpec{
 		dir: t.TempDir(), sessionID: testSession, prompt: "go", runID: "account-run", account: "a", configDir: "/c",

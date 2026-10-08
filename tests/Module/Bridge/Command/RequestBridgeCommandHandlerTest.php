@@ -131,7 +131,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         $payload = $this->outboxPayloads()[0];
         self::assertSame('claude-code', $payload['harness']);
         self::assertSame('claude-b', $payload['account']);
-        self::assertSame('opus', $payload['model']);
+        self::assertSame('opus', $payload['runModel']);
     }
 
     public function test_the_payload_names_a_subject_that_is_no_card_with_no_card_number(): void
