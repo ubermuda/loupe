@@ -100,6 +100,9 @@ final readonly class DevExperimentSeeder
             if ($merged) {
                 $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::System, null, ['from' => [], 'to' => [], 'cause' => ['type' => 'merged', 'pullRequest' => $card->number]], $at->modify('+2 hours'));
             }
+            if ($column->terminal) {
+                $card->completedAt = $at->modify('+2 hours');
+            }
         }
         $this->em->flush();
 
