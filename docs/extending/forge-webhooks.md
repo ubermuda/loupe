@@ -176,11 +176,17 @@ Register it on GitHub under Settings, Developer settings, GitHub Apps.
 | Webhook URL | `https://<host>/webhooks/forge/github` |
 | Webhook secret | the value of `GITHUB_APP_WEBHOOK_SECRET` |
 
-Grant these repository permissions. Pull requests and Contents are read and
-write. The others are read-only. Loupe needs write access to Pull requests to
-post the fix-run comment, and to mark an epic pull request ready, convert it to
-draft or close it. It needs write access to Contents to sync a branch that is
-behind its base.
+Grant these repository permissions. Pull requests, Contents and Workflows are
+read and write. The others are read-only. Loupe needs write access to Pull
+requests to post the fix-run comment, and to mark an epic pull request ready,
+convert it to draft or close it. It needs write access to Contents to sync a
+branch that is behind its base.
+
+Loupe needs Workflows to merge or sync a pull request that changes a file under
+`.github/workflows/`. Without it, GitHub can refuse the write, for example when
+the pull request is behind its base and both sides change the same workflow
+file. The card then shows a `permission` refusal. The Actions permission does
+not cover this.
 
 | Permission | Why |
 |---|---|
@@ -189,6 +195,7 @@ behind its base.
 | Contents (read and write) | GitHub offers the Push event only with it; write lets Loupe sync a pull request branch with its base |
 | Commit statuses | the status of each check context |
 | Metadata | GitHub requires it, and it carries the Repository event |
+| Workflows (read and write) | the merge or sync of a pull request that changes a workflow file |
 
 An installation that exists before this change keeps its old permissions.
 When you change a permission to read and write, the owner of each
