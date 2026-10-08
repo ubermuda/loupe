@@ -31,12 +31,13 @@ type rawCall struct {
 	exits []*int
 }
 
-// spawn is one subagent a thread started. id is the call_id of the
+// spawn is one subagent a thread started at at. id is the call_id of the
 // spawn_agent call that started it, and "" in an older file.
 type spawn struct {
 	id     string
 	path   string
 	thread string
+	at     time.Time
 }
 
 // shellTools are the tools that run a shell command. exec runs a script that
@@ -160,9 +161,10 @@ type tree struct {
 }
 
 // load reads the session files of the subagents s started, and of theirs.
-// seen holds the threads read so far, so a loop ends. A subagent whose file
-// is missing or does not parse fails the load, as its spend is unknown.
-func (h Harness) load(s session, seen map[string]bool) (*tree, error) {
+// seen holds the threads read so far, so a loop ends. A subagent started at or
+// after since whose file is missing or does not parse fails the load, as its
+// spend is unknown. An earlier one belongs to an earlier run, and is skipped.
+func (h Harness) load(s session, seen map[string]bool, since time.Time) (*tree, error) {
 	t := &tree{session: s, byThread: map[string]*tree{}}
 	seen[s.id] = true
 	for _, sp := range s.spawns {
@@ -172,14 +174,18 @@ func (h Harness) load(s session, seen map[string]bool) (*tree, error) {
 		seen[sp.thread] = true
 		unread := fmt.Errorf("the session file of Codex subagent %s does not read", sp.thread)
 		path, err := h.find(sp.thread)
-		if err != nil {
-			return nil, unread
+		var child session
+		if err == nil {
+			child, err = readSession(path)
 		}
-		child, err := readSession(path)
 		if err != nil || child.id == "" {
+			if sp.at.Before(since) {
+				continue
+			}
+
 			return nil, unread
 		}
-		c, err := h.load(child, seen)
+		c, err := h.load(child, seen, since)
 		if err != nil {
 			return nil, err
 		}

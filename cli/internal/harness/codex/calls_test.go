@@ -333,6 +333,35 @@ func TestARunWithAnUnreadableSubagentHasUnknownMetrics(t *testing.T) {
 	}
 }
 
+// A resumed run reads only what came after its start, so a missing subagent
+// of an earlier run leaves its metrics and its usage window readable.
+func TestAMissingSubagentOfAnEarlierRunLeavesTheRunReadable(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "sessions", "2026", "10", "08")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	main := "rollout-2026-10-08T08-15-36-" + probeThread + ".jsonl"
+	copyFile(t, filepath.Join("testdata", "probe", "sessions", "2026", "10", "08", main), filepath.Join(dir, main))
+	h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+	if err := h.remember(runID, probeThread); err != nil {
+		t.Fatal(err)
+	}
+	since := time.Date(2026, 10, 8, 12, 15, 50, 0, time.UTC)
+
+	got := h.ReadRun(runDir(t, filepath.Join("probe", "stdout.jsonl"), ""), harness.RunInfo{SessionID: runID, Since: since})
+
+	if !got.CallsRead {
+		t.Fatalf("output = %+v", got)
+	}
+	if _, err := h.SessionUsage(runID, since, time.Time{}); err != nil {
+		t.Fatalf("SessionUsage err = %v", err)
+	}
+	if _, err := h.SessionTotal(runID); err == nil {
+		t.Fatal("SessionTotal read a baseline with no subagent")
+	}
+}
+
 // Codex sets the id of the item that starts a subagent to the call_id of its
 // spawn_agent call, so each call takes its own subagent whatever the order of
 // the lines. A call with no such id falls back to the agent path, and takes a

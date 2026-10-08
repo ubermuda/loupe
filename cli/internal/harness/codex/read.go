@@ -328,7 +328,7 @@ func (s *session) event(at time.Time, raw json.RawMessage, previous *tokens) {
 		}
 		s.attach(at, shellText(argv, parsed), p.Item.ExitCode)
 	case p.Item.Type == "SubAgentActivity" && p.Item.Kind == "started" && p.Item.AgentThreadID != "":
-		s.spawns = append(s.spawns, spawn{id: p.Item.ID, path: p.Item.AgentPath, thread: p.Item.AgentThreadID})
+		s.spawns = append(s.spawns, spawn{id: p.Item.ID, path: p.Item.AgentPath, thread: p.Item.AgentThreadID, at: at})
 	}
 }
 
@@ -426,14 +426,15 @@ func (h Harness) session(runID string) (session, error) {
 	return readSession(path)
 }
 
-// tree is the session of the run id, with the sessions of its subagents.
-func (h Harness) tree(runID string) (*tree, error) {
+// tree is the session of the run id, with the sessions of its subagents. A
+// subagent started before since need not read.
+func (h Harness) tree(runID string, since time.Time) (*tree, error) {
 	s, err := h.session(runID)
 	if err != nil {
 		return nil, err
 	}
 
-	return h.load(s, map[string]bool{})
+	return h.load(s, map[string]bool{}, since)
 }
 
 // ReadRun reads a finished run from the stdout of Codex and the files it wrote.
@@ -461,7 +462,7 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 	var t *tree
 	treeErr := sessErr
 	if sessErr == nil {
-		t, treeErr = h.load(sess, map[string]bool{})
+		t, treeErr = h.load(sess, map[string]bool{}, run.Since)
 	}
 	if treeErr == nil && sess.id != "" {
 		out.CallsRead = true
@@ -502,7 +503,7 @@ func document(text string) json.RawMessage {
 // SessionUsage is what the thread and its subagents spent at or after from,
 // and before to when to is set.
 func (h Harness) SessionUsage(runID string, from, to time.Time) (transcript.Usage, error) {
-	t, err := h.tree(runID)
+	t, err := h.tree(runID, from)
 	if err != nil {
 		return nil, err
 	}
