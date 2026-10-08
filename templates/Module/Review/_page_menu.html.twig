@@ -1,0 +1,70 @@
+{# The "⋯" menu at the end of the byline: what the document links to, then its
+   versions. A kind with more than one link gets a heading, and rows past the
+   third wait behind "Show N more". Params: document, version, versionCount. #}
+{% set groups = [
+    {kind: 'card', rows: document_card_links(document)|map(link => {
+        href: path('app_board_card', {projectId: link.card.project.id, cardId: link.card.id}),
+        label: '#' ~ link.card.number ~ ' ' ~ link.card.title,
+        line: 'review.document.page_menu.card_line'|trans({'%type%': ('board.card.type.' ~ link.card.type.value)|trans, '%column%': link.card.column.label|trans}),
+    })},
+    {kind: 'outgoing', rows: document.references|map(reference => {
+        href: path('app_document_review', {projectId: reference.project.id, documentId: reference.id}),
+        label: reference.title,
+        line: 'review.document.page_menu.outgoing_line'|trans({'%status%': reference.archivedAt ? 'review.document.references.archived'|trans : reference.status.translationKey|trans}),
+    })},
+    {kind: 'incoming', rows: document.referencedBy|map(reference => {
+        href: path('app_document_review', {projectId: reference.project.id, documentId: reference.id}),
+        label: reference.title,
+        line: 'review.document.page_menu.incoming_line'|trans({'%status%': reference.archivedAt ? 'review.document.references.archived'|trans : reference.status.translationKey|trans}),
+    })},
+]|filter(group => group.rows is not empty) %}
+<div class="lp-page-menu" data-controller="popover">
+    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-page-menu__trigger"
+            aria-label="{{ 'review.document.page_menu.label'|trans }}"
+            title="{{ 'review.document.page_menu.label'|trans }}"
+            aria-expanded="false"
+            aria-controls="review-page-menu"
+            data-popover-target="trigger"
+            data-action="click->popover#toggle">
+        <twig:ux:icon name="lucide:ellipsis" />
+    </button>
+    <div class="lp-page-menu__panel" id="review-page-menu" data-popover-target="panel" hidden>
+        {% for group in groups %}
+        {% set rows = group.rows %}
+        <div class="lp-page-menu__group" data-page-menu-group="{{ group.kind }}">
+            {% if rows|length > 1 %}
+            <p class="lp-page-menu__heading">{{ ('review.document.page_menu.heading.' ~ group.kind)|trans({'%count%': rows|length}) }}</p>
+            {% endif %}
+            {% for row in rows|slice(0, 3) %}
+            {% include '@Review/_page_menu_row.html.twig' with {kind: group.kind, href: row.href, label: row.label, line: row.line} only %}
+            {% endfor %}
+            {% if rows|length > 3 %}
+            <details class="lp-page-menu__more">
+                <summary class="lp-page-menu__more-toggle">{{ 'review.document.page_menu.show_more'|trans({'%count%': rows|length - 3}) }}</summary>
+                {% for row in rows|slice(3) %}
+                {% include '@Review/_page_menu_row.html.twig' with {kind: group.kind, href: row.href, label: row.label, line: row.line} only %}
+                {% endfor %}
+            </details>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="lp-page-menu__group">
+            {% include '@Review/_page_menu_row.html.twig' with {
+                kind: 'history',
+                href: path('app_document_review_history', {projectId: document.project.id, documentId: document.id}),
+                label: 'review.document.page_menu.history'|trans,
+                line: 'review.document.page_menu.history_line'|trans({'%count%': versionCount}),
+            } only %}
+            {% if versionCount > 1 %}
+            {% set compareFrom = version.versionNumber > 1 ? version.versionNumber - 1 : 1 %}
+            {% set compareTo = version.versionNumber > 1 ? version.versionNumber : 2 %}
+            {% include '@Review/_page_menu_row.html.twig' with {
+                kind: 'compare',
+                href: path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: compareFrom, toVersionNumber: compareTo}),
+                label: 'review.document.page_menu.compare'|trans,
+                line: 'review.document.page_menu.compare_line'|trans({'%from%': compareFrom, '%to%': compareTo}),
+            } only %}
+            {% endif %}
+        </div>
+    </div>
+</div>

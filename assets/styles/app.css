@@ -2598,26 +2598,9 @@
     /* Primary document workspace views. Side by side keeps the block's own
        width, so its toolbar holds the same columns as the other views. */
 
-    /* Comment cards share the margin on wide screens and stack below on phones. */
+    /* The anchored comment cards, stacked in passage order. */
     .lp-review-margin {
         @apply flex flex-col gap-3.5 w-full;
-    }
-    .lp-review-margin:has(.lp-comment-thread) {
-        @apply mb-9;
-    }
-    @media (width >= 59.375rem) {
-        .lp-review-margin {
-            @apply block absolute top-0;
-        }
-        .lp-review-margin:has(.lp-comment-thread) {
-            @apply mb-0;
-        }
-    }
-    .lp-review-block--hide-resolved
-        .lp-review-margin:not(
-            :has(.lp-comment-thread:not(.lp-comment-thread--resolved))
-        ) {
-        @apply my-0;
     }
 
     .lp-version-pill {
@@ -2696,15 +2679,6 @@
     }
     .lp-review-doc--wide > .lp-diff-columns {
         @apply order-20;
-    }
-    .lp-review-doc--wide > [data-margin-panel='comments'] {
-        @apply order-30 mt-5;
-    }
-    .lp-review-doc--wide .lp-review-margin {
-        @apply static flex w-full flex-col gap-3.5;
-    }
-    .lp-review-doc--wide .lp-comment-thread {
-        @apply static;
     }
 
     /* Resolved threads are hidden rather than removed, so the toggle is instant
@@ -3167,68 +3141,33 @@
     .lp-review-workspace-nav .lp-tabs {
         @apply mb-0 min-w-0 flex-1;
     }
-    .lp-review-margin-tabs {
-        @apply flex min-w-0 max-w-full shrink-0 scroll-mb-24 items-center justify-start gap-1;
+    /* The comment filter in the Comments panel head. */
+    .lp-review-filter {
+        @apply relative ml-auto;
     }
-    @media (width > 43.75rem) {
-        .lp-review-margin-tabs {
-            @apply scroll-mb-0 justify-end;
-        }
+    .lp-review-filter__toggle {
+        @apply inline-flex size-8 cursor-pointer list-none items-center justify-center rounded-lg text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
     }
-    .lp-review-margin-tablist {
-        @apply flex min-w-0 items-center gap-1 overflow-x-auto scroll-px-4 whitespace-nowrap;
-        scrollbar-width: none;
-    }
-    .lp-review-margin-tablist::-webkit-scrollbar {
+    .lp-review-filter__toggle::-webkit-details-marker {
         display: none;
     }
-    .lp-review-margin-tablist .lp-review-margin-tabs__item:focus-visible {
-        @apply -outline-offset-2;
-    }
-    .lp-review-margin-tabs__item {
-        @apply inline-flex min-h-9 max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
-    }
-    .lp-review-margin-tabs__item svg {
+    .lp-review-filter__toggle svg {
         @apply size-4 shrink-0;
     }
-    .lp-review-margin-tabs__item span {
-        @apply hidden;
+    .lp-review-filter__toggle--filtered {
+        @apply bg-review-addressed text-review-addressed-ink;
     }
-    .lp-review-margin-tabs__item--active {
-        @apply border-accent-border bg-accent-soft text-accent-ink;
+    .lp-review-filter__menu {
+        @apply absolute right-0 top-10 z-20 flex w-52 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card;
     }
-    .lp-review-margin-tabs__item--active span {
-        @apply inline;
+    .lp-review-filter__menu button {
+        @apply flex min-h-9 cursor-pointer items-center justify-between gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;
     }
-    .lp-review-margin-tabs__item--icon {
-        @apply size-9 justify-center p-0;
-    }
-    .lp-review-margin-tabs__item--icon::-webkit-details-marker {
-        display: none;
-    }
-    .lp-review-margin-filter {
-        @apply relative;
-    }
-    .lp-review-margin-filter[hidden] {
-        @apply hidden;
-    }
-    .lp-review-margin-filter__menu {
-        max-width: calc(100vw - var(--spacing) * 10);
-        @apply absolute left-0 top-11 z-20 flex w-44 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card lg:left-auto lg:right-0;
-    }
-    .lp-review-margin-filter__menu button {
-        @apply flex items-center justify-between gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;
-    }
-    .lp-review-margin-filter__menu button[aria-pressed='true'] {
+    .lp-review-filter__menu button[aria-pressed='true'] {
         @apply bg-accent-soft text-accent-ink;
     }
-    .lp-review-context-panel {
-        @apply mt-5 flex flex-col gap-3;
-    }
-    @media (width >= 59.375rem) {
-        .lp-review-context-panel {
-            @apply absolute top-43 mt-0;
-        }
+    .lp-review-filter__menu [data-filter-count] {
+        @apply text-xs text-fg-dim;
     }
     /* The margin runs three widths, so a narrow laptop keeps a readable
        column and a wide window spends the room on both. */
@@ -3247,49 +3186,6 @@
             --doc-margin: 20.625rem;
             --doc-margin-gap: 1.875rem;
         }
-    }
-    @media (width >= 59.375rem) {
-        .lp-review-doc {
-            max-width: calc(100% - (var(--doc-margin) + var(--doc-margin-gap)));
-        }
-        .lp-review-doc > .lp-review-doc__head {
-            width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
-        }
-        .lp-review-margin,
-        .lp-review-context-panel {
-            left: calc(100% + var(--doc-margin-gap));
-            width: var(--doc-margin);
-        }
-        .lp-review-margin-tabs {
-            width: var(--doc-margin);
-        }
-    }
-    .lp-review-context-panel[hidden] {
-        @apply hidden;
-    }
-    .lp-review-context-panel h2 {
-        @apply m-0 font-display text-lg font-bold text-ink;
-    }
-    .lp-review-context-panel h2 span {
-        @apply ml-2 font-mono text-xs font-normal text-fg-dim;
-    }
-    .lp-review-context-panel .lp-review-contents__link--current {
-        @apply bg-surface-3 text-ink font-semibold;
-    }
-    .lp-review-context-panel__hint {
-        @apply m-0 text-xs text-fg-mute;
-    }
-    .lp-review-details {
-        @apply m-0 flex flex-col divide-y divide-line rounded-xl border border-line bg-surface-2;
-    }
-    .lp-review-details > div {
-        @apply flex flex-col gap-1 px-3.5 py-3;
-    }
-    .lp-review-details > div > dt {
-        @apply text-xs font-semibold uppercase tracking-wide text-fg-dim;
-    }
-    .lp-review-details > div > dd {
-        @apply m-0 text-sm text-fg;
     }
     .lp-review-doc__prose {
         @apply mt-0 min-h-96 rounded-xl border border-line bg-surface-1 px-8.5 py-7 text-base leading-7 text-prose break-words;
@@ -3323,20 +3219,6 @@
        scrollbar stays, because it is the only thing that says it scrolls. */
     .lp-review-doc__prose table {
         @apply block max-w-full overflow-x-auto lg:table;
-    }
-
-    @media (width < 59.375rem) {
-        .lp-review-doc {
-            @apply flex flex-col;
-        }
-        .lp-review-doc__prose {
-            order: 20;
-        }
-        .lp-review-doc > [data-margin-panel='comments'],
-        .lp-review-context-panel {
-            @apply mt-5;
-            order: 30;
-        }
     }
 
     /* ── Table of contents ──────────────────────────────────────────────
@@ -3534,9 +3416,7 @@
         display: block;
     }
 
-    /* ── Comment threads (right pane) ──────────────────────────────────
-       A column of cards beside the paper, each one level with the passage it
-       is anchored to. .lp-review-margin sets the column's geometry. */
+    /* ── Comment threads (Comments panel) ───────────────────────────── */
 
     /* The whole-list region the Turbo Stream replaces on add / delete /
        resolve, so general comments and the margin refresh together. */
@@ -3545,17 +3425,10 @@
     }
 
     /* ── Comment thread card ───────────────────────────────────────────
-       Absolutely positioned inside .lp-review-margin from lg up, with its `top`
-       set by comment_anchor_controller so it sits level with its passage. Below
-       lg it is in normal flow, inside the slot the controller opens after that
-       passage's block. Cards never move on hover — only the ring appears. */
+       In normal flow in the Comments panel. Cards never move on hover, only
+       the ring appears. */
     .lp-comment-thread {
         @apply static left-0 right-0 flex flex-col gap-3 rounded-xl border border-line bg-surface-1 py-3.5 px-4 transition-shadow;
-    }
-    @media (width >= 59.375rem) {
-        .lp-comment-thread {
-            @apply absolute;
-        }
     }
     .lp-comment-thread[hidden] {
         @apply hidden;
@@ -4666,22 +4539,30 @@
     }
 
     .lp-decision-summary__list {
-        @apply flex flex-col gap-1 m-0 p-0 list-none;
+        @apply flex flex-col m-0 p-0 list-none;
     }
+    /* The tag sits in its own column, so the answer lines up with the title. */
     .lp-decision-summary__item {
-        @apply flex items-baseline gap-3 py-1;
+        @apply grid items-baseline gap-x-2.5 gap-y-0.5 border-b border-line py-2.5 last:border-b-0;
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+    .lp-decision-summary__tag {
+        @apply row-span-3 self-start rounded-md bg-surface-3 px-1.5 py-0.5 font-mono text-xs font-semibold text-fg-dim;
+    }
+    .lp-decision-summary__tag--answered {
+        @apply bg-review-resolved text-review-resolved-ink;
     }
     .lp-decision-summary__link {
-        @apply text-sm font-semibold text-ink no-underline hover:underline;
+        @apply col-start-2 text-sm leading-normal font-semibold text-ink no-underline hover:underline;
     }
     .lp-decision-summary__answer {
-        @apply inline-flex items-baseline gap-1 ml-auto text-xs text-fg-mute;
+        @apply col-start-2 text-sm text-fg-mute;
     }
-    .lp-decision-summary__check {
-        @apply w-3.5 h-3.5 shrink-0 self-center text-accent-ink;
+    .lp-decision-summary__note {
+        @apply col-start-2 text-xs text-fg-dim;
     }
     .lp-decision-summary__pending {
-        @apply ml-auto text-xs text-fg-dim;
+        @apply col-start-2 text-xs text-fg-dim;
     }
 
     /* Names the block a contents link took the reader to. The scroll ends with

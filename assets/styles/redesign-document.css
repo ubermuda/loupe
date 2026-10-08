@@ -94,53 +94,108 @@
 .lp-review .lp-tabs__tab[aria-current='page'] {
     @apply border-review-tab font-semibold text-review-tab-ink;
 }
-.lp-review .lp-review-margin-tabs {
-    @apply gap-1.5 py-1.25;
+/* ── Toolbar and panels ─────────────────────────────────────────── */
+.lp-review .lp-review-panels {
+    @apply mb-6;
 }
-.lp-review .lp-review-margin-tablist {
-    @apply flex-1 gap-0.75;
+.lp-review .lp-review-panels__inner {
+    @apply flex flex-col gap-3;
 }
-/* Inactive views are named icons; the selected one grows to show its label.
-   The width and the label swap in one frame, so the colours must too. A fade
-   leaves the accent on the tab the reader just left, at the new icon width,
-   which reads as a flicker. */
-.lp-review .lp-review-margin-tabs__item {
-    @apply min-h-9 w-8 flex-none justify-center gap-1.25 rounded-md p-1.75 font-normal text-fg-dim transition-none;
+/* A panel that is on fills its button with a light green. */
+.lp-review .lp-review-toolbar {
+    @apply flex flex-wrap items-center justify-end gap-1;
 }
-.lp-review .lp-review-margin-tabs__item--active {
-    @apply w-auto flex-auto border-accent-border bg-accent-soft font-semibold text-review-tab-ink;
+.lp-review .lp-review-toolbar__button {
+    @apply inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2.5 py-1 text-sm font-medium text-fg-dim transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
 }
-/* Present so the row keeps its shape, and plainly not a way in. The title
-   says why. Pointer events stay on, or the tooltip never appears. */
-.lp-review .lp-review-margin-tabs__item--disabled {
+.lp-review .lp-review-toolbar__button svg {
+    @apply size-4 shrink-0;
+}
+.lp-review .lp-review-toolbar__button[aria-pressed='true'] {
+    @apply bg-review-resolved font-semibold text-review-tab-ink hover:bg-review-resolved;
+}
+/* Pointer events stay on, or the title that says why never appears. */
+.lp-review .lp-review-toolbar__button[aria-disabled='true'] {
     @apply cursor-not-allowed text-fg-faint hover:bg-transparent hover:text-fg-faint;
 }
-.lp-review .lp-review-margin-tabs__count {
+.lp-review .lp-review-panel {
+    @apply flex flex-col rounded-lg bg-surface-2 p-4;
+}
+.lp-review .lp-review-panel[hidden] {
     @apply hidden;
 }
-.lp-review .lp-review-margin-tabs__item--active .lp-review-margin-tabs__count {
-    @apply inline-flex min-w-4.5 items-center justify-center rounded-sm bg-surface-2 px-1 text-xs text-fg-dim;
+.lp-review .lp-review-panel__head {
+    @apply mb-1 flex min-h-8 items-center gap-2;
 }
-.lp-review .lp-review-margin-tabs__item--icon {
-    @apply h-9 w-8 p-1.75;
+.lp-review .lp-review-panel__head h2 {
+    @apply m-0 font-sans text-sm font-semibold text-ink;
 }
-.lp-review .lp-review-margin-tabs__item--filtered {
-    @apply bg-review-addressed text-review-addressed-ink;
-}
-.lp-review .lp-review-margin-filter__menu {
-    @apply w-52 rounded-lg p-1.5 shadow-card;
-}
-.lp-review .lp-review-margin-filter__menu button {
-    @apply min-h-9.5 rounded-md px-2.25 py-2 text-fg-mute;
-}
-.lp-review .lp-review-margin-filter__menu [data-filter-count] {
+.lp-review .lp-review-panel__count {
     @apply text-xs text-fg-dim;
+}
+.lp-review .lp-review-panel__hint {
+    @apply m-0 pt-3 text-sm leading-relaxed text-fg-dim;
+}
+.lp-review .lp-review-panel .lp-review-contents__link {
+    @apply whitespace-normal px-0 py-1.25 text-sm leading-normal text-fg-mute hover:bg-transparent hover:text-ink;
+}
+.lp-review .lp-review-panel .lp-review-contents__link--current {
+    @apply bg-transparent font-semibold text-ink;
+}
+
+/* ── "⋯" page menu ──────────────────────────────────────────────── */
+.lp-review .lp-page-menu {
+    @apply relative;
+}
+.lp-review .lp-page-menu__trigger {
+    @apply px-2;
+}
+.lp-review .lp-page-menu__trigger svg {
+    @apply size-4;
+}
+.lp-review .lp-page-menu__panel {
+    @apply absolute top-full right-0 z-30 mt-1 flex w-80 flex-col gap-1 rounded-xl border border-line bg-elev p-1.5 shadow-card;
+    max-width: calc(100vw - var(--spacing) * 10);
+}
+.lp-review .lp-page-menu__panel[hidden] {
+    @apply hidden;
+}
+.lp-review .lp-page-menu__group + .lp-page-menu__group {
+    @apply border-t border-line-faint pt-1;
+}
+.lp-review .lp-page-menu__heading {
+    @apply m-0 px-2.5 pt-1.5 pb-1 text-xs font-semibold text-fg-dim;
+}
+.lp-review .lp-page-menu__row {
+    @apply flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-ink no-underline transition-colors hover:bg-tint;
+}
+.lp-review .lp-page-menu__row svg {
+    @apply mt-0.5 size-4 shrink-0 text-fg-mute;
+}
+.lp-review .lp-page-menu__text {
+    @apply flex min-w-0 flex-col;
+}
+.lp-review .lp-page-menu__label {
+    @apply truncate text-sm font-medium;
+}
+.lp-review .lp-page-menu__line {
+    @apply truncate text-xs text-fg-dim;
+}
+.lp-review .lp-page-menu__more-toggle {
+    @apply cursor-pointer list-none rounded-lg px-2.5 py-2 text-sm font-medium text-fg-mute hover:bg-tint hover:text-ink;
+}
+.lp-review .lp-page-menu__more-toggle::-webkit-details-marker {
+    display: none;
+}
+.lp-review .lp-page-menu__more[open] > .lp-page-menu__more-toggle {
+    @apply hidden;
 }
 
 /* ── Column ─────────────────────────────────────────────────────── */
-/* One text column of about 48rem with no card or border. Below 100rem the
-   margin panel needs the room beside it, so the column stays at the left edge
-   of the document; above it the column centres and the panel sits to its right. */
+/* One text column of 48rem with no card or border. From 87.5rem the panel
+   column sits to its right. The text column centres when the room allows, and
+   moves left only as far as the panel column needs. Below 87.5rem the toolbar
+   and the open panels stack above the document. */
 .lp-review .lp-review-doc__prose {
     @apply min-h-0 max-w-3xl rounded-none border-0 bg-transparent px-0 py-7 text-lg leading-8 text-ink;
     box-shadow: none;
@@ -148,26 +203,61 @@
 .lp-review .lp-review-doc__heading {
     @apply max-w-3xl;
 }
-@media (width >= 100rem) {
-    .lp-review .lp-review-doc,
-    .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
+@media (width >= 87.5rem) {
+    .lp-review .lp-review-block:not(.lp-review-block--wide) {
         max-width: none;
     }
-    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-review-doc__head {
-        @apply w-full;
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
+        --review-column-start: max(
+            0rem,
+            min(
+                (100% - var(--container-3xl)) / 2,
+                100% - var(--container-3xl) - var(--doc-margin-gap) -
+                    var(--doc-margin)
+            )
+        );
+        padding-left: var(--review-column-start);
+        padding-right: calc(
+            100% - var(--container-3xl) - var(--review-column-start)
+        );
     }
-    .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-doc__heading,
+    .lp-review .lp-review-panels {
+        @apply absolute top-0 bottom-0 mb-0;
+        left: calc(
+            var(--review-column-start) + var(--container-3xl) +
+                var(--doc-margin-gap)
+        );
+        width: var(--doc-margin);
+    }
+    /* The panel column scrolls on its own when the open panels are taller
+       than the window. */
+    .lp-review .lp-review-panels__inner {
+        @apply overflow-y-auto;
+        position: sticky;
+        top: calc(var(--spacing) * 4);
+        max-height: calc(100dvh - var(--spacing) * 24);
+        scrollbar-width: thin;
+    }
+}
+@media (width < 87.5rem) {
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
+        @apply flex flex-col;
+    }
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > * {
+        order: 20;
+    }
     .lp-review
         .lp-review-doc:not(.lp-review-doc--wide)
-        .lp-review-doc__verdict-detail,
-    .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-doc__prose {
-        @apply mx-auto;
+        > :is(
+            .lp-review-doc__head,
+            .lp-review-doc__verdict-detail,
+            .lp-doc-meta-bar,
+            .lp-decision-status
+        ) {
+        order: 0;
     }
-    .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-margin,
-    .lp-review
-        .lp-review-doc:not(.lp-review-doc--wide)
-        .lp-review-context-panel {
-        left: calc(50% + var(--container-3xl) / 2 + var(--doc-margin-gap));
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-review-panels {
+        order: 10;
     }
 }
 @media (width < 37.5rem) {
@@ -332,100 +422,6 @@
     @apply m-0 pt-1.25 pb-3;
 }
 
-/* ── Outline, decisions and details ─────────────────────────────── */
-
-/* The selected tab already names the panel, so its heading drops to a quiet
-   label that keeps the live counts the streams update. */
-.lp-review .lp-review-context-panel {
-    @apply gap-0;
-}
-.lp-review .lp-review-context-panel h2 {
-    @apply mb-2 font-sans text-sm font-medium text-fg-dim;
-}
-.lp-review .lp-review-context-panel h2 span {
-    @apply ml-1.5 font-sans;
-}
-.lp-review .lp-review-context-panel .lp-review-contents__item {
-    @apply items-center gap-1.25 border-b border-line-faint py-1.5;
-}
-.lp-review .lp-review-context-panel .lp-review-contents__link {
-    @apply order-1 whitespace-normal px-0 py-1.25 text-sm leading-normal text-fg-mute;
-}
-.lp-review .lp-review-context-panel .lp-review-contents__link:hover {
-    @apply bg-transparent text-ink;
-}
-.lp-review .lp-review-context-panel .lp-review-contents__link--current {
-    @apply bg-transparent font-semibold text-ink;
-}
-.lp-review .lp-review-context-panel .lp-review-contents__tick {
-    @apply order-2 block size-4 text-fg-faint;
-}
-.lp-review .lp-review-context-panel .lp-review-contents__tick--on {
-    @apply text-review-resolved-ink;
-}
-.lp-review .lp-review-context-panel .lp-decision-summary__item {
-    @apply grid grid-cols-1 gap-1 border-b border-line py-3.5;
-}
-.lp-review .lp-review-context-panel .lp-decision-summary__item > svg {
-    @apply hidden;
-}
-.lp-review .lp-review-context-panel .lp-decision-summary__link {
-    @apply text-sm leading-normal font-semibold text-ink;
-}
-.lp-review
-    .lp-review-context-panel
-    :is(.lp-decision-summary__answer, .lp-decision-summary__pending) {
-    @apply ml-0 text-xs text-fg-dim;
-}
-.lp-review .lp-review-context-panel__hint {
-    @apply pt-3 text-sm leading-relaxed text-fg-dim;
-}
-.lp-review .lp-review-details {
-    @apply gap-5 divide-y-0 rounded-none border-0 bg-transparent;
-}
-.lp-review .lp-review-details > div {
-    @apply gap-2 p-0;
-}
-.lp-review .lp-review-details > div > dt {
-    @apply text-xs font-semibold uppercase tracking-wide text-fg-dim;
-}
-.lp-review .lp-review-details > div > dd {
-    @apply text-sm text-ink;
-}
-/* The linked card is the board card itself, minus the drag. It opens in the
-   drawer over this page, so the reader keeps their place in the document. */
-.lp-review .lp-board-card--static {
-    @apply gap-2.5 rounded-lg border border-line px-3 py-3.5 cursor-default select-text hover:border-line-strong;
-}
-.lp-review .lp-board-card--static .lp-board-card__title {
-    @apply text-sm leading-snug font-bold tracking-tight;
-}
-.lp-review .lp-board-card__status {
-    @apply ml-0 self-start border-transparent bg-surface-3 text-fg-mute;
-}
-.lp-review .lp-board-card--static .lp-board-card__meta {
-    @apply border-t border-line-faint pt-2.5;
-}
-.lp-review [data-margin-panel='details'] > h2 {
-    @apply sr-only;
-}
-.lp-review .lp-review-context-panel > .lp-btn,
-.lp-review .lp-review-context-panel [data-controller='review-summary'] {
-    @apply mt-3 self-start;
-}
-.lp-review .lp-review-context-panel > .lp-btn {
-    @apply mt-6;
-}
-
-/* A card is placed by measurement, so before the first pass it has no top and
-   every card resolves to the same static spot at the head of the margin, over
-   the tab row. One frame of that is what a page switch used to show. */
-@media (width >= 59.375rem) {
-    .lp-review .lp-review-block--placing .lp-comment-thread {
-        @apply invisible;
-    }
-}
-
 /* ── Diff toolbar ───────────────────────────────────────────────── */
 .lp-review .lp-diff-bar {
     @apply gap-x-4 gap-y-3 border-b-0 pt-3.5 pb-0;
@@ -458,9 +454,8 @@
 .lp-review .lp-diff-views__link[aria-current] {
     @apply border-line bg-surface-1 text-ink shadow-xs;
 }
-/* The view switch ends where the paper ends, and the change count sits over
-   the comment column beside it. The row never wraps, so the count cannot drop
-   below the switch and move it. */
+/* The change count keeps a fixed width at the end of the row. The row never
+   wraps, so the count cannot drop below the switch and move it. */
 @media (width >= 59.375rem) {
     .lp-review .lp-diff-bar {
         @apply flex-nowrap;
@@ -505,13 +500,6 @@
 }
 .lp-review .lp-diff-notice {
     @apply mt-3;
-}
-/* The toolbar spans both columns, like the tabs above it, so the change
-   count and its jumps stay on the row with the pickers. */
-@media (width >= 59.375rem) {
-    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-doc-meta-bar {
-        width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
-    }
 }
 
 /* ── Finish review dialog ───────────────────────────────────────── */
@@ -560,8 +548,6 @@
    press says so. */
 .lp-review
     :is(
-        .lp-review-margin-tabs__item,
-        .lp-review-margin-filter__menu button,
         .lp-comment-action,
         .lp-decision__option,
         .lp-decision__option input,
@@ -584,43 +570,6 @@
    reaches the control rather than the label over it. */
 .lp-review .lp-decision__option input {
     @apply relative z-1;
-}
-
-/* ── Margin panel scrolling ─────────────────────────────────────── */
-
-/* The panel is placed level with the paper, and its contents stay on screen
-   while the document scrolls under them. */
-/* The panel spans the rest of the column, which is the room its contents need
-   to stay put while the document scrolls under them. */
-@media (width >= 59.375rem) {
-    .lp-review .lp-review-context-panel {
-        bottom: 0;
-    }
-}
-.lp-review .lp-review-context-panel__inner {
-    @apply flex flex-col gap-0 overflow-y-auto;
-    position: sticky;
-    top: calc(var(--spacing) * 4);
-    max-height: calc(100dvh - var(--spacing) * 24);
-    scrollbar-width: thin;
-}
-@media (width < 59.375rem) {
-    /* The panel spans the rest of the column, which is the room its contents need
-   to stay put while the document scrolls under them. */
-    @media (width >= 59.375rem) {
-        .lp-review .lp-review-context-panel {
-            bottom: 0;
-        }
-    }
-    .lp-review .lp-review-context-panel__inner {
-        position: static;
-        max-height: none;
-    }
-}
-/* The list ends with its last row, not with a rule under it. */
-.lp-review .lp-review-context-panel .lp-review-contents__item:last-child,
-.lp-review .lp-review-context-panel .lp-decision-summary__item:last-child {
-    @apply border-b-0;
 }
 
 /* ── Diff pane ──────────────────────────────────────────────────── */
@@ -707,10 +656,4 @@
     .lp-review .lp-diff {
         @apply px-6 py-5;
     }
-}
-
-/* The filter belongs to Comments alone, and its space stays reserved so the
-   tabs beside it do not move when the reader switches view. */
-.lp-review .lp-review-margin-filter--inactive {
-    @apply pointer-events-none invisible;
 }

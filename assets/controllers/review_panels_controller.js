@@ -1,8 +1,12 @@
 import { Controller } from '@hotwired/stimulus';
 
+const STORAGE_KEY = 'loupe.review.panels';
+const PANEL_ORDER = ['decisions', 'comments', 'outline'];
+const DEFAULT_PANELS = ['decisions'];
+
 export default class extends Controller {
     static targets = [
-        'tab',
+        'button',
         'panel',
         'filter',
         'thread',
@@ -12,6 +16,14 @@ export default class extends Controller {
     ];
 
     connect() {
+        const stored = this.#storedPanels();
+        if (stored !== null) {
+            for (const button of this.buttonTargets) {
+                const name = button.dataset.reviewPanelsNameParam;
+                this.#show(name, stored.includes(name));
+            }
+        }
+
         this.activeFilter = this.element.classList.contains(
             'lp-review-block--hide-resolved',
         )
@@ -32,107 +44,30 @@ export default class extends Controller {
         this.refreshFilter();
     }
 
-    select(event) {
-        if (this.isDisabled(event.currentTarget)) {
+    toggle(event) {
+        const button = event.currentTarget;
+        if (this.#isDisabled(button)) {
             return;
         }
-        this.selectTab(event.params.name);
-        this.revealTab(event.currentTarget);
-    }
+        const name = event.params.name;
+        const open = button.getAttribute('aria-pressed') !== 'true';
+        this.#show(name, open);
 
-    // A disabled tab keeps its place in the row and its tooltip, so the arrows
-    // step over it rather than landing on a panel that cannot open.
-    isDisabled(tab) {
-        return tab.getAttribute('aria-disabled') === 'true';
-    }
-
-    navigate(event) {
-        const tabs = this.tabTargets;
-        const index = tabs.indexOf(event.currentTarget);
-        const step = (from, delta) => {
-            for (let hop = 1; hop <= tabs.length; hop++) {
-                const candidate =
-                    (from + delta * hop + tabs.length * hop) % tabs.length;
-                if (!this.isDisabled(tabs[candidate])) {
-                    return candidate;
-                }
-            }
-            return null;
-        };
-        let nextIndex;
-
-        switch (event.key) {
-            case 'ArrowRight':
-                nextIndex = step(index, 1);
-                break;
-            case 'ArrowLeft':
-                nextIndex = step(index, -1);
-                break;
-            case 'Home':
-                nextIndex = step(-1, 1);
-                break;
-            case 'End':
-                nextIndex = step(tabs.length, -1);
-                break;
-            default:
-                return;
+        // Stored choices for a panel this page lacks or disables stay as they
+        // were, so a comparison does not close Decisions on the document.
+        const panels = new Set(this.#storedPanels() ?? DEFAULT_PANELS);
+        if (open) {
+            panels.add(name);
+        } else {
+            panels.delete(name);
         }
-
-        event.preventDefault();
-        if (null === nextIndex) {
-            return;
-        }
-        const tab = tabs[nextIndex];
-        this.selectTab(tab.dataset.reviewMarginNameParam);
-        tab.focus({ preventScroll: true });
-        this.revealTab(tab);
-    }
-
-    revealTab(tab) {
-        const tablist = tab.closest('[role="tablist"]');
-        // Only a list that scrolls needs revealing. Scrolling one that fits
-        // moved the row by a pixel on every switch, which reads as a flicker.
-        if (tablist.scrollWidth <= tablist.clientWidth) {
-            return;
-        }
-        tablist.parentElement.scrollIntoView({
-            block: 'nearest',
-            inline: 'nearest',
-            behavior: 'instant',
-        });
-        const tabBounds = tab.getBoundingClientRect();
-        const listBounds = tablist.getBoundingClientRect();
-        tablist.scrollBy({
-            left:
-                tabBounds.left -
-                listBounds.left +
-                (tabBounds.width - listBounds.width) / 2,
-            behavior: 'instant',
-        });
-    }
-
-    selectTab(name) {
-        for (const tab of this.tabTargets) {
-            const selected = tab.dataset.reviewMarginNameParam === name;
-            tab.classList.toggle(
-                'lp-review-margin-tabs__item--active',
-                selected,
+        try {
+            window.localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify(PANEL_ORDER.filter((each) => panels.has(each))),
             );
-            tab.setAttribute('aria-selected', selected ? 'true' : 'false');
-            tab.tabIndex = selected ? 0 : -1;
-        }
-        for (const panel of this.panelTargets) {
-            panel.hidden = panel.dataset.marginPanel !== name;
-        }
-
-        if (this.hasFilterTarget) {
-            // Hidden by visibility, not by [hidden]: taking it out of the
-            // layout shifted the whole row sideways on every tab change.
-            this.filterTarget.classList.toggle(
-                'lp-review-margin-filter--inactive',
-                name !== 'comments',
-            );
-            this.filterTarget.open = false;
+        } catch {
+            // Storage can be blocked. The toggle still works on this page.
         }
         window.dispatchEvent(new Event('resize'));
     }
@@ -182,7 +117,7 @@ export default class extends Controller {
         }
 
         for (const option of this.optionTargets) {
-            const name = option.dataset.reviewMarginFilterParam;
+            const name = option.dataset.reviewPanelsFilterParam;
             option.setAttribute(
                 'aria-pressed',
                 name === this.activeFilter ? 'true' : 'false',
@@ -196,7 +131,7 @@ export default class extends Controller {
         this.filterTarget
             .querySelector('summary')
             .classList.toggle(
-                'lp-review-margin-tabs__item--filtered',
+                'lp-review-filter__toggle--filtered',
                 this.activeFilter !== 'open',
             );
         for (const empty of this.emptyTargets) {
@@ -219,5 +154,40 @@ export default class extends Controller {
             );
         }
         window.dispatchEvent(new Event('resize'));
+    }
+
+    #show(name, open) {
+        const button = this.buttonTargets.find(
+            (each) => each.dataset.reviewPanelsNameParam === name,
+        );
+        const visible =
+            open && button !== undefined && !this.#isDisabled(button);
+        button?.setAttribute('aria-pressed', visible ? 'true' : 'false');
+        for (const panel of this.panelTargets) {
+            if (panel.dataset.reviewPanel === name) {
+                panel.hidden = !visible;
+            }
+        }
+    }
+
+    // aria-disabled rather than disabled, so the button keeps its tooltip.
+    #isDisabled(button) {
+        return button.getAttribute('aria-disabled') === 'true';
+    }
+
+    #storedPanels() {
+        try {
+            const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY));
+            if (
+                Array.isArray(stored) &&
+                stored.every((name) => PANEL_ORDER.includes(name))
+            ) {
+                return stored;
+            }
+        } catch {
+            // Unreadable or blocked storage falls back to the server default.
+        }
+
+        return null;
     }
 }
