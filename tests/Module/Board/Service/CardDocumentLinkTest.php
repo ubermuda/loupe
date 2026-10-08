@@ -11,7 +11,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
@@ -208,7 +207,7 @@ final class CardDocumentLinkTest extends KernelTestCase
             project: $project,
             title: 'Write the design up',
             body: 'body',
-            type: CardType::Feature,
+            type: 'feature',
             documentIds: $documentIds,
         );
     }

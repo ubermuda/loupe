@@ -7,7 +7,6 @@ namespace App\Module\Readiness\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Readiness\Entity\DiscoveryProposal;
@@ -49,8 +48,8 @@ final readonly class SubmitReadinessReportHandler
 
     public const string TAG = 'readiness-report';
 
-    /** @var list<CardType> */
-    public const array PROPOSAL_TYPES = [CardType::Feature, CardType::Bug, CardType::Security, CardType::Tooling, CardType::Docs, CardType::Idea];
+    /** @var list<string> */
+    public const array PROPOSAL_TYPES = ['feature', 'bug', 'security', 'tooling', 'docs', 'idea'];
 
     public function __construct(
         private DiscoveryRunRepository $discoveryRuns,
@@ -148,7 +147,7 @@ final readonly class SubmitReadinessReportHandler
     /**
      * Refuses a report the app cannot store or show, before anything is written.
      *
-     * @return list<CardType> the type of each proposal, in order
+     * @return list<string> the type key of each proposal, in order
      */
     private function validate(SubmitReadinessReportCommand $command): array
     {
@@ -170,8 +169,8 @@ final readonly class SubmitReadinessReportHandler
             if ('' === $key || mb_strlen($key) > DiscoveryProposal::MAX_KEY_LENGTH || '' === $title || mb_strlen($title) > Card::MAX_TITLE_LENGTH) {
                 throw new DomainErrors(['proposals' => self::PROPOSAL_INVALID]);
             }
-            $type = CardType::tryFrom($proposal->type);
-            if (null === $type || !\in_array($type, self::PROPOSAL_TYPES, true)) {
+            $type = $proposal->type;
+            if (!\in_array($type, self::PROPOSAL_TYPES, true)) {
                 throw new DomainErrors(['proposals' => self::PROPOSAL_TYPE]);
             }
             if (isset($keys[$key]) || isset($titles[mb_strtolower(ReadinessReportWriter::pickLabel($title))])) {

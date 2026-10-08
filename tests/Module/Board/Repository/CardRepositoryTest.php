@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Repository;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -39,7 +38,7 @@ final class CardRepositoryTest extends KernelTestCase
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
-        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature));
+        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', 'feature'));
     }
 
     public function test_a_number_resolves_inside_its_own_project_only(): void
@@ -83,7 +82,7 @@ final class CardRepositoryTest extends KernelTestCase
         $this->cards->refreshTypeAndParent($card);
 
         self::assertFalse($card->laneEnabled);
-        self::assertSame(CardType::Epic, $card->type);
+        self::assertSame('epic', $card->type);
     }
 
     public function test_lane_epics_are_the_open_epics_with_their_lane_on_in_column_then_rank_order(): void
@@ -95,7 +94,7 @@ final class CardRepositoryTest extends KernelTestCase
         $this->epicIn($project, 'Waiting in the Backlog', 'backlog', 3);
         $this->epicIn($project, 'Lane off', 'next', 2)->laneEnabled = false;
         $this->epicIn($project, 'Done', 'done', 0);
-        $this->epicIn($project, 'Plain card', 'backlog', 0, CardType::Feature);
+        $this->epicIn($project, 'Plain card', 'backlog', 0, 'feature');
         $this->epicIn($this->makeProject('repo-lane-epics-other'), 'Other project', 'next', 0);
         $this->em->flush();
         $this->em->clear();
@@ -104,11 +103,11 @@ final class CardRepositoryTest extends KernelTestCase
 
         self::assertSame(
             ['Waiting in the Backlog', 'Next first', 'Next second', 'In progress'],
-            array_map(static fn (Card $card): string => $card->title, $this->cards->findLaneEpics($project)),
+            array_map(static fn (Card $card): string => $card->title, $this->cards->findLaneEpics($project, ['epic'])),
         );
     }
 
-    private function epicIn(Project $project, string $title, string $slug, int $position, CardType $type = CardType::Epic): Card
+    private function epicIn(Project $project, string $title, string $slug, int $position, string $type = 'epic'): Card
     {
         $column = $this->column($project, $slug);
         $card = new Card(project: $project, column: $column, title: $title, body: '', number: random_int(1, 1_000_000), type: $type, position: $position);

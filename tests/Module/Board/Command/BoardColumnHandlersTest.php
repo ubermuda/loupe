@@ -23,7 +23,6 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Service\BoardColumns;
@@ -453,7 +452,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
             project: $this->project,
             title: $title,
             body: '',
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, $column),
             reporter: CardReporter::Human,
         ));

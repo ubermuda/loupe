@@ -6049,7 +6049,7 @@
     .lp-board--dragging:not(
             :has(
                 .lp-deck .lp-board-card--dragging,
-                .lp-board-card--dragging[data-card-type='epic']
+                .lp-board-card--dragging[data-card-lane='true']
             )
         )
         .lp-board-lane:not(.lp-board-lane--collapsed)

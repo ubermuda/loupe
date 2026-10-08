@@ -14,7 +14,6 @@ use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardListTool;
 use App\Module\Board\Repository\CardRepository;
@@ -597,7 +596,7 @@ final class CardListToolTest extends KernelTestCase
             project: $project,
             title: $title,
             body: 'Body',
-            type: CardType::Idea,
+            type: 'idea',
             reporter: CardReporter::Reviewer,
         ));
     }

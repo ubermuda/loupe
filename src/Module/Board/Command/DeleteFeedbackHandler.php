@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\DeleteCommentCommand;
 use App\Module\SiteReview\Command\DeleteCommentHandler;
@@ -21,7 +21,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Deletes a pending widget note, and the card the note created when nobody
  * has worked on that card since: it still sits in the Backlog, holds
- * no other note, is not an epic, has an empty body, and has no pull request,
+ * no other note, is not a type that may have children, has an empty body, and has no pull request,
  * no document and no link to or from another card. Returns whether the card
  * went too.
  */
@@ -35,6 +35,7 @@ final readonly class DeleteFeedbackHandler
         private CardRepository $cards,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -68,10 +69,11 @@ final readonly class DeleteFeedbackHandler
             $card = $link->card;
             $this->cards->refreshColumn($card);
             $this->cards->refreshTypeAndParent($card);
+            $types = $this->catalog->forProject($command->project);
             if (!$card->column->backlog
-                || CardType::Epic === $card->type
+                || $types->get($card->type)->children
                 || [] !== $this->cardSiteReviewComments->findForCard($card)
-                || $this->cards->hasWork($card, $link->createdTitle ?? $card->title, CardType::SiteReview)) {
+                || $this->cards->hasWork($card, $link->createdTitle ?? $card->title, $types->defaultKey)) {
                 return false;
             }
 

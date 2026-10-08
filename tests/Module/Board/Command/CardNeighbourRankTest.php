@@ -11,7 +11,6 @@ use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -186,7 +185,7 @@ final class CardNeighbourRankTest extends KernelTestCase
             project: $this->project,
             title: $title,
             body: '',
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, $column),
         ));
     }

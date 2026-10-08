@@ -5702,38 +5702,6 @@
                 <source>board.form.create_card_form.type.label</source>
                 <target>Type</target>
             </trans-unit>
-            <trans-unit id="board.form.create_card_form.type.choice.feature">
-                <source>board.form.create_card_form.type.choice.feature</source>
-                <target>Feature</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.type.choice.bug">
-                <source>board.form.create_card_form.type.choice.bug</source>
-                <target>Bug</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.type.choice.security">
-                <source>board.form.create_card_form.type.choice.security</source>
-                <target>Security</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.type.choice.tooling">
-                <source>board.form.create_card_form.type.choice.tooling</source>
-                <target>Tooling</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.type.choice.docs">
-                <source>board.form.create_card_form.type.choice.docs</source>
-                <target>Docs</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.type.choice.idea">
-                <source>board.form.create_card_form.type.choice.idea</source>
-                <target>Idea</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.type.choice.epic">
-                <source>board.form.create_card_form.type.choice.epic</source>
-                <target>Epic</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.type.choice.site-review">
-                <source>board.form.create_card_form.type.choice.site-review</source>
-                <target>Site review</target>
-            </trans-unit>
             <trans-unit id="board.form.create_card_form.column.label">
                 <source>board.form.create_card_form.column.label</source>
                 <target>Column</target>

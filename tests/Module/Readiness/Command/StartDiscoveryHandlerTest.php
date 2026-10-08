@@ -7,7 +7,6 @@ namespace App\Tests\Module\Readiness\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
@@ -51,7 +50,7 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
         self::assertSame($project, $run->project);
         $card = $run->card;
         self::assertSame('Discover what '.$project->name.' needs for agents', $card->title);
-        self::assertSame(CardType::Tooling, $card->type);
+        self::assertSame('tooling', $card->type);
         self::assertTrue($card->column->backlog);
         self::assertSame(CardReporter::Human, $card->reporter);
         self::assertNotSame('', $card->body);

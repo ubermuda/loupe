@@ -9,7 +9,6 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
@@ -195,7 +194,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-neutral');
-        $card = $this->card($project, 'next', CardType::Bug);
+        $card = $this->card($project, 'next', 'bug');
         $now = new \DateTimeImmutable('2026-10-02 12:00:00');
 
         $facts = $this->builder()->build($card, $now);
@@ -221,7 +220,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-card');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $card = $this->card($project, 'next');
         $card->parent = $epic;
         $openChild = $this->card($project, 'next');
@@ -265,7 +264,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-parent-documents');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'backlog');
         $child->parent = $epic;
         $this->em()->flush();
@@ -301,7 +300,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-worker-runs');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'backlog');
         $child->parent = $epic;
         $this->em()->flush();
@@ -322,7 +321,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-parent-requests');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'backlog');
         $child->parent = $epic;
         $this->em()->flush();
@@ -507,7 +506,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $card = $this->card($project, 'in-review');
         $card->parent = $epic;
         $this->pullRequest($card, base: 'epic/'.$epic->number, head: 'feature');
@@ -526,7 +525,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-head');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
@@ -553,7 +552,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-finished');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $this->pullRequest($epic, state: ForgePullRequestState::Merged, base: 'main', head: 'epic/'.$epic->number);
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
@@ -572,7 +571,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-repository');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
         $same = $this->card($project, 'in-review');
         $same->parent = $epic;
@@ -590,7 +589,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-two-repositories');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
         $this->pullRequest($epic, state: ForgePullRequestState::Merged, base: 'main', head: 'epic/'.$epic->number, repository: 'acme/other');
         $live = $this->card($project, 'in-review');
@@ -610,7 +609,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-no-pattern');
         $this->epicBranchPattern($project, null);
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
         $this->pullRequest($child, base: 'epic/'.$epic->number, head: 'child');
@@ -628,7 +627,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-custom-pattern');
         $this->epicBranchPattern($project, 'feature/epic-{number}');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $custom = $this->card($project, 'in-review');
         $custom->parent = $epic;
         $this->pullRequest($custom, base: 'feature/epic-'.$epic->number, head: 'custom');
@@ -645,7 +644,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-child-merged');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
         $this->em()->flush();
@@ -666,8 +665,8 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-child-merged-other');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
-        $other = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
+        $other = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
         $this->pullRequest($child, state: ForgePullRequestState::Merged, base: 'epic/'.$other->number);
@@ -772,7 +771,7 @@ final class FactsBuilderTest extends KernelTestCase
         return $service;
     }
 
-    private function card(Project $project, string $column, CardType $type = CardType::Feature): Card
+    private function card(Project $project, string $column, string $type = 'feature'): Card
     {
         $card = new Card($project, $this->column($project, $column), 'Card', '', ++$this->cardNumber, $type);
         $this->em()->persist($card);

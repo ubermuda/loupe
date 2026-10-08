@@ -10,9 +10,9 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Security\McpBoundProjectVoter;
@@ -54,6 +54,7 @@ final readonly class BoardSubjectResolver
         private CardRepository $cards,
         private BoardColumnRepository $boardColumns,
         private AuthorizationCheckerInterface $authorization,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -151,15 +152,19 @@ final readonly class BoardSubjectResolver
         throw new ToolCallException(\sprintf('%sUnknown %s "%s". Use one of: %s.', null === $argument ? '' : $argument.': ', $noun, $slug, implode(', ', array_map(static fn (BoardColumn $column): string => $column->slug, $columns))));
     }
 
-    public function requireType(string $type): CardType
+    /** Refuses a key the workflow template of the project does not declare. */
+    public function requireType(Project $project, string $type): string
     {
-        return CardType::tryFrom($type)
-            ?? throw new ToolCallException(\sprintf('Unknown type "%s". Use one of: %s.', $type, implode(', ', CardType::values())));
+        $types = $this->catalog->forProject($project);
+
+        return $types->has($type)
+            ? $type
+            : throw new ToolCallException(\sprintf('Unknown type "%s". Use one of: %s.', $type, implode(', ', $types->keys())));
     }
 
-    public function optionalType(?string $type): ?CardType
+    public function optionalType(Project $project, ?string $type): ?string
     {
-        return null === $type ? null : $this->requireType($type);
+        return null === $type ? null : $this->requireType($project, $type);
     }
 
     /** Reads every value, so a filter reaches the reviewer cards the widget wrote. */

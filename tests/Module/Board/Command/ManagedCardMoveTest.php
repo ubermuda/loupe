@@ -12,7 +12,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -91,7 +90,7 @@ final class ManagedCardMoveTest extends KernelTestCase
 
     public function test_the_lifecycle_template_refuses_a_run_of_the_epic_that_moves_its_child_from_the_backlog(): void
     {
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog');
 
         try {
@@ -113,7 +112,7 @@ final class ManagedCardMoveTest extends KernelTestCase
     {
         $this->binding->definition['manualMoves'][] = ['from' => '@backlog', 'to' => 'implementation', 'by' => 'parent-run'];
         $this->em()->flush();
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog');
 
         $this->updateCard()(new UpdateCardCommand(
@@ -130,7 +129,7 @@ final class ManagedCardMoveTest extends KernelTestCase
 
     public function test_a_refused_move_keeps_the_parent_the_update_named(): void
     {
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $card = $this->card('next');
         $cardId = $this->idOf($card);
 
@@ -226,7 +225,7 @@ final class ManagedCardMoveTest extends KernelTestCase
         return CardEventCause::run($run->id ?? throw new \LogicException('A stored run has an id.'), $run->workKind);
     }
 
-    private function card(string $column, CardType $type = CardType::Feature): Card
+    private function card(string $column, string $type = 'feature'): Card
     {
         $create = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $create);

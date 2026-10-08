@@ -14,9 +14,9 @@ use App\Module\Board\Command\ShowCardPlacementCommand;
 use App\Module\Board\Command\ShowCardPlacementHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\CreateCardFormType;
 use App\Module\Board\Form\CreateCardRequest;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -39,6 +39,7 @@ final class CreateCardController extends AppController
         private readonly CreateCardHandler $createCard,
         private readonly FindBoardColumnHandler $findBoardColumn,
         private readonly ShowCardPlacementHandler $showPlacement,
+        private readonly CardTypeCatalog $catalog,
     ) {
     }
 
@@ -50,7 +51,7 @@ final class CreateCardController extends AppController
     ): Response {
         $column = $this->column($request->query->getString('column'), $project, $backlog);
 
-        $data = new CreateCardRequest(column: $column);
+        $data = new CreateCardRequest(type: $this->catalog->forProject($project)->defaultKey, column: $column);
         $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $project]);
         $form->handleRequest($request);
 
@@ -67,7 +68,7 @@ final class CreateCardController extends AppController
                     project: $project,
                     title: $title,
                     body: $data->body ?? '',
-                    type: $data->type ?? CardType::Feature,
+                    type: $data->type ?? $this->catalog->forProject($project)->defaultKey,
                     column: $data->column,
                     // A person filled this form in, whatever an agent may later do to the card.
                     reporter: CardReporter::Human,

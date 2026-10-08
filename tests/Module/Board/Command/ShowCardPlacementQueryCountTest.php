@@ -10,7 +10,6 @@ use App\Module\Board\Command\ShowCardPlacementHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -75,7 +74,7 @@ final class ShowCardPlacementQueryCountTest extends KernelTestCase
         $this->em->flush();
 
         $number = 1;
-        $epic = $this->card($project, 'in-progress', $number++, 0, CardType::Epic);
+        $epic = $this->card($project, 'in-progress', $number++, 0, 'epic');
         for ($i = 0; $i < $perColumn; ++$i) {
             foreach (['triage', 'in-progress', 'done'] as $column) {
                 $card = $this->card($project, $column, $number++, $i + 1);
@@ -91,7 +90,7 @@ final class ShowCardPlacementQueryCountTest extends KernelTestCase
         return [$project, $epic];
     }
 
-    private function card(Project $project, string $slug, int $number, int $position, CardType $type = CardType::Feature): Card
+    private function card(Project $project, string $slug, int $number, int $position, string $type = 'feature'): Card
     {
         $column = $this->column($project, $slug);
         $card = new Card(project: $project, column: $column, title: 'Card '.$number, body: '', number: $number, type: $type, position: $position);

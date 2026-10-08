@@ -8,7 +8,7 @@ use App\Controller\AppController;
 use App\Module\Board\Command\SearchCardsCommand;
 use App\Module\Board\Command\SearchCardsHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,6 +35,7 @@ final class ListCardsController extends AppController
     public function __construct(
         private readonly SearchCardsHandler $handler,
         private readonly AuthenticatedProjectResolver $projectResolver,
+        private readonly CardTypeCatalog $catalog,
     ) {
     }
 
@@ -51,7 +52,7 @@ final class ListCardsController extends AppController
             $project,
             \is_string($query) ? trim($query) : '',
             self::LIMIT,
-            \is_string($type) ? CardType::tryFrom($type) : null,
+            \is_string($type) && $this->catalog->forProject($project)->has($type) ? $type : null,
         ));
 
         return $this->json(['cards' => array_map(

@@ -8,7 +8,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMoveGuard;
@@ -116,7 +115,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
     public function test_a_worker_run_of_the_parent_epic_may_move_its_child_from_the_backlog_to_implementation(string $workKind): void
     {
         $this->bindWithParentRunMove($this->project);
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog', parent: $epic);
 
         self::assertTrue($this->guard()->allows($child, $this->column($this->project, 'in-progress'), CardReporter::Agent, $this->runCause($epic, $workKind)));
@@ -125,7 +124,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
     public function test_a_run_of_the_parent_epic_may_make_only_the_move_the_template_names(): void
     {
         $this->bindWithParentRunMove($this->project);
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $guard = $this->guard();
         $cause = $this->runCause($epic, 'breakdown');
 
@@ -136,7 +135,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
     public function test_only_a_stored_worker_run_of_the_parent_matches_a_parent_run_move(): void
     {
         $this->bindWithParentRunMove($this->project);
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog', parent: $epic);
         $orphan = $this->card('backlog');
         $guard = $this->guard();
@@ -156,7 +155,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
     public function test_a_resumed_session_whose_cause_is_an_older_child_run_still_moves_the_child_for_its_open_parent_run(): void
     {
         $this->bindWithParentRunMove($this->project);
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog', parent: $epic);
         $target = $this->column($this->project, 'in-progress');
         $session = Uuid::v7();
@@ -218,7 +217,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
     public function test_the_lifecycle_template_lets_no_run_of_the_parent_move_a_child(): void
     {
         $this->bindLifecycle($this->project);
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog', parent: $epic);
 
         self::assertFalse($this->guard()->allows($child, $this->column($this->project, 'in-progress'), CardReporter::Agent, $this->runCause($epic, 'breakdown')));
@@ -265,7 +264,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         return $holds;
     }
 
-    private function card(string $column, CardType $type = CardType::Feature, ?Card $parent = null): Card
+    private function card(string $column, string $type = 'feature', ?Card $parent = null): Card
     {
         $create = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $create);

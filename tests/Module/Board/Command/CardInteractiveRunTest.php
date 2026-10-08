@@ -16,7 +16,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\CardMover;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
@@ -225,7 +224,7 @@ final class CardInteractiveRunTest extends KernelTestCase
             project: $this->project,
             title: 'Interactive',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, $column),
             reporter: CardReporter::Agent,
         ));

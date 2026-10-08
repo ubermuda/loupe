@@ -34,6 +34,7 @@ final readonly class TemplateParser
     private const array ON_TIMEOUT = ['pause', 'expire'];
     private const array EVALUATED_CARDS = ['children'];
     private const array TYPE_KEYS = ['key', 'label', 'tone', 'capabilities'];
+    private const int TYPE_KEY_MAX_LENGTH = 20;
     private const array TYPE_CAPABILITIES = ['children', 'lane'];
 
     /** The parameters that hold the tag and the status of a request's `document` map. A template cannot write them. */
@@ -186,6 +187,9 @@ final readonly class TemplateParser
             }
             $where .= \sprintf(' (%s)', $key);
             $entryErrorCount = \count($errors);
+            if (mb_strlen($key) > self::TYPE_KEY_MAX_LENGTH) {
+                $errors[] = \sprintf('%s: "key" must have at most %d characters', $where, self::TYPE_KEY_MAX_LENGTH);
+            }
             foreach (array_keys($entry) as $name) {
                 if (!\in_array($name, self::TYPE_KEYS, true)) {
                     $errors[] = \sprintf('%s: unknown key "%s"', $where, $name);

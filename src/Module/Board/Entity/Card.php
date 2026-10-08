@@ -6,6 +6,7 @@ namespace App\Module\Board\Entity;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardTypes;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Security\ProjectScopedSubject;
@@ -121,8 +122,9 @@ class Card implements ProjectScopedSubject
         #[ORM\Column]
         public readonly int $number,
 
-        #[ORM\Column(length: 20, enumType: CardType::class)]
-        public CardType $type = CardType::Feature,
+        /** The key of a type the project's workflow template declares. */
+        #[ORM\Column(length: 20)]
+        public string $type = 'feature',
 
         /** The column release 2 drops. Every write sets it, so an older image still reads the row. */
         #[ORM\Column(length: 20, enumType: CardReporter::class)]
@@ -166,9 +168,9 @@ class Card implements ProjectScopedSubject
     }
 
     /** Whether the board draws this card as a lane of its own. */
-    public function drawsLane(): bool
+    public function drawsLane(CardTypes $types): bool
     {
-        return CardType::Epic === $this->type && $this->laneEnabled && !$this->column->terminal;
+        return $types->get($this->type)->lane && $this->laneEnabled && !$this->column->terminal;
     }
 
     /** Replaces every pull request link with the given set. An empty list clears them. */

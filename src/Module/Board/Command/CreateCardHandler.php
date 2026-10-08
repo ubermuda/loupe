@@ -23,6 +23,7 @@ use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -45,6 +46,7 @@ final readonly class CreateCardHandler
         private CardLinkSync $cardLinkSync,
         private CardParentResolver $parents,
         private CardParentPolicy $parentPolicy,
+        private CardTypeCatalog $catalog,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -98,7 +100,7 @@ final readonly class CreateCardHandler
             if ($this->cardLinkSync->anyCardGone($relatedCards)) {
                 return UpdateCardHandler::LINKED_CARD_GONE;
             }
-            $refusal = $this->parentPolicy->refusal(null, $command->type, $parent, true);
+            $refusal = $this->parentPolicy->refusal($command->project, null, $command->type, $parent, true);
             if (null !== $refusal) {
                 return $refusal;
             }
@@ -177,7 +179,7 @@ final readonly class CreateCardHandler
                 'cardId' => (string) $card->id,
                 'cardNumber' => $card->number,
                 'projectId' => (string) $command->project->id,
-                'type' => $card->type->value,
+                'type' => $card->type,
                 'status' => $card->column->slug,
                 'columnId' => (string) $card->column->id,
                 'reporter' => $card->reporter->value,
@@ -194,7 +196,7 @@ final readonly class CreateCardHandler
             CardChanged::CREATED,
             true,
         ));
-        if ($card->drawsLane()) {
+        if ($card->drawsLane($this->catalog->forProject($command->project))) {
             $this->events->dispatch(new BoardColumnsChanged($command->project));
         }
 

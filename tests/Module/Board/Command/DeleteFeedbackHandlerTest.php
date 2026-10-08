@@ -18,7 +18,6 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\SiteReview\Command\CommentNotFound;
@@ -76,7 +75,7 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
     public function test_a_created_child_card_of_an_epic_goes_too(): void
     {
         $project = $this->project('delete-feedback-child');
-        $epic = $this->card($project, 'backlog', CardType::Epic);
+        $epic = $this->card($project, 'backlog', 'epic');
         $link = $this->addNote($project, parentCardId: (string) $epic->id);
 
         self::assertTrue(($this->handler)($this->command($project, $link)));
@@ -131,7 +130,7 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         $link = $this->addNote($project);
         $this->em->getConnection()->executeStatement(
             'UPDATE board_cards SET type = ? WHERE id = ?',
-            [CardType::Epic->value, (string) $link->card->id],
+            ['epic', (string) $link->card->id],
         );
 
         self::assertFalse(($this->handler)($this->command($project, $link)));
@@ -170,7 +169,7 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         $link = $this->addNote($project);
         self::assertSame(1, $this->em->getConnection()->executeStatement(
             'UPDATE board_cards SET type = ? WHERE id = ?',
-            [CardType::Bug->value, (string) $link->card->id],
+            ['bug', (string) $link->card->id],
         ));
 
         $this->assertCardStays($project, $link);
@@ -358,7 +357,7 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
 
     private static int $number = 0;
 
-    private function card(Project $project, string $slug, CardType $type = CardType::Feature): Card
+    private function card(Project $project, string $slug, string $type = 'feature'): Card
     {
         $card = new Card($project, $this->column($project, $slug), 'Existing card', '', ++self::$number, $type);
         $this->em->persist($card);

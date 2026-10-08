@@ -6,12 +6,12 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLink;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use Psr\Clock\ClockInterface;
@@ -27,6 +27,7 @@ final readonly class ShowCardHandler
         private BoardAutomationSettingsRepository $boardAutomationSettings,
         private ForgePullRequestRepository $forgePullRequests,
         private ClockInterface $clock,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -34,7 +35,7 @@ final readonly class ShowCardHandler
     {
         $children = [];
         $progress = null;
-        if (CardType::Epic === $command->card->type) {
+        if ($this->catalog->forProject($command->card->project)->get($command->card->type)->children) {
             $children = $this->cards->findChildren($command->card);
             $progress = new CardProgress(
                 \count(array_filter($children, static fn (Card $child): bool => $child->column->terminal)),

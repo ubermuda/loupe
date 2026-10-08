@@ -12,7 +12,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -414,7 +413,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             project: $this->project,
             title: 'Card',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, $column),
             reporter: CardReporter::Human,
         ));

@@ -29,6 +29,8 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardColumnTonePicker;
 use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardDigest;
+use App\Module\Board\Service\CardTypeCatalog;
+use App\Module\Board\Service\CardTypeDefinition;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -51,7 +53,14 @@ final class BoardExtension extends AbstractExtension
         private readonly BoardColumnRepository $boardColumns,
         private readonly BoardColumnTonePicker $tonePicker,
         private readonly CardDigest $digest,
+        private readonly CardTypeCatalog $catalog,
     ) {
+    }
+
+    /** The type of a card as its project's template declares it. */
+    public function cardType(Card $card): CardTypeDefinition
+    {
+        return $this->catalog->forProject($card->project)->get($card->type);
     }
 
     #[\Override]
@@ -63,6 +72,7 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
             // The Backlog page writes this form by hand, so 25 rows build no column choices.
             new TwigFunction('backlog_move_form_name', MoveBacklogCardFormType::nameFor(...)),
+            new TwigFunction('card_type', $this->cardType(...)),
             new TwigFunction('card_digest', $this->cardDigest(...)),
             new TwigFunction('lane_head_digest', $this->digest->forLaneHead(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),

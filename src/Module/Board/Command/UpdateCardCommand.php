@@ -8,7 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\CardEventCause;
 
 /**
@@ -63,7 +62,7 @@ final readonly class UpdateCardCommand
         public CardReporter $actor,
         public ?string $title = null,
         public ?string $body = null,
-        public ?CardType $type = null,
+        public ?string $type = null,
         public ?BoardColumn $column = null,
         public ?array $pullRequestUrls = null,
         public ?array $documentIds = null,

@@ -16,7 +16,6 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
@@ -174,7 +173,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame([2, '2026-10-02 13:10:00'], [$this->ruleState($card, 'stuck')->attempts, $this->ruleState($card, 'stuck')->dueAt?->format('Y-m-d H:i:s')]);
         self::assertSame('2026-10-02 12:10:00', $this->ruleState($card, 'stuck')->lastRefusalAt?->format('Y-m-d H:i:s'));
 
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card, '2026-10-02 12:11:00');
 
         $state = $this->ruleState($card, 'stuck');
@@ -272,7 +271,7 @@ final class EngineTest extends KernelTestCase
         ], onWorkFailed: ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [10, 60]]);
         $this->evaluate($card);
         $request = $this->liveRequests($card)[0];
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card, '2026-10-02 12:05:00');
         self::assertSame(CardPauseKind::Rule, $this->activePause($card)?->kind);
 
@@ -280,7 +279,7 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card, '2026-10-02 12:11:00');
         self::assertNull($this->ruleState($card, 'work')->lastRefusal, 'The refusal waits while the rule pause holds the card.');
 
-        $this->setType($card, CardType::Security);
+        $this->setType($card, 'security');
         $this->evaluate($card, '2026-10-02 12:20:00');
         self::assertSame(CardPauseKind::WorkStopped, $this->activePause($card)?->kind);
     }
@@ -491,7 +490,7 @@ final class EngineTest extends KernelTestCase
         $repair = $this->repairing($card);
         $fingerprint = $this->ruleState($card, 'work')->fingerprint;
 
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card, '2026-10-02 12:45:00');
 
         self::assertSame([$repair], $this->liveRequests($card));
@@ -504,7 +503,7 @@ final class EngineTest extends KernelTestCase
         $card = $this->boundCard([self::requestRule('work', self::NOT_EPIC)], onWorkFailed: self::REPAIR);
         $repair = $this->repairing($card);
 
-        $this->setType($card, CardType::Epic);
+        $this->setType($card, 'epic');
         $this->evaluate($card, '2026-10-02 12:45:00');
 
         self::assertSame(WorkRequestState::Cancelled, $repair->state);
@@ -573,7 +572,7 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card, '2026-10-02 13:00:00');
         self::assertNull($pause->releasedAt);
 
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card, '2026-10-02 13:01:00');
 
         self::assertSame('facts-changed', $pause->releaseReason);
@@ -600,7 +599,7 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card, '2026-10-02 12:30:00');
         self::assertNull($pause->releasedAt);
 
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card, '2026-10-02 12:31:00');
 
         self::assertSame('until-met', $pause->releaseReason);
@@ -610,18 +609,18 @@ final class EngineTest extends KernelTestCase
     public function test_the_request_limit_pauses_and_the_work_limit_pause_stays_until_the_card_leaves_the_slot(): void
     {
         $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 1)]);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
-        $this->setType($card, CardType::Feature);
+        $this->setType($card, 'feature');
         $this->evaluate($card);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
 
         $pause = $this->activePause($card);
         self::assertNotNull($pause);
         self::assertSame([CardPauseKind::WorkLimit, 'work-limit-reached', 'fix'], [$pause->kind, $pause->reason, $pause->ruleId]);
 
-        $this->setType($card, CardType::Security);
+        $this->setType($card, 'security');
         $this->evaluate($card);
         self::assertNull($pause->releasedAt);
 
@@ -761,12 +760,12 @@ final class EngineTest extends KernelTestCase
     public function test_a_work_limit_pause_that_a_person_releases_lets_the_rule_request_work_again(): void
     {
         $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 1)]);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
         $this->finish($this->liveRequests($card)[0]);
-        $this->setType($card, CardType::Feature);
+        $this->setType($card, 'feature');
         $this->evaluate($card);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
         self::assertSame(CardPauseKind::WorkLimit, $this->activePause($card)?->kind);
 
@@ -785,7 +784,7 @@ final class EngineTest extends KernelTestCase
         $pause = $this->activePause($card);
         self::assertNotNull($pause);
 
-        $this->setType($card, CardType::Security);
+        $this->setType($card, 'security');
         $this->evaluate($card, '2026-10-02 12:30:00');
 
         self::assertNull($pause->releasedAt);
@@ -801,7 +800,7 @@ final class EngineTest extends KernelTestCase
         $pause = $this->activePause($card);
         self::assertNotNull($pause);
 
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card, '2026-10-02 12:30:00');
 
         self::assertSame(ReleasePause::RELEASE_REASON, $pause->releaseReason);
@@ -821,7 +820,7 @@ final class EngineTest extends KernelTestCase
                 'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['card.type' => ['type' => 'epic']]]],
             ],
         ]);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
         $pause = $this->activePause($card);
         self::assertNotNull($pause);
@@ -845,7 +844,7 @@ final class EngineTest extends KernelTestCase
                 'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['card.type' => ['type' => 'epic']]]],
             ],
         ]);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
         self::assertNotNull($this->activePause($card));
 
@@ -861,9 +860,9 @@ final class EngineTest extends KernelTestCase
             self::requestRule('work', ['card.type' => ['type' => 'bug']]),
             self::moveRule('advance', 'two', ['card.type' => ['type' => 'feature']]),
         ]);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
-        $this->setType($card, CardType::Feature);
+        $this->setType($card, 'feature');
 
         $this->evaluate($card, '2026-10-02 14:00:00');
 
@@ -877,7 +876,7 @@ final class EngineTest extends KernelTestCase
     public function test_a_request_that_is_already_live_does_not_count_toward_the_limit(): void
     {
         $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 2)]);
-        foreach ([CardType::Bug, CardType::Feature, CardType::Bug, CardType::Feature, CardType::Bug] as $type) {
+        foreach (['bug', 'feature', 'bug', 'feature', 'bug'] as $type) {
             $this->setType($card, $type);
             $this->evaluate($card);
         }
@@ -1093,12 +1092,12 @@ final class EngineTest extends KernelTestCase
     public function test_a_work_limit_pause_released_from_a_hold_stays_on_the_same_pull_request(): void
     {
         $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 1)]);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
         $this->finish($this->liveRequests($card)[0]);
-        $this->setType($card, CardType::Feature);
+        $this->setType($card, 'feature');
         $this->evaluate($card, '2026-10-02 12:30:00');
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card, '2026-10-02 12:31:00');
         $pause = $this->activePause($card);
         self::assertSame(CardPauseKind::WorkLimit, $pause?->kind);
@@ -1313,7 +1312,7 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card);
         self::assertNotNull($this->ruleState($card, 'stuck')->lastRefusalAt);
 
-        $this->setType($card, CardType::Epic);
+        $this->setType($card, 'epic');
         $this->evaluate($card, '2026-10-02 12:01:00');
 
         $state = $this->ruleState($card, 'stuck');
@@ -1541,7 +1540,7 @@ final class EngineTest extends KernelTestCase
         $pause = $this->activePause($card);
         self::assertNotNull($pause);
         $this->hold($card);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
 
         $this->releaseHold($card);
         $this->evaluate($card, '2026-10-02 12:01:00');
@@ -1589,7 +1588,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->firedRecords());
         self::assertTrue($this->ruleState($card, 'work')->truth);
 
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card, '2026-10-02 12:02:00');
 
         self::assertSame(['fix'], $this->firedRules());
@@ -2334,13 +2333,13 @@ final class EngineTest extends KernelTestCase
         self::assertSame('until-met', $pause->releaseReason);
 
         $this->provider()->failure = new \RuntimeException('The source is down.');
-        $this->setType($card, CardType::Epic);
+        $this->setType($card, 'epic');
         $this->evaluate($card, '2026-10-02 12:10:00');
         self::assertFalse($this->ruleState($card, 'hold')->truth);
 
         $this->provider()->failure = null;
         $this->provider()->facts = new ProvidedFacts(ready: false);
-        $this->setType($card, CardType::Feature);
+        $this->setType($card, 'feature');
         $this->evaluate($card, '2026-10-02 12:15:00');
         self::assertNotNull($this->activePause($card));
     }
@@ -2795,7 +2794,7 @@ final class EngineTest extends KernelTestCase
     private function epic(Project $project): Card
     {
         $epic = $this->card($project, 'in-progress');
-        $this->setType($epic, CardType::Epic);
+        $this->setType($epic, 'epic');
 
         return $epic;
     }
@@ -2827,7 +2826,7 @@ final class EngineTest extends KernelTestCase
         return $request;
     }
 
-    private function setType(Card $card, CardType $type): void
+    private function setType(Card $card, string $type): void
     {
         $card->type = $type;
         $this->em()->flush();

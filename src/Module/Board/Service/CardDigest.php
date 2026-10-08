@@ -29,7 +29,7 @@ final readonly class CardDigest
         return substr(sha1(json_encode([
             $card->number,
             $card->title,
-            $card->type->value,
+            $card->type,
             $pendingComments,
             $pullRequestCount,
             $documentCount,
@@ -53,7 +53,7 @@ final readonly class CardDigest
             $progress?->done,
             $progress?->total,
             $deck?->count,
-            array_map(static fn (Card $card): array => [(string) $card->id, $card->number, $card->title, $card->type->value], $deck->cards ?? []),
+            array_map(static fn (Card $card): array => [(string) $card->id, $card->number, $card->title, $card->type], $deck->cards ?? []),
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 }

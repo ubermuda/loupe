@@ -14,7 +14,6 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
@@ -170,7 +169,7 @@ final readonly class ProjectShowcaseSeeder
         $number = $this->cards->nextNumber($project);
         $cards = [];
         foreach ([self::SYNC_MARKER_TITLE, 'Retry a failed webhook', 'Paginate the activity feed', 'Cache the board columns', 'Rename the export archive'] as $offset => $title) {
-            $cards[] = $card = new Card(project: $project, column: $column, title: $title, body: '', number: $number + $offset, type: CardType::Feature);
+            $cards[] = $card = new Card(project: $project, column: $column, title: $title, body: '', number: $number + $offset, type: 'feature');
             $this->em->persist($card);
         }
 
@@ -187,7 +186,7 @@ final readonly class ProjectShowcaseSeeder
     /** A pull request that passes every check, with an approval of a head before the last push. */
     private function seedOutdatedApproval(Project $project): Card
     {
-        $card = new Card(project: $project, column: $this->reviewColumn($project), title: self::OUTDATED_APPROVAL_TITLE, body: '', number: $this->cards->nextNumber($project), type: CardType::Feature);
+        $card = new Card(project: $project, column: $this->reviewColumn($project), title: self::OUTDATED_APPROVAL_TITLE, body: '', number: $this->cards->nextNumber($project), type: 'feature');
         $this->em->persist($card);
 
         $state = $this->syncRow($card, 457, PullRequestMergeability::Mergeable, '-3 hours');
@@ -248,7 +247,7 @@ final readonly class ProjectShowcaseSeeder
             title: 'A simpler checkout',
             body: 'Replace the legacy checkout with a single-page flow. Keep saved subscriptions and recovery behavior intact.',
             number: $number,
-            type: CardType::Feature,
+            type: 'feature',
         );
         $history = new Card(
             project: $project,
@@ -256,7 +255,7 @@ final readonly class ProjectShowcaseSeeder
             title: 'Worker run history',
             body: 'Give every reported run a place in the project: its outcome, its duration, the rule that started it and the card it belonged to.',
             number: $number + 1,
-            type: CardType::Feature,
+            type: 'feature',
         );
         $columnRules = new Card(
             project: $project,
@@ -264,7 +263,7 @@ final readonly class ProjectShowcaseSeeder
             title: 'Safer column changes',
             body: 'A column rename must not silently detach the rules that point at it. Decide the handoff behavior before implementation.',
             number: $number + 2,
-            type: CardType::Bug,
+            type: 'bug',
         );
         $onboarding = new Card(
             project: $project,
@@ -272,7 +271,7 @@ final readonly class ProjectShowcaseSeeder
             title: self::WAITING_CARD_TITLE,
             body: 'Make the first agent handoff obvious. Explain which rule runs when a card enters Ready and what the person should expect back.',
             number: $number + 3,
-            type: CardType::Feature,
+            type: 'feature',
         );
 
         foreach ([$checkout, $history, $columnRules, $onboarding] as $card) {
@@ -646,7 +645,7 @@ final readonly class ProjectShowcaseSeeder
             title: 'Project export',
             body: 'Let an owner download every card, document and request of a project as one archive.',
             number: $number,
-            type: CardType::Epic,
+            type: 'epic',
         );
         $child = new Card(
             project: $project,
@@ -654,7 +653,7 @@ final readonly class ProjectShowcaseSeeder
             title: 'Export the documents',
             body: 'Write each document version as Markdown, in a folder per document.',
             number: $number + 1,
-            type: CardType::Feature,
+            type: 'feature',
         );
         $child->parent = $epic;
         $this->em->persist($epic);
@@ -736,7 +735,7 @@ final readonly class ProjectShowcaseSeeder
             title: 'The empty basket reads as an error',
             body: '',
             number: $this->cards->nextNumber($project),
-            type: CardType::SiteReview,
+            type: 'feature',
             origin: CardReporter::Reviewer,
         );
         $basket->completedAt = $now->modify('-1 day');

@@ -38,4 +38,11 @@ final class CardTypesTest extends TestCase
     {
         self::assertSame($this->types->all[0], $this->types->default());
     }
+
+    public function test_it_lists_the_keys_and_the_capability_keys(): void
+    {
+        self::assertSame(['feature', 'epic'], $this->types->keys());
+        self::assertSame(['epic'], $this->types->withChildren());
+        self::assertSame(['epic'], $this->types->withLane());
+    }
 }
