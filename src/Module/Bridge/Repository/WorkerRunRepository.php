@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunFact;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -796,7 +797,9 @@ class WorkerRunRepository extends ServiceEntityRepository
         }
 
         if (null !== $query->model) {
-            $qb->andWhere('r.model = :model')->setParameter('model', $query->model);
+            // A run with no reported model shows the model of its fact, so the filter reads it too.
+            $qb->andWhere('r.model = :model OR (r.model IS NULL AND EXISTS (SELECT 1 FROM '.WorkerRunFact::class.' f WHERE f.runId = r.id AND f.model = :model))')
+                ->setParameter('model', $query->model);
         }
 
         // Nothing is fetch-joined, so the page LIMIT already counts runs.

@@ -237,6 +237,22 @@ final class WorkerRunReadToolsTest extends KernelTestCase
 
         self::assertSame('gpt-5', $this->listTool()()['runs'][0]['model']);
         self::assertSame('gpt-5', $this->getTool()((string) $run->id)['runs'][0]['model']);
+        self::assertSame(0, $this->listTool()(model: 'claude-opus-5-5')['total']);
+    }
+
+    public function test_the_model_filter_finds_a_run_by_the_model_its_row_shows(): void
+    {
+        [$project] = $this->projects('list-fact-model');
+        $em = $this->em();
+        $older = $this->seedRun($em, $project);
+        $this->seedUsage($em, $older, model: 'claude-opus-5-5', costUsd: '0.500000');
+        $this->seedRun($em, $project, model: 'gpt-5');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $runs = $this->listTool()(model: 'claude-opus-5-5')['runs'];
+
+        self::assertSame([(string) $older->id], array_column($runs, 'runId'));
+        self::assertSame('claude-opus-5-5', $runs[0]['model']);
     }
 
     public function test_the_list_filters_by_harness_account_and_model(): void
