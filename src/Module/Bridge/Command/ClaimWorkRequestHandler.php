@@ -55,7 +55,7 @@ final readonly class ClaimWorkRequestHandler
             if (null === $request || !self::isOffered($request, $command, $bridge->projects)) {
                 return WorkRequestRefusal::NotFound;
             }
-            if (!$bridge->canRun($request->capability)) {
+            if (!$bridge->canRun($request)) {
                 return WorkRequestRefusal::CapabilityMissing;
             }
 

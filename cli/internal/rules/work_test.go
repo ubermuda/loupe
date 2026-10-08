@@ -384,7 +384,9 @@ func TestCapabilities(t *testing.T) {
 	}{
 		"workers only":     {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n", []string{"work-requests"}},
 		"with interactive": {workFile, []string{"work-requests", "interactive"}},
-		"app prompts only": {"projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\n", []string{"work-requests"}},
+		"app prompts only": {"projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\n", []string{"work-requests", "app-prompts"}},
+		"app prompts with subjects": {"projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\nwork:\n  y:\n    subject: analysis\n    prompt: x\n",
+			[]string{"work-requests", "subject-analysis", "app-prompts"}},
 		"with subjects": {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    subject: review\n    prompt: x\n" +
 			"  y:\n    subject: analysis\n    prompt: x\n  z:\n    subject: analysis\n    prompt: x\n  w:\n    subject: card\n    prompt: x\n",
 			[]string{"work-requests", "subject-analysis", "subject-review"}},
@@ -580,5 +582,27 @@ func TestMatchKindContinuesTheRunOfAnAppPrompt(t *testing.T) {
 	}
 	if m := checked(t, workFile).MatchKind(workRequest("review")); m.Skip != NoRule {
 		t.Fatalf("no opt-in: match = %+v", m)
+	}
+}
+
+// An app prompt run takes the model and effort of the request over the file
+// defaults, and an entry of the kind still wins.
+func TestMatchKindAppPromptTakesRequestModelAndEffort(t *testing.T) {
+	s := checked(t, "defaults:\n  model: opus\nappPrompts: true\n"+workFile)
+	w := workRequest("review")
+	w.Prompt = "Review."
+	w.Model, w.Effort = "haiku", "high"
+	if m := s.MatchWork(w); m.Skip != Run || m.Model != "haiku" || m.Effort != "high" {
+		t.Fatalf("request values: match = %+v", m)
+	}
+	w.Model, w.Effort = "", ""
+	if m := s.MatchWork(w); m.Skip != Run || m.Model != "opus" || m.Effort != "" {
+		t.Fatalf("defaults: match = %+v", m)
+	}
+	w = workRequest("implement")
+	w.Prompt = "Ignore."
+	w.Effort = "high"
+	if m := s.MatchWork(w); m.Rule != "work:implement" || m.Prompt == "Ignore." {
+		t.Fatalf("entry: match = %+v", m)
 	}
 }

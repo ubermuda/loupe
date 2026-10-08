@@ -7222,7 +7222,7 @@
             <trans-unit id="insights.reports.proposal.dismiss"><source>insights.reports.proposal.dismiss</source><target>Dismiss</target></trans-unit>
             <trans-unit id="insights.reports.proposal.reason_placeholder"><source>insights.reports.proposal.reason_placeholder</source><target>Reason (optional)</target></trans-unit>
             <trans-unit id="insights.reports.empty.title"><source>insights.reports.empty.title</source><target>No analysis exists yet</target></trans-unit>
-            <trans-unit id="insights.reports.empty.description"><source>insights.reports.empty.description</source><target>An analysis reads the worker runs of this project and writes a report with proposals. It needs a bridge with a work entry for the analysis subject. Start one with the Analyse form above.</target></trans-unit>
+            <trans-unit id="insights.reports.empty.description"><source>insights.reports.empty.description</source><target>An analysis reads the worker runs of this project and writes a report with proposals. It needs a bridge that sets appPrompts to true or has a work entry for the analysis subject. Start one with the Analyse form above.</target></trans-unit>
             <trans-unit id="insights.reports.empty.docs"><source>insights.reports.empty.docs</source><target>Read how a bridge takes work requests</target></trans-unit>
             <trans-unit id="insights.reports.flash.started"><source>insights.reports.flash.started</source><target>The analysis waits for a bridge.</target></trans-unit>
             <trans-unit id="insights.reports.flash.settings_saved"><source>insights.reports.flash.settings_saved</source><target>The analysis settings are saved.</target></trans-unit>

@@ -847,7 +847,9 @@ work:
     prompt: Run the loupe-analysis skill for analysis {subjectId} of project {project}.
 ```
 
-The `analysis` entry above runs the analyses that the owner starts on the
+A bridge with `appPrompts: true` runs an analysis with no such entry, because
+the request carries the prompt that Loupe ships. The `analysis` entry above
+runs the analyses that the owner starts on the
 [Reports](../using/analytics.md#reports) tab. The `loupe-analysis` skill of the
 Loupe plugin does the work. A work request can name a model and an effort. A
 request model replaces the `model` of the entry. A request effort reaches
@@ -865,13 +867,16 @@ The file needs `work:`, or `appPrompts: true`. The bridge reports the
 `work-requests` capability when the map has an entry or `appPrompts` is on,
 and `interactive` too when an entry opens an interactive session. It also
 reports `subject-<type>` for each subject type other than `card` that an entry
-names, such as `subject-analysis`. A request that needs a capability reaches
-only a bridge that reports it.
+names, such as `subject-analysis`. With `appPrompts: true`, it reports
+`app-prompts` too. A request that needs a capability reaches only a bridge that
+reports it. A request that names a `subject-` capability and carries an app
+prompt also reaches a bridge that reports `app-prompts`.
 
 A rule that Loupe ships can send a prompt with its request. Set
 `appPrompts: true` at the top of `rules.yaml` to run that prompt for a kind that
 `work:` does not map. The prompt runs as a worker in the `default` pool, with
-the `defaults` of the file. An entry under `work:` always wins. A bridge without
+the `defaults` of the file. A model or an effort in the request replaces the
+default model and sets the effort. An entry under `work:` always wins. A bridge without
 the key skips such a request, and the request expires after the work timeout.
 
 The bridge finds the project of a request in `projects` through the project

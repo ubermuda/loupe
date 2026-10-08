@@ -58,6 +58,12 @@ class Bridge
     /** The capability of a bridge that runs an interactive session. */
     public const string CAPABILITY_INTERACTIVE = 'interactive';
 
+    /** Reported by a bridge that runs the prompts the app ships, for a request that carries one. */
+    public const string CAPABILITY_APP_PROMPTS = 'app-prompts';
+
+    /** The prefix of the capability a request names for a subject that is no card. */
+    public const string SUBJECT_CAPABILITY_PREFIX = 'subject-';
+
     /** Null when the last heartbeat carried no update report. */
     #[ORM\Column(name: 'update_state', length: 20, nullable: true, enumType: CliUpdateState::class)]
     public ?CliUpdateState $updateState = null;
@@ -179,10 +185,20 @@ class Bridge
         return \in_array(self::CAPABILITY_WORK_REQUESTS, $this->capabilities ?? [], true);
     }
 
-    /** Whether the bridge can claim a work request that needs the capability. */
-    public function canRun(?string $capability): bool
+    /** Whether the bridge can claim the request: by its capability, or by app prompts for a subject request that carries a prompt. */
+    public function canRun(WorkRequest $request): bool
     {
-        return $this->takesWorkRequests() && (null === $capability || \in_array($capability, $this->capabilities ?? [], true));
+        if (!$this->takesWorkRequests()) {
+            return false;
+        }
+        $capability = $request->capability;
+        $reported = $this->capabilities ?? [];
+
+        return null === $capability
+            || \in_array($capability, $reported, true)
+            || (null !== $request->prompt
+                && str_starts_with($capability, self::SUBJECT_CAPABILITY_PREFIX)
+                && \in_array(self::CAPABILITY_APP_PROMPTS, $reported, true));
     }
 
     public function nameClashes(): bool

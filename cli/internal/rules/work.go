@@ -22,6 +22,7 @@ const WorkRulePrefix = "work:"
 const (
 	CapabilityWorkRequests = "work-requests"
 	CapabilityInteractive  = "interactive"
+	CapabilityAppPrompts   = "app-prompts"
 )
 
 // workPlaceholders are the names a work entry can fill.
@@ -236,7 +237,8 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 			Project:        slug,
 			Dir:            s.dirs[slug],
 			PermissionMode: s.defaults.PermissionMode,
-			Model:          s.defaults.Model,
+			Model:          cmp.Or(w.Model, s.defaults.Model),
+			Effort:         w.Effort,
 			Schema:         schema,
 			Prompt:         directive.Render(w.Prompt, v),
 			Pool:           DefaultPool,
@@ -355,7 +357,8 @@ func (s *Set) WorkDead(slug string) string {
 
 // Capabilities lists what the work map lets the bridge claim: work-requests
 // for any entry or for app prompts, interactive too for an interactive entry,
-// and subject- with the subject type for each entry whose subject is no card.
+// subject- with the subject type for each entry whose subject is no card, and
+// app-prompts when the set runs app prompts.
 // It is nil for a set with no work.
 func (s *Set) Capabilities() []string {
 	if !s.HasWork() {
@@ -376,6 +379,9 @@ func (s *Set) Capabilities() []string {
 	slices.Sort(subjects)
 	for _, subject := range subjects {
 		out = append(out, subjectCapabilityPrefix+subject)
+	}
+	if s.appPrompts {
+		out = append(out, CapabilityAppPrompts)
 	}
 
 	return out

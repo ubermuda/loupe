@@ -637,9 +637,12 @@ project can change. Set
 does not hold. An entry of the kind always wins over the app prompt. The app
 prompt takes the placeholders below and gets the
 [prompt footer](#prompt-footer). It runs as a worker in the `default` pool,
-with `defaults.permissionMode` and `defaults.model`, then the flags. The bridge
+with `defaults.permissionMode`, then the flags. The model and the effort of the
+request apply. A request with no model uses `defaults.model`. The bridge
 skips a request whose app prompt is blank or names an unknown placeholder. The
-key is off when it is absent.
+key is off when it is absent. With the key on, the bridge reports the
+`app-prompts` capability. The server then also offers it a request that names a
+`subject-` capability and carries an app prompt.
 
 ```yaml
 appPrompts: true
