@@ -425,9 +425,8 @@ final readonly class Engine
         if (null === $rule || !$run->applies($rule) || !\in_array($pause->kind, ReleaseWorkflowPauseCommand::RELEASABLE_KINDS, true)) {
             return false;
         }
-        $resumed = $this->workerRuns->findLatestContinuationOfCard($run->card->id ?? throw new \LogicException('A persisted card has an id.'));
 
-        return null !== $resumed && ($resumed->state->isOpen() || $resumed->state->isOutcome()) && $resumed->receivedAt >= $pause->createdAt;
+        return null !== $this->workerRuns->findLatestContinuationOfCard($run->card->id ?? throw new \LogicException('A persisted card has an id.'), $pause->createdAt);
     }
 
     /**

@@ -841,13 +841,22 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult());
     }
 
-    /** The newest worker run of the card that resumes or reruns an earlier run, open or ended. */
-    public function findLatestContinuationOfCard(Uuid $cardId): ?WorkerRun
+    /**
+     * The newest worker run of the card that resumes or reruns an earlier run, and that a worker ran or runs. It leaves out a run a person stopped.
+     * A run that reported before the time does not count.
+     */
+    public function findLatestContinuationOfCard(Uuid $cardId, ?\DateTimeImmutable $since = null): ?WorkerRun
     {
-        return $this->continuationsOfCard($cardId)
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+        $states = [...WorkerRunState::openStates(), ...array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome())];
+        $qb = $this->continuationsOfCard($cardId)
+            ->andWhere('r.state IN (:states)')
+            ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, $states))
+            ->setMaxResults(1);
+        if (null !== $since) {
+            $qb->andWhere('r.receivedAt >= :since')->setParameter('since', $since);
+        }
+
+        return $qb->getQuery()->getOneOrNullResult();
     }
 
     /**
