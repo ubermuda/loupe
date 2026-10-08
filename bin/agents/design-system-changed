@@ -7,6 +7,7 @@
 # The base defaults to origin/main. Pass origin/<parent-branch> for a stacked branch.
 # Output: one path per line, from "git diff --name-only <base>...HEAD".
 # Empty output means the branch changed no design system file. The exit code is 0 either way.
+# A base that git cannot resolve is an error, with a non-zero exit code.
 # Requires: git
 
 set -euo pipefail
@@ -21,4 +22,5 @@ BASE="${1:-origin/main}"
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
 
-git diff --name-only "$BASE...HEAD" | grep -E '^(assets/styles/tokens\.css|assets/styles/design-system\.css|assets/fonts/.+|docs/contributing/design-system\.md|assets/styles/components/.+|templates/components/Ds/.+|src/Module/DesignSystem/Catalog\.php)$' || true
+CHANGED=$(git diff --name-only "$BASE...HEAD")
+printf '%s\n' "$CHANGED" | grep -E '^(assets/styles/tokens\.css|assets/styles/design-system\.css|assets/fonts/.+|docs/contributing/design-system\.md|assets/styles/components/.+|templates/components/Ds/.+|templates/Module/DesignSystem/export/.+|src/Module/DesignSystem/(Catalog|ComponentEntry)\.php|src/Module/DesignSystem/(Command|Service)/.+)$' || true

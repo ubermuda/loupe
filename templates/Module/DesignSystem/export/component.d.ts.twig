@@ -13,8 +13,10 @@ export interface {{ entry.name }}Props {
         | '{{ variant }}'
 {% endfor %}
         | (string & {});
+{% if entry.sizes %}
     /** The size step. Leave it out for the default size. */
     size?: {% for size in entry.sizes %}'{{ size }}'{% if not loop.last %} | {% endif %}{% endfor %};
+{% endif %}
     disabled?: boolean;
     type?: 'button' | 'submit' | 'reset';
     /** Renders a link instead of a button. */

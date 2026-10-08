@@ -95,6 +95,13 @@ final class DesignSystemChangedScriptTest extends TestCase
         self::assertSame('', $this->script('main')->getOutput());
     }
 
+    public function test_it_fails_when_the_base_does_not_exist(): void
+    {
+        $result = $this->script('no-such-ref');
+
+        self::assertNotSame(0, $result->getExitCode());
+    }
+
     private function script(string $base): Process
     {
         $process = new Process([\dirname(__DIR__, 2).'/bin/agents/design-system-changed', $base], $this->repo);
