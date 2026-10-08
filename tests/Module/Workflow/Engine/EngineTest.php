@@ -327,16 +327,40 @@ final class EngineTest extends KernelTestCase
         self::assertSame('run-resumed', $pause->releaseReason);
     }
 
-    public function test_a_pause_stays_while_no_open_run_continues_an_earlier_one(): void
+    public function test_a_pause_stays_while_no_run_since_it_began_continues_an_earlier_one(): void
     {
         $card = $this->stoppedCard('needs-person');
         $pause = $this->activePause($card);
 
         $this->workerRun($card, 'work', WorkerRunState::Running);
-        $this->resumedRun($card, WorkerRunState::Succeeded);
+        $this->resumedRun($card, WorkerRunState::Running, new \DateTimeImmutable('2026-10-02 11:00:00'));
         $this->evaluate($card, '2026-10-02 12:30:00');
 
-        self::assertNull($pause?->releasedAt, 'A fresh run and an ended resume do not end the pause.');
+        self::assertNull($pause?->releasedAt, 'A fresh run and a resume from before the pause do not end it.');
+    }
+
+    public function test_a_pause_stays_when_a_person_stopped_the_resumed_run(): void
+    {
+        $card = $this->stoppedCard('needs-person');
+        $pause = $this->activePause($card);
+
+        $this->resumedRun($card, WorkerRunState::Stopped);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($pause?->releasedAt);
+    }
+
+    public function test_a_resumed_run_that_ended_before_the_evaluation_still_ends_the_pause_and_counts(): void
+    {
+        $card = $this->stoppedCard('needs-person', ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [10, 60]]);
+        $pause = $this->activePause($card);
+
+        $this->resumedRun($card, WorkerRunState::Failed);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame('run-resumed', $pause?->releaseReason);
+        self::assertNull($this->activePause($card));
+        self::assertSame([1, 'failed'], [$this->ruleState($card, 'work')->attempts, $this->ruleState($card, 'work')->lastRefusal]);
     }
 
     public function test_an_interactive_run_that_reports_later_does_not_hide_the_resumed_run(): void
@@ -2750,12 +2774,12 @@ final class EngineTest extends KernelTestCase
         return $card;
     }
 
-    private function resumedRun(Card $card, WorkerRunState $state): WorkerRun
+    private function resumedRun(Card $card, WorkerRunState $state, ?\DateTimeImmutable $receivedAt = null): WorkerRun
     {
-        return $this->workerRun($card, 'work', $state, $this->workerRun($card, 'work', WorkerRunState::Blocked));
+        return $this->workerRun($card, 'work', $state, $this->workerRun($card, 'work', WorkerRunState::Blocked), $receivedAt);
     }
 
-    private function workerRun(Card $card, string $workKind, WorkerRunState $state, ?WorkerRun $continues = null): WorkerRun
+    private function workerRun(Card $card, string $workKind, WorkerRunState $state, ?WorkerRun $continues = null, ?\DateTimeImmutable $receivedAt = null): WorkerRun
     {
         $run = new WorkerRun(
             project: $card->project,
@@ -2765,6 +2789,7 @@ final class EngineTest extends KernelTestCase
             cardNumber: $card->number,
             workKind: $workKind,
             state: $state,
+            receivedAt: $receivedAt ?? new \DateTimeImmutable(),
             continuesRun: $continues,
         );
         $this->em()->persist($run);

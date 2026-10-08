@@ -415,14 +415,19 @@ final readonly class Engine
         return false;
     }
 
-    /** Whether a worker of the card runs again on an earlier run, which a person or a closed ask started. */
+    /**
+     * Whether a worker ran or runs again on an earlier run since the pause began, which a person or a closed ask started.
+     * A short run can end before the evaluation, so the run counts open or ended. A run that a person stopped does not count.
+     */
     private function resumed(Evaluation $run, CardPause $pause): bool
     {
         $rule = $run->rule($pause->ruleId);
+        if (null === $rule || !$run->applies($rule) || !\in_array($pause->kind, ReleaseWorkflowPauseCommand::RELEASABLE_KINDS, true)) {
+            return false;
+        }
+        $resumed = $this->workerRuns->findLatestContinuationOfCard($run->card->id ?? throw new \LogicException('A persisted card has an id.'));
 
-        return null !== $rule && $run->applies($rule)
-            && \in_array($pause->kind, ReleaseWorkflowPauseCommand::RELEASABLE_KINDS, true)
-            && null !== $this->workerRuns->findOpenContinuationOfCard($run->card->id ?? throw new \LogicException('A persisted card has an id.'));
+        return null !== $resumed && ($resumed->state->isOpen() || $resumed->state->isOutcome()) && $resumed->receivedAt >= $pause->createdAt;
     }
 
     /**
