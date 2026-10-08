@@ -1071,6 +1071,8 @@ for (const width of [1440, 390]) {
         page,
         review,
     }) => {
+        // Two reloads and four comment writes, each a server round trip.
+        test.slow();
         await page.setViewportSize({ width, height: 900 });
         await postComment(page);
         await expectThreadVisible(page);
