@@ -182,7 +182,8 @@ type tree struct {
 // seen holds the threads read so far, so a loop ends. A subagent started at or
 // after since whose file is missing or does not parse fails the load, as its
 // spend is unknown. An earlier one belongs to an earlier run, and is skipped.
-func (h Harness) load(s session, seen map[string]bool, since time.Time) (*tree, error) {
+// One started at or after until belongs to a later run, and need not read.
+func (h Harness) load(s session, seen map[string]bool, since, until time.Time) (*tree, error) {
 	t := &tree{session: s, byThread: map[string]*tree{}}
 	seen[s.id] = true
 	for _, sp := range s.spawns {
@@ -202,10 +203,13 @@ func (h Harness) load(s session, seen map[string]bool, since time.Time) (*tree, 
 
 				continue
 			}
+			if !until.IsZero() && !sp.at.Before(until) {
+				continue
+			}
 
 			return nil, unread
 		}
-		c, err := h.load(child, seen, since)
+		c, err := h.load(child, seen, since, until)
 		if err != nil {
 			return nil, err
 		}

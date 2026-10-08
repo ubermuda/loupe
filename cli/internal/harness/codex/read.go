@@ -442,7 +442,7 @@ func (h Harness) tree(runID string, since time.Time) (*tree, error) {
 		return nil, err
 	}
 
-	return h.load(s, map[string]bool{}, since)
+	return h.load(s, map[string]bool{}, since, time.Time{})
 }
 
 // ReadRun reads a finished run from the stdout of Codex and the files it wrote.
@@ -467,14 +467,15 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 	// the fallback when a file of the run is missing or unreadable. A file
 	// that does not parse leaves the calls unknown.
 	sess, sessErr := h.session(run.SessionID)
+	end := runEnd(dir)
 	var t *tree
 	treeErr := sessErr
 	if sessErr == nil {
-		t, treeErr = h.load(sess, map[string]bool{}, run.Since)
+		t, treeErr = h.load(sess, map[string]bool{}, run.Since, end)
 	}
 	if treeErr == nil && sess.id != "" {
 		out.CallsRead = true
-		out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since, runEnd(dir))
+		out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since, end)
 	}
 	switch {
 	case treeErr == nil && t.skipped:
@@ -496,14 +497,16 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 
 // runEnd bounds the lines of the run in dir, so a later resume of the session
 // adds nothing to an adopted run read after it. The worker shell writes its
-// exit file when Codex exits. It is zero when the file does not stat.
+// exit file when Codex exits. A killed run has none, and the last write to
+// stdout ends it. It is zero when neither file stats.
 func runEnd(dir string) time.Time {
-	info, err := os.Stat(filepath.Join(dir, "status.exit"))
-	if err != nil {
-		return time.Time{}
+	for _, name := range []string{"status.exit", "stdout"} {
+		if info, err := os.Stat(filepath.Join(dir, name)); err == nil {
+			return info.ModTime()
+		}
 	}
 
-	return info.ModTime()
+	return time.Time{}
 }
 
 // document is the JSON object in the final message, which a model can wrap in

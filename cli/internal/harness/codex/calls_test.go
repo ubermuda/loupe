@@ -556,3 +556,34 @@ func TestASpawnCallEndsWithTheRun(t *testing.T) {
 		t.Fatalf("calls = %+v", got.Calls)
 	}
 }
+
+// A missing subagent of a later run leaves an adopted run readable.
+func TestAMissingSubagentOfALaterRunLeavesTheRunReadable(t *testing.T) {
+	const main = "aaaaaaaa-0000-0000-0000-000000000009"
+	home := t.TempDir()
+	writeSession(t, home, main,
+		metaLine(main),
+		call("2026-10-08T10:00:01.000Z", "function_call", "c1", "read_file", "arguments", `{}`),
+		output("2026-10-08T10:00:02.000Z", "function_call_output", "c1", "ok"),
+		started("2026-10-08T10:20:00.000Z", main, "", "/root/x", "aaaaaaaa-0000-0000-0000-00000000000a"),
+	)
+	h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+	if err := h.remember(runID, main); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	stdout := filepath.Join(dir, "stdout")
+	if err := os.WriteFile(stdout, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	end := at(t, "2026-10-08T10:00:03.000Z")
+	if err := os.Chtimes(stdout, end, end); err != nil {
+		t.Fatal(err)
+	}
+
+	got := h.ReadRun(dir, harness.RunInfo{SessionID: runID})
+
+	if !got.CallsRead || len(got.Calls) != 1 {
+		t.Fatalf("output = %+v", got)
+	}
+}
