@@ -17,7 +17,7 @@ final class WorkerRunFactHarnessBackfillMigrationTest extends KernelTestCase
 {
     use BridgeScenario;
 
-    public function test_a_fact_takes_the_harness_of_its_run_and_an_agent_fact_whose_run_is_gone_ran_claude_code(): void
+    public function test_a_fact_takes_the_harness_of_its_run_and_a_fact_whose_run_is_gone_keeps_none(): void
     {
         self::bootKernel();
         $em = $this->em();
@@ -42,7 +42,7 @@ final class WorkerRunFactHarnessBackfillMigrationTest extends KernelTestCase
         self::assertSame([
             (string) $codex->id => ['codex', 'work'],
             (string) $unnamed->id => [null, null],
-            (string) $swept->id => ['claude-code', null],
+            (string) $swept->id => [null, null],
             (string) $command->id => [null, null],
             (string) $sweptCommand->id => [null, null],
         ], array_map(

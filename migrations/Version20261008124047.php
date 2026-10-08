@@ -19,14 +19,8 @@ final class Version20261008124047 extends AbstractMigration
     {
         $this->addSql('ALTER TABLE bridge_worker_run_facts ADD harness VARCHAR(40) DEFAULT NULL');
         $this->addSql('ALTER TABLE bridge_worker_run_facts ADD account VARCHAR(64) DEFAULT NULL');
+        // A fact whose run is gone keeps no harness, as no row says which harness ran it.
         $this->addSql('UPDATE bridge_worker_run_facts f SET harness = r.harness, account = r.account FROM bridge_worker_runs r WHERE r.id = f.run_id');
-        // A fact outlives its run, and every agent run before the harness column ran Claude Code.
-        // A fact whose run remains keeps the run's harness, as the fact writer copies it.
-        $this->addSql(<<<'SQL'
-            UPDATE bridge_worker_run_facts f SET harness = 'claude-code'
-            WHERE f.harness IS NULL AND f.kind <> 'command'
-                AND NOT EXISTS (SELECT 1 FROM bridge_worker_runs r WHERE r.id = f.run_id)
-            SQL);
     }
 
     #[\Override]
