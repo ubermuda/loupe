@@ -300,14 +300,13 @@ final class ShippedTemplatesTest extends KernelTestCase
     public function test_a_child_in_the_backlog_starts_only_with_an_approved_tech_design(): void
     {
         $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
-        $backlogChild = static fn (array $documents): Facts => FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true, documents: $documents));
         $id = '01a10beb-ba65-736b-8626-a6e3fa59dfc5';
 
-        self::assertContainsEquals($toImplementation, $this->actions($backlogChild([self::approved('tech-design')])));
-        self::assertNotContainsEquals($toImplementation, $this->actions($backlogChild([])));
-        self::assertNotContainsEquals($toImplementation, $this->actions($backlogChild([new DocumentFacts(['tech-design'], 'in-review', $id)])));
-        self::assertNotContainsEquals($toImplementation, $this->actions($backlogChild([new DocumentFacts(['tech-design'], 'changes-requested', $id)])));
-        self::assertNotContainsEquals($toImplementation, $this->actions($backlogChild([new DocumentFacts(['product-design'], 'approved', $id)])));
+        self::assertContainsEquals($toImplementation, $this->actions(self::backlogChild([self::approved('tech-design')])));
+        self::assertNotContainsEquals($toImplementation, $this->actions(self::backlogChild([])));
+        self::assertNotContainsEquals($toImplementation, $this->actions(self::backlogChild([new DocumentFacts(['tech-design'], 'in-review', $id)])));
+        self::assertNotContainsEquals($toImplementation, $this->actions(self::backlogChild([new DocumentFacts(['tech-design'], 'changes-requested', $id)])));
+        self::assertNotContainsEquals($toImplementation, $this->actions(self::backlogChild([new DocumentFacts(['product-design'], 'approved', $id)])));
     }
 
     public function test_the_lifecycle_template_lets_no_run_of_the_parent_move_a_child(): void
@@ -564,6 +563,12 @@ final class ShippedTemplatesTest extends KernelTestCase
         }
 
         return $actions;
+    }
+
+    /** @param list<DocumentFacts> $documents */
+    private static function backlogChild(array $documents): Facts
+    {
+        return FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true, documents: $documents));
     }
 
     private static function approved(string $tag): DocumentFacts
