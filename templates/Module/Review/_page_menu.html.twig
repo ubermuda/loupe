@@ -5,7 +5,7 @@
     {kind: 'card', rows: document_card_links(document)|map(link => {
         href: path('app_board_card', {projectId: link.card.project.id, cardId: link.card.id}),
         label: '#' ~ link.card.number ~ ' ' ~ link.card.title,
-        line: 'review.document.page_menu.card_line'|trans({'%type%': ('board.card.type.' ~ link.card.type.value)|trans, '%column%': link.card.column.label|trans}),
+        line: 'review.document.page_menu.card_line'|trans({'%type%': card_type(link.card).label|trans, '%column%': link.card.column.label|trans}),
     })},
     {kind: 'outgoing', rows: document.references|map(reference => {
         href: path('app_document_review', {projectId: reference.project.id, documentId: reference.id}),
