@@ -63,6 +63,13 @@ class WorkerRunFact
         #[ORM\Column(name: 'model', length: WorkerRunUsage::MAX_MODEL_LENGTH, nullable: true)]
         public readonly ?string $model,
 
+        /** Null for a command run, which runs no harness, or from an older bridge. */
+        #[ORM\Column(name: 'harness', length: WorkerRun::MAX_HARNESS_LENGTH, nullable: true)]
+        public readonly ?string $harness,
+
+        #[ORM\Column(name: 'account', length: WorkerRun::MAX_ACCOUNT_LENGTH, nullable: true)]
+        public readonly ?string $account,
+
         #[ORM\Column(name: 'bridge_id', type: UuidType::NAME, nullable: true)]
         public readonly ?Uuid $bridgeId,
 

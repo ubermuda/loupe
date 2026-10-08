@@ -39,7 +39,7 @@ final class MetricToolsTest extends KernelTestCase
             'units' => ['run'],
             'valueType' => 'ratio',
             'statistics' => ['mean', 'count'],
-            'groups' => ['stage', 'model', 'variant', 'card-type', 'bridge', 'none'],
+            'groups' => ['stage', 'model', 'variant', 'card-type', 'bridge', 'harness', 'account', 'none'],
             'description' => Metric::StopRate->description(),
         ], $stopRate);
     }
@@ -63,7 +63,7 @@ final class MetricToolsTest extends KernelTestCase
             'units' => ['run', 'card'],
             'valueType' => 'duration',
             'statistics' => ['median', 'mean', 'sum', 'p90', 'count'],
-            'groups' => ['stage', 'model', 'variant', 'card-type', 'bridge', 'none'],
+            'groups' => ['stage', 'model', 'variant', 'card-type', 'bridge', 'harness', 'account', 'none'],
             'description' => Metric::BucketTime->description(),
         ], array_column($metrics, null, 'key')['bucket-time:build']);
     }
