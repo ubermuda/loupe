@@ -34,6 +34,12 @@ The **Workflow** page of the project shows the template of the board, its slots
 and the column each slot links to, and its rules. The page is read-only. A later
 release adds a way to change the template.
 
+The template also declares the card types of the board. Each type has a key, a
+label and a colour. A type can have children, and it can get a lane on the
+board. Both shipped templates declare the same seven types, and only Epic has
+children and a lane. Feature is the default type. The **Workflow** page lists
+the types.
+
 The page lists the conditions of each rule. It groups them by the module whose
 data they read: Board, Forge or Bridge. A rule whose condition no longer exists
 on this instance gets an amber tag that names the condition.
@@ -59,8 +65,8 @@ the Workflow panel of the card page.
 A move in the template can name who may make it. A move with
 `by: parent-run` is open to an open worker run of the parent epic, and not
 to a person. The run may be of any work kind, such as a breakdown or a fix.
-An interactive run does not count. A move with no `by` is open to anyone. The
-**Who** column of the manual moves on the Workflow settings page shows who may
+An interactive run does not count. Lifecycle names no such move. A move with
+no `by` is open to anyone. The **Who** column of the manual moves on the Workflow settings page shows who may
 make each move.
 
 ## Pauses and retries
@@ -165,8 +171,7 @@ review. A person can move a card from the Backlog to Next, Product design or
 Tech design, and from Next back to the Backlog or on to a design slot. A person
 can also move a card from Implementation back to Tech design, for example when
 the card has no tech design yet. A card whose tech design is approved goes
-back to Implementation at once when it has no open blocker. A worker run of an
-epic can move a child of that epic from the Backlog to Implementation.
+back to Implementation at once when it has no open blocker.
 
 | Slot | The workflow |
 |---|---|
@@ -193,19 +198,30 @@ Some rules act from any slot:
    terminal column once no child is open. A merged epic also waits while any
    worker run of it is open.
 2. A card in the Backlog whose pull request reopens moves to Implementation.
-3. A child in the Backlog whose last blocker finished moves to Implementation.
-   It waits while any worker run of its epic is open. When the last such run
-   ends, the epic evaluates its children again, in any column. The wait reads
-   the open worker runs of the epic. An older bridge that sends no run key
-   reports a run only after it ends, so its run does not hold the children.
-4. A card that reaches a terminal column asks for a teardown, which removes its
+3. A child of an epic starts only when it links an approved tech design. A
+   child in the Backlog moves to Implementation when it has a document with the
+   tag `tech-design` and the status approved, it has no open blocker, and it has
+   no pull request. It waits while the epic has work in progress. That work is
+   any open worker run of the epic, and any work that the workflow requested for
+   the epic and no bridge finished. When the last such work ends, the epic
+   evaluates its children again, in any column. A change to the work requests
+   of the epic, or to the documents of the child, also evaluates the child. An
+   older bridge that sends no run key reports a run only after it ends, so its
+   run does not hold the children. In a workflow file, the condition
+   `parent.document_approved` with a `tag` is true when a document of the parent
+   card has that tag and is approved.
+4. A child in the Backlog that links no approved tech design asks the owner
+   what to do, once the epic has an approved tech design and no work in
+   progress. The rule is `unplanned-child`. See
+   [Asking about an unplanned child](#asking-about-an-unplanned-child).
+5. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
-5. A child that reaches a terminal column with a pull request merged into its
+6. A child that reaches a terminal column with a pull request merged into its
    epic branch asks for an epic preview refresh.
 
 An epic follows its children. An epic whose children all finished moves to In
 review when it has a pull request, and to the terminal column when it has none.
-It moves on only after its breakdown request ends.
+It moves on only after every work request of the epic ends.
 When a child merges into the epic branch and the epic has no open pull request, the
 workflow opens the epic pull request. Such an epic never moves straight to the
 terminal column. It goes through In review with its epic pull request. With
@@ -217,6 +233,41 @@ on does neither, so turn the write on in a separate save.
 A new open child moves it back to Implementation. With the epic writes on, the
 pull request of an epic is a draft in Implementation, turns ready in In review,
 and closes when the epic returns to the Backlog.
+
+### Asking about an unplanned child
+
+A child that joins an epic after the epic design was approved may link no tech
+design. The `unplanned-child` rule puts a question in the
+[inbox](inbox.md#workflow-questions) of the project. The question names the
+child and the epic, and it has three options:
+
+1. **Link the tech design of the epic.** The child links the tech design of the
+   epic, whatever its status. When that design is approved, the child starts
+   at once if it has no open blocker. If the design is back in review, the
+   child waits until the epic design is approved again. When the epic has no
+   tech design, nothing is linked and the card history records the refusal.
+   The implementation worker then builds the card body against the epic
+   design. The plan covers only the work that the card body describes.
+2. **Move the card to Tech design.** The child gets a tech design of its own.
+3. **Detach the card.** The card stops being a child of the epic.
+
+The answer is final. Loupe runs the option a short time after you answer,
+because a queue carries the answer to the workflow. The question closes by
+itself, as withdrawn, when the rule stops holding: for example when the child
+links a design, when the epic starts new work, or when the card moves away from
+the Backlog. Loupe also withdraws it when the card is held or deleted. A
+question that you answered stays answered.
+
+When the inbox is off, the rule cannot ask. The child then pauses with the
+reason `inbox-off`. Turn the inbox on, then release the pause, and the
+question opens.
+
+In a workflow file, the action `ask` takes a `question` key and a list of
+`options`. Each option has a `label` and a `then` list of actions. The action
+`link-document` links a document of the parent card to the card. It takes
+`from: parent` and a `tag`. The action `detach` removes the parent of the
+card. The `question` and each `label` are translation keys. They can use the
+parameters `%child%` and `%epic%`, which hold the card numbers.
 
 ## The Simple template
 

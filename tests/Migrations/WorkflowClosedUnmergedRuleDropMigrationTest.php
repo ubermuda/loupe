@@ -70,6 +70,16 @@ final class WorkflowClosedUnmergedRuleDropMigrationTest extends KernelTestCase
         $binding = new WorkflowBinding($this->workflowProject('migration-'.$name), 'simple', 1, [
             'key' => 'simple',
             'version' => 1,
+            'defaultType' => 'feature',
+            'types' => [
+                ['key' => 'feature', 'label' => 'board.card.type.feature', 'tone' => 'lime'],
+                ['key' => 'bug', 'label' => 'board.card.type.bug', 'tone' => 'amber'],
+                ['key' => 'security', 'label' => 'board.card.type.security', 'tone' => 'red'],
+                ['key' => 'tooling', 'label' => 'board.card.type.tooling', 'tone' => 'neutral'],
+                ['key' => 'docs', 'label' => 'board.card.type.docs', 'tone' => 'green'],
+                ['key' => 'idea', 'label' => 'board.card.type.idea', 'tone' => 'purple'],
+                ['key' => 'epic', 'label' => 'board.card.type.epic', 'tone' => 'blue', 'capabilities' => ['children', 'lane']],
+            ],
             'slots' => [],
             'manualMoves' => [['from' => '*', 'to' => '*']],
             'backoffMinutes' => [10, 60, 360],

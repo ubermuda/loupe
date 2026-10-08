@@ -6,7 +6,6 @@ namespace App\Tests\Module\Inbox\Messenger;
 
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
-use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Command\ReportWorkerRunStateCommand;
 use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -46,7 +45,7 @@ final class CardWaitItemFromTriggerTest extends KernelTestCase
 
         $createCard = $container->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $createCard);
-        $card = $createCard(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature, column: $column, documentIds: [(string) $document->id]));
+        $card = $createCard(new CreateCardCommand($project, 'Ship it', 'Body', 'feature', column: $column, documentIds: [(string) $document->id]));
         $this->drainAsync();
 
         $watches = $container->get(InboxCardWatchRepository::class);

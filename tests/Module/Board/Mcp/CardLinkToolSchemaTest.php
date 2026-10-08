@@ -12,7 +12,6 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
@@ -125,7 +124,7 @@ final class CardLinkToolSchemaTest extends WebTestCase
 
     private function cardIn(Project $project): Card
     {
-        return $this->handler(CreateCardHandler::class)(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature));
+        return $this->handler(CreateCardHandler::class)(new CreateCardCommand($project, 'Ship it', 'Body', 'feature'));
     }
 
     /**

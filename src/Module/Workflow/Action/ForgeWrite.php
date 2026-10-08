@@ -10,11 +10,11 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Board\Service\VerdictReviewSettler;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -58,6 +58,7 @@ final readonly class ForgeWrite implements Action
         private VerdictReviewSettler $reviewSettler,
         private SiteReviewCheckPublisher $checkPublisher,
         private CardEvaluations $evaluations,
+        private CardTypeCatalog $catalog,
 
         #[Autowire(param: 'app.workflow.merge_method')]
         private string $mergeMethod,
@@ -147,7 +148,7 @@ final readonly class ForgeWrite implements Action
     {
         $settings = $this->boardAutomation->settingsOf($card->project);
         $epicBranch = $settings->epicBranchOf($card->number);
-        if (CardType::Epic !== $card->type || null === $epicBranch) {
+        if (!$this->catalog->forProject($card->project)->get($card->type)->children || null === $epicBranch) {
             return ActionOutcome::done();
         }
         // A refusal waits, and turning the write on re-arms it. A done rule never fires again.

@@ -199,7 +199,8 @@ card unmanaged. The markers also change with no reload. See
 [Managed and unmanaged cards](#managed-and-unmanaged-cards).
 
 Each card type and each column has a colour, and every page that names one uses
-the same colour. The owner picks a column's colour from twelve in its
+the same colour. The workflow template sets the colour of a card type, and it
+also declares which types the board offers. The owner picks a column's colour from twelve in its
 **Colour** setting. The colour stays with the column when the columns move.
 
 The page header is one row: the title, the search, the card count, the
@@ -242,7 +243,8 @@ The Backlog page is at **`/projects/<project>/board/backlog`**. It lists the
 cards in Backlog, 25 to a page. Each row shows the card number and title, the
 type, the epic, the count of pending feedback and the date the card was added.
 
-Above the list, search the title and the body, and filter by type and by epic.
+Above the list, search the title and the body, and filter by type and by epic. The type filter offers the types that the workflow
+template declares.
 The epic filter offers **Any epic**, **No epic**, and each epic with a card in
 Backlog. **Clear** removes every filter, and a count shows how many cards
 match.
@@ -483,8 +485,12 @@ on every card. See [Bridge health](worker-runs.md#bridge-health).
 
 ## Epics and lanes
 
-An epic is a card of the type `epic`. It groups other cards, its children, so a
-large feature can go to many small cards and still read as one piece of work.
+An epic is a card of a type with the children capability. The shipped templates
+declare the type `epic` with that capability. An epic groups other cards, its
+children, so a large feature can go to many small cards and still read as one
+piece of work. The workflow template declares the card types, and a template
+can give the capability to another type. The rest of this section says "epic"
+for a card of such a type.
 
 ### Parents
 
@@ -495,8 +501,8 @@ these changes:
 - A parent that is not an epic.
 - A parent from another project.
 - A parent on an epic. Epics do not nest.
-- The type `epic` on a card that has a parent.
-- Another type on an epic that has children.
+- A type with the children capability on a card that has a parent.
+- A type without the children capability on an epic that has children.
 
 The epic page lists the children with their columns, and shows a count such as
 "3/7 done". A child counts as done when it sits in a terminal column. The child
@@ -663,18 +669,24 @@ to `main`.
 | Number | A short number, counting from 1, unique inside the project. |
 | Title | Plain text, up to 255 characters. Loupe trims it and refuses a blank one. |
 | Body | Markdown. It says what the card asks for. |
-| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`, `site-review`. |
+| Type | A type that the workflow template declares. `board_columns` lists them. |
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
+| Source | Where the card came from: a person, the site review widget, a worker run, an agent outside a run, or Loupe. It never changes. |
 | Pull requests | Any number of links, each with the last state Loupe read. See below. |
 | Linked cards | Other cards of the project, each with a kind. See [Cards linked to a card](#cards-linked-to-a-card). |
 
 A card also carries the moment it was created and the moment it last changed. A
 card in a terminal column carries its completion time as well.
 
-The site-review widget gives the type `site-review` to each note card and review
-card it creates. The board shows that type in teal. A person or an agent can
-also set it.
+The site-review widget gives the default type of the workflow template to each
+note card and review card it creates, and the source site review widget.
+
+The source is set once, when the card is created. A card made by `card_create`
+through a worker run records that run and the card of the run. A card made by an
+agent with no worker run records the source agent. A card made from a ticked
+readiness proposal records the source Loupe. The card page and the card lists
+show the source as a badge.
 
 The reporter never changes. `card_update` refuses that field, because it answers
 who first raised the card rather than who touched it last. An MCP request
@@ -849,7 +861,7 @@ An agent drives the board through the MCP endpoint. See
 
 | Tool | Arguments |
 |---|---|
-| `board_columns` | None. |
+| `board_columns` | None. It also returns the card types of the project. |
 | `card_create` | `title`, `body` and `type` are required. `status`, `reporter`, `pullRequestUrls`, `documentIds` and `relatedCards` are optional. `origin` is the old name for `reporter` and is deprecated. |
 | `card_list` | `status`, `type` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
 | `card_search` | `query` is required. `page` and `perPage` are optional. |
@@ -867,7 +879,11 @@ An agent drives the board through the MCP endpoint. See
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal`, `default` and `backlog`. The Backlog row
 has `default` and `backlog` both true. `card_list` returns the same
-list in `columns`, beside its cards.
+list in `columns`, beside its cards. The response also holds `types` and
+`defaultType`: the card types that the workflow template declares, each with a
+`key`, a `label` and the capabilities `children` and `lane`, and the type of a new
+card. The `type` argument of the card tools takes a key, and a key that the
+template does not declare is refused.
 
 `column_create`, `column_update`, `column_reorder` and `column_delete` change
 the columns, as **Board settings** does. They refuse the changes that Board
@@ -975,8 +991,8 @@ pick an open card or epic, and it can create one.
 
 A card raised that way records its reporter as **reviewer**. That says the app
 could not name who raised it, because the widget authenticates a project and
-never a person. A note card and a review card have the type `site-review`. An
-epic has the type `epic`.
+never a person. A note card and a review card have the default type of the workflow
+template.
 
 Such a card always lands in Backlog, and carries no pull request
 link. The widget offers neither, so a page visitor cannot file work straight
@@ -1129,7 +1145,7 @@ the widget deletes the note's card too when all of these are true:
 - The note created the card.
 - The card is still in Backlog.
 - The card holds no other feedback.
-- The card keeps the site review type and the title that the note gave it.
+- The card keeps the default type and the title that the note gave it.
 - The card body is empty.
 - The card has no pull request, no document and no link to or from another card.
 

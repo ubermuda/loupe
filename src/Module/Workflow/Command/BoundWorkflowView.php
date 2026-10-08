@@ -7,6 +7,7 @@ namespace App\Module\Workflow\Command;
 final readonly class BoundWorkflowView
 {
     /**
+     * @param list<WorkflowCardTypeView>   $types
      * @param list<WorkflowSlotView>       $slots
      * @param list<WorkflowRuleView>       $rules                    the rules of the template
      * @param list<WorkflowRuleView>       $appRules                 the rules the app adds to every template
@@ -20,6 +21,7 @@ final readonly class BoundWorkflowView
         public string $descriptionKey,
         public int $version,
         public \DateTimeImmutable $boundAt,
+        public array $types,
         public array $slots,
         public array $rules,
         public array $appRules,

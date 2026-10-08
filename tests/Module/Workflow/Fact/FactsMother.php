@@ -42,7 +42,10 @@ final class FactsMother
         );
     }
 
-    /** @param list<DocumentFacts> $documents */
+    /**
+     * @param list<DocumentFacts> $documents
+     * @param list<DocumentFacts> $parentDocuments
+     */
     public static function card(
         ?string $slot = null,
         string $type = 'feature',
@@ -52,6 +55,7 @@ final class FactsMother
         int $openChildCount = 0,
         array $documents = [],
         bool $childMergedIntoEpicBranch = false,
+        array $parentDocuments = [],
     ): CardFacts {
         return new CardFacts(
             slot: $slot,
@@ -62,6 +66,7 @@ final class FactsMother
             openChildCount: $openChildCount,
             documents: $documents,
             childMergedIntoEpicBranch: $childMergedIntoEpicBranch,
+            parentDocuments: $parentDocuments,
         );
     }
 

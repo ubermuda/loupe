@@ -12,7 +12,6 @@ use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Project\Entity\Project;
@@ -88,7 +87,7 @@ trait CardPauseScenario
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
-        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature));
+        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', 'feature'));
     }
 
     private function countPauses(): int

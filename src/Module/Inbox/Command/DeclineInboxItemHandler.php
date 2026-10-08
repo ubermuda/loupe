@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Inbox\Entity\InboxCardWaitEndReason;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
@@ -21,6 +22,8 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class DeclineInboxItemHandler
 {
+    public const string WORKFLOW_NOT_DECLINABLE = 'inbox.item.error.workflow_not_declinable';
+
     public function __construct(
         private InboxItemCloser $closer,
         private Auditor $auditor,
@@ -32,6 +35,9 @@ final readonly class DeclineInboxItemHandler
     public function __invoke(DeclineInboxItemCommand $command): InboxItem
     {
         $item = $command->item;
+        if (InboxItemKind::Workflow === $item->kind) {
+            throw new DomainErrors(['closeNote' => self::WORKFLOW_NOT_DECLINABLE]);
+        }
         $note = trim($command->note);
 
         $dismissedCardId = null;

@@ -107,25 +107,26 @@ design:
    body. The worker builds only that entry, from the tech design of the epic.
    A Breakdown child skips product design and tech design. A standalone child
    has no entry line, for example a card moved under an epic by hand. The
-   worker builds its own approved tech design as a normal card. With no such
-   design, it stops with
+   worker builds its own approved tech design as a normal card. A standalone
+   child that links only the approved tech design of its epic builds its card
+   body against that design, and the plan covers only the work that the card
+   body describes. With no approved design linked, the worker stops with
    `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.
 2. Breakdown: the card is an epic, or its tech design has a `Breakdown`
    section. The worker writes no code and changes no file. It sets the type
-   `epic`, adds the entry line to each matched child, creates each missing
-   child in Backlog, and sets the blocked-by links. Then it moves each child
-   with no open blocker to Implementation. The result line is
-   `STAGE RESULT: breakdown <n> children, <m> started`, and the lines after it
-   list each match with its reason.
+   `epic`, adds the entry line and the entry to each matched child, links the tech
+   design of the epic to each child, creates each missing child in Backlog,
+   and sets the blocked-by links. It moves no child. The workflow starts a
+   child that links an approved tech design and has no open blocker. The
+   result line is `STAGE RESULT: breakdown <n> children`, and the lines after
+   it list each match with its reason.
 3. Normal: every other card. The worker builds the whole design into one pull
    request.
 
 An epic never gets a coding worker. An epic that already has children still
 gets the breakdown when it enters Implementation. When an epic moves back to
 Implementation, its worker runs the breakdown again, finds no missing child,
-and stops. That
-rerun also starts a child that a person put back in Backlog on purpose, when
-the child has no open blocker. A parked child stays in Backlog.
+and stops.
 
 The workflow makes three moves on its own:
 

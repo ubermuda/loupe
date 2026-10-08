@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Board\View;
 
-use App\Module\Board\Entity\CardType;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\Uid\Uuid;
 
@@ -20,7 +19,8 @@ final readonly class BacklogListQuery
     public function __construct(
         public int $page = 1,
         public ?string $search = null,
-        public ?CardType $type = null,
+        /** A type key, as typed. The controller drops a key the project does not declare. */
+        public ?string $type = null,
         /** Null is any epic, NO_EPIC is no epic, and a card id is that epic. */
         public ?string $epic = null,
         public BacklogSort $sort = BacklogSort::Created,
@@ -33,11 +33,12 @@ final readonly class BacklogListQuery
     {
         $search = trim($query->getString('search'));
         $epic = strtolower(trim($query->getString('epic')));
+        $type = trim($query->getString('type'));
 
         return new self(
             page: max(1, $query->getInt('page', 1)),
             search: '' === $search ? null : $search,
-            type: CardType::tryFrom($query->getString('type')),
+            type: '' === $type ? null : $type,
             epic: self::NO_EPIC === $epic || Uuid::isValid($epic) ? $epic : null,
             sort: BacklogSort::tryFrom($query->getString('sort')) ?? BacklogSort::Created,
             dir: BacklogDirection::tryFrom($query->getString('dir')) ?? BacklogDirection::Desc,
@@ -47,6 +48,11 @@ final readonly class BacklogListQuery
     public function withPage(int $page): self
     {
         return clone ($this, ['page' => $page]);
+    }
+
+    public function withoutType(): self
+    {
+        return clone ($this, ['type' => null]);
     }
 
     /** Whether a filter narrows the list, which separates an empty Backlog from no match. */
@@ -88,7 +94,7 @@ final readonly class BacklogListQuery
         }
 
         if (null !== $this->type) {
-            $params['type'] = $this->type->value;
+            $params['type'] = $this->type;
         }
 
         if (null !== $this->epic) {

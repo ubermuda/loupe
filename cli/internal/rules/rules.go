@@ -698,6 +698,12 @@ func (s *Set) UsedAccounts() []string {
 	return out
 }
 
+// DeclaredAccounts names, in order, each account the rule file declares,
+// whether or not a rule runs on it.
+func (s *Set) DeclaredAccounts() []string {
+	return slices.Sorted(maps.Keys(s.accounts))
+}
+
 // NeedsClaude reports whether the bridge must find the claude program: a run
 // takes a claude-code account, or the set names no account at all. A set whose
 // runs all take codex accounts runs on a machine with no Claude Code.

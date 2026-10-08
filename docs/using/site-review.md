@@ -70,7 +70,7 @@ go:
 |---|---|
 | A new card for each note | Creates a new card for the note. |
 | One card for this review | Adds the note to one card. Pick an open card, or create one. |
-| A card for each note, under an epic | Creates a new card for the note, as a child of one epic. Pick an open epic, or create one. |
+| A card for each note, under an epic | Creates a new card for the note, as a child of one epic. Pick an open epic, or create one. The widget shows this choice only when the workflow template has a card type with the children capability. |
 
 The widget keeps the choice in the browser's local storage, for this instance
 and this project. It holds for every later note, and after a reload, until you
@@ -79,14 +79,17 @@ again.
 
 The second and third choices open a card picker. Search the open cards, or
 type a title and create a card. The title starts as `Review: ` and the page
-path, and you can edit it. The third choice lists epics only, and it creates an
-epic.
+path, and you can edit it. The third choice lists the open cards of every type that has the children
+capability, and it creates a card of one of those types. When the template has
+two or more such types, a type selector shows beside the Create button. The
+first type of the template is chosen at first.
 
 A card that the widget creates has these values:
 
-- The type is `site-review` for a note card or a review card, and `epic` for an epic.
+- The type is the default type of the workflow template for a note card or a review card, and the type with the children capability for an epic.
 - The column is the board's Backlog.
 - The reporter is `reviewer`.
+- The source is the site review widget. The card shows a site review badge.
 - A note card takes its title from the first line of the note that is not blank, cut to 80 characters.
 
 After a save that creates a card, the widget names the card and links to it.
@@ -206,7 +209,7 @@ also removes the note's card when all of these are true:
 - The note created the card.
 - The card is still in Backlog.
 - The card holds no other feedback.
-- The card keeps the site review type and the title that the note gave it.
+- The card keeps the default type and the title that the note gave it.
 - The card body is empty.
 - The card has no pull request, no document and no link to or from another card.
 

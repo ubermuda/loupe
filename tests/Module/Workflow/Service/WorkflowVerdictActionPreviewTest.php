@@ -95,7 +95,7 @@ final class WorkflowVerdictActionPreviewTest extends KernelTestCase
         $this->boardAutomation()->settingsForUpdate($this->project)->postWidgetReviews = true;
         $this->em()->flush();
         $templates = $this->createStub(TemplateSource::class);
-        $templates->method('forProject')->willReturn(new Template('bare', 1, [], [], [], [10], 120));
+        $templates->method('forProject')->willReturn(new Template('bare', 1, [], [], [], [10], 120, [], 'feature'));
         $automation = self::getContainer()->get(WorkflowAutomation::class);
         self::assertInstanceOf(WorkflowAutomation::class, $automation);
 

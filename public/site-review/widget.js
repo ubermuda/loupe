@@ -59,6 +59,9 @@
     // the API then refuses would lose the reviewer's gesture. Strokes already
     // saved render whatever this says, so switching the flag off hides no data.
     let drawingEnabled = false;
+    // The card types that can have children, from the boot load. Empty hides
+    // the mode "a card for each note, under an epic".
+    let parentTypes = [];
     // Where notes go, kept per instance and project until the reviewer changes
     // it: `per-note` makes a card for each note, `per-review` adds every note
     // to one card, and `epic` makes a card for each note under one epic.
@@ -253,7 +256,7 @@
         if (route === '/api/board/cards') {
             if (method === 'GET') {
                 const words = (query.get('q') || '').toLowerCase();
-                const type = query.get('type');
+                const type = query.get('parent') ? 'epic' : query.get('type');
                 return {
                     cards: demoStore.cards.filter(
                         (card) =>
@@ -263,7 +266,10 @@
                     ),
                 };
             }
-            const card = demoCard(body.title, body.type);
+            const card = demoCard(
+                body.title,
+                body.parent ? body.type || 'epic' : body.type,
+            );
             return { ...card, ...demoLabel(card) };
         }
         // Saving a note makes its card the way the server does, and saves
@@ -321,6 +327,7 @@
                 context: named ? demoLabel(named) : null,
                 // The demo has no instance behind it, so it shows the whole widget.
                 drawingEnabled: true,
+                parentTypes: [{ key: 'epic', label: 'Epic' }],
                 comments: demoStore.comments.map((comment) => ({
                     ...comment,
                     anchors: (comment.anchors || []).map((anchor) => ({
@@ -583,6 +590,9 @@
             if (generation !== refreshGeneration) return;
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
+            parentTypes = Array.isArray(payload.parentTypes)
+                ? payload.parentTypes
+                : [];
             const named = payload.context || null;
             if (asked && asked === bootMarker()) {
                 if (lock) {
@@ -1362,6 +1372,8 @@
          runs to two lines at most, so it wraps where a card title ellipses. */
       .lp-context-label[data-wrap]{white-space:normal;overflow:visible}
       .lp-picker-foot .lp-picker-search{flex:1 1 auto}
+      .lp-picker-type{flex:0 0 auto;max-width:40%;box-sizing:border-box;background:var(--field-bg);color:var(--text);border:1px solid var(--hairline);border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;outline:none}
+      .lp-picker-type:focus{border-color:var(--accent-border);background:var(--field-focus)}
       .lp-last-card{margin:6px 0 0}
       .lp-verdict{flex:0 1 auto;min-height:0;overflow:auto;margin:0 14px 12px;font-size:12px;line-height:1.45;color:var(--text)}
       .lp-verdict-row{display:flex;gap:6px}
@@ -1533,6 +1545,7 @@
                   <div class="lp-picker-list" id="lp-picker-list"></div>
                   <div class="lp-picker-foot">
                     <input class="lp-picker-search" id="lp-picker-title" aria-label="New card title" autocomplete="off">
+                    <select class="lp-picker-type" id="lp-picker-type" aria-label="New card type" style="display:none"></select>
                     <button type="button" class="lp-ghost" id="lp-picker-create">Create</button>
                   </div>
                 </div>
@@ -1738,6 +1751,7 @@
     const pickerSearchNode = $('lp-picker-search');
     const pickerListNode = $('lp-picker-list');
     const pickerTitleNode = $('lp-picker-title');
+    const pickerTypeNode = $('lp-picker-type');
     const lastCardNode = $('lp-last-card');
     const verdictNode = $('lp-verdict');
     const composeHead = $('lp-compose-head');
@@ -4075,6 +4089,33 @@
         $('lp-picker-close').style.display = storedTarget ? '' : 'none';
         pickerSearchNode.placeholder =
             pickerMode === 'epic' ? 'Search epics…' : 'Search cards…';
+        renderParentTypes();
+    };
+    // The mode row needs a type that can have children. The selector shows
+    // only in that mode, and only when the template has more than one.
+    const renderParentTypes = () => {
+        root.querySelector(
+            '#lp-picker-modes [data-mode="epic"]',
+        ).style.display = parentTypes.length ? '' : 'none';
+        const keys = parentTypes.map((type) => `${type.key}:${type.label}`);
+        const listed = [...pickerTypeNode.options].map(
+            (option) => `${option.value}:${option.textContent}`,
+        );
+        if (keys.join('\n') !== listed.join('\n')) {
+            const chosen = pickerTypeNode.value;
+            pickerTypeNode.textContent = '';
+            parentTypes.forEach((type) => {
+                const option = document.createElement('option');
+                option.value = type.key;
+                option.textContent = type.label;
+                pickerTypeNode.appendChild(option);
+            });
+            if (parentTypes.some((type) => type.key === chosen)) {
+                pickerTypeNode.value = chosen;
+            }
+        }
+        pickerTypeNode.style.display =
+            pickerMode === 'epic' && parentTypes.length > 1 ? '' : 'none';
     };
     const renderPicker = () => {
         pickerListNode.textContent = '';
@@ -4126,7 +4167,7 @@
         try {
             const parameters = new URLSearchParams();
             if (query) parameters.set('q', query);
-            if (pickerMode === 'epic') parameters.set('type', 'epic');
+            if (pickerMode === 'epic') parameters.set('parent', '1');
             const search = parameters.toString();
             const path = '/api/board/cards' + (search ? '?' + search : '');
             const answer = await api('GET', path);
@@ -4168,7 +4209,14 @@
         try {
             const card = await api('POST', '/api/board/cards', {
                 title,
-                type: mode === 'epic' ? 'epic' : 'site-review',
+                ...(mode === 'epic'
+                    ? {
+                          parent: true,
+                          ...(parentTypes.length > 1
+                              ? { type: pickerTypeNode.value }
+                              : {}),
+                      }
+                    : {}),
             });
             pickerCreating = false;
             chooseTarget({

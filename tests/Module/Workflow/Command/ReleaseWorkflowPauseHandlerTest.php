@@ -13,7 +13,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
@@ -230,7 +229,7 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
             project: $this->project,
             title: 'Card',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, 'tech-design'),
             reporter: CardReporter::Human,
         ));

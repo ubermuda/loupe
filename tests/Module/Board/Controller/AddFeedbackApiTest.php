@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Project\Entity\Project;
@@ -36,7 +35,7 @@ final class AddFeedbackApiTest extends WebTestCase
 
         $cards = $this->service(CardRepository::class)->findBy(['project' => $project]);
         self::assertCount(1, $cards);
-        self::assertSame(CardType::SiteReview, $cards[0]->type);
+        self::assertSame('feature', $cards[0]->type);
         $links = $this->service(CardSiteReviewCommentRepository::class)->findForCard($cards[0]);
         self::assertCount(1, $links);
         self::assertTrue($links[0]->createdCard);
@@ -47,7 +46,7 @@ final class AddFeedbackApiTest extends WebTestCase
     {
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'feedback-api-epic@example.com');
-        $epic = $this->card($project, 'backlog', 1, CardType::Epic);
+        $epic = $this->card($project, 'backlog', 1, 'epic');
 
         $data = $this->post($client, $raw, $this->note(['newCard' => ['parentCardId' => (string) $epic->id]]));
 
@@ -221,7 +220,7 @@ final class AddFeedbackApiTest extends WebTestCase
         return [$raw, AgentCredential::managed($this->em(), $project, $project->id)];
     }
 
-    private function card(Project $project, string $slug, int $number, CardType $type = CardType::Feature): Card
+    private function card(Project $project, string $slug, int $number, string $type = 'feature'): Card
     {
         $card = new Card($project, $this->column($project, $slug), 'Existing card', '', $number, $type);
         $this->em()->persist($card);

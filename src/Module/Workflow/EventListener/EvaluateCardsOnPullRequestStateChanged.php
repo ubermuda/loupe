@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Workflow\EventListener;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -21,6 +21,7 @@ final readonly class EvaluateCardsOnPullRequestStateChanged
         private CardPullRequestRepository $cardPullRequests,
         private CardRepository $cards,
         private EvaluationTrigger $trigger,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -41,7 +42,8 @@ final readonly class EvaluateCardsOnPullRequestStateChanged
         ) as $link) {
             $cards[] = $link->card;
         }
-        $epics = array_values(array_filter($cards, static fn (Card $card): bool => CardType::Epic === $card->type));
+        $types = $this->catalog->forProject($pullRequest->project);
+        $epics = array_values(array_filter($cards, static fn (Card $card): bool => $types->get($card->type)->children));
 
         $this->trigger->forCards(array_values(array_filter(
             [

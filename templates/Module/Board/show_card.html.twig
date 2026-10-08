@@ -30,7 +30,8 @@
         <div class="lp-card-drawer__identity">
             <span class="lp-card-drawer__icon"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" /></span>
             <span class="lp-card-number">#{{ card.number }}</span>
-            {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+            {% include '@Board/_card_type_tag.html.twig' with {card: card} only %}
+            {% include '@Board/_card_source_tag.html.twig' with {card: card} only %}
             {% include '@Board/_column_tag.html.twig' with {column: card.column} only %}
         </div>
         <div class="lp-card-drawer__header-actions">
@@ -144,8 +145,9 @@
                         </form>
                     </dd>
                 </div>
-                <div class="lp-card-field"><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</dd></div>
+                <div class="lp-card-field"><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{% include '@Board/_card_type_tag.html.twig' with {card: card} only %}</dd></div>
                 <div class="lp-card-field"><dt>{{ 'board.card.overview.reporter'|trans }}</dt><dd>{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</dd></div>
+                <div class="lp-card-field"><dt>{{ 'board.card.overview.source'|trans }}</dt><dd>{{ ('board.card.source.' ~ card.source.kind.value)|trans }}</dd></div>
                 <div class="lp-card-field"><dt>{{ 'board.card.overview.created'|trans }}</dt><dd><time datetime="{{ card.createdAt|date('c') }}">{{ card.createdAt|date('M j, Y') }}</time></dd></div>
                 <div class="lp-card-field"><dt>{{ 'board.card.overview.updated'|trans }}</dt><dd><time datetime="{{ card.updatedAt|date('c') }}">{{ card.updatedAt|relative_time }}</time></dd></div>
                 {% if card.completedAt %}<div class="lp-card-field"><dt>{{ 'board.card.overview.completed'|trans }}</dt><dd><time datetime="{{ card.completedAt|date('c') }}">{{ card.completedAt|date('M j, Y') }}</time></dd></div>{% endif %}

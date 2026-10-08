@@ -6,7 +6,6 @@ namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -170,6 +169,18 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertNull($plain['context']);
     }
 
+    public function test_the_boot_load_lists_the_types_that_can_have_children(): void
+    {
+        $client = static::createClient();
+        [$raw] = $this->projectWithToken($client, 'api-parent-types@example.com');
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame([['key' => 'epic', 'label' => 'Epic']], $data['parentTypes']);
+    }
+
     public function test_a_comment_can_point_at_several_elements(): void
     {
         $client = static::createClient();
@@ -302,7 +313,7 @@ final class SiteReviewApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($client, 'api-target-ok@example.com');
         $em = $this->em();
         $review = new Card($project, $this->column($project, 'in-progress'), 'Review: /pricing', '', 1);
-        $epic = new Card($project, $this->column($project, 'backlog'), 'Review: /checkout', '', 2, type: CardType::Epic);
+        $epic = new Card($project, $this->column($project, 'backlog'), 'Review: /checkout', '', 2, type: 'epic');
         $em->persist($review);
         $em->persist($epic);
         $em->flush();
@@ -332,7 +343,7 @@ final class SiteReviewApiTest extends WebTestCase
         [, $other] = $this->projectWithToken($client, 'api-target-other@example.com', 'other-site');
         $em = $this->em();
         $closed = new Card($project, $this->column($project, 'done'), 'Shipped', '', 1);
-        $closedEpic = new Card($project, $this->column($project, 'done'), 'Old review', '', 2, type: CardType::Epic);
+        $closedEpic = new Card($project, $this->column($project, 'done'), 'Old review', '', 2, type: 'epic');
         $feature = new Card($project, $this->column($project, 'backlog'), 'Not an epic', '', 3);
         $foreign = new Card($other, $this->column($other, 'backlog'), 'Elsewhere', '', 1);
         foreach ([$closed, $closedEpic, $feature, $foreign] as $card) {
@@ -604,7 +615,7 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame(
             // context is always present and null on a page with no marker, so
             // the widget never has to tell an absent key from a resolved one.
-            ['projectId' => (string) $project->id, 'drawingEnabled' => true, 'context' => null, 'comments' => []],
+            ['projectId' => (string) $project->id, 'drawingEnabled' => true, 'parentTypes' => [['key' => 'epic', 'label' => 'Epic']], 'context' => null, 'comments' => []],
             json_decode((string) $client->getResponse()->getContent(), true),
         );
 

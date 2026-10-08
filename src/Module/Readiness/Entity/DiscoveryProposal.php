@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Readiness\Entity;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Readiness\Repository\DiscoveryProposalRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -44,8 +43,8 @@ class DiscoveryProposal
         #[ORM\Column(length: 255)]
         public readonly string $title,
 
-        #[ORM\Column(length: 20, enumType: CardType::class)]
-        public readonly CardType $type,
+        #[ORM\Column(length: 20)]
+        public readonly string $type,
 
         #[ORM\Column(type: Types::TEXT)]
         public readonly string $body,
