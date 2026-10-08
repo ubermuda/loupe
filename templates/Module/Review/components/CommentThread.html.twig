@@ -13,9 +13,8 @@
   through Turbo; the controllers return a Turbo Stream that replaces this thread
   (targeted by the id CommentCard renders).
 
-  A card with an anchor is positioned by comment_anchor_controller so it sits
-  level with the passage it points at; a general comment carries
-  data-comment-general and stays in normal flow at the head of the column.
+  The card is a popover. comment_anchor_controller opens it over the passage
+  it points at, or beside its row in the Comments panel when there is none.
 #}
 {% set status = comment.threadStatus.value %}
 {% set kind = comment.isStrike ? 'strike' : (comment.isSuggestion ? 'suggestion' : 'comment') %}
@@ -31,6 +30,7 @@
     :replacement="comment.replacement ?? ''"
     body="{{ comment.body }}"
     :orphaned="comment.orphaned"
+    :popover="true"
     :replies="replies|map(reply => {author: reply.author.fullName, body: reply.body, age: reply.createdAt ? reply.createdAt|relative_time : ''})"
 >
     {# On an earlier version there is nothing to act on: every one of these posts

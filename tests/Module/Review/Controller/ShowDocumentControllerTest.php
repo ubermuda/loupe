@@ -313,14 +313,114 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        // Both anchored threads sit in the same margin column, in no status order.
-        self::assertCount(2, $crawler->filter('.lp-review-margin .lp-comment-thread'));
+        // Both anchored threads sit in the same list, in no status order.
+        self::assertCount(2, $crawler->filter('.lp-review-margin .lp-comment-row'));
+        self::assertCount(1, $crawler->filter('.lp-comment-row--resolved'));
         // Each thread carries its derived anchor status and says it in words.
         self::assertSelectorExists('[data-anchor-status="pending"]');
         self::assertSelectorExists('[data-anchor-status="resolved"]');
         self::assertSelectorTextContains('.lp-comment-status--pending', 'Open');
         self::assertSelectorTextContains('.lp-comment-status--resolved', 'Resolved');
         self::assertSelectorExists('.lp-comment-thread--resolved');
+    }
+
+    public function test_the_comments_panel_lists_each_thread_as_a_row_that_opens_its_card(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'rowowner', 'rows@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Row Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $open = new Comment($version, $owner, 'Say more here', new Anchor('Body', '', '', 0));
+        $resolved = new Comment($version, $owner, 'Already fixed', new Anchor('Body', '', '', 0));
+        $resolved->status = CommentStatus::Resolved;
+        $orphan = new Comment($version, $owner, 'About removed text', new Anchor('Gone words', '', '', 0));
+        $orphan->orphaned = true;
+        $general = new Comment($version, $owner, 'On the whole thing', new Anchor('', '', '', 0));
+        $strike = new Comment($version, $owner, '', new Anchor('Body', '', '', 0), replacement: '');
+        foreach ([$open, $resolved, $orphan, $general, $strike] as $comment) {
+            $em->persist($comment);
+        }
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $openId = (string) $open->id;
+        $orphanId = (string) $orphan->id;
+        $strikeId = (string) $strike->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        $panel = $crawler->filter('#review-panel-comments');
+        self::assertCount(5, $panel->filter('#comment-rows .lp-comment-row'));
+
+        // Two lines: the quoted text, then the comment.
+        $row = $panel->filter('#comment-row-'.$openId);
+        self::assertSame('comment-thread-'.$openId, $row->attr('data-thread-id'));
+        self::assertSame('Body', trim($row->filter('.lp-comment-row__quote')->text()));
+        self::assertSame('Say more here', trim($row->filter('.lp-comment-row__body')->text()));
+
+        self::assertCount(1, $panel->filter('.lp-comment-row--resolved'));
+        self::assertSelectorTextContains('.lp-orphan-group__title', 'No longer in the text · 1');
+        self::assertCount(1, $panel->filter('.lp-orphan-group #comment-row-'.$orphanId.'.lp-comment-row--orphaned'));
+        self::assertSame('Whole document', trim($panel->filter('.lp-general-comments .lp-comment-row__quote')->text()));
+        self::assertCount(1, $panel->filter('#comment-row-'.$strikeId.' .lp-comment-row__quote del'));
+        self::assertSame('Strike', trim($panel->filter('#comment-row-'.$strikeId.' .lp-comment-row__body')->text()));
+
+        // The panel ends with the general comment button.
+        self::assertSame('Comment on the whole document', trim($panel->filter('.lp-comment-whole-document')->text()));
+
+        // The cards sit outside the panel, which is hidden by default, as popovers.
+        self::assertCount(0, $panel->filter('.lp-comment-thread'));
+        self::assertCount(5, $crawler->filter('#comment-threads > .lp-comment-thread[popover="auto"]'));
+        self::assertCount(1, $crawler->filter('#comment-thread-'.$openId.'[popover="auto"]'));
+    }
+
+    public function test_replying_returns_the_card_and_its_row_as_one_stream(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'replyowner', 'reply@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Reply Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $comment = new Comment($version, $owner, 'Please fix this', new Anchor('Body', '', '', 0));
+        $em->persist($comment);
+        $em->flush();
+
+        $commentId = (string) $comment->id;
+        $formName = 'reply_'.$comment->id?->toBase32();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(
+            Request::METHOD_POST,
+            '/comments/'.$commentId.'/reply',
+            [$formName => ['body' => 'Done in v2', '_token' => 'csrf-token']],
+            server: [
+                'HTTP_ACCEPT' => TurboBundle::STREAM_MEDIA_TYPE,
+                'HTTP_ORIGIN' => 'http://localhost',
+            ],
+        );
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="comment-thread-'.$commentId.'"', $content);
+        self::assertStringContainsString('target="comment-row-'.$commentId.'"', $content);
+        self::assertStringContainsString('Done in v2', $content);
+        self::assertStringContainsString('popover="auto"', $content);
     }
 
     public function test_the_topbar_reports_the_thread_signals_of_the_version_on_screen(): void
@@ -394,8 +494,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         // The group leads the comment column and holds the thread itself, so the
         // heading counts threads while the column below it holds none of them.
         self::assertSelectorTextContains('.lp-orphan-group__title', 'No longer in the text · 1');
-        self::assertCount(1, $crawler->filter('.lp-orphan-group .lp-comment-thread'));
-        self::assertCount(0, $crawler->filter('.lp-comment-rail > .lp-comment-thread'));
+        self::assertCount(1, $crawler->filter('.lp-orphan-group .lp-comment-row--orphaned'));
+        self::assertCount(0, $crawler->filter('.lp-comment-rail > .lp-comment-row'));
     }
 
     public function test_resolving_a_comment_returns_the_whole_list_as_one_stream(): void
@@ -434,8 +534,10 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $content = (string) $client->getResponse()->getContent();
 
-        // The stream replaces the whole #comment-threads region, not a single card.
+        // The stream replaces the cards and the panel rows, not a single card.
         self::assertStringContainsString('target="comment-threads"', $content);
+        self::assertStringContainsString('target="comment-rows"', $content);
+        self::assertStringContainsString('lp-comment-row--resolved', $content);
         self::assertStringNotContainsString('target="comment-thread-'.$commentId.'"', $content);
 
         // The re-rendered card reports the new status, and the region it sits in
@@ -485,7 +587,9 @@ final class ShowDocumentControllerTest extends WebTestCase
         $content = (string) $client->getResponse()->getContent();
 
         self::assertStringContainsString('target="comment-threads"', $content);
+        self::assertStringContainsString('target="comment-rows"', $content);
         self::assertStringNotContainsString('lp-comment-thread--resolved', $content);
+        self::assertStringNotContainsString('lp-comment-row--resolved', $content);
         self::assertStringContainsString('data-resolved-count="0"', $content);
 
         $fetched = $em->find(Comment::class, $comment->id);

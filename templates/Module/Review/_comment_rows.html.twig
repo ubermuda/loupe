@@ -1,0 +1,57 @@
+{#
+  The Comments panel list: one row per thread. Rendered on page load and by
+  the add, delete, resolve and reopen streams, which replace #comment-rows.
+  General comments lead. Threads whose text is gone sit under their own
+  heading. comment_anchor_controller sorts the other rows in passage order.
+  Vars: comments, list<Comment>, every comment on the version.
+#}
+{% set rootComments = comments|filter(c => c.parent is null)|map(c => c) %}
+{# `is empty` would call a comment anchored to the literal text 0 general. #}
+{% set generalComments = rootComments|filter(c => c.anchor.quote == '')|map(c => c) %}
+{% set orphanedComments = rootComments|filter(c => c.anchor.quote != '' and c.orphaned)|map(c => c) %}
+{% set anchoredComments = rootComments|filter(c => c.anchor.quote != '' and not c.orphaned)|map(c => c) %}
+<div id="comment-rows" class="lp-comment-rows">
+    {% if generalComments|length > 0 %}
+    {# The disclosure controller reads the open state off .disclosure-open,
+       because a <section> has no native `open`. #}
+    <section class="lp-general-comments disclosure-open" data-controller="disclosure">
+        <button type="button" class="lp-general-comments__toggle"
+                aria-controls="general-comments-list" aria-expanded="true" data-disclosure-target="trigger"
+                data-action="click->disclosure#toggle">
+            <twig:ux:icon name="lucide:chevron-right" class="lp-general-comments__caret" />
+            {{ 'review.document.group.general'|trans }} · {{ generalComments|length }}
+        </button>
+        <div id="general-comments-list" class="lp-general-comments__list open" data-disclosure-target="content">
+            {% for comment in generalComments %}
+                {% include '@Review/_comment_row.html.twig' with {comment: comment} only %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="lp-review-margin lp-comment-rail" data-comment-anchor-target="margin">
+        <div class="lp-review-margin-empty" data-review-panels-target="empty" role="status" hidden>
+            <p data-empty-filter="all">{{ 'review.document.margin.empty_all'|trans }}</p>
+            <p data-empty-filter="filtered">{{ 'review.document.margin.filter_empty'|trans }}</p>
+        </div>
+        {% if orphanedComments|length > 0 %}
+        <div class="lp-orphan-group disclosure-open" data-controller="disclosure">
+            <button type="button" class="lp-orphan-group__title"
+                    aria-controls="orphaned-threads" aria-expanded="true" data-disclosure-target="trigger"
+                    data-action="click->disclosure#toggle">
+                <twig:ux:icon name="lucide:chevron-right" class="lp-orphan-group__caret" />
+                <twig:ux:icon name="lucide:bell-off" class="lp-orphan-group__icon" />
+                {{ 'review.document.orphan_group'|trans({'%count%': orphanedComments|length}) }}
+            </button>
+            <div id="orphaned-threads" class="lp-orphan-group__list open" data-disclosure-target="content">
+                {% for comment in orphanedComments %}
+                    {% include '@Review/_comment_row.html.twig' with {comment: comment} only %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% for comment in anchoredComments %}
+            {% include '@Review/_comment_row.html.twig' with {comment: comment} only %}
+        {% endfor %}
+    </div>
+</div>

@@ -1,7 +1,7 @@
 {# The toolbar and the panels it switches, in a fixed order. Decisions is on by
    default; review_panels_controller.js applies the reader's stored choice.
    Params: showComments, decisionsReason (translation key or null), decisionRows,
-   answeredDecisions, sectionRows, comments, readOnlyThreads, commentCount. #}
+   answeredDecisions, sectionRows, comments, canComment, commentCount. #}
 {% set panelNames = ['decisions']|merge(showComments ? ['comments'] : [])|merge(['outline']) %}
 <aside class="lp-review-panels" aria-label="{{ 'review.document.panels.label'|trans }}">
     <div class="lp-review-panels__inner">
@@ -60,7 +60,13 @@
                 </details>
             </div>
             <div id="comment-recovery" aria-live="polite"></div>
-            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnlyThreads} only %}
+            {% include '@Review/_comment_rows.html.twig' with {comments: comments} only %}
+            {% if canComment %}
+            <button type="button" class="lp-btn lp-btn--ghost lp-comment-whole-document" data-action="comment-anchor#startUntargeted">
+                <twig:ux:icon name="lucide:message-square-plus" />
+                {{ 'review.document.comment.whole_document'|trans }}
+            </button>
+            {% endif %}
         </section>
         {% endif %}
 

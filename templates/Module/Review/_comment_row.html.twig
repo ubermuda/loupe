@@ -1,0 +1,30 @@
+{# One thread in the Comments panel: the quoted text, then the comment. A click
+   opens the thread's card as a popover. Vars: comment, a root Comment. #}
+{% set status = comment.threadStatus.value %}
+{% set kind = comment.isStrike ? 'strike' : (comment.isSuggestion ? 'suggestion' : 'comment') %}
+<button type="button" id="comment-row-{{ comment.id }}"
+        class="lp-comment-row{{ status == 'resolved' ? ' lp-comment-row--resolved' }}{{ comment.orphaned ? ' lp-comment-row--orphaned' }}"
+        data-thread-id="comment-thread-{{ comment.id }}"
+        data-comment-anchor-target="row"
+        data-review-panels-target="thread"
+        data-anchor-status="{{ status }}"
+        {% if comment.orphaned %}data-comment-orphaned="true"{% endif %}
+        aria-controls="comment-thread-{{ comment.id }}"
+        aria-expanded="false"
+        data-action="pointerdown->comment-anchor#pressRow click->comment-anchor#openRow mouseenter->comment-anchor#focusRow mouseleave->comment-anchor#blurRow focusin->comment-anchor#focusRow focusout->comment-anchor#blurRow">
+    {# `== ''`, not `is empty`, which would call a quote of "0" general. #}
+    {% if comment.anchor.quote == '' %}
+    <span class="lp-comment-row__quote">{{ 'review.document.comment.row_general'|trans }}</span>
+    {% elseif kind == 'comment' %}
+    <span class="lp-comment-row__quote">{{ comment.anchor.quote }}</span>
+    {% else %}
+    <span class="lp-comment-row__quote"><del>{{ comment.anchor.quote }}</del></span>
+    {% endif %}
+    {% if kind == 'strike' %}
+    <span class="lp-comment-row__body">{{ 'review.document.kind.strike'|trans }}</span>
+    {% elseif kind == 'suggestion' and comment.replacement is not empty %}
+    <span class="lp-comment-row__body"><ins>{{ comment.replacement }}</ins></span>
+    {% else %}
+    <span class="lp-comment-row__body">{{ comment.body }}</span>
+    {% endif %}
+</button>

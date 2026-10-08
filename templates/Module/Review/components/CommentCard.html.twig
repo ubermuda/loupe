@@ -1,7 +1,7 @@
 {#
   Props:  @comment-budget-ignore
     domId, author, age, status, kind, quote, prefix, suffix, replacement, body,
-    orphaned, replies — see CommentCardComponent for what each carries.
+    orphaned, popover, replies — see CommentCardComponent for what each carries.
 
   The card's markup and every class on it live here so the review margin and the
   landing page's try-it prototype cannot drift apart. Anything route-bound —
@@ -9,9 +9,9 @@
 #}
 <div
     {% if this.domId != '' %}id="comment-thread-{{ this.domId }}"{% endif %}
+    {% if this.popover %}popover="auto"{% endif %}
     class="lp-comment-thread{% if this.status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if this.orphaned %} lp-comment-thread--orphaned{% endif %}{% if this.isGeneral %} lp-comment-thread--general{% endif %}"
     data-comment-anchor-target="thread"
-    data-review-panels-target="thread"
     data-anchor-quote="{{ this.quote }}"
     data-anchor-prefix="{{ this.prefix }}"
     data-anchor-suffix="{{ this.suffix }}"

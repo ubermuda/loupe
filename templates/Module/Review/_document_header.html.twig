@@ -24,12 +24,6 @@
                     {{ 'review.document.since_last_visit.chip'|trans({'%from%': lastSeen, '%to%': version.versionNumber}) }}
                 </a>
                 {% endif %}
-                {% if canComment %}
-                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="comment-anchor#startUntargeted">
-                    <twig:ux:icon name="lucide:message-square-plus" />
-                    {{ 'review.document.comment.untargeted'|trans }}
-                </button>
-                {% endif %}
                 {% if returnToDocument %}
                 <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
                     <twig:ux:icon name="lucide:file-text" />
