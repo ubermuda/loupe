@@ -2,6 +2,6 @@
     {% if view %}
         {% include 'search/_search_results.html.twig' with {project: project, view: view} only %}
     {% else %}
-        <div class="lp-field-errors">{{ form_errors(form.query) }}{{ form_errors(form.page) }}{{ form_errors(form) }}</div>
+        <twig:Ds:FieldErrors>{{ form_errors(form.query) }}{{ form_errors(form.page) }}{{ form_errors(form) }}</twig:Ds:FieldErrors>
     {% endif %}
 </turbo-frame>

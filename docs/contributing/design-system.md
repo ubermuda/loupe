@@ -7,7 +7,7 @@ The design system is the set of values and building blocks that give every page 
 
 ## The styleguide
 
-Run the app in dev and open `/styleguide`. The page draws every token group and every catalog entry from the real stylesheet. A component appears there when its child card adds it. Today the catalog holds the button.
+Run the app in dev and open `/styleguide`. The page draws every token group and every catalog entry from the real stylesheet. A component appears there when its child card adds it. Today the catalog holds the button and the form parts.
 
 The route exists in dev only. In production it does not exist.
 
@@ -42,6 +42,13 @@ A building block is a Twig component under `templates/components/Ds/`. Its CSS l
 | Component | Use | Variants |
 |---|---|---|
 | Button | Any action or link that looks like a button | primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open, on-card. Sizes sm and lg |
+| Input | A one-line text field | mono |
+| Select | A native select | none |
+| Textarea | A multi-line text field | none |
+| Label | The text that names a field. It can be a label, legend, p, span or div | none |
+| FormField | One field of a form: its label, widget, hint and errors, or a wrapper for your own body | none |
+| FieldErrors | The list of errors of one field | none |
+| Hint | A line of help under a field | none |
 
 Write a button like this:
 
@@ -57,6 +64,27 @@ The component passes every other attribute to the element and appends your `clas
 ```
 
 `just gamache` blocks a template that writes `lp-btn` by hand.
+
+### The form parts
+
+`FormField` draws a Symfony form field with its label, widget, hint and errors. Pass `kind` for a select or a textarea, and `attr` for the attributes of the widget:
+
+```twig
+<twig:Ds:FormField :fieldView="form.title" :widgetAttr="{placeholder: 'Title'}" hintText="Shown on the board" />
+<twig:Ds:FormField :fieldView="form.color" widgetKind="select" />
+```
+
+Give `FormField` no `field` and it wraps your own body. `as="fieldset"` draws a fieldset.
+
+A plain field uses `Input`, `Select` or `Textarea`. A Symfony widget in a custom layout takes the classes from functions, because it draws its own tag:
+
+```twig
+{{ form_label(form.name, null, {label_attr: {class: ds_label_class()}}) }}
+{{ form_widget(form.kind, {attr: {class: ds_input_class('select')}}) }}
+<twig:Ds:FieldErrors :fieldView="form.kind" data-field-errors="kind" />
+```
+
+`just gamache` blocks a template that writes `lp-input`, `lp-select`, `lp-textarea`, `lp-label`, `lp-form-field`, `lp-field-errors` or `lp-form-hint` by hand.
 
 ## The rules
 

@@ -46,18 +46,18 @@
         <section class="lp-history-compare">
             <form class="lp-version-compare" method="GET" action="{{ path('app_document_review_compare', routeParameters) }}">
                 <label class="lp-version-compare__label" for="history-compare-from">{{ 'review.document.diff.picker.from'|trans }}</label>
-                <select id="history-compare-from" name="from" class="lp-input lp-select lp-filter-select" aria-label="{{ 'review.document.diff.picker.from_label'|trans }}">
+                <twig:Ds:Select id="history-compare-from" name="from" class="lp-filter-select" aria-label="{{ 'review.document.diff.picker.from_label'|trans }}">
                     {% for meta in versions %}
                     <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == latestVersion - 1 ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
                 <twig:ux:icon name="lucide:arrow-right" class="lp-version-compare__arrow" aria-hidden="true" />
                 <label class="lp-version-compare__label" for="history-compare-to">{{ 'review.document.diff.picker.to'|trans }}</label>
-                <select id="history-compare-to" name="to" class="lp-input lp-select lp-filter-select" aria-label="{{ 'review.document.diff.picker.to_label'|trans }}">
+                <twig:Ds:Select id="history-compare-to" name="to" class="lp-filter-select" aria-label="{{ 'review.document.diff.picker.to_label'|trans }}">
                     {% for meta in versions %}
                     <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == latestVersion ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
                 <twig:Ds:Button type="submit">{{ 'review.document.diff.picker.submit'|trans }}</twig:Ds:Button>
             </form>
         </section>

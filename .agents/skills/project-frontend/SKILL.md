@@ -172,6 +172,8 @@ Use a component from `src/Module/DesignSystem/Catalog.php` before you write mark
 
 1. Button: `<twig:Ds:Button variant="primary" size="sm" href="...">`. Variants are primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open and on-card, and several may be given with a space. A Symfony form button takes `ds_button_class('primary')` in its `attr.class`. The CSS is `assets/styles/components/button.css`.
 
+2. Form parts: `<twig:Ds:FormField :fieldView="form.title" />` draws the label, widget, hint and errors of a Symfony field, and `widgetKind="select"` or `widgetKind="textarea"` picks the widget classes. `Ds:Input`, `Ds:Select`, `Ds:Textarea`, `Ds:Label`, `Ds:Hint` and `Ds:FieldErrors` draw one part each. A Symfony widget in a custom layout takes `ds_input_class('select')` and `ds_label_class()`. The CSS is `assets/styles/components/form.css`.
+
 A child card that adds a component adds it to this list in the same branch.
 
 ### Icons

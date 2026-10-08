@@ -11,7 +11,7 @@
         </header>
         <form method="get" action="{{ (project ? path('app_project_search', {id: project.id}) : path('app_search_owned_projects')) }}" class="lp-search-dialog__form" data-turbo-frame="project-search-results" data-global-search-target="form" data-action="submit->global-search#submitted">
             <label class="lp-search-dialog__label" for="project-search-query">{{ 'search.form.search_form.query.label'|trans }}</label>
-            <input class="lp-input" type="search" name="query" id="project-search-query" maxlength="200" autocomplete="off" autofocus data-global-search-target="query" data-action="input->global-search#search">
+            <twig:Ds:Input type="search" name="query" id="project-search-query" maxlength="200" autocomplete="off" autofocus data-global-search-target="query" data-action="input->global-search#search" />
             <twig:Ds:Button type="submit">{{ 'search.submit'|trans }}</twig:Ds:Button>
         </form>
         <p class="lp-dialog-desc" role="status" data-global-search-target="loading">{{ 'search.loading'|trans }}</p>

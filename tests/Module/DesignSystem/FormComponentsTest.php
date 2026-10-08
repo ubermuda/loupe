@@ -68,11 +68,11 @@ final class FormComponentsTest extends KernelTestCase
     public function test_the_error_list_shows_a_field_error_or_its_body(): void
     {
         self::bootKernel();
-        $form = static::getContainer()->get(FormFactoryInterface::class)->createBuilder(FormType::class, null, ["csrf_protection" => false])->add('name', TextType::class)->getForm();
+        $form = static::getContainer()->get(FormFactoryInterface::class)->createBuilder(FormType::class, null, ['csrf_protection' => false])->add('name', TextType::class)->getForm();
         $form->get('name')->addError(new \Symfony\Component\Form\FormError('Too short'));
         $view = $form->createView();
 
-        $withField = $this->render('<twig:Ds:FieldErrors :field="form.name" data-field-errors="name" />', ['form' => $view]);
+        $withField = $this->render('<twig:Ds:FieldErrors :fieldView="form.name" data-field-errors="name" />', ['form' => $view]);
         $withBody = $this->render('<twig:Ds:FieldErrors><ul><li>Body</li></ul></twig:Ds:FieldErrors>');
 
         self::assertStringContainsString('<div class="lp-field-errors" data-field-errors="name">', $withField);
@@ -83,8 +83,8 @@ final class FormComponentsTest extends KernelTestCase
     public function test_a_form_field_draws_the_label_widget_hint_and_errors_of_a_form_view(): void
     {
         self::bootKernel();
-        $form = static::getContainer()->get(FormFactoryInterface::class)->createBuilder(FormType::class, null, ["csrf_protection" => false])->add('name', TextType::class)->getForm();
-        $html = $this->render('<twig:Ds:FormField :field="form.name" hint="Shown on the page" :attr="{class: \'extra\', placeholder: \'P\'}" />', ['form' => $form->createView()]);
+        $form = static::getContainer()->get(FormFactoryInterface::class)->createBuilder(FormType::class, null, ['csrf_protection' => false])->add('name', TextType::class)->getForm();
+        $html = $this->render('<twig:Ds:FormField :fieldView="form.name" hintText="Shown on the page" :widgetAttr="{class: \'extra\', placeholder: \'P\'}" />', ['form' => $form->createView()]);
 
         self::assertStringContainsString('<div class="lp-form-field">', $html);
         self::assertStringContainsString('<label class="lp-label required" for="form_name">Name</label>', $html);
