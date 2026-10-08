@@ -1079,6 +1079,37 @@ pending again.
 
 The board screen shows on each card how many notes still wait on it.
 
+### A verdict from the widget
+
+A reviewer signs in to the widget and sends a verdict on a card: Approve,
+Request changes or Comment. The verdict keeps the message and a copy of the
+pending notes of the card at that time. The copy does not follow a later edit
+of a note. The reviewer picks the open GitHub pull requests of the card that
+the verdict goes to. The card history records the verdict, with the name of
+the reviewer.
+
+A verdict changes nothing on GitHub by itself. The
+[rules the app adds](workflows.md#rules-the-app-adds) write to the pull
+requests, and only while the matching setting on the **Automation** tab is on:
+
+- With **Post a widget verdict as a review on GitHub** on, the verdict becomes
+  a review under the reviewer's own GitHub account. On the reviewer's own pull
+  request it becomes a comment. With the setting off, the verdict stays on the
+  card and no review goes out.
+- With **Keep a "Loupe site review" check on pull requests** on, the check
+  fails while a pending note that a verdict carried remains. The check also
+  runs when nobody sends a verdict. It is green until a verdict carries a note.
+
+Before the reviewer sends, the widget lists the writes that the verdict will
+start. The list follows the rules and the settings of the project. It does not
+list the fix round that a request for changes on GitHub starts later.
+
+The widget shows the state of each pull request after the send. When the
+connection to GitHub has expired, the review is refused with the reason
+`connection-expired`. The reviewer connects again from the widget, and Loupe
+then sends the refused reviews of that reviewer on cards that are not in a
+terminal column.
+
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is
 the one field where an omitted list and an empty list differ. Omit it and the
 links stay. Send `[]` and every link is removed.
