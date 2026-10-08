@@ -454,6 +454,16 @@ func TestCheck(t *testing.T) {
 				}
 			},
 		},
+		"a declared server that is not loupe mcp beats a plugin": {
+			authExit: "0", plugins: `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`,
+			setup: func(t *testing.T, project, config string) {
+				mkdir(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+				if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(`{"mcpServers":{"loupe":{"command":"other","args":["serve"]}}}`), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: []harness.Problem{{Reason: "loupe MCP server is not loupe mcp for project loupe"}},
+		},
 		"not logged in": {
 			authExit: "1", plugins: `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`,
 			want: []harness.Problem{{Reason: "not logged in"}},

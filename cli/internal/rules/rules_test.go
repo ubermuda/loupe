@@ -366,6 +366,7 @@ func TestParseRefusesAnInvalidAccount(t *testing.T) {
 			`line 15: work "implement": variant "b": account "other" is not in accounts, which declares claude`},
 		"an unknown variant level": {oneRule + "    variants:\n      - {name: a, weight: 1, model: opus, permissions: root}\n",
 			`line 14: work "implement": variant "a": permissions "root" is not read-only, workspace or full`},
+		"too many accounts":           {"accounts:\n  claude:\n    harness: claude-code\n" + manyAccounts(MaxAccounts) + claudeDefaults + oneWork, "line 1: accounts: at most 50 accounts, got 51"},
 		"an account without accounts": {strings.Replace(oneWork, "  implement:\n", "  implement:\n    account: claude\n", 1), `work "implement": account "claude" is not in accounts, which declares none`},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -1010,4 +1011,14 @@ func TestParseRefusesAppPromptsWithNoDefaultSlot(t *testing.T) {
 	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), "appPrompts: the default pool has no slot") {
 		t.Fatalf("err = %v", err)
 	}
+}
+
+// manyAccounts declares n Claude Code accounts a0 to a<n-1>.
+func manyAccounts(n int) string {
+	var b strings.Builder
+	for i := range n {
+		fmt.Fprintf(&b, "  a%d:\n    harness: claude-code\n", i)
+	}
+
+	return b.String()
 }

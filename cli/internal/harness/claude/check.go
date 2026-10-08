@@ -57,10 +57,15 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 // plugin list that fails is one problem, because it answers neither question.
 func projectProblems(ctx context.Context, binary string, env []string, configDir, skillsHome, slug, dir string) []harness.Problem {
 	got, mcpErr := claudecode.Effective(dir, mcpjson.ServerKey, configDir)
-	mcp := got.Declared()
 	skills := hasSkills(filepath.Join(dir, ".claude", "skills")) || hasSkills(skillsHome)
-	if mcp && skills {
-		return nil
+	var problems []harness.Problem
+	// A declared entry wins over a plugin, so a wrong one fails whatever the
+	// plugins serve.
+	if got.Declared() && !got.Correct() {
+		problems = append(problems, harness.Problem{Reason: "loupe MCP server is not loupe mcp for project " + slug, Detail: got.Where() + " starts " + got.Entry.Summary() + "; run `loupe init --mcp` in " + dir})
+	}
+	if got.Declared() && skills {
+		return problems
 	}
 	plugins, err := listPlugins(ctx, binary, dir, env)
 	if err != nil {
@@ -69,10 +74,9 @@ func projectProblems(ctx context.Context, binary string, env []string, configDir
 			reason = "check timed out"
 		}
 
-		return []harness.Problem{{Reason: reason + " for project " + slug, Detail: "claude plugin list --json in " + dir + ": " + err.Error()}}
+		return append(problems, harness.Problem{Reason: reason + " for project " + slug, Detail: "claude plugin list --json in " + dir + ": " + err.Error()})
 	}
-	var problems []harness.Problem
-	if !mcp && !slices.ContainsFunc(plugins, servesLoupe) {
+	if !got.Declared() && !slices.ContainsFunc(plugins, servesLoupe) {
 		detail := "declare it with `loupe init --mcp` in " + dir
 		if mcpErr != nil {
 			detail = mcpErr.Error()

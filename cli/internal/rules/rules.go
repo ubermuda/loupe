@@ -123,6 +123,10 @@ var claudeCodeModes = map[string]string{
 	PermissionsFull:      "bypassPermissions",
 }
 
+// MaxAccounts is the most accounts a file declares, because the heartbeat
+// reports each one and the server takes 50 rows.
+const MaxAccounts = 50
+
 // agentsOffNoAccounts is why a file with no accounts block runs no agent.
 const agentsOffNoAccounts = "rules.yaml has no accounts block"
 
@@ -458,6 +462,9 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 func checkAccounts(accounts map[string]Account, root *yaml.Node) (map[string]Account, []error) {
 	out := map[string]Account{}
 	var errs []error
+	if len(accounts) > MaxAccounts {
+		errs = append(errs, fmt.Errorf("%saccounts: at most %d accounts, got %d", lineOf(root, "accounts"), MaxAccounts, len(accounts)))
+	}
 	for _, name := range slices.Sorted(maps.Keys(accounts)) {
 		a := accounts[name]
 		at := func(field string) string { return lineOf(root, "accounts", name, field) }

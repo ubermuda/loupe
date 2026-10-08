@@ -366,7 +366,7 @@ work:
 | `envFile` | no | An [environment file](#environment-files) that each run of the account reads |
 
 An account name is 1 to 40 lowercase letters, digits and hyphens, and starts
-with a letter. `configDir` and `envFile` are absolute paths or start with `~/`.
+with a letter. A file declares at most 50 accounts. `configDir` and `envFile` are absolute paths or start with `~/`.
 Neither path has to exist when the file loads. `defaults.account` is required,
 and it names an account of the block. The bridge refuses the file at start, and
 a reload fails, when an entry names an account that the block does not declare.
@@ -451,7 +451,9 @@ questions:
    key such as `ANTHROPIC_API_KEY` in an env file also passes.
 3. Does Claude Code see the `loupe` MCP server and the Loupe skills in each
    project folder? The server is seen when the project or the account's
-   `.claude.json` declares it, or when an enabled plugin serves it. The skills
+   `.claude.json` declares it as `loupe mcp`, or, when neither declares it, an
+   enabled plugin serves it. A declared entry that starts another command
+   fails, because Claude Code prefers it to a plugin. The skills
    are seen in `.claude/skills/loupe-*` of the project, in `skills/loupe-*` of
    the config folder, or in an enabled `loupe@` plugin.
 

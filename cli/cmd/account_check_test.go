@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -207,23 +206,5 @@ func TestALongReasonFitsTheServerLimit(t *testing.T) {
 	}
 	if short := "not logged in"; cutReason(short) != short {
 		t.Fatalf("cutReason changed a short reason to %q", cutReason(short))
-	}
-}
-
-func TestTheHeartbeatSendsNoMoreAccountRowsThanTheServerTakes(t *testing.T) {
-	var accounts, work strings.Builder
-	for i := range maxAccountRows + 1 {
-		fmt.Fprintf(&accounts, "  a%d:\n    harness: claude-code\n", i)
-		fmt.Fprintf(&work, "  w%d:\n    prompt: go\n    account: a%d\n", i, i)
-	}
-	body := "accounts:\n" + accounts.String() + "defaults:\n  account: a0\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" + work.String()
-	set, err := rules.Parse([]byte(body), rules.Defaults{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	set.SetAccountProblems(map[string]string{})
-
-	if got := len(accountReports(set)); got != maxAccountRows {
-		t.Fatalf("accountReports gave %d rows, want %d", got, maxAccountRows)
 	}
 }
