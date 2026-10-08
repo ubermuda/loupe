@@ -353,8 +353,7 @@ func (s *Set) WorkDead(slug string) string {
 // Capabilities lists what the work map lets the bridge claim: work-requests
 // for any entry or for app prompts, interactive too for an interactive entry,
 // and subject- with the subject type for each entry whose subject is no card.
-// An entry the set runs no agent for adds neither. It is nil for a set with
-// no work.
+// An entry whose agent is off adds neither. It is nil for a set with no work.
 func (s *Set) Capabilities() []string {
 	if !s.HasWork() {
 		return nil

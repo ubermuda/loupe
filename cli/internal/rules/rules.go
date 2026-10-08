@@ -558,9 +558,8 @@ func (s *Set) checkWorkAccounts(kind string, w *WorkEntry, declared []string, ro
 	return errs
 }
 
-// resolve gives the settings of an agent run. account, model and level are
-// what the variant or the entry sets. An interactive session takes its mode
-// from its own level alone, so it never runs with more rights than it names.
+// resolve gives the settings of an agent run. An interactive session takes its
+// mode from its own level alone, so it never runs with more rights than it names.
 func (s *Set) resolve(account, model, level string, interactive bool) RunSettings {
 	name := cmp.Or(account, s.fileDefaults.Account)
 	a := s.accounts[name]

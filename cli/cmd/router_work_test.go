@@ -746,6 +746,23 @@ func TestAWorkEntryWithVariantsPinsItsVariant(t *testing.T) {
 	wantExperiment(t, rec.states(), runPin{Experiment: "split", Variant: "b", RequestedModel: "sonnet"})
 }
 
+// A variant that names an account and no model runs with the model of that
+// account, and its pin names that model.
+func TestAVariantWithAnAccountRunsWithTheModelOfTheAccount(t *testing.T) {
+	body := strings.Replace(interactiveWorkRules, "defaults:", "  other:\n    harness: claude-code\n    model: haiku\ndefaults:", 1)
+	body = strings.Replace(body, "{name: b, weight: 3, model: sonnet}", "{name: b, weight: 3, account: other}", 1)
+	h, rec := launchHarnessWith(t, body, `[sh, -c, 'exit 0', sh, '{script}']`)
+	f := h.withWork()
+	h.pins(func(context.Context, string) (string, string, error) { return "b", "", nil })
+
+	h.offer(f, workRequest(1, 87, "split", api.WorkRequestOpen))
+
+	if got := h.worker.recorded(); len(got) != 1 || got[0].model != "haiku" {
+		t.Fatalf("workers = %+v", got)
+	}
+	wantExperiment(t, rec.states(), runPin{Experiment: "split", Variant: "b", RequestedModel: "haiku"})
+}
+
 // analysisID is the id of the analysis that the subject tests run on.
 const analysisID = "0199d000-0000-7000-8000-000000000001"
 
