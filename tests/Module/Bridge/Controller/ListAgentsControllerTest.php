@@ -283,6 +283,39 @@ final class ListAgentsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$older->id.'"] [data-agent-accounts]'));
     }
 
+    public function test_an_unused_account_is_labelled_and_its_failing_hint_says_nothing_is_off(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-accounts-unused@example.com');
+        $project = $this->project($em, $owner, 'Unused accounts');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], accounts: [
+            ['name' => 'spare', 'harness' => 'codex', 'state' => 'ready', 'reason' => null, 'used' => false],
+            ['name' => 'idle', 'harness' => 'codex', 'state' => 'failing', 'reason' => 'no loupe server', 'used' => false],
+            ['name' => 'busy', 'harness' => 'codex', 'state' => 'failing', 'reason' => 'no loupe server', 'used' => true],
+            ['name' => 'old', 'harness' => 'codex', 'state' => 'ready', 'reason' => null],
+        ], accountsReportedAt: new \DateTimeImmutable('2026-09-14 16:05:00'));
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $accounts = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-accounts]');
+        self::assertCount(4, $accounts->filter('[data-agent-account]'));
+        $spare = $accounts->filter('[data-agent-account="spare"]');
+        self::assertSame('spare codex Ready Unused', preg_replace('/\s+/', ' ', trim($spare->text())));
+        $idle = $accounts->filter('[data-agent-account="idle"]');
+        self::assertSame('failing', $idle->attr('data-agent-account-state'));
+        self::assertStringContainsString('Unused', $idle->text());
+        self::assertStringContainsString('No rule uses this account, so nothing is turned off.', $idle->text());
+        self::assertStringNotContainsString('stay off', $idle->text());
+        $busy = $accounts->filter('[data-agent-account="busy"]');
+        self::assertStringNotContainsString('Unused', $busy->text());
+        self::assertStringContainsString('stay off', $busy->text());
+        self::assertStringNotContainsString('Unused', $accounts->filter('[data-agent-account="old"]')->text());
+    }
+
     public function test_an_empty_account_report_shows_no_block(): void
     {
         $client = static::createClient();

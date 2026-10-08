@@ -482,10 +482,10 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         self::assertSame('laptop', $this->reload($second, $bridgeId)->name);
     }
 
-    /** @return array{name: string, harness: string, state: 'ready'|'failing', reason: ?string} */
+    /** @return array{name: string, harness: string, state: 'ready'|'failing', reason: ?string, used: bool} */
     private static function account(): array
     {
-        return ['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null];
+        return ['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null, 'used' => true];
     }
 
     /** @return array{name: string, size: int, inUse: int, queued: int} */

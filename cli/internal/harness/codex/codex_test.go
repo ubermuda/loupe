@@ -502,6 +502,167 @@ func fakeCodex(t *testing.T, loginExit string) []string {
 	return []string{"PATH=" + bin + ":/bin:/usr/bin"}
 }
 
+// mcpFixture is a project folder, a bin folder with a fake codex and loupe, and
+// a log of the codex calls.
+type mcpFixture struct {
+	env     []string
+	project string
+	log     string
+}
+
+// fakeCodexMcp puts a logged-in codex on PATH whose `mcp get loupe --json`
+// runs body. It logs the profile arguments, CODEX_HOME and the folder of each call.
+func fakeCodexMcp(t *testing.T, body string, withLoupe bool) mcpFixture {
+	t.Helper()
+	bin, project := t.TempDir(), t.TempDir()
+	log := filepath.Join(t.TempDir(), "calls")
+	script := "#!/bin/sh\n[ \"$1 $2\" = \"login status\" ] && exit 0\n" +
+		"case \"$*\" in *\"mcp get loupe --json\") echo \"$* | $CODEX_HOME | $PWD\" >> '" + log + "'\n" + body + "\nexit 0\n;; esac\nexit 2\n"
+	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if withLoupe {
+		if err := os.WriteFile(filepath.Join(bin, "loupe"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return mcpFixture{env: []string{"PATH=" + bin + ":/bin:/usr/bin"}, project: project, log: log}
+}
+
+const (
+	stdioLoupe = `echo '{"enabled":true,"transport":{"type":"stdio","command":"/usr/local/bin/loupe","args":["mcp"]}}'`
+	approveCfg = "[mcp_servers.loupe]\ndefault_tools_approval_mode = \"approve\"\n"
+)
+
+func TestCheckLoupeMcpServer(t *testing.T) {
+	ctx := context.Background()
+	check := func(t *testing.T, h Harness, home string, f mcpFixture) []harness.Problem {
+		t.Helper()
+
+		return h.Check(ctx, harness.CheckSpec{ConfigDir: home, Env: f.env, Projects: map[string]string{"loupe": f.project}})
+	}
+	plain := func(t *testing.T, cfg string) (Harness, string) {
+		t.Helper()
+		home := t.TempDir()
+		if err := os.WriteFile(filepath.Join(home, "config.toml"), []byte(cfg), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		return New(home, "", ""), home
+	}
+	one := func(t *testing.T, got []harness.Problem, reason, detail string) {
+		t.Helper()
+		if len(got) != 1 || got[0].Reason != reason || !strings.Contains(got[0].Detail, detail) {
+			t.Fatalf("problems = %+v, want %q with %q", got, reason, detail)
+		}
+	}
+
+	t.Run("passes and runs in the project with the resolved home", func(t *testing.T) {
+		h, home := plain(t, approveCfg)
+		f := fakeCodexMcp(t, stdioLoupe, true)
+		if got := check(t, h, home, f); len(got) != 0 {
+			t.Fatalf("problems = %+v", got)
+		}
+		b, _ := os.ReadFile(f.log)
+		project, _ := filepath.EvalSymlinks(f.project)
+		if want := "mcp get loupe --json | " + home + " | "; !strings.HasPrefix(string(b), want) || !strings.Contains(string(b), filepath.Base(project)) {
+			t.Fatalf("call = %q, want prefix %q", b, want)
+		}
+	})
+	t.Run("the server is not declared", func(t *testing.T) {
+		h, home := plain(t, approveCfg)
+		got := check(t, h, home, fakeCodexMcp(t, "exit 1", true))
+		one(t, got, "loupe MCP server not declared for project loupe", "run CODEX_HOME="+home+" codex mcp add loupe -- loupe mcp")
+	})
+	t.Run("the server is not loupe mcp", func(t *testing.T) {
+		h, home := plain(t, approveCfg)
+		got := check(t, h, home, fakeCodexMcp(t, `echo '{"enabled":true,"transport":{"type":"stdio","command":"npx","args":["-y","x","--token","SECRET"]}}'`, true))
+		one(t, got, "loupe MCP server is not loupe mcp for project loupe", "command npx")
+		if strings.Contains(got[0].Detail, "SECRET") {
+			t.Fatalf("detail leaks an argument: %q", got[0].Detail)
+		}
+		got = check(t, h, home, fakeCodexMcp(t, `echo '{"enabled":true,"transport":{"type":"streamable_http","url":"https://x/?token=SECRET"}}'`, true))
+		one(t, got, "loupe MCP server is not loupe mcp for project loupe", "type streamable_http")
+		if strings.Contains(got[0].Detail, "SECRET") {
+			t.Fatalf("detail leaks a secret: %q", got[0].Detail)
+		}
+		got = check(t, h, home, fakeCodexMcp(t, `echo '{"enabled":true,"transport":{"type":"stdio","command":"loupe","args":["other"]}}'`, true))
+		one(t, got, "loupe MCP server is not loupe mcp for project loupe", "codex mcp add loupe -- loupe mcp")
+	})
+	t.Run("the server is disabled", func(t *testing.T) {
+		h, home := plain(t, approveCfg)
+		got := check(t, h, home, fakeCodexMcp(t, `echo '{"enabled":false,"transport":{"type":"stdio","command":"loupe","args":["mcp"]}}'`, true))
+		one(t, got, "loupe MCP server is disabled for project loupe", "config.toml")
+	})
+	t.Run("loupe is not on PATH", func(t *testing.T) {
+		h, home := plain(t, approveCfg)
+		one(t, check(t, h, home, fakeCodexMcp(t, stdioLoupe, false)), "loupe is not on PATH for project loupe", "")
+	})
+	t.Run("the check times out", func(t *testing.T) {
+		h, home := plain(t, approveCfg)
+		old := checkTimeout
+		checkTimeout = 50 * time.Millisecond
+		defer func() { checkTimeout = old }()
+		one(t, check(t, h, home, fakeCodexMcp(t, "sleep 5", true)), "MCP check timed out for project loupe", "codex mcp get did not answer in")
+	})
+	t.Run("tools need approval", func(t *testing.T) {
+		h, home := plain(t, "[mcp_servers.loupe]\ncommand = \"loupe\"\n")
+		want := `add default_tools_approval_mode = "approve" under [mcp_servers.loupe] in ` + filepath.Join(home, "config.toml")
+		one(t, check(t, h, home, fakeCodexMcp(t, stdioLoupe, true)), "loupe MCP tools need approval for project loupe", want)
+	})
+	t.Run("a mode other than approve fails", func(t *testing.T) {
+		h, home := plain(t, "[mcp_servers.loupe]\ndefault_tools_approval_mode = \"prompt\"\n")
+		one(t, check(t, h, home, fakeCodexMcp(t, stdioLoupe, true)), "loupe MCP tools need approval for project loupe", "config.toml")
+	})
+	t.Run("the project file wins over config.toml", func(t *testing.T) {
+		h, home := plain(t, "[mcp_servers.loupe]\ndefault_tools_approval_mode = \"prompt\"\n")
+		f := fakeCodexMcp(t, stdioLoupe, true)
+		if err := os.MkdirAll(filepath.Join(f.project, ".codex"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(f.project, ".codex", "config.toml"), []byte(approveCfg), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if got := check(t, h, home, f); len(got) != 0 {
+			t.Fatalf("problems = %+v", got)
+		}
+	})
+	t.Run("a config file that does not parse fails", func(t *testing.T) {
+		h, home := plain(t, "[mcp_servers.loupe\n")
+		one(t, check(t, h, home, fakeCodexMcp(t, stdioLoupe, true)), "codex config does not parse for project loupe", "config.toml")
+	})
+	t.Run("a profile account runs the check with -p and reads the profile file", func(t *testing.T) {
+		h := newHarness(t, "openrouter")
+		f := fakeCodexMcp(t, stdioLoupe, true)
+		env := append(f.env, "OPENROUTER_API_KEY=k")
+		spec := harness.CheckSpec{ConfigDir: h.home, Env: env, Projects: map[string]string{"loupe": f.project}}
+		file := profileFile(h.home, "openrouter")
+		one(t, h.Check(ctx, spec), "loupe MCP tools need approval for project loupe", file)
+		body, _ := os.ReadFile(file)
+		if err := os.WriteFile(file, append(body, []byte("\n"+approveCfg)...), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if got := h.Check(ctx, spec); len(got) != 0 {
+			t.Fatalf("problems = %+v", got)
+		}
+		if b, _ := os.ReadFile(f.log); !strings.HasPrefix(string(b), "-p openrouter mcp get loupe --json | "+h.home) {
+			t.Fatalf("call = %q", b)
+		}
+	})
+	t.Run("a login failure skips the MCP check", func(t *testing.T) {
+		h, home := plain(t, "")
+		f := fakeCodexMcp(t, stdioLoupe, true)
+		bin := strings.TrimSuffix(strings.TrimPrefix(f.env[0], "PATH="), ":/bin:/usr/bin")
+		if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if got := check(t, h, home, f); !reflect.DeepEqual(reasons(got), []string{"not logged in"}) {
+			t.Fatalf("problems = %+v", got)
+		}
+	})
+}
+
 func reasons(problems []harness.Problem) []string {
 	var out []string
 	for _, p := range problems {

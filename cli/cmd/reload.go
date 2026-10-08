@@ -27,6 +27,8 @@ type reloadResult struct {
 	Stage    string   `json:"stage,omitempty"`
 	// AccountsOff maps each account that failed its check to the reason.
 	AccountsOff map[string]string `json:"accountsOff,omitempty"`
+	// AccountsUnused names the accounts of AccountsOff that no rule runs on.
+	AccountsUnused []string `json:"accountsUnused,omitempty"`
 }
 
 // reloadSource gives a reload what it needs from the disk and the server; tests
@@ -266,6 +268,13 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	warnAccountsOff(r.log, b.accounts)
 	if off := set.AccountsOff(); len(off) > 0 {
 		res.AccountsOff = off
+		used := set.UsedAccounts()
+		for name := range off {
+			if !slices.Contains(used, name) {
+				res.AccountsUnused = append(res.AccountsUnused, name)
+			}
+		}
+		slices.Sort(res.AccountsUnused)
 	}
 
 	return res
