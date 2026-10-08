@@ -157,6 +157,7 @@
         @apply w-full;
     }
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-doc__heading,
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-doc__verdict-detail,
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-doc__prose {
         @apply mx-auto;
     }
