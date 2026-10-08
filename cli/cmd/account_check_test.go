@@ -162,16 +162,40 @@ func TestAReloadTurnsOffAFailingAccount(t *testing.T) {
 	if m := h.router.rules().MatchWork(workRequest(1, 7, "plan", api.WorkRequestOpen)); m.Skip != rules.NoRule {
 		t.Fatalf("match on a failing account = %+v", m)
 	}
-	eventually(t, "the heartbeat of the failing account", func() bool {
-		client.mu.Lock()
-		defer client.mu.Unlock()
-		if len(client.sent) != 2 {
-			return false
-		}
-		last := client.sent[1]
+	// sent waits for the n-th heartbeat, and gives its account rows.
+	sent := func(n int) []api.AccountReport {
+		t.Helper()
+		var rows []api.AccountReport
+		eventually(t, "the heartbeat of the swap", func() bool {
+			client.mu.Lock()
+			defer client.mu.Unlock()
+			if len(client.sent) < n {
+				return false
+			}
+			rows = client.sent[n-1].Accounts
 
-		return len(last.Accounts) == 1 && last.Accounts[0].State == api.AccountFailing
-	})
+			return true
+		})
+
+		return rows
+	}
+	if rows := sent(1); rows != nil {
+		t.Fatalf("the heartbeat before the reload has account rows %+v", rows)
+	}
+	if rows, want := sent(2), []api.AccountReport{{Name: "claude", Harness: "claude-code", State: api.AccountFailing, Reason: "not logged in"}}; !slices.Equal(rows, want) {
+		t.Fatalf("the heartbeat of the swap has rows %+v, want %+v", rows, want)
+	}
+
+	// A later reload that finds the account ready sends the ready row.
+	src.checkAccounts = func(context.Context, *rules.Set) []accountResult {
+		return []accountResult{{name: "claude", harness: "claude-code"}}
+	}
+	if res := h.router.reload(context.Background(), src); !res.OK || res.AccountsOff != nil {
+		t.Fatalf("result = %+v", res)
+	}
+	if rows, want := sent(3), []api.AccountReport{{Name: "claude", Harness: "claude-code", State: api.AccountReady}}; !slices.Equal(rows, want) {
+		t.Fatalf("the heartbeat of the second swap has rows %+v, want %+v", rows, want)
+	}
 }
 
 func TestALongReasonFitsTheServerLimit(t *testing.T) {
