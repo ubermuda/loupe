@@ -106,13 +106,16 @@ final class EvaluationListenersTest extends KernelTestCase
         self::assertSame([...$this->ids($card, $old, $new), ...$this->ids($card, $new)], $this->sent());
     }
 
-    public function test_a_document_link_change_asks_for_its_card(): void
+    public function test_a_document_link_change_asks_for_its_card_and_its_children(): void
     {
-        [$card] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
+        [$card, $child] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
+        $this->card($this->project, 'next');
+        $child->parent = $card;
+        $this->em()->flush();
 
-        new EvaluateCardOnCardDocumentsChanged($this->trigger())(new CardDocumentsChanged($this->projectId(), $card->id ?? throw new \LogicException('A flushed card has an id.')));
+        new EvaluateCardOnCardDocumentsChanged($this->service(CardRepository::class), $this->trigger())(new CardDocumentsChanged($this->projectId(), $card->id ?? throw new \LogicException('A flushed card has an id.')));
 
-        self::assertSame($this->ids($card), $this->sent());
+        self::assertSame($this->ids($card, $child), $this->sent());
     }
 
     public function test_a_blocker_removal_asks_for_the_cards_that_lost_it(): void
@@ -143,15 +146,17 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist($document);
         $this->em()->persist(new CardDocument($one, $document));
         $this->em()->persist(new CardDocument($two, $document));
+        $child = $this->card($this->project, 'next');
+        $child->parent = $one;
         $this->em()->flush();
         $documentId = $document->id ?? throw new \LogicException('A flushed document has an id.');
 
-        new EvaluateCardsOnDocumentStatusChanged($this->service(CardDocumentRepository::class), $this->trigger())(new DocumentStatusChanged($this->projectId(), $documentId));
+        new EvaluateCardsOnDocumentStatusChanged($this->service(CardDocumentRepository::class), $this->service(CardRepository::class), $this->trigger())(new DocumentStatusChanged($this->projectId(), $documentId));
         $statusSent = $this->sent();
         $this->transport()->reset();
         new EvaluateCardsOnReviewSubmitted($this->service(CardDocumentRepository::class), $this->trigger())(new ReviewSubmitted(new Review($version, Verdict::Approved, $this->project->owner)));
 
-        self::assertEqualsCanonicalizing($this->ids($one, $two), $statusSent);
+        self::assertEqualsCanonicalizing($this->ids($one, $two, $child), $statusSent);
         self::assertEqualsCanonicalizing($this->ids($one, $two), $this->sent());
     }
 
