@@ -5,10 +5,4 @@
     <a class="lp-tabs__tab"
        href="{{ path('app_project_activity', {id: project.id}) }}"
        {% if active == 'events' %}aria-current="page"{% endif %}>{{ 'activity.tabs.events'|trans }}</a>
-    <a class="lp-tabs__tab"
-       href="{{ path('app_project_worker_run_cost', {id: project.id}) }}"
-       {% if active == 'cost' %}aria-current="page"{% endif %}>{{ 'activity.tabs.cost'|trans }}</a>
-    <a class="lp-tabs__tab"
-       href="{{ path('app_project_experiments', {id: project.id}) }}"
-       {% if active == 'experiments' %}aria-current="page"{% endif %}>{{ 'activity.tabs.experiments'|trans }}</a>
 </nav>

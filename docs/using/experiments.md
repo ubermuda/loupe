@@ -1,13 +1,13 @@
 ---
-title: "Activity: Experiments"
-description: "The Experiments tab of the Activity page, which compares the variants of each experiment a bridge runs."
+title: "Analytics: Experiments"
+description: "The Experiments tab of the Analytics page, which compares the variants of each experiment a bridge runs."
 ---
 
 An [experiment](../extending/cli-bridge.md#experiments) splits the cards of a
 kind of work between models. The **Experiments** tab of the project's
-**Activity** page shows how each variant did.
+**Analytics** page shows how each variant did.
 
-Open **Activity** in the project sidebar, then the **Experiments** tab.
+Open **Analytics** in the project sidebar, then the **Experiments** tab.
 
 ## The list of experiments
 
@@ -78,6 +78,10 @@ merged cards that have the value, such as a cost or the two times of a merge.
 
 A metric with no clear answer shows a **Too few cards** chip. An experiment
 with one variant never gives a clear answer.
+
+Press **Analyse this experiment** below the metrics to ask an agent to explain
+the comparison. The link opens the [Reports](analytics.md#reports) tab, with
+the topic **Experiment** and this experiment already chosen.
 
 ## Cards that are left out
 

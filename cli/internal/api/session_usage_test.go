@@ -54,6 +54,34 @@ func TestReportSessionUsageSendsEachProcess(t *testing.T) {
 	}
 }
 
+// The usage of one run names the run, and holds that run alone.
+func TestReportRunUsageNamesTheRun(t *testing.T) {
+	var gotPath, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.EscapedPath()
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_, _ = io.WriteString(w, `{"runs":1,"updated":1}`)
+	}))
+	t.Cleanup(server.Close)
+
+	result, err := New(server.URL, "t", server.Client()).
+		ReportRunUsage(context.Background(), "loupe", usageSessionID, "0199a0e2-4444-7c5e-9f2a-3b1c6d7e8f90", Usage{Source: UsageEstimated})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotPath != "/api/projects/loupe/worker-runs/sessions/"+usageSessionID+"/usage" {
+		t.Fatalf("path = %s", gotPath)
+	}
+	want := `{"runId":"0199a0e2-4444-7c5e-9f2a-3b1c6d7e8f90","processes":[{"source":"estimated","models":{}}]}`
+	if gotBody != want {
+		t.Fatalf("body = %s\nwant %s", gotBody, want)
+	}
+	if result != (SessionUsageResult{Runs: 1, Updated: 1}) {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
 // The server names why it wrote nothing, and the caller prints that name.
 func TestReportSessionUsageNamesTheRefusal(t *testing.T) {
 	for status, answer := range map[int]string{

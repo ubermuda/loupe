@@ -116,6 +116,24 @@ final class BoardCardReportSourceTest extends KernelTestCase
         self::assertNull($outcomes[(string) $handMoved]->hoursToMerge());
     }
 
+    public function test_it_returns_the_types_of_the_projects_cards_only(): void
+    {
+        $project = $this->makeProject('card-types');
+        $other = $this->makeProject('card-types-other');
+        $feature = $this->card($project, 1, 'done');
+        $bug = $this->card($project, 2, 'done', 'bug');
+        $foreign = $this->card($other, 1, 'done', 'docs');
+        $this->em->clear();
+
+        $types = $this->source->typesFor($project, [$feature, $bug, $foreign, Uuid::v7()]);
+
+        ksort($types);
+        $expected = [(string) $feature => 'feature', (string) $bug => 'bug'];
+        ksort($expected);
+        self::assertSame($expected, $types);
+        self::assertSame([], $this->source->typesFor($project, []));
+    }
+
     public function test_the_history_starts_at_the_first_event_of_the_project(): void
     {
         $project = $this->makeProject('history-start');
@@ -152,9 +170,9 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function card(Project $project, int $number, string $column): Uuid
+    private function card(Project $project, int $number, string $column, string $type = 'feature'): Uuid
     {
-        $card = new Card(project: $project, column: $this->column($project, $column), title: 'Card '.$number, body: '', number: $number);
+        $card = new Card(project: $project, column: $this->column($project, $column), title: 'Card '.$number, body: '', number: $number, type: $type);
         $this->em->persist($card);
         $this->em->flush();
 

@@ -75,9 +75,13 @@ final readonly class WorkerRunControls
                 BridgeCommandKind::ResumeRun => 'bridge.worker_runs.control.resume_requested',
                 BridgeCommandKind::StopRun => 'bridge.worker_runs.control.stop_requested',
                 BridgeCommandKind::RerunCommand => 'bridge.worker_runs.control.rerun_requested',
+                // Loupe asks it, and a person has nothing to cancel.
+                BridgeCommandKind::CollectSessionUsage => null,
             };
 
-            return new WorkerRunControl(WorkerRunAction::Cancel, label: $quiet ? $label.'_offline' : $label, pendingCommand: $latest);
+            if (null !== $label) {
+                return new WorkerRunControl(WorkerRunAction::Cancel, label: $quiet ? $label.'_offline' : $label, pendingCommand: $latest);
+            }
         }
 
         // The request handler refuses a bridge the owner does not hold, and no update fixes that.
@@ -121,6 +125,7 @@ final readonly class WorkerRunControls
                     BridgeCommandKind::ResumeRun => 'bridge.worker_runs.control.resume_expired',
                     BridgeCommandKind::StopRun => 'bridge.worker_runs.control.stop_expired',
                     BridgeCommandKind::RerunCommand => 'bridge.worker_runs.control.rerun_expired',
+                    BridgeCommandKind::CollectSessionUsage => throw new \LogicException('A usage collection never applies to a run state.'),
                 };
 
                 return [$key, [], true];
@@ -145,6 +150,7 @@ final readonly class WorkerRunControls
             BridgeCommandKind::ResumeRun => $state->isResumable(),
             BridgeCommandKind::StopRun => $state->isStoppable(),
             BridgeCommandKind::RerunCommand => $state->isRerunnable(),
+            BridgeCommandKind::CollectSessionUsage => false,
         };
     }
 }

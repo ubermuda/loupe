@@ -86,6 +86,12 @@ export default defineConfig({
               items: [
                 { label: 'Runs', slug: 'using/worker-runs' },
                 { label: 'Events', slug: 'using/activity' },
+              ],
+            },
+            {
+              label: 'Analytics',
+              items: [
+                { label: 'Metrics and reports', slug: 'using/analytics' },
                 { label: 'Experiments', slug: 'using/experiments' },
               ],
             },

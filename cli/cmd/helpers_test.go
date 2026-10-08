@@ -162,6 +162,7 @@ type pinCall struct {
 	handle, experiment, cardID, candidate string
 	variants                              []string
 	weights                               []int
+	metrics                               []string
 }
 
 // pinServer answers each pin request with answer, and records it.
@@ -171,9 +172,9 @@ type pinServer struct {
 	answer func(ctx context.Context, candidate string) (string, string, error)
 }
 
-func (s *pinServer) resolve(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error) {
+func (s *pinServer) resolve(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int, metrics []string) (string, string, error) {
 	s.mu.Lock()
-	s.calls = append(s.calls, pinCall{handle, experiment, cardID, candidate, slices.Clone(variants), slices.Clone(weights)})
+	s.calls = append(s.calls, pinCall{handle, experiment, cardID, candidate, slices.Clone(variants), slices.Clone(weights), slices.Clone(metrics)})
 	s.mu.Unlock()
 
 	return s.answer(ctx, candidate)

@@ -40,6 +40,16 @@ final readonly class BridgeSubjectResolver
         return $this->requireBoundProject($this->projectResolver);
     }
 
+    /** The bound project, when the token may read its worker runs. */
+    public function requireReadableProject(): Project
+    {
+        $project = $this->requireBoundProject($this->projectResolver);
+
+        return $this->security->isGranted(McpBoundProjectVoter::WORKER_RUN_READ, $project)
+            ? $project
+            : throw new ToolCallException('This credential cannot read the worker runs of this project.');
+    }
+
     /** The person the token acts for, who requests a command. */
     public function requireUser(): User
     {

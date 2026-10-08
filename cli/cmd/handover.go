@@ -133,6 +133,7 @@ type handoverRun struct {
 	Prompt         string `json:"prompt,omitempty"`
 	PermissionMode string `json:"permissionMode,omitempty"`
 	Model          string `json:"model,omitempty"`
+	Effort         string `json:"effort,omitempty"`
 	Schema         string `json:"schema,omitempty"`
 	// Work is the work request of the run, and ClaimToken its claim. Origin
 	// is the work of the run a person's resume or rerun continues.
@@ -354,7 +355,7 @@ func (r *router) freeze() handoverState {
 		case run.p.isCommand():
 			h.Phase = phaseCommand
 		case run.before:
-			h.Phase, h.Prompt, h.PermissionMode, h.Model, h.Schema = phaseBefore, run.p.spec.prompt, run.p.spec.permissionMode, run.p.spec.model, run.p.spec.schema
+			h.Phase, h.Prompt, h.PermissionMode, h.Model, h.Effort, h.Schema = phaseBefore, run.p.spec.prompt, run.p.spec.permissionMode, run.p.spec.model, run.p.spec.effort, run.p.spec.schema
 		}
 		st.Live = append(st.Live, h)
 	}
@@ -503,7 +504,7 @@ func (r *router) adoptLocked(run handoverRun) {
 // started, on its own goroutine, then goes on as that image would have. The
 // caller holds mu and took the run's slot and card.
 func (r *router) adoptBeforeLocked(p pending, run handoverRun) {
-	p.spec.prompt, p.spec.permissionMode, p.spec.model, p.spec.schema = run.Prompt, run.PermissionMode, run.Model, run.Schema
+	p.spec.prompt, p.spec.permissionMode, p.spec.model, p.spec.effort, p.spec.schema = run.Prompt, run.PermissionMode, run.Model, run.Effort, run.Schema
 	p.spec.runID, p.spec.rule, p.spec.key = run.RunID, run.Rule, run.Key
 	r.trackLocked(liveRun{p: p, began: run.Began, proc: workerProc{pid: run.PID, dir: run.Dir}, before: true})
 	r.log.Info("before_adopted", append(about(p.event, p.rule), "worker_pool", p.slot, "session_id", p.spec.sessionID, "pid", run.PID)...)

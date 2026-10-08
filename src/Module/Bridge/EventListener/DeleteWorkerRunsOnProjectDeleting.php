@@ -11,10 +11,10 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
  * Deletes the card holds, the commands, the work requests, the run rows, the
- * usage rows, the experiment pins and the experiment weights of a project that
- * is going away.
- * A usage row outlives its run, so it goes on its own. Runs inside
- * ProjectDeleter's transaction.
+ * usage rows, the fact rows, the experiment pins and the experiment weights of
+ * a project that is going away.
+ * A usage row and a fact row outlive their run, so they go on their own. The
+ * listener runs inside ProjectDeleter's transaction.
  */
 #[AsEventListener]
 final readonly class DeleteWorkerRunsOnProjectDeleting
@@ -49,6 +49,10 @@ final readonly class DeleteWorkerRunsOnProjectDeleting
 
         $this->em->createQuery(
             'DELETE App\Module\Bridge\Entity\WorkerRunUsage u WHERE u.project = :project',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
+            'DELETE App\Module\Bridge\Entity\WorkerRunFact f WHERE f.project = :project',
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(
