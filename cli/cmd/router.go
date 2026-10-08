@@ -935,6 +935,14 @@ func (r *router) start(p pending) {
 			)...)
 		}
 		if p.spec.before != nil {
+			// A bad env file fails the run before the command changes the
+			// worktree. runAgent reads the files again for the agent.
+			if _, err := p.spec.accountEnv(); err != nil {
+				began := time.Now()
+				r.settle(p, endedRun{res: workerResult{err: err}, began: began, elapsed: time.Since(began)})
+
+				return
+			}
 			r.prepare(p)
 
 			return

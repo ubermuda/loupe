@@ -618,3 +618,29 @@ func TestAResumeReportsTheVariantOnlyWhenItRunsWithItsSettings(t *testing.T) {
 		})
 	}
 }
+
+// A run whose env file is gone fails before its before command starts, so the
+// command never changes the worktree of a run that cannot start.
+func TestABeforeCommandDoesNotRunWithAMissingEnvFile(t *testing.T) {
+	envPath := filepath.Join(t.TempDir(), "absent.env")
+	account := "    harness: claude-code\n"
+	body := strings.Replace(strings.Replace(beforeRules, "TIMEOUT", "1m", 1), account, account+"    envFile: "+envPath+"\n", 1)
+	h := newHarnessWith(t, body, rules.Defaults{})
+	f := &fakeBefore{result: procResult{dir: t.TempDir()}}
+	h.router.worker.before = f.run
+	rec := h.states()
+
+	h.send(cardMoved(87))
+
+	if got := f.recorded(); len(got) != 0 {
+		t.Fatalf("before = %+v", got)
+	}
+	if got := h.worker.recorded(); len(got) != 0 {
+		t.Fatalf("workers = %+v", got)
+	}
+	sent := rec.states()
+	wantStates(t, sent, api.RunQueued, api.RunNotStarted)
+	if r := sent[1].report; r.FailureReason == nil || !strings.Contains(*r.FailureReason, envPath) {
+		t.Fatalf("report = %+v", r)
+	}
+}
