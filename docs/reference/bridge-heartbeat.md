@@ -38,7 +38,7 @@ The path holds no project, because one bridge follows several projects.
   ],
   "accounts": [
     {"name": "claude", "harness": "claude-code", "state": "ready", "reason": null},
-    {"name": "work", "harness": "claude-code", "state": "failing", "reason": "claude is not logged in"}
+    {"name": "work", "harness": "claude-code", "state": "failing", "reason": "not logged in"}
   ],
   "hostSamples": [
     {
