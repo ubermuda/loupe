@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\GitHub\Repository\GitHubUserConnectionRepository;
 use App\Module\GitHub\Service\GitHubAppConfiguration;
 use App\Module\GitHub\Service\GitHubUserConnectionSummary;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
 
@@ -28,6 +29,7 @@ final class GitHubAccountConnectionComponent
         private readonly Security $security,
         private readonly GitHubUserConnectionRepository $gitHubUserConnections,
         private readonly GitHubAppConfiguration $appConfiguration,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -40,6 +42,11 @@ final class GitHubAccountConnectionComponent
 
         $this->appConfigured = $this->appConfiguration->isConfigured();
         $this->connection = $this->gitHubUserConnections->findSummaryByUser($user);
+    }
+
+    public function expired(): bool
+    {
+        return $this->connection?->isExpired($this->clock->now()) ?? false;
     }
 
     /** A person with a connection can always remove it, even when the App is gone. */

@@ -343,6 +343,34 @@ final class GitHubUserConnectionFlowTest extends WebTestCase
         self::assertNull($this->connectionOf($user));
     }
 
+    public function test_disconnect_deletes_a_row_whose_tokens_cannot_be_read(): void
+    {
+        $user = $this->signedUpUser('unreadable');
+        $this->client->loginUser($user);
+        $this->completeConnect();
+        $this->em()->getConnection()->executeStatement('UPDATE github_user_connections SET access_token = :t, refresh_token = :t', ['t' => base64_encode(random_bytes(64))]);
+        $this->apiRequests = [];
+
+        $this->disconnect();
+
+        self::assertResponseRedirects('/account/connected-apps');
+        self::assertNull($this->connectionOf($user));
+        self::assertSame([], $this->apiRequests);
+        self::assertStringContainsString('Your GitHub account is disconnected.', $this->followedText());
+    }
+
+    public function test_the_page_offers_a_reconnect_when_the_refresh_token_has_ended(): void
+    {
+        $this->client->loginUser($this->signedUpUser('refreshended'));
+        $this->completeConnect();
+        $this->em()->getConnection()->executeStatement("UPDATE github_user_connections SET refresh_token_expires_at = now() - interval '1 minute'");
+
+        $crawler = $this->client->request(Request::METHOD_GET, '/account/connected-apps');
+
+        self::assertStringContainsString('The connection expired', $crawler->filter('[data-testid="github-account-state"]')->text());
+        self::assertStringContainsString('Connect again', $crawler->filter('[data-testid="github-account-row"]')->text());
+    }
+
     public function test_disconnect_needs_a_signed_in_user(): void
     {
         $this->client->request(Request::METHOD_POST, '/account/github/disconnect', ['_csrf_token' => 'csrf-token'], [], ['HTTP_REFERER' => 'http://localhost/']);

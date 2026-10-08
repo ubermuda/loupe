@@ -30,7 +30,7 @@ final readonly class DisconnectGitHubHandler
     ) {
     }
 
-    /** @return bool whether GitHub confirmed the revoke */
+    /** @return bool false only when GitHub was asked and did not confirm */
     public function __invoke(DisconnectGitHubCommand $command): bool
     {
         $userId = (string) ($command->user->id ?? throw new \LogicException('a persisted user always has an id'));
@@ -51,6 +51,10 @@ final readonly class DisconnectGitHubHandler
                 'reason' => $e->reason,
                 'status' => $e->status,
             ]);
+        } catch (\RuntimeException $e) {
+            // An unreadable token, such as one made under another APP_ENCRYPTION_KEY, cannot be revoked.
+            $this->logger->warning('github.user_token_unreadable', ['userId' => $userId, 'exception' => $e::class]);
+            $revoked = true;
         } finally {
             $this->gitHubUserConnections->deleteForUser(Uuid::fromString($userId));
         }

@@ -9,14 +9,14 @@
         <span class="lp-identity-row__text">
             <span class="lp-identity-row__name" data-testid="github-account-login">{{ connection.login }}</span>
             <span class="lp-identity-row__meta lp-identity-row__meta--plain" data-testid="github-account-state">
-                {%- if connection.expired -%}
+                {%- if this.expired -%}
                     {{ 'github.connect.state.expired'|trans }}
                 {%- else -%}
                     {{ 'github.connect.state.connected'|trans({'%time%': connection.connectedAt|date('Y-m-d H:i')}) }}
                 {%- endif -%}
             </span>
         </span>
-        {% if connection.expired and appConfigured %}
+        {% if this.expired and appConfigured %}
         <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_github_user_connect') }}" data-turbo="false">{{ 'github.connect.action.reconnect'|trans }}</a>
         {% endif %}
         <div data-controller="modal">

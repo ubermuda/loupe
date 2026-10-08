@@ -16,8 +16,9 @@ final readonly class GitHubUserConnectionSummary
     ) {
     }
 
-    public function isExpired(): bool
+    /** A connection with an ended refresh token cannot refresh, so it counts as expired before Loupe finds out. */
+    public function isExpired(\DateTimeImmutable $now): bool
     {
-        return null !== $this->expiredAt;
+        return null !== $this->expiredAt || $this->refreshTokenExpiresAt <= $now;
     }
 }
