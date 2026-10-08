@@ -64,12 +64,15 @@ final readonly class ExportDesignSystemHandler
         $styles = $this->projectDir.'/assets/styles';
         $entries = $this->catalog->entries();
 
+        $imports = ["@import './tokens/fonts.css';"];
         foreach ($this->tokenFiles($this->read($styles.'/tokens.css')) as $name => $css) {
             $write('tokens/'.$name.'.css', $css);
+            $imports[] = sprintf("@import './tokens/%s.css';", $name);
         }
         $write('tokens/fonts.css', $this->fontsCss($this->read($styles.'/app.css')));
         $write('tokens/base.css', $this->render('base.css.twig'));
-        $write('styles.css', "@import './tokens/fonts.css';\n@import './tokens/base.css';\n".$this->tailwind->compile($styles.'/design-system.css'));
+        $imports[] = "@import './tokens/base.css';";
+        $write('styles.css', implode("\n", $imports)."\n".$this->tailwind->compile($styles.'/design-system.css'));
 
         $groups = [];
         foreach ($entries as $entry) {

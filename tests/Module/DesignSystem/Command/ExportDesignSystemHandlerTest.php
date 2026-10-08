@@ -100,6 +100,9 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         self::assertStringStartsWith("@import './tokens/fonts.css';", $css);
         self::assertStringContainsString('.lp-btn--primary', $css);
         self::assertStringContainsString('--accent:', $css);
+        foreach (glob($this->directory.'/tokens/*.css') ?: [] as $file) {
+            self::assertStringContainsString("@import './tokens/".basename($file)."';", $css);
+        }
     }
 
     public function test_tokens_are_plain_root_blocks(): void
