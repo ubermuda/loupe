@@ -1892,17 +1892,72 @@ final class EngineTest extends KernelTestCase
         self::assertFalse($this->ruleState($epic, 'breakdown-ended')->truth);
 
         $child = $this->childOf($epic, 'backlog');
+        $this->document($child, 'tech-design');
         $this->evaluate($child, '2026-10-02 12:05:00');
         self::assertSame('backlog', $child->column->slug);
 
         $breakdown->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
+        $this->finishRequests($epic);
         $records = \count($this->firedRecords());
         $this->evaluate($epic, '2026-10-02 12:10:00');
         self::assertCount($records + 1, $this->firedRecords());
         self::assertContains('breakdown-ended', $this->firedRules());
 
         self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_in_the_backlog_starts_only_once_it_links_an_approved_tech_design(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-child-needs-design');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $child = $this->childOf($epic, 'backlog');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $design = $this->document($child, 'tech-design', DocumentStatus::InReview);
+        $this->evaluate($child, '2026-10-02 12:10:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $this->setStatus($design, DocumentStatus::Approved);
+        $this->evaluate($child, '2026-10-02 12:15:00');
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_in_the_backlog_does_not_start_on_the_design_of_another_tag(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-child-other-tag');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $child = $this->childOf($epic, 'backlog');
+        $this->document($child, 'product-design');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+
+        self::assertSame('backlog', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_in_the_backlog_waits_while_work_is_requested_for_its_epic(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-child-epic-request');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $child = $this->childOf($epic, 'backlog');
+        $this->document($child, 'tech-design');
+        $request = $this->workRequest($epic, 'breakdown');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('backlog', $child->column->slug);
+
+        $request->state = WorkRequestState::Done;
+        $this->em()->flush();
+        $this->evaluate($child, '2026-10-02 12:10:00');
         self::assertSame('in-progress', $child->column->slug);
     }
 
@@ -1926,6 +1981,7 @@ final class EngineTest extends KernelTestCase
 
         $run->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
+        $this->finishRequests($epic);
         $this->evaluate($epic, '2026-10-02 12:10:00');
         self::assertContains('breakdown-ended', $this->firedRules());
 
@@ -1943,6 +1999,7 @@ final class EngineTest extends KernelTestCase
         $breakdown = $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
         $this->evaluate($epic);
         $child = $this->childOf($epic, 'backlog');
+        $this->document($child, 'tech-design');
         $this->block($child);
 
         $breakdown->moveTo(WorkerRunState::Succeeded);
@@ -1963,12 +2020,14 @@ final class EngineTest extends KernelTestCase
         $resumed = $this->workerRun($epic, 'breakdown', WorkerRunState::Resumed);
         $this->evaluate($epic);
         $child = $this->childOf($epic, 'backlog');
+        $this->document($child, 'tech-design');
 
         $this->evaluate($child, '2026-10-02 12:05:00');
         self::assertSame('backlog', $child->column->slug);
 
         $resumed->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
+        $this->finishRequests($epic);
         $this->evaluate($epic, '2026-10-02 12:10:00');
 
         self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
@@ -1984,12 +2043,14 @@ final class EngineTest extends KernelTestCase
         $run = $this->workerRun($epic, 'implement', WorkerRunState::Running);
         $this->evaluate($epic);
         $child = $this->childOf($epic, 'backlog');
+        $this->document($child, 'tech-design');
 
         $this->evaluate($child, '2026-10-02 12:05:00');
         self::assertSame('backlog', $child->column->slug);
 
         $run->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
+        $this->finishRequests($epic);
         $this->evaluate($epic, '2026-10-02 12:10:00');
 
         self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
@@ -2007,11 +2068,13 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($epic);
         self::assertFalse($this->ruleState($epic, 'breakdown-ended')->truth);
         $child = $this->childOf($epic, 'backlog');
+        $this->document($child, 'tech-design');
         $this->evaluate($child, '2026-10-02 12:05:00');
         self::assertSame('backlog', $child->column->slug);
 
         $run->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
+        $this->finishRequests($epic);
         $this->evaluate($epic, '2026-10-02 12:10:00');
 
         self::assertContains('breakdown-ended', $this->firedRules());
@@ -2743,6 +2806,24 @@ final class EngineTest extends KernelTestCase
         $this->em()->flush();
 
         return $child;
+    }
+
+    private function finishRequests(Card $card): void
+    {
+        foreach ($this->liveRequests($card) as $request) {
+            $request->state = WorkRequestState::Claimed;
+            $request->settle(WorkRequestState::Done, null, new \DateTimeImmutable(self::NOON));
+        }
+        $this->em()->flush();
+    }
+
+    private function workRequest(Card $card, string $kind): WorkRequest
+    {
+        $request = new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, $kind, null, $kind, new \DateTimeImmutable(self::NOON));
+        $this->em()->persist($request);
+        $this->em()->flush();
+
+        return $request;
     }
 
     private function setType(Card $card, string $type): void

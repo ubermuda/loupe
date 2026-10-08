@@ -206,6 +206,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertSame(0, $facts->card->childCount);
         self::assertSame(0, $facts->card->openChildCount);
         self::assertSame([], $facts->card->documents);
+        self::assertSame([], $facts->card->parentDocuments);
         self::assertFalse($facts->card->childMergedIntoEpicBranch);
         self::assertNull($facts->pullRequest);
         self::assertSame([], $facts->pullRequests);
@@ -259,6 +260,23 @@ final class FactsBuilderTest extends KernelTestCase
         ], $this->facts($card)->card->documents);
     }
 
+    public function test_the_parent_documents_are_the_linked_documents_of_the_parent_and_not_of_the_card(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-parent-documents');
+        $epic = $this->card($project, 'in-progress', 'epic');
+        $child = $this->card($project, 'backlog');
+        $child->parent = $epic;
+        $this->em()->flush();
+        $design = $this->document($epic, DocumentStatus::Approved, ['tech-design']);
+        $own = $this->document($child, DocumentStatus::InReview, ['notes']);
+
+        $childFacts = $this->facts($child)->card;
+        self::assertEquals([new DocumentFacts(['tech-design'], 'approved', $design)], $childFacts->parentDocuments);
+        self::assertEquals([new DocumentFacts(['notes'], 'in-review', $own)], $childFacts->documents);
+        self::assertSame([], $this->facts($epic)->card->parentDocuments);
+    }
+
     public function test_the_run_facts_give_the_live_kinds_and_a_refusal_that_settled_last(): void
     {
         self::bootKernel();
@@ -297,6 +315,24 @@ final class FactsBuilderTest extends KernelTestCase
         $epicRun = $this->facts($epic)->run;
         self::assertSame(['breakdown'], $epicRun->activeWorkerKinds);
         self::assertSame([], $epicRun->parentActiveKinds);
+    }
+
+    public function test_the_kinds_of_the_work_requested_for_the_parent_count_as_work_of_the_parent_once(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-parent-requests');
+        $epic = $this->card($project, 'in-progress', 'epic');
+        $child = $this->card($project, 'backlog');
+        $child->parent = $epic;
+        $this->em()->flush();
+        $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->workerRun($epic, 'implement', WorkerRunState::Succeeded);
+        $this->workRequest($epic, 'breakdown', WorkRequestState::Open);
+        $this->workRequest($epic, 'plan', WorkRequestState::Claimed);
+        $this->workRequest($epic, 'design', WorkRequestState::Done, settledAt: '2026-10-02 10:00:00');
+
+        self::assertEqualsCanonicalizing(['breakdown', 'plan'], $this->facts($child)->run->parentActiveKinds);
+        self::assertSame([], $this->facts($epic)->run->parentActiveKinds);
     }
 
     public function test_a_pull_request_maps_its_forge_state(): void

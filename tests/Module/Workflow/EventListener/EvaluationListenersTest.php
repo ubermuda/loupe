@@ -15,6 +15,7 @@ use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardDocumentRepository;
@@ -37,6 +38,7 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Workflow\Entity\WorkflowRuleState;
+use App\Module\Workflow\EventListener\EvaluateCardOnCardDocumentsChanged;
 use App\Module\Workflow\EventListener\EvaluateCardOnWorkRequestChanged;
 use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnDeleted;
 use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnTerminalChanged;
@@ -104,6 +106,18 @@ final class EvaluationListenersTest extends KernelTestCase
         self::assertSame([...$this->ids($card, $old, $new), ...$this->ids($card, $new)], $this->sent());
     }
 
+    public function test_a_document_link_change_asks_for_its_card_and_its_children(): void
+    {
+        [$card, $child] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
+        $this->card($this->project, 'next');
+        $child->parent = $card;
+        $this->em()->flush();
+
+        new EvaluateCardOnCardDocumentsChanged($this->service(CardRepository::class), $this->trigger())(new CardDocumentsChanged($this->projectId(), $card->id ?? throw new \LogicException('A flushed card has an id.')));
+
+        self::assertSame($this->ids($card, $child), $this->sent());
+    }
+
     public function test_a_blocker_removal_asks_for_the_cards_that_lost_it(): void
     {
         [$one, $two] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
@@ -132,16 +146,18 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist($document);
         $this->em()->persist(new CardDocument($one, $document));
         $this->em()->persist(new CardDocument($two, $document));
+        $child = $this->card($this->project, 'next');
+        $child->parent = $one;
         $this->em()->flush();
         $documentId = $document->id ?? throw new \LogicException('A flushed document has an id.');
 
-        new EvaluateCardsOnDocumentStatusChanged($this->service(CardDocumentRepository::class), $this->trigger())(new DocumentStatusChanged($this->projectId(), $documentId));
+        new EvaluateCardsOnDocumentStatusChanged($this->service(CardDocumentRepository::class), $this->service(CardRepository::class), $this->trigger())(new DocumentStatusChanged($this->projectId(), $documentId));
         $statusSent = $this->sent();
         $this->transport()->reset();
-        new EvaluateCardsOnReviewSubmitted($this->service(CardDocumentRepository::class), $this->trigger())(new ReviewSubmitted(new Review($version, Verdict::Approved, $this->project->owner)));
+        new EvaluateCardsOnReviewSubmitted($this->service(CardDocumentRepository::class), $this->service(CardRepository::class), $this->trigger())(new ReviewSubmitted(new Review($version, Verdict::Approved, $this->project->owner)));
 
-        self::assertEqualsCanonicalizing($this->ids($one, $two), $statusSent);
-        self::assertEqualsCanonicalizing($this->ids($one, $two), $this->sent());
+        self::assertEqualsCanonicalizing($this->ids($one, $two, $child), $statusSent);
+        self::assertEqualsCanonicalizing($this->ids($one, $two, $child), $this->sent());
     }
 
     public function test_a_pull_request_change_asks_for_every_card_that_links_it_on_any_known_forge(): void
@@ -206,7 +222,7 @@ final class EvaluationListenersTest extends KernelTestCase
             $changed[] = $event;
         });
 
-        new EvaluateCardOnWorkRequestChanged($events, $this->trigger())(new WorkRequestChanged($this->projectId(), WorkSubject::CARD, $cardId, Uuid::v7(), WorkRequestState::Open));
+        new EvaluateCardOnWorkRequestChanged($events, $this->service(CardRepository::class), $this->trigger())(new WorkRequestChanged($this->projectId(), WorkSubject::CARD, $cardId, Uuid::v7(), WorkRequestState::Open));
 
         self::assertSame($this->ids($card), $this->sent());
         self::assertCount(1, $changed);
@@ -216,6 +232,23 @@ final class EvaluationListenersTest extends KernelTestCase
             $changed[0]->change,
             $changed[0]->contentChanged,
         ]);
+    }
+
+    public function test_a_work_request_change_of_an_epic_also_asks_for_its_children(): void
+    {
+        $epic = $this->card($this->project, 'next');
+        $epic->type = 'epic';
+        [$child, $sibling] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
+        $this->card($this->project, 'next');
+        $child->parent = $epic;
+        $sibling->parent = $epic;
+        $this->em()->flush();
+
+        new EvaluateCardOnWorkRequestChanged(new EventDispatcher(), $this->service(CardRepository::class), $this->trigger())(
+            new WorkRequestChanged($this->projectId(), WorkSubject::CARD, $epic->id ?? throw new \LogicException('A flushed card has an id.'), Uuid::v7(), WorkRequestState::Open),
+        );
+
+        self::assertEqualsCanonicalizing($this->ids($epic, $child, $sibling), $this->sent());
     }
 
     public function test_a_release_resets_the_rules_restarts_the_clock_of_the_open_requests_and_asks_for_the_cards(): void

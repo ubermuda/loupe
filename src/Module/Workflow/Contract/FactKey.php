@@ -13,6 +13,7 @@ enum FactKey: string
     case Parent = 'parent';
     case Children = 'children';
     case Documents = 'documents';
+    case ParentDocuments = 'parent-documents';
     case PullRequest = 'pull-request';
     case PullRequests = 'pull-requests';
     case WorkRequests = 'work-requests';

@@ -51,7 +51,7 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-workflow-app-rules] [data-rule-id="discovery"] [data-condition-source="workflow.source.readiness"]', 'Readiness: card.discovery_requested');
         self::assertSelectorNotExists('[data-workflow-template-rules] [data-rule-id="discovery"]');
         self::assertSelectorExists('[data-manual-move]');
-        self::assertSame(['Anyone', 'A run of the parent epic'], array_values(array_unique($crawler->filter('[data-manual-move-by]')->extract(['_text']))));
+        self::assertSame(['Anyone'], array_values(array_unique($crawler->filter('[data-manual-move-by]')->extract(['_text']))));
         self::assertSame(['feature', 'bug', 'security', 'tooling', 'docs', 'idea', 'epic'], $crawler->filter('[data-workflow-types] [data-card-type]')->extract(['data-card-type']));
         self::assertSelectorTextContains('[data-workflow-types] [data-card-type="feature"]', 'Feature');
         self::assertSelectorTextContains('[data-workflow-types] [data-card-type="feature"]', 'Default');

@@ -57,6 +57,19 @@ final class CardRepositoryTest extends KernelTestCase
         self::assertNull($this->cards->findOneByProjectAndNumber($mine, 2));
     }
 
+    public function test_child_ids_are_the_children_of_that_card_only(): void
+    {
+        $project = $this->makeProject('repo-child-ids');
+        $epic = $this->cardIn($project);
+        $child = $this->cardIn($project);
+        $other = $this->cardIn($project);
+        $child->parent = $epic;
+        $this->em->flush();
+
+        self::assertSame([(string) $child->id], $this->cards->findChildIds($epic->id ?? throw new \LogicException('A stored card has an id.')));
+        self::assertSame([], $this->cards->findChildIds($other->id ?? throw new \LogicException('A stored card has an id.')));
+    }
+
     public function test_refresh_type_and_parent_reads_the_lane_setting_the_database_holds(): void
     {
         $card = $this->cardIn($this->makeProject('repo-refresh-lane'));

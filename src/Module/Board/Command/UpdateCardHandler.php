@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -261,6 +262,12 @@ final readonly class UpdateCardHandler
             if (null !== $move) {
                 $cause = $command->cause ?? (null === $openedRun ? null : CardEventCause::run($openedRun->id ?? throw new \LogicException('A persisted run has an id.'), $openedRun->workKind));
                 $this->events->dispatch(new CardMoved($card, $move, $command->actor, $cause));
+            }
+            if (null !== $documents) {
+                $this->events->dispatch(new CardDocumentsChanged(
+                    $card->project->id ?? throw new \LogicException('Project has no id.'),
+                    $card->id ?? throw new \LogicException('Card has no id.'),
+                ));
             }
             if ($parentChanged) {
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));

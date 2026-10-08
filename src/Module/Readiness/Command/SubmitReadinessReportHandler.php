@@ -7,6 +7,7 @@ namespace App\Module\Readiness\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Readiness\Entity\DiscoveryProposal;
 use App\Module\Readiness\Entity\DiscoveryRunState;
@@ -15,9 +16,9 @@ use App\Module\Readiness\Service\ReadinessReportWriter;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\Document;
-use App\Module\Workflow\Contract\CardEvaluations;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -55,10 +56,10 @@ final readonly class SubmitReadinessReportHandler
         private CardRepository $cards,
         private CreateDocumentHandler $createDocument,
         private ReadinessReportWriter $writer,
-        private CardEvaluations $evaluations,
         private EntityManagerInterface $em,
         private TranslatorInterface $translator,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -137,10 +138,8 @@ final readonly class SubmitReadinessReportHandler
             ],
             new AuditSubject('discovery_run', (string) $run->id),
         );
-        // The rule reads the run state, so the engine evaluates the card again now that the run reported.
-        if ($this->evaluations->isOn()) {
-            $this->evaluations->forCards([$cardId]);
-        }
+        // Also the signal that the run reported: the rule reads the run state, so the engine evaluates the card again.
+        $this->events->dispatch(new CardDocumentsChanged($project->id ?? throw new \LogicException('A stored project has an id.'), $cardId));
 
         return $document;
     }

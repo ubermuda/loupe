@@ -65,8 +65,8 @@ the Workflow panel of the card page.
 A move in the template can name who may make it. A move with
 `by: parent-run` is open to an open worker run of the parent epic, and not
 to a person. The run may be of any work kind, such as a breakdown or a fix.
-An interactive run does not count. A move with no `by` is open to anyone. The
-**Who** column of the manual moves on the Workflow settings page shows who may
+An interactive run does not count. Lifecycle names no such move. A move with
+no `by` is open to anyone. The **Who** column of the manual moves on the Workflow settings page shows who may
 make each move.
 
 ## Pauses and retries
@@ -146,8 +146,7 @@ review. A person can move a card from the Backlog to Next, Product design or
 Tech design, and from Next back to the Backlog or on to a design slot. A person
 can also move a card from Implementation back to Tech design, for example when
 the card has no tech design yet. A card whose tech design is approved goes
-back to Implementation at once when it has no open blocker. A worker run of an
-epic can move a child of that epic from the Backlog to Implementation.
+back to Implementation at once when it has no open blocker.
 
 | Slot | The workflow |
 |---|---|
@@ -174,11 +173,18 @@ Some rules act from any slot:
    terminal column once no child is open. A merged epic also waits while any
    worker run of it is open.
 2. A card in the Backlog whose pull request reopens moves to Implementation.
-3. A child in the Backlog whose last blocker finished moves to Implementation.
-   It waits while any worker run of its epic is open. When the last such run
-   ends, the epic evaluates its children again, in any column. The wait reads
-   the open worker runs of the epic. An older bridge that sends no run key
-   reports a run only after it ends, so its run does not hold the children.
+3. A child of an epic starts only when it links an approved tech design. A
+   child in the Backlog moves to Implementation when it has a document with the
+   tag `tech-design` and the status approved, it has no open blocker, and it has
+   no pull request. It waits while the epic has work in progress. That work is
+   any open worker run of the epic, and any work that the workflow requested for
+   the epic and no bridge finished. When the last such work ends, the epic
+   evaluates its children again, in any column. A change to the work requests
+   of the epic, or to the documents of the child, also evaluates the child. An
+   older bridge that sends no run key reports a run only after it ends, so its
+   run does not hold the children. In a workflow file, the condition
+   `parent.document_approved` with a `tag` is true when a document of the parent
+   card has that tag and is approved.
 4. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
 5. A child that reaches a terminal column with a pull request merged into its
@@ -186,7 +192,7 @@ Some rules act from any slot:
 
 An epic follows its children. An epic whose children all finished moves to In
 review when it has a pull request, and to the terminal column when it has none.
-It moves on only after its breakdown request ends.
+It moves on only after every work request of the epic ends.
 When a child merges into the epic branch and the epic has no open pull request, the
 workflow opens the epic pull request. Such an epic never moves straight to the
 terminal column. It goes through In review with its epic pull request. With

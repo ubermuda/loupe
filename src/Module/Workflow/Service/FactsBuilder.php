@@ -91,12 +91,10 @@ final readonly class FactsBuilder
                 isChild: null !== $card->parent,
                 childCount: $children['total'],
                 openChildCount: $children['total'] - $children['done'],
-                documents: array_map(
-                    static fn (array $document): DocumentFacts => new DocumentFacts($document['tags'], $document['status'], $document['id']),
-                    $this->cardDocuments->findStatusesAndTagsForCard($card),
-                ),
+                documents: $this->documentFacts($card),
                 childMergedIntoEpicBranch: $children['total'] > 0 && null !== $epicBranch
                     && $this->cardPullRequests->childMergedInto($card, $epicBranch),
+                parentDocuments: null === $card->parent ? [] : $this->documentFacts($card->parent),
             ),
             pullRequest: null === $primary ? null : array_find($pullRequestFacts, static fn (PullRequestFacts $facts): bool => true === $primary->id?->equals($facts->id)),
             pullRequests: $pullRequestFacts,
@@ -107,10 +105,34 @@ final readonly class FactsBuilder
                 ))),
                 lastRefusalCode: WorkRequestState::Refused === $settled?->state ? $settled->reason : null,
                 activeWorkerKinds: $this->workerRuns->findOpenWorkKindsOfCard($cardId),
-                parentActiveKinds: null === $card->parent ? [] : $this->workerRuns->findOpenWorkKindsOfCard($card->parent->id ?? throw new \LogicException('A stored card has an id.')),
+                parentActiveKinds: null === $card->parent ? [] : $this->activeKindsOf($card->parent),
             ),
             provided: array_map(static fn (array $result): object => $result[0], $provided),
             fingerprints: array_map(static fn (array $result): mixed => $result[1], array_filter($provided, static fn (array $result): bool => !$result[0] instanceof Unreadable)),
+        );
+    }
+
+    /**
+     * The kinds of the open worker runs and the live work requests of a card, once each.
+     *
+     * @return list<string>
+     */
+    private function activeKindsOf(Card $card): array
+    {
+        $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
+
+        return array_values(array_unique([
+            ...$this->workerRuns->findOpenWorkKindsOfCard($cardId),
+            ...array_map(static fn ($request): string => $request->kind, $this->workRequests->findLiveForCard($cardId)),
+        ]));
+    }
+
+    /** @return list<DocumentFacts> */
+    private function documentFacts(Card $card): array
+    {
+        return array_map(
+            static fn (array $document): DocumentFacts => new DocumentFacts($document['tags'], $document['status'], $document['id']),
+            $this->cardDocuments->findStatusesAndTagsForCard($card),
         );
     }
 
