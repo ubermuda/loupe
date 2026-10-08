@@ -682,6 +682,29 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** The worker run of a claude session: an open run first, then the newest. An interactive run does not count. */
+    public function findWorkerOfSession(Project $project, Uuid $sessionId): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->addSelect('CASE WHEN r.state IN (:openStates) THEN 0 ELSE 1 END AS HIDDEN openFirst')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.kind = :kind')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
+            ->orderBy('openFirst', 'ASC')
+            ->addOrderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** @return list<string> the distinct work kinds of the card's open worker runs, sorted */
     public function findOpenWorkKindsOfCard(Uuid $cardId): array
     {

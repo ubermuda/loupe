@@ -14,6 +14,7 @@ use App\Module\Workflow\Condition\CardHasOpenBlocker;
 use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\CardInSlot;
 use App\Module\Workflow\Condition\CardIsChild;
+use App\Module\Workflow\Condition\ParentDocumentApproved;
 use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\FactKey;
@@ -77,6 +78,12 @@ final class CardConditionsTest extends TestCase
         yield 'changes requested, tagged document' => [new CardDocumentChangesRequested(), ['tag' => 'design'], self::card(documents: [$changesOnDesign]), true];
         yield 'changes requested, tagged document approved' => [new CardDocumentChangesRequested(), ['tag' => 'design'], self::card(documents: [$approvedDesign]), false];
         yield 'changes requested, other tag' => [new CardDocumentChangesRequested(), ['tag' => 'product'], self::card(documents: [$changesOnDesign]), false];
+
+        yield 'parent approved, tagged document of the parent approved' => [new ParentDocumentApproved(), ['tag' => 'design'], self::card(parentDocuments: [$designInReview, $approvedDesign]), true];
+        yield 'parent approved, tagged document of the parent in review' => [new ParentDocumentApproved(), ['tag' => 'design'], self::card(parentDocuments: [$designInReview]), false];
+        yield 'parent approved, other tag approved' => [new ParentDocumentApproved(), ['tag' => 'design'], self::card(parentDocuments: [$approvedProduct]), false];
+        yield 'parent approved, no parent document' => [new ParentDocumentApproved(), ['tag' => 'design'], self::card(), false];
+        yield 'parent approved, only the card has the approved document' => [new ParentDocumentApproved(), ['tag' => 'design'], self::card(documents: [$approvedDesign]), false];
     }
 
     /**
@@ -111,6 +118,7 @@ final class CardConditionsTest extends TestCase
         yield 'card.document' => [new CardDocument(), ['tag' => 'design'], 'workflow.waiting.card_document', ['%tag%' => 'design']];
         yield 'card.document_approved' => [new CardDocumentApproved(), ['tag' => 'design'], 'workflow.waiting.card_document_approved', ['%tag%' => 'design']];
         yield 'card.document_changes_requested' => [new CardDocumentChangesRequested(), ['tag' => 'design'], 'workflow.waiting.card_document_changes_requested', ['%tag%' => 'design']];
+        yield 'parent.document_approved' => [new ParentDocumentApproved(), ['tag' => 'design'], 'workflow.waiting.parent_document_approved', ['%tag%' => 'design']];
     }
 
     public function test_a_document_condition_with_a_status_names_the_status_it_waits_for(): void
@@ -149,9 +157,13 @@ final class CardConditionsTest extends TestCase
         yield 'card.document with a status' => [new CardDocument(), ['tag' => 'design', 'status' => 'approved'], [FactKey::Documents]];
         yield 'card.document_approved' => [new CardDocumentApproved(), ['tag' => 'design'], [FactKey::Documents]];
         yield 'card.document_changes_requested' => [new CardDocumentChangesRequested(), ['tag' => 'design'], [FactKey::Documents]];
+        yield 'parent.document_approved' => [new ParentDocumentApproved(), ['tag' => 'design'], [FactKey::ParentDocuments]];
     }
 
-    /** @param list<DocumentFacts> $documents */
+    /**
+     * @param list<DocumentFacts> $documents
+     * @param list<DocumentFacts> $parentDocuments
+     */
     private static function card(
         ?string $slot = null,
         string $type = 'feature',
@@ -161,6 +173,7 @@ final class CardConditionsTest extends TestCase
         int $openChildCount = 0,
         array $documents = [],
         bool $childMergedIntoEpicBranch = false,
+        array $parentDocuments = [],
     ): Facts {
         return FactsMother::facts(card: FactsMother::card(
             slot: $slot,
@@ -171,6 +184,7 @@ final class CardConditionsTest extends TestCase
             openChildCount: $openChildCount,
             documents: $documents,
             childMergedIntoEpicBranch: $childMergedIntoEpicBranch,
+            parentDocuments: $parentDocuments,
         ));
     }
 }

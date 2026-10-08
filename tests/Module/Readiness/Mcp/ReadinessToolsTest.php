@@ -172,7 +172,7 @@ final class ReadinessToolsTest extends KernelTestCase
 
         $cases = [
             'Call readiness_get or discovery_start for the runId' => [Uuid::v4()->toRfc4122(), [$finding], [$proposal]],
-            'A proposal type must be one of feature, bug' => [(string) $run->id, [$finding], [['type' => 'epic'] + $proposal]],
+            'A proposal type must be one of feature, bug, security, tooling, docs, idea. Call board_columns' => [(string) $run->id, [$finding], [['type' => 'epic'] + $proposal]],
             'Two proposals have the same key' => [(string) $run->id, [$finding], [$proposal, $proposal]],
             'Each finding needs a check, a status and an evidence text, all as strings' => [(string) $run->id, [['check' => 'x']], []],
             'Each proposal needs a key, a title, a type and a body as strings' => [(string) $run->id, [$finding], [['key' => 'a']]],

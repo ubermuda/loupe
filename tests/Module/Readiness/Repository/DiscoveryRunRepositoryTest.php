@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Readiness\Repository;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Readiness\Entity\DiscoveryProposal;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
@@ -144,9 +143,9 @@ final class DiscoveryRunRepositoryTest extends KernelTestCase
         $run = $this->discoveryRun($this->discoveryCard($this->workflowProject('discovery-proposals')));
         $other = $this->discoveryRun($this->discoveryCard($run->project));
         foreach ([['c', null], ['b', 1], ['a', 0]] as [$key, $position]) {
-            $this->em()->persist(new DiscoveryProposal($run, $position, $key, $key, CardType::Docs, ''));
+            $this->em()->persist(new DiscoveryProposal($run, $position, $key, $key, 'docs', ''));
         }
-        $this->em()->persist(new DiscoveryProposal($other, 0, 'z', 'z', CardType::Docs, ''));
+        $this->em()->persist(new DiscoveryProposal($other, 0, 'z', 'z', 'docs', ''));
         $this->em()->flush();
         $repository = self::getContainer()->get(DiscoveryProposalRepository::class);
         self::assertInstanceOf(DiscoveryProposalRepository::class, $repository);

@@ -13,7 +13,6 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\BoardToolErrorMessages;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -144,7 +143,7 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
             project: $this->project,
             title: 'A card',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             pullRequestUrls: $pullRequestUrls,
         ));
     }

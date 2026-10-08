@@ -150,15 +150,18 @@ test('secondary text and active navigation counts remain legible on their render
         await expect(text).toBeVisible();
         expect.soft(await contrast(text), selector).toBeGreaterThanOrEqual(4.5);
     }
-    await page.goto(`/projects/${projectId}`);
     // The harness project outlives a run, so an earlier run may have hidden the readiness guide already.
-    const hideGuide = page.locator(
-        '[data-readiness-layout="full"] [data-readiness-hide]',
-    );
-    if ((await hideGuide.count()) > 0) {
-        await hideGuide.click();
-    }
-    await expect(page.locator('.lp-workshop-summary')).toBeVisible();
+    // The hide submission can stall, or a live reload of the guide can cancel it, so a failed attempt loads the page again.
+    await expect(async () => {
+        await page.goto(`/projects/${projectId}`);
+        const hideGuide = page.locator(
+            '[data-readiness-layout="full"] [data-readiness-hide]',
+        );
+        if ((await hideGuide.count()) > 0) {
+            await hideGuide.click({ timeout: 5000 });
+        }
+        await expect(page.locator('.lp-workshop-summary')).toBeVisible();
+    }).toPass({ timeout: 30_000 });
     const descriptions = page.locator('.lp-workshop-stat__copy');
     expect(await descriptions.count()).toBeGreaterThan(0);
     for (const description of await descriptions.all()) {

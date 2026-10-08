@@ -6,7 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\CardSource;
 use App\Module\Project\Entity\Project;
 
 final readonly class CreateCardCommand
@@ -20,7 +20,7 @@ final readonly class CreateCardCommand
         public Project $project,
         public string $title,
         public string $body,
-        public CardType $type,
+        public string $type,
         /** Null lands the card in the board's Backlog. */
         public ?BoardColumn $column = null,
         public CardReporter $reporter = CardReporter::Agent,
@@ -34,6 +34,8 @@ final readonly class CreateCardCommand
         public ?bool $laneEnabled = null,
         /** Who makes the call, for the card's history. Null means the reporter. */
         public ?CardReporter $actor = null,
+        /** Null derives the source from the reporter. */
+        public ?CardSource $source = null,
     ) {
     }
 }

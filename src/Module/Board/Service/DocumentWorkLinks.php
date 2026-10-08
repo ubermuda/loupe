@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
@@ -122,6 +123,10 @@ final readonly class DocumentWorkLinks implements DocumentWorkLinksInterface
             $card->id ?? throw new \LogicException('Card has no id.'),
             CardChanged::UPDATED,
             false,
+        ));
+        $this->events->dispatch(new CardDocumentsChanged(
+            $card->project->id ?? throw new \LogicException('Project has no id.'),
+            $card->id ?? throw new \LogicException('Card has no id.'),
         ));
     }
 }

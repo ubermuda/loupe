@@ -6,7 +6,7 @@ namespace App\Tests\Module\Readiness\EventListener;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Command\ReportFinding;
@@ -74,8 +74,9 @@ final class CreateTickedCardsOnReviewSubmittedTest extends KernelTestCase
         foreach ($created as $card) {
             self::assertSame($this->column($this->project, 'next'), $card->column);
             self::assertSame(CardReporter::Agent, $card->reporter);
+            self::assertSame(CardSourceKind::Loupe, $card->source->kind);
         }
-        self::assertSame([CardType::Feature, CardType::Tooling], array_map(static fn (Card $card): CardType => $card->type, $created));
+        self::assertSame(['feature', 'tooling'], array_map(static fn (Card $card): string => $card->type, $created));
         self::assertSame('Write the first tests.', $created[0]->body);
         self::assertSame([(string) $created[0]->id, null, (string) $created[1]->id, null], array_map(static fn (DiscoveryProposal $proposal): ?string => $proposal->createdCardId?->toRfc4122(), $this->proposals()));
         self::assertTrue($this->run->card->column->terminal);

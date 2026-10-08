@@ -179,6 +179,17 @@ class CardEventRepository extends ServiceEntityRepository
         }, $rows);
     }
 
+    /** The type the card was created with, or null when its `created` row records none. */
+    public function createdType(Card $card): ?string
+    {
+        $type = $this->getEntityManager()->getConnection()->fetchOne(
+            "SELECT detail->>'type' FROM board_card_events WHERE card_id = :card AND kind = :kind ORDER BY occurred_at, id LIMIT 1",
+            ['card' => (string) $card->id, 'kind' => CardEventKind::Created->value],
+        );
+
+        return \is_string($type) && '' !== $type ? $type : null;
+    }
+
     public function findFirstOccurredAt(Project $project): ?\DateTimeImmutable
     {
         $connection = $this->getEntityManager()->getConnection();

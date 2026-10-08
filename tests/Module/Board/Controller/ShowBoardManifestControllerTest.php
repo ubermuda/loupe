@@ -9,7 +9,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
@@ -133,7 +132,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'In the lane', 'triage', 0));
         $other = $this->card($em, $project, 'Outside', 'triage', 1);
         $em->clear();
@@ -162,7 +161,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), 'epic');
         $this->childOf($em, $epic, $this->card($em, $project, 'Waiting child', 'backlog', 1));
         $other = $this->card($em, $project, 'Outside', 'triage');
         $joining = $this->card($em, $project, 'Waiting with no epic yet', 'backlog', 2);
@@ -386,8 +385,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $first = $this->typed($em, $this->card($em, $project, 'First epic', 'next', 0), CardType::Epic);
-        $second = $this->typed($em, $this->card($em, $project, 'Second epic', 'next', 1), CardType::Epic);
+        $first = $this->typed($em, $this->card($em, $project, 'First epic', 'next', 0), 'epic');
+        $second = $this->typed($em, $this->card($em, $project, 'Second epic', 'next', 1), 'epic');
         $em->clear();
 
         $client->loginUser($owner);
@@ -581,7 +580,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $card->laneEnabled = false;
 
-        return $this->typed($em, $card, CardType::Epic);
+        return $this->typed($em, $card, 'epic');
     }
 
     /** @param \Closure(Card): void $change */
