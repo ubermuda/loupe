@@ -8,6 +8,8 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Entity\CardSource;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -91,6 +93,7 @@ final readonly class AddFeedbackHandler
                 type: $this->catalog->forProject($command->project)->defaultKey,
                 reporter: CardReporter::Reviewer,
                 parentCardId: $command->parentCardId,
+                source: new CardSource(CardSourceKind::Widget),
             ));
 
             $comment = ($this->addComment)($this->addCommentCommand($command));

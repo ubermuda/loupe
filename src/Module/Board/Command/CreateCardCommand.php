@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSource;
 use App\Module\Project\Entity\Project;
 
 final readonly class CreateCardCommand
@@ -33,6 +34,8 @@ final readonly class CreateCardCommand
         public ?bool $laneEnabled = null,
         /** Who makes the call, for the card's history. Null means the reporter. */
         public ?CardReporter $actor = null,
+        /** Null derives the source from the reporter. */
+        public ?CardSource $source = null,
     ) {
     }
 }

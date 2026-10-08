@@ -14,6 +14,8 @@ use App\Module\Board\Command\ShowCardPlacementCommand;
 use App\Module\Board\Command\ShowCardPlacementHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSource;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Form\CreateCardFormType;
 use App\Module\Board\Form\CreateCardRequest;
 use App\Module\Board\Service\CardTypeCatalog;
@@ -75,6 +77,7 @@ final class CreateCardController extends AppController
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
                     relatedCards: $data->linkInputs(),
                     parentCardId: null === $data->parent ? null : (string) $data->parent->id,
+                    source: new CardSource(CardSourceKind::Person),
                 ));
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);

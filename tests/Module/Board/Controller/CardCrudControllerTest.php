@@ -11,6 +11,7 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -162,6 +163,7 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('tooling', $created->type);
         // A form is a person writing the card down, whatever an agent does later.
         self::assertSame(CardReporter::Human, $created->reporter);
+        self::assertSame(CardSourceKind::Person, $created->source->kind);
         self::assertCount(2, $created->pullRequests);
     }
 
