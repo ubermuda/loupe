@@ -359,14 +359,16 @@ work:
 
 | Field | Required | Purpose |
 |---|---|---|
-| `harness` | yes | The agent tool of the account. This release loads `claude-code` only |
-| `configDir` | no | The Claude Code config folder of the account. The bridge sets `CLAUDE_CONFIG_DIR` to it for each run |
+| `harness` | yes | The agent tool of the account, `claude-code` or `codex` |
+| `configDir` | no | The Claude Code config folder of the account. The bridge sets `CLAUDE_CONFIG_DIR` to it for each run. A `codex` account refuses it |
+| `codexHome` | no | The Codex home folder of a `codex` account. The bridge sets `CODEX_HOME` to it for each run. A `claude-code` account refuses it |
+| `profile` | no | The Codex profile of a `codex` account, which names the file `<profile>.config.toml` in the Codex home folder. A `claude-code` account refuses it |
 | `model` | no | The model of the account's runs, when the entry or the variant names none |
-| `permissionMode` | no | A Claude Code permission mode, when the entry or the variant names no level |
+| `permissionMode` | no | A permission mode of the harness, when the entry or the variant names no level. For `codex` it is `read-only`, `workspace-write` or `danger-full-access` |
 | `envFile` | no | An [environment file](#environment-files) that each run of the account reads |
 
 An account name is 1 to 40 lowercase letters, digits and hyphens, and starts
-with a letter. A file declares at most 50 accounts. `configDir` and `envFile` are absolute paths or start with `~/`.
+with a letter. A file declares at most 50 accounts. `configDir`, `codexHome` and `envFile` are absolute paths or start with `~/`. A `profile` is 1 to 64 letters, digits, dots, underscores and hyphens, and starts with a letter or a digit.
 Neither path has to exist when the file loads. `defaults.account` is required,
 and it names an account of the block. The bridge refuses the file at start, and
 a reload fails, when an entry names an account that the block does not declare.
@@ -385,18 +387,21 @@ A run takes the first model that this list sets:
 `permissions` sets a permission level, on an entry, on a variant or in
 `defaults.permissions`. The harness maps each level to a mode of its own:
 
-| Level | Claude Code mode |
-|---|---|
-| `read-only` | `plan` |
-| `workspace` | `auto` |
-| `full` | `bypassPermissions` |
+| Level | Claude Code mode | Codex sandbox |
+|---|---|---|
+| `read-only` | `plan` | `read-only` |
+| `workspace` | `auto` | `workspace-write` |
+| `full` | `bypassPermissions` | `danger-full-access` |
 
 A worker run takes the first mode that this list sets:
 
 1. the level of the variant or the entry
-2. the `permissionMode` of the account, which is a native Claude Code mode
+2. the `permissionMode` of the account, which is a native mode of its harness
 3. the level in `defaults.permissions`
 4. the `--permission-mode` flag of `loupe bridge run`
+
+The `--model` and `--permission-mode` flags name Claude Code values. A run on a
+`codex` account ignores both.
 
 A variant with no `account` or no `permissions` takes the value of its entry.
 An [interactive entry](#interactive-action) takes its mode from its own
@@ -422,8 +427,9 @@ reload and no restart. It reads the global file first, then the file of the
 account, so the account value wins. A missing file or a bad line fails the run
 before it starts. The reason names the file and the line, and never a value.
 
-An environment file cannot set `CLAUDE_CONFIG_DIR`, and the run fails when one
-does. Set `configDir` on the account instead. An interactive launch writes the
+An environment file cannot set the config folder variable of its harness, which
+is `CLAUDE_CONFIG_DIR` for `claude-code` and `CODEX_HOME` for `codex`. The run
+fails when one does. Set `configDir`, or `codexHome`, on the account instead. An interactive launch writes the
 variables into its launch script, because the terminal does not take the
 bridge's environment. The script is readable by its owner only, and it deletes
 itself when it runs.
@@ -438,6 +444,72 @@ type `/login` in that session.
 Claude Code also reads its MCP servers and its skills from the config folder.
 Add the `loupe` MCP server to each config folder. Install the Loupe skills in
 each config folder too. Otherwise a worker of that account cannot reach Loupe.
+
+### A Codex account
+
+An account with `harness: codex` runs its workers with `codex exec`. The bridge
+is tested with Codex 0.155.1, and needs `codex` on the `PATH` of the account.
+
+```yaml
+accounts:
+  openrouter:
+    harness: codex
+    codexHome: ~/.codex
+    profile: openrouter
+    model: openrouter/free
+    envFile: ~/loupe/openrouter.env
+```
+
+The profile `openrouter` is the file `~/.codex/openrouter.config.toml`:
+
+```toml
+model = "openrouter/free"
+model_provider = "openrouter"
+
+[model_providers.openrouter]
+name = "OpenRouter"
+base_url = "https://openrouter.ai/api/v1"
+env_key = "OPENROUTER_API_KEY"
+wire_api = "responses"
+```
+
+The profile names the variable in `env_key`. Put that variable in the
+`envFile` of the account, such as `OPENROUTER_API_KEY=...`. An account with no
+`profile` uses the login of the Codex home folder, which `codex login` makes.
+
+Each permission level maps to a sandbox of Codex. The `workspace` level
+turns the network on. It also adds the git folder of the main repository as a
+writable folder, because a worker in a git worktree keeps its index and refs
+there. The `read-only` level turns the network off. The `full` level starts
+Codex with `--dangerously-bypass-approvals-and-sandbox`, so Codex runs no
+sandbox.
+
+Codex does not read the Loupe tools until you add the MCP server to the Codex
+home folder. Run this once for each Codex home folder:
+
+```sh
+CODEX_HOME=~/.codex codex mcp add loupe -- loupe mcp
+```
+
+The bridge does not check this. A worker without the Loupe tools cannot read its
+card, so the run fails.
+
+After each run, the bridge checks that Codex used the provider that the profile
+names. A run on another provider fails with the message `codex ran on provider X
+but profile P names Y`.
+
+The bridge gives each run its own id, and Codex picks its own thread id. The
+bridge keeps the pair in the `codex-threads` folder of its config folder, so
+`resume` continues the right thread.
+
+Limits of this release:
+
+- The run page shows the tokens and the cost of a Codex run. The cost is empty
+  for a model with no list price, such as `openrouter/free`. The tool call and
+  timing metrics of a Codex run come in a later release.
+- An [interactive entry](#interactive-action) on a `codex` account is not
+  supported yet, and the bridge refuses a rule file that has one.
+- The `effort` of a work request does not reach Codex.
 
 ### Account checks
 
@@ -460,6 +532,17 @@ questions:
    when a `loupe-*` folder with a `SKILL.md` is in `.claude/skills` of the
    project or in `skills` of the config folder, or when an enabled `loupe@`
    plugin is installed.
+
+A check of a Codex account asks these questions:
+
+1. Is `codex` on the `PATH` of the account?
+2. Does the `codexHome` folder exist, when the account sets one?
+3. Does the profile file exist, when the account sets a `profile`? If it does,
+   the variable named by `env_key` in the profile must hold a value in the
+   environment of the account.
+4. Does `codex login status` pass, when the account sets no `profile`?
+
+The check reads no MCP config.
 
 A failing account turns off its own entries only. An entry is off when its
 account, or the account of one of its variants, fails. Every other entry keeps

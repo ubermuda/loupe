@@ -212,7 +212,7 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := decodeWorkerOutput(defaultHarness(), out.Result, []byte(tc.stdout), tc.overflow, tc.stderr)
+			got := decodeWorkerOutput(defaultHarness().Output(out.Result), []byte(tc.stdout), tc.overflow, tc.stderr)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("decodeWorkerOutput = %+v, want %+v", got, tc.want)
 			}
@@ -282,11 +282,11 @@ func TestCapWriterKeepsShortOutputWhole(t *testing.T) {
 // A run record of an older image names no harness, so it reads as Claude Code.
 func TestHarnessByName(t *testing.T) {
 	for _, name := range []string{"", "claude-code"} {
-		if h, err := harnessByName(name, ""); err != nil || h.Name() != "claude-code" {
+		if h, err := harnessByName(name, "", ""); err != nil || h.Name() != "claude-code" {
 			t.Fatalf("harnessByName(%q) = %v, %v", name, h, err)
 		}
 	}
-	if _, err := harnessByName("other", ""); err == nil {
+	if _, err := harnessByName("other", "", ""); err == nil {
 		t.Fatal("an unknown harness resolved")
 	}
 	if got := recordHarness(runRecord{Harness: "other"}).Name(); got != "claude-code" {

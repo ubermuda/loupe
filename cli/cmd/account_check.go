@@ -70,13 +70,13 @@ func checkAccounts(ctx context.Context, set *rules.Set) []accountResult {
 func checkAccount(ctx context.Context, set *rules.Set, name string, projects map[string]string) accountResult {
 	run, _ := set.Account(name, "")
 	res := accountResult{name: name, harness: harnessNameOf(run)}
-	h, err := harnessByName(run.Harness, run.ConfigDir)
+	h, err := harnessByName(run.Harness, run.ConfigDir, run.Profile)
 	if err != nil {
 		res.problems = []harn.Problem{{Reason: "unknown harness", Detail: err.Error()}}
 
 		return res
 	}
-	env, err := workerSpec{envFiles: run.EnvFiles, configDir: run.ConfigDir}.accountEnv()
+	env, err := workerSpec{envFiles: run.EnvFiles, harnessName: run.Harness, configDir: run.ConfigDir}.accountEnv()
 	if err != nil {
 		res.problems = []harn.Problem{{Reason: "env file does not read", Detail: err.Error()}}
 

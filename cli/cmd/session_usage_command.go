@@ -30,7 +30,7 @@ func (r *router) collectSessionUsage(c api.Command) (state, reason string) {
 	if set := r.rules(); set != nil {
 		run, _ = set.Account(c.Account, "")
 	}
-	usage, err := harnessOf(run.Harness, run.ConfigDir).SessionUsage(c.SessionID, *c.StartedAt, windowEnd(*c.EndedAt))
+	usage, err := harnessOf(run.Harness, run.ConfigDir, run.Profile).SessionUsage(c.SessionID, *c.StartedAt, windowEnd(*c.EndedAt))
 	if errors.Is(err, transcript.ErrNotFound) {
 		return api.CommandRefused, noSessionTranscript
 	}

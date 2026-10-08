@@ -114,8 +114,11 @@ type workerSpec struct {
 	account     string
 	harnessName string
 	configDir   string
+	profile     string
 	envFiles    []string
 	env         []string
+	// runDir is the run directory, which startWorker sets.
+	runDir string
 	// agent is the GitHub user that the worker pushes as, or nil.
 	agent *config.AgentAccount
 }
@@ -240,6 +243,7 @@ type runRecord struct {
 	Harness   string `json:"harness,omitempty"`
 	Account   string `json:"account,omitempty"`
 	ConfigDir string `json:"configDir,omitempty"`
+	Profile   string `json:"profile,omitempty"`
 	// Baseline is the session's usage before a resume started. A resume with
 	// no baseline could not read it.
 	Baseline *transcript.Usage `json:"baseline,omitempty"`
@@ -329,6 +333,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, "", nil, fmt.Errorf("create run directory: %w", err)
 	}
+	spec.runDir = dir
 
 	// Each stream has its own file, so stdout holds claude's JSON alone. The
 	// shell holds its own copies once it starts.
@@ -345,6 +350,11 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 
 	status := filepath.Join(dir, "status")
 	command := spec.harnessCommand(workerEnv(envfile.Overlay(os.Environ(), spec.env), spec.sessionID, spec.agent))
+	for path, content := range command.Files {
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			return nil, dir, nil, fmt.Errorf("write worker file: %w", err)
+		}
+	}
 	cmd := exec.CommandContext(ctx, "/bin/sh", append([]string{"-c", workerShell, status, h.Program()}, command.Args...)...)
 	cmd.Dir = spec.dir
 	cmd.Env = command.Env
@@ -378,7 +388,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
 		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model, Effort: spec.effort,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
-		Harness: h.Name(), Account: spec.account, ConfigDir: spec.configDir, Baseline: baseline,
+		Harness: h.Name(), Account: spec.account, ConfigDir: spec.configDir, Profile: spec.profile, Baseline: baseline,
 	}
 	// A worker with no record cannot outlive this bridge, so it does not run.
 	if err := writeRunRecord(dir, rec); err != nil {
@@ -403,12 +413,25 @@ func createOutput(dir, name string) (*os.File, error) {
 // workerOutcome reads how the worker in dir ended. waitErr is a fault of the
 // wait itself, and not the exit of a process that ran.
 func workerOutcome(dir string, killed bool, waitErr error) workerResult {
-	out, stdoutErr := stream.ReadFile(filepath.Join(dir, "stdout"))
 	head, headErr := readCapped(filepath.Join(dir, "stdout"), maxOutput)
 	stderr, stderrErr := readCapped(filepath.Join(dir, "stderr"), maxOutput)
 	rec, recErr := readRunRecord(dir)
-	res := decodeWorkerOutput(recordHarness(rec), out.Result, head.buf.Bytes(), head.dropped, stderr.text())
-	if stdoutErr == nil {
+	h := recordHarness(rec)
+	// A harness that reads a run from files has no stream, so its calls and
+	// timing stay unknown.
+	var doc harn.Output
+	var out stream.Output
+	var stdoutErr error
+	streamed := false
+	if reader, ok := h.(harn.RunReader); ok {
+		doc = reader.ReadRun(dir, harn.RunInfo{SessionID: rec.SessionID, Model: rec.Model})
+	} else {
+		out, stdoutErr = stream.ReadFile(filepath.Join(dir, "stdout"))
+		doc = h.Output(out.Result)
+		streamed = stdoutErr == nil
+	}
+	res := decodeWorkerOutput(doc, head.buf.Bytes(), head.dropped, stderr.text())
+	if streamed {
 		res.streamed, res.calls, res.timing, res.peakContextTokens = true, out.Calls, out.Timing, out.PeakContextTokens
 	}
 	if readErr := errors.Join(cmp.Or(stdoutErr, headErr), stderrErr); readErr != nil {
@@ -497,13 +520,11 @@ func (w *capWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// decodeWorkerOutput reads the result line of the worker's stdout through its
-// harness. result is nil when there is none. raw is the start of stdout, and
-// cut says stdout goes on past it. The output is the first non-empty of the
-// summary, the harness's result text, stderr and the plain lines of raw when
-// no result line decodes.
-func decodeWorkerOutput(h harn.Harness, result, raw []byte, cut bool, stderr string) workerResult {
-	doc := h.Output(result)
+// decodeWorkerOutput reads the result the harness decoded from the worker's
+// output. raw is the start of stdout, and cut says stdout goes on past it. The
+// output is the first non-empty of the summary, the harness's result text,
+// stderr and the plain lines of raw when no result line decodes.
+func decodeWorkerOutput(doc harn.Output, raw []byte, cut bool, stderr string) workerResult {
 	var res workerResult
 	var summary, rawText string
 	if !doc.Decoded {

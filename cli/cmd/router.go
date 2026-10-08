@@ -331,7 +331,7 @@ func (s *workerSpec) useRun(m rules.Match) {
 }
 
 func (s *workerSpec) useSettings(r rules.RunSettings) {
-	s.account, s.harnessName, s.configDir, s.envFiles = r.Account, r.Harness, r.ConfigDir, slices.Clone(r.EnvFiles)
+	s.account, s.harnessName, s.configDir, s.profile, s.envFiles = r.Account, r.Harness, r.ConfigDir, r.Profile, slices.Clone(r.EnvFiles)
 	s.model, s.permissionMode = r.Model, r.PermissionMode
 }
 
@@ -1026,7 +1026,7 @@ func (r *router) resumeDir(p pending) (pending, string) {
 	// hold the session that the work request names.
 	// A read error says nothing about the session, so the resume goes on.
 	if p.event.Type != event.CommandType {
-		run := rules.RunSettings{Harness: p.spec.harnessName, ConfigDir: p.spec.configDir}
+		run := rules.RunSettings{Harness: p.spec.harnessName, ConfigDir: p.spec.configDir, Profile: p.spec.profile}
 		err := r.findSession(p.spec.sessionID, run)
 		if errors.Is(err, transcript.ErrNotFound) {
 			return r.freshSession(p, "resume_session_missing", "the session is not in the config folder of account "+p.spec.account)

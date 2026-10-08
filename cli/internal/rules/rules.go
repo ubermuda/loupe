@@ -106,8 +106,15 @@ var PermissionModes = []string{"acceptEdits", "auto", "bypassPermissions", "defa
 // HarnessClaudeCode is the harness of an account that runs Claude Code.
 const HarnessClaudeCode = "claude-code"
 
-// harnessCodex is a harness a later release of the CLI adds.
-const harnessCodex = "codex"
+// HarnessCodex is the harness of an account that runs Codex.
+const HarnessCodex = "codex"
+
+// CodexModes are the sandbox modes `codex exec -s` takes.
+var CodexModes = []string{"read-only", "workspace-write", "danger-full-access"}
+
+// profilePattern matches the profile of a Codex account, which names a file
+// in the Codex home folder.
+var profilePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 // The permission levels a rule names. A harness maps each to a mode of its own.
 const (
@@ -121,6 +128,22 @@ var claudeCodeModes = map[string]string{
 	PermissionsReadOnly:  "plan",
 	PermissionsWorkspace: "auto",
 	PermissionsFull:      "bypassPermissions",
+}
+
+// codexModes maps each permission level to a Codex sandbox mode.
+var codexModes = map[string]string{
+	PermissionsReadOnly:  "read-only",
+	PermissionsWorkspace: "workspace-write",
+	PermissionsFull:      "danger-full-access",
+}
+
+// levelModes is the map from a permission level to a mode of the harness.
+func levelModes(harness string) map[string]string {
+	if harness == HarnessCodex {
+		return codexModes
+	}
+
+	return claudeCodeModes
 }
 
 // MaxAccounts is the most accounts a file declares, because the heartbeat
@@ -175,6 +198,10 @@ type FileDefaults struct {
 type Account struct {
 	Harness   string `yaml:"harness"`
 	ConfigDir string `yaml:"configDir"`
+	// CodexHome is the Codex home folder, and Profile names a
+	// <profile>.config.toml file in it. Only a codex account takes them.
+	CodexHome string `yaml:"codexHome"`
+	Profile   string `yaml:"profile"`
 	Model     string `yaml:"model"`
 	// PermissionMode is a mode of the harness, and a rule's level beats it.
 	PermissionMode string `yaml:"permissionMode"`
@@ -184,9 +211,13 @@ type Account struct {
 // RunSettings are what an agent run takes from its account, its entry and the
 // defaults. EnvFiles lists the global file before the account's.
 type RunSettings struct {
-	Account        string
-	Harness        string
-	ConfigDir      string
+	Account string
+	Harness string
+	// ConfigDir is the config folder of Claude Code, or the home folder of
+	// Codex.
+	ConfigDir string
+	// Profile is the Codex profile, and "" for any other harness.
+	Profile        string
 	Model          string
 	PermissionMode string
 	// Permissions is the level of the entry, and "" when it names none.
@@ -475,15 +506,15 @@ func checkAccounts(accounts map[string]Account, root *yaml.Node) (map[string]Acc
 		case HarnessClaudeCode:
 		case "":
 			errs = append(errs, fmt.Errorf("%saccounts.%s: harness is required, such as %s", lineOf(root, "accounts", name), name, HarnessClaudeCode))
-		case harnessCodex:
-			errs = append(errs, fmt.Errorf("%saccounts.%s.harness: %s is not supported yet, and a later release of the CLI adds Codex", at("harness"), name, harnessCodex))
+		case HarnessCodex:
 		default:
-			errs = append(errs, fmt.Errorf("%saccounts.%s.harness %q is not a harness; this CLI accepts %s", at("harness"), name, a.Harness, HarnessClaudeCode))
+			errs = append(errs, fmt.Errorf("%saccounts.%s.harness %q is not a harness; this CLI accepts %s and %s", at("harness"), name, a.Harness, HarnessClaudeCode, HarnessCodex))
 		}
+		errs = append(errs, checkHarnessKeys(a, name, at)...)
 		for _, field := range []struct {
 			key   string
 			value *string
-		}{{"configDir", &a.ConfigDir}, {"envFile", &a.EnvFile}} {
+		}{{"configDir", &a.ConfigDir}, {"codexHome", &a.CodexHome}, {"envFile", &a.EnvFile}} {
 			if *field.value == "" {
 				continue
 			}
@@ -498,10 +529,36 @@ func checkAccounts(accounts map[string]Account, root *yaml.Node) (map[string]Acc
 				errs = append(errs, fmt.Errorf("%saccounts.%s.%w", at(field[0]), name, err))
 			}
 		}
+		if a.Harness == HarnessCodex && a.PermissionMode != "" && !slices.Contains(CodexModes, a.PermissionMode) {
+			errs = append(errs, fmt.Errorf("%saccounts.%s.permissionMode %q is not %s", at("permissionMode"), name, a.PermissionMode, strings.Join(CodexModes, ", ")))
+		}
 		out[name] = a
 	}
 
 	return out, errs
+}
+
+// checkHarnessKeys refuses an account key that belongs to the other harness,
+// and a profile that is no file name.
+func checkHarnessKeys(a Account, name string, at func(string) string) []error {
+	var errs []error
+	switch a.Harness {
+	case HarnessCodex:
+		if a.ConfigDir != "" {
+			errs = append(errs, fmt.Errorf("%saccounts.%s.configDir: a codex account takes codexHome, and configDir is for claude-code", at("configDir"), name))
+		}
+		if a.Profile != "" && !profilePattern.MatchString(a.Profile) {
+			errs = append(errs, fmt.Errorf("%saccounts.%s.profile %q is not 1 to 64 letters, digits, dots, underscores and hyphens, and starts with a letter or digit", at("profile"), name, a.Profile))
+		}
+	case HarnessClaudeCode:
+		for _, field := range [][2]string{{"codexHome", a.CodexHome}, {"profile", a.Profile}} {
+			if field[1] != "" {
+				errs = append(errs, fmt.Errorf("%saccounts.%s.%s: only a codex account takes %s", at(field[0]), name, field[0], field[0]))
+			}
+		}
+	}
+
+	return errs
 }
 
 // checkPath expands ~ in a path, and refuses a path that is not absolute.
@@ -570,6 +627,9 @@ func (s *Set) checkWorkAccounts(kind string, w *WorkEntry, declared []string, ro
 		}
 	case ActionInteractive:
 		w.run = s.resolve(w.Account, w.Model, w.Permissions, true)
+		if w.run.Harness == HarnessCodex {
+			errs = append(errs, fmt.Errorf("%swork %q: account %q runs codex, and an interactive launch on Codex is not supported yet; use a claude-code account", at("action"), kind, w.run.Account))
+		}
 	}
 
 	return errs
@@ -581,9 +641,14 @@ func (s *Set) resolve(account, model, level string, interactive bool) RunSetting
 	name := cmp.Or(account, s.fileDefaults.Account)
 	a := s.accounts[name]
 	r := RunSettings{Account: name, Harness: a.Harness, ConfigDir: a.ConfigDir, Model: cmp.Or(model, a.Model, s.defaults.Model), Permissions: level}
-	r.PermissionMode = claudeCodeModes[level]
+	modes, flagMode := levelModes(a.Harness), s.defaults.PermissionMode
+	if a.Harness == HarnessCodex {
+		// The bridge flags name Claude Code values, which Codex would refuse.
+		r.ConfigDir, r.Profile, r.Model, flagMode = a.CodexHome, a.Profile, cmp.Or(model, a.Model), ""
+	}
+	r.PermissionMode = modes[level]
 	if !interactive {
-		r.PermissionMode = cmp.Or(r.PermissionMode, a.PermissionMode, claudeCodeModes[s.fileDefaults.Permissions], s.defaults.PermissionMode)
+		r.PermissionMode = cmp.Or(r.PermissionMode, a.PermissionMode, modes[s.fileDefaults.Permissions], flagMode)
 	}
 	for _, path := range []string{s.envFile, a.EnvFile} {
 		if path != "" {
@@ -1148,7 +1213,9 @@ func (s *Set) UnknownPermissionModes() []string {
 	var out []string
 	modes := []string{}
 	for _, name := range slices.Sorted(maps.Keys(s.accounts)) {
-		modes = append(modes, s.accounts[name].PermissionMode)
+		if s.accounts[name].Harness != HarnessCodex {
+			modes = append(modes, s.accounts[name].PermissionMode)
+		}
 	}
 	for _, mode := range append(modes, s.defaults.PermissionMode) {
 		if mode != "" && !slices.Contains(PermissionModes, mode) && !slices.Contains(out, mode) {
@@ -1262,11 +1329,12 @@ type Match struct {
 	Model       string
 	// Effort is the claude --effort level the request asks for, or "".
 	Effort string
-	// Account, Harness, ConfigDir and EnvFiles come from the account the run
+	// Account, Harness, ConfigDir, Profile and EnvFiles come from the account the run
 	// takes. They are empty for a command entry.
 	Account   string
 	Harness   string
 	ConfigDir string
+	Profile   string
 	EnvFiles  []string
 	Prompt    string
 	// Schema is the compact JSON Schema claude's final reply must match.
@@ -1294,7 +1362,7 @@ func (m Match) ApplyVariant(v Variant) Match {
 
 func (m Match) withRun(r RunSettings) Match {
 	r = r.clone()
-	m.Account, m.Harness, m.ConfigDir, m.Model, m.PermissionMode, m.EnvFiles = r.Account, r.Harness, r.ConfigDir, r.Model, r.PermissionMode, r.EnvFiles
+	m.Account, m.Harness, m.ConfigDir, m.Profile, m.Model, m.PermissionMode, m.EnvFiles = r.Account, r.Harness, r.ConfigDir, r.Profile, r.Model, r.PermissionMode, r.EnvFiles
 	m.Permissions = r.Permissions
 
 	return m
@@ -1303,7 +1371,7 @@ func (m Match) withRun(r RunSettings) Match {
 // Run is the settings of an agent run that the match resolved.
 func (m Match) Run() RunSettings {
 	return RunSettings{
-		Account: m.Account, Harness: m.Harness, ConfigDir: m.ConfigDir, Model: m.Model,
+		Account: m.Account, Harness: m.Harness, ConfigDir: m.ConfigDir, Profile: m.Profile, Model: m.Model,
 		PermissionMode: m.PermissionMode, Permissions: m.Permissions, EnvFiles: slices.Clone(m.EnvFiles),
 	}
 }
