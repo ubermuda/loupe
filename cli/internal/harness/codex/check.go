@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -17,8 +18,8 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/harness"
 )
 
-// checkTimeout bounds the login command of a check.
-const checkTimeout = 10 * time.Second
+// checkTimeout bounds each codex command of a check.
+var checkTimeout = 10 * time.Second
 
 // profileFile is the file of the profile in the home folder.
 func profileFile(home, profile string) string {
@@ -29,6 +30,11 @@ func profileFile(home, profile string) string {
 type tomlConfig struct {
 	ModelProvider  string                  `toml:"model_provider"`
 	ModelProviders map[string]providerConf `toml:"model_providers"`
+	McpServers     map[string]serverConf   `toml:"mcp_servers"`
+}
+
+type serverConf struct {
+	DefaultToolsApprovalMode string `toml:"default_tools_approval_mode"`
 }
 
 type providerConf struct {
@@ -45,9 +51,15 @@ type configFile struct {
 // loadConfigs parses the profile file and the base config.toml. A missing file
 // is an empty config, and a file that does not parse keeps its error.
 func loadConfigs(home, profile string) []configFile {
-	files := []configFile{{path: profileFile(home, profile)}, {path: filepath.Join(home, "config.toml")}}
-	for i := range files {
-		_, err := toml.DecodeFile(files[i].path, &files[i].cfg)
+	return loadFiles(profileFile(home, profile), filepath.Join(home, "config.toml"))
+}
+
+// loadFiles parses the files in order.
+func loadFiles(paths ...string) []configFile {
+	files := make([]configFile, len(paths))
+	for i, path := range paths {
+		files[i].path = path
+		_, err := toml.DecodeFile(path, &files[i].cfg)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			files[i].err = err
 		}
@@ -122,7 +134,9 @@ func (h Harness) providerProblem(sess session, haveSession bool) string {
 
 // Check confirms that codex is on PATH, that the home folder and the profile
 // exist, and that the account can sign in: the profile's API key variable is
-// set, or codex is logged in when there is no profile. It reads no MCP config.
+// set, or codex is logged in when there is no profile. Then, for each project,
+// it checks that the loupe MCP server is the `loupe mcp` command, is enabled,
+// is found on PATH, and approves its tools without a prompt.
 func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Problem {
 	env := envfile.Overlay(os.Environ(), spec.Env)
 	slugs := slices.Sorted(maps.Keys(spec.Projects))
@@ -164,9 +178,10 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 	}
 
 	if h.profile != "" {
-		return append(problems, profileProblems(home, h.profile, env)...)
-	}
-	if _, err := runCheck(ctx, binary, loginDir, env, "login", "status"); err != nil {
+		if found := profileProblems(home, h.profile, env); len(found) > 0 {
+			return append(problems, found...)
+		}
+	} else if _, err := runCheck(ctx, binary, loginDir, env, "login", "status"); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return append(problems, harness.Problem{Reason: "login check timed out", Detail: "codex login status did not answer in " + checkTimeout.String()})
 		}
@@ -174,7 +189,99 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 		return append(problems, harness.Problem{Reason: "not logged in", Detail: "run `codex login`"})
 	}
 
+	mcpEnv := envfile.Overlay(env, []string{"CODEX_HOME=" + home})
+	for _, slug := range slugs {
+		if slug == "" {
+			continue
+		}
+		if found, err := envfile.LookPath(h.Program(), env, spec.Projects[slug]); err == nil {
+			problems = append(problems, h.mcpProblems(ctx, found, home, slug, spec.Projects[slug], mcpEnv)...)
+		}
+	}
+
 	return problems
+}
+
+// mcpProblems checks the loupe MCP server of one project.
+func (h Harness) mcpProblems(ctx context.Context, binary, home, slug, dir string, env []string) []harness.Problem {
+	fix := "run CODEX_HOME=" + home + " codex mcp add loupe -- loupe mcp"
+	fail := func(reason, detail string) []harness.Problem {
+		return []harness.Problem{{Reason: reason + " for project " + slug, Detail: detail}}
+	}
+
+	args := []string{"mcp", "get", "loupe", "--json"}
+	if h.profile != "" {
+		args = append([]string{"-p", h.profile}, args...)
+	}
+	out, err := runCheck(ctx, binary, dir, env, args...)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fail("MCP check timed out", "codex mcp get did not answer in "+checkTimeout.String())
+	}
+	if err != nil {
+		return fail("loupe MCP server not declared", fix)
+	}
+	var got struct {
+		Enabled   bool `json:"enabled"`
+		Transport struct {
+			Type    string   `json:"type"`
+			Command string   `json:"command"`
+			Args    []string `json:"args"`
+		} `json:"transport"`
+	}
+	if err := json.Unmarshal(out, &got); err != nil {
+		return fail("MCP check could not read the loupe MCP server", "codex mcp get --json did not print JSON; "+fix)
+	}
+	tr := got.Transport
+	if tr.Type != "stdio" || filepath.Base(tr.Command) != "loupe" || len(tr.Args) != 1 || tr.Args[0] != "mcp" {
+		shown := "type " + tr.Type
+		if tr.Type == "stdio" {
+			shown = "command " + filepath.Base(tr.Command)
+		}
+
+		return fail("loupe MCP server is not loupe mcp", "the server runs "+shown+"; "+fix)
+	}
+	if !got.Enabled {
+		return fail("loupe MCP server is disabled", "set enabled = true under [mcp_servers.loupe] in "+filepath.Join(home, "config.toml"))
+	}
+	if _, err := envfile.LookPath(tr.Command, env, dir); err != nil {
+		return fail("loupe is not on PATH", err.Error())
+	}
+
+	return h.approvalProblems(home, slug)
+}
+
+// approvalProblems checks that the loupe MCP server approves its tools. The
+// first file that sets the mode wins: the profile, then config.toml. The project
+// file is not read, because Codex ignores it for a project it does not trust.
+func (h Harness) approvalProblems(home, slug string) []harness.Problem {
+	var paths []string
+	target := filepath.Join(home, "config.toml")
+	if h.profile != "" {
+		target = profileFile(home, h.profile)
+		paths = append(paths, target)
+	}
+	paths = append(paths, filepath.Join(home, "config.toml"))
+	for _, f := range loadFiles(paths...) {
+		if f.err != nil {
+			return []harness.Problem{{Reason: "codex config does not parse for project " + slug, Detail: f.path + ": " + f.err.Error()}}
+		}
+		switch f.cfg.McpServers["loupe"].DefaultToolsApprovalMode {
+		case "":
+		case "approve":
+			return nil
+		default:
+			return []harness.Problem{approvalProblem(slug, f.path)}
+		}
+	}
+
+	return []harness.Problem{approvalProblem(slug, target)}
+}
+
+func approvalProblem(slug, file string) harness.Problem {
+	return harness.Problem{
+		Reason: "loupe MCP tools need approval for project " + slug,
+		Detail: `add default_tools_approval_mode = "approve" under [mcp_servers.loupe] in ` + file,
+	}
 }
 
 // profileProblems checks the profile file and its API key variable.

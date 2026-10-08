@@ -188,9 +188,9 @@ trait BridgeScenario
     }
 
     /**
-     * @param list<string>                                                                               $projects
-     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null                         $workerPools
-     * @param list<array{name: string, harness: string, state: 'ready'|'failing', reason: ?string}>|null $accounts
+     * @param list<string>                                                                                            $projects
+     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null                                      $workerPools
+     * @param list<array{name: string, harness: string, state: 'ready'|'failing', reason: ?string, used?: bool}>|null $accounts
      */
     private function seedBridge(
         EntityManagerInterface $em,

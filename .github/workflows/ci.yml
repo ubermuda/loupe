@@ -250,50 +250,7 @@ jobs:
             split: ''
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-        with:
-          node: 'true'
-          docker: 'true'
-
-      # By name, not a bare `up`: the `tailwind` service is a watcher, and it
-      # would race the stylesheet build in the setup action. The worker is not
-      # needed either — every message dispatched under the X-Playwright header
-      # is handled inline.
-      - run: >
-          docker compose -f compose.yaml -f docker/compose/ci.yaml
-          up -d --wait nginx mailer mercure
-
-      - name: Prepare the application
-        run: |
-          docker compose exec -T php-fpm bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
-          docker compose exec -T php-fpm bin/console league:oauth2-server:generate-keypair --skip-if-exists
-          docker compose exec -T php-fpm bin/console app:dev:seed
-
-      # Without this the app builds each of about 73 script files on the first
-      # request. With the files on disk, nginx sends them and PHP is skipped.
-      - name: Compile the assets
-        run: docker compose exec -T php-fpm bin/console asset-map:compile
-
-      # Everything above runs as root in the container; php-fpm serves requests
-      # as www-data, and var/ is owned by the runner. Without this the first
-      # request that writes a log line dies on a 500 instead — three specs deep
-      # into the suite, where it reads as an application bug.
-      - name: Let php-fpm write to var/
-        run: |
-          mkdir -p var/log
-          sudo chmod -R a+rwX var
-
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
-
-      # No --with-deps: the runner image already has every library Chromium
-      # needs, and apt only added fallback fonts from a mirror that can stall.
-      # A missing library fails the first launch with Playwright's own list.
-      - run: npx playwright install chromium
-        working-directory: e2e
-        timeout-minutes: 5
+      - uses: ./.github/actions/e2e-stack
 
       # The runner's whole database is disposable, so the suite runs against the
       # main stack rather than the `just e2e-up` sidecar, whose only purpose is
@@ -325,6 +282,18 @@ jobs:
       - name: Application errors
         if: failure()
         run: docker compose exec -T php-fpm sh -c 'grep -hE "CRITICAL|ERROR" var/log/dev.log | tail -n 40'
+
+      # The request time is the last field of each line.
+      - name: Web server log
+        if: failure()
+        run: docker compose logs --no-log-prefix nginx > var/e2e-nginx.log
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: nginx-log-${{ matrix.name }}
+          path: var/e2e-nginx.log
+          retention-days: 7
 
       - uses: actions/upload-artifact@v7
         if: failure()

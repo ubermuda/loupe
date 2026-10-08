@@ -454,6 +454,12 @@ const accountsBody = "appPrompts: true\naccounts:\n  claude:\n    harness: claud
 	"  split:\n    prompt: x\n    variants:\n      - {name: a, weight: 1, model: haiku}\n      - {name: b, weight: 1, account: fourth}\n" +
 	"  test:\n    action: command\n    run: [make, test]\n"
 
+func TestDeclaredAccountsNamesEveryAccount(t *testing.T) {
+	if got := parse(t, accountsBody).DeclaredAccounts(); !slices.Equal(got, []string{"claude", "fourth", "other", "spare", "third"}) {
+		t.Fatalf("DeclaredAccounts = %v", got)
+	}
+}
+
 func TestUsedAccountsNamesTheAccountOfEachAgentRun(t *testing.T) {
 	if got := parse(t, accountsBody).UsedAccounts(); !slices.Equal(got, []string{"claude", "fourth", "other", "third"}) {
 		t.Fatalf("UsedAccounts = %v", got)
