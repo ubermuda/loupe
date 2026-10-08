@@ -118,13 +118,15 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 
 		return reloadResult{Stage: stage, Problems: problems}
 	}
-	// The checks share the build timeout, so the bridge answers before
-	// `loupe bridge reload` gives up. A failing account fails no reload.
+	cancel()
+	// The checks have their own time, so a slow build turns off no account.
+	// A failing account fails no reload.
 	if src.checkAccounts != nil {
-		b.accounts = src.checkAccounts(buildCtx, b.set)
+		checkCtx, cancel := context.WithTimeout(ctx, reloadAccountsTimeout)
+		b.accounts = src.checkAccounts(checkCtx, b.set)
+		cancel()
 		b.set.SetAccountProblems(accountsOff(b.accounts))
 	}
-	cancel()
 	if err := check(); err != nil {
 		done(false)
 

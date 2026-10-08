@@ -177,6 +177,32 @@ func TestAReloadThatOutlastsItsTimeoutKeepsTheSet(t *testing.T) {
 	}
 }
 
+// The account checks of a reload get their own time, so a slow build does not
+// turn off a healthy account, and the bound keeps the answer in time.
+func TestTheAccountChecksOfAReloadHaveTheirOwnTime(t *testing.T) {
+	h := newHarness(t)
+	h.router.buildTimeout = time.Hour
+	src := h.source(defaultRules)
+	var left time.Duration
+	src.checkAccounts = func(ctx context.Context, _ *rules.Set) []accountResult {
+		if d, ok := ctx.Deadline(); ok {
+			left = time.Until(d)
+		}
+
+		return nil
+	}
+
+	if res := h.router.reload(context.Background(), src); !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	if left <= reloadAccountsTimeout-5*time.Second || left > reloadAccountsTimeout {
+		t.Fatalf("the checks had %s, want %s of their own", left, reloadAccountsTimeout)
+	}
+	if reloadBuildTimeout+reloadAccountsTimeout >= reloadTimeout {
+		t.Fatalf("build %s and checks %s do not answer before %s", reloadBuildTimeout, reloadAccountsTimeout, reloadTimeout)
+	}
+}
+
 func TestASecondReloadIsRefusedWhileOneRuns(t *testing.T) {
 	h := newHarness(t)
 	src, entered, release := blocked(h.source(twoRuleFile))
