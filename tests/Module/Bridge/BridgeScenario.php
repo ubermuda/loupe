@@ -260,6 +260,7 @@ trait BridgeScenario
         string $ruleId = 'implement-on-entry',
         ?WorkSubject $subject = null,
         ?\DateTimeImmutable $reopenedAt = null,
+        ?string $prompt = null,
     ): WorkRequest {
         $subject ??= WorkSubject::card($cardId ?? Uuid::v7());
         $request = new WorkRequest(
@@ -277,6 +278,7 @@ trait BridgeScenario
         $request->claimToken = $claimToken;
         $request->leaseUntil = $leaseUntil;
         $request->reopenedAt = $reopenedAt;
+        $request->prompt = $prompt;
         $em->persist($request);
         $em->flush();
 

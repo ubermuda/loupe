@@ -33,6 +33,20 @@ class CardPauseRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** The newest pause of the card, released or not. */
+    public function findLatestForCard(Card $card): ?CardPause
+    {
+        return $this->createQueryBuilder('pause')
+            ->andWhere('pause.card = :card')
+            ->setParameter('card', $card)
+            ->orderBy('pause.createdAt', 'DESC')
+            ->addOrderBy('pause.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->setHint(Query::HINT_REFRESH, true)
+            ->getOneOrNullResult();
+    }
+
     /** @return list<string> the RFC 4122 ids of the cards of the project that hold an active pause */
     public function findActiveCardIdsForProject(Project $project): array
     {

@@ -388,7 +388,9 @@ func TestCapabilities(t *testing.T) {
 	}{
 		"workers only":     {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n", []string{"work-requests"}},
 		"with interactive": {workFile, []string{"work-requests", "interactive"}},
-		"app prompts only": {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\n", []string{"work-requests"}},
+		"app prompts only": {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\n", []string{"work-requests", "app-prompts"}},
+		"app prompts with subjects": {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\nwork:\n  y:\n    subject: analysis\n    prompt: x\n",
+			[]string{"work-requests", "subject-analysis", "app-prompts"}},
 		"with subjects": {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    subject: review\n    prompt: x\n" +
 			"  y:\n    subject: analysis\n    prompt: x\n  z:\n    subject: analysis\n    prompt: x\n  w:\n    subject: card\n    prompt: x\n",
 			[]string{"work-requests", "subject-analysis", "subject-review"}},
@@ -583,6 +585,42 @@ func TestMatchKindContinuesTheRunOfAnAppPrompt(t *testing.T) {
 		t.Fatalf("match = %+v", m)
 	}
 	if m := checked(t, workFile).MatchKind(workRequest("review")); m.Skip != NoRule {
+		t.Fatalf("no opt-in: match = %+v", m)
+	}
+}
+
+// An app prompt run takes the model and effort of the request over the
+// account model, and an entry of the kind still wins.
+func TestMatchKindAppPromptTakesRequestModelAndEffort(t *testing.T) {
+	s := checked(t, "appPrompts: true\n"+strings.Replace(workFile, claudeAccount, claudeAccount+"    model: opus\n", 1))
+	w := workRequest("review")
+	w.Prompt = "Review."
+	w.Model, w.Effort = "haiku", "high"
+	if m := s.MatchWork(w); m.Skip != Run || m.Model != "haiku" || m.Effort != "high" {
+		t.Fatalf("request values: match = %+v", m)
+	}
+	w.Model, w.Effort = "", ""
+	if m := s.MatchWork(w); m.Skip != Run || m.Model != "opus" || m.Effort != "" {
+		t.Fatalf("defaults: match = %+v", m)
+	}
+	w = workRequest("implement")
+	w.Prompt = "Ignore."
+	w.Effort = "high"
+	if m := s.MatchWork(w); m.Rule != "work:implement" || m.Prompt == "Ignore." {
+		t.Fatalf("entry: match = %+v", m)
+	}
+}
+
+// With appPrompts, an entry of the kind about another subject type leaves the
+// request to its app prompt.
+func TestAppPromptRunsWhenTheEntryNamesAnotherSubject(t *testing.T) {
+	w := workRequest("review")
+	w.SubjectType, w.CardNumber = "analysis", 0
+	w.Prompt = "Analyse {subjectId}."
+	if m := checked(t, "appPrompts: true\n"+workFile).MatchWork(w); m.Skip != Run || !strings.Contains(m.Prompt, "Analyse "+w.SubjectID+".") {
+		t.Fatalf("app prompt: match = %+v", m)
+	}
+	if m := checked(t, workFile).MatchWork(w); m.Skip != NoRule {
 		t.Fatalf("no opt-in: match = %+v", m)
 	}
 }
