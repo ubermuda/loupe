@@ -45,9 +45,11 @@ async function mount({ decisionsDisabled = false, hideResolved = false } = {}) {
                 <p data-empty-filter="all">No comments</p>
                 <p data-empty-filter="filtered">None match</p>
             </div>
-            <article data-review-panels-target="thread" data-anchor-status="pending" id="open-thread"></article>
-            <article data-review-panels-target="thread" data-anchor-status="addressed" data-comment-orphaned="true" id="orphan-thread"></article>
-            <article data-review-panels-target="thread" data-anchor-status="resolved" id="resolved-thread"></article>
+            <div class="lp-orphan-group" id="orphan-group">
+                <button type="button" class="lp-comment-row" data-review-panels-target="thread" data-anchor-status="addressed" data-comment-orphaned="true" id="orphan-thread"></button>
+            </div>
+            <button type="button" class="lp-comment-row" data-review-panels-target="thread" data-anchor-status="pending" id="open-thread"></button>
+            <button type="button" class="lp-comment-row" data-review-panels-target="thread" data-anchor-status="resolved" id="resolved-thread"></button>
         </section>
         <section data-review-panels-target="panel" data-review-panel="outline" hidden>Outline</section>
     </div>`;
@@ -255,4 +257,20 @@ it('keeps a disabled Comments panel closed on a reveal', async () => {
     );
     expect(panelFor('comments').hidden).toBe(true);
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+});
+
+it('hides a group whose rows the filter hides', async () => {
+    await mount();
+    const group = document.getElementById('orphan-group');
+    expect(group.hidden).toBe(false);
+
+    document
+        .querySelector('[data-review-panels-filter-param="resolved"]')
+        .click();
+    expect(group.hidden).toBe(true);
+
+    document
+        .querySelector('[data-review-panels-filter-param="unanchored"]')
+        .click();
+    expect(group.hidden).toBe(false);
 });
