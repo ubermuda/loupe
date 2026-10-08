@@ -1244,7 +1244,8 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `command_failed` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the command of a command entry exited with another code, ran past its timeout, was killed or never started. Level `ERROR` |
 | `resume_dir_gone` | `card`, `project`, `rule`, `session_id`, `new_session_id`, `dir`, `message`: the folder of the resumed session is gone, so the bridge starts a new session. Level `WARN` |
 | `resume_failed` | `card`, `project`, `rule`, `session_id`, `output`: a person's resume found the session's folder gone, so no worker started. Level `ERROR` |
-| `worker_started` | `card`, `project`, `rule`, `worker_pool`, `session_id`, and `work_request` for a run of a work request |
+| `worker_started` | `card`, `project`, `rule`, `worker_pool`, `session_id`, and `work_request` for a run of a work request. An entry with no variants adds `account` and `permission_mode` |
+| `worker_variant` | `card`, `project`, `rule`, `session_id`, `experiment`, `variant`, `account`, `permission_mode`, `model`: the variant that an experiment run takes |
 | `experiment_pin_failed` | `card`, `project`, `rule`, `experiment`, `variant`, `error`, `message`: the pin request for the card failed, so the worker runs `variant`, the variant the bridge drew. Level `WARN` |
 | `result_fields_dropped` | `card`, `project`, `rule`, `bytes`, `message`: the result fields took more than 4000 bytes as JSON, so the report carries none. Level `WARN` |
 | `usage_dropped` | `card`, `project`, `rule`, `message`: Loupe would refuse the token usage of the run, so the report carries none. Level `WARN` |

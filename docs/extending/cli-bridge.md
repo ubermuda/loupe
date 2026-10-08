@@ -389,8 +389,9 @@ A worker run takes the first mode that this list sets:
 A variant with no `account` or no `permissions` takes the value of its entry.
 An [interactive entry](#interactive-action) takes its mode from its own
 `permissions` only. The model order is the same for it. The bridge log names
-the mode that ran in the `permission_mode` field of `worker_started` and
-`worker_variant`, and `run.json` holds it as `permissionMode`. The run page in
+the mode that ran in the `permission_mode` field. The `worker_started` line
+holds it for an entry with no variants, and `worker_variant` holds it for an
+experiment. The `run.json` file of the run holds it as `permissionMode`. The run page in
 Loupe does not show it.
 
 Each run records its harness, its account and its model in Loupe. That holds
@@ -449,8 +450,8 @@ When the migration stops or cannot write the file, the bridge logs
 `accounts_migration_failed`. The `block` field of that line holds the block to
 paste. The bridge then runs with its worker entries, its interactive entries
 and its app prompts off. It logs `agents_off` with the reason. Command entries
-and hooks still run. Paste the block, change each entry `permissionMode` to
-`permissions`, and run `loupe bridge reload`.
+and hooks still run. Paste the block into the file. Change each entry
+`permissionMode` to `permissions`. Then run `loupe bridge reload`.
 
 An older CLI refuses a file with an `accounts` block. To roll back, keep a copy
 of the file from before the upgrade. You can also remove the `accounts` block

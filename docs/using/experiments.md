@@ -19,8 +19,8 @@ A project with no experiment shows how to start one. Give a worker entry of the
 `work:` map in `rules.yaml` its variants. The kind of the entry names the
 experiment. A variant sets a `model` or an
 [`account`](../extending/cli-bridge.md#accounts), and it can set `permissions`.
-A variant with no model takes the model of its account, or the model of the
-bridge when the account names none.
+A variant with no model takes the model of its account, or the `--model` flag
+of the bridge when the account names none.
 
 ## The comparison
 
