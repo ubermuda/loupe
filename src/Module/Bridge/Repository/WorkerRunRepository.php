@@ -874,6 +874,25 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleColumnResult();
 
+        if ('model' !== $field) {
+            return $values;
+        }
+
+        // The model filter also matches the fact model of a run with no reported model.
+        /** @var list<string> $factModels */
+        $factModels = $this->getEntityManager()->createQueryBuilder()
+            ->select('DISTINCT f.model')
+            ->from(WorkerRunFact::class, 'f')
+            ->innerJoin(WorkerRun::class, 'r', Join::WITH, 'r.id = f.runId')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.model IS NULL')
+            ->andWhere('f.model IS NOT NULL')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleColumnResult();
+        $values = array_values(array_unique([...$values, ...$factModels]));
+        sort($values);
+
         return $values;
     }
 

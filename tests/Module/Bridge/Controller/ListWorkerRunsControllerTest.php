@@ -337,6 +337,33 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         };
     }
 
+    public function test_the_model_filter_offers_and_finds_the_fact_model_of_a_run_with_no_reported_model(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'fact-model-filter@example.com');
+        $project = $this->project($em, $owner, 'Fact model filter');
+        $this->seedRun($em, $project, cardNumber: 11, model: 'gpt-5');
+        $older = $this->seedRun($em, $project, cardNumber: 22);
+        $this->seedUsage($em, $older, model: 'claude-opus-5-5', costUsd: '0.500000');
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['', 'claude-opus-5-5', 'gpt-5'], $crawler->filter('#worker-run-model option')->each(static fn (Crawler $option): string => (string) $option->attr('value')));
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?model=claude-opus-5-5');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-worker-run-id]'));
+        self::assertStringContainsString('#22', $crawler->filter('[data-worker-run-id]')->text());
+    }
+
     /** One value is a label, not a choice, so the select waits for a second one, unless the reader must clear a filter. */
     public function test_a_harness_select_with_one_value_shows_only_while_its_filter_is_set(): void
     {
