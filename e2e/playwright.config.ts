@@ -89,7 +89,8 @@ export default defineConfig({
     // not run" beside the failure, which reads as a deliberate skip: one red
     // test withheld three suites for hours and nobody noticed. The bound is per
     // process, so a sharded CI run reports at most one failure per shard.
-    maxFailures: 1,
+    // E2E_MEASURE turns the stop off, so the flake counter sees every failure.
+    maxFailures: process.env.E2E_MEASURE ? 0 : 1,
     reporter: [
         ['html', { open: 'never' }],
         // `just ci-report e2e-timing` reads this file from CI.

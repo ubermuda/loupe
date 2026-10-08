@@ -1,0 +1,64 @@
+name: e2e flake hunt
+
+# Runs chosen e2e specs many times and counts the failures of each test. A
+# person starts it by hand. It sits outside ci.yml, so the list of required
+# e2e legs stays as it is.
+on:
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: Spec paths below e2e/, space separated
+        required: true
+      repeat:
+        description: Runs of each test
+        default: '20'
+      workers:
+        description: Playwright workers
+        default: '4'
+      shard:
+        description: Project group that holds the specs
+        default: chromium
+        type: choice
+        options: [chromium, rest, global-flags]
+
+permissions:
+  contents: read
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/e2e-stack
+
+      - name: Count the failures
+        env:
+          E2E_BASE_URL: http://localhost
+          MAILPIT_URL: http://localhost:8025
+          E2E_SHARD: ${{ inputs.shard }}
+          E2E_MEASURE: '1'
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/var/e2e-timing/results.json
+          SPECS: ${{ inputs.specs }}
+          REPEAT: ${{ inputs.repeat }}
+          WORKERS: ${{ inputs.workers }}
+        # Word splitting of SPECS is the intent: one argument per spec path.
+        run: just e2e --repeat-each="$REPEAT" --workers="$WORKERS" $SPECS
+
+      - name: Failure rate per test
+        if: always() && hashFiles('var/e2e-timing/results.json') != ''
+        run: node bin/e2e-flake-report.mjs var/e2e-timing/results.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Web server log
+        if: always()
+        run: docker compose logs --no-log-prefix nginx > var/e2e-nginx.log
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: flake-hunt
+          path: |
+            var/e2e-timing/results.json
+            var/e2e-nginx.log
+          retention-days: 30
+          if-no-files-found: warn

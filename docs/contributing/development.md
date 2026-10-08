@@ -152,6 +152,12 @@ With no run id, it takes the newest run on `main` that holds the artifact.
 
 The e2e job runs on eight runners, so `e2e-timing` prints one summary per leg.
 
+### Count the flakes of a spec
+
+The `e2e flake hunt` workflow runs chosen specs many times on a CI runner and prints the failure rate of each test. It does not stop at the first failure. Start it from the Actions tab, or with `gh workflow run e2e-flake-hunt.yml -f specs='tests/review/review-loop.spec.ts' -f repeat=20 -f workers=4`. Run it again with `-f workers=2`. Fewer failures with two workers means the runner is overloaded. The same failures means the test is at fault. GitHub starts a workflow only from `main`, so the workflow must be on `main` first.
+
+A failed e2e job uploads `nginx-log-<leg>`. The last field of each line is the request time in seconds.
+
 ## Secrets
 
 ```sh

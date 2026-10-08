@@ -1,0 +1,49 @@
+name: Start the e2e stack
+description: The app, its database and a seed, with Playwright installed. The e2e legs and the flake counter share it.
+
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/setup
+      with:
+        node: 'true'
+        docker: 'true'
+
+    # By name, not a bare `up`: the `tailwind` service is a watcher, and it
+    # would race the stylesheet build in the setup action. The worker is not
+    # needed either — every message dispatched under the X-Playwright header
+    # is handled inline.
+    - shell: bash
+      run: >
+        docker compose -f compose.yaml -f docker/compose/ci.yaml
+        up -d --wait nginx mailer mercure
+
+    - name: Prepare the application
+      shell: bash
+      run: |
+        docker compose exec -T php-fpm bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+        docker compose exec -T php-fpm bin/console league:oauth2-server:generate-keypair --skip-if-exists
+        docker compose exec -T php-fpm bin/console app:dev:seed
+
+    # Everything above runs as root in the container; php-fpm serves requests
+    # as www-data, and var/ is owned by the runner. Without this the first
+    # request that writes a log line dies on a 500 instead — three specs deep
+    # into the suite, where it reads as an application bug.
+    - name: Let php-fpm write to var/
+      shell: bash
+      run: |
+        mkdir -p var/log
+        sudo chmod -R a+rwX var
+
+    - uses: actions/cache@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+
+    # No --with-deps: the runner image already has every library Chromium
+    # needs, and apt only added fallback fonts from a mirror that can stall.
+    # A missing library fails the first launch with Playwright's own list.
+    - run: npx playwright install chromium
+      shell: bash
+      working-directory: e2e
+      timeout-minutes: 5
