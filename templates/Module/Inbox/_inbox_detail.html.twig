@@ -17,10 +17,7 @@
             <span class="lp-inbox-ask__source" data-inbox-source="{{ origin.value }}">{{ ('inbox.source.' ~ origin.value)|trans }}</span>
             <span class="lp-inbox-ask__time">{{ asked|relative_time }}</span>
             {% if ask and ask.closedAt %}
-                <span class="lp-status-chip lp-status-chip--resolved">
-                    <span class="lp-status-chip__dot"></span>
-                    {{ 'inbox.ask.closed'|trans({'%time%': ask.closedAt|relative_time}) }}
-                </span>
+                <twig:Ds:StatusChip modifier="resolved">{{ 'inbox.ask.closed'|trans({'%time%': ask.closedAt|relative_time}) }}</twig:Ds:StatusChip>
             {% endif %}
         </header>
         {# An ask stores no title. Its first item names it, as the request list does. #}

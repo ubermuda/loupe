@@ -1,6 +1,6 @@
 {# The problems and the workflow markers a card tile shows. Props: badges (list<CardBadge>). #}
 <span class="lp-board-card__badges" data-card-badges="{{ badges|map(badge => badge.value)|join(' ') }}">
     {% for badge in badges %}
-        <twig:StatusChip :modifier="badge.chipModifier" :label="badge.translationKey|trans" />
+        <twig:Ds:StatusChip :modifier="badge.chipModifier" :label="badge.translationKey|trans" />
     {% endfor %}
 </span>

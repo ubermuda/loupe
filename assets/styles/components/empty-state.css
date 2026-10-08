@@ -1,0 +1,22 @@
+/* The empty state. `templates/components/Ds/EmptyState.html.twig` renders it. */
+@layer components {
+    /* Full-panel empty state: an icon, a heading, a sentence explaining how the
+       thing gets created, and at most one action. */
+    .lp-empty-state {
+        @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 py-16 px-8;
+    }
+    .lp-empty-state__icon {
+        @apply text-line-strong;
+    }
+    .lp-empty-state__title {
+        @apply font-display font-bold text-lg tracking-tight text-ink m-0;
+    }
+    .lp-empty-state__body {
+        @apply max-w-md text-sm text-fg-mute m-0 leading-relaxed;
+    }
+    /* Preflight strips a bare anchor's colour and underline, so a link inside the
+       body sentence would be indistinguishable from the text around it. */
+    .lp-empty-state__link {
+        @apply text-accent-ink underline underline-offset-2 hover:text-ink;
+    }
+}
