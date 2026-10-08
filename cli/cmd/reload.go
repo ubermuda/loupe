@@ -224,6 +224,7 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	dropped := r.rewriteLocked(set)
 	r.pruneLocked(set, gone)
 	r.projects = set.Projects()
+	r.keepFlagsLocked(b.events)
 	shutDropped := r.dispatchLocked()
 	r.mu.Unlock()
 
@@ -232,7 +233,7 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	if r.heartbeat != nil {
 		r.heartbeat.setBody(heartbeatBody(set, r.pushLogin))
 	}
-	r.applyFlags(b.events)
+	r.useFlags(b.events)
 
 	res := diffRules(old, set)
 	attrs := []any{"added", res.Added, "removed", res.Removed, "changed", res.Changed, "dirs", res.Dirs, "projects", res.Projects}

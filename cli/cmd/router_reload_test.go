@@ -378,6 +378,21 @@ func TestAReloadAppliesTheHeartbeatInterval(t *testing.T) {
 	}
 }
 
+func TestAWorkerTheReloadStartsReadsTheNewFlags(t *testing.T) {
+	h := busy(t, twoRuleFile)
+	h.router.onData([]byte(cardMoved(88)))
+
+	res := h.router.reload(context.Background(), withFlags(h.source(withMaxWorkers(twoRuleFile, 2)), map[string]any{api.InboxFlag: true}))
+
+	if !res.OK {
+		t.Fatalf("reload = %+v", res)
+	}
+	spec := <-h.worker.started
+	if !strings.Contains(spec.prompt, "Pass both to inbox_ask.") {
+		t.Fatalf("prompt = %q, want the inbox line", spec.prompt)
+	}
+}
+
 func TestAFailedEventsReadKeepsTheFlags(t *testing.T) {
 	h := newHarness(t)
 	h.router.applyFlags(api.Events{Flags: map[string]any{api.InboxFlag: true, api.HostSamplingFlag: true}})
