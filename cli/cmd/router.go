@@ -583,9 +583,8 @@ func (r *router) keepFlagsLocked(events api.Events) {
 func (r *router) useFlags() {
 	if r.heartbeat != nil {
 		r.mu.Lock()
-		interval := r.beatInterval
+		r.heartbeat.setInterval(r.beatInterval)
 		r.mu.Unlock()
-		r.heartbeat.setInterval(interval)
 	}
 	r.syncHostSampler()
 }
