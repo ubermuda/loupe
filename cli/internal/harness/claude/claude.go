@@ -83,7 +83,8 @@ func shellQuote(s string) string {
 }
 
 // Interactive is the launch script body. The script deletes itself first, so
-// the prompt does not stay on the disk.
+// the prompt does not stay on the disk. It sets LOUPE_SESSION_ID, which a
+// session reads before CLAUDE_CODE_SESSION_ID.
 func (Harness) Interactive(program string, spec harness.Spec) string {
 	var b strings.Builder
 	b.WriteString("#!/bin/sh\n")
@@ -91,6 +92,9 @@ func (Harness) Interactive(program string, spec harness.Spec) string {
 	for _, e := range spec.Env {
 		k, v, _ := strings.Cut(e, "=")
 		b.WriteString("export " + k + "=" + shellQuote(v) + "\n")
+	}
+	if spec.SessionID != "" {
+		b.WriteString("export LOUPE_SESSION_ID=" + shellQuote(spec.SessionID) + "\n")
 	}
 	b.WriteString("cd -- " + shellQuote(spec.Dir) + " || exit 1\n")
 	b.WriteString("exec " + shellQuote(program) + " --session-id " + shellQuote(spec.SessionID))

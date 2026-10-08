@@ -174,7 +174,7 @@ final class CardRunToolsTest extends KernelTestCase
                 $call();
                 self::fail('the tool must refuse');
             } catch (ToolCallException $e) {
-                self::assertSame('"not-a-session" is not a valid sessionId. Pass the value of $CLAUDE_CODE_SESSION_ID.', $e->getMessage());
+                self::assertSame('"not-a-session" is not a valid sessionId. Pass the first set value of $LOUPE_SESSION_ID, $CLAUDE_CODE_SESSION_ID and $CODEX_THREAD_ID.', $e->getMessage());
             }
         }
     }

@@ -223,10 +223,11 @@ command forwards every message to `/mcp` on your Loupe instance over HTTPS, and
 adds the bearer token from your own `loupe login` plus the project. So no tool
 and no configuration file holds a credential.
 
-It also sends the session id from `LOUPE_SESSION_ID`, else from
-`CLAUDE_CODE_SESSION_ID`, in the `X-Loupe-Session` header. The bridge sets
-`LOUPE_SESSION_ID` for each worker, so the card history names the run that
-moved a card.
+It also sends the session id in the `X-Loupe-Session` header. It reads the id
+from `LOUPE_SESSION_ID`, else from `CLAUDE_CODE_SESSION_ID`, else from
+`CODEX_THREAD_ID`. The bridge sets `LOUPE_SESSION_ID` for each worker and each
+interactive session it launches, so the card history names the run that moved a
+card.
 
 It defines no tools of its own. It copies JSON-RPC messages and reads no method
 name except the two the handshake needs, so a tool Loupe adds reaches your agent

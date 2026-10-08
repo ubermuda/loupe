@@ -576,8 +576,9 @@ that calls one anyway gets a plain refusal.
 
 An item is one question, review request, or to-do for the project owner. An ask is the set of
 items that one agent session hands over at once. `inbox_ask` and `inbox_join`
-take a required `sessionId`, which a Claude Code session reads from
-`$CLAUDE_CODE_SESSION_ID`. One session holds at most one open ask, so a second
+take a required `sessionId`. A session reads it from the first set variable of
+`$LOUPE_SESSION_ID`, `$CLAUDE_CODE_SESSION_ID` and `$CODEX_THREAD_ID`. The
+bridge sets `$LOUPE_SESSION_ID` for each session it starts. One session holds at most one open ask, so a second
 `inbox_ask` from the same session adds its items to that ask. A question blocks
 by default; a to-do or review requires `blocking: true` to block. An ask with no blocking item closes at once,
 and its items stay open in the inbox.
