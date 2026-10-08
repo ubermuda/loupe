@@ -228,6 +228,23 @@ func TestCost(t *testing.T) {
 	}
 }
 
+func TestCostPricesOpenAIModels(t *testing.T) {
+	for model, want := range map[string]float64{
+		"gpt-5.5":     5 + 30 + 0.5,
+		"gpt-5.5-pro": 30 + 180 + 30,
+		"gpt-6-luna":  0.10 + 0.50 + 0.01,
+		"gpt-5":       1.25 + 10 + 0.125,
+	} {
+		got := Cost(model, 1e6, 1e6, 1e6, 0, 0)
+		if got == nil || math.Abs(*got-want) > 1e-9 {
+			t.Fatalf("Cost(%q) = %v, want %v", model, got, want)
+		}
+	}
+	if got := Cost("openrouter/free", 1, 1, 1, 0, 0); got != nil {
+		t.Fatalf("Cost of an unpriced model = %v, want unknown", *got)
+	}
+}
+
 func workPath(t *testing.T) string {
 	t.Helper()
 	path, err := Find("testdata", workSession)

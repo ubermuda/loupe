@@ -42,7 +42,7 @@ func runBridge(t *testing.T, args ...string) error {
 func writeRules(t *testing.T, slugs ...string) string {
 	t.Helper()
 	var b strings.Builder
-	b.WriteString("projects:\n")
+	b.WriteString("accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n")
 	for _, slug := range slugs {
 		b.WriteString("  " + slug + ":\n    dir: " + t.TempDir() + "\n")
 	}
@@ -87,7 +87,7 @@ func TestBridgeRunRefusesAnInvalidDefault(t *testing.T) {
 // A mode this build does not know starts the bridge with a warning, so a newer
 // claude keeps working and a typo still shows.
 func TestAnUnknownPermissionModeIsLoggedAtStart(t *testing.T) {
-	set, err := rules.Parse([]byte("projects:\n  loupe:\n    dir: "+t.TempDir()+"\nwork:\n  plan: {prompt: go}\n"), rules.Defaults{PermissionMode: "acceptedits"})
+	set, err := rules.Parse([]byte("accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: "+t.TempDir()+"\nwork:\n  plan: {prompt: go}\n"), rules.Defaults{PermissionMode: "acceptedits"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +352,7 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 	cfg := testLogin(server.URL)
 
 	loupeDir, otherDir := t.TempDir(), t.TempDir()
-	body := "projects:\n  loupe:\n    dir: " + loupeDir + "\n  other:\n    dir: " + otherDir + "\nwork:\n" +
+	body := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + loupeDir + "\n  other:\n    dir: " + otherDir + "\nwork:\n" +
 		"  plan:\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
 	if err != nil {
@@ -428,7 +428,7 @@ func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
 	t.Cleanup(server.Close)
 	cfg := testLogin(server.URL)
 
-	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nwork:\n" +
+	body := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nwork:\n" +
 		"  plan:\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
 	if err != nil {
@@ -814,7 +814,7 @@ func TestTheBridgeCatchesUpFromTheHead(t *testing.T) {
 
 func TestTheHeartbeatBodyCarriesTheRuleFileName(t *testing.T) {
 	for value, want := range map[string]string{`"studio"`: "studio", `""`: ""} {
-		body := "name: " + value + "\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" +
+		body := "name: " + value + "\naccounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" +
 			"  plan:\n    prompt: go\n"
 		set, err := rules.Parse([]byte(body), rules.Defaults{})
 		if err != nil {
@@ -829,7 +829,7 @@ func TestTheHeartbeatBodyCarriesTheRuleFileName(t *testing.T) {
 // The server reads an absent pushLogin as no change, so the bridge always
 // sends one, and "" when no agent account is checked.
 func TestTheHeartbeatBodyCarriesThePushLogin(t *testing.T) {
-	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n  plan:\n    prompt: go\n"
+	body := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n  plan:\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
 	if err != nil {
 		t.Fatal(err)

@@ -17,6 +17,11 @@ import (
 // beforeRules runs a before command ahead of plan, and none ahead of review.
 const beforeRules = `
 maxWorkers: 2
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}

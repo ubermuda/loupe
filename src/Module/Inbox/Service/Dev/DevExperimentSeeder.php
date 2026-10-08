@@ -140,6 +140,7 @@ final readonly class DevExperimentSeeder
         $run->experiment = self::EXPERIMENT;
         $run->variant = $variant;
         $run->requestedModel = self::MODELS[$variant];
+        $run->recordHarness('claude-code', 'claude', null, null);
         $run->usageSource = WorkerRunUsageSource::Reported;
         $this->em->persist($run);
         $tokens = (int) round((float) $costUsd * 40_000);

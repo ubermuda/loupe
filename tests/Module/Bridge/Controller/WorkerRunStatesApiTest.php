@@ -449,6 +449,36 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame('quick-2', $this->onlyRun()->workerPool);
     }
 
+    public function test_the_harness_fields_are_stored_kept_and_filled_late(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-harness@example.com');
+        $project = $this->project($em, $owner, 'Run States Harness');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+        $running = [
+            'state' => 'running',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:05+00:00',
+        ];
+
+        $this->put($client, $path, $raw, $this->payload(['harness' => 'codex', 'account' => 'work.main']));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $path, $raw, $this->payload([...$running, 'model' => 'gpt-5']));
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(['codex', 'work.main', 'gpt-5', null], [$run->harness, $run->account, $run->model, $run->harnessSessionId]);
+
+        $this->put($client, $path, $raw, $this->payload([...$running, 'harnessSessionId' => 'thread_01:abc-9']));
+        self::assertResponseStatusCodeSame(200);
+        $this->put($client, $path, $raw, $this->payload($running));
+        self::assertResponseStatusCodeSame(200);
+
+        $run = $this->onlyRun();
+        self::assertSame(['codex', 'work.main', 'gpt-5', 'thread_01:abc-9'], [$run->harness, $run->account, $run->model, $run->harnessSessionId]);
+    }
+
     public function test_the_experiment_of_the_run_is_stored(): void
     {
         $client = static::createClient();
@@ -912,6 +942,18 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a worker pool above the limit' => [['workerPool' => 'a'.str_repeat('b', 40)]];
         yield 'a worker pool with a trailing newline' => [['workerPool' => "default\n"]];
         yield 'a blank worker pool' => [['workerPool' => '']];
+        yield 'a harness with a space and capitals' => [['harness' => 'Claude Code']];
+        yield 'a blank harness' => [['harness' => '']];
+        yield 'a harness above the limit' => [['harness' => 'a'.str_repeat('b', WorkerRun::MAX_HARNESS_LENGTH)]];
+        yield 'an account with a slash' => [['account' => 'home/geoffrey']];
+        yield 'a blank account' => [['account' => '']];
+        yield 'an account above the limit' => [['account' => 'a'.str_repeat('b', WorkerRun::MAX_ACCOUNT_LENGTH)]];
+        yield 'a blank model' => [['model' => '']];
+        yield 'a model with a newline' => [['model' => "gpt\n5"]];
+        yield 'a model above the limit' => [['model' => str_repeat('m', WorkerRun::MAX_MODEL_LENGTH + 1)]];
+        yield 'a harness session id with a space' => [['harnessSessionId' => 'thread 1']];
+        yield 'a blank harness session id' => [['harnessSessionId' => '']];
+        yield 'a harness session id above the limit' => [['harnessSessionId' => 'a'.str_repeat('b', WorkerRun::MAX_HARNESS_SESSION_ID_LENGTH)]];
         $experiment = ['experiment' => 'plan-model', 'variant' => 'opus'];
         yield 'an experiment with capitals and punctuation' => [['experiment' => 'Opus!', 'variant' => 'opus']];
         yield 'a blank experiment' => [['experiment' => '', 'variant' => 'opus']];

@@ -25,7 +25,7 @@ final class WorkerRunFactExporterTest extends KernelTestCase
         $exporting = $this->user($em, 'facts-export-mine@example.com');
         $project = $this->project($em, $exporting, 'Facts Export');
         $bridgeId = Uuid::v7();
-        $kept = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 10:05:01'), workKind: 'review', bridgeId: $bridgeId);
+        $kept = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 10:05:01'), workKind: 'review', bridgeId: $bridgeId, harness: 'codex', account: 'work');
         $this->seedHostSample($this->seedBridge($em, $exporting, $bridgeId), '2026-01-01 10:01:00', onAc: true);
         $this->seedUsage($em, $kept);
         $this->seedToolCall($kept);
@@ -56,6 +56,8 @@ final class WorkerRunFactExporterTest extends KernelTestCase
             'experiment' => null,
             'variant' => null,
             'model' => 'claude-opus-5-5',
+            'harness' => 'codex',
+            'account' => 'work',
             'bridgeId' => (string) $bridgeId,
             'outcome' => 'succeeded',
             'startedAt' => '2026-01-01T10:00:00+00:00',

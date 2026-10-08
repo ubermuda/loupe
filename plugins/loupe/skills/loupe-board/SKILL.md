@@ -82,10 +82,13 @@ read from `card_list`, `card_search` or `card_create`. They also take the card
 `number` in place of the `cardId`.
 
 An interactive session, such as `/loupe:product-design`, calls `card_run_open`
-with `sessionId` set to `$CLAUDE_CODE_SESSION_ID` and `name` set to the skill
-name. The run shows on the card and on the worker runs page. A move of the card
-to another column closes the run, except the move that `card_run_open` makes
-with `status`. Call `card_run_close` when the session ends.
+with `sessionId` set to your session id and `name` set to the skill name. Your
+session id is the first set value of `$LOUPE_SESSION_ID`,
+`$CLAUDE_CODE_SESSION_ID` and `$CODEX_THREAD_ID`. Read it with a shell command:
+`echo "${LOUPE_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-$CODEX_THREAD_ID}}"`.
+The run shows on the card and on the worker runs page. A move of the card to
+another column closes the run, except the move that `card_run_open` makes with
+`status`. Call `card_run_close` when the session ends.
 
 ## Search before you write a card
 

@@ -18,8 +18,8 @@ use App\Module\Bridge\ValueObject\BridgeCommandState;
  * @phpstan-type PendingCommand array{commandId: string, kind: string, state: string}
  * @phpstan-type UsageRow array{model: string, source: string, inputTokens: int, outputTokens: int, cacheReadTokens: int, cacheWriteTokens: int, costUsd: ?string}
  * @phpstan-type RunMetrics array{durationMs: ?int, costUsd: ?float, tokensIn: ?int, tokensOut: ?int, tokensCacheRead: ?int, tokensCacheWrite: ?int, toolTimeMs: ?int, modelTimeMs: ?int, toolCalls: ?int, failedCalls: ?int, longestCallMs: ?int, idleGapMs: ?int, subagentMs: ?int, peakContextTokens: ?int, meanCpuPct: ?float, peakMemBytes: ?int, peakSwapBytes: ?int, concurrentRuns: ?int, onBattery: ?bool}
- * @phpstan-type WorkerRunRow array{runId: string, runKey: ?string, kind: string, subjectType: string, subjectId: string, cardNumber: ?int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string, usage: list<UsageRow>, model: ?string, experiment: ?string, variant: ?string, metrics: RunMetrics|null}
- * @phpstan-type WorkerRunDetail array{runId: string, runKey: ?string, kind: string, subjectType: string, subjectId: string, cardNumber: ?int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string, usage: list<UsageRow>, model: ?string, experiment: ?string, variant: ?string, metrics: RunMetrics|null, continuesRunId: ?string, receivedAt: string, failureReason: ?string, output: string, stateChanges: list<array{state: string, at: string}>}
+ * @phpstan-type WorkerRunRow array{runId: string, runKey: ?string, kind: string, subjectType: string, subjectId: string, cardNumber: ?int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, harness: ?string, account: ?string, harnessSessionId: ?string, pendingCommand: PendingCommand|null, reason: ?string, usage: list<UsageRow>, model: ?string, experiment: ?string, variant: ?string, metrics: RunMetrics|null}
+ * @phpstan-type WorkerRunDetail array{runId: string, runKey: ?string, kind: string, subjectType: string, subjectId: string, cardNumber: ?int, workRequestId: ?string, workKind: ?string, ruleId: ?string, state: string, sessionId: ?string, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, harness: ?string, account: ?string, harnessSessionId: ?string, pendingCommand: PendingCommand|null, reason: ?string, usage: list<UsageRow>, model: ?string, experiment: ?string, variant: ?string, metrics: RunMetrics|null, continuesRunId: ?string, receivedAt: string, failureReason: ?string, output: string, stateChanges: list<array{state: string, at: string}>}
  * @phpstan-type BridgeCommandRow array{commandId: string, runId: string, kind: string, state: string, reason: ?string, requestedAt: string, expiresAt: string, settledAt: ?string}
  */
 final readonly class WorkerRunPayload
@@ -47,6 +47,9 @@ final readonly class WorkerRunPayload
             'endedAt' => $run->endedAt?->format(\DATE_ATOM),
             'exitCode' => $run->exitCode,
             'bridgeId' => $run->bridgeId?->toRfc4122(),
+            'harness' => $run->harness,
+            'account' => $run->account,
+            'harnessSessionId' => $run->harnessSessionId,
             'pendingCommand' => null !== $pending && BridgeCommandState::Pending === $pending->state
                 ? ['commandId' => (string) $pending->id, 'kind' => $pending->kind->value, 'state' => $pending->state->value]
                 : null,
@@ -60,7 +63,7 @@ final readonly class WorkerRunPayload
                 'cacheWriteTokens' => $usage->cacheWriteTokens,
                 'costUsd' => $usage->costUsd,
             ], $readings->usage[(string) $run->id] ?? []),
-            'model' => $fact?->model,
+            'model' => $run->model ?? $fact?->model,
             'experiment' => $run->experiment,
             'variant' => $run->variant,
             'metrics' => null === $fact ? null : self::metricsOf($fact),

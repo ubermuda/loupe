@@ -65,6 +65,19 @@ func TestReportInteractiveLaunchPutsTheLaunchOnTheSession(t *testing.T) {
 	}
 }
 
+func TestReportInteractiveLaunchSendsTheRunSettings(t *testing.T) {
+	report := launchReport(RunRunning)
+	report.Harness, report.Account, report.Model = "claude-code", "work", "opus"
+
+	_, body, _, err := putLaunch(t, report, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body["harness"] != "claude-code" || body["account"] != "work" || body["model"] != "opus" {
+		t.Fatalf("body = %v", body)
+	}
+}
+
 func TestReportInteractiveLaunchSendsTheReasonOfAFailedLaunch(t *testing.T) {
 	report := launchReport(RunNotStarted)
 	report.FailureReason = "exit code 3: " + strings.Repeat("é", maxFailureReason)

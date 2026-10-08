@@ -78,6 +78,10 @@ final class ReportWorkerRunStateController extends AppController
             requestedModel: $payload->requestedModel,
             switchedFrom: $payload->switchedFrom,
             kind: $payload->kind(),
+            harness: $payload->harness,
+            account: $payload->account,
+            model: $payload->model,
+            harnessSessionId: $payload->harnessSessionId,
             peakContextTokens: $payload->peakContextTokens,
         ));
 
