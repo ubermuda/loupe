@@ -138,7 +138,7 @@ trait BridgeScenario
         return $usage;
     }
 
-    /** A call with no kind given takes the kind of a Claude Code tool name. */
+    /** With no kind given, Bash is shell and any other tool is tool. */
     private function seedToolCall(WorkerRun $run, int $seq = 1, string $tool = 'Bash', ?WorkerRunToolCallKind $kind = null): void
     {
         $repository = static::getContainer()->get(WorkerRunToolCallRepository::class);

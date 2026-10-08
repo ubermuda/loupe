@@ -12,8 +12,9 @@ use Symfony\Component\Uid\Uuid;
  * Writes the fact row of each run from the run, its usage rows, its tool call
  * rows and the host samples of its bridge. The four tool call columns stay
  * null for a run with no rows. The migration that made the table holds a
- * frozen copy of this select, from before the host columns. A run with no end
- * counts as concurrent only while it runs, so a lost run does not count forever.
+ * frozen copy of this select, from before the host, harness and account
+ * columns and the kind of a tool call. A run with no end counts as concurrent
+ * only while it runs, so a lost run does not count forever.
  */
 final readonly class WorkerRunFactWriter
 {
