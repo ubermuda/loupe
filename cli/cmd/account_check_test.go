@@ -173,3 +173,14 @@ func TestAReloadTurnsOffAFailingAccount(t *testing.T) {
 		return len(last.Accounts) == 1 && last.Accounts[0].State == api.AccountFailing
 	})
 }
+
+func TestALongReasonFitsTheServerLimit(t *testing.T) {
+	long := strings.Repeat("loupe MCP server not declared for project p; ", 10)
+	got := cutReason(long)
+	if n := len([]rune(got)); n != maxAccountReason {
+		t.Fatalf("cutReason gave %d characters, want %d", n, maxAccountReason)
+	}
+	if short := "not logged in"; cutReason(short) != short {
+		t.Fatalf("cutReason changed a short reason to %q", cutReason(short))
+	}
+}

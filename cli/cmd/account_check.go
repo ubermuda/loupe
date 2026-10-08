@@ -15,6 +15,10 @@ import (
 // accountCheckTimeout bounds the checks of all the accounts of a set.
 const accountCheckTimeout = 60 * time.Second
 
+// maxAccountReason is the longest reason the server takes. A longer one
+// fails the whole heartbeat.
+const maxAccountReason = 200
+
 // accountResult is the check of one account, which is ready when it has no
 // problem.
 type accountResult struct {
@@ -111,10 +115,20 @@ func accountReports(set *rules.Set) []api.AccountReport {
 		run, _ := set.Account(name, "")
 		row := api.AccountReport{Name: name, Harness: harnessNameOf(run), State: api.AccountReady}
 		if reason := off[name]; reason != "" {
-			row.State, row.Reason = api.AccountFailing, reason
+			row.State, row.Reason = api.AccountFailing, cutReason(reason)
 		}
 		reports = append(reports, row)
 	}
 
 	return reports
+}
+
+// cutReason keeps a reason within maxAccountReason characters.
+func cutReason(reason string) string {
+	runes := []rune(reason)
+	if len(runes) <= maxAccountReason {
+		return reason
+	}
+
+	return string(runes[:maxAccountReason-1]) + "…"
 }

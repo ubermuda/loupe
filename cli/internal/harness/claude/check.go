@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"os"
 	"os/exec"
@@ -42,7 +43,7 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 	env := append(os.Environ(), spec.Env...)
 	var problems []harness.Problem
 	if _, err := runCheck(ctx, binary, "", env, "auth", "status"); err != nil {
-		problems = append(problems, harness.Problem{Reason: "not logged in", Detail: loginDetail(spec.ConfigDir)})
+		problems = append(problems, loginProblem(err, spec.ConfigDir))
 	}
 	skillsHome := userSkills(spec.ConfigDir)
 	for _, slug := range slices.Sorted(maps.Keys(spec.Projects)) {
@@ -65,6 +66,16 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 	return problems
 }
 
+// loginProblem tells a login check that ran out of time from a logged-out
+// account, because a person fixes the two in different ways.
+func loginProblem(err error, configDir string) harness.Problem {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return harness.Problem{Reason: "login check timed out", Detail: "claude auth status did not answer in " + checkTimeout.String()}
+	}
+
+	return harness.Problem{Reason: "not logged in", Detail: loginDetail(configDir)}
+}
+
 // runCheck runs one claude command with a timeout, and gives its stdout.
 func runCheck(ctx context.Context, binary, dir string, env []string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
@@ -72,7 +83,12 @@ func runCheck(ctx context.Context, binary, dir string, env []string, args ...str
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir, cmd.Env, cmd.WaitDelay = dir, env, time.Second
 
-	return cmd.Output()
+	out, err := cmd.Output()
+	if err != nil && ctx.Err() != nil {
+		err = errors.Join(err, ctx.Err())
+	}
+
+	return out, err
 }
 
 // listPlugins gives the plugins claude lists in dir, and nil when the list

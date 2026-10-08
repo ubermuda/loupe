@@ -529,3 +529,13 @@ func TestCheckStopsWhenClaudeIsNotOnPath(t *testing.T) {
 		t.Fatalf("Check = %+v", got)
 	}
 }
+
+func TestALoginCheckThatTimesOutSaysSo(t *testing.T) {
+	got := loginProblem(errors.Join(errors.New("signal: killed"), context.DeadlineExceeded), "")
+	if got.Reason != "login check timed out" {
+		t.Fatalf("Reason = %q, want login check timed out", got.Reason)
+	}
+	if got := loginProblem(errors.New("exit status 1"), ""); got.Reason != "not logged in" {
+		t.Fatalf("Reason = %q, want not logged in", got.Reason)
+	}
+}
