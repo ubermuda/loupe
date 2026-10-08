@@ -56,19 +56,23 @@ export default class extends Controller {
         window.dispatchEvent(new Event('resize'));
     }
 
-    reveal() {
+    reveal(event) {
         const button = this.buttonTargets.find(
             (each) => each.dataset.reviewPanelsNameParam === 'comments',
         );
-        if (
-            button === undefined ||
-            this.#isDisabled(button) ||
-            button.getAttribute('aria-pressed') === 'true'
-        ) {
+        if (button === undefined || this.#isDisabled(button)) {
             return;
         }
-        this.#show('comments', true);
-        this.#remember('comments', true);
+        if (button.getAttribute('aria-pressed') !== 'true') {
+            this.#show('comments', true);
+            this.#remember('comments', true);
+        }
+        // A filter that hides the thread would open the panel on nothing.
+        if (event?.detail?.thread?.hidden && this.activeFilter !== 'all') {
+            this.activeFilter = 'all';
+            this.dispatch('filter', { detail: { filter: this.activeFilter } });
+            this.refreshFilter();
+        }
         window.dispatchEvent(new Event('resize'));
     }
 

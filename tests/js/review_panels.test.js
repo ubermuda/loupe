@@ -194,6 +194,40 @@ it('opens Comments and remembers it when the comment controller reveals a thread
     expect(openPanels()).toEqual(['decisions', 'comments']);
 });
 
+it('shows every thread when the active filter hides the revealed one', async () => {
+    const element = await mount({ hideResolved: true });
+    const events = [];
+    element.addEventListener('review-panels:filter', (event) =>
+        events.push(event.detail.filter),
+    );
+    const thread = document.getElementById('resolved-thread');
+    expect(thread.hidden).toBe(true);
+    element.dispatchEvent(
+        new CustomEvent('comment-anchor:reveal', {
+            bubbles: true,
+            detail: { thread },
+        }),
+    );
+    expect(thread.hidden).toBe(false);
+    expect(events).toEqual(['all']);
+});
+
+it('keeps the filter when the revealed thread already shows', async () => {
+    const element = await mount({ hideResolved: true });
+    const events = [];
+    element.addEventListener('review-panels:filter', (event) =>
+        events.push(event.detail.filter),
+    );
+    element.dispatchEvent(
+        new CustomEvent('comment-anchor:reveal', {
+            bubbles: true,
+            detail: { thread: document.getElementById('open-thread') },
+        }),
+    );
+    expect(events).toEqual([]);
+    expect(document.getElementById('resolved-thread').hidden).toBe(true);
+});
+
 it('keeps a disabled Comments panel closed on a reveal', async () => {
     const element = await mount();
     buttonFor('comments').setAttribute('aria-disabled', 'true');
