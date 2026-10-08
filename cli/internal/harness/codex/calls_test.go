@@ -493,10 +493,18 @@ func TestALineOfAnotherThreadAddsNoIdleTime(t *testing.T) {
 func TestARunCountsNothingAfterItsProcessEnded(t *testing.T) {
 	const main = "aaaaaaaa-0000-0000-0000-000000000006"
 	home := t.TempDir()
+	count := func(at string, output int) string {
+		n := strconv.Itoa(output)
+
+		return `{"timestamp":"` + at + `","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":` + n + `},"last_token_usage":{"input_tokens":100,"output_tokens":` + n + `}}}}`
+	}
 	writeSession(t, home, main,
 		metaLine(main),
+		`{"timestamp":"2026-10-08T10:00:00.500Z","type":"turn_context","payload":{"model":"gpt-6-sol"}}`,
 		call("2026-10-08T10:00:01.000Z", "function_call", "c1", "read_file", "arguments", `{}`),
 		output("2026-10-08T10:00:02.000Z", "function_call_output", "c1", "ok"),
+		count("2026-10-08T10:00:02.500Z", 10),
+		count("2026-10-08T10:20:02.000Z", 30),
 		call("2026-10-08T10:20:00.000Z", "function_call", "c2", "read_file", "arguments", `{}`),
 		output("2026-10-08T10:20:01.000Z", "function_call_output", "c2", "ok"),
 	)
@@ -518,6 +526,9 @@ func TestARunCountsNothingAfterItsProcessEnded(t *testing.T) {
 
 	if len(got.Calls) != 1 || got.Timing.IdleGapMs == nil || *got.Timing.IdleGapMs != 0 {
 		t.Fatalf("calls = %+v, timing = %+v", got.Calls, got.Timing)
+	}
+	if got.Usage["gpt-6-sol"].OutputTokens != 10 {
+		t.Fatalf("usage = %+v", got.Usage)
 	}
 }
 

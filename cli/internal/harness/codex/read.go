@@ -482,7 +482,7 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 		// The session total lacks a subagent, so the bridge reads the spend of
 		// the run window with SessionUsage instead.
 	case treeErr == nil && t.counted():
-		out.Usage = toUsage(t.between(time.Time{}, time.Time{}))
+		out.Usage = toUsage(t.between(time.Time{}, end))
 	case stdout.usage != nil:
 		name := cmp.Or(sess.model, run.Model, fallbackModel)
 		out.Usage = toUsage(map[string]spend{name: stdout.usage.priceAt(name, 0)})
