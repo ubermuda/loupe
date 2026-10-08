@@ -572,12 +572,12 @@ func TestAMissingSubagentOfALaterRunLeavesTheRunReadable(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	stdout := filepath.Join(dir, "stdout")
-	if err := os.WriteFile(stdout, nil, 0o600); err != nil {
+	exit := filepath.Join(dir, "status.exit")
+	if err := os.WriteFile(exit, []byte("0\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	end := at(t, "2026-10-08T10:00:03.000Z")
-	if err := os.Chtimes(stdout, end, end); err != nil {
+	if err := os.Chtimes(exit, end, end); err != nil {
 		t.Fatal(err)
 	}
 
