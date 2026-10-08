@@ -111,6 +111,11 @@ Loupe asks the bridge to resume that session. A person can also resume a run, as
 the next section says. Each resume is a new row, and its drawer links to the
 run it continues. A run from before the workflow engine can show **Gave up**.
 
+A resume that a person or a closed ask sends runs on the agent account that the
+run started on. The bridge refuses it when that account is gone from its rule
+file, or names another agent tool. A retry of an **Unfinished** run uses the
+account that the rule names now.
+
 ## Stop, resume and cancel
 
 The project owner can control a run from the runs section of a card page and

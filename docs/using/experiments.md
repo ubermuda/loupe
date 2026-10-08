@@ -4,7 +4,7 @@ description: "The Experiments tab of the Activity page, which compares the varia
 ---
 
 An [experiment](../extending/cli-bridge.md#experiments) splits the cards of a
-kind of work between models. The **Experiments** tab of the project's
+kind of work between models or accounts. The **Experiments** tab of the project's
 **Activity** page shows how each variant did.
 
 Open **Activity** in the project sidebar, then the **Experiments** tab.
@@ -17,7 +17,10 @@ run comes first. Select a name to open the comparison of that experiment.
 
 A project with no experiment shows how to start one. Give a worker entry of the
 `work:` map in `rules.yaml` its variants. The kind of the entry names the
-experiment.
+experiment. A variant sets a `model` or an
+[`account`](../extending/cli-bridge.md#accounts), and it can set `permissions`.
+A variant with no model takes the model of its account, or the model of the
+bridge when the account names none.
 
 ## The comparison
 
