@@ -25,11 +25,14 @@ type reloadResult struct {
 	Projects []string `json:"projects,omitempty"`
 	Problems []string `json:"problems,omitempty"`
 	Stage    string   `json:"stage,omitempty"`
+	// AccountsOff maps each account that failed its check to the reason.
+	AccountsOff map[string]string `json:"accountsOff,omitempty"`
 }
 
 // reloadSource gives a reload what it needs from the disk and the server; tests
 // replace it. A nil lock takes no lock, a nil resolveHooks resolves no hooks,
-// and a nil resolveClaude keeps the claude path.
+// a nil resolveClaude keeps the claude path, and a nil checkAccounts checks
+// no account.
 type reloadSource struct {
 	lock          func() (check func() error, done func(applied bool), err error)
 	load          func() (*rules.Set, error)
@@ -37,6 +40,7 @@ type reloadSource struct {
 	resolveClaude func() (string, error)
 	check         func(ctx context.Context, set *rules.Set) error
 	events        func(ctx context.Context) (api.Events, error)
+	checkAccounts func(ctx context.Context, set *rules.Set) []accountResult
 }
 
 // newReloadSource reads the rule file at path with the bridge flags as
@@ -49,6 +53,7 @@ func newReloadSource(path string, defaults rules.Defaults, cfg config.Config, lo
 		resolveClaude: resolveClaude,
 		check:         func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, apiClient(cfg)) },
 		events:        func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx, cfg.BridgeID) },
+		checkAccounts: checkAccounts,
 	}
 	if lock != nil {
 		src.lock = lock.follow
@@ -105,14 +110,21 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 	}
 	buildCtx, cancel := context.WithTimeout(ctx, timeout)
 	b, stage, err := buildSet(buildCtx, src)
-	cancel()
 	if err != nil {
+		cancel()
 		done(false)
 		problems := problemsOf(err)
 		r.log.Error("reload_failed", "stage", stage, "problems", problems)
 
 		return reloadResult{Stage: stage, Problems: problems}
 	}
+	// The checks share the build timeout, so the bridge answers before
+	// `loupe bridge reload` gives up. A failing account fails no reload.
+	if src.checkAccounts != nil {
+		b.accounts = src.checkAccounts(buildCtx, b.set)
+		b.set.SetAccountProblems(accountsOff(b.accounts))
+	}
+	cancel()
 	if err := check(); err != nil {
 		done(false)
 
@@ -134,12 +146,13 @@ func shuttingDown() reloadResult {
 	return reloadResult{Problems: []string{"the bridge is shutting down"}}
 }
 
-// built is a set a reload built, with its hooks, and the claude path when the
-// set has an interactive rule.
+// built is a set a reload built, with its hooks, the claude path when the
+// set has an interactive rule, and the checks of its accounts.
 type built struct {
-	set    *rules.Set
-	hooks  []hooks.Hook
-	claude string
+	set      *rules.Set
+	hooks    []hooks.Hook
+	claude   string
+	accounts []accountResult
 }
 
 // buildSet loads, checks and confirms a new set, resolves its hooks and its
@@ -242,6 +255,10 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	r.log.Info("reload_applied", attrs...)
 	warnUnknownModes(r.log, set)
 	warnAgentsOff(r.log, set)
+	warnAccountsOff(r.log, b.accounts)
+	if off := set.AccountsOff(); len(off) > 0 {
+		res.AccountsOff = off
+	}
 
 	return res
 }

@@ -246,6 +246,10 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		return err
 	}
 
+	// A failing account turns off its entries, and never stops the start.
+	accounts := checkAccounts(cmd.Context(), set)
+	set.SetAccountProblems(accountsOff(accounts))
+
 	r := &router{
 		log:        bl.log,
 		worker:     defaultWorkerOps(),
@@ -270,6 +274,7 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	logBridgeStart(r.log, cmd, set, path, bl.path, bridgeID)
 	warnUnknownModes(r.log, set)
 	warnAgentsOff(r.log, set)
+	warnAccountsOff(r.log, accounts)
 
 	return subscribe(cmd, cfg, r)
 }
@@ -581,8 +586,8 @@ func startEvents(ctx context.Context, cfg config.Config, bridgeID string, set *r
 }
 
 // heartbeatBody names the projects the rule file maps, by id, the CLI
-// version, the capabilities of the work map, the bridge name and the login
-// that workers push as.
+// version, the capabilities of the work map, the bridge name, the login that
+// workers push as, and the state of each account.
 func heartbeatBody(set *rules.Set, pushLogin string) api.Heartbeat {
 	ids := []string{}
 	for _, slug := range set.Projects() {
@@ -591,7 +596,7 @@ func heartbeatBody(set *rules.Set, pushLogin string) api.Heartbeat {
 
 	name := set.Name()
 
-	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Capabilities: set.Capabilities(), Name: &name, PushLogin: &pushLogin}
+	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Capabilities: set.Capabilities(), Name: &name, PushLogin: &pushLogin, Accounts: accountReports(set)}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

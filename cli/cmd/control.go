@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -415,4 +417,7 @@ func printReload(w io.Writer, path string, res reloadResult) {
 		fmt.Fprintln(w, "no rule changed")
 	}
 	fmt.Fprintln(w, "projects: "+strings.Join(res.Projects, ", "))
+	for _, name := range slices.Sorted(maps.Keys(res.AccountsOff)) {
+		fmt.Fprintln(w, "account "+name+" failing: "+res.AccountsOff[name])
+	}
 }
