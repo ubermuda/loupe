@@ -537,21 +537,7 @@ final readonly class DecisionBlockService
             ) ?? throw new \RuntimeException('Decision note marking failed: '.preg_last_error_msg().'.');
         }
 
-        if ([] !== $badgeLabels) {
-            $html = preg_replace_callback(
-                '~<span class="lp-decision__badge" '.self::BADGE_MARKER.'="([a-z]+)"(?: tabindex="0")?>~',
-                static function (array $matches) use ($badgeLabels): string {
-                    if (!isset($badgeLabels[$matches[1]])) {
-                        return $matches[0];
-                    }
-
-                    $label = htmlspecialchars($badgeLabels[$matches[1]], \ENT_QUOTES | \ENT_HTML5);
-
-                    return substr($matches[0], 0, -1).' role="note" aria-label="'.$label.'" title="'.$label.'">';
-                },
-                $html,
-            ) ?? throw new \RuntimeException('Decision badge labelling failed: '.preg_last_error_msg().'.');
-        }
+        $html = $this->withBadgeLabels($html, $badgeLabels);
 
         $marked = preg_replace_callback(
             '~<input[^>]*\s'.self::OPTION_MARKER.'="('.self::ID_PATTERN.'):(\d+)"[^>]*>~',
@@ -572,6 +558,32 @@ final readonly class DecisionBlockService
         // Falling back to '' would blank the document body on screen; the
         // neighbouring heading-id pass throws for the same reason.
         return $marked ?? throw new \RuntimeException('Decision selection marking failed: '.preg_last_error_msg().'.');
+    }
+
+    /**
+     * Names each recommendation badge in the reader's language.
+     *
+     * @param array<string, string> $badgeLabels keyed by confidence
+     */
+    public function withBadgeLabels(string $html, array $badgeLabels): string
+    {
+        if ([] === $badgeLabels) {
+            return $html;
+        }
+
+        return preg_replace_callback(
+            '~<span class="lp-decision__badge" '.self::BADGE_MARKER.'="([a-z]+)"(?: tabindex="0")?>~',
+            static function (array $matches) use ($badgeLabels): string {
+                if (!isset($badgeLabels[$matches[1]])) {
+                    return $matches[0];
+                }
+
+                $label = htmlspecialchars($badgeLabels[$matches[1]], \ENT_QUOTES | \ENT_HTML5);
+
+                return substr($matches[0], 0, -1).' role="note" aria-label="'.$label.'" title="'.$label.'">';
+            },
+            $html,
+        ) ?? throw new \RuntimeException('Decision badge labelling failed: '.preg_last_error_msg().'.');
     }
 
     /**
