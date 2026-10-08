@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
@@ -53,27 +54,37 @@ func checkAccounts(ctx context.Context, set *rules.Set) []accountResult {
 	for _, slug := range set.Projects() {
 		projects[slug] = set.Dir(slug)
 	}
-	var out []accountResult
-	for _, name := range set.UsedAccounts() {
-		run, _ := set.Account(name, "")
-		res := accountResult{name: name, harness: harnessNameOf(run)}
-		h, err := harnessByName(run.Harness, run.ConfigDir)
-		if err != nil {
-			res.problems = []harn.Problem{{Reason: "unknown harness", Detail: err.Error()}}
-			out = append(out, res)
-
-			continue
-		}
-		env, err := workerSpec{envFiles: run.EnvFiles, configDir: run.ConfigDir}.accountEnv()
-		if err != nil {
-			res.problems = []harn.Problem{{Reason: "env file does not read", Detail: err.Error()}}
-		} else {
-			res.problems = h.Check(ctx, harn.CheckSpec{Account: name, ConfigDir: run.ConfigDir, Env: env, Projects: projects})
-		}
-		out = append(out, res)
+	names := set.UsedAccounts()
+	// Each account runs in its own goroutine, so a slow one cannot use up the
+	// time of the next.
+	out := make([]accountResult, len(names))
+	var wg sync.WaitGroup
+	for i, name := range names {
+		wg.Go(func() { out[i] = checkAccount(ctx, set, name, projects) })
 	}
+	wg.Wait()
 
 	return out
+}
+
+func checkAccount(ctx context.Context, set *rules.Set, name string, projects map[string]string) accountResult {
+	run, _ := set.Account(name, "")
+	res := accountResult{name: name, harness: harnessNameOf(run)}
+	h, err := harnessByName(run.Harness, run.ConfigDir)
+	if err != nil {
+		res.problems = []harn.Problem{{Reason: "unknown harness", Detail: err.Error()}}
+
+		return res
+	}
+	env, err := workerSpec{envFiles: run.EnvFiles, configDir: run.ConfigDir}.accountEnv()
+	if err != nil {
+		res.problems = []harn.Problem{{Reason: "env file does not read", Detail: err.Error()}}
+
+		return res
+	}
+	res.problems = h.Check(ctx, harn.CheckSpec{Account: name, ConfigDir: run.ConfigDir, Env: env, Projects: projects})
+
+	return res
 }
 
 // harnessNameOf names the harness of an account, and Claude Code when the
