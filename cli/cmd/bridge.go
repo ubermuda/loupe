@@ -169,6 +169,7 @@ func startBridge(cmd *cobra.Command, o bridgeRunOptions) error {
 // and the control socket it took over. Otherwise it takes the lock and the
 // socket itself.
 func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults, path string, bl *bridgeLog, b *bridgeUpdate, control net.Listener) error {
+	migration := migrateAccounts(path)
 	set, err := rules.Load(path, defaults)
 	if err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
@@ -207,6 +208,7 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		}
 		defer bl.file.Close()
 	}
+	migration.log(bl.log, path)
 
 	if b == nil {
 		sock, err := socketPath(path)
@@ -257,6 +259,7 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	cleanLaunchScripts(defaultScriptDir(), time.Now(), r.log)
 	logBridgeStart(r.log, cmd, set, path, bl.path, bridgeID)
 	warnUnknownModes(r.log, set)
+	warnAgentsOff(r.log, set)
 
 	return subscribe(cmd, cfg, r)
 }
