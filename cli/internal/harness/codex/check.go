@@ -20,26 +20,9 @@ import (
 // checkTimeout bounds the login command of a check.
 const checkTimeout = 10 * time.Second
 
-var (
-	providerPattern = regexp.MustCompile(`(?m)^[ \t]*model_provider[ \t]*=[ \t]*"([^"]*)"`)
-)
-
 // profileFile is the file of the profile in the home folder.
 func profileFile(home, profile string) string {
 	return filepath.Join(home, profile+".config.toml")
-}
-
-// topLevel is the part of a TOML file before its first table.
-func topLevel(text string) string {
-	offset := 0
-	for line := range strings.SplitSeq(text, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "[") {
-			return text[:offset]
-		}
-		offset += len(line) + 1
-	}
-
-	return text
 }
 
 // configFiles are the files that set a profile, the profile first.
@@ -55,28 +38,30 @@ func configProvider(home, profile string) string {
 		if err != nil {
 			continue
 		}
-		if m := providerPattern.FindStringSubmatch(topLevel(string(b))); m != nil {
-			return m[1]
+		if v := tableValue(string(b), "", "model_provider"); v != "" {
+			return v
 		}
 	}
 
 	return ""
 }
 
-// tableValue is the string value of key in the named table of a TOML file, and
+// tableValue is the string value, basic or literal and with or without a
+// trailing comment, of key in the named table of a TOML file, and
 // "" for the top level. A line scanner is enough for the keys the bridge reads.
 func tableValue(text, table, key string) string {
 	current := ""
-	pattern := regexp.MustCompile(`^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*"([^"]*)"`)
+	pattern := regexp.MustCompile(`^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*(?:"([^"]*)"|'([^']*)')`)
 	for line := range strings.SplitSeq(text, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "[") {
-			current = strings.ReplaceAll(strings.Trim(trimmed, "[] \t"), `"`, "")
+			header, _, _ := strings.Cut(strings.TrimLeft(trimmed, "["), "]")
+			current = strings.NewReplacer(`"`, "", "'", "").Replace(strings.TrimSpace(header))
 			continue
 		}
 		if current == table {
 			if m := pattern.FindStringSubmatch(line); m != nil {
-				return m[1]
+				return m[1] + m[2]
 			}
 		}
 	}

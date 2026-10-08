@@ -473,3 +473,24 @@ func TestEnvKeyComesFromTheSelectedProvidersTable(t *testing.T) {
 		t.Fatalf("env key = %q, want BASE_KEY", got)
 	}
 }
+
+func TestConfigReadsLiteralStringsAndComments(t *testing.T) {
+	home := t.TempDir()
+	profile := "model_provider = 'second' # picked\n\n[model_providers.'first']\nenv_key = 'FIRST_KEY'\n\n[model_providers.'second'] # the one\nname = \"S\"\nenv_key = 'SECOND_KEY' # the key\n"
+	if err := os.WriteFile(filepath.Join(home, "p.config.toml"), []byte(profile), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := configProvider(home, "p"); got != "second" {
+		t.Fatalf("provider = %q", got)
+	}
+	if got := configEnvKey(home, "p"); got != "SECOND_KEY" {
+		t.Fatalf("env key = %q", got)
+	}
+	// A double-quoted value with a trailing comment reads too.
+	if err := os.WriteFile(filepath.Join(home, "q.config.toml"), []byte("model_provider = \"x\" # c\n[model_providers.x]\nenv_key = \"X_KEY\" # c\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := configEnvKey(home, "q"); got != "X_KEY" {
+		t.Fatalf("env key = %q", got)
+	}
+}
