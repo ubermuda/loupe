@@ -176,6 +176,10 @@ Use a component from `src/Module/DesignSystem/Catalog.php` before you write mark
 4. Badge: `<twig:Ds:Badge :status="document.status.value">`, for in-review, draft, approved and changes-requested.
 5. Tag: `<twig:Ds:Tag tone="amber">`, with `as="li"` inside a list. Tones are neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink and orange.
 6. StatusChip: `<twig:Ds:StatusChip modifier="ok" :label="..." :reason="...">`. It takes `:dot="false"` and `as="button"`, and its content is the label when you pass no `label`.
+7. Dialog: `<twig:Ds:Dialog size="document" aria-labelledby="..." data-action="cancel->modal#close">`. The size is document or search, and optional. The component sets `data-modal-target="dialog"`. Keep `lp-dialog-title`, `lp-dialog-desc` and `lp-dialog-actions` as plain classes inside. The CSS is `assets/styles/components/dialog.css`.
+8. Tabs: `<twig:Ds:Tabs aria-label="...">` with `lp-tabs__tab` links or buttons inside. Pass `tag="div"` and `role="tablist"` for a tab list. The CSS is `assets/styles/components/tabs.css`.
+9. Pagination: `<twig:Ds:Pagination route="..." :page="page" :totalPages="totalPages" :pageList="pageList" />`. The CSS is `assets/styles/components/pagination.css`.
+10. Tooltip: `<twig:Ds:Tooltip id="...">text</twig:Ds:Tooltip>`. The anchor's own rule shows it on hover and focus. The CSS is `assets/styles/components/tooltip.css`.
 
 A child card that adds a component adds it to this list in the same branch.
 

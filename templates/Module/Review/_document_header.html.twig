@@ -66,7 +66,7 @@
     {% endif %}
     </div>
     <div class="lp-review-workspace-nav">
-    <nav class="lp-tabs" aria-label="{{ 'review.document.navigation.label'|trans }}">
+    <twig:Ds:Tabs aria-label="{{ 'review.document.navigation.label'|trans }}">
         <a class="lp-tabs__tab" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
            {% if activeView == 'document' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:file-text" />{{ 'review.document.navigation.document'|trans }}</a>
         {% if versionCount > 1 %}
@@ -78,7 +78,7 @@
         }) }}" {% if activeView == 'diff' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:git-compare" />{{ 'review.document.navigation.diff'|trans }}</a>
         {% endif %}
         <a class="lp-tabs__tab" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}" {% if activeView == 'history' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:history" />{{ 'review.document.navigation.history'|trans }}</a>
-    </nav>
+    </twig:Ds:Tabs>
     {% if showMarginControls %}
     <div class="lp-review-margin-tabs">
         {% if 'comments' in marginTabs %}

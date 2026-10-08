@@ -99,7 +99,7 @@
         {% endfor %}
     </twig:DataTable>
 
-    <twig:Pagination route="app_project_activity" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
+    <twig:Ds:Pagination route="app_project_activity" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% elseif listQuery.isNarrowed %}
     <twig:Ds:EmptyState icon="lucide:search-x" :title="'activity.filter.empty'|trans" data-activity-filtered-empty />
     {% else %}

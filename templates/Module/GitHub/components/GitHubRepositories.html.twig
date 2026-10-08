@@ -27,7 +27,7 @@
             </span>
             <div data-controller="modal">
                 <twig:Ds:Button variant="danger-ghost" size="sm" type="button"  data-action="click->modal#open">{{ 'github.repositories.remove.action'|trans }}</twig:Ds:Button>
-                <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="remove-repository-title-{{ loop.index }}" data-action="cancel->modal#close">
+                <twig:Ds:Dialog aria-labelledby="remove-repository-title-{{ loop.index }}" data-action="cancel->modal#close">
                     <h2 class="lp-dialog-title" id="remove-repository-title-{{ loop.index }}">{{ 'github.repositories.remove.title'|trans }}</h2>
                     <p class="lp-dialog-desc">{{ 'github.repositories.remove.description'|trans({'%path%': repository.path}) }}</p>
                     <form method="post" action="{{ path('app_forge_repository_remove', {id: project.id, repositoryId: repository.id}) }}">
@@ -37,7 +37,7 @@
                             <twig:Ds:Button variant="danger" type="submit">{{ 'github.repositories.remove.confirm'|trans }}</twig:Ds:Button>
                         </div>
                     </form>
-                </dialog>
+                </twig:Ds:Dialog>
             </div>
         </div>
         {% endfor %}
@@ -138,7 +138,7 @@
                 <twig:Ds:Button type="button" size="sm" data-action="click->modal#open" data-testid="github-hook-rotate">
                     <twig:ux:icon name="lucide:rotate-cw" />{{ 'github.repositories.hook.rotate.action'|trans }}
                 </twig:Ds:Button>
-                <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="rotate-hook-secret-title" data-action="cancel->modal#close">
+                <twig:Ds:Dialog aria-labelledby="rotate-hook-secret-title" data-action="cancel->modal#close">
                     <h2 class="lp-dialog-title" id="rotate-hook-secret-title">{{ 'github.repositories.hook.rotate.title'|trans }}</h2>
                     <p class="lp-dialog-desc">{{ 'github.repositories.hook.rotate.description'|trans }}</p>
                     <form method="post" action="{{ path('app_github_hook_secret_rotate', {id: project.id}) }}">
@@ -148,7 +148,7 @@
                             <twig:Ds:Button variant="primary" type="submit">{{ 'github.repositories.hook.rotate.confirm'|trans }}</twig:Ds:Button>
                         </div>
                     </form>
-                </dialog>
+                </twig:Ds:Dialog>
             </div>
             {% endif %}
         </div>

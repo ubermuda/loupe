@@ -36,7 +36,7 @@
         {% endfor %}
     </div>
 
-    <twig:Pagination route="app_project_board_terminal_column" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="routeParams" />
+    <twig:Ds:Pagination route="app_project_board_terminal_column" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="routeParams" />
     {% else %}
     <twig:Ds:EmptyState icon="lucide:square-check-big" :title="'board.terminal.empty.title'|trans" :body="'board.terminal.empty.body'|trans">
         <twig:Ds:Button href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.terminal.empty.action'|trans }}</twig:Ds:Button>

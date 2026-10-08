@@ -8,6 +8,10 @@
 @import './components/flash.css';
 @import './components/status-chip.css';
 @import './components/tag.css';
+@import './components/dialog.css';
+@import './components/pagination.css';
+@import './components/tabs.css';
+@import './components/tooltip.css';
 @plugin "@tailwindcss/typography";
 
 /* Structural admin-* CSS shipped by the admin bundle, compiled in this app's
@@ -2429,30 +2433,6 @@
     .lp-card-drawer__title {
         @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-4;
     }
-    /* The one tab strip: role="tab" buttons (aria-selected), page links
-       (aria-current) or view toggles (aria-pressed) share the underline. */
-    .lp-tabs {
-        @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
-        scrollbar-width: none;
-    }
-    .lp-tabs::-webkit-scrollbar {
-        display: none;
-    }
-    .lp-tabs__tab {
-        @apply inline-flex items-center gap-2 px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute no-underline whitespace-nowrap cursor-pointer transition-colors;
-    }
-    .lp-tabs__tab:hover,
-    .lp-tabs__tab:focus-visible {
-        @apply text-ink;
-    }
-    .lp-tabs__tab[aria-selected='true'],
-    .lp-tabs__tab[aria-current='page'],
-    .lp-tabs__tab[aria-pressed='true'] {
-        @apply border-accent text-ink;
-    }
-    .lp-tabs__count {
-        @apply inline-flex items-center justify-center min-w-5 rounded-md bg-surface-3 px-1.5 py-0.5 text-xs text-fg-dim;
-    }
     .lp-card-panel[hidden] {
         @apply hidden;
     }
@@ -3330,23 +3310,6 @@
     .lp-empty {
         @apply text-fg-mute text-sm py-4;
     }
-    /* ── Pagination (shared `<twig:Pagination>` component) ─────────────── */
-
-    .lp-pagination {
-        @apply flex items-center justify-between gap-3 pt-8;
-    }
-    .lp-pagination__status {
-        @apply font-mono text-fg-dim m-0 text-xs;
-    }
-    .lp-pagination__controls {
-        @apply flex items-center gap-1.5;
-    }
-    .lp-pagination__ellipsis {
-        @apply inline-flex items-center justify-center w-9 h-9 text-fg-dim text-sm;
-    }
-    .lp-pagination__disabled {
-        @apply opacity-40 pointer-events-none;
-    }
 
     /* ── Dialog / modal (`modal` Stimulus controller) ─────────────────
        Animated via WAAPI in modal_controller.js; only ::backdrop gets a CSS
@@ -3359,16 +3322,6 @@
         @apply overflow-y-auto;
     }
 
-    .lp-dialog {
-        width: calc(100% - calc(var(--spacing) * 7));
-        margin: auto;
-        max-height: 90vh;
-        @apply max-w-xl overflow-y-auto rounded-xl border-0 bg-surface-1 p-6 shadow-composer;
-    }
-    /** Wide dialog for editing document Markdown. */
-    .lp-dialog--document {
-        @apply max-w-3xl;
-    }
     /* The right-hand drawer shell for the card, run and activity drawers.
        The modal controller slides it; the dialog itself stays still. */
     /* z-50 carries the modeless case, which sits outside the top layer. */
@@ -3511,20 +3464,6 @@
     }
     .lp-document-work-links input {
         @apply shrink-0;
-    }
-    .lp-dialog::backdrop {
-        @apply bg-ink/40 backdrop-blur-xs;
-        animation: lp-dialog-backdrop-in 220ms ease-out;
-    }
-    .lp-dialog-title {
-        @apply font-display font-extrabold text-2xl tracking-tight text-ink m-0;
-    }
-    .lp-dialog-desc {
-        @apply text-sm text-fg-mute mt-2 mb-4 leading-relaxed;
-    }
-    /** Action row for a confirmation dialog. */
-    .lp-dialog-actions {
-        @apply flex items-center justify-end gap-3 pt-2;
     }
 
     /* ── Danger zone ──────────────────────────────────────────────────── */
@@ -7802,18 +7741,12 @@
     .lp-presence--quiet .lp-presence__dot {
         @apply bg-status-pending;
     }
-    /* A small text bubble under its anchor, shown on hover and on keyboard focus. */
-    .lp-tooltip {
-        @apply invisible absolute left-0 top-full z-20 mt-2 flex w-72 flex-col gap-1 rounded-lg bg-ink px-3 py-2 text-xs font-medium leading-snug text-chrome-fg opacity-0 shadow-lg transition-opacity;
-    }
+    /* Show the tooltip of these anchors on hover and on keyboard focus. */
     .lp-presence:hover .lp-tooltip,
     .lp-presence:focus-visible .lp-tooltip,
     .lp-status-chip--reason:hover .lp-tooltip,
     .lp-status-chip--reason:focus-visible .lp-tooltip {
         @apply visible opacity-100;
-    }
-    .lp-tooltip__line--quiet {
-        @apply break-all text-chrome-mute;
     }
     /* A mention of a defined ID, such as R3, in the review prose. */
     .lp-ref {
@@ -8783,6 +8716,15 @@
     }
     .lp-styleguide__specimen {
         @apply flex flex-wrap items-center gap-3;
+    }
+    .lp-styleguide__specimen .lp-dialog {
+        @apply static w-full;
+    }
+    .lp-styleguide__tooltip-anchor {
+        @apply relative inline-block pb-16 text-sm font-semibold text-ink;
+    }
+    .lp-styleguide__tooltip-anchor .lp-tooltip {
+        @apply visible opacity-100;
     }
     .lp-styleguide__empty {
         @apply rounded-xl border border-dashed border-line-strong p-6 text-sm text-fg-mute;

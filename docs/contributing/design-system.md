@@ -7,7 +7,7 @@ The design system is the set of values and building blocks that give every page 
 
 ## The styleguide
 
-Run the app in dev and open `/styleguide`. The page draws every token group and every catalog entry from the real stylesheet. A component appears there when its child card adds it. Today the catalog holds the button.
+Run the app in dev and open `/styleguide`. The page draws every token group and every catalog entry from the real stylesheet. A component appears there when its child card adds it.
 
 The route exists in dev only. In production it does not exist.
 
@@ -47,6 +47,10 @@ A building block is a Twig component under `templates/components/Ds/`. Its CSS l
 | Badge | The status of a document in a list | in-review, draft, approved, changes-requested |
 | Tag | A short label, such as a card type or a column | neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink, orange |
 | StatusChip | A state with a coloured dot and an optional reason tooltip | pending, addressed, resolved, ok, failed, neutral |
+| Dialog | A modal that the `modal` Stimulus controller opens | document, search |
+| Tabs | A strip of links or tab buttons with an underline | none |
+| Pagination | The previous, next and page-number control of a list | none |
+| Tooltip | A text bubble under its anchor | none |
 
 Write a button like this:
 
@@ -73,7 +77,24 @@ Write the feedback parts like this:
 
 A Tag takes `as="li"` inside a list. A StatusChip takes `:dot="false"` for no dot, and `as="button"` for a chip that toggles a panel.
 
-`just gamache` blocks a template that writes `lp-btn`, `lp-flash`, `lp-empty-state`, `lp-badge`, `lp-tag` or `lp-status-chip` by hand.
+Write a dialog, tabs, pagination and a tooltip like this:
+
+```twig
+<twig:Ds:Dialog size="document" aria-labelledby="edit-title" data-action="cancel->modal#close">
+    <h3 id="edit-title" class="lp-dialog-title">Edit</h3>
+</twig:Ds:Dialog>
+
+<twig:Ds:Tabs class="lp-analytics-tabs" aria-label="Sections">
+    <a class="lp-tabs__tab" href="{{ path('app_home') }}" aria-current="page">Home</a>
+</twig:Ds:Tabs>
+
+<twig:Ds:Pagination route="app_projects" :page="page" :totalPages="totalPages" :pageList="pageList" />
+
+<twig:Ds:Tooltip id="why-1">The reason.</twig:Ds:Tooltip>
+```
+
+The dialog sets `data-modal-target="dialog"` itself. The tabs take `tag="div"` for a tab list that is not a navigation. The pagination draws nothing when there is one page. The feature that owns the anchor decides when a tooltip shows.
+
 
 ## The rules
 
@@ -87,3 +108,5 @@ Read `project-frontend` for the full conventions of CSS, Stimulus and Turbo.
 
 - [Development](development.md)
 - [Architectural priorities](architectural-priorities.md)
+
+`just gamache` blocks a template that writes `lp-btn`, `lp-flash`, `lp-empty-state`, `lp-badge`, `lp-tag`, `lp-status-chip`, `lp-dialog`, `lp-tabs`, `lp-pagination` or `lp-tooltip` by hand.
