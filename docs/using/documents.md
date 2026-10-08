@@ -291,7 +291,8 @@ A click on an option saves it at once. Each block also has a note field. Use it
 to explain your choice, or to write your own answer with no option picked. The
 **Decisions** tab counts a note with no pick as an answer. The
 note saves 800 ms after you stop typing, and again when you leave the field.
-**Clear** removes the pick and keeps the note. The status line shows "Saved." or
+**Clear choice** sits at the top right of the block, beside the "Pick one" or
+"Pick any" chip. It removes the pick and keeps the note. The status line shows "Saved." or
 "Cleared." after each save.
 
 The last write wins. Loupe does not refuse a save because another answer came
@@ -317,9 +318,11 @@ The author can mark the option they recommend. They end its line with
 2. Generate emailed links from a pinned `default_uri`
 ```
 
-Loupe removes the marker from the label and shows a "Recommended" badge with
-the confidence next to that option. Only one option can carry the marker. When
-more than one option carries it, Loupe shows no badge and keeps the marker text. Other
+Loupe removes the marker from the label and shows three stars next to that
+option. High confidence fills all three, moderate fills two, and low fills one.
+Hover over the stars, or move keyboard focus to them, to read the words, such
+as "Recommended, moderate confidence". Only one option can carry the marker. When
+more than one option carries it, Loupe shows no stars and keeps the marker text. Other
 Markdown renderers show the marker as ordinary text.
 
 The identifier is permanent. The answer is stored against the id rather than
@@ -351,6 +354,36 @@ A multi-choice block reports its answers in `selections`, and reports null in
 
 The comments are invisible in every other Markdown renderer, so a document read
 outside Loupe still shows a plain list.
+
+## Option tables
+
+A table that compares options can show each row as a block. Put
+`<!-- options -->` on its own line above the table and `<!-- /options -->` on its
+own line below it:
+
+```markdown
+<!-- options -->
+
+| Option | Pros | Cons |
+|---|---|---|
+| 1. Any project member | Matches who may create a tag | A member can remove a tag in use |
+| 2. The project owner only | No surprise removals | The owner must do every clean-up |
+
+<!-- /options -->
+```
+
+Each row becomes a tinted block. The first column is the name of the option, and
+it leads the block. The other columns sit side by side under their own headings.
+On a narrow screen they stack. A fence can hold more than one table.
+
+A table needs two columns or more. A fence with no table in it, an opener with
+no closer, and a closer with no opener do nothing, and Loupe shows the stray
+comment as a visible note. Versions saved before this feature keep their plain
+tables. Other Markdown renderers hide the comments and show a plain table.
+
+Every other table in a document uses larger text, taller rows, a bold first
+column and headings in small capitals. A table that is wider than the page
+scrolls inside its own box.
 
 ## Diagrams
 
