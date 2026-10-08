@@ -95,6 +95,14 @@ the request expire after the work timeout, and the card then pauses with "no
 bridge took the work". [The development
 lifecycle](../contributing/lifecycle.md) shows a `repair` entry.
 
+A resumed run ends the pause of its card. When a person resumes a run, or a
+closed [inbox](inbox.md) ask resumes it, the workflow releases the pause as soon
+as the resumed run reports to Loupe. This holds for every pause a person can
+release, and not for a pause that a rule sets with its own release condition.
+The card then asks for no second worker. A resumed run that fails earns the
+retries of a fresh budget, and a resumed run that ends as blocked pauses the
+card again at once.
+
 The template sets this behaviour in its `onWorkFailed` block:
 
 ```yaml
