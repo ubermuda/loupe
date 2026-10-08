@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Lists the design system files that a branch changed.
+#
+# Usage:
+#   bin/agents/design-system-changed [<base>]
+#
+# The base defaults to origin/main. Pass origin/<parent-branch> for a stacked branch.
+# Output: one path per line, from "git diff --name-only <base>...HEAD".
+# Empty output means the branch changed no design system file. The exit code is 0 either way.
+# A base that git cannot resolve is an error, with a non-zero exit code.
+# The export reads the @font-face rules of app.css, so a change to those rules counts too.
+# Requires: git, awk
+
+set -euo pipefail
+
+if [[ $# -gt 1 ]]; then
+  echo "Usage: $(basename "$0") [<base>]" >&2
+  exit 1
+fi
+
+BASE="${1:-origin/main}"
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
+CHANGED=$(git diff --name-only "$BASE...HEAD")
+printf '%s\n' "$CHANGED" | grep -E '^(assets/styles/tokens\.css|assets/styles/design-system\.css|assets/fonts/.+|docs/contributing/design-system\.md|assets/styles/components/.+|templates/components/Ds/.+|templates/Module/DesignSystem/export/.+|src/Module/DesignSystem/(Catalog|ComponentEntry)\.php|src/Module/DesignSystem/(Command|Service|Token)/.+)$' || true
+
+font_faces() {
+  { git show "$1:assets/styles/app.css" 2>/dev/null || true; } | awk '/^[[:space:]]*@font-face/,/^[[:space:]]*}/'
+}
+
+if [[ "$(font_faces "$(git merge-base "$BASE" HEAD)")" != "$(font_faces HEAD)" ]]; then
+  echo "assets/styles/app.css"
+fi
