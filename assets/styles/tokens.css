@@ -301,7 +301,7 @@
 }
 
 /* @group shadow */
-@theme inline {
+@theme static inline {
     /* Shadows — reserved for surfaces that float above the page: the selection
        toolbar, the floating composer, and menus and overlays (`--shadow-card`).
        `--shadow-focus` is the halo for a selected surface. The comic balloon is
