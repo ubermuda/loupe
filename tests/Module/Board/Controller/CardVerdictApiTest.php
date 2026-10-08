@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Repository\CardVerdictRepository;
 use App\Module\Forge\Entity\PullRequestState;
+use App\Module\GitHub\Entity\GitHubUserConnection;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -103,12 +105,33 @@ final class CardVerdictApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($client, 'verdict-api-own@example.com');
         $card = $this->card($project);
         $this->linkedPullRequest($card, 7, authorId: '4242');
+        $this->linkedPullRequest($card, 8, authorId: '9999');
         $this->em->flush();
 
         $data = $this->call($client, Request::METHOD_GET, $this->panelPath($card), $raw);
 
-        // No module stores a forge account for a user yet, so nothing is the reviewer's own.
-        self::assertFalse($data['pullRequests'][0]['ownPullRequest']);
+        self::assertSame([false, false], array_column($data['pullRequests'], 'ownPullRequest'));
+
+        $this->connectGitHub($project, 4242);
+
+        $data = $this->call($client, Request::METHOD_GET, $this->panelPath($card), $raw);
+
+        self::assertSame(['state' => 'connected'], $data['connection']);
+        self::assertSame([true, false], array_column($data['pullRequests'], 'ownPullRequest'));
+    }
+
+    public function test_an_expired_connection_reads_expired_and_still_flags_the_own_pull_request(): void
+    {
+        $client = static::createClient();
+        [$raw, $project] = $this->projectWithToken($client, 'verdict-api-expired@example.com');
+        $card = $this->card($project);
+        $this->linkedPullRequest($card, 7, authorId: '4242');
+        $this->connectGitHub($project, 4242, expired: true);
+
+        $data = $this->call($client, Request::METHOD_GET, $this->panelPath($card), $raw);
+
+        self::assertSame(['state' => 'expired'], $data['connection']);
+        self::assertTrue($data['pullRequests'][0]['ownPullRequest']);
     }
 
     public function test_a_message_is_required_for_request_changes_and_comment(): void
@@ -271,6 +294,19 @@ final class CardVerdictApiTest extends WebTestCase
         $raw = $scenario->accessTokenFor($client, $user, 'site-review', $project);
 
         return [$raw, AgentCredential::managed($this->em(), $project, $project->id)];
+    }
+
+    private function connectGitHub(Project $project, int $githubUserId, bool $expired = false): void
+    {
+        $em = $this->em();
+        $owner = $em->find(User::class, $project->owner->id);
+        self::assertInstanceOf(User::class, $owner);
+        $connection = new GitHubUserConnection($owner, $githubUserId, 'octocat', 'access', 'refresh', new \DateTimeImmutable('+8 hours'), new \DateTimeImmutable('+6 months'), new \DateTimeImmutable());
+        if ($expired) {
+            $connection->expiredAt = new \DateTimeImmutable();
+        }
+        $em->persist($connection);
+        $em->flush();
     }
 
     private function em(): EntityManagerInterface

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\GitHub\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Forge\Event\ForgeUserConnected;
 use App\Module\GitHub\Entity\GitHubUserConnection;
 use App\Module\GitHub\Repository\GitHubUserConnectionRepository;
 use App\Module\GitHub\Service\GitHubUserApi;
@@ -14,6 +15,7 @@ use App\Module\Project\Service\SiteOrigins;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
@@ -35,6 +37,7 @@ final readonly class CompleteGitHubConnectHandler
         private ClockInterface $clock,
         private Auditor $auditor,
         private LoggerInterface $logger,
+        private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -102,6 +105,8 @@ final readonly class CompleteGitHubConnectHandler
             ['userId' => (string) $command->user->id, 'githubUserId' => $profile->id],
             new AuditSubject('user', (string) $command->user->id),
         );
+
+        $this->eventDispatcher->dispatch(new ForgeUserConnected($command->user->id ?? throw new \LogicException('A signed-in user is stored')));
 
         return new CompletedGitHubConnect($profile->login, $this->targetOrigin($command));
     }

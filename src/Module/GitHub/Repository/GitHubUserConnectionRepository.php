@@ -30,9 +30,14 @@ final class GitHubUserConnectionRepository extends ServiceEntityRepository
      */
     public function findSummaryByUser(User $user): ?GitHubUserConnectionSummary
     {
+        return null === $user->id ? null : $this->findSummaryByUserId($user->id);
+    }
+
+    public function findSummaryByUserId(Uuid $userId): ?GitHubUserConnectionSummary
+    {
         return $this->getEntityManager()
-            ->createQuery('SELECT NEW '.GitHubUserConnectionSummary::class.'(c.login, c.connectedAt, c.expiredAt, c.accessTokenExpiresAt, c.refreshTokenExpiresAt) FROM '.GitHubUserConnection::class.' c WHERE c.user = :user')
-            ->setParameter('user', $user)
+            ->createQuery('SELECT NEW '.GitHubUserConnectionSummary::class.'(c.login, c.githubUserId, c.connectedAt, c.expiredAt, c.accessTokenExpiresAt, c.refreshTokenExpiresAt) FROM '.GitHubUserConnection::class.' c WHERE c.user = :user')
+            ->setParameter('user', $userId, UuidType::NAME)
             ->getOneOrNullResult();
     }
 
