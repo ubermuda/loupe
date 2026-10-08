@@ -3159,6 +3159,7 @@
     }
     .lp-review-filter__menu {
         @apply absolute right-0 top-10 z-20 flex w-52 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card;
+        max-width: calc(100vw - var(--spacing) * 10);
     }
     .lp-review-filter__menu button {
         @apply flex min-h-9 cursor-pointer items-center justify-between gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;

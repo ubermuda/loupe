@@ -204,10 +204,11 @@
     @apply max-w-3xl;
 }
 @media (width >= 87.5rem) {
-    .lp-review .lp-review-block:not(.lp-review-block--wide) {
+    /* Both views drop the cap, so the toolbar in each measures one width. */
+    .lp-review .lp-review-block {
         max-width: none;
     }
-    .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
+    .lp-review .lp-review-doc {
         --review-column-start: max(
             0rem,
             min(
@@ -216,6 +217,14 @@
                     var(--doc-margin)
             )
         );
+    }
+    /* The side-by-side view keeps the toolbar in the text column of the
+       other views, so a switch of view moves no control. */
+    .lp-review .lp-review-doc--wide .lp-diff-bar {
+        margin-left: var(--review-column-start);
+        max-width: var(--container-3xl);
+    }
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
         padding-left: var(--review-column-start);
         padding-right: calc(
             100% - var(--container-3xl) - var(--review-column-start)
