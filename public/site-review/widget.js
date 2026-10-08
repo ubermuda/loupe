@@ -3667,6 +3667,7 @@
             (option) => `${option.value}:${option.textContent}`,
         );
         if (keys.join('\n') !== listed.join('\n')) {
+            const chosen = pickerTypeNode.value;
             pickerTypeNode.textContent = '';
             parentTypes.forEach((type) => {
                 const option = document.createElement('option');
@@ -3674,6 +3675,9 @@
                 option.textContent = type.label;
                 pickerTypeNode.appendChild(option);
             });
+            if (parentTypes.some((type) => type.key === chosen)) {
+                pickerTypeNode.value = chosen;
+            }
         }
         pickerTypeNode.style.display =
             pickerMode === 'epic' && parentTypes.length > 1 ? '' : 'none';
