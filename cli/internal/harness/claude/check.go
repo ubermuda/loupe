@@ -1,7 +1,6 @@
 package claude
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -68,7 +67,7 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 	if _, err := runCheck(ctx, binaries[firstKey(binaries, slugs)], loginDir, env, "auth", "status"); err != nil {
 		problems = append(problems, loginProblem(err, spec.ConfigDir))
 	}
-	skillsHome := userSkills(spec.ConfigDir)
+	configDir, skillsHome := claudeDirs(env)
 	for _, slug := range slugs {
 		binary, ok := binaries[slug]
 		if !ok {
@@ -76,7 +75,7 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 
 			continue
 		}
-		problems = append(problems, projectProblems(ctx, binary, env, spec.ConfigDir, skillsHome, slug, spec.Projects[slug])...)
+		problems = append(problems, projectProblems(ctx, binary, env, configDir, skillsHome, slug, spec.Projects[slug])...)
 	}
 
 	return problems
@@ -203,14 +202,30 @@ func hasSkills(dir string) bool {
 	return false
 }
 
-// userSkills is the skills folder of the config folder claude reads.
-func userSkills(configDir string) string {
-	if dir := cmp.Or(configDir, strings.TrimSpace(os.Getenv("CLAUDE_CONFIG_DIR"))); dir != "" {
-		return filepath.Join(dir, "skills")
+// claudeDirs gives the folder of the .claude.json that claude reads with env,
+// and its skills folder. An env file can move HOME as well as the config folder.
+func claudeDirs(env []string) (string, string) {
+	if dir := strings.TrimSpace(envValue(env, "CLAUDE_CONFIG_DIR")); dir != "" {
+		return dir, filepath.Join(dir, "skills")
 	}
-	home, _ := os.UserHomeDir()
+	home := envValue(env, "HOME")
+	if home == "" {
+		home, _ = os.UserHomeDir()
+	}
 
-	return filepath.Join(home, ".claude", "skills")
+	return home, filepath.Join(home, ".claude", "skills")
+}
+
+// envValue is the last value of key in env, and "" when env sets none.
+func envValue(env []string, key string) string {
+	value := ""
+	for _, kv := range env {
+		if v, ok := strings.CutPrefix(kv, key+"="); ok {
+			value = v
+		}
+	}
+
+	return value
 }
 
 func loginDetail(configDir string) string {

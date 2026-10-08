@@ -663,3 +663,23 @@ func TestCheckReadsThePathOfTheServerEntry(t *testing.T) {
 		t.Fatalf("Check = %+v, want ready through the PATH of the entry", got)
 	}
 }
+
+func TestCheckReadsTheConfigOfTheAccountHome(t *testing.T) {
+	isolate(t)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	checkClaude(t, "0", "[]")
+	home, project := t.TempDir(), t.TempDir()
+	addSkill(t, filepath.Join(home, ".claude", "skills", "loupe-board"))
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(userLoupe), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", Env: []string{"HOME=" + home}, Projects: map[string]string{"loupe": project}}
+
+	if got := New("").Check(context.Background(), spec); len(got) != 0 {
+		t.Fatalf("Check = %+v, want ready through the HOME of the account", got)
+	}
+	spec.Env = nil
+	if got := New("").Check(context.Background(), spec); len(got) != 2 {
+		t.Fatalf("Check with the bridge HOME = %+v, want two problems", got)
+	}
+}
