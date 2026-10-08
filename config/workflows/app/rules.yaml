@@ -13,3 +13,11 @@ rules:
               checks:
                   - The Loupe plugin skills are installed for the agent, with the loupe-discovery skill
                   - The bridge rule file maps the discovery kind, or sets appPrompts to true
+
+    - id: post-widget-review
+      when: { site_review.verdict_unsent: {} }
+      then: { forge-write: { write: post-review } }
+
+    - id: sync-site-review-check
+      when: { site_review.check_stale: {} }
+      then: { forge-write: { write: site-review-check } }

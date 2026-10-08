@@ -453,7 +453,7 @@ final class TemplateParserTest extends TestCase
             $t['rules'][2]['then']['forge-write']['write'] = 'squash';
 
             return $t;
-        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close, open-epic'];
+        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close, open-epic, post-review, site-review-check'];
         yield 'merge with no fallback' => [static function (array $t): array {
             unset($t['rules'][2]['then']['forge-write']['fallback']);
 

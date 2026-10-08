@@ -24,6 +24,7 @@ use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Workflow\SiteReviewFactProvider;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
@@ -2503,7 +2504,7 @@ final class EngineTest extends KernelTestCase
 
     private function providers(): FactProviders
     {
-        return new FactProviders([$this->provider()]);
+        return new FactProviders([$this->provider(), $this->service(SiteReviewFactProvider::class)]);
     }
 
     private function evaluate(Card $card, string $at = self::NOON): void

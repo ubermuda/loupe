@@ -76,6 +76,9 @@ final readonly class ForgeWrite implements Action
         if (ForgeWriteKind::OpenEpic === $write) {
             return $this->openEpic($rule, $card, $pullRequests);
         }
+        if (ForgeWriteKind::PostReview === $write || ForgeWriteKind::SiteReviewCheck === $write) {
+            return ActionOutcome::done();
+        }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
             if ([] === $pullRequests) {
                 return ActionOutcome::done();
@@ -117,6 +120,8 @@ final readonly class ForgeWrite implements Action
             ForgeWriteKind::Draft, ForgeWriteKind::Ready => $settings->epicDraftSwitch,
             ForgeWriteKind::Close => $settings->closeEpicPullRequests,
             ForgeWriteKind::OpenEpic => $settings->openEpicPullRequests,
+            ForgeWriteKind::PostReview => $settings->postWidgetReviews,
+            ForgeWriteKind::SiteReviewCheck => $settings->siteReviewCheck,
             ForgeWriteKind::Comment => false,
         };
     }
