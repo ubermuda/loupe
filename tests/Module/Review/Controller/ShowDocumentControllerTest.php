@@ -229,7 +229,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.lp-review-doc__byline', 'Ribbonowner');
-        self::assertSelectorTextContains('.lp-review-doc__byline', '0/0 sections approved');
+        self::assertSelectorTextNotContains('.lp-review-doc__byline', 'sections approved');
         self::assertSelectorCount(4, '.lp-review-margin-tabs [role="tab"]');
         self::assertSelectorTextContains('.lp-review-margin-tabs', 'Comments');
         self::assertSelectorExists('[data-margin-panel="details"]');
@@ -939,8 +939,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
 
         // The middle heading is an image with no alt text, so nothing labels it.
-        // The panel now also reports which sections are approved, and that one is
-        // approvable, so it takes a row under its own id rather than a blank one.
+        // It takes a row labelled by its own id rather than a blank one.
         $markdown = "## First\n\nBody.\n\n## ![](diagram.png)\n\nMore.\n\n## Second\n\nEnd.\n";
         $doc = new Document(owner: $owner, project: $project, title: 'Illustrated Doc');
         $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown));
@@ -990,11 +989,10 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        // One section was too few for a table of contents. The panel now also
-        // reports approval state, which is worth seeing for a single section.
+        // One section is enough for the panel to list.
         self::assertCount(1, $crawler->filter('#review-margin-panel-outline'));
         self::assertCount(1, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
-        self::assertStringContainsString('0/1', $crawler->filter('#section-summary-count')->text());
+        self::assertSame('1', trim($crawler->filter('#review-margin-panel-outline h2 span')->text()));
     }
 
     public function test_both_ends_of_a_reference_render_it_and_an_archived_target_is_marked(): void

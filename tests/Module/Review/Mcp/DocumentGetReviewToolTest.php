@@ -8,8 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
-use App\Module\Review\Command\SetSectionApprovalCommand;
-use App\Module\Review\Command\SetSectionApprovalHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Mcp\DocumentGetReviewTool;
 use App\Tests\Support\McpRefusalMessages;
@@ -90,7 +88,7 @@ final class DocumentGetReviewToolTest extends KernelTestCase
         ($this->tool)((string) $document->id);
     }
 
-    public function test_reports_which_sections_a_reviewer_has_approved(): void
+    public function test_the_payload_lists_no_sections(): void
     {
         $owner = $this->user('getreview-sections@example.com');
 
@@ -106,17 +104,12 @@ final class DocumentGetReviewToolTest extends KernelTestCase
             "## Alpha\n\nAlpha body.\n\n## Beta\n\nBeta body.\n",
         ));
 
-        $approve = self::getContainer()->get(SetSectionApprovalHandler::class);
-        self::assertInstanceOf(SetSectionApprovalHandler::class, $approve);
-        $approve(new SetSectionApprovalCommand($document, $owner, 'heading-alpha', true, 1));
-
         $this->actAsMcpTokenBoundTo($project);
 
-        $sections = ($this->tool)((string) $document->id)['sections'];
+        $review = ($this->tool)((string) $document->id);
 
-        self::assertSame(['heading-alpha', 'heading-beta'], array_column($sections, 'heading_id'));
-        self::assertSame(1, $sections[0]['standing_approval_count']);
-        self::assertSame(0, $sections[1]['standing_approval_count']);
+        self::assertSame(1, $review['version']);
+        self::assertArrayNotHasKey('sections', $review);
     }
 
     public function test_unbound_mcp_token_is_rejected(): void

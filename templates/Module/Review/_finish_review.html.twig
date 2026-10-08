@@ -2,8 +2,6 @@
     <h2 class="lp-dialog-title" id="finish-review-title">{{ 'review.document.finish.title'|trans }}</h2>
     <p class="lp-dialog-desc">{{ 'review.document.finish.context'|trans({
         '%version%': submitReviewForm.versionNumber.vars.value,
-        '%approved%': sections.approvedCount,
-        '%total%': sections.rows|length,
         '%open%': signals.openThreadCount,
     }) }}</p>
     {{ form_start(submitReviewForm, {attr: {class: 'lp-form', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': 'document:review:' ~ document.id, 'data-action': 'input->form-draft#remember change->form-draft#remember submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared'}}) }}

@@ -11,13 +11,12 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 /**
  * Bulk-deletes the Review-module subtree of a project in FK order:
  * reviews / comments / highlights -> document_versions -> document_tags /
- * document_references / decision_selections / decision_answers /
- * section_approvals -> documents ->
- * tags. No entity hydration; runs inside ProjectDeleter's transaction.
+ * document_references / decision_selections / decision_answers ->
+ * documents -> tags. No entity hydration; runs inside ProjectDeleter's transaction.
  *
  * The order is two independent chains, not one list: highlights, comments and
  * reviews hang off document_versions and so precede it, while tag join rows,
- * references, decision selections and section approvals hang off documents and
+ * references and decision selections hang off documents and
  * so precede that. A table added to the wrong chain still reads plausibly here
  * and fails only at runtime.
  *
@@ -76,11 +75,6 @@ final readonly class DeleteReviewDataOnProjectDeleting
 
         $this->em->createQuery(
             'DELETE App\Module\Review\Entity\DecisionAnswer da WHERE da.document IN (SELECT dd.id FROM App\Module\Review\Entity\Document dd WHERE dd.project = :project)',
-        )->setParameter('project', $event->project)->execute();
-
-        // Same chain as the selections above: an approval hangs off documents.
-        $this->em->createQuery(
-            'DELETE App\Module\Review\Entity\SectionApproval a WHERE a.document IN (SELECT ad.id FROM App\Module\Review\Entity\Document ad WHERE ad.project = :project)',
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(

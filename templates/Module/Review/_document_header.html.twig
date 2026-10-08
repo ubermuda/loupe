@@ -20,13 +20,6 @@
                 </span>
                 <span class="lp-review-doc__middot" aria-hidden="true">·</span>
                 <span>{{ 'review.document.byline_updated'|trans({'%updated%': version.createdAt|relative_time}) }}</span>
-                {% if totalSections is not null %}
-                <span class="lp-review-doc__middot" aria-hidden="true">·</span>
-                <span id="section-byline-count">{{ 'review.document.sections.progress'|trans({
-                    '%approved%': approvedSections,
-                    '%total%': totalSections,
-                }) }}</span>
-                {% endif %}
             </div>
         </div>
     </div>

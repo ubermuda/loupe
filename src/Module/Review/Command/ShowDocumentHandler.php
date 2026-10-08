@@ -16,7 +16,6 @@ use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\LastSeenVersionResolver;
 use App\Module\Review\Service\ReferenceDefinitionResolver;
 use App\Module\Review\Service\ReferenceReminderInjector;
-use App\Module\Review\Service\SectionApprovalReader;
 use App\Module\Review\ValueObject\CommentSignals;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -30,7 +29,6 @@ final readonly class ShowDocumentHandler
         private DecisionBlockService $decisionBlocks,
         private DecisionSummaryReader $decisionSummary,
         private LastSeenVersionResolver $lastSeenVersion,
-        private SectionApprovalReader $sectionApprovals,
         private ReviewRepository $reviews,
         private TranslatorInterface $translator,
         private ReferenceDefinitionResolver $referenceDefinitions,
@@ -77,7 +75,6 @@ final readonly class ShowDocumentHandler
             ),
             referenceDefinitions: $referenceDefinitions,
             lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),
-            sections: ($this->sectionApprovals)($command->document, $version, $headings, $command->reader),
             review: Verdict::Withdrawn === $latestReview?->verdict ? null : $latestReview,
             latestReviewId: $latestReview?->id?->toRfc4122(),
         );
