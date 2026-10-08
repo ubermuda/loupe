@@ -136,8 +136,15 @@ const gotoHarness = async (page: Page, url: string): Promise<void> => {
     );
     await page.goto(url);
     await (await booted).finished();
+    // The widget exposes no ready signal. Two frames cover the task that
+    // parses the answer and the repaint that follows it.
     await page.evaluate(
-        () => new Promise<void>((resolve) => setTimeout(resolve)),
+        () =>
+            new Promise<void>((resolve) =>
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() => resolve()),
+                ),
+            ),
     );
 };
 
