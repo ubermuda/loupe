@@ -18,6 +18,7 @@ use App\Module\Insights\Entity\AnalysisScope;
 use App\Module\Insights\Entity\AnalysisState;
 use App\Module\Insights\Entity\AnalysisTopic;
 use App\Module\Insights\Service\AnalysisSettings;
+use App\Module\Workflow\Template\AppRules;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -49,6 +50,7 @@ final readonly class StartAnalysisHandler
         private ClockInterface $clock,
         private Auditor $auditor,
         private ListExperimentsHandler $listExperiments,
+        private AppRules $appRules,
     ) {
     }
 
@@ -110,6 +112,7 @@ final readonly class StartAnalysisHandler
                 context: new WorkRequestContext(),
                 model: $analysis->model,
                 effort: $analysis->effort,
+                prompt: $this->appRules->prompt('analysis'),
             ));
         } catch (DomainErrors $e) {
             $analysis->fail(self::REQUEST_REFUSED, $this->clock->now());

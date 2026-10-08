@@ -65,6 +65,32 @@ final class ClaimWorkRequestHandlerTest extends KernelTestCase
         }
     }
 
+    public function test_a_bridge_with_app_prompts_claims_a_subject_request_that_carries_a_prompt(): void
+    {
+        [$owner, $bridge, $request] = $this->scenario('claim-handler-app-prompts', WorkRequestState::Open);
+        $bridge->capabilities = [Bridge::CAPABILITY_WORK_REQUESTS, Bridge::CAPABILITY_APP_PROMPTS];
+        $request->capability = 'subject-analysis';
+        $request->prompt = 'Run it.';
+        $this->em()->flush();
+
+        $result = $this->claim($owner, $bridge, $request);
+
+        self::assertNull($result->refusal);
+        self::assertSame(WorkRequestState::Claimed, $result->request?->state);
+    }
+
+    public function test_a_bridge_with_app_prompts_does_not_claim_a_subject_request_with_no_prompt(): void
+    {
+        [$owner, $bridge, $request] = $this->scenario('claim-handler-no-prompt', WorkRequestState::Open);
+        $bridge->capabilities = [Bridge::CAPABILITY_WORK_REQUESTS, Bridge::CAPABILITY_APP_PROMPTS];
+        $request->capability = 'subject-analysis';
+        $this->em()->flush();
+
+        $result = $this->claim($owner, $bridge, $request);
+
+        self::assertSame(WorkRequestRefusal::CapabilityMissing, $result->refusal);
+    }
+
     /** @return iterable<string, array{WorkRequestState}> */
     public static function settledStates(): iterable
     {

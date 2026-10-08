@@ -21,6 +21,7 @@ use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Template\AppRequest;
 use App\Module\Workflow\Template\AskOption;
 use App\Module\Workflow\Template\InvalidTemplate;
 use App\Module\Workflow\Template\ManualMoveActor;
@@ -310,6 +311,50 @@ final class TemplateParserTest extends TestCase
         ]]);
 
         self::assertSame(['A teardown command'], $rules[0]->then->checks);
+    }
+
+    public function test_app_requests_are_optional_and_parse_to_value_objects(): void
+    {
+        self::assertSame([], $this->parser->parseAppRequests(['rules' => []]));
+
+        $requests = $this->parser->parseAppRequests(['requests' => [
+            ['id' => 'insights.analysis', 'kind' => 'analysis', 'prompt' => 'analysis', 'checks' => ['A skill']],
+        ]]);
+
+        self::assertEquals([new AppRequest('insights.analysis', 'analysis', 'analysis', ['A skill'])], $requests);
+    }
+
+    /** @return iterable<string, array{array<mixed>, list<string>}> */
+    public static function appRequestRefusals(): iterable
+    {
+        $request = static fn (array $change): array => ['requests' => [[...['id' => 'r', 'kind' => 'analysis', 'prompt' => 'analysis', 'checks' => ['A skill']], ...$change]]];
+
+        yield 'not a list' => [['requests' => ['a' => 1]], ['requests: must be a list']];
+        yield 'not a map' => [['requests' => ['x']], ['requests[0]: must be a map']];
+        yield 'no id' => [$request(['id' => '']), ['requests[0] id: must be a non-empty string']];
+        yield 'no kind' => [$request(['kind' => '']), ['requests[0] (r): parameter "kind" must be a non-empty string']];
+        yield 'a prompt with a path' => [$request(['prompt' => '../secret']), ['requests[0] (r): parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters']];
+        yield 'empty checks' => [$request(['checks' => []]), ['requests[0] (r): parameter "checks" must be a non-empty list of non-empty strings']];
+        yield 'an unknown key' => [$request(['slot' => 'x']), ['requests[0] (r): unknown key "slot"']];
+        yield 'a duplicate id' => [['requests' => [
+            ['id' => 'r', 'kind' => 'a', 'prompt' => 'a', 'checks' => ['c']],
+            ['id' => 'r', 'kind' => 'b', 'prompt' => 'b', 'checks' => ['c']],
+        ]], ['requests[1] (r): duplicate request id "r"']];
+    }
+
+    /**
+     * @param array<mixed> $source
+     * @param list<string> $errors
+     */
+    #[DataProvider('appRequestRefusals')]
+    public function test_app_requests_refuse_an_invalid_source(array $source, array $errors): void
+    {
+        try {
+            $this->parser->parseAppRequests($source);
+            self::fail('The parser must refuse the app requests.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame($errors, $e->errors);
+        }
     }
 
     public function test_a_document_condition_takes_a_tag_and_an_optional_status(): void
@@ -960,7 +1005,7 @@ final class TemplateParserTest extends TestCase
         yield 'a move to a slot' => [$rule(['move' => ['to' => 'next']]), ['rules[0] (app-rule) then.move.to: unknown slot "next"']];
         yield 'no rules key' => [[], ['rules: is missing']];
         yield 'rules not a list' => [['rules' => ['a' => 1]], ['rules: must be a list']];
-        yield 'another top-level key' => [['rules' => [], 'slots' => []], ['slots: unknown key, app rules hold only "rules"']];
+        yield 'another top-level key' => [['rules' => [], 'slots' => []], ['slots: unknown key, app rules hold only "rules" and "requests"']];
     }
 
     /**
