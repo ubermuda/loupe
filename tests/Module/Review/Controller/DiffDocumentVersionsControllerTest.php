@@ -8,8 +8,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\DiffDocumentVersionsHandler;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\Review\ValueObject\DiffRefusal;
@@ -526,13 +528,15 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(0, $diff->filter('.lp-comment-composer'));
         self::assertCount(0, $diff->filter('.lp-anchor-toolbar'));
         self::assertStringNotContainsString('data-diff-offset', (string) $client->getResponse()->getContent());
-        // The toolbar offers Outline and a disabled Decisions, and no Comments.
+        // The toolbar offers Outline and Decisions, and no Comments. This
+        // document holds no decision, so Decisions is disabled.
         self::assertSame(
             ['decisions', 'outline'],
             $diff->filter('.lp-review-toolbar__button')->each(static fn (Crawler $button): string => (string) $button->attr('data-review-panels-name-param')),
         );
         self::assertSame('true', $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]')->attr('aria-disabled'));
-        self::assertStringContainsString('cannot answer decisions', (string) $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]')->attr('title'));
+        self::assertStringContainsString('no decisions', (string) $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]')->attr('title'));
+        self::assertCount(0, $diff->filter('dialog input[name="submit_review_form[verdict]"]'));
         self::assertCount(1, $diff->filter('.lp-review-doc__byline [aria-controls="review-page-menu"]'));
 
         // The review page on the current version, so the assertions above cannot
@@ -552,8 +556,6 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
     /**
      * The newer side IS the version a comment lands on, so the pane accepts one.
-     * The verdict stays off, because it describes a document rather than a
-     * comparison.
      */
     public function test_a_diff_ending_at_the_current_version_accepts_a_comment(): void
     {
@@ -587,8 +589,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertGreaterThan(0, $diff->filter('.lp-comment-composer')->count());
         self::assertCount(1, $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="comments"]'));
 
-        // Still a comparison: nothing that reports on a single version is offered.
-        self::assertCount(0, $diff->filter('input[name="submit_review_form[verdict]"]'));
+        // The verdict applies to the current version, which this diff ends at.
+        self::assertCount(2, $diff->filter('dialog input[name="submit_review_form[verdict]"]'));
 
         // Inserted text carries an offset. Deleted text carries none, which is
         // what lets the browser refuse a selection that touches it.
@@ -1158,6 +1160,73 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(0, $rendered->filter('#diff-columns-notice'));
         self::assertCount(0, $rendered->filter('.lp-review-block--wide'));
         self::assertCount(1, $rendered->filter('.lp-review-margin'));
+    }
+
+    /**
+     * The diff is a mode of the review page, so the verdict and the answers on
+     * record stay in view. Answering stays in the document, which is where each
+     * row of the Decisions panel leads.
+     */
+    public function test_a_diff_ending_at_the_current_version_keeps_the_review_state(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $renderer = static::getContainer()->get(MarkdownRenderer::class);
+
+        $owner = $this->createUser($em, 'owner-diff-state', 'owner-diff-state@example.com');
+        $project = $this->project($em, $owner);
+
+        $fence = "<!-- decision: deploy-target -->\n\n- ( ) Ship to staging first\n- ( ) Ship straight to production\n\n<!-- /decision -->\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Stateful Diff');
+        foreach (['one step', 'two steps', 'three steps'] as $steps) {
+            $source = "# Plan\n\nThe rollout takes {$steps}.\n\n".$fence;
+            $doc->addVersion($source, $renderer->render($source));
+        }
+        $em->persist($doc);
+        $em->persist(new DecisionSelection($doc, 'deploy-target', 1, 'Ship straight to production', 3));
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review';
+        $diff = $client->request(Request::METHOD_GET, $base.'/diff/2/3');
+
+        self::assertResponseIsSuccessful();
+        // Finish review and its dialog, as on the document.
+        self::assertCount(1, $diff->filter('[data-action="click->review-finish#open"]'));
+        self::assertCount(2, $diff->filter('dialog input[name="submit_review_form[verdict]"]'));
+
+        // The Decisions panel lists the answer, says why it cannot change here,
+        // and each row leads to the block in the document.
+        $button = $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]');
+        self::assertNull($button->attr('aria-disabled'));
+        $panel = $diff->filter('#review-panel-decisions');
+        self::assertStringContainsString('Ship straight to production', $panel->filter('.lp-decision-summary__answer')->text());
+        self::assertStringContainsString('read-only', $panel->filter('.lp-review-panel__hint')->text());
+        self::assertSame(
+            $base.'#'.DecisionBlockService::blockElementId('deploy-target'),
+            $panel->filter('.lp-decision-summary__link')->attr('href'),
+        );
+        self::assertNull($panel->filter('.lp-decision-summary__link')->attr('data-action'));
+
+        // The block in the pane stays inert, and no answer can be posted.
+        self::assertSame('disabled', $diff->filter('.lp-diff-doc fieldset.lp-decision')->attr('disabled'));
+        self::assertCount(0, $diff->filter('#decision-answer'));
+        self::assertCount(0, $diff->filter('[data-action~="change->decision#select"]'));
+
+        // A pair that ends before the current version offers no verdict, because
+        // a verdict applies to the document as it stands.
+        $older = $client->request(Request::METHOD_GET, $base.'/diff/1/2');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $older->filter('[data-action="click->review-finish#open"]'));
+        self::assertCount(0, $older->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertSame(
+            $base.'/versions/2#'.DecisionBlockService::blockElementId('deploy-target'),
+            $older->filter('#review-panel-decisions .lp-decision-summary__link')->attr('href'),
+        );
     }
 
     public function test_unauthenticated_user_is_redirected(): void

@@ -6,7 +6,9 @@ namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Entity\Review;
 use App\Module\Review\ValueObject\CommentSignals;
+use App\Module\Review\ValueObject\DecisionSummary;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
 use App\Module\Review\ValueObject\DocumentDiff;
@@ -27,6 +29,9 @@ final readonly class DiffDocumentVersionsView
      *
      * `commentingEnabled` says whether a reviewer may comment on this pane. It
      * needs rendered text on the newer side and that version must be current.
+     * `isCurrent` alone decides whether the verdict is offered, because a
+     * verdict applies to the current version. `decisions` and `review` describe
+     * the newer side.
      *
      * `headings` lists the headings of the pane that is showing, in document
      * order. The source view renders no heading elements, so `sourceHeadings`
@@ -51,6 +56,10 @@ final readonly class DiffDocumentVersionsView
         public array $comments,
         public array $versions,
         public CommentSignals $signals,
+        public bool $isCurrent,
+        public DecisionSummary $decisions,
+        public ?Review $review,
+        public ?string $latestReviewId,
     ) {
     }
 }

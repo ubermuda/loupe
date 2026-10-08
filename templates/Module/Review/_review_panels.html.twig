@@ -1,6 +1,7 @@
 {# The toolbar and the panels it switches, in a fixed order. Decisions is on by
    default; review_panels_controller.js applies the reader's stored choice.
-   Params: showComments, decisionsReason (translation key or null), decisionRows,
+   Params: showComments, decisionsReason and decisionsHint (translation keys),
+   decisionsUrl (null links the rows in this page), decisionRows,
    answeredDecisions, sectionRows, comments, readOnlyThreads, commentCount. #}
 {% set panelNames = ['decisions']|merge(showComments ? ['comments'] : [])|merge(['outline']) %}
 <aside class="lp-review-panels" aria-label="{{ 'review.document.panels.label'|trans }}">
@@ -33,9 +34,9 @@
             </div>
             {% if decisionRows|length > 0 %}
             <ul class="lp-decision-summary__list" id="decision-summary-list">
-                {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
+                {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows, documentUrl: decisionsUrl} only %}
             </ul>
-            <p class="lp-review-panel__hint">{{ 'review.document.margin.decisions_save_hint'|trans }}</p>
+            <p class="lp-review-panel__hint">{{ decisionsHint|trans }}</p>
             {% elseif decisionsReason is not null %}<p class="lp-review-panel__hint">{{ decisionsReason|trans }}</p>
             {% else %}<p class="lp-review-panel__hint">{{ 'review.document.margin.decisions_empty'|trans }}</p>{% endif %}
         </section>

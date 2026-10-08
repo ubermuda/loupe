@@ -6,9 +6,12 @@ namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\DecisionBlockService;
+use App\Module\Review\Service\DecisionSummaryReader;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -39,6 +42,8 @@ final readonly class DiffDocumentVersionsHandler
         private SideBySideDiffBuilder $sideBySideDiffs,
         private SourceHeadingIndexBuilder $sourceHeadingIndexes,
         private HeadingExtractor $headings,
+        private DecisionSummaryReader $decisionSummary,
+        private ReviewRepository $reviews,
         private Auditor $auditor,
     ) {
     }
@@ -108,9 +113,8 @@ final readonly class DiffDocumentVersionsHandler
             }
         }
 
-        // A verdict still belongs to the document rather than to a comparison, so
-        // the page stays `readOnly` even where commenting is offered.
         $comments = $this->comments->findByVersion($version);
+        $latestReview = $this->reviews->findNewestByVersion($version);
 
         return new DiffDocumentVersionsView(
             version: $version,
@@ -126,6 +130,10 @@ final readonly class DiffDocumentVersionsHandler
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
+            isCurrent: $isCurrent,
+            decisions: ($this->decisionSummary)($command->document, $version),
+            review: Verdict::Withdrawn === $latestReview?->verdict ? null : $latestReview,
+            latestReviewId: $latestReview?->id?->toRfc4122(),
         );
     }
 

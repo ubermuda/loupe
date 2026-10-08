@@ -21,7 +21,7 @@
 {% endblock %}
 
 {% block topbar_actions %}
-{% if not diffMode and not readOnly %}
+{% if verdictAvailable %}
 {% if document.status.value in ['draft', 'in-review'] %}
 {% include '@Review/_finish_review_button.html.twig' with {inReviewMenu: true} only %}
 {% elseif document.status.value in ['approved', 'changes-requested'] %}
@@ -43,7 +43,7 @@
 {% endblock %}
 
 {% block body %}
-{% set finishReviewAvailable = not diffMode and not readOnly %}
+{% set finishReviewAvailable = verdictAvailable %}
 <div class="lp-review" data-site-review-quotes="off" data-controller="card-drawer{{ finishReviewAvailable ? ' modal' : '' }}"
      {% if finishReviewAvailable %}data-action="review:finish@window->modal#open"{% endif %}
      {% if finishReviewAvailable %}data-modal-reopen-value="{{ submitReviewForm.vars.submitted ? 'true' : 'false' }}"{% endif %}>
@@ -104,15 +104,11 @@
             {%- if tooltipDefinitions is not empty %} data-reference-tooltip-definitions-value="{{ tooltipDefinitions|json_encode|e('html_attr') }}" data-reference-tooltip-from-value="{{ 'review.document.reference.from'|trans }}"{% endif %}
             {%- if hasMermaid %} data-mermaid-enabled-value="{{ is_feature_enabled('review.mermaid.enabled') ? 'true' : 'false' }}" data-mermaid-module-url-value="{{ mermaid_module_url }}"{% endif %}>
 
-            {# The diff controller passes no `decisions` at all, so naming it
-               outside this branch is an undefined-variable 500 on the diff. #}
-            {% set decisionRows = diffMode ? [] : decisions.rows %}
-            {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
+            {% set decisionRows = decisions.rows %}
+            {% set answeredDecisions = decisions.answeredCount %}
             {# Decisions stays in every toolbar, disabled where there is
                nothing to answer, so the toolbar keeps its shape. #}
-            {% set decisionsReason = diffMode
-                ? 'review.document.margin.decisions_disabled_diff'
-                : (decisionRows|length == 0 ? 'review.document.margin.decisions_disabled_empty' : null) %}
+            {% set decisionsReason = decisionRows|length == 0 ? 'review.document.margin.decisions_disabled_empty' : null %}
             {% include '@Review/_document_header.html.twig' with {
                 document: document,
                 version: version,
@@ -270,6 +266,8 @@
             {% include '@Review/_review_panels.html.twig' with {
                 showComments: not diffMode or diffCommenting,
                 decisionsReason: decisionsReason,
+                decisionsHint: diffMode ? 'review.document.margin.decisions_read_only_diff' : 'review.document.margin.decisions_save_hint',
+                decisionsUrl: diffDocumentUrl,
                 decisionRows: decisionRows,
                 answeredDecisions: answeredDecisions,
                 sectionRows: sectionRows,
@@ -431,7 +429,7 @@
 
         {# A sibling of the document pane, so the resolved toggle it carries is
            still inside the comment-anchor controller that drives it. #}
-        {% set showVerdict = not readOnly and not diffMode and document.status.value in ['draft', 'in-review'] %}
+        {% set showVerdict = verdictAvailable and document.status.value in ['draft', 'in-review'] %}
         {% set showResolvedToggle = not diffMode or diffCommenting %}
         {% if showContents or showVersions or referenceCount > 0 or decisionRows|length > 0 or showResolvedToggle or showVerdict %}
         {% include '@Review/_review_menu.html.twig' with {
