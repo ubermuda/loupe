@@ -97,6 +97,9 @@ final readonly class ShowWorkflowSettingsHandler
                 ActionType::Pause => 'workflow.settings.action.pause',
                 ActionType::Release => 'workflow.settings.action.release',
                 ActionType::Evaluate => 'workflow.settings.action.evaluate',
+                ActionType::Ask => 'workflow.settings.action.ask',
+                ActionType::LinkDocument => 'workflow.settings.action.link_document',
+                ActionType::Detach => 'workflow.settings.action.detach',
             },
             targetKey: ActionType::Move === $type ? self::placeKey($template, (string) $params['to']) : null,
             kind: match ($type) {

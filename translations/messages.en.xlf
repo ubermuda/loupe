@@ -4941,6 +4941,10 @@
                 <source>inbox.item.kind.notice</source>
                 <target>Notice</target>
             </trans-unit>
+            <trans-unit id="inbox.item.kind.workflow">
+                <source>inbox.item.kind.workflow</source>
+                <target>Workflow question</target>
+            </trans-unit>
             <trans-unit id="inbox.item.dismiss">
                 <source>inbox.item.dismiss</source>
                 <target>Dismiss</target>
@@ -5012,6 +5016,10 @@
             <trans-unit id="inbox.item.error.notice">
                 <source>inbox.item.error.notice</source>
                 <target>A notice takes no response. Loupe closes it when the fact ends.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.workflow_not_declinable">
+                <source>inbox.item.error.workflow_not_declinable</source>
+                <target>A workflow question takes an answer only. Pick an option.</target>
             </trans-unit>
             <trans-unit id="inbox.answer.pick_one">
                 <source>inbox.answer.pick_one</source>
@@ -7399,6 +7407,10 @@
             <trans-unit id="workflow.waiting.not.run_worker_active"><source>workflow.waiting.not.run_worker_active</source><target>Waiting: a matching worker run is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.parent_document_approved"><source>workflow.waiting.parent_document_approved</source><target>Waiting: no %tag% document of the parent card is approved.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.parent_document_approved"><source>workflow.waiting.not.parent_document_approved</source><target>Waiting: a %tag% document of the parent card is approved.</target></trans-unit>
+            <trans-unit id="workflow.ask.unplanned_child"><source>workflow.ask.unplanned_child</source><target>Card #%child% is a child of epic #%epic%, and it links no approved tech design. What must happen to it?</target></trans-unit>
+            <trans-unit id="workflow.ask.unplanned_child.link"><source>workflow.ask.unplanned_child.link</source><target>Link the tech design of epic #%epic% to card #%child%</target></trans-unit>
+            <trans-unit id="workflow.ask.unplanned_child.design"><source>workflow.ask.unplanned_child.design</source><target>Move card #%child% to Tech design</target></trans-unit>
+            <trans-unit id="workflow.ask.unplanned_child.detach"><source>workflow.ask.unplanned_child.detach</source><target>Detach card #%child% from epic #%epic%</target></trans-unit>
             <trans-unit id="workflow.waiting.parent_work_active"><source>workflow.waiting.parent_work_active</source><target>Waiting: no matching worker run or work request of the parent card is open.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.parent_work_active"><source>workflow.waiting.not.parent_work_active</source><target>Waiting: a matching worker run or work request of the parent card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.run_last_refusal"><source>workflow.waiting.run_last_refusal</source><target>Waiting: the last run did not refuse with the code %code%.</target></trans-unit>
@@ -7453,6 +7465,9 @@
             <trans-unit id="workflow.settings.action.pause"><source>workflow.settings.action.pause</source><target>Pause the card</target></trans-unit>
             <trans-unit id="workflow.settings.action.release"><source>workflow.settings.action.release</source><target>Release the pause</target></trans-unit>
             <trans-unit id="workflow.settings.action.evaluate"><source>workflow.settings.action.evaluate</source><target>Evaluate the children again</target></trans-unit>
+            <trans-unit id="workflow.settings.action.ask"><source>workflow.settings.action.ask</source><target>Ask the owner</target></trans-unit>
+            <trans-unit id="workflow.settings.action.link_document"><source>workflow.settings.action.link_document</source><target>Link a document of the parent</target></trans-unit>
+            <trans-unit id="workflow.settings.action.detach"><source>workflow.settings.action.detach</source><target>Remove the parent of the card</target></trans-unit>
             <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
             <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A managed card may move along these paths outside the rules.</target></trans-unit>
             <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
@@ -7508,8 +7523,12 @@
             <trans-unit id="workflow.panel.action.pause"><source>workflow.panel.action.pause</source><target>Pause the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.release"><source>workflow.panel.action.release</source><target>End the pause of the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.evaluate"><source>workflow.panel.action.evaluate</source><target>Evaluate the children of the card again</target></trans-unit>
+            <trans-unit id="workflow.panel.action.ask"><source>workflow.panel.action.ask</source><target>Ask the owner what to do with the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.link_document"><source>workflow.panel.action.link_document</source><target>Link a document of the parent to the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.detach"><source>workflow.panel.action.detach</source><target>Remove the parent of the card</target></trans-unit>
             <trans-unit id="workflow.pause.no-bridge-took-work"><source>workflow.pause.no-bridge-took-work</source><target>No bridge took the requested work in time.</target></trans-unit>
             <trans-unit id="workflow.pause.repair-failed"><source>workflow.pause.repair-failed</source><target>The repair worker could not fix the failure.</target></trans-unit>
+            <trans-unit id="workflow.pause.inbox-off"><source>workflow.pause.inbox-off</source><target>The inbox is off, so the workflow cannot ask the owner about this card. The pause ends when the inbox is on.</target></trans-unit>
             <trans-unit id="workflow.pause.work-limit-reached"><source>workflow.pause.work-limit-reached</source><target>The rule requested the most work that it may request for this card.</target></trans-unit>
             <trans-unit id="workflow.refusal.move-refused"><source>workflow.refusal.move-refused</source><target>The board refused the move.</target></trans-unit>
             <trans-unit id="workflow.refusal.epic-children-open"><source>workflow.refusal.epic-children-open</source><target>The epic still has open child cards.</target></trans-unit>
@@ -7525,6 +7544,9 @@
             <trans-unit id="workflow.refusal.invalid-work-request"><source>workflow.refusal.invalid-work-request</source><target>The app refused to open the work request.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-not-found"><source>workflow.refusal.document-not-found</source><target>The card has no document with the tag that the rule names.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-ambiguous"><source>workflow.refusal.document-ambiguous</source><target>The card has more than one document with the tag that the rule names.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-parent-document"><source>workflow.refusal.no-parent-document</source><target>The parent of the card has no document with the tag that the rule names.</target></trans-unit>
+            <trans-unit id="workflow.refusal.document-link-refused"><source>workflow.refusal.document-link-refused</source><target>The board refused the document link.</target></trans-unit>
+            <trans-unit id="workflow.refusal.detach-refused"><source>workflow.refusal.detach-refused</source><target>The board refused to remove the parent of the card.</target></trans-unit>
             <trans-unit id="project.edit.nav.readiness"><source>project.edit.nav.readiness</source><target>Agent readiness</target></trans-unit>
             <trans-unit id="readiness.guide.title"><source>readiness.guide.title</source><target>Ready for agents</target></trans-unit>
             <trans-unit id="readiness.guide.count"><source>readiness.guide.count</source><target>%done% of %total%</target></trans-unit>

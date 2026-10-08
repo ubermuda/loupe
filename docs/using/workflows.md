@@ -185,9 +185,13 @@ Some rules act from any slot:
    run does not hold the children. In a workflow file, the condition
    `parent.document_approved` with a `tag` is true when a document of the parent
    card has that tag and is approved.
-4. A card that reaches a terminal column asks for a teardown, which removes its
+4. A child in the Backlog that links no approved tech design asks the owner
+   what to do, once the epic has an approved tech design and no work in
+   progress. The rule is `unplanned-child`. See
+   [Asking about an unplanned child](#asking-about-an-unplanned-child).
+5. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
-5. A child that reaches a terminal column with a pull request merged into its
+6. A child that reaches a terminal column with a pull request merged into its
    epic branch asks for an epic preview refresh.
 
 An epic follows its children. An epic whose children all finished moves to In
@@ -204,6 +208,39 @@ on does neither, so turn the write on in a separate save.
 A new open child moves it back to Implementation. With the epic writes on, the
 pull request of an epic is a draft in Implementation, turns ready in In review,
 and closes when the epic returns to the Backlog.
+
+### Asking about an unplanned child
+
+A child that joins an epic after the epic design was approved may link no tech
+design. The `unplanned-child` rule puts a question in the
+[inbox](inbox.md#workflow-questions) of the project. The question names the
+child and the epic, and it has three options:
+
+1. **Link the tech design of the epic.** The child links the tech design of the
+   epic, whatever its status. When that design is approved, the child starts
+   at once if it has no open blocker. If the design is back in review, the
+   child waits until the epic design is approved again. When the epic has no
+   tech design, nothing is linked and the card history records the refusal.
+2. **Move the card to Tech design.** The child gets a tech design of its own.
+3. **Detach the card.** The card stops being a child of the epic.
+
+The answer is final. Loupe runs the option a short time after you answer,
+because a queue carries the answer to the workflow. The question closes by
+itself, as withdrawn, when the rule stops holding: for example when the child
+links a design, when the epic starts new work, or when the card moves away from
+the Backlog. Loupe also withdraws it when the card is held or deleted. A
+question that you answered stays answered.
+
+When the inbox is off, the rule cannot ask. The child then pauses with the
+reason `inbox-off`. Turn the inbox on, then release the pause, and the
+question opens.
+
+In a workflow file, the action `ask` takes a `question` key and a list of
+`options`. Each option has a `label` and a `then` list of actions. The action
+`link-document` links a document of the parent card to the card. It takes
+`from: parent` and a `tag`. The action `detach` removes the parent of the
+card. The `question` and each `label` are translation keys. They can use the
+parameters `%child%` and `%epic%`, which hold the card numbers.
 
 ## The Simple template
 

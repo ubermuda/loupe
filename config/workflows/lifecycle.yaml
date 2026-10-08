@@ -341,6 +341,22 @@ rules:
               - not: { parent.work_active: {} }
       then: { move: { to: implementation } }
 
+    - id: unplanned-child
+      slot: '@backlog'
+      when:
+          all:
+              - card.is_child: {}
+              - not: { card.document_approved: { tag: tech-design } }
+              - parent.document_approved: { tag: tech-design }
+              - not: { parent.work_active: {} }
+      then:
+          ask:
+              question: workflow.ask.unplanned_child
+              options:
+                  - { label: workflow.ask.unplanned_child.link, then: [{ link-document: { from: parent, tag: tech-design } }] }
+                  - { label: workflow.ask.unplanned_child.design, then: [{ move: { to: tech-design } }] }
+                  - { label: workflow.ask.unplanned_child.detach, then: [{ detach: {} }] }
+
     # No slot, so its truth outlives a move: a person who moves a card with an open pull request to the Backlog makes no edge.
     - id: pull-request-reopened
       when:
