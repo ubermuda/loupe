@@ -547,7 +547,8 @@ func TestCheckListsThePluginsOfEachProject(t *testing.T) {
 	}
 	ra, _ := filepath.EvalSymlinks(a)
 	rb, _ := filepath.EvalSymlinks(b)
-	if !slices.Equal(dirs, []string{ra, rb}) {
+	slices.Sort(dirs)
+	if want := slices.Sorted(slices.Values([]string{ra, rb})); !slices.Equal(dirs, want) {
 		t.Fatalf("plugin list ran in %q, want %q", dirs, []string{ra, rb})
 	}
 }

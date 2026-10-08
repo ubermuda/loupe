@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/claudecode"
@@ -63,22 +64,30 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 	if len(binaries) == 0 {
 		return []harness.Problem{{Reason: "claude is not on PATH", Detail: lookErr.Error()}}
 	}
-	var problems []harness.Problem
-	if _, err := runCheck(ctx, binaries[firstKey(binaries, slugs)], loginDir, env, "auth", "status"); err != nil {
-		problems = append(problems, loginProblem(err, spec.ConfigDir))
-	}
 	configDir, skillsHome := claudeDirs(env)
-	for _, slug := range slugs {
+	// The login and each project check at the same time, so the bound of the
+	// whole check is the slowest command, not their sum.
+	found := make([][]harness.Problem, len(slugs)+1)
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		if _, err := runCheck(ctx, binaries[firstKey(binaries, slugs)], loginDir, env, "auth", "status"); err != nil {
+			found[0] = []harness.Problem{loginProblem(err, spec.ConfigDir)}
+		}
+	})
+	for i, slug := range slugs {
 		binary, ok := binaries[slug]
 		if !ok {
-			problems = append(problems, harness.Problem{Reason: "claude is not on PATH for project " + slug, Detail: "no claude on the PATH of the account from " + spec.Projects[slug]})
+			found[i+1] = []harness.Problem{{Reason: "claude is not on PATH for project " + slug, Detail: "no claude on the PATH of the account from " + spec.Projects[slug]}}
 
 			continue
 		}
-		problems = append(problems, projectProblems(ctx, binary, env, configDir, skillsHome, slug, spec.Projects[slug])...)
+		wg.Go(func() {
+			found[i+1] = projectProblems(ctx, binary, env, configDir, skillsHome, slug, spec.Projects[slug])
+		})
 	}
+	wg.Wait()
 
-	return problems
+	return slices.Concat(found...)
 }
 
 // firstKey is the first slug, in order, that has a binary.
