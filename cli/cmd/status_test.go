@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -135,5 +137,90 @@ func TestStatusFailsWhenNotLoggedIn(t *testing.T) {
 	}
 	if got := lastLine(out); got != statusFail {
 		t.Errorf("last line = %q, want %q", got, statusFail)
+	}
+}
+
+// statusRules writes a rule file whose default account is ready and whose
+// account out is logged out, and returns its path.
+func statusRules(t *testing.T, withOut bool) string {
+	t.Helper()
+	in := t.TempDir()
+	if err := os.WriteFile(filepath.Join(in, "in"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body := "accounts:\n  in:\n    harness: claude-code\n    configDir: " + in + "\n  out:\n    harness: claude-code\n    configDir: " + t.TempDir() + "\n" +
+		"defaults:\n  account: in\nprojects:\n  loupe:\n    dir: " + readyProject(t) + "\nwork:\n  plan:\n    prompt: go\n"
+	if withOut {
+		body += "  review:\n    prompt: go\n    account: out\n"
+	}
+	path := filepath.Join(t.TempDir(), "rules.yaml")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	return path
+}
+
+func passingStatus(t *testing.T) {
+	t.Helper()
+	server, _ := statusServer(t, func() (currentProject, error) {
+		var p currentProject
+		p.Project.ID = projectA
+		p.Project.Name = "Acme site"
+
+		return p, nil
+	})
+	inRepo(t, server.URL)
+	loggedInClaude(t)
+}
+
+func TestStatusSaysWhenNoRuleFileNamesAnAccount(t *testing.T) {
+	passingStatus(t)
+
+	out, err := runStatus(t, "--project", projectA)
+	if err != nil || !strings.Contains(out, "Accounts:    no rules.yaml, so no account to check\n") || lastLine(out) != statusPass {
+		t.Fatalf("status: %v\n%s", err, out)
+	}
+}
+
+func TestStatusPassesWhenEachAccountIsReady(t *testing.T) {
+	passingStatus(t)
+
+	out, err := runStatus(t, "--project", projectA, "--rules", statusRules(t, false))
+	if err != nil || !strings.Contains(out, "Account:     in (claude-code): ready\n") || strings.Contains(out, "out (") || lastLine(out) != statusPass {
+		t.Fatalf("status: %v\n%s", err, out)
+	}
+}
+
+func TestStatusFailsWhenAnAccountFails(t *testing.T) {
+	passingStatus(t)
+
+	out, err := runStatus(t, "--project", projectA, "--rules", statusRules(t, true))
+	if err == nil || !strings.Contains(err.Error(), "out") || strings.Contains(err.Error(), "in,") {
+		t.Fatalf("status: %v\n%s", err, out)
+	}
+	for _, want := range []string{
+		"Account:     in (claude-code): ready\n",
+		"Account:     out (claude-code): failing: not logged in\n             run `CLAUDE_CONFIG_DIR=",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output must contain %q, got:\n%s", want, out)
+		}
+	}
+	if got := lastLine(out); got != statusFail {
+		t.Fatalf("last line = %q, want %q", got, statusFail)
+	}
+}
+
+func TestStatusFailsOnARuleFileThatDoesNotLoad(t *testing.T) {
+	passingStatus(t)
+	path := filepath.Join(t.TempDir(), "rules.yaml")
+	if err := os.WriteFile(path, []byte("projects: [\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runStatus(t, "--project", projectA, "--rules", path)
+	if err == nil || !strings.Contains(err.Error(), path) || lastLine(out) != statusFail {
+		t.Fatalf("status: %v\n%s", err, out)
 	}
 }

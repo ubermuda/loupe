@@ -315,6 +315,7 @@ Checks the setup that `loupe mcp` depends on, with one real call.
 ```bash
 loupe status                     # project from .loupe.yaml
 loupe status --project <uuid>    # project from the command line
+loupe status --rules <path>      # accounts of another rule file
 ```
 
 It reads your login and resolves the project the same way `loupe mcp` does. It
@@ -325,11 +326,19 @@ whole check stops after 30 seconds.
 Instance:    https://loupe.ac
 Project:     Acme site (acme, 01a0c0d9-905c-7922-a586-ccc8ce043704)
 Claude Code: starts `loupe mcp` for every project.
+Account:     claude (claude-code): ready
 loupe status: PASS
 ```
 
 The `Claude Code:` line is a note, and it never fails the check. An agent other
 than Claude Code, such as Codex, keeps its own configuration.
+
+Then it checks each account that the rule file uses, as the bridge does at
+start. The account's claude must be on PATH and logged in, and each project
+must see the `loupe` MCP server and the Loupe skills. A failing account fails
+the check, and the next line says how to fix it. With no rule file, it checks
+no account. The bridge runs no work on a failing account until a reload or a
+restart finds it ready.
 
 The last line on stdout is `loupe status: PASS` or `loupe status: FAIL`. A
 failure exits with status 1, and the error on stderr says what to run next.
