@@ -3448,7 +3448,7 @@
 
     .lp-btn {
         @apply inline-flex items-center justify-center gap-1.5 border border-line bg-surface-1 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
-        @apply min-h-9 rounded-lg px-3 py-2 leading-5;
+        @apply min-h-9 rounded-lg px-3 py-1.5 leading-5;
     }
     .lp-btn:hover {
         @apply bg-surface-2;

@@ -10,7 +10,7 @@ use App\Module\DesignSystem\Token\TokenGroup;
 final readonly class StyleguideDetailView
 {
     /**
-     * @param list<TokenGroup>    $groups
+     * @param list<TokenGroup>     $groups
      * @param list<ComponentEntry> $components
      */
     public function __construct(
