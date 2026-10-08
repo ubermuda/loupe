@@ -167,9 +167,12 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         $chip = (string) file_get_contents($this->directory.'/components/core/StatusChip.jsx');
         $badge = (string) file_get_contents($this->directory.'/components/core/Badge.jsx');
 
-        self::assertStringContainsString('<span className="lp-flash__dot"></span>', $flash);
+        self::assertStringContainsString('{dot && <span className="lp-flash__dot"></span>}', $flash);
         self::assertStringContainsString('<span className="lp-flash__message">{children}</span>', $flash);
-        self::assertStringContainsString('<span className="lp-status-chip__dot"></span>', $chip);
+        self::assertStringContainsString('{dot && <span className="lp-status-chip__dot"></span>}', $chip);
+        self::assertStringContainsString('dot = true', $chip);
+        self::assertStringContainsString('dot?: boolean;', (string) file_get_contents($this->directory.'/components/core/StatusChip.d.ts'));
         self::assertStringNotContainsString('__dot', $badge);
+        self::assertStringNotContainsString('dot', (string) file_get_contents($this->directory.'/components/core/Badge.d.ts'));
     }
 }

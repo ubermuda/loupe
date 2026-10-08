@@ -28,6 +28,10 @@ export interface {{ entry.name }}Props {
     href?: string;
     onClick?: () => void;
 {% endif %}
+{% if entry.dotClass %}
+    /** Draws the coloured dot. True by default. */
+    dot?: boolean;
+{% endif %}
     children?: ReactNode;
 {% if not isButton %}
     [attribute: string]: unknown;

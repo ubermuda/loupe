@@ -8,7 +8,7 @@ export const {{ entry.name|upper }}_SIZES = [{{ entry.sizes|map(v => "'" ~ v ~ "
 {% if isButton %}
 export function {{ entry.name }}({ variant, size, disabled = false, type = 'button', href, onClick, className: extra, children, ...rest }) {
 {% else %}
-export function {{ entry.name }}({ variant, size, className: extra, children, ...rest }) {
+export function {{ entry.name }}({ variant, size, {% if entry.dotClass %}dot = true, {% endif %}className: extra, children, ...rest }) {
 {% endif %}
     const classes = ['{{ entry.rootClass }}'];
     for (const modifiers of [variant, size]) {
@@ -40,7 +40,7 @@ export function {{ entry.name }}({ variant, size, className: extra, children, ..
     return (
         <{{ entry.element }} {...rest} className={className}>
 {% if entry.dotClass %}
-            <span className="{{ entry.dotClass }}"></span>
+            {dot && <span className="{{ entry.dotClass }}"></span>}
 {% endif %}
 {% if entry.contentClass %}
             <span className="{{ entry.contentClass }}">{children}</span>
