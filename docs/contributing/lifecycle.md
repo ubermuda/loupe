@@ -107,8 +107,10 @@ design:
    body. The worker builds only that entry, from the tech design of the epic.
    A Breakdown child skips product design and tech design. A standalone child
    has no entry line, for example a card moved under an epic by hand. The
-   worker builds its own approved tech design as a normal card. With no such
-   design, it stops with
+   worker builds its own approved tech design as a normal card. A standalone
+   child that links only the approved tech design of its epic builds its card
+   body against that design, and the plan covers only the work that the card
+   body describes. With no approved design linked, the worker stops with
    `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.
 2. Breakdown: the card is an epic, or its tech design has a `Breakdown`
    section. The worker writes no code and changes no file. It sets the type
