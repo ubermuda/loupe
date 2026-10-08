@@ -48,6 +48,7 @@ final readonly class FactFingerprint
             FactKey::Refusal => $facts->run->lastRefusalCode,
             FactKey::WorkerRuns => self::sorted($facts->run->activeWorkerKinds),
             FactKey::ParentWork => self::sorted($facts->run->parentActiveKinds),
+            FactKey::ParentSlot => $card->parentSlot,
         };
     }
 

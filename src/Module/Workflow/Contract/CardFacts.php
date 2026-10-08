@@ -11,6 +11,7 @@ final readonly class CardFacts
      * @param list<DocumentFacts> $documents
      * @param list<DocumentFacts> $parentDocuments           the documents of the parent card, empty with no parent
      * @param bool                $childMergedIntoEpicBranch whether a child pull request merged into the epic branch of this card
+     * @param ?string             $parentSlot                the slot of the parent card, as $slot is for this card, or null with no parent
      */
     public function __construct(
         public ?string $slot,
@@ -22,6 +23,7 @@ final readonly class CardFacts
         public array $documents,
         public bool $childMergedIntoEpicBranch = false,
         public array $parentDocuments = [],
+        public ?string $parentSlot = null,
     ) {
     }
 }

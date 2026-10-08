@@ -15,6 +15,7 @@ use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\CardInSlot;
 use App\Module\Workflow\Condition\CardIsChild;
 use App\Module\Workflow\Condition\ParentDocumentApproved;
+use App\Module\Workflow\Condition\ParentInSlot;
 use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\FactKey;
@@ -84,6 +85,11 @@ final class CardConditionsTest extends TestCase
         yield 'parent approved, other tag approved' => [new ParentDocumentApproved(), ['tag' => 'design'], self::card(parentDocuments: [$approvedProduct]), false];
         yield 'parent approved, no parent document' => [new ParentDocumentApproved(), ['tag' => 'design'], self::card(), false];
         yield 'parent approved, only the card has the approved document' => [new ParentDocumentApproved(), ['tag' => 'design'], self::card(documents: [$approvedDesign]), false];
+
+        yield 'parent in slot, same slot' => [new ParentInSlot(), ['slot' => 'implementation'], self::card(parentSlot: 'implementation'), true];
+        yield 'parent in slot, other slot' => [new ParentInSlot(), ['slot' => 'implementation'], self::card(parentSlot: 'next'), false];
+        yield 'parent in slot, no slot' => [new ParentInSlot(), ['slot' => 'implementation'], self::card(parentSlot: null), false];
+        yield 'parent in slot, only the card is in the slot' => [new ParentInSlot(), ['slot' => 'implementation'], self::card(slot: 'implementation'), false];
     }
 
     /**
@@ -119,6 +125,7 @@ final class CardConditionsTest extends TestCase
         yield 'card.document_approved' => [new CardDocumentApproved(), ['tag' => 'design'], 'workflow.waiting.card_document_approved', ['%tag%' => 'design']];
         yield 'card.document_changes_requested' => [new CardDocumentChangesRequested(), ['tag' => 'design'], 'workflow.waiting.card_document_changes_requested', ['%tag%' => 'design']];
         yield 'parent.document_approved' => [new ParentDocumentApproved(), ['tag' => 'design'], 'workflow.waiting.parent_document_approved', ['%tag%' => 'design']];
+        yield 'parent.in_slot' => [new ParentInSlot(), ['slot' => 'implementation'], 'workflow.waiting.parent_in_slot', ['%slot%' => 'implementation']];
     }
 
     public function test_a_document_condition_with_a_status_names_the_status_it_waits_for(): void
@@ -158,6 +165,7 @@ final class CardConditionsTest extends TestCase
         yield 'card.document_approved' => [new CardDocumentApproved(), ['tag' => 'design'], [FactKey::Documents]];
         yield 'card.document_changes_requested' => [new CardDocumentChangesRequested(), ['tag' => 'design'], [FactKey::Documents]];
         yield 'parent.document_approved' => [new ParentDocumentApproved(), ['tag' => 'design'], [FactKey::ParentDocuments]];
+        yield 'parent.in_slot' => [new ParentInSlot(), ['slot' => 'next'], [FactKey::ParentSlot]];
     }
 
     /**
@@ -174,6 +182,7 @@ final class CardConditionsTest extends TestCase
         array $documents = [],
         bool $childMergedIntoEpicBranch = false,
         array $parentDocuments = [],
+        ?string $parentSlot = null,
     ): Facts {
         return FactsMother::facts(card: FactsMother::card(
             slot: $slot,
@@ -185,6 +194,7 @@ final class CardConditionsTest extends TestCase
             documents: $documents,
             childMergedIntoEpicBranch: $childMergedIntoEpicBranch,
             parentDocuments: $parentDocuments,
+            parentSlot: $parentSlot,
         ));
     }
 }

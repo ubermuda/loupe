@@ -56,6 +56,7 @@ final class FactsMother
         array $documents = [],
         bool $childMergedIntoEpicBranch = false,
         array $parentDocuments = [],
+        ?string $parentSlot = null,
     ): CardFacts {
         return new CardFacts(
             slot: $slot,
@@ -67,6 +68,7 @@ final class FactsMother
             documents: $documents,
             childMergedIntoEpicBranch: $childMergedIntoEpicBranch,
             parentDocuments: $parentDocuments,
+            parentSlot: $parentSlot,
         );
     }
 
