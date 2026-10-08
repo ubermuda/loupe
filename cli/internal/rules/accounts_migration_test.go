@@ -67,7 +67,7 @@ projects:
 accounts:
   claude:
     harness: claude-code
-    model: opus
+    model: opus   # the big one
     permissionMode: dontAsk
 defaults:
   account: claude
@@ -116,6 +116,16 @@ func TestMigrateAccountsAddsADefaultsBlockAtTheEnd(t *testing.T) {
 	want := "work:\n  implement:\n    prompt: Go.\n    permissions: read-only\n# the end\naccounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\n"
 	if err != nil || after != want {
 		t.Fatalf("err = %v, file =\n%s", err, after)
+	}
+}
+
+// A defaults key with no value gets the account, and the accounts block goes
+// above it.
+func TestMigrateAccountsFillsAnEmptyDefaults(t *testing.T) {
+	changed, _, after, err := migrate(t, "defaults:\n  # nothing yet\nwork:\n  implement:\n    prompt: Go.\n")
+	want := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\n  # nothing yet\nwork:\n  implement:\n    prompt: Go.\n"
+	if err != nil || !changed || after != want {
+		t.Fatalf("changed = %v, err = %v, file =\n%s", changed, err, after)
 	}
 }
 

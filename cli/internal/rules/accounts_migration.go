@@ -169,7 +169,10 @@ func accountsEdits(data []byte) ([]lineEdit, error) {
 	case key.Column != 1:
 		return nil, refuse("the top-level keys are indented")
 	case value.Kind == yaml.ScalarNode && value.Tag == "!!null":
-		edits = append(edits, lineEdit{lineStart(data, key.Line+1), lineStart(data, key.Line+1), "  account: " + migratedAccount + "\n"})
+		at := lineStart(data, key.Line)
+		edits = append(edits, lineEdit{at, at, account})
+		at = lineStart(data, key.Line+1)
+		edits = append(edits, lineEdit{at, at, "  account: " + migratedAccount + "\n"})
 	case value.Kind != yaml.MappingNode || value.Style&yaml.FlowStyle != 0 || len(value.Content) == 0:
 		return nil, refuse("defaults is not a block mapping")
 	default:
@@ -185,11 +188,13 @@ func accountsEdits(data []byte) ([]lineEdit, error) {
 				return nil, refuse("defaults." + name + " is not one plain value on its own line")
 			}
 			if v.Tag != "!!null" {
-				start, end, ok := tokenAt(data, v.Line, v.Column)
+				start, _, ok := tokenAt(data, v.Line, v.Column)
 				if !ok {
 					return nil, refuse("defaults." + name + " has no value to move")
 				}
-				account += "    " + name + ": " + string(data[start:end]) + "\n"
+				// The rest of the line moves too, so a trailing comment stays.
+				rest := bytes.TrimRight(data[start:lineStart(data, v.Line+1)], " \t\r\n")
+				account += "    " + name + ": " + string(rest) + "\n"
 			}
 			edits = append(edits, lineEdit{lineStart(data, k.Line), lineStart(data, k.Line+1), ""})
 		}
