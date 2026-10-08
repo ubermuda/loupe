@@ -236,10 +236,7 @@ func (r *router) runLaunch(l launch) {
 	program := l.claude
 	if err == nil && adapter.Program() != defaultHarness().Program() {
 		// The bridge resolved the path of the default harness at start alone.
-		program, err = resolveProgram(adapter)
-		if err != nil {
-			program, err = envfile.LookPath(adapter.Program(), env, p.spec.dir)
-		}
+		program, err = envfile.LookPath(adapter.Program(), env, p.spec.dir)
 	}
 	if err == nil {
 		path, err = writeLaunchScript(l.dir, p.spec.sessionID, adapter.Interactive(program, p.spec.harnessSpec(env)))

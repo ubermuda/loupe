@@ -336,9 +336,11 @@ func TestALaunchReportToAnOldServerCountsAsDelivered(t *testing.T) {
 func TestAnInteractiveMatchOnACodexAccountLaunchesCodex(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	original := lookPath
-	lookPath = func(name string) (string, error) { return "/opt/bin/" + name, nil }
-	t.Cleanup(func() { lookPath = original })
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	body := strings.Replace(launchRules, "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude",
 		"accounts:\n  cdx:\n    harness: codex\n    codexHome: "+t.TempDir()+"\ndefaults:\n  account: cdx", 1)
 	body = strings.Replace(body, "    model: opus\n", "    model: gpt-5\n", 1)
@@ -350,7 +352,7 @@ func TestAnInteractiveMatchOnACodexAccountLaunchesCodex(t *testing.T) {
 		t.Fatalf("launches = %+v", sent)
 	}
 	script, _ := os.ReadFile(filepath.Join(h.router.scriptDir, testSession+".sh"))
-	if !strings.Contains(string(script), "exec '/opt/bin/codex' -m 'gpt-5'") || !strings.Contains(string(script), "export LOUPE_SESSION_ID='"+testSession+"'") {
+	if !strings.Contains(string(script), "exec '"+filepath.Join(bin, "codex")+"' -m 'gpt-5'") || !strings.Contains(string(script), "export LOUPE_SESSION_ID='"+testSession+"'") {
 		t.Fatalf("script = %q", script)
 	}
 }
