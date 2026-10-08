@@ -517,6 +517,8 @@ bridge needs egress to `openrouter.ai`. A fetch times out after 10 seconds.
 - The bridge checks the list at start, after a reload, and once an hour.
 - A failed fetch never stops the bridge. The bridge uses an older saved list when one exists. Otherwise the cost of the model stays unknown.
 - A model of the built-in table keeps its built-in price.
+- A reload that removes the key empties the fetched prices, and the cost of those models is unknown again.
+- A tier that omits the cache price keeps the cache price of the base tier.
 
 Some models charge more for a long prompt. The list gives such a model a price
 for each size of prompt. The bridge prices each reply at the price for the size

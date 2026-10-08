@@ -14,7 +14,8 @@ import (
 
 const fixture = `{"data":[
  {"id":"openai/gpt-6.1-sol-pro","pricing":{"prompt":"0.000002","completion":"0.00001","input_cache_read":"0.0000001",
-   "overrides":[{"min_prompt_tokens":272000,"prompt":"0.000004","completion":"0.000015","input_cache_read":"0.0000002"}]}},
+   "overrides":[{"min_prompt_tokens":272000,"prompt":"0.000004","completion":"0.000015","input_cache_read":"0.0000002"},
+   {"min_prompt_tokens":500000,"prompt":"0.000008"}]}},
  {"id":"openrouter/free","pricing":{"prompt":"0","completion":"0"}},
  {"id":"deepseek/deepseek-v4.1-flash","pricing":{"prompt":"0.0000000356","completion":"0.000001","input_cache_read":"0.00000001"}},
  {"id":"openrouter/auto","pricing":{"prompt":"-1","completion":"-1"}},
@@ -40,12 +41,14 @@ func TestParseConvertsToDollarsPerMillionTokens(t *testing.T) {
 	near(t, "pro input", pro.Input, 2)
 	near(t, "pro output", pro.Output, 10)
 	near(t, "pro cache", pro.CacheRead, 0.1)
-	if len(pro.Tiers) != 1 || pro.Tiers[0].MinPrompt != 272000 {
+	if len(pro.Tiers) != 2 || pro.Tiers[0].MinPrompt != 272000 {
 		t.Fatalf("tiers = %+v", pro.Tiers)
 	}
 	near(t, "tier input", pro.Tiers[0].Input, 4)
 	near(t, "tier output", pro.Tiers[0].Output, 15)
 	near(t, "tier cache", pro.Tiers[0].CacheRead, 0.2)
+	near(t, "tier input without a cache price", pro.Tiers[1].Input, 8)
+	near(t, "tier keeps the inherited cache price", pro.Tiers[1].CacheRead, 0.1)
 
 	flash := got["deepseek/deepseek-v4.1-flash"]
 	near(t, "flash input", flash.Input, 0.0356)

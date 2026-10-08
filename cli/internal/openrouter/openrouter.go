@@ -235,7 +235,7 @@ func rates(w wirePrice, inherit *transcript.Rates) (transcript.Rates, bool) {
 	if inherit == nil && (w.Prompt == nil || w.Completion == nil) {
 		return transcript.Rates{}, false
 	}
-	if w.CacheRead == nil && (inherit == nil || w.Prompt != nil) {
+	if w.CacheRead == nil && inherit == nil {
 		r.CacheRead = r.Input
 	}
 

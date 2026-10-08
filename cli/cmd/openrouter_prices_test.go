@@ -138,3 +138,33 @@ func TestPriceLoopRefreshesOnEachTickUntilTheContextEnds(t *testing.T) {
 		t.Fatalf("calls = %d, want 3", calls.Load())
 	}
 }
+
+func TestOpenRouterPricesEmptyWhenAReloadTurnsTheKeyOff(t *testing.T) {
+	r, _ := priceRouter(t, func(context.Context) (openrouter.Prices, error) {
+		return openrouter.Prices{"a/b": {Rates: transcript.Rates{Input: 1}}}, nil
+	})
+	on := priceSet(t, "openRouterPrices: true\n")
+	r.loadPrices(context.Background(), on)
+	if transcript.Cost("a/b", 1, 1, 0, 0, 0) == nil {
+		t.Fatal("the table must hold a/b while the key is on")
+	}
+
+	r.refreshPrices(priceSet(t, "openRouterPrices: false\n"))
+	if transcript.Cost("a/b", 1, 1, 0, 0, 0) != nil {
+		t.Fatal("the table must be empty once the key is off")
+	}
+}
+
+func TestOpenRouterPricesIgnoreAFetchThatEndsAfterTheKeyTurnedOff(t *testing.T) {
+	var r *router
+	r, _ = priceRouter(t, func(context.Context) (openrouter.Prices, error) {
+		r.set.Store(priceSet(t, "openRouterPrices: false\n"))
+
+		return openrouter.Prices{"a/b": {Rates: transcript.Rates{Input: 1}}}, nil
+	})
+	r.loadPrices(context.Background(), priceSet(t, "openRouterPrices: true\n"))
+
+	if transcript.Cost("a/b", 1, 1, 0, 0, 0) != nil {
+		t.Fatal("a late fetch must not restore the table")
+	}
+}

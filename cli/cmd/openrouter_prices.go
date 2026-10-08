@@ -37,11 +37,14 @@ func defaultFetchPrices(ctx context.Context) (openrouter.Prices, error) {
 	return openrouter.Client{Dir: dir}.Load(ctx)
 }
 
-// loadPrices refreshes the fetched price table when the rule set asks for it.
+// loadPrices refreshes the fetched price table when the rule set asks for it,
+// and empties it when the set does not.
 // A failure leaves the cost unknown, or on an older list, and never stops the
 // bridge. It logs one failure for each streak.
 func (r *router) loadPrices(ctx context.Context, set *rules.Set) {
 	if !set.OpenRouterPrices() {
+		transcript.SetFetchedPrices(nil)
+
 		return
 	}
 	p := &r.prices
@@ -53,6 +56,11 @@ func (r *router) loadPrices(ctx context.Context, set *rules.Set) {
 		fetch = defaultFetchPrices
 	}
 	list, err := fetch(ctx)
+	if cur := r.rules(); cur != nil && !cur.OpenRouterPrices() {
+		transcript.SetFetchedPrices(nil)
+
+		return
+	}
 	if len(list) > 0 {
 		transcript.SetFetchedPrices(list)
 	}
@@ -73,6 +81,8 @@ func (r *router) loadPrices(ctx context.Context, set *rules.Set) {
 // refreshPrices loads the prices off the calling goroutine.
 func (r *router) refreshPrices(set *rules.Set) {
 	if !set.OpenRouterPrices() {
+		transcript.SetFetchedPrices(nil)
+
 		return
 	}
 	go r.loadPrices(r.workerContext(), set)
