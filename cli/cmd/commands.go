@@ -417,7 +417,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 			return api.CommandRefused, "The bridge could not read the card: " + err.Error()
 		}
 	}
-	if !r.hasTranscript(c.SessionID) {
+	if pre, _ := matchCommandWork(r.rules(), c, ""); !r.hasTranscript(c.SessionID, pre) {
 		return api.CommandRefused, noTranscript
 	}
 
@@ -577,12 +577,12 @@ func commandCard(c api.Command) string {
 	return c.SubjectID
 }
 
-// hasTranscript reports whether this machine holds the transcript of the
-// session, which a resume needs.
-func (r *router) hasTranscript(sessionID string) bool {
+// hasTranscript reports whether the account of m holds the transcript of the
+// session on this machine, which a resume needs.
+func (r *router) hasTranscript(sessionID string, m rules.Match) bool {
 	find := r.findTranscript
 	if find == nil {
-		find = defaultHarness().HasSession
+		find = harnessOf(m.Harness, m.ConfigDir).HasSession
 	}
 
 	return find(sessionID) == nil

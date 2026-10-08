@@ -36,7 +36,7 @@ type Harness interface {
 }
 
 // Spec is one run. An empty Model, PermissionMode or Schema passes no flag.
-// Env is the environment the bridge built for the process.
+// Env is the environment of a worker, and the variables a launch script sets.
 type Spec struct {
 	Dir            string
 	Model          string

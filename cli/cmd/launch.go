@@ -229,7 +229,11 @@ func (r *router) beginLaunch(l launch) func(start func() error) error {
 func (r *router) runLaunch(l launch) {
 	p := l.p
 	reason := ""
-	path, err := writeLaunchScript(l.dir, p.spec.sessionID, p.spec.adapter().Interactive(l.claude, p.spec.harnessSpec(nil)))
+	env, err := p.spec.accountEnv()
+	path := ""
+	if err == nil {
+		path, err = writeLaunchScript(l.dir, p.spec.sessionID, p.spec.adapter().Interactive(l.claude, p.spec.harnessSpec(env)))
+	}
 	switch {
 	case l.ctx.Err() != nil:
 		reason = launchAborted
@@ -251,7 +255,7 @@ func (r *router) runLaunch(l launch) {
 		}
 	}
 
-	report := api.InteractiveLaunchReport{State: api.RunRunning}
+	report := api.InteractiveLaunchReport{State: api.RunRunning, Harness: p.spec.harnessName, Account: p.spec.account, Model: p.spec.model}
 	if reason != "" {
 		report.State, report.FailureReason = api.RunNotStarted, reason
 		r.log.Error("session_launch_failed", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "reason", reason)...)

@@ -129,11 +129,17 @@ type handoverRun struct {
 	// Phase is phaseBefore while the rule's before command runs, with what
 	// claude takes once it ends, and phaseCommand for the command of a command
 	// rule. An older image writes no phase.
-	Phase          string `json:"phase,omitempty"`
-	Prompt         string `json:"prompt,omitempty"`
-	PermissionMode string `json:"permissionMode,omitempty"`
-	Model          string `json:"model,omitempty"`
-	Schema         string `json:"schema,omitempty"`
+	Phase  string `json:"phase,omitempty"`
+	Prompt string `json:"prompt,omitempty"`
+	Schema string `json:"schema,omitempty"`
+	// The run settings of an agent run. An older image writes them only in
+	// the before phase, and writes no account, which reads as account "".
+	PermissionMode string   `json:"permissionMode,omitempty"`
+	Model          string   `json:"model,omitempty"`
+	Harness        string   `json:"harness,omitempty"`
+	Account        string   `json:"account,omitempty"`
+	ConfigDir      string   `json:"configDir,omitempty"`
+	EnvFiles       []string `json:"envFiles,omitempty"`
 	// Work is the work request of the run, and ClaimToken its claim. Origin
 	// is the work of the run a person's resume or rerun continues.
 	Work       *api.WorkRequest `json:"work,omitempty"`
@@ -354,7 +360,11 @@ func (r *router) freeze() handoverState {
 		case run.p.isCommand():
 			h.Phase = phaseCommand
 		case run.before:
-			h.Phase, h.Prompt, h.PermissionMode, h.Model, h.Schema = phaseBefore, run.p.spec.prompt, run.p.spec.permissionMode, run.p.spec.model, run.p.spec.schema
+			h.Phase, h.Prompt, h.Schema = phaseBefore, run.p.spec.prompt, run.p.spec.schema
+		}
+		if !run.p.isCommand() {
+			s := run.p.spec
+			h.PermissionMode, h.Model, h.Harness, h.Account, h.ConfigDir, h.EnvFiles = s.permissionMode, s.model, s.harnessName, s.account, s.configDir, s.envFiles
 		}
 		st.Live = append(st.Live, h)
 	}
@@ -461,6 +471,10 @@ func (r *router) adoptLocked(run handoverRun) {
 	}
 	run.applyTo(&p)
 	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume
+	p.spec.useSettings(rules.RunSettings{
+		Account: run.Account, Harness: run.Harness, ConfigDir: run.ConfigDir, EnvFiles: run.EnvFiles,
+		Model: run.Model, PermissionMode: run.PermissionMode,
+	})
 	// A command run takes no slot.
 	if run.Phase == phaseCommand {
 		p.action = rules.ActionCommand
@@ -503,7 +517,7 @@ func (r *router) adoptLocked(run handoverRun) {
 // started, on its own goroutine, then goes on as that image would have. The
 // caller holds mu and took the run's slot and card.
 func (r *router) adoptBeforeLocked(p pending, run handoverRun) {
-	p.spec.prompt, p.spec.permissionMode, p.spec.model, p.spec.schema = run.Prompt, run.PermissionMode, run.Model, run.Schema
+	p.spec.prompt, p.spec.schema = run.Prompt, run.Schema
 	p.spec.runID, p.spec.rule, p.spec.key = run.RunID, run.Rule, run.Key
 	r.trackLocked(liveRun{p: p, began: run.Began, proc: workerProc{pid: run.PID, dir: run.Dir}, before: true})
 	r.log.Info("before_adopted", append(about(p.event, p.rule), "worker_pool", p.slot, "session_id", p.spec.sessionID, "pid", run.PID)...)

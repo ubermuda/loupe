@@ -18,6 +18,7 @@ import (
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/envfile"
 	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
@@ -97,8 +98,13 @@ type workerSpec struct {
 	// command is the command of a command rule, which runs in place of
 	// the harness, or nil.
 	command *rules.Command
-	// harness runs the worker, and a nil one is the default harness.
-	harness harn.Harness
+	// account names the account of the run. harnessName and configDir pick
+	// its harness, and envFiles are read into env at the start of the run.
+	account     string
+	harnessName string
+	configDir   string
+	envFiles    []string
+	env         []string
 	// agent is the GitHub user that the worker pushes as, or nil.
 	agent *config.AgentAccount
 }
@@ -218,7 +224,10 @@ type runRecord struct {
 	Resume         bool   `json:"resume,omitempty"`
 	Prompt         string `json:"prompt"`
 	// Harness names the harness of the worker, and "" is the default one.
-	Harness string `json:"harness,omitempty"`
+	// Account is "" in the record of an older image.
+	Harness   string `json:"harness,omitempty"`
+	Account   string `json:"account,omitempty"`
+	ConfigDir string `json:"configDir,omitempty"`
 	// Baseline is the session's usage before a resume started. A resume with
 	// no baseline could not read it.
 	Baseline *transcript.Usage `json:"baseline,omitempty"`
@@ -323,7 +332,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	defer stderr.Close()
 
 	status := filepath.Join(dir, "status")
-	command := spec.harnessCommand(workerEnv(os.Environ(), spec.sessionID, spec.agent))
+	command := spec.harnessCommand(workerEnv(envfile.Overlay(os.Environ(), spec.env), spec.sessionID, spec.agent))
 	cmd := exec.CommandContext(ctx, "/bin/sh", append([]string{"-c", workerShell, status, h.Program()}, command.Args...)...)
 	cmd.Dir = spec.dir
 	cmd.Env = command.Env
@@ -357,7 +366,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
 		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
-		Harness: h.Name(), Baseline: baseline,
+		Harness: h.Name(), Account: spec.account, ConfigDir: spec.configDir, Baseline: baseline,
 	}
 	// A worker with no record cannot outlive this bridge, so it does not run.
 	if err := writeRunRecord(dir, rec); err != nil {

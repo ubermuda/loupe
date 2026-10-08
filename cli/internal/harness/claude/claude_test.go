@@ -27,10 +27,10 @@ var _ harness.Harness = Harness{}
 func ptr[T any](v T) *T { return &v }
 
 func TestTheAdapterIsClaudeCode(t *testing.T) {
-	if got := New().Name(); got != "claude-code" {
+	if got := New("").Name(); got != "claude-code" {
 		t.Fatalf("Name = %q", got)
 	}
-	if got := New().Program(); got != "claude" {
+	if got := New("").Program(); got != "claude" {
 		t.Fatalf("Program = %q", got)
 	}
 }
@@ -41,14 +41,14 @@ func TestWorkerEnvLiftsTheWaitCeiling(t *testing.T) {
 	base := make([]string, 2, 4)
 	base[0], base[1] = "HOME=/home/a", sessionVar+"s1"
 
-	got := New().Worker(harness.Spec{SessionID: "s1", Env: base}).Env
+	got := New("").Worker(harness.Spec{SessionID: "s1", Env: base}).Env
 	if !slices.Equal(got, []string{"HOME=/home/a", sessionVar + "s1", ceilingVar + "0"}) {
 		t.Fatalf("Env = %q", got)
 	}
 	if extended := base[:4]; extended[2] != "" || extended[3] != "" {
 		t.Fatalf("Worker wrote into the caller's array: %q", extended)
 	}
-	if got := New().Resume(harness.Spec{SessionID: "s1", Env: base}).Env; !slices.Equal(got, []string{"HOME=/home/a", sessionVar + "s1", ceilingVar + "0"}) {
+	if got := New("").Resume(harness.Spec{SessionID: "s1", Env: base}).Env; !slices.Equal(got, []string{"HOME=/home/a", sessionVar + "s1", ceilingVar + "0"}) {
 		t.Fatalf("Resume Env = %q", got)
 	}
 }
@@ -57,7 +57,7 @@ func TestWorkerEnvKeepsTheOperatorsCeiling(t *testing.T) {
 	for _, set := range []string{ceilingVar + "5000", ceilingVar + "0", ceilingVar} {
 		base := []string{"HOME=/home/a", set, sessionVar + "s1"}
 		want := []string{"HOME=/home/a", set, sessionVar + "s1"}
-		if got := New().Worker(harness.Spec{SessionID: "s1", Env: base}).Env; !slices.Equal(got, want) {
+		if got := New("").Worker(harness.Spec{SessionID: "s1", Env: base}).Env; !slices.Equal(got, want) {
 			t.Fatalf("Env(%q) = %q", base, got)
 		}
 	}
@@ -77,7 +77,7 @@ func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
 		{harness.Spec{SessionID: testSession, Schema: `{"type":"object"}`, Prompt: "go"}, `--output-format json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
 		{harness.Spec{SessionID: testSession, PermissionMode: "plan", Model: "opus", Schema: "{}", Prompt: "go"}, "--permission-mode plan --model opus --output-format json --json-schema {} -p --session-id " + testSession + " -- go"},
 	} {
-		if got := strings.Join(New().Worker(tc.spec).Args, " "); got != tc.want {
+		if got := strings.Join(New("").Worker(tc.spec).Args, " "); got != tc.want {
 			t.Fatalf("Worker(%+v) = %q, want %q", tc.spec, got, tc.want)
 		}
 	}
@@ -86,7 +86,7 @@ func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
 func TestResumeArgsContinueTheSession(t *testing.T) {
 	spec := harness.Spec{SessionID: testSession, PermissionMode: "plan", Model: "opus", Schema: "{}", Prompt: "go"}
 	want := "--permission-mode plan --model opus --output-format json --json-schema {} -p --resume " + testSession + " -- go"
-	if got := strings.Join(New().Resume(spec).Args, " "); got != want {
+	if got := strings.Join(New("").Resume(spec).Args, " "); got != want {
 		t.Fatalf("Resume = %q, want %q", got, want)
 	}
 }
@@ -95,7 +95,7 @@ func TestResumeArgsContinueTheSession(t *testing.T) {
 // text is the prompt.
 func TestAPromptThatLooksLikeAnOptionFollowsTheSeparator(t *testing.T) {
 	for _, prompt := range []string{"- x", "--version", "-p"} {
-		args := New().Worker(harness.Spec{Model: "opus", SessionID: testSession, Prompt: prompt}).Args
+		args := New("").Worker(harness.Spec{Model: "opus", SessionID: testSession, Prompt: prompt}).Args
 		if len(args) < 2 || args[len(args)-2] != "--" || args[len(args)-1] != prompt {
 			t.Fatalf("Worker(%q) = %q, want the prompt right after --", prompt, args)
 		}
@@ -149,7 +149,7 @@ func TestOutput(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := New().Output([]byte(tc.stdout), tc.overflow); !reflect.DeepEqual(got, tc.want) {
+			if got := New("").Output([]byte(tc.stdout), tc.overflow); !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("Output = %+v, want %+v", got, tc.want)
 			}
 		})
@@ -175,7 +175,7 @@ func runScript(t *testing.T, spec harness.Spec) []string {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "args")
 	path := filepath.Join(t.TempDir(), spec.SessionID+".sh")
-	if err := os.WriteFile(path, []byte(New().Interactive(stubClaude(t, out), spec)), 0o700); err != nil {
+	if err := os.WriteFile(path, []byte(New("").Interactive(stubClaude(t, out), spec)), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if b, err := exec.Command("/bin/sh", path).CombinedOutput(); err != nil {
@@ -230,7 +230,35 @@ func TestTheLaunchScriptLeavesOutAnUnsetModelAndMode(t *testing.T) {
 func TestTheLaunchScriptBody(t *testing.T) {
 	spec := harness.Spec{Dir: "/w", SessionID: "s1", Model: "opus", PermissionMode: "plan", Prompt: "go"}
 	want := "#!/bin/sh\nrm -f -- \"$0\"\ncd -- '/w' || exit 1\nexec '/bin/claude' --session-id 's1' --model 'opus' --permission-mode 'plan' -- 'go'\n"
-	if got := New().Interactive("/bin/claude", spec); got != want {
+	if got := New("").Interactive("/bin/claude", spec); got != want {
+		t.Fatalf("Interactive = %q, want %q", got, want)
+	}
+}
+
+// The script exports the variables of spec.Env, each value as it is.
+func TestTheLaunchScriptExportsItsEnvironment(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "env")
+	program := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(program, []byte("#!/bin/sh\nprintf '%s' \"$LOUPE_TEST_VALUE\" > "+shellQuote(out)+"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.Spec{Dir: t.TempDir(), SessionID: "s1", Prompt: "go", Env: []string{"LOUPE_TEST_VALUE=" + hard}}
+	path := filepath.Join(t.TempDir(), "s1.sh")
+	if err := os.WriteFile(path, []byte(New("").Interactive(program, spec)), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := exec.Command("/bin/sh", path).CombinedOutput(); err != nil {
+		t.Fatalf("script: %v: %s", err, b)
+	}
+	if got, err := os.ReadFile(out); err != nil || string(got) != hard {
+		t.Fatalf("LOUPE_TEST_VALUE = %q, %v", got, err)
+	}
+}
+
+func TestTheLaunchScriptBodyWithAnEnvironment(t *testing.T) {
+	spec := harness.Spec{Dir: "/w", SessionID: "s1", Prompt: "go", Env: []string{"CLAUDE_CONFIG_DIR=/c"}}
+	want := "#!/bin/sh\nrm -f -- \"$0\"\nexport CLAUDE_CONFIG_DIR='/c'\ncd -- '/w' || exit 1\nexec '/bin/claude' --session-id 's1' -- 'go'\n"
+	if got := New("").Interactive("/bin/claude", spec); got != want {
 		t.Fatalf("Interactive = %q, want %q", got, want)
 	}
 }
@@ -261,7 +289,7 @@ func claudeHome(t *testing.T, session string, lines ...string) {
 
 func TestTheSessionReadsTheTranscript(t *testing.T) {
 	claudeHome(t, testSession, costState, first, later)
-	h := New()
+	h := New("")
 
 	if err := h.HasSession(testSession); err != nil {
 		t.Fatalf("HasSession = %v", err)
@@ -284,7 +312,7 @@ func TestTheSessionReadsTheTranscript(t *testing.T) {
 
 func TestAMissingSessionHasNoTranscript(t *testing.T) {
 	claudeHome(t, testSession)
-	h := New()
+	h := New("")
 
 	if err := h.HasSession(testSession); !errors.Is(err, transcript.ErrNotFound) {
 		t.Fatalf("HasSession = %v", err)
@@ -297,5 +325,27 @@ func TestAMissingSessionHasNoTranscript(t *testing.T) {
 	}
 	if _, err := h.SessionUsage(testSession, time.Time{}, time.Time{}); err == nil {
 		t.Fatal("SessionUsage of a missing session read")
+	}
+}
+
+// An adapter with a config folder reads the transcripts there, and not in the
+// folder of the bridge's own environment.
+func TestTheAdapterReadsItsOwnConfigFolder(t *testing.T) {
+	claudeHome(t, testSession, costState)
+	own := t.TempDir()
+
+	if err := New(own).HasSession(testSession); !errors.Is(err, transcript.ErrNotFound) {
+		t.Fatalf("HasSession in an empty folder = %v", err)
+	}
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	path := filepath.Join(own, "projects", "-work", testSession+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(costState+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if dir, err := New(own).StartDir(testSession); dir != "/start" || err != nil {
+		t.Fatalf("StartDir = %q, %v", dir, err)
 	}
 }

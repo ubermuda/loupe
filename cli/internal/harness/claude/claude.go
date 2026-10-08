@@ -15,11 +15,14 @@ import (
 // worker mid-task and exits 0.
 const ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
 
-// Harness is Claude Code.
-type Harness struct{}
+// Harness is Claude Code. configDir is the folder that holds its sessions,
+// and "" is the folder of the bridge's own environment.
+type Harness struct {
+	configDir string
+}
 
-// New is the Claude Code harness.
-func New() Harness { return Harness{} }
+// New is the Claude Code harness of the config folder configDir.
+func New(configDir string) Harness { return Harness{configDir: configDir} }
 
 func (Harness) Name() string { return "claude-code" }
 
@@ -81,6 +84,10 @@ func (Harness) Interactive(program string, spec harness.Spec) string {
 	var b strings.Builder
 	b.WriteString("#!/bin/sh\n")
 	b.WriteString("rm -f -- \"$0\"\n")
+	for _, e := range spec.Env {
+		k, v, _ := strings.Cut(e, "=")
+		b.WriteString("export " + k + "=" + shellQuote(v) + "\n")
+	}
 	b.WriteString("cd -- " + shellQuote(spec.Dir) + " || exit 1\n")
 	b.WriteString("exec " + shellQuote(program) + " --session-id " + shellQuote(spec.SessionID))
 	if spec.Model != "" {
@@ -120,17 +127,20 @@ func (Harness) Output(stdout []byte, overflow bool) harness.Output {
 }
 
 // find is the transcript of the session in the Claude Code config directory.
-func find(sessionID string) (string, error) {
-	dir, err := transcript.ConfigDir()
-	if err != nil {
-		return "", err
+func (h Harness) find(sessionID string) (string, error) {
+	dir := h.configDir
+	if dir == "" {
+		var err error
+		if dir, err = transcript.ConfigDir(); err != nil {
+			return "", err
+		}
 	}
 
 	return transcript.Find(dir, sessionID)
 }
 
-func (Harness) SessionUsage(sessionID string, from, to time.Time) (transcript.Usage, error) {
-	path, err := find(sessionID)
+func (h Harness) SessionUsage(sessionID string, from, to time.Time) (transcript.Usage, error) {
+	path, err := h.find(sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -140,8 +150,8 @@ func (Harness) SessionUsage(sessionID string, from, to time.Time) (transcript.Us
 
 // SessionTotal reads the last cost-state line of the transcript. A session
 // with no such line spent zero.
-func (Harness) SessionTotal(sessionID string) (transcript.Usage, error) {
-	path, err := find(sessionID)
+func (h Harness) SessionTotal(sessionID string) (transcript.Usage, error) {
+	path, err := h.find(sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +159,8 @@ func (Harness) SessionTotal(sessionID string) (transcript.Usage, error) {
 	return transcript.LastCostState(path)
 }
 
-func (Harness) StartDir(sessionID string) (string, error) {
-	path, err := find(sessionID)
+func (h Harness) StartDir(sessionID string) (string, error) {
+	path, err := h.find(sessionID)
 	if errors.Is(err, transcript.ErrNotFound) {
 		return "", nil
 	}
@@ -161,8 +171,8 @@ func (Harness) StartDir(sessionID string) (string, error) {
 	return transcript.StartDir(path)
 }
 
-func (Harness) HasSession(sessionID string) error {
-	_, err := find(sessionID)
+func (h Harness) HasSession(sessionID string) error {
+	_, err := h.find(sessionID)
 
 	return err
 }

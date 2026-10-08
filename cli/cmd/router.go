@@ -292,20 +292,33 @@ func (p *pending) apply(m rules.Match) {
 	p.rule, p.action, p.project, p.pool = m.Rule, m.Action, m.Project, m.Pool
 	p.experiment, p.pin = m.Experiment, runPin{}
 	if p.continues != "" {
-		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
+		p.spec.dir, p.spec.schema = m.Dir, m.Schema
 		p.spec.before, p.spec.command = m.Before, m.Command
+		p.spec.useRun(m)
 
 		return
 	}
-	p.spec = workerSpec{
-		dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt,
-		before: m.Before, command: m.Command,
-	}
+	p.spec = workerSpec{dir: m.Dir, schema: m.Schema, prompt: m.Prompt, before: m.Before, command: m.Command}
+	p.spec.useRun(m)
 	// The server asks the work to resume the session of an unfinished run,
 	// which the offer found on this machine.
 	if p.isWork() && p.event.SessionID != "" && m.Action == "" && !p.fresh {
 		p.spec.resume, p.spec.prompt = true, directive.RenderResumeUnfinished("status unfinished")
 	}
+}
+
+// useRun takes the account, the harness, the model and the mode that the
+// match resolved.
+func (s *workerSpec) useRun(m rules.Match) {
+	s.useSettings(rules.RunSettings{
+		Account: m.Account, Harness: m.Harness, ConfigDir: m.ConfigDir, EnvFiles: m.EnvFiles,
+		Model: m.Model, PermissionMode: m.PermissionMode,
+	})
+}
+
+func (s *workerSpec) useSettings(r rules.RunSettings) {
+	s.account, s.harnessName, s.configDir, s.envFiles = r.Account, r.Harness, r.ConfigDir, slices.Clone(r.EnvFiles)
+	s.model, s.permissionMode = r.Model, r.PermissionMode
 }
 
 // sessionCard is the key a session's worker ran under, and its card when the
@@ -877,6 +890,11 @@ func (r *router) start(p pending) {
 		return
 	}
 	args := append(about(p.event, p.rule), "worker_pool", p.slot)
+	// The variant of an experiment sets the account and the mode, and its
+	// worker_variant line names them.
+	if p.experiment == nil {
+		args = append(args, "account", p.spec.account, "permission_mode", p.spec.permissionMode)
+	}
 	switch {
 	case p.continues != "":
 		// The command set the session of the run this one continues.
@@ -902,7 +920,13 @@ func (r *router) start(p pending) {
 		defer r.wg.Done()
 
 		if p.experiment != nil {
-			p.spec.model, p.pin = r.resolveVariant(p)
+			var settings rules.RunSettings
+			settings, p.pin = r.resolveVariant(p)
+			p.spec.useSettings(settings)
+			r.log.Info("worker_variant", append(about(p.event, p.rule),
+				"session_id", p.spec.sessionID, "experiment", p.pin.Experiment, "variant", p.pin.Variant,
+				"account", p.spec.account, "permission_mode", p.spec.permissionMode, "model", p.spec.model,
+			)...)
 		}
 		if p.spec.before != nil {
 			r.prepare(p)
@@ -947,6 +971,14 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 	}
 	spec := p.spec
 	spec.agent = r.agent
+	env, err := spec.accountEnv()
+	if err != nil {
+		failed := workerResult{err: err, dir: beforeDir}
+		r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
+
+		return
+	}
+	spec.env = env
 	res := r.worker.run(r.workerContext(), spec, onStart)
 	// A claude that never started made no run directory, so the files of the
 	// before command are what remains.
@@ -1089,20 +1121,20 @@ func (r *router) afterBefore(p pending, began time.Time, res procResult) {
 	r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
 }
 
-// resolveVariant is the model and the variant of a run in an experiment. The
+// resolveVariant is the settings and the variant of a run in an experiment. The
 // server keeps the variant a card first ran with. A run with no card, or with
 // no answer from the server, runs the variant the bridge drew.
-func (r *router) resolveVariant(p pending) (string, runPin) {
+func (r *router) resolveVariant(p pending) (rules.RunSettings, runPin) {
 	exp := p.experiment
 	cardID, number := cardOf(p.event)
 	if number < 1 {
 		cardID = ""
 	}
 	candidate := exp.Pick(cmp.Or(cardID, p.key))
-	model := exp.Settings(candidate).Model
-	drawn := runPin{Experiment: exp.Name, Variant: candidate.Name, RequestedModel: model}
+	settings := exp.Settings(candidate)
+	drawn := runPin{Experiment: exp.Name, Variant: candidate.Name, RequestedModel: settings.Model}
 	if cardID == "" || r.resolvePin == nil {
-		return model, drawn
+		return settings, drawn
 	}
 
 	names := make([]string, len(exp.Variants))
@@ -1132,12 +1164,12 @@ func (r *router) resolveVariant(p pending) (string, runPin) {
 			)...)
 		}
 
-		return model, drawn
+		return settings, drawn
 	}
 	v := exp.Variants[i]
-	model = exp.Settings(v).Model
+	settings = exp.Settings(v)
 
-	return model, runPin{Experiment: exp.Name, Variant: v.Name, RequestedModel: model, SwitchedFrom: switchedFrom}
+	return settings, runPin{Experiment: exp.Name, Variant: v.Name, RequestedModel: settings.Model, SwitchedFrom: switchedFrom}
 }
 
 // liveRun is a worker that started, with what its report and a handover need.
@@ -1517,6 +1549,7 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 	if report.State == api.RunRunning || api.IsOutcome(report.State) {
 		report.Experiment, report.Variant = p.pin.Experiment, p.pin.Variant
 		report.RequestedModel, report.SwitchedFrom = p.pin.RequestedModel, p.pin.SwitchedFrom
+		report.Harness, report.Account, report.Model = p.spec.harnessName, p.spec.account, p.spec.model
 	}
 	// The handle is the project id the event carried, which a rename never
 	// changes.

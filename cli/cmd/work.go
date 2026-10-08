@@ -192,7 +192,7 @@ func (r *router) offerWork(w api.WorkRequest, source string) {
 	}
 	p := pending{key: w.SubjectID, event: workEvent(w), work: w, set: set}
 	// A session that is not on this machine cannot resume, so the work starts fresh.
-	if w.ResumeSessionID != "" && m.Action == "" && r.hasTranscript(w.ResumeSessionID) {
+	if w.ResumeSessionID != "" && m.Action == "" && r.hasTranscript(w.ResumeSessionID, m) {
 		p.event.SessionID = w.ResumeSessionID
 	}
 	p.apply(m)
