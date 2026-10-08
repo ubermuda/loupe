@@ -354,12 +354,11 @@ func TestAMissingSubagentOfAnEarlierRunLeavesTheRunReadable(t *testing.T) {
 	if !got.CallsRead {
 		t.Fatalf("output = %+v", got)
 	}
-	window, err := h.SessionUsage(runID, since, time.Time{})
-	if err != nil {
-		t.Fatalf("SessionUsage err = %v", err)
+	if got.Usage != nil {
+		t.Fatalf("usage = %+v, want none so the bridge reads the run window", got.Usage)
 	}
-	if !reflect.DeepEqual(got.Usage, window) {
-		t.Fatalf("usage = %+v, want the window %+v", got.Usage, window)
+	if window, err := h.SessionUsage(runID, since, time.Time{}); err != nil || len(window) == 0 {
+		t.Fatalf("SessionUsage = %+v, %v", window, err)
 	}
 	if _, err := h.SessionTotal(runID); err == nil {
 		t.Fatal("SessionTotal read a baseline with no subagent")
