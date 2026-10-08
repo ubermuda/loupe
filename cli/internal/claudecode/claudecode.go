@@ -64,6 +64,8 @@ type Entry struct {
 	URL     string   `json:"url"`
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
+	// Env holds secrets as often as not, so only a check of the command reads it.
+	Env map[string]string `json:"env"`
 }
 
 // Summary says what the entry points at, and never what it authenticates with,
