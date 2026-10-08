@@ -11,7 +11,7 @@ Define every component style in the semantic class layer in `app.css`, with `@ap
 
 Search `app.css` for an existing class before you add one. Put new component classes in `@layer components` with a doc comment that says what the class is and when to use it. Use raw CSS only where `@apply` has no equivalent: multi-layer backgrounds with CSS variables, pseudo-elements, `-webkit-appearance`, and SVG data URIs.
 
-Keep design tokens (colors, gradients, backgrounds) as custom properties in `:root` and reference them inside class definitions. Do not hardcode them in templates.
+Keep design tokens (colors, gradients, backgrounds) as custom properties in `assets/styles/tokens.css` and reference them inside class definitions. Do not hardcode them in templates.
 
 ## Tailwind v4 quirks and constraints
 
@@ -148,7 +148,7 @@ Use no arbitrary values in `app.css` either. Every size, colour and spacing valu
 
 Some conversions are exact and some are not, and the difference matters when you report the change. `w-[45rem]` gives `w-180` and `-top-[12.5rem]` gives `-top-50`, both exact, because the spacing scale is `0.25rem × n`. `blur-[1.25rem]` gives `blur-xl`, which is not exact: the blur scale has no 1.25rem step, so 20px becomes 24px. Accepting that change is correct. Presenting it as equivalent is not.
 
-Treat a custom value as a mistake to fix, not a token to add. Do not invent a `@theme` token to preserve an off-scale value, and do not fall back to an arbitrary value. Snap to the nearest existing token and accept the pixel change. A custom token is the same problem as a bracket value wearing a different hat. `app.css` currently has zero custom `@theme` size entries, zero custom `@utility` blocks and zero literal `px`/`rem` outside the design-token blocks. Keep it that way.
+Treat a custom value as a mistake to fix, not a token to add. Do not invent a `@theme` token to preserve an off-scale value, and do not fall back to an arbitrary value. Snap to the nearest existing token and accept the pixel change. A custom token is the same problem as a bracket value wearing a different hat. The one place a value is set is `assets/styles/tokens.css`, where the radius, spacing and motion groups sit beside the colour, type and shadow groups. `/styleguide` draws every token, in dev. Add a literal `px` or `rem` to `app.css` only inside a token block. `docs/contributing/design-system.md` covers the system.
 
 Several installed user-level design skills hand you literal arbitrary utilities: `beautiful-shadows` gives three `shadow-[0px_2px_3px_-1px_rgba(...)…]` strings, and `glass-dark-ui` one more. Pasting those into a template fails `NoArbitraryValuesCheck`. They are still worth using, because a six-layer box-shadow is genuinely non-expressible as a single utility, like the multi-layer `background:` gradients carved out above. Land the value as a `--shadow-*` entry in the `@theme` design-token block and reference it from a semantic class in `@layer components`. Never write it as a bracket utility in Twig, and never as a one-off literal inside the class body. Snapping such a shadow to `shadow-md` instead is also legitimate.
 

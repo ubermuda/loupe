@@ -1,0 +1,68 @@
+{# twig-cs-fixer-disable #}
+{# Dev-only page for builders, never shown to users, so it is intentionally untranslated. #}
+{% extends 'layout_base.html.twig' %}
+
+{% block title %}Styleguide{% endblock %}
+
+{% block site_review_widget %}{% endblock %}
+
+{% block page %}
+    <main id="main-content" class="lp-styleguide" data-styleguide>
+        <header class="lp-styleguide__header">
+            <h1 class="lp-styleguide__title">Styleguide</h1>
+            <p class="lp-styleguide__lede">Every token and every building block, drawn from the real stylesheet and components. Dev only.</p>
+            <nav class="lp-styleguide__nav" aria-label="Sections">
+                {% for group in groups %}
+                    <a href="#tokens-{{ group.name }}">{{ group.name|capitalize }}</a>
+                {% endfor %}
+                <a href="#components">Components</a>
+            </nav>
+        </header>
+
+        {% for group in groups %}
+            <section class="lp-styleguide__section" id="tokens-{{ group.name }}" data-token-group="{{ group.name }}">
+                <h2 class="lp-styleguide__heading">{{ group.name|capitalize }}</h2>
+                <ul class="lp-styleguide__tokens">
+                    {% for token in group.tokens %}
+                        <li class="lp-styleguide__token" data-token="{{ token.name }}">
+                            {# The sample takes its look from the token itself, so it has to be inline. #}
+                            {% if group.name == 'colour' %}
+                                <span class="lp-styleguide__swatch" style="background: var({{ token.name }})"></span>
+                            {% elseif group.name == 'type' %}
+                                <span class="lp-styleguide__type-sample" style="font-family: var({{ token.name }})">Reviewing the page, line by line</span>
+                            {% elseif group.name == 'spacing' %}
+                                <span class="lp-styleguide__spacing-bar" style="width: calc(var({{ token.name }}) * 12)"></span>
+                            {% elseif group.name == 'radius' %}
+                                <span class="lp-styleguide__radius-box" style="border-radius: var({{ token.name }})"></span>
+                            {% elseif group.name == 'shadow' %}
+                                <span class="lp-styleguide__shadow-box" style="box-shadow: var({{ token.name }})"></span>
+                            {% endif %}
+                            <code class="lp-styleguide__token-name">{{ token.name }}</code>
+                            <code class="lp-styleguide__token-value">{{ token.value }}</code>
+                            {% if token.use %}<span class="lp-styleguide__token-use">{{ token.use }}</span>{% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </section>
+        {% endfor %}
+
+        <section class="lp-styleguide__section" id="components" data-component-catalog>
+            <h2 class="lp-styleguide__heading">Components</h2>
+            {% for component in components %}
+                <article class="lp-styleguide__component" data-component="{{ component.name }}">
+                    <h3 class="lp-styleguide__subheading">{{ component.name }}</h3>
+                    <p class="lp-styleguide__token-use">
+                        <code>{{ component.rootClass }}</code>, variants: {{ component.variants|join(', ') ?: 'none' }}, states: {{ component.states|join(', ') ?: 'none' }}
+                    </p>
+                    {% for variant in component.variants|length ? component.variants : [null] %}
+                        <div class="lp-styleguide__specimen" data-variant="{{ variant }}">
+                            {% include component.template with { variant: variant } only %}
+                        </div>
+                    {% endfor %}
+                </article>
+            {% else %}
+                <p class="lp-styleguide__empty" data-catalog-empty>The catalog has no entry yet. A component appears here when its child card adds it.</p>
+            {% endfor %}
+        </section>
+    </main>
+{% endblock %}
