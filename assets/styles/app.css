@@ -3858,11 +3858,12 @@
     .lp-verdict-chip--changes-requested {
         @apply bg-status-danger-chip;
     }
+    /* A phone keeps the two links and drops the words, which the line under the title repeats. */
     .lp-verdict-chip__dot {
-        @apply size-2.5 shrink-0 rounded-full bg-ink;
+        @apply hidden size-2.5 shrink-0 rounded-full bg-ink lg:block;
     }
     .lp-verdict-chip__title {
-        @apply font-bold text-ink;
+        @apply hidden font-bold text-ink lg:inline;
     }
     .lp-verdict-chip__undo {
         @apply m-0 inline-flex;

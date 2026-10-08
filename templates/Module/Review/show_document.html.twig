@@ -141,6 +141,7 @@
 
             {% if not readOnly and not diffMode and review is not null and document.status.value in ['approved', 'changes-requested'] %}
             <p class="lp-review-doc__verdict-detail">
+                <span class="lp-review-doc__verdict-word">{{ ('review.document.verdict.' ~ document.status.value)|trans }}</span>
                 {{ review.reviewer.fullName }} · {{ review.submittedAt|relative_time }} · {{ 'v' ~ review.version.versionNumber }}
                 {% if review.note %}<span class="lp-review-verdict-note">{{ review.note }}</span>{% endif %}
             </p>

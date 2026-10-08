@@ -304,7 +304,7 @@ test('the review top bar does not print over its own actions', async ({
     );
     // The verdict actions leave the bar below lg and become rows of the review
     // menu. They are what used to squeeze the lead.
-    await expect(page.locator('.lp-topbar__actions')).toBeHidden();
+    await expect(page.locator('.lp-review-topbar-actions')).toBeHidden();
 
     // The element rectangles do not overlap: the lead's content escapes a
     // collapsed box, and only a scrollWidth reading catches that.

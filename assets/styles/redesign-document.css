@@ -44,6 +44,9 @@
 .lp-review .lp-review-doc__verdict-detail {
     @apply mb-4 flex max-w-3xl flex-col gap-1 text-sm text-fg-dim;
 }
+.lp-review .lp-review-doc__verdict-word {
+    @apply font-semibold text-ink;
+}
 .lp-review .lp-review-doc__wait {
     @apply mt-1.5 mb-0 text-sm text-fg-dim;
 }

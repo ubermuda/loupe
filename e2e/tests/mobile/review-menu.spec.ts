@@ -442,7 +442,7 @@ test('the desktop review actions sit beside the document title', async ({
 
     await expect(
         page
-            .locator('.lp-topbar__actions')
+            .locator('.lp-review-topbar-actions')
             .getByRole('button', { name: 'Finish review' }),
     ).toBeVisible();
     await expect(page.locator(MENU)).toBeHidden();
