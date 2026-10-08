@@ -427,6 +427,92 @@ func TestAFileWithNoAccountsLoadsWithItsAgentsOff(t *testing.T) {
 	}
 }
 
+// accountsBody gives each kind of agent run its own account: implement and
+// app prompts take the default, review names other, pair names third, and
+// split has a variant on fourth. spare runs nothing.
+const accountsBody = "appPrompts: true\naccounts:\n  claude:\n    harness: claude-code\n  other:\n    harness: claude-code\n" +
+	"  third:\n    harness: claude-code\n  fourth:\n    harness: claude-code\n  spare:\n    harness: claude-code\n" +
+	claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nlaunch:\n  command: ['{script}']\nwork:\n" +
+	"  implement:\n    prompt: x\n" +
+	"  review:\n    prompt: x\n    account: other\n" +
+	"  pair:\n    action: interactive\n    prompt: x\n    account: third\n" +
+	"  split:\n    prompt: x\n    variants:\n      - {name: a, weight: 1, model: haiku}\n      - {name: b, weight: 1, account: fourth}\n" +
+	"  test:\n    action: command\n    run: [make, test]\n"
+
+func TestUsedAccountsNamesTheAccountOfEachAgentRun(t *testing.T) {
+	if got := parse(t, accountsBody).UsedAccounts(); !slices.Equal(got, []string{"claude", "fourth", "other", "third"}) {
+		t.Fatalf("UsedAccounts = %v", got)
+	}
+	if got := parse(t, oneRule).UsedAccounts(); !slices.Equal(got, []string{"claude"}) {
+		t.Fatalf("UsedAccounts of one rule = %v", got)
+	}
+	commands := claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nwork:\n  test:\n    action: command\n    run: [make, test]\n"
+	if got := parse(t, commands).UsedAccounts(); len(got) != 0 {
+		t.Fatalf("UsedAccounts of command entries = %v", got)
+	}
+}
+
+// An account that fails its check turns off each entry that runs on it, a
+// variant's account included. The other entries and command entries run.
+func TestAFailingAccountTurnsOffItsEntries(t *testing.T) {
+	app := workRequest("triage")
+	app.Prompt = "Triage {cardNumber}."
+	requests := map[string]api.WorkRequest{"implement": workRequest("implement"), "review": workRequest("review"), "pair": workRequest("pair"), "split": workRequest("split"), "test": workRequest("test"), "app": app}
+	for name, tc := range map[string]struct {
+		off         string
+		skipped     []string
+		interactive bool
+	}{
+		"none":   {interactive: true},
+		"claude": {off: "claude", skipped: []string{"app", "implement", "split"}, interactive: true},
+		"other":  {off: "other", skipped: []string{"review"}, interactive: true},
+		"third":  {off: "third", skipped: []string{"pair"}},
+		"fourth": {off: "fourth", skipped: []string{"split"}, interactive: true},
+		"spare":  {off: "spare", interactive: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := checked(t, accountsBody)
+			problems := map[string]string{}
+			if tc.off != "" {
+				problems[tc.off] = "not logged in"
+			}
+			s.SetAccountProblems(problems)
+			for kind, w := range requests {
+				m := s.MatchWork(w)
+				if slices.Contains(tc.skipped, kind) != (m.Skip == NoRule) || m.Project != "loupe" {
+					t.Fatalf("%s: match = %+v", kind, m)
+				}
+			}
+			want := []string{CapabilityWorkRequests}
+			if tc.interactive {
+				want = append(want, CapabilityInteractive)
+			}
+			if got := s.Capabilities(); !slices.Equal(got, want) {
+				t.Fatalf("Capabilities = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestAccountsOffIsACopy(t *testing.T) {
+	s := parse(t, oneRule)
+	if s.AccountsOff() != nil {
+		t.Fatal("an unchecked set has accounts off")
+	}
+	in := map[string]string{"claude": "not logged in"}
+	s.SetAccountProblems(in)
+	in["claude"] = "changed"
+	got := s.AccountsOff()
+	got["other"] = "added"
+	if again := s.AccountsOff(); len(again) != 1 || again["claude"] != "not logged in" {
+		t.Fatalf("AccountsOff = %v", again)
+	}
+	s.SetAccountProblems(nil)
+	if got := s.AccountsOff(); got == nil || len(got) != 0 {
+		t.Fatalf("AccountsOff after a clean check = %v, want an empty map", got)
+	}
+}
+
 // A file of the old format names the work map, so the operator knows what to
 // write in its place.
 func TestParseRefusesTheOldFormat(t *testing.T) {
