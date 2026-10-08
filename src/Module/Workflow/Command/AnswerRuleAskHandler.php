@@ -104,8 +104,12 @@ final readonly class AnswerRuleAskHandler
         $this->cards->refreshColumn($card);
         $this->cards->refreshTypeAndParent($card);
         $now = $this->clock->now();
-        if (null !== $rule->slot && $this->factsBuilder->build($card, $now)->card->slot !== $rule->slot) {
+        $facts = $this->factsBuilder->build($card, $now);
+        if (null !== $rule->slot && $facts->card->slot !== $rule->slot) {
             return $this->skip('left-slot', $itemId);
+        }
+        if (null === $rule->when->unreadable($facts) && !$rule->when->evaluate($facts)) {
+            return $this->skip('rule-false', $itemId);
         }
         $refusal = null;
         foreach ($option->actions as $call) {

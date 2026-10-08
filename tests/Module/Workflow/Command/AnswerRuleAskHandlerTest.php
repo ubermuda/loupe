@@ -154,6 +154,16 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
         self::assertSame([], $this->queuedEvaluations());
     }
 
+    public function test_a_rule_that_stopped_holding_changes_nothing(): void
+    {
+        [$card, , $itemId] = $this->askedChild('answer-rule-false', ['all' => [['card.is_child' => []], ['not' => ['card.is_child' => []]]]]);
+
+        $this->answer($itemId, 1);
+
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(Card::class, $card->id)?->parent);
+    }
+
     private function answer(Uuid $itemId, int $optionIndex): void
     {
         $this->em()->clear();
@@ -165,10 +175,10 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
     }
 
     /** @return array{Card, Card, Uuid} the child, its parent and the item id that the child's rule state holds */
-    private function askedChild(string $name): array
+    private function askedChild(string $name, array $when = ['all' => []]): array
     {
         $project = $this->workflowProject($name);
-        $this->bind($project);
+        $this->bind($project, $when);
         $parent = $this->card($project, 'next');
         $card = $this->card($project, 'next');
         $card->parent = $parent;
@@ -182,7 +192,7 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
         return [$card, $parent, $itemId];
     }
 
-    private function bind(Project $project): void
+    private function bind(Project $project, array $when = ['all' => []]): void
     {
         $this->em()->persist(new WorkflowBinding($project, 'test', 1, [
             'key' => 'test',
@@ -196,7 +206,7 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
             'rules' => [[
                 'id' => 'unplanned-child',
                 'slot' => 'one',
-                'when' => ['all' => []],
+                'when' => $when,
                 'then' => ['ask' => [
                     'question' => 'Question',
                     'options' => [
