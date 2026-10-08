@@ -21,11 +21,31 @@
 {% endblock %}
 
 {% block topbar_actions %}
+{% if not diffMode and not readOnly %}
+{% if document.status.value in ['draft', 'in-review'] %}
+{% include '@Review/_finish_review_button.html.twig' with {inReviewMenu: true} only %}
+{% elseif document.status.value in ['approved', 'changes-requested'] %}
+<div class="lp-review-topbar-actions">
+    <span class="lp-verdict-chip lp-verdict-chip--{{ document.status.value }}" title="{{ ('review.document.verdict.' ~ document.status.value ~ '_detail')|trans }}">
+        <span class="lp-verdict-chip__dot" aria-hidden="true"></span>
+        <span class="lp-verdict-chip__title">{{ ('review.document.verdict.' ~ document.status.value)|trans }}</span>
+        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-controller="review-finish" data-action="click->review-finish#open">{{ 'review.document.verdict.change'|trans }}</button>
+        {% if review is not null and undoVerdictForm is defined %}
+        {{ form_start(undoVerdictForm, {attr: {class: 'lp-verdict-chip__undo'}}) }}
+            {{ form_widget(undoVerdictForm.reviewId) }}
+            <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.verdict.undo'|trans }}</button>
+        {{ form_end(undoVerdictForm) }}
+        {% endif %}
+    </span>
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}
 
 {% block body %}
 {% set finishReviewAvailable = not diffMode and not readOnly %}
 <div class="lp-review" data-site-review-quotes="off" data-controller="card-drawer{{ finishReviewAvailable ? ' modal' : '' }}"
+     {% if finishReviewAvailable %}data-action="review:finish@window->modal#open"{% endif %}
      {% if finishReviewAvailable %}data-modal-reopen-value="{{ submitReviewForm.vars.submitted ? 'true' : 'false' }}"{% endif %}>
     {# Both controllers pass diffMode explicitly: Twig's `default` filter fires
        on any falsy value, so `|default(true)` would send every show-page render
@@ -48,12 +68,8 @@
     </div>
     {% endif %}
 
-    {# Empty unless the inbox is on and an item links to this document. Outside
-       the review block, whose change and mouseup listeners would take the
-       section's controls for the document's own. #}
     {% if not diffMode %}
     {% do mercure_subscribe(documentTopic) %}
-    {{ inbox_document_section(document, readOnly ? version.versionNumber : null) }}
     {% endif %}
 
     {# The comment-anchor controller attaches in diff mode only where the diff
@@ -110,6 +126,8 @@
                 activeView: diffMode ? 'diff' : 'document',
                 showDocumentActions: not readOnly and not diffMode,
                 reviseDocumentForm: not readOnly and not diffMode ? reviseDocumentForm : null,
+                lastSeenVersionNumber: diffMode or readOnly ? null : lastSeenVersionNumber,
+                showWaitLine: not diffMode and not readOnly,
                 showMarginControls: not diffColumns,
                 marginTabs: marginTabs,
                 marginTabReasons: marginTabReasons,
@@ -117,6 +135,14 @@
                 canComment: canComment,
                 returnToDocument: diffMode,
             } only %}
+
+            {% if not readOnly and not diffMode and review is not null and document.status.value in ['approved', 'changes-requested'] %}
+            <p class="lp-review-doc__verdict-detail">
+                <span class="lp-review-doc__verdict-word">{{ ('review.document.verdict.' ~ document.status.value)|trans }}</span>
+                {{ review.reviewer.fullName }} · {{ review.submittedAt|relative_time }} · {{ 'v' ~ review.version.versionNumber }}
+                {% if review.note %}<span class="lp-review-verdict-note">{{ review.note }}</span>{% endif %}
+            </p>
+            {% endif %}
 
             {# The way back to a discussion a revision left behind: comments
                resolved on an earlier version stay there, so the thread is
@@ -202,14 +228,6 @@
                 {% endif %}
 
             </div>
-            {% endif %}
-
-            {% if not diffMode and not readOnly and lastSeenVersionNumber is not null and lastSeenVersionNumber < version.versionNumber %}
-            <a class="lp-doc-meta__unread"
-               href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: lastSeenVersionNumber, toVersionNumber: version.versionNumber}) }}">
-                <twig:ux:icon name="lucide:git-compare" class="w-3.5 h-3.5 shrink-0" />
-                {{ 'review.document.since_last_visit.chip'|trans({'%from%': lastSeenVersionNumber, '%to%': version.versionNumber}) }}
-            </a>
             {% endif %}
 
             {% if not diffMode %}
@@ -531,30 +549,6 @@
     {% if undoVerdictForm is defined %}
         <div class="lp-field-errors" data-review-withdrawal-errors>{{ form_errors(undoVerdictForm) }}{{ form_errors(undoVerdictForm.reviewId) }}</div>
     {% endif %}
-    {% if not readOnly and not diffMode and document.status.value in ['approved', 'changes-requested'] %}
-    {% set verdict = document.status.value %}
-    <div class="lp-verdict-bar lp-verdict-bar--{{ verdict }}">
-        <span class="lp-verdict-bar__dot"></span>
-        <span class="lp-verdict-bar__text">
-            <span class="lp-verdict-bar__title">{{ ('review.document.verdict.' ~ verdict)|trans }}</span>
-            <span class="lp-verdict-bar__detail">{{ ('review.document.verdict.' ~ verdict ~ '_detail')|trans }}</span>
-            {% if review %}
-            <span class="lp-verdict-bar__detail">{{ review.reviewer.fullName }} · {{ review.submittedAt|relative_time }} · {{ 'v' ~ review.version.versionNumber }}</span>
-            {% if review.note %}<span class="lp-review-verdict-note">{{ review.note }}</span>{% endif %}
-            {% endif %}
-        </span>
-        <div class="lp-verdict-bar__actions">
-            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="click->modal#open">{{ 'review.document.verdict.change'|trans }}</button>
-            {% if review is not null %}
-            {{ form_start(undoVerdictForm, {attr: {class: 'lp-verdict-bar__undo'}}) }}
-                {{ form_widget(undoVerdictForm.reviewId) }}
-                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.verdict.undo'|trans }}</button>
-            {{ form_end(undoVerdictForm) }}
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
-
     {% if finishReviewAvailable and document.status.value in ['approved', 'changes-requested'] and not submitReviewForm.vars.submitted %}
     {% include '@Review/_review_draft_recovery.html.twig' with {document: document} only %}
     {% endif %}

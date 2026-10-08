@@ -41,6 +41,18 @@
 .lp-review .lp-review-doc__avatar {
     @apply inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-bold text-fg-mute;
 }
+.lp-review .lp-review-doc__verdict-detail {
+    @apply mb-4 flex max-w-3xl flex-col gap-1 text-sm text-fg-dim;
+}
+.lp-review .lp-review-doc__verdict-word {
+    @apply font-semibold text-ink;
+}
+.lp-review .lp-review-doc__wait {
+    @apply mt-1.5 mb-0 text-sm text-fg-dim;
+}
+.lp-review .lp-review-doc__wait a {
+    @apply font-semibold text-ink;
+}
 .lp-review .lp-review-doc__actions {
     @apply ml-0 flex shrink-0 flex-wrap items-center justify-end gap-2;
 }
@@ -125,23 +137,42 @@
     @apply text-xs text-fg-dim;
 }
 
-/* ── Paper ──────────────────────────────────────────────────────── */
+/* ── Column ─────────────────────────────────────────────────────── */
+/* One text column of about 48rem with no card or border. Below 100rem the
+   margin panel needs the room beside it, so the column stays at the left edge
+   of the document; above it the column centres and the panel sits to its right. */
 .lp-review .lp-review-doc__prose {
-    @apply min-h-0 rounded-lg px-8.5 py-7 leading-7.5 text-fg-mute;
+    @apply min-h-0 max-w-3xl rounded-none border-0 bg-transparent px-0 py-7 text-lg leading-8 text-ink;
+    box-shadow: none;
 }
-@media (width >= 93.75rem) {
-    .lp-review .lp-review-doc__prose {
-        @apply px-12 py-8.5;
+.lp-review .lp-review-doc__heading {
+    @apply max-w-3xl;
+}
+@media (width >= 100rem) {
+    .lp-review .lp-review-doc,
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
+        max-width: none;
     }
-}
-@media (width < 71.875rem) {
-    .lp-review .lp-review-doc__prose {
-        @apply p-6;
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-review-doc__head {
+        @apply w-full;
+    }
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-doc__heading,
+    .lp-review
+        .lp-review-doc:not(.lp-review-doc--wide)
+        .lp-review-doc__verdict-detail,
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-doc__prose {
+        @apply mx-auto;
+    }
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) .lp-review-margin,
+    .lp-review
+        .lp-review-doc:not(.lp-review-doc--wide)
+        .lp-review-context-panel {
+        left: calc(50% + var(--container-3xl) / 2 + var(--doc-margin-gap));
     }
 }
 @media (width < 37.5rem) {
     .lp-review .lp-review-doc__prose {
-        @apply p-5;
+        @apply py-5;
     }
 }
 .lp-review .lp-review-doc__prose > :first-child {

@@ -63,10 +63,11 @@ Focus returns to the document. Select a passage again to annotate it.
 On narrow screens, the floating review menu hides while an annotation composer is open so it cannot cover the form controls.
 
 Threads carry a status: pending, addressed, or resolved.
-Select **Finish review** beside the document title to approve the version or request changes.
+Select **Finish review** in the top bar to approve the version or request changes.
 A request for changes needs a review note only when the version has no open comment.
 An open comment is a thread that is pending or addressed. An approval can include a note.
-The saved verdict shows the reviewer, version, time and note.
+After a verdict, the top bar shows the verdict with **Change verdict** and **Undo**.
+The saved verdict shows the reviewer, version, time and note under the title.
 The account export and `document_get_review` result include the note.
 Open threads do not prevent approval.
 
@@ -74,9 +75,9 @@ A verdict applies to the version shown when the reviewer opens the page.
 If another verdict or revision arrives first, Loupe rejects the submission and keeps the note visible.
 Reload the page before submitting a fresh verdict.
 
-Select **Change verdict** beside a saved verdict to give another verdict in one step.
+Select **Change verdict** in the top bar to give another verdict in one step.
 The document goes straight to the new status, so a workflow never sees it in review between the two verdicts.
-Select **Undo** beside a saved verdict to withdraw it and reopen review.
+Select **Undo** next to it to withdraw it and reopen review.
 The history retains the original verdict and its withdrawal.
 If another verdict or revision arrives first, Loupe rejects the old Undo form.
 Reload the page before withdrawing the current verdict.

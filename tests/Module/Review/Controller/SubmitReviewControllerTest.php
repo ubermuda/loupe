@@ -51,7 +51,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM reviews WHERE version_id = ?', [(string) $document->currentVersion()->id]));
 
         $page = $client->request(Request::METHOD_GET, $url);
-        $client->submit($page->filter('.lp-verdict-bar__undo button')->form());
+        $client->submit($page->filter('.lp-verdict-chip__undo button')->form());
         self::assertResponseRedirects($url);
         $page = $client->followRedirect();
         self::assertNotSame('', $page->filter('input[name="submit_review_form[expectedReviewId]"]')->attr('value'));
@@ -179,8 +179,8 @@ final class SubmitReviewControllerTest extends WebTestCase
         self::assertResponseRedirects($url);
 
         $page = $client->followRedirect();
-        self::assertSelectorExists('.lp-verdict-bar--changes-requested');
-        self::assertSelectorTextSame('.lp-verdict-bar button[data-action="click->modal#open"]', 'Change verdict');
+        self::assertSelectorExists('.lp-verdict-chip--changes-requested');
+        self::assertSelectorTextSame('.lp-verdict-chip button[data-action="click->review-finish#open"]', 'Change verdict');
         $client->submit($page->selectButton('Submit review')->form(['submit_review_form[verdict]' => 'approved']));
         self::assertResponseRedirects($url);
 

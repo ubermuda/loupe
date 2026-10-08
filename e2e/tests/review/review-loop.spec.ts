@@ -186,11 +186,11 @@ test('New document creates a draft that can be reviewed', async ({
         page.getByRole('heading', { name: 'A human draft', exact: true }),
     ).toBeVisible({ timeout: 20000 });
     const draftUrl = page.url();
-    await expect(page.locator('.lp-review-doc__byline')).toContainText('Draft');
+    await expect(page.locator('[data-document-publish]')).toBeVisible();
     await expect(page.locator(DOC)).toContainText(
         'A new document from the browser.',
     );
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
     await page.goto(`${review.dashboardUrl}?status=draft`);
     await expect(page.locator('[data-document-id]')).toHaveCount(1);
     await expect(page.locator('[data-document-id]')).toContainText(
@@ -206,7 +206,7 @@ test('New document creates a draft that can be reviewed', async ({
         .getByRole('radio', { name: 'Approve', exact: true })
         .check();
     await finishDialog.getByRole('button', { name: 'Submit review' }).click();
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible({
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible({
         timeout: 20000,
     });
 });
@@ -246,13 +246,12 @@ test('A revised draft stays a draft until Publish sends it to review', async ({
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
         timeout: 20000,
     });
-    await expect(page.locator('.lp-review-doc__byline')).toContainText('Draft');
+    await expect(page.locator('[data-document-publish]')).toBeVisible();
 
     await page.getByRole('button', { name: 'Publish', exact: true }).click();
-    await expect(page.locator('.lp-review-doc__byline')).toContainText(
-        'In review',
-        { timeout: 20000 },
-    );
+    await expect(
+        page.getByRole('button', { name: 'Finish review', exact: true }),
+    ).toBeVisible({ timeout: 20000 });
     await expect(
         page.getByRole('button', { name: 'Publish', exact: true }),
     ).toHaveCount(0);
@@ -765,11 +764,11 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     );
     await other.getByRole('button', { name: 'Submit review' }).click();
     expect((await reviewPageReloaded).status()).toBe(200);
-    await expect(other.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(other.locator('.lp-verdict-chip--approved')).toBeVisible();
     await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(page).toHaveURL(`${review.reviewUrl}/history`);
     await page.getByRole('link', { name: 'Document', exact: true }).click();
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible();
     const recovery = page.locator(
         '[data-form-draft-recovery-key-value="document:review:' +
             review.documentId +
@@ -784,7 +783,7 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     await recovery.getByRole('button', { name: 'Discard draft' }).click();
     await expect(recovery).toBeHidden();
     await expect(page.locator('#review-document-title')).toBeFocused();
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible();
     await other.close();
 });
 
@@ -821,7 +820,7 @@ test('a stale review page cannot approve a newer version', async ({
     ).toHaveValue('Keep this draft.');
     await page.getByRole('link', { name: 'Go to the current version' }).click();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();
@@ -865,7 +864,7 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
         page.getByRole('button', { name: 'Submit review' }),
         `${review.reviewUrl}/submit`,
     );
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible();
 
     const current = await context.newPage();
     await suppressToolbar(current);
@@ -874,7 +873,7 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     await submitRedirectingForm(
         current,
         current
-            .locator('.lp-verdict-bar__undo')
+            .locator('.lp-verdict-chip__undo')
             .getByRole('button', { name: 'Undo', exact: true }),
         `${review.reviewUrl}/undo`,
     );
@@ -896,39 +895,39 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
         `${review.reviewUrl}/submit`,
     );
     await expect(
-        current.locator('.lp-verdict-bar--changes-requested'),
+        current.locator('.lp-review-doc__verdict-detail'),
     ).toContainText('Clarify the retry policy.');
 
     await page
-        .locator('.lp-verdict-bar__undo')
+        .locator('.lp-verdict-chip__undo')
         .getByRole('button', { name: 'Undo', exact: true })
         .click();
     await expect(page.locator('[data-review-withdrawal-errors]')).toContainText(
         'The review changed after this page loaded.',
     );
-    await expect(
-        page.locator('.lp-verdict-bar--changes-requested'),
-    ).toContainText('Clarify the retry policy.');
+    await expect(page.locator('.lp-review-doc__verdict-detail')).toContainText(
+        'Clarify the retry policy.',
+    );
     await page.reload();
-    await expect(
-        page.locator('.lp-verdict-bar--changes-requested'),
-    ).toContainText('Clarify the retry policy.');
+    await expect(page.locator('.lp-review-doc__verdict-detail')).toContainText(
+        'Clarify the retry policy.',
+    );
     await submitRedirectingForm(
         page,
         page
-            .locator('.lp-verdict-bar__undo')
+            .locator('.lp-verdict-chip__undo')
             .getByRole('button', { name: 'Undo', exact: true }),
         `${review.reviewUrl}/undo`,
     );
     await expect(page.locator('.lp-flash--success')).toContainText(
         'Your verdict has been withdrawn.',
     );
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
     await page.reload();
-    await expect(page.locator('.lp-review-doc__byline')).toContainText(
-        'In review',
-    );
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(
+        page.getByRole('button', { name: 'Finish review', exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
 });
 
 test('a standing verdict changes in one step', async ({ page, review }) => {
@@ -947,11 +946,11 @@ test('a standing verdict changes in one step', async ({ page, review }) => {
         `${review.reviewUrl}/submit`,
     );
     await expect(
-        page.locator('.lp-verdict-bar--changes-requested'),
+        page.locator('.lp-verdict-chip--changes-requested'),
     ).toBeVisible();
 
     await page
-        .locator('.lp-verdict-bar')
+        .locator('.lp-verdict-chip')
         .getByRole('button', { name: 'Change verdict', exact: true })
         .click();
     const dialog = page.getByRole('dialog', { name: 'Finish review' });
@@ -961,10 +960,8 @@ test('a standing verdict changes in one step', async ({ page, review }) => {
         dialog.getByRole('button', { name: 'Submit review' }),
         `${review.reviewUrl}/submit`,
     );
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
-    await expect(page.locator('.lp-review-doc__byline')).toContainText(
-        'Approved',
-    );
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip')).toContainText('Approved');
 });
 
 test('requesting changes asks for a note and keeps it across Cancel', async ({
@@ -1013,7 +1010,7 @@ test('requesting changes needs no note when the document has an open comment', a
     await page.getByRole('button', { name: 'Submit review' }).click();
 
     await expect(
-        page.locator('.lp-verdict-bar--changes-requested'),
+        page.locator('.lp-verdict-chip--changes-requested'),
     ).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(page.locator('.lp-review-verdict-note')).toHaveCount(0);
 });
@@ -1022,6 +1019,8 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,
 }) => {
+    // A comment, a resolve, a verdict and four page loads, each a server round trip.
+    test.slow();
     // A verdict is reached on a document that has been commented on, so the
     // thread is part of the state under test, not incidental setup.
     await postComment(page);

@@ -3838,34 +3838,40 @@
     .lp-site-review-empty {
         @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 text-fg-mute py-12;
     }
-    /* ── Verdict bar (pinned bottom of the comment margin) ──────────────── */
+    /* ── Verdict chip (top bar of the review page) ─────────────────────── */
 
-    /* Sticks to the bottom of the paper panel once a verdict has been given.
-       The verdict's own colour is the fill, so it reads from across the room. */
-    .lp-verdict-bar {
-        @apply sticky bottom-0 z-10 flex items-center gap-3 mx-6 mb-6 py-3.5 px-4.5 rounded-xl;
+    /* Holds the verdict and its Change verdict and Undo links. The verdict's own
+       colour is the fill. */
+    .lp-review-topbar-actions {
+        @apply ml-auto flex items-center gap-2.5;
     }
-    .lp-verdict-bar--approved {
+    /* Below lg the review menu holds Finish review, so only the verdict chip stays
+       in the bar. The wrapper hides, because the touch rule gives `.lp-btn` a display. */
+    .lp-review-topbar-actions--finish {
+        @apply hidden lg:flex;
+    }
+    /* A page with no review menu keeps the button below lg as an icon, so the title keeps its room. */
+    .lp-review-topbar-actions--compact .lp-btn > span {
+        @apply hidden lg:inline;
+    }
+    .lp-verdict-chip {
+        @apply inline-flex items-center gap-2 rounded-lg py-1 pl-3 pr-1.5 text-sm;
+    }
+    .lp-verdict-chip--approved {
         @apply bg-status-ok-border;
     }
-    .lp-verdict-bar--changes-requested {
+    .lp-verdict-chip--changes-requested {
         @apply bg-status-danger-chip;
     }
-    .lp-verdict-bar__dot {
-        @apply w-2.5 h-2.5 shrink-0 rounded-full bg-ink;
+    /* A phone keeps the two links and drops the words, which the line under the title repeats. */
+    .lp-verdict-chip__dot {
+        @apply hidden size-2.5 shrink-0 rounded-full bg-ink lg:block;
     }
-    .lp-verdict-bar__text {
-        @apply flex items-baseline gap-2.5 min-w-0;
+    .lp-verdict-chip__title {
+        @apply hidden font-bold text-ink lg:inline;
     }
-    .lp-verdict-bar__title {
-        @apply text-ink font-bold text-sm;
-    }
-    .lp-verdict-bar__detail {
-        @apply text-ink text-sm;
-    }
-    /* Pushed to the far end of the bar, away from the verdict they act on. */
-    .lp-verdict-bar__actions {
-        @apply ml-auto flex shrink-0 items-center gap-2;
+    .lp-verdict-chip__undo {
+        @apply m-0 inline-flex;
     }
 
     /* ── App shell (sidebar + content) ──────────────────────────────── */

@@ -1319,6 +1319,14 @@
                 <source>review.document.page.title</source>
                 <target>%title%</target>
             </trans-unit>
+            <trans-unit id="inbox.document_wait.line">
+                <source>inbox.document_wait.line</source>
+                <target>{0}No card waits on this review|{1}Card %cards% waits on this review|]1,Inf[Cards %cards% wait on this review</target>
+            </trans-unit>
+            <trans-unit id="inbox.document_wait.and">
+                <source>inbox.document_wait.and</source>
+                <target>and</target>
+            </trans-unit>
             <trans-unit id="review.document.byline_updated">
                 <source>review.document.byline_updated</source>
                 <target>updated %updated%</target>
