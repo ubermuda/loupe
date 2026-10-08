@@ -48,6 +48,9 @@ final class WidgetTokensMatchAppTest extends TestCase
     {
         $css = (string) file_get_contents(dirname(__DIR__, 2).'/assets/styles/tokens.css');
         self::assertSame(1, preg_match('/:root\s*\{(.*?)\n\}/s', $css, $block));
+        if (!isset($block[1])) {
+            self::fail('Block not found.');
+        }
         preg_match_all('/^\s*(--[\w-]+):\s*([^;]+);/m', $block[1], $m, PREG_SET_ORDER);
 
         $tokens = [];
@@ -65,6 +68,9 @@ final class WidgetTokensMatchAppTest extends TestCase
     {
         $src = (string) file_get_contents(dirname(__DIR__, 2).'/public/site-review/widget.js');
         self::assertSame(1, preg_match('/const '.$name.' = \{(.*?)\n    \};/s', $src, $block));
+        if (!isset($block[1])) {
+            self::fail('Block not found.');
+        }
         preg_match_all("/'(--[\w-]+)':\s*(?:\n\s*)?['\"]([^'\"]+)['\"]/", $block[1], $m, PREG_SET_ORDER);
 
         $map = [];
