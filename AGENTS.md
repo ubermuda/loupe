@@ -67,7 +67,11 @@ The bridge is the `loupe bridge` process from `cli/`. It runs on the owner's mac
 
 The bridge rule file is local and not in git. On macOS it is `~/Library/Application Support/loupe/rules.yaml`, next to `config.json` and the `runs/` directory of each worker run. Its `work:` map has one entry per kind of work, such as `tech-design`, `implement`, `fix` or `merge`. Each entry sets the prompt, and optionally the `model`, `workerPool`, `before` command and `variants`. An entry with no `model` uses `defaults.model`.
 
-Run `loupe bridge reload` after you edit the file. It applies the change without a restart and lists the entries that changed. `docs/extending/cli-bridge.md` describes the full format, and the `loupe-workers` skill covers the runs.
+Run `loupe bridge reload` after you edit the file. It applies the change without a restart and lists the entries that changed.
+
+Run `loupe update` to install a new CLI release. It asks each running bridge to check for a release and hand over to it, and replaces the binary in place when no bridge runs. Automatic updates are off unless the rule file sets `autoUpdate: true`. A binary from Homebrew updates through `brew upgrade` instead.
+
+`docs/extending/cli-bridge.md` describes the full format, and the `loupe-workers` skill covers the runs.
 
 ## Git worktrees
 
