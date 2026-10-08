@@ -178,7 +178,28 @@ func TestStatusSaysWhenNoRuleFileNamesAnAccount(t *testing.T) {
 	passingStatus(t)
 
 	out, err := runStatus(t, "--project", projectA)
-	if err != nil || !strings.Contains(out, "Accounts:    no rules.yaml, so no account to check\n") || lastLine(out) != statusPass {
+	if err != nil || !strings.Contains(out, "Accounts:    no rule file at ") || !strings.Contains(out, "rules.yaml, so no account to check\n") || lastLine(out) != statusPass {
+		t.Fatalf("status: %v\n%s", err, out)
+	}
+
+	path := filepath.Join(t.TempDir(), "studio.yaml")
+	out, err = runStatus(t, "--project", projectA, "--rules", path)
+	if err != nil || !strings.Contains(out, "Accounts:    no rule file at "+path+", so no account to check\n") {
+		t.Fatalf("status: %v\n%s", err, out)
+	}
+}
+
+// The line names the rule file that --rules gives, not the default name.
+func TestStatusNamesARuleFileThatRunsNoAgent(t *testing.T) {
+	passingStatus(t)
+	path := filepath.Join(t.TempDir(), "studio.yaml")
+	body := "accounts:\n  in:\n    harness: claude-code\ndefaults:\n  account: in\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n  test:\n    action: command\n    run: [make]\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runStatus(t, "--project", projectA, "--rules", path)
+	if err != nil || !strings.Contains(out, "Accounts:    "+path+" runs no agent, so no account to check\n") {
 		t.Fatalf("status: %v\n%s", err, out)
 	}
 }

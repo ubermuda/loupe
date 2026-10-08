@@ -129,7 +129,7 @@ func checkStatusAccounts(ctx context.Context, out io.Writer, rulesPath string) e
 	}
 	set, err := rules.Load(path, rules.Defaults{})
 	if errors.Is(err, rules.ErrMissing) {
-		fmt.Fprintln(out, "Accounts:    no rules.yaml, so no account to check")
+		fmt.Fprintf(out, "Accounts:    no rule file at %s, so no account to check\n", path)
 
 		return nil
 	}
@@ -138,7 +138,7 @@ func checkStatusAccounts(ctx context.Context, out io.Writer, rulesPath string) e
 	}
 	results := checkAccounts(ctx, set)
 	if len(results) == 0 {
-		fmt.Fprintln(out, "Accounts:    rules.yaml runs no agent, so no account to check")
+		fmt.Fprintf(out, "Accounts:    %s runs no agent, so no account to check\n", path)
 	}
 	var failing []string
 	for _, a := range results {
