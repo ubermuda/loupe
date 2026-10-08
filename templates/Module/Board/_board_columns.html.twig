@@ -47,20 +47,20 @@
                     {{ 'board.view.list'|trans }}
                 </button>
             </div>
-            <a class="lp-btn lp-btn--ghost lp-btn--icon"
+            <twig:Ds:Button variant="ghost icon"
                href="{{ path('app_board_settings', {id: board.project.id}) }}"
                aria-label="{{ 'board.settings.action'|trans }}"
                title="{{ 'board.settings.action'|trans }}">
                 <twig:ux:icon name="lucide:settings" class="w-4 h-4 shrink-0" />
-            </a>
-            <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
+            </twig:Ds:Button>
+            <twig:Ds:Button variant="primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
                 <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
                 {{ 'board.card.create.action'|trans }}
-            </a>
+            </twig:Ds:Button>
         </div>
     </div>
     {# A drop here sends the card to the end of the Backlog. #}
-    <a class="lp-btn lp-board-backlog"
+    <twig:Ds:Button class="lp-board-backlog"
        href="{{ path('app_project_board_backlog', {projectId: board.project.id}) }}"
        title="{{ 'board.backlog.button.hint'|trans }}"
        data-board-drag-target="group"
@@ -70,7 +70,7 @@
         <twig:ux:icon name="lucide:inbox" class="w-4 h-4 shrink-0" />
         {{ 'board.backlog.button'|trans }}
         <span class="lp-board-backlog__count" id="board-count-{{ board.backlog.id }}">{{ board.backlogCount }}</span>
-    </a>
+    </twig:Ds:Button>
     </div>
     <p class="lp-board-filter-empty" data-board-filter-target="empty" hidden>{{ 'board.filter.empty'|trans }}</p>
     {# A drop moves the card at once. This says so when the server refuses. #}

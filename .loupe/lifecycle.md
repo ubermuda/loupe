@@ -31,8 +31,9 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 5. Run `just js-test` when JavaScript changed, and `just cli-test` when `cli/` or `hooks/` changed.
 6. CI's required checks are the full gate. After the Codex review, push, then read them on the pull request. The board `checks-failed` fix round covers a failed one.
 7. Never run the full e2e suite on this machine, and a hook refuses it. The eight `e2e-*` CI checks gate it: `e2e-chromium`, `e2e-chromium-2` to `e2e-chromium-6`, `e2e-rest` and `e2e-global-flags`. One named spec is still fine while you debug it.
-8. Fix every failure, including one that pre-dates the branch.
-9. The required checks come from the ruleset command in `working-with-prs` "What the ruleset actually requires".
+8. Run `bin/agents/design-system-changed origin/<base>` after the Codex review. When it prints a path, follow `working-with-prs` "The Claude Design rebuild".
+9. Fix every failure, including one that pre-dates the branch.
+10. The required checks come from the ruleset command in `working-with-prs` "What the ruleset actually requires".
 
 ## Code review
 

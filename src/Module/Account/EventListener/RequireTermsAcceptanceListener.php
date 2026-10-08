@@ -36,6 +36,8 @@ final readonly class RequireTermsAcceptanceListener
         self::ACCEPTANCE_ROUTE,
         'app_account_accept_terms_submit',
         RequireNotSuspendedListener::SUSPENDED_ROUTE,
+        // The dev-only styleguide reads no account data.
+        'app_dev_styleguide',
     ];
 
     /** Must stay readable, or there is no way to know what is being accepted. */

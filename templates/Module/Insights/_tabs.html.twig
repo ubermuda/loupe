@@ -1,4 +1,4 @@
-<nav class="lp-tabs lp-analytics-tabs" aria-label="{{ 'analytics.tabs.label'|trans }}">
+<twig:Ds:Tabs class="lp-analytics-tabs" aria-label="{{ 'analytics.tabs.label'|trans }}">
     <a class="lp-tabs__tab"
        href="{{ path('app_project_analytics_metrics', {id: project.id}) }}"
        {% if active == 'metrics' %}aria-current="page"{% endif %}>{{ 'analytics.tabs.metrics'|trans }}</a>
@@ -11,4 +11,4 @@
     <a class="lp-tabs__tab"
        href="{{ path('app_project_analytics_time_buckets', {id: project.id}) }}"
        {% if active == 'time-buckets' %}aria-current="page"{% endif %}>{{ 'analytics.tabs.time_buckets'|trans }}</a>
-</nav>
+</twig:Ds:Tabs>

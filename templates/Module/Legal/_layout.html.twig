@@ -22,7 +22,7 @@
         <nav class="lp-landing-nav__links">
             <a href="{{ path('app_home') }}" class="lp-landing-nav__link">{{ 'legal.nav.back_home'|trans }}</a>
             <a href="{{ path('app_login') }}" class="lp-landing-nav__link lp-landing-nav__link--wide">{{ 'landing.nav.login'|trans }}</a>
-            <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'landing.cta.signup'|trans }}</a>
+            <twig:Ds:Button variant="primary" size="sm" href="{{ path('app_register') }}">{{ 'landing.cta.signup'|trans }}</twig:Ds:Button>
         </nav>
     </header>
 

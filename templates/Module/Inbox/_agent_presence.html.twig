@@ -15,7 +15,7 @@
           {%- if bridge %} data-inbox-bridge="{{ bridge.lastSeenAt is null ? 'unheard' : (bridge.quiet ? 'quiet' : 'heard') }}"{% endif %}>
         <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
         {% if state != 'closed' %}<span class="lp-presence__dot" aria-hidden="true"></span>{% endif %}
-        <span class="lp-tooltip" role="tooltip" id="presence-{{ ask.id }}">
+        <twig:Ds:Tooltip id="presence-{{ ask.id }}">
             {% if bridge %}
                 <span class="lp-tooltip__line">
                     {% if bridge.lastSeenAt is null %}
@@ -29,6 +29,6 @@
                 <span class="lp-tooltip__line">{{ 'inbox.presence.no_bridge'|trans }}</span>
             {% endif %}
             {% if ask.sessionId %}<span class="lp-tooltip__line lp-tooltip__line--quiet">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>{% endif %}
-        </span>
+        </twig:Ds:Tooltip>
     </span>
 {% endif %}
