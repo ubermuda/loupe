@@ -24,19 +24,19 @@ var (
 // keywords are the shell words that lead a simple command and name no program.
 var keywords = []string{"do", "then", "else", "elif", "if", "!", "time", "done", "fi", "esac"}
 
-// Command is one simple command of a Bash call. Sub is its second word when
+// Command is one simple command of a shell call. Sub is its second word when
 // that word looks like a subcommand, and "" otherwise.
 type Command struct {
 	Program string
 	Sub     string
 }
 
-// Signatures names what a call ran, with no argument a person typed. A Bash
-// call gets a signature for each program its command runs. Any other call
+// Signatures names what a call ran, with no argument a person typed. A shell
+// call gets a signature for each program its commands run. Any other call
 // gets its tool name. programs are the programs that keep a subcommand, and
 // nil means DefaultPrograms.
 func Signatures(c Call, programs []string) []string {
-	if c.Tool != "Bash" {
+	if c.Kind != KindShell {
 		if c.Tool == "" {
 			return []string{}
 		}

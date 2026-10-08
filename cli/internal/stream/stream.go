@@ -32,11 +32,20 @@ const maxName = 64
 // server takes.
 const maxFullText = 20000
 
+// The kinds of a call. A shell call runs shell commands, and a subagent call
+// starts a subagent.
+const (
+	KindShell    = "shell"
+	KindSubagent = "subagent"
+	KindTool     = "tool"
+)
+
 // Call is one tool_use block. A nil pointer is a value the stream did not give.
 type Call struct {
 	// Seq numbers the calls from 1, in the order the stream shows them.
 	Seq  int
 	Tool string
+	Kind string
 	// StartedAt is the timestamp of the assistant line, and zero when the
 	// line has none.
 	StartedAt  time.Time
@@ -49,7 +58,7 @@ type Call struct {
 	// WaitsOn is the background id of an earlier call that this call's input
 	// names.
 	WaitsOn *string
-	// Commands are the simple commands of a Bash call's command, and FullText
+	// Commands are the simple commands of a shell call's command, and FullText
 	// the start of the raw input JSON. A call keeps no more of its input.
 	Commands []Command
 	FullText string
@@ -263,8 +272,9 @@ func (rd *reader) use(b block, ts time.Time, inSubagent bool) {
 		StartedAt:  ts,
 		InSubagent: inSubagent,
 		FullText:   cut(string(b.Input), maxFullText),
+		Kind:       kindOf(b.Name),
 	}
-	if c.Tool == "Bash" {
+	if c.Kind == KindShell {
 		var input struct {
 			Command string `json:"command"`
 		}
@@ -282,6 +292,18 @@ func (rd *reader) use(b block, ts time.Time, inSubagent bool) {
 	}
 	rd.ids = append(rd.ids, b.ID)
 	rd.calls = append(rd.calls, c)
+}
+
+// kindOf gives the kind of a call from its Claude Code tool name.
+func kindOf(name string) string {
+	switch name {
+	case "Bash":
+		return KindShell
+	case "Agent", "Task":
+		return KindSubagent
+	}
+
+	return KindTool
 }
 
 func (rd *reader) answer(b block, ts time.Time, timed bool, agent string) {
@@ -309,7 +331,7 @@ func (rd *reader) output() Output {
 		if !ok || c.StartedAt.IsZero() {
 			continue
 		}
-		if c.Tool == "Agent" || c.Tool == "Task" {
+		if c.Kind == KindSubagent {
 			if last := rd.lastChild[rd.ids[i]]; last.After(end) {
 				end = last
 			}

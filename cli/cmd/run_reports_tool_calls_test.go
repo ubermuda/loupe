@@ -31,7 +31,7 @@ func bashCalls(n int, command string) []stream.Call {
 	start := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	calls := make([]stream.Call, n)
 	for i := range calls {
-		calls[i] = stream.Call{Seq: i + 1, Tool: "Bash", StartedAt: start.Add(time.Duration(i) * time.Second), Commands: commands, FullText: string(input)}
+		calls[i] = stream.Call{Seq: i + 1, Tool: "Bash", Kind: stream.KindShell, StartedAt: start.Add(time.Duration(i) * time.Second), Commands: commands, FullText: string(input)}
 	}
 
 	return calls
@@ -110,6 +110,9 @@ func TestTheProjectSettingsShapeEachCall(t *testing.T) {
 	got := client.batches[0].batch.Calls[0]
 	if !slices.Equal(got.Signatures, []string{"kubectl get", "git"}) {
 		t.Fatalf("signatures = %q", got.Signatures)
+	}
+	if got.Kind != stream.KindShell {
+		t.Fatalf("kind = %q", got.Kind)
 	}
 	if got.FullText == nil || *got.FullText != `{"command":"kubectl get pods; git status"}` {
 		t.Fatalf("full text = %v", got.FullText)

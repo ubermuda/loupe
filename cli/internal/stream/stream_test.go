@@ -15,6 +15,7 @@ import (
 // call is the expected form of one Call. A nil pointer field expects nil.
 type call struct {
 	tool         string
+	kind         string
 	startedAt    string
 	durationMs   *int64
 	isError      *bool
@@ -50,6 +51,9 @@ func checkCalls(t *testing.T, got []Call, want []call) {
 		}
 		if g.Tool != w.tool {
 			t.Errorf("call %d: tool %q, want %q", i, g.Tool, w.tool)
+		}
+		if w.kind != "" && g.Kind != w.kind {
+			t.Errorf("call %d: kind %q, want %q", i, g.Kind, w.kind)
 		}
 		if s := g.StartedAt.UTC().Format("2006-01-02T15:04:05.000Z"); s != w.startedAt {
 			t.Errorf("call %d: startedAt %s, want %s", i, s, w.startedAt)
@@ -115,12 +119,12 @@ func TestReadsAPlainRunWithABackgroundTaskAndAnAsyncSubagent(t *testing.T) {
 		t.Fatalf("the first result line wins, got %s", out.Result)
 	}
 	checkCalls(t, out.Calls, []call{
-		{tool: "Bash", startedAt: "2026-10-06T16:32:31.797Z", durationMs: i64(157), isError: no(), backgroundID: str("bcxsdsc2t")},
-		{tool: "Bash", startedAt: "2026-10-06T16:32:32.216Z", durationMs: i64(24), isError: no()},
+		{tool: "Bash", kind: KindShell, startedAt: "2026-10-06T16:32:31.797Z", durationMs: i64(157), isError: no(), backgroundID: str("bcxsdsc2t")},
+		{tool: "Bash", kind: KindShell, startedAt: "2026-10-06T16:32:32.216Z", durationMs: i64(24), isError: no()},
 		// The tool result comes 24 ms after the call, and the subagent's last
 		// line at 38.475 ends it.
-		{tool: "Agent", startedAt: "2026-10-06T16:32:35.638Z", durationMs: i64(2837), backgroundID: str("ac413ca3d11aaf481")},
-		{tool: "Bash", startedAt: "2026-10-06T16:32:36.945Z", durationMs: i64(30), isError: no(), inSubagent: true},
+		{tool: "Agent", kind: KindSubagent, startedAt: "2026-10-06T16:32:35.638Z", durationMs: i64(2837), backgroundID: str("ac413ca3d11aaf481")},
+		{tool: "Bash", kind: KindShell, startedAt: "2026-10-06T16:32:36.945Z", durationMs: i64(30), isError: no(), inSubagent: true},
 	})
 	// The async Agent call holds its 2837 ms on its row, and its own result
 	// 24 ms after the call ends its share of the main session's tool time.
@@ -463,5 +467,24 @@ func TestThePeakContextReadsALineWithNoContent(t *testing.T) {
 	}
 	if out.PeakContextTokens == nil || *out.PeakContextTokens != 6 {
 		t.Fatalf("peakContextTokens %v, want 6", show(out.PeakContextTokens))
+	}
+}
+
+// The name of a Claude Code tool gives the kind of its call.
+func TestTheToolNameGivesTheKind(t *testing.T) {
+	var in strings.Builder
+	for i, name := range []string{"Bash", "Agent", "Task", "Read", "mcp__loupe__card_get"} {
+		in.WriteString(`{"type":"assistant","timestamp":"2026-10-06T10:00:00.000Z","message":{"content":[{"type":"tool_use","id":"t` + string(rune('0'+i)) + `","name":"` + name + `","input":{}}]}}` + "\n")
+	}
+	out, err := Read(strings.NewReader(in.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds []string
+	for _, c := range out.Calls {
+		kinds = append(kinds, c.Kind)
+	}
+	if want := []string{KindShell, KindSubagent, KindSubagent, KindTool, KindTool}; !reflect.DeepEqual(kinds, want) {
+		t.Fatalf("kinds = %q, want %q", kinds, want)
 	}
 }
