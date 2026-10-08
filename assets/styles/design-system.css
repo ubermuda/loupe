@@ -6,6 +6,10 @@
 @import './components/flash.css';
 @import './components/status-chip.css';
 @import './components/tag.css';
+@import './components/dialog.css';
+@import './components/pagination.css';
+@import './components/tabs.css';
+@import './components/tooltip.css';
 
 @source "../../templates/components/Ds";
 
