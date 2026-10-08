@@ -184,8 +184,8 @@ func TestStatusSaysWhenNoRuleFileNamesAnAccount(t *testing.T) {
 
 	path := filepath.Join(t.TempDir(), "studio.yaml")
 	out, err = runStatus(t, "--project", projectA, "--rules", path)
-	if err != nil || !strings.Contains(out, "Accounts:    no rule file at "+path+", so no account to check\n") {
-		t.Fatalf("status: %v\n%s", err, out)
+	if err == nil || !strings.Contains(err.Error(), "--rules "+path) || lastLine(out) != statusFail {
+		t.Fatalf("a missing --rules file: %v\n%s", err, out)
 	}
 }
 

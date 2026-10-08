@@ -121,13 +121,17 @@ func checkStatus(ctx context.Context, out io.Writer, projectID string, notes io.
 }
 
 // checkStatusAccounts checks each account that the rule file uses, and prints
-// one line for each. A missing rule file checks nothing.
+// one line for each. A missing default rule file checks nothing, and a
+// missing --rules file fails.
 func checkStatusAccounts(ctx context.Context, out io.Writer, rulesPath string) error {
 	path, err := rulesPathOr(rulesPath)
 	if err != nil {
 		return err
 	}
 	set, err := rules.Load(path, rules.Defaults{})
+	if errors.Is(err, rules.ErrMissing) && rulesPath != "" {
+		return fmt.Errorf("--rules %s: %w", path, rules.ErrMissing)
+	}
 	if errors.Is(err, rules.ErrMissing) {
 		fmt.Fprintf(out, "Accounts:    no rule file at %s, so no account to check\n", path)
 
