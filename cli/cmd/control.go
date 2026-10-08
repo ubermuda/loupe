@@ -330,8 +330,9 @@ func newBridgeReloadCmd() *cobra.Command {
 		Short: "Apply a changed rule file to the running bridge",
 		Long: "Tells the bridge that reads the rule file to read it again. The bridge " +
 			"parses the file, checks it against the server, and applies it only when " +
-			"every check passes. Otherwise it keeps its rules, and this command prints " +
-			"each problem and exits with status 1.",
+			"every check passes. It also applies the server flags of the GET /api/events " +
+			"answer it checks against. Otherwise it keeps its rules and flags, and this " +
+			"command prints each problem and exits with status 1.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			path, err := rulesPathOr(rulesPath)

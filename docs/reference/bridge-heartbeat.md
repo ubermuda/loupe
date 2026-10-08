@@ -235,8 +235,8 @@ bridge spend most of its token's limit. The bridge applies the same floor to the
 value it receives.
 
 `GET /api/events` shares the value with each bridge in its `flags` map. A bridge
-reads the map at start and at each reconnect, so a change reaches a running
-bridge at its next reconnect. A lower interval makes the bridges of one token
+reads the map at start, at each reconnect and at each `loupe bridge reload`, so
+a change reaches a running bridge at its next reconnect or reload. A lower interval makes the bridges of one token
 reach the limit sooner.
 
 The project inbox page reads the interval too. It warns on an open ask when its
@@ -344,7 +344,7 @@ The defaults come from `app.bridge.default_stop_sigterm_after_ms` and
 `app.bridge.default_stop_sigkill_after_ms` in `config/services.yaml`. A value
 below 100 reads as the default. `GET /api/events` shares both values with each
 bridge in its `flags` map. A change reaches a running bridge at its next
-reconnect.
+reconnect or `loupe bridge reload`.
 
 ### Acknowledging a command
 
