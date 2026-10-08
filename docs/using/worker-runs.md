@@ -1,12 +1,13 @@
 ---
 title: "Activity: Runs"
-description: "The Runs tab of the Activity page, which shows what a command-line bridge told a project about the Claude Code workers it ran."
+description: "The Runs tab of the Activity page, which shows what a command-line bridge told a project about the workers it ran, on Claude Code or Codex."
 ---
 
-A [command-line bridge](../extending/cli-bridge.md) runs a Claude Code worker
-for each board event one of its rules matches. Every worker the bridge reports
-becomes one row on the **Runs** tab of the project's **Activity** page. An
-interactive Claude Code session on a card gets a row too, as
+A [command-line bridge](../extending/cli-bridge.md) runs a worker for each
+board event one of its rules matches. The worker runs on Claude Code or on
+Codex, as its account says. Every worker the bridge reports becomes one row on
+the **Runs** tab of the project's **Activity** page. An interactive session on
+a card gets a row too, as
 [Interactive sessions](#interactive-sessions) says.
 
 Open **Activity** in the project sidebar, or go to
@@ -285,8 +286,8 @@ The **Estimated** and **n runs have no usage** marks show only on the
 
 ## Interactive sessions
 
-A Claude Code session that a person runs on a card, such as
-`/loupe:product-design`, calls the MCP tool `card_run_open`. Loupe then records
+An interactive session that a person runs on a card calls the MCP tool
+`card_run_open`. An example is `/loupe:product-design` in Claude Code. Loupe then records
 an interactive run on the card, with the state **Running** and the skill name
 as its rule. No bridge holds this run, so it has no exit code and no output.
 The heartbeat timeout never touches it.
