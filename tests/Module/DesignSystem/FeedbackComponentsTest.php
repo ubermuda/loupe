@@ -74,6 +74,16 @@ final class FeedbackComponentsTest extends KernelTestCase
         self::assertStringContainsString('Fine', $without);
     }
 
+    public function test_a_status_chip_with_a_reason_keeps_its_content_and_dot_setting(): void
+    {
+        $html = $this->render('<twig:Ds:StatusChip modifier="failed" :dot="false" reason="Exit 2" id="r1">Failed</twig:Ds:StatusChip>');
+
+        self::assertStringContainsString('lp-status-chip--reason', $html);
+        self::assertStringContainsString('Failed', $html);
+        self::assertStringContainsString('id="r1"', $html);
+        self::assertStringNotContainsString('lp-status-chip__dot', $html);
+    }
+
     public function test_a_status_chip_can_be_a_button(): void
     {
         $html = $this->render('<twig:Ds:StatusChip as="button" type="button" modifier="neutral" class="toggle">Go</twig:Ds:StatusChip>');

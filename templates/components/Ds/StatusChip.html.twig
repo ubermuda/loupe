@@ -13,8 +13,8 @@
 {% if reason %}
     {% set tooltipId = id ?? ('status-chip-' ~ random()) %}
     <{{ as }}{{ attributes.defaults({class: classes ~ ' lp-status-chip--reason', tabindex: '0', 'aria-describedby': tooltipId}) }}>
-        <span class="lp-status-chip__dot"></span>
-        {{ label }}
+        {% if dot %}<span class="lp-status-chip__dot"></span>{% endif %}
+        {{ label ?? block('content') }}
         <twig:ux:icon name="lucide:circle-help" class="lp-status-chip__help" aria-hidden="true" />
         <span class="lp-tooltip" role="tooltip" id="{{ tooltipId }}">{{ reason }}</span>
     </{{ as }}>
