@@ -15,6 +15,7 @@ interface PullRequestReviewPoster
     public function supports(string $forge): bool;
 
     /**
+     * @param string $body   may be empty for an approval only. The forge refuses the other kinds without one, with the permanent cause `empty_body`.
      * @param string $userId the id of the Loupe user whose forge account posts the review
      *
      * @return ?string the forge's URL of the review, when it gives one

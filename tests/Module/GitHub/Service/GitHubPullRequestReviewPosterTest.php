@@ -153,6 +153,40 @@ final class GitHubPullRequestReviewPosterTest extends KernelTestCase
         self::assertTrue($failure->permanent);
     }
 
+    public function test_a_rate_limited_review_is_transient_and_carries_the_delay(): void
+    {
+        $user = $this->connectedUser('review-limited');
+        $this->responses = [new MockResponse('{}', ['http_code' => 403, 'response_headers' => ['retry-after' => '60']])];
+
+        $failure = $this->failure((string) $user->id);
+
+        self::assertSame('api_failed_rate_limited', $failure->cause);
+        self::assertFalse($failure->permanent);
+        self::assertSame(60, $failure->retryAfterSeconds);
+    }
+
+    /** @return iterable<string, array{PullRequestReviewKind}> */
+    public static function kindsNeedingABody(): iterable
+    {
+        yield 'request changes' => [PullRequestReviewKind::RequestChanges];
+        yield 'comment' => [PullRequestReviewKind::Comment];
+    }
+
+    #[DataProvider('kindsNeedingABody')]
+    public function test_a_review_that_needs_a_body_and_has_none_is_refused_before_any_call(PullRequestReviewKind $kind): void
+    {
+        $user = $this->connectedUser('review-blank-'.$kind->value);
+
+        try {
+            $this->poster()->post($this->pullRequest('ubermuda/loupe'), $kind, "  \n", (string) $user->id);
+            self::fail('Expected PullRequestReviewFailed.');
+        } catch (PullRequestReviewFailed $e) {
+            self::assertSame('empty_body', $e->cause);
+            self::assertTrue($e->permanent);
+        }
+        self::assertSame([], $this->requests);
+    }
+
     public function test_a_server_error_is_a_transient_failure_that_names_the_status(): void
     {
         $user = $this->connectedUser('review-502');

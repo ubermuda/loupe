@@ -41,6 +41,10 @@ final readonly class GitHubPullRequestReviewPoster implements PullRequestReviewP
             throw new PullRequestReviewFailed('not_connected', permanent: true);
         }
 
+        if ('' === trim($body) && PullRequestReviewKind::Approve !== $kind) {
+            throw new PullRequestReviewFailed('empty_body', permanent: true);
+        }
+
         $token = $this->tokens->accessTokenFor($user);
         $accessToken = $token->accessToken;
         if (GitHubUserTokenStatus::Fresh !== $token->status || null === $accessToken) {
@@ -72,6 +76,9 @@ final readonly class GitHubPullRequestReviewPoster implements PullRequestReviewP
 
     private static function failed(GitHubUserApiFailed $e): PullRequestReviewFailed
     {
+        if ($e->rateLimited) {
+            return new PullRequestReviewFailed('api_failed_rate_limited', permanent: false, previous: $e, retryAfterSeconds: $e->retryAfterSeconds);
+        }
         if ('http_status' === $e->reason && \in_array($e->status, self::REFUSED_STATUSES, true)) {
             return new PullRequestReviewFailed('permission', permanent: true, previous: $e);
         }

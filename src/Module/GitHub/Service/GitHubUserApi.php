@@ -240,7 +240,12 @@ final readonly class GitHubUserApi
             $response = $client->request($method, $path, $options);
             $status = $response->getStatusCode();
             if ($status < 200 || $status >= 300) {
-                throw new GitHubUserApiFailed('http_status', $status);
+                $headers = $response->getHeaders(false);
+                $retryAfter = $headers['retry-after'][0] ?? null;
+                $rateLimited = 429 === $status
+                    || (403 === $status && ('0' === ($headers['x-ratelimit-remaining'][0] ?? null) || null !== $retryAfter));
+
+                throw new GitHubUserApiFailed('http_status', $status, $rateLimited, $rateLimited && null !== $retryAfter && ctype_digit($retryAfter) ? (int) $retryAfter : null);
             }
 
             return $response->toArray();
