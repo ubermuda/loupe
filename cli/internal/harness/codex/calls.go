@@ -88,16 +88,29 @@ func (s *session) item(at time.Time, raw json.RawMessage) {
 
 // attach gives a command that started at at to the latest shell call that was
 // open then. A command can end after the script that started it answered, so
-// its start and not its end picks the call.
+// its start and not its end picks the call. A script that yields answers
+// before it runs its next command, so with no open call the latest shell call
+// that started before the command takes it.
 func (s *session) attach(at time.Time, text string, exit *int) {
+	latest := -1
 	for j := len(s.shells) - 1; j >= 0; j-- {
 		c := &s.calls[s.shells[j]]
-		if c.start.After(at) || (c.answered && c.end.Before(at)) {
+		if c.start.After(at) {
 			continue
 		}
-		c.shell, c.exits = append(c.shell, text), append(c.exits, exit)
+		if latest < 0 {
+			latest = s.shells[j]
+		}
+		if c.answered && c.end.Before(at) {
+			continue
+		}
+		latest = s.shells[j]
 
-		return
+		break
+	}
+	if latest >= 0 {
+		c := &s.calls[latest]
+		c.shell, c.exits = append(c.shell, text), append(c.exits, exit)
 	}
 }
 
