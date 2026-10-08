@@ -149,7 +149,7 @@ test('the review bar is one row of the height of the desktop bar', async ({
 
     // The verdict buttons move into the review menu below lg. Left in the bar
     // they are what pushes it to three rows.
-    await expect(page.locator('.lp-topbar__actions')).toBeHidden();
+    await expect(page.locator('.lp-review-topbar-actions')).toBeHidden();
 
     for (const spill of await overflowOf(page, '.lp-topbar__lead')) {
         expect(

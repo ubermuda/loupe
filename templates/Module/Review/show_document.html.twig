@@ -22,9 +22,9 @@
 
 {% block topbar_actions %}
 {% if not diffMode and not readOnly %}
-<div class="lp-topbar__actions lp-review-topbar-actions">
+<div class="lp-review-topbar-actions">
     {% if document.status.value in ['draft', 'in-review'] %}
-    <button type="button" class="lp-btn lp-btn--primary" data-controller="review-finish" data-action="click->review-finish#open">
+    <button type="button" class="lp-btn lp-btn--primary lp-review-topbar-actions__finish" data-controller="review-finish" data-action="click->review-finish#open">
         <twig:ux:icon name="lucide:check" />
         {{ 'review.document.finish.title'|trans }}
     </button>

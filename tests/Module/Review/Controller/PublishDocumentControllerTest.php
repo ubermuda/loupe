@@ -79,7 +79,7 @@ final class PublishDocumentControllerTest extends WebTestCase
         self::assertResponseRedirects($this->reviewUrl($document));
         self::assertSame(DocumentStatus::InReview, $this->statusOf($document));
         $this->client->followRedirect();
-        self::assertSelectorExists('.lp-topbar__actions button[data-action="click->review-finish#open"]');
+        self::assertSelectorExists('.lp-review-topbar-actions button[data-action="click->review-finish#open"]');
         self::assertSelectorNotExists('[data-document-publish]');
     }
 
