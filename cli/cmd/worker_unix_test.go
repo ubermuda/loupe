@@ -315,7 +315,7 @@ func endedRunDir(t *testing.T, stdout []byte) string {
 // A run an older bridge started prints the old single JSON document, which
 // holds the result and no tool call.
 func TestAdoptReadsTheOldJSONDocument(t *testing.T) {
-	doc, err := os.ReadFile(filepath.Join("..", "internal", "stream", "testdata", "old_json.json"))
+	doc, err := os.ReadFile(filepath.Join("..", "internal", "harness", "claude", "testdata", "old_json.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +331,7 @@ func TestAdoptReadsTheOldJSONDocument(t *testing.T) {
 
 // The outcome of a worker carries the peak context of its main session.
 func TestAdoptReadsThePeakContext(t *testing.T) {
-	stdout, err := os.ReadFile(filepath.Join("..", "internal", "stream", "testdata", "peak_context.jsonl"))
+	stdout, err := os.ReadFile(filepath.Join("..", "internal", "harness", "claude", "testdata", "peak_context.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}

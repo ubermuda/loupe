@@ -1,4 +1,4 @@
-package stream
+package claude
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"github.com/ubermuda/loupe/cli/internal/stream"
 )
 
 // call is the expected form of one Call. A nil pointer field expects nil.
@@ -29,7 +31,7 @@ func yes() *bool           { v := true; return &v }
 func no() *bool            { v := false; return &v }
 func str(v string) *string { return &v }
 
-func readFixture(t *testing.T, name string) Output {
+func readFixture(t *testing.T, name string) stream.Output {
 	t.Helper()
 	out, err := ReadFile(filepath.Join("testdata", name))
 	if err != nil {
@@ -39,7 +41,7 @@ func readFixture(t *testing.T, name string) Output {
 	return out
 }
 
-func checkCalls(t *testing.T, got []Call, want []call) {
+func checkCalls(t *testing.T, got []stream.Call, want []call) {
 	t.Helper()
 	if len(got) != len(want) {
 		t.Fatalf("got %d calls, want %d: %+v", len(got), len(want), got)
@@ -87,7 +89,7 @@ func show[T any](p *T) any {
 	return *p
 }
 
-func checkTiming(t *testing.T, got Timing, toolTime, idleGap *int64) {
+func checkTiming(t *testing.T, got stream.Timing, toolTime, idleGap *int64) {
 	t.Helper()
 	if !reflect.DeepEqual(got.ToolTimeMs, toolTime) {
 		t.Errorf("toolTimeMs %v, want %v", show(got.ToolTimeMs), show(toolTime))
@@ -119,12 +121,12 @@ func TestReadsAPlainRunWithABackgroundTaskAndAnAsyncSubagent(t *testing.T) {
 		t.Fatalf("the first result line wins, got %s", out.Result)
 	}
 	checkCalls(t, out.Calls, []call{
-		{tool: "Bash", kind: KindShell, startedAt: "2026-10-06T16:32:31.797Z", durationMs: i64(157), isError: no(), backgroundID: str("bcxsdsc2t")},
-		{tool: "Bash", kind: KindShell, startedAt: "2026-10-06T16:32:32.216Z", durationMs: i64(24), isError: no()},
+		{tool: "Bash", kind: stream.KindShell, startedAt: "2026-10-06T16:32:31.797Z", durationMs: i64(157), isError: no(), backgroundID: str("bcxsdsc2t")},
+		{tool: "Bash", kind: stream.KindShell, startedAt: "2026-10-06T16:32:32.216Z", durationMs: i64(24), isError: no()},
 		// The tool result comes 24 ms after the call, and the subagent's last
 		// line at 38.475 ends it.
-		{tool: "Agent", kind: KindSubagent, startedAt: "2026-10-06T16:32:35.638Z", durationMs: i64(2837), backgroundID: str("ac413ca3d11aaf481")},
-		{tool: "Bash", kind: KindShell, startedAt: "2026-10-06T16:32:36.945Z", durationMs: i64(30), isError: no(), inSubagent: true},
+		{tool: "Agent", kind: stream.KindSubagent, startedAt: "2026-10-06T16:32:35.638Z", durationMs: i64(2837), backgroundID: str("ac413ca3d11aaf481")},
+		{tool: "Bash", kind: stream.KindShell, startedAt: "2026-10-06T16:32:36.945Z", durationMs: i64(30), isError: no(), inSubagent: true},
 	})
 	// The async Agent call holds its 2837 ms on its row, and its own result
 	// 24 ms after the call ends its share of the main session's tool time.
@@ -375,7 +377,7 @@ func TestASynchronousAgentCountsWholeAsToolTime(t *testing.T) {
 }
 
 // A call keeps a bounded part of its input: the simple commands of a Bash
-// call and the full text up to maxFullText. waitsOn still reads the whole
+// call and the full text up to stream.MaxFullText. waitsOn still reads the whole
 // input, so an id past the cut still links.
 func TestACallKeepsABoundedPartOfItsInput(t *testing.T) {
 	big := strings.Repeat("é", 3<<20)
@@ -391,19 +393,19 @@ func TestACallKeepsABoundedPartOfItsInput(t *testing.T) {
 	}
 
 	w, b := out.Calls[1], out.Calls[2]
-	if len(w.FullText) > maxFullText || !strings.HasPrefix(string(write), w.FullText) || !utf8.ValidString(w.FullText) || w.Commands != nil {
+	if len(w.FullText) > stream.MaxFullText || !strings.HasPrefix(string(write), w.FullText) || !utf8.ValidString(w.FullText) || w.Commands != nil {
 		t.Fatalf("Write keeps %d bytes of full text and commands %q", len(w.FullText), w.Commands)
 	}
 	if w.WaitsOn == nil || *w.WaitsOn != "bg1" {
 		t.Fatalf("Write waits on %v", show(w.WaitsOn))
 	}
-	if !reflect.DeepEqual(b.Commands, []Command{{Program: "git", Sub: "status"}, {Program: "echo"}}) {
+	if !reflect.DeepEqual(b.Commands, []stream.Command{{Program: "git", Sub: "status"}, {Program: "echo"}}) {
 		t.Fatalf("Bash keeps commands %q", b.Commands)
 	}
-	if len(b.FullText) > maxFullText {
+	if len(b.FullText) > stream.MaxFullText {
 		t.Fatalf("Bash keeps %d bytes of full text", len(b.FullText))
 	}
-	if got := Signatures(b, nil); !reflect.DeepEqual(got, []string{"git status", "echo"}) {
+	if got := stream.Signatures(b, nil); !reflect.DeepEqual(got, []string{"git status", "echo"}) {
 		t.Fatalf("signatures %q", got)
 	}
 }
@@ -421,7 +423,7 @@ func TestALongHeredocKeepsTheCommandAfterIt(t *testing.T) {
 	if len(command) <= 64<<10 {
 		t.Fatalf("the command is %d bytes, which no cap cuts", len(command))
 	}
-	if got := Signatures(out.Calls[0], nil); !reflect.DeepEqual(got, []string{"cat", "git add"}) {
+	if got := stream.Signatures(out.Calls[0], nil); !reflect.DeepEqual(got, []string{"cat", "git add"}) {
 		t.Fatalf("signatures %q", got)
 	}
 }
@@ -484,7 +486,7 @@ func TestTheToolNameGivesTheKind(t *testing.T) {
 	for _, c := range out.Calls {
 		kinds = append(kinds, c.Kind)
 	}
-	if want := []string{KindShell, KindSubagent, KindSubagent, KindTool, KindTool}; !reflect.DeepEqual(kinds, want) {
+	if want := []string{stream.KindShell, stream.KindSubagent, stream.KindSubagent, stream.KindTool, stream.KindTool}; !reflect.DeepEqual(kinds, want) {
 		t.Fatalf("kinds = %q, want %q", kinds, want)
 	}
 }

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -70,8 +69,8 @@ type workerResult struct {
 	// usage is what this process spent, and nil when unknown.
 	reported transcript.Usage
 	usage    *api.Usage
-	// streamed says the bridge read claude's stdout, and calls and timing are
-	// what it held.
+	// streamed says the harness read the calls of the run, and calls and
+	// timing are what the run held.
 	streamed bool
 	calls    []stream.Call
 	timing   stream.Timing
@@ -416,25 +415,10 @@ func workerOutcome(dir string, killed bool, waitErr error) workerResult {
 	head, headErr := readCapped(filepath.Join(dir, "stdout"), maxOutput)
 	stderr, stderrErr := readCapped(filepath.Join(dir, "stderr"), maxOutput)
 	rec, recErr := readRunRecord(dir)
-	h := recordHarness(rec)
-	// A harness that reads a run from files has no stream, so its calls and
-	// timing stay unknown.
-	var doc harn.Output
-	var out stream.Output
-	var stdoutErr error
-	streamed := false
-	if reader, ok := h.(harn.RunReader); ok {
-		doc = reader.ReadRun(dir, harn.RunInfo{SessionID: rec.SessionID, Model: rec.Model})
-	} else {
-		out, stdoutErr = stream.ReadFile(filepath.Join(dir, "stdout"))
-		doc = h.Output(out.Result)
-		streamed = stdoutErr == nil
-	}
+	doc := recordHarness(rec).ReadRun(dir, harn.RunInfo{SessionID: rec.SessionID, Model: rec.Model})
 	res := decodeWorkerOutput(doc, head.buf.Bytes(), head.dropped, stderr.text())
-	if streamed {
-		res.streamed, res.calls, res.timing, res.peakContextTokens = true, out.Calls, out.Timing, out.PeakContextTokens
-	}
-	if readErr := errors.Join(cmp.Or(stdoutErr, headErr), stderrErr); readErr != nil {
+	res.streamed, res.calls, res.timing, res.peakContextTokens = doc.CallsRead, doc.Calls, doc.Timing, doc.PeakContextTokens
+	if readErr := errors.Join(headErr, stderrErr); readErr != nil {
 		res.output = strings.TrimLeft(res.output+"\n"+readErr.Error(), "\n")
 	}
 	res.killed, res.dir = killed, dir

@@ -58,7 +58,7 @@ func signaturesOf(commands []Command, programs []string) []string {
 		if c.Sub != "" && slices.Contains(programs, c.Program) {
 			sig += " " + c.Sub
 		}
-		sig = cut(sig, maxSignature)
+		sig = Cut(sig, maxSignature)
 		if len(sigs) < maxSignatures && !slices.Contains(sigs, sig) {
 			sigs = append(sigs, sig)
 		}
@@ -91,9 +91,9 @@ type tokenizer struct {
 	heredocs  []heredoc
 }
 
-// commands are the distinct simple commands of a shell command, at most
+// Commands are the distinct simple commands of a shell command, at most
 // maxSignatures of them, in order.
-func commands(command string) []Command {
+func Commands(command string) []Command {
 	t := &tokenizer{s: command}
 	t.run()
 
@@ -101,7 +101,7 @@ func commands(command string) []Command {
 }
 
 func commandSignatures(command string, programs []string) []string {
-	sigs := signaturesOf(commands(command), programs)
+	sigs := signaturesOf(Commands(command), programs)
 	if len(sigs) == 0 {
 		return nil
 	}
@@ -281,7 +281,7 @@ func (t *tokenizer) endCommand() {
 	if program == "" {
 		return
 	}
-	c := Command{Program: cut(program, maxSignature)}
+	c := Command{Program: Cut(program, maxSignature)}
 	if len(words) > 1 && subcommandPattern.MatchString(words[1]) {
 		c.Sub = words[1]
 	}

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -8,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
-	"github.com/ubermuda/loupe/cli/internal/stream"
+	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -208,11 +210,11 @@ func TestDecodeWorkerOutput(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			out, err := stream.Read(strings.NewReader(tc.stdout))
-			if err != nil {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "stdout"), []byte(tc.stdout), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			got := decodeWorkerOutput(defaultHarness().Output(out.Result), []byte(tc.stdout), tc.overflow, tc.stderr)
+			got := decodeWorkerOutput(defaultHarness().ReadRun(dir, harn.RunInfo{}), []byte(tc.stdout), tc.overflow, tc.stderr)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("decodeWorkerOutput = %+v, want %+v", got, tc.want)
 			}

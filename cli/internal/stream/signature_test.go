@@ -78,13 +78,13 @@ func TestSignaturesAreBoundedAndDistinct(t *testing.T) {
 }
 
 func TestSignaturesOfACall(t *testing.T) {
-	if got := Signatures(Call{Tool: "Bash", Kind: KindShell, Commands: commands("git status | grep x")}, nil); !reflect.DeepEqual(got, []string{"git status", "grep"}) {
+	if got := Signatures(Call{Tool: "Bash", Kind: KindShell, Commands: Commands("git status | grep x")}, nil); !reflect.DeepEqual(got, []string{"git status", "grep"}) {
 		t.Fatalf("Bash: %q", got)
 	}
-	if got := Signatures(Call{Tool: "exec", Kind: KindShell, Commands: commands("go test ./...")}, nil); !reflect.DeepEqual(got, []string{"go test"}) {
+	if got := Signatures(Call{Tool: "exec", Kind: KindShell, Commands: Commands("go test ./...")}, nil); !reflect.DeepEqual(got, []string{"go test"}) {
 		t.Fatalf("exec: %q", got)
 	}
-	if got := Signatures(Call{Tool: "Bash", Kind: KindTool, Commands: commands("git status")}, nil); !reflect.DeepEqual(got, []string{"Bash"}) {
+	if got := Signatures(Call{Tool: "Bash", Kind: KindTool, Commands: Commands("git status")}, nil); !reflect.DeepEqual(got, []string{"Bash"}) {
 		t.Fatalf("Bash of the kind tool: %q", got)
 	}
 	if got := Signatures(Call{Tool: "Read", FullText: `{"file_path":"/secret"}`}, nil); !reflect.DeepEqual(got, []string{"Read"}) {

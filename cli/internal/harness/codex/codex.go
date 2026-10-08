@@ -182,10 +182,6 @@ func (Harness) Interactive(program string, spec harness.Spec) string {
 	return "#!/bin/sh\nrm -f -- \"$0\"\necho " + shellQuote("Interactive Codex sessions are not supported yet.") + " >&2\nexit 1\n"
 }
 
-// Output reads no result line, because Codex prints its result in a file. The
-// bridge reads a run through ReadRun.
-func (Harness) Output([]byte) harness.Output { return harness.Output{} }
-
 // homeDir is the Codex home folder.
 func (h Harness) homeDir() (string, error) {
 	if h.home != "" {
