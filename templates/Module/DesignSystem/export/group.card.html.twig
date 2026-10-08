@@ -26,13 +26,14 @@ function Demo() {
   return (
     <div className="col">
 {% for entry in entries %}
+{% set open = 'dialog' == entry.element ? ' open' : '' %}
       <div className="row">
 {% if entry.variants %}
 {% for variant in entry.variants %}
-        <{{ entry.name }} variant="{{ variant }}">{{ variant }}</{{ entry.name }}>
+        <{{ entry.name }} variant="{{ variant }}"{{ open }}>{{ variant }}</{{ entry.name }}>
 {% endfor %}
 {% else %}
-        <{{ entry.name }}>Example</{{ entry.name }}>
+        <{{ entry.name }}{{ open }}>Example</{{ entry.name }}>
 {% endif %}
       </div>
 {% if entry.sizes or 'button' == entry.element %}
