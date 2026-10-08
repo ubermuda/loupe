@@ -2598,9 +2598,9 @@
     /* Primary document workspace views. Side by side keeps the block's own
        width, so its toolbar holds the same columns as the other views. */
 
-    /* The anchored comment cards, stacked in passage order. */
+    /* The anchored comment rows, stacked in passage order. */
     .lp-review-margin {
-        @apply flex flex-col gap-3.5 w-full;
+        @apply flex flex-col gap-1 w-full;
     }
 
     .lp-version-pill {
@@ -2679,12 +2679,6 @@
     }
     .lp-review-doc--wide > .lp-diff-columns {
         @apply order-20;
-    }
-
-    /* Resolved threads are hidden rather than removed, so the toggle is instant
-       and costs no round trip. */
-    .lp-review-block--hide-resolved .lp-comment-thread--resolved {
-        @apply hidden;
     }
 
     /* ── Review menu ────────────────────────────────────────────────────
@@ -2793,7 +2787,7 @@
        Comments on the document rather than on a passage. They have no anchor to
        sit level with, so they lead the reading column instead. */
     .lp-general-comments {
-        @apply flex flex-col gap-3 mb-9;
+        @apply flex flex-col gap-1 mb-3;
     }
     .lp-general-comments__toggle {
         @apply inline-flex items-center gap-2 self-start bg-transparent border-0 p-0 cursor-pointer uppercase text-xs font-bold tracking-widest text-fg-dim transition-colors;
@@ -2810,7 +2804,7 @@
         @apply rotate-90;
     }
     .lp-general-comments__list {
-        @apply hidden flex-col gap-3;
+        @apply hidden flex-col gap-1;
     }
     .lp-general-comments__list.open {
         @apply flex;
@@ -3419,32 +3413,69 @@
 
     /* ── Comment threads (Comments panel) ───────────────────────────── */
 
-    /* The whole-list region the Turbo Stream replaces on add / delete /
-       resolve, so general comments and the margin refresh together. */
-    .lp-comment-threads {
-        @apply flex flex-col flex-1 min-h-0;
+    /* One thread in the Comments panel: the quoted text in grey on one line,
+       then the comment on up to two. A click opens the thread's card. */
+    .lp-comment-row {
+        @apply flex w-full flex-col gap-0.5 rounded-md border-0 bg-transparent px-2 py-1.5 text-left cursor-pointer transition-colors hover:bg-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    }
+    .lp-comment-row[hidden] {
+        @apply hidden;
+    }
+    .lp-comment-row--active {
+        @apply bg-tint-strong hover:bg-tint-strong;
+    }
+    .lp-comment-row--resolved {
+        @apply opacity-60;
+    }
+    .lp-comment-row__quote {
+        @apply line-clamp-1 text-xs text-fg-dim;
+    }
+    .lp-comment-row__quote del,
+    .lp-comment-row--orphaned .lp-comment-row__quote {
+        @apply line-through decoration-strike;
+    }
+    .lp-comment-row__body {
+        @apply line-clamp-2 text-sm text-ink;
+    }
+    .lp-comment-row__body ins {
+        @apply no-underline;
+    }
+    /* Ends the Comments panel, under the rows. */
+    .lp-comment-whole-document {
+        @apply mt-3 w-full justify-center;
     }
 
     /* ── Comment thread card ───────────────────────────────────────────
-       In normal flow in the Comments panel. Cards never move on hover, only
-       the ring appears. */
+       A popover on the review page, and a margin card on the landing demo.
+       Cards never move on hover, only the ring appears. */
     .lp-comment-thread {
         @apply static left-0 right-0 flex flex-col gap-3 rounded-xl border border-line bg-surface-1 py-3.5 px-4 transition-shadow;
     }
     .lp-comment-thread[hidden] {
         @apply hidden;
     }
+    /* The review page opens a card as a popover over its passage, and the
+       controller sets top and left. The class's display outranks the UA rule
+       that hides a closed popover, so this restores it. */
+    .lp-comment-thread[popover] {
+        @apply fixed inset-auto m-0 overflow-y-auto shadow-composer outline-none;
+        width: min(var(--container-sm), calc(100vw - var(--spacing) * 4));
+        max-height: 70dvh;
+    }
+    .lp-comment-thread[popover]:not(:popover-open) {
+        @apply hidden;
+    }
     .lp-comment-thread:hover,
     .lp-comment-thread--active {
         @apply outline-2 -outline-offset-1 outline-accent shadow-focus z-3;
     }
+    /* An open popover is already the one card in view, so it keeps its shadow. */
+    .lp-comment-thread[popover]:hover,
+    .lp-comment-thread[popover].lp-comment-thread--active {
+        @apply outline-none shadow-composer;
+    }
     .lp-comment-thread--resolved {
         @apply bg-surface-2 py-3;
-    }
-    /* A general comment has no passage to sit beside, so it leads the reading
-       column in normal flow instead of the margin. */
-    .lp-comment-thread--general {
-        @apply static;
     }
     .lp-comment-thread__top {
         @apply flex items-center gap-2;
@@ -4430,11 +4461,10 @@
 
     /* ── Orphan banner ──────────────────────────────────────────────── */
 
-    /* Threads whose passage this version no longer holds. They lead the comment
-       column in flow, because there is no line for them to sit level with, and
-       the heading is what the banner above the document used to say. */
+    /* Rows of the threads whose passage this version no longer holds, under
+       their own heading in the Comments panel. */
     .lp-orphan-group {
-        @apply flex flex-col gap-2.5 mb-4;
+        @apply flex flex-col gap-1 mb-3;
     }
     .lp-orphan-group__title {
         @apply flex items-center gap-2 w-full p-0 bg-transparent border-0 cursor-pointer text-left uppercase font-mono text-status-pending-deep text-xs tracking-wider transition-colors hover:text-status-pending;
@@ -4449,23 +4479,10 @@
         @apply rotate-90;
     }
     .lp-orphan-group__list {
-        @apply hidden flex-col gap-2.5;
+        @apply hidden flex-col gap-1;
     }
     .lp-orphan-group__list.open {
         @apply flex;
-    }
-    /* In flow, against the rail's absolute placement: these cards are the group's
-       own children and there is no passage to place them against. `!important`
-       because comment_anchor_controller writes `position` as an inline style. */
-    .lp-orphan-group .lp-comment-thread {
-        position: static !important;
-        @apply rounded-xl;
-        outline: 1px solid var(--color-status-pending-border);
-    }
-    /* The group's heading says this right above the card. The pill is for a card
-       that stands on its own, which one in this group never does. */
-    .lp-orphan-group .lp-comment-orphan-pill {
-        @apply hidden;
     }
 
     /* ── Decision blocks ────────────────────────────────────────────────
