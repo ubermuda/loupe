@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/claudecode"
@@ -47,20 +46,41 @@ func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Pr
 	}
 	skillsHome := userSkills(spec.ConfigDir)
 	for _, slug := range slices.Sorted(maps.Keys(spec.Projects)) {
-		dir := spec.Projects[slug]
-		// A project whose own files answer both questions runs no plugin list.
-		plugins := sync.OnceValue(func() []plugin { return listPlugins(ctx, binary, dir, env) })
-		got, err := claudecode.Effective(dir, mcpjson.ServerKey, spec.ConfigDir)
-		if !got.Declared() && !slices.ContainsFunc(plugins(), servesLoupe) {
-			detail := "declare it with `loupe init --mcp` in " + dir
-			if err != nil {
-				detail = err.Error()
-			}
-			problems = append(problems, harness.Problem{Reason: "loupe MCP server not declared for project " + slug, Detail: detail})
+		problems = append(problems, projectProblems(ctx, binary, env, spec.ConfigDir, skillsHome, slug, spec.Projects[slug])...)
+	}
+
+	return problems
+}
+
+// projectProblems checks that the project sees the loupe MCP server and the
+// Loupe skills. A project whose own files answer both runs no plugin list. A
+// plugin list that fails is one problem, because it answers neither question.
+func projectProblems(ctx context.Context, binary string, env []string, configDir, skillsHome, slug, dir string) []harness.Problem {
+	got, mcpErr := claudecode.Effective(dir, mcpjson.ServerKey, configDir)
+	mcp := got.Declared()
+	skills := hasSkills(filepath.Join(dir, ".claude", "skills")) || hasSkills(skillsHome)
+	if mcp && skills {
+		return nil
+	}
+	plugins, err := listPlugins(ctx, binary, dir, env)
+	if err != nil {
+		reason := "plugin list failed"
+		if errors.Is(err, context.DeadlineExceeded) {
+			reason = "check timed out"
 		}
-		if !hasSkills(filepath.Join(dir, ".claude", "skills")) && !hasSkills(skillsHome) && !slices.ContainsFunc(plugins(), isLoupePlugin) {
-			problems = append(problems, harness.Problem{Reason: "Loupe skills not found for project " + slug, Detail: "no " + skillsGlob + " in " + filepath.Join(dir, ".claude", "skills") + " or " + skillsHome + ", and no enabled loupe plugin"})
+
+		return []harness.Problem{{Reason: reason + " for project " + slug, Detail: "claude plugin list --json in " + dir + ": " + err.Error()}}
+	}
+	var problems []harness.Problem
+	if !mcp && !slices.ContainsFunc(plugins, servesLoupe) {
+		detail := "declare it with `loupe init --mcp` in " + dir
+		if mcpErr != nil {
+			detail = mcpErr.Error()
 		}
+		problems = append(problems, harness.Problem{Reason: "loupe MCP server not declared for project " + slug, Detail: detail})
+	}
+	if !skills && !slices.ContainsFunc(plugins, isLoupePlugin) {
+		problems = append(problems, harness.Problem{Reason: "Loupe skills not found for project " + slug, Detail: "no " + skillsGlob + " in " + filepath.Join(dir, ".claude", "skills") + " or " + skillsHome + ", and no enabled loupe plugin"})
 	}
 
 	return problems
@@ -91,19 +111,18 @@ func runCheck(ctx context.Context, binary, dir string, env []string, args ...str
 	return out, err
 }
 
-// listPlugins gives the plugins claude lists in dir, and nil when the list
-// fails or does not decode.
-func listPlugins(ctx context.Context, binary, dir string, env []string) []plugin {
+// listPlugins gives the plugins claude lists in dir.
+func listPlugins(ctx context.Context, binary, dir string, env []string) ([]plugin, error) {
 	out, err := runCheck(ctx, binary, dir, env, "plugin", "list", "--json")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var plugins []plugin
-	if json.Unmarshal(out, &plugins) != nil {
-		return nil
+	if err := json.Unmarshal(out, &plugins); err != nil {
+		return nil, err
 	}
 
-	return plugins
+	return plugins, nil
 }
 
 func servesLoupe(p plugin) bool {

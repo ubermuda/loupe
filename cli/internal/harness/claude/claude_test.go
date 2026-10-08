@@ -441,9 +441,18 @@ func TestCheck(t *testing.T) {
 			authExit: "0", plugins: `[{"id":"loupe@loupe","enabled":false,"mcpServers":{"loupe":{}}}]`,
 			want: missing("loupe"),
 		},
-		"a plugin list that does not decode gives nothing": {
+		"a plugin list that does not decode is its own problem": {
 			authExit: "0", plugins: `not json`,
-			want: missing("loupe"),
+			want: []harness.Problem{{Reason: "plugin list failed for project loupe"}},
+		},
+		"a plugin list is not needed when the project answers": {
+			authExit: "0", plugins: `not json`,
+			setup: func(t *testing.T, project, config string) {
+				mkdir(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+				if err := os.WriteFile(filepath.Join(config, ".claude.json"), []byte(userLoupe), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
 		},
 		"not logged in": {
 			authExit: "1", plugins: `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`,
@@ -537,5 +546,18 @@ func TestALoginCheckThatTimesOutSaysSo(t *testing.T) {
 	}
 	if got := loginProblem(errors.New("exit status 1"), ""); got.Reason != "not logged in" {
 		t.Fatalf("Reason = %q, want not logged in", got.Reason)
+	}
+}
+
+// A plugin list that runs out of time names the timeout, and does not claim
+// that the project lacks the server or the skills.
+func TestCheckNamesAPluginListThatTimedOut(t *testing.T) {
+	isolate(t)
+	checkClaude(t, "0", "[]")
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	got := New("").Check(ctx, harness.CheckSpec{Projects: map[string]string{"loupe": t.TempDir()}})
+	if len(got) != 2 || got[1].Reason != "check timed out for project loupe" || got[1].Detail == "" {
+		t.Fatalf("Check = %+v", got)
 	}
 }
