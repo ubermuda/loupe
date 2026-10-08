@@ -584,3 +584,37 @@ func TestAResumeKeepsItsSessionWhenTheFolderCannotBeRead(t *testing.T) {
 		t.Fatalf("checks = %d, workers = %+v", calls, got)
 	}
 }
+
+// A resume runs with what the run started on. Its reports name the pinned
+// variant only when that variant runs with the same account and model.
+func TestAResumeReportsTheVariantOnlyWhenItRunsWithItsSettings(t *testing.T) {
+	for name, tc := range map[string]struct {
+		account, model string
+		want           runPin
+	}{
+		"the same settings": {account: "a", model: "sonnet", want: runPin{Experiment: "plan", Variant: "on-a", RequestedModel: "sonnet"}},
+		"another account":   {account: "b", model: "sonnet"},
+		"another model":     {account: "a", model: "opus"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, rec, _ := withAccounts(t, func(body string) string {
+				return strings.Replace(body, "  plan:\n    prompt: Card {cardNumber}.\n",
+					"  plan:\n    prompt: Card {cardNumber}.\n    variants:\n      - {name: on-a, weight: 1, account: a}\n      - {name: on-b, weight: 1, account: b}\n", 1)
+			})
+			h.transcripts(true)
+			h.pins(func(context.Context, string) (string, string, error) { return "on-a", "", nil })
+			c := resumeOf(endedRunKey)
+			c.Account, c.Harness, c.Model = tc.account, rules.HarnessClaudeCode, tc.model
+
+			if state, reason := h.resume(c); state != api.CommandDone {
+				t.Fatalf("resume = %s %q", state, reason)
+			}
+
+			calls := h.worker.recorded()
+			if len(calls) != 1 || calls[0].account != tc.account || calls[0].model != tc.model {
+				t.Fatalf("workers = %+v", calls)
+			}
+			wantExperiment(t, rec.states(), tc.want)
+		})
+	}
+}

@@ -922,8 +922,13 @@ func (r *router) start(p pending) {
 		if p.experiment != nil {
 			var settings rules.RunSettings
 			settings, p.pin = r.resolveVariant(p)
-			settings, _ = p.startedOn.settings(p.set, settings)
-			p.spec.useSettings(settings)
+			// A resume runs with what the run started on, so it names no
+			// variant that would run with other settings.
+			run, _ := p.startedOn.settings(p.set, settings)
+			if run.Account != settings.Account || run.Model != settings.Model {
+				p.pin = runPin{}
+			}
+			p.spec.useSettings(run)
 			r.log.Info("worker_variant", append(about(p.event, p.rule),
 				"session_id", p.spec.sessionID, "experiment", p.pin.Experiment, "variant", p.pin.Variant,
 				"account", p.spec.account, "permission_mode", p.spec.permissionMode, "model", p.spec.model,
