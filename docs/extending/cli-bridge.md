@@ -445,7 +445,8 @@ The bridge checks each account that `rules.yaml` uses, when it starts and on
 each `loupe bridge reload`. A check of a Claude Code account asks three
 questions:
 
-1. Is `claude` on the `PATH` of the account, which an env file can set?
+1. Is `claude` on the `PATH` of the account, which an env file can set? The
+   check reads absolute `PATH` entries only.
 2. Does `claude auth status` pass with the environment of the account? That
    environment is the env files of the account and its `CLAUDE_CONFIG_DIR`. A
    key such as `ANTHROPIC_API_KEY` in an env file also passes.

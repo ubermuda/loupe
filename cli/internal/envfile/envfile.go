@@ -69,10 +69,10 @@ func Overlay(environ, pairs []string) []string {
 	return append(out, pairs...)
 }
 
-// LookPath finds program on the PATH of env, which a worker shell searches,
-// and on the PATH of the bridge when env sets none. It skips a relative entry,
-// as exec.LookPath does, because the shell reads it from another folder.
-func LookPath(program string, env []string) (string, error) {
+// LookPath finds program on the PATH of env, which a worker shell in dir
+// searches, and on the PATH of the bridge when env sets none. A relative entry
+// counts from dir, and an empty dir skips it.
+func LookPath(program string, env []string, dir string) (string, error) {
 	path, ok := "", false
 	for _, kv := range env {
 		if v, found := strings.CutPrefix(kv, "PATH="); found {
@@ -82,11 +82,14 @@ func LookPath(program string, env []string) (string, error) {
 	if !ok {
 		return exec.LookPath(program)
 	}
-	for _, dir := range filepath.SplitList(path) {
-		if !filepath.IsAbs(dir) {
-			continue
+	for _, entry := range filepath.SplitList(path) {
+		if !filepath.IsAbs(entry) {
+			if dir == "" {
+				continue
+			}
+			entry = filepath.Join(dir, entry)
 		}
-		candidate := filepath.Join(dir, program)
+		candidate := filepath.Join(entry, program)
 		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
 			return candidate, nil
 		}

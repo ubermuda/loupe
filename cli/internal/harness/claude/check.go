@@ -37,7 +37,7 @@ type plugin struct {
 // no field of auth status, because those name the person.
 func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Problem {
 	env := envfile.Overlay(os.Environ(), spec.Env)
-	binary, err := envfile.LookPath(h.Program(), env)
+	binary, err := envfile.LookPath(h.Program(), env, "")
 	if err != nil {
 		return []harness.Problem{{Reason: "claude is not on PATH", Detail: err.Error()}}
 	}
