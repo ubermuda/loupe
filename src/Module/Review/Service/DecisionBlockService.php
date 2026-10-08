@@ -129,7 +129,7 @@ final readonly class DecisionBlockService
             }
 
             if ($node instanceof Table) {
-                if (null !== $optionsOpen && self::columnCount($node) >= 2) {
+                if (null !== $optionsOpen && $node->parent() === $optionsOpen[0]->parent() && self::columnCount($node) >= 2) {
                     $optionsOpen[1][] = $node;
                 }
 
@@ -149,7 +149,7 @@ final readonly class DecisionBlockService
             } elseif (1 === preg_match('~^<!--\s*options\s*-->$~', $literal)) {
                 // A second opener means the first never closed: it is abandoned.
                 $optionsOpen = [$node, []];
-            } elseif (1 === preg_match('~^<!--\s*/options\s*-->$~', $literal) && null !== $optionsOpen) {
+            } elseif (1 === preg_match('~^<!--\s*/options\s*-->$~', $literal) && null !== $optionsOpen && $node->parent() === $optionsOpen[0]->parent()) {
                 $optionFences[] = [$optionsOpen[0], $node, $optionsOpen[1]];
                 $optionsOpen = null;
             }

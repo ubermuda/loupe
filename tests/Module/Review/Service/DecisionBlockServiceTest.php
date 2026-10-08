@@ -953,6 +953,8 @@ final class DecisionBlockServiceTest extends TestCase
         yield 'stray closer' => [self::OPTION_TABLE."\n\n<!-- /options -->\n"];
         yield 'one column' => ["<!-- options -->\n\n| A |\n| --- |\n| 1 |\n\n<!-- /options -->\n"];
         yield 'no table inside' => ["<!-- options -->\n\nJust prose.\n\n<!-- /options -->\n\n".self::OPTION_TABLE."\n"];
+        yield 'opener in a blockquote' => ["> <!-- options -->\n\n".self::OPTION_TABLE."\n\n<!-- /options -->\n"];
+        yield 'closer in a blockquote' => ["<!-- options -->\n\n".self::OPTION_TABLE."\n\n> <!-- /options -->\n"];
         yield 'quoted in a code block' => ["```\n<!-- options -->\n```\n\n".self::OPTION_TABLE."\n\n```\n<!-- /options -->\n```\n"];
     }
 
