@@ -9,6 +9,7 @@ final readonly class GitHubUserConnectionSummary
 {
     public function __construct(
         public string $login,
+        public int $githubUserId,
         public \DateTimeImmutable $connectedAt,
         public ?\DateTimeImmutable $expiredAt,
         public \DateTimeImmutable $accessTokenExpiresAt,

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Module\GitHub\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Forge\Event\ForgeUserConnected;
 use App\Module\GitHub\Entity\GitHubUserConnection;
 use App\Module\GitHub\Repository\GitHubUserConnectionRepository;
 use App\Module\GitHub\Service\GitHubAppConfiguration;
+use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -201,8 +203,24 @@ final class GitHubUserConnectionFlowTest extends WebTestCase
         self::assertNull($second->expiredAt);
     }
 
+    public function test_each_successful_connect_announces_the_user(): void
+    {
+        $events = DispatchedEvents::of(static::getContainer(), ForgeUserConnected::class);
+        $user = $this->signedUpUser('announce');
+        $this->client->loginUser($user);
+
+        $this->completeConnect();
+        $this->tokenResponses = [$this->tokens('second-access', 'second-refresh')];
+        $this->completeConnect();
+
+        self::assertCount(2, $events->events());
+        self::assertTrue($user->id?->equals($events->events()[0]->userId));
+        self::assertSame([0, 0], $events->transactionDepths());
+    }
+
     public function test_a_state_that_does_not_match_stores_nothing(): void
     {
+        $events = DispatchedEvents::of(static::getContainer(), ForgeUserConnected::class);
         $user = $this->signedUpUser('state');
         $this->client->loginUser($user);
         $this->startConnect();
@@ -213,6 +231,7 @@ final class GitHubUserConnectionFlowTest extends WebTestCase
         self::assertStringContainsString('unexpected answer', $this->followedText());
         self::assertSame([], $this->tokenRequests);
         self::assertNull($this->connectionOf($user));
+        self::assertSame([], $events->events());
     }
 
     public function test_a_callback_with_no_pending_connection_is_refused(): void
