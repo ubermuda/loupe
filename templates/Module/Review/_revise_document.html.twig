@@ -1,6 +1,6 @@
 <div data-controller="modal" data-modal-reopen-value="{{ form.vars.submitted ? 'true' : 'false' }}">
     <twig:Ds:Button type="button" data-action="click->modal#open"><twig:ux:icon name="lucide:pencil" />{{ 'review.revise.open'|trans }}</twig:Ds:Button>
-    <dialog class="lp-dialog lp-dialog--document" data-modal-target="dialog" aria-labelledby="revise-document-title" data-action="cancel->modal#close">
+    <twig:Ds:Dialog size="document" aria-labelledby="revise-document-title" data-action="cancel->modal#close">
         <h2 class="lp-dialog-title" id="revise-document-title">{{ 'review.revise.title'|trans }}</h2>
         <p class="lp-dialog-desc">{{ 'review.revise.help'|trans }}</p>
         {{ form_start(form, {attr: {class: 'lp-form', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': 'document:revise:' ~ document.id, 'data-action': 'input->form-draft#remember change->form-draft#remember submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared'}}) }}
@@ -19,5 +19,5 @@
                 <twig:Ds:Button variant="primary" type="submit">{{ 'review.revise.submit'|trans }}</twig:Ds:Button>
             </div>
         {{ form_end(form) }}
-    </dialog>
+    </twig:Ds:Dialog>
 </div>

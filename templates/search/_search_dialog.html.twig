@@ -4,7 +4,7 @@
         <span>{{ (project ? 'search.title' : 'search.all_title')|trans }}</span>
         <kbd class="lp-kbd" aria-hidden="true">{{ 'search.shortcut'|trans }}</kbd>
     </a>
-    <dialog class="lp-dialog lp-dialog--search" data-modal-target="dialog" data-global-search-target="dialog" data-action="cancel->modal#close" aria-labelledby="project-search-title">
+    <twig:Ds:Dialog size="search" data-global-search-target="dialog" data-action="cancel->modal#close" aria-labelledby="project-search-title">
         <header class="lp-search-dialog__header">
             <h2 class="lp-dialog-title" id="project-search-title">{{ (project ? 'search.title' : 'search.all_title')|trans }}</h2>
             <twig:Ds:Button variant="icon" type="button"  data-global-search-target="close" data-action="modal#close" aria-label="{{ 'search.close'|trans }}"><twig:ux:icon name="lucide:x" /></twig:Ds:Button>
@@ -18,5 +18,5 @@
         <p class="lp-dialog-desc" role="alert" data-global-search-target="error" hidden>{{ 'search.failed'|trans }}</p>
         <turbo-frame id="project-search-results" data-global-search-target="frame" data-action="turbo:frame-load->global-search#loaded turbo:frame-missing->global-search#failed" hidden></turbo-frame>
         <p class="lp-dialog-desc">{{ 'search.keyboard_hint'|trans }}</p>
-    </dialog>
+    </twig:Ds:Dialog>
 </div>

@@ -87,30 +87,25 @@
                 {{ event_content }}
                 {% endif %}
             </div>
-            <twig:StatusChip
+            <twig:Ds:StatusChip
                 :modifier="{delivered: 'ok', failed: 'failed', pending: 'pending'}[delivery]"
                 :label="('activity.delivery.' ~ delivery)|trans"
                 :reason="event.lastPublishError ? 'activity.delivery.reason'|trans({'%count%': event.publishAttempts, '%error%': event.lastPublishError}) : null"
                 :id="'activity-reason-' ~ event.id" />
-            <span class="lp-data-table__cell"><span class="lp-tag lp-tag--neutral">{{ family ? family.translationKey()|trans : prefix }}</span></span>
+            <span class="lp-data-table__cell"><twig:Ds:Tag tone="neutral">{{ family ? family.translationKey()|trans : prefix }}</twig:Ds:Tag></span>
             <span class="lp-data-table__cell lp-data-table__cell--end">{{ event.sequence ?? '—' }}</span>
             <span class="lp-data-table__cell"><time datetime="{{ event.createdAt|date('c') }}" title="{{ event.createdAt|date('Y-m-d H:i:s T') }}">{{ event.createdAt|relative_time }}</time></span>
         </div>
         {% endfor %}
     </twig:DataTable>
 
-    <twig:Pagination route="app_project_activity" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
+    <twig:Ds:Pagination route="app_project_activity" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% elseif listQuery.isNarrowed %}
-    <div class="lp-empty-state" data-activity-filtered-empty>
-        <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'activity.filter.empty'|trans }}</h2>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:search-x" :title="'activity.filter.empty'|trans" data-activity-filtered-empty />
     {% else %}
-    <div class="lp-empty-state" data-activity-empty>
-        <twig:ux:icon name="lucide:activity" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'activity.empty.title'|trans }}</h2>
+    <twig:Ds:EmptyState icon="lucide:activity" :title="'activity.empty.title'|trans" data-activity-empty>
         <p>{{ 'activity.empty.description'|trans }}</p>
-    </div>
+    </twig:Ds:EmptyState>
     {% endif %}
     </turbo-frame>
     </div>

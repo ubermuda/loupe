@@ -133,14 +133,14 @@
                     {% if item.cardTitle is not null %}<span class="lp-data-table__title">{{ item.cardTitle }}</span>{% endif %}
                     <span class="sr-only">{{ 'bridge.worker_runs.details.open'|trans }}</span>
                 </button>
-                {% if item.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
-                {% if item.command %}<span class="lp-tag lp-tag--neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</span>{% endif %}
+                {% if item.interactive %}<twig:Ds:Tag tone="neutral">{{ 'bridge.worker_runs.interactive'|trans }}</twig:Ds:Tag>{% endif %}
+                {% if item.command %}<twig:Ds:Tag tone="neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</twig:Ds:Tag>{% endif %}
             </div>
             <div class="lp-worker-run-outcome">
-                <twig:StatusChip :modifier="item.state.chipModifier()" :label="item.state.translationKey()|trans" :reason="run.failureReason" :id="'worker-run-reason-' ~ run.id" />
+                <twig:Ds:StatusChip :modifier="item.state.chipModifier()" :label="item.state.translationKey()|trans" :reason="run.failureReason" :id="'worker-run-reason-' ~ run.id" />
                 {% if item.control and item.control.label %}{% set controlLabel = item.control.label|trans(item.control.labelParameters) %}<span class="lp-worker-run-control-label{{ item.control.labelWarns ? ' lp-worker-run-control-label--warns' : '' }}" title="{{ controlLabel }}" data-worker-run-control-label>{{ controlLabel }}</span>{% endif %}
             </div>
-            <span class="lp-data-table__cell">{{ run.workKind ?? 'bridge.worker_runs.no_work_kind'|trans }}{% if run.workerPool is not null %} <span class="lp-tag lp-tag--neutral" data-worker-pool>{{ 'bridge.worker_runs.worker_pool_label'|trans({'%pool%': run.workerPool}) }}</span>{% endif %}{% if run.harness is not null %} <span class="lp-tag lp-tag--neutral" title="{{ 'bridge.worker_runs.details.harness'|trans }}" data-worker-run-harness>{{ run.harness }}</span>{% endif %}{% if run.account is not null %} <span class="lp-tag lp-tag--neutral" title="{{ 'bridge.worker_runs.details.account'|trans }}" data-worker-run-account>{{ run.account }}</span>{% endif %}{% if run.model is not null %} <span class="lp-tag lp-tag--neutral" title="{{ 'bridge.worker_runs.details.model'|trans }}" data-worker-run-model>{{ run.model }}</span>{% endif %}</span>
+            <span class="lp-data-table__cell">{{ run.workKind ?? 'bridge.worker_runs.no_work_kind'|trans }}{% if run.workerPool is not null %} <twig:Ds:Tag tone="neutral" data-worker-pool>{{ 'bridge.worker_runs.worker_pool_label'|trans({'%pool%': run.workerPool}) }}</twig:Ds:Tag>{% endif %}{% if run.harness is not null %} <twig:Ds:Tag tone="neutral" title="{{ 'bridge.worker_runs.details.harness'|trans }}" data-worker-run-harness>{{ run.harness }}</twig:Ds:Tag>{% endif %}{% if run.account is not null %} <twig:Ds:Tag tone="neutral" title="{{ 'bridge.worker_runs.details.account'|trans }}" data-worker-run-account>{{ run.account }}</twig:Ds:Tag>{% endif %}{% if run.model is not null %} <twig:Ds:Tag tone="neutral" title="{{ 'bridge.worker_runs.details.model'|trans }}" data-worker-run-model>{{ run.model }}</twig:Ds:Tag>{% endif %}</span>
             <span class="lp-data-table__cell lp-data-table__cell--end">{% if item.interactive and item.state.isOpen() and item.duration() is not null %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}</span>
             <span class="lp-data-table__cell"><time datetime="{{ shownAt|date('c') }}" title="{{ shownAt|date('Y-m-d H:i:s T') }}">{{ shownAt|relative_time }}</time></span>
             {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, bridgeLabels: bridgeLabels} only %}
@@ -148,12 +148,9 @@
         {% endfor %}
     </twig:DataTable>
 
-    <twig:Pagination route="app_project_worker_runs" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
+    <twig:Ds:Pagination route="app_project_worker_runs" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% else %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:bot" class="lp-empty-state__icon text-accent w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ (listQuery.isNarrowed ? 'bridge.worker_runs.empty_filtered' : 'bridge.worker_runs.empty')|trans }}</h2>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:bot" iconClass="text-accent w-12 h-12" :title="(listQuery.isNarrowed ? 'bridge.worker_runs.empty_filtered' : 'bridge.worker_runs.empty')|trans" />
     {% endif %}
     </turbo-frame>
     </div>

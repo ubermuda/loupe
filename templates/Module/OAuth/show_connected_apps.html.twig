@@ -21,7 +21,7 @@
         </span>
         <div data-controller="modal">
             <twig:Ds:Button variant="danger-ghost" size="sm" type="button" data-action="click->modal#open">{{ 'oauth.connected_apps.action.revoke'|trans }}</twig:Ds:Button>
-            <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="revoke-app-title-{{ loop.index }}" data-action="cancel->modal#close">
+            <twig:Ds:Dialog aria-labelledby="revoke-app-title-{{ loop.index }}" data-action="cancel->modal#close">
                 <h2 class="lp-dialog-title" id="revoke-app-title-{{ loop.index }}">{{ 'oauth.connected_apps.revoke.title'|trans }}</h2>
                 <p class="lp-dialog-desc">{{ 'oauth.connected_apps.revoke.description'|trans({'%client%': app.clientName}) }}</p>
                 <form method="post" action="{{ path('app_account_connected_app_revoke', {clientId: app.clientId}) }}">
@@ -31,7 +31,7 @@
                         <twig:Ds:Button variant="danger" type="submit">{{ 'oauth.connected_apps.revoke.confirm'|trans }}</twig:Ds:Button>
                     </div>
                 </form>
-            </dialog>
+            </twig:Ds:Dialog>
         </div>
     </div>
     {% else %}

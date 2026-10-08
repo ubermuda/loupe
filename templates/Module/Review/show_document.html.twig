@@ -368,7 +368,7 @@
                         {% if document.tags is not empty %}
                         <div>
                             <dt>{{ 'review.document.meta.tags'|trans }}</dt>
-                            <dd><ul class="lp-doc-tags__list">{% for tag in document.tags %}<li class="lp-tag">{{ tag.name }}</li>{% endfor %}</ul></dd>
+                            <dd><ul class="lp-doc-tags__list">{% for tag in document.tags %}<twig:Ds:Tag as="li">{{ tag.name }}</twig:Ds:Tag>{% endfor %}</ul></dd>
                         </div>
                         {% endif %}
                     </dl>

@@ -4,6 +4,15 @@
 @import './tokens.css';
 @import './components/button.css';
 @import './components/form.css';
+@import './components/badge.css';
+@import './components/empty-state.css';
+@import './components/flash.css';
+@import './components/status-chip.css';
+@import './components/tag.css';
+@import './components/dialog.css';
+@import './components/pagination.css';
+@import './components/tabs.css';
+@import './components/tooltip.css';
 @plugin "@tailwindcss/typography";
 
 /* Structural admin-* CSS shipped by the admin bundle, compiled in this app's
@@ -2425,30 +2434,6 @@
     .lp-card-drawer__title {
         @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-4;
     }
-    /* The one tab strip: role="tab" buttons (aria-selected), page links
-       (aria-current) or view toggles (aria-pressed) share the underline. */
-    .lp-tabs {
-        @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
-        scrollbar-width: none;
-    }
-    .lp-tabs::-webkit-scrollbar {
-        display: none;
-    }
-    .lp-tabs__tab {
-        @apply inline-flex items-center gap-2 px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute no-underline whitespace-nowrap cursor-pointer transition-colors;
-    }
-    .lp-tabs__tab:hover,
-    .lp-tabs__tab:focus-visible {
-        @apply text-ink;
-    }
-    .lp-tabs__tab[aria-selected='true'],
-    .lp-tabs__tab[aria-current='page'],
-    .lp-tabs__tab[aria-pressed='true'] {
-        @apply border-accent text-ink;
-    }
-    .lp-tabs__count {
-        @apply inline-flex items-center justify-center min-w-5 rounded-md bg-surface-3 px-1.5 py-0.5 text-xs text-fg-dim;
-    }
     .lp-card-panel[hidden] {
         @apply hidden;
     }
@@ -2735,25 +2720,6 @@
         background-size: calc(var(--spacing) * 4);
     }
 
-    /* ── Badge ──────────────────────────────────────────────────────── */
-
-    /* Solid fills, no border. "In review" is deliberately the neutral one: it is
-       the resting state of every document, so colouring it would leave a list of
-       untouched documents looking like a list of alerts. */
-    .lp-badge {
-        @apply inline-flex items-center py-0.75 px-1.75 rounded-md text-xs leading-4 font-semibold whitespace-nowrap;
-    }
-    .lp-badge--in-review,
-    .lp-badge--draft {
-        @apply bg-surface-3 text-ink-soft;
-    }
-    .lp-badge--approved {
-        @apply bg-status-ok-border text-status-ok-ink;
-    }
-    .lp-badge--changes-requested {
-        @apply bg-status-danger-chip text-status-danger-deep;
-    }
-
     /* ── Comment signals ────────────────────────────────────────────────
        What a document's comment threads say about it. Sized like .lp-badge, so
        the two sit level beside each other on a list row and in the topbar. */
@@ -2818,48 +2784,6 @@
         @apply bg-tint border border-line rounded-lg px-3 py-2 text-xs font-mono text-fg-mute overflow-x-auto;
     }
 
-    /* ── Tag chip ───────────────────────────────────────────────────── */
-
-    .lp-tag {
-        @apply inline-flex items-center py-1 px-2.5 rounded-md text-xs font-semibold bg-surface-3 text-fg-mute;
-    }
-    /* Label tones for card types and board columns; LabelTone names each one. */
-    .lp-tag--neutral {
-        @apply bg-surface-3 text-fg-mute;
-    }
-    .lp-tag--lime {
-        @apply bg-accent-soft text-accent-ink;
-    }
-    .lp-tag--purple {
-        @apply bg-status-active-bg text-status-active;
-    }
-    .lp-tag--green {
-        @apply bg-status-ok-bg text-status-ok-deep;
-    }
-    .lp-tag--amber {
-        @apply bg-status-pending-bg text-status-pending-deep;
-    }
-    .lp-tag--red {
-        @apply bg-status-danger-bg text-status-danger-deep;
-    }
-    .lp-tag--teal {
-        @apply bg-tone-teal-bg text-tone-teal;
-    }
-    .lp-tag--sky {
-        @apply bg-tone-sky-bg text-tone-sky;
-    }
-    .lp-tag--blue {
-        @apply bg-tone-blue-bg text-tone-blue;
-    }
-    .lp-tag--indigo {
-        @apply bg-tone-indigo-bg text-tone-indigo;
-    }
-    .lp-tag--pink {
-        @apply bg-tone-pink-bg text-tone-pink;
-    }
-    .lp-tag--orange {
-        @apply bg-tone-orange-bg text-tone-orange;
-    }
     /* The column header's colour mark, in the same tone as its labels. */
     .lp-tone-dot {
         @apply inline-block size-2 shrink-0 rounded-full bg-fg-faint;
@@ -3274,38 +3198,6 @@
         @apply w-auto shrink-0 pl-2.5 text-fg-mute;
     }
 
-    /* ── Flash messages ─────────────────────────────────────────────── */
-
-    /* Sits at the top of the paper panel and scrolls away with the content —
-       deliberately not sticky, so it never covers the document. */
-    .lp-flash {
-        @apply flex items-center gap-2.5 mt-3.5 mx-6 px-3.5 py-2.5 rounded-lg bg-sunken text-sm font-medium text-ink;
-        animation: lp-appear 120ms ease-out both;
-    }
-    .lp-flash__dot {
-        @apply w-2 h-2 shrink-0 rounded-full bg-accent;
-    }
-    .lp-flash__message {
-        @apply mr-auto;
-    }
-    .lp-flash__dismiss {
-        @apply shrink-0 text-xs text-fg-mute cursor-pointer transition-colors;
-    }
-    .lp-flash__dismiss:hover {
-        @apply text-ink;
-    }
-    /* Severity is carried by the dot alone: the row itself stays the neutral
-       raised fill so a success and an error read as the same kind of object. */
-    .lp-flash--error .lp-flash__dot {
-        @apply bg-status-danger;
-    }
-    .lp-flash--warning .lp-flash__dot {
-        @apply bg-status-pending;
-    }
-    .lp-flash--info .lp-flash__dot {
-        @apply bg-status-ok;
-    }
-
     /* About page: a warm hero with the lead and the planner mascot, then one
        card per fact, so the AGPL offer reads as a statement of its own. */
     .lp-about-hero {
@@ -3381,43 +3273,6 @@
     .lp-empty {
         @apply text-fg-mute text-sm py-4;
     }
-    /* Full-panel empty state: an icon, a heading, a sentence explaining how the
-       thing gets created, and at most one action. */
-    .lp-empty-state {
-        @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 py-16 px-8;
-    }
-    .lp-empty-state__icon {
-        @apply text-line-strong;
-    }
-    .lp-empty-state__title {
-        @apply font-display font-bold text-lg tracking-tight text-ink m-0;
-    }
-    .lp-empty-state__body {
-        @apply max-w-md text-sm text-fg-mute m-0 leading-relaxed;
-    }
-    /* Preflight strips a bare anchor's colour and underline, so a link inside the
-       body sentence would be indistinguishable from the text around it. */
-    .lp-empty-state__link {
-        @apply text-accent-ink underline underline-offset-2 hover:text-ink;
-    }
-
-    /* ── Pagination (shared `<twig:Pagination>` component) ─────────────── */
-
-    .lp-pagination {
-        @apply flex items-center justify-between gap-3 pt-8;
-    }
-    .lp-pagination__status {
-        @apply font-mono text-fg-dim m-0 text-xs;
-    }
-    .lp-pagination__controls {
-        @apply flex items-center gap-1.5;
-    }
-    .lp-pagination__ellipsis {
-        @apply inline-flex items-center justify-center w-9 h-9 text-fg-dim text-sm;
-    }
-    .lp-pagination__disabled {
-        @apply opacity-40 pointer-events-none;
-    }
 
     /* ── Dialog / modal (`modal` Stimulus controller) ─────────────────
        Animated via WAAPI in modal_controller.js; only ::backdrop gets a CSS
@@ -3430,16 +3285,6 @@
         @apply overflow-y-auto;
     }
 
-    .lp-dialog {
-        width: calc(100% - calc(var(--spacing) * 7));
-        margin: auto;
-        max-height: 90vh;
-        @apply max-w-xl overflow-y-auto rounded-xl border-0 bg-surface-1 p-6 shadow-composer;
-    }
-    /** Wide dialog for editing document Markdown. */
-    .lp-dialog--document {
-        @apply max-w-3xl;
-    }
     /* The right-hand drawer shell for the card, run and activity drawers.
        The modal controller slides it; the dialog itself stays still. */
     /* z-50 carries the modeless case, which sits outside the top layer. */
@@ -3582,20 +3427,6 @@
     }
     .lp-document-work-links input {
         @apply shrink-0;
-    }
-    .lp-dialog::backdrop {
-        @apply bg-ink/40 backdrop-blur-xs;
-        animation: lp-dialog-backdrop-in 220ms ease-out;
-    }
-    .lp-dialog-title {
-        @apply font-display font-extrabold text-2xl tracking-tight text-ink m-0;
-    }
-    .lp-dialog-desc {
-        @apply text-sm text-fg-mute mt-2 mb-4 leading-relaxed;
-    }
-    /** Action row for a confirmation dialog. */
-    .lp-dialog-actions {
-        @apply flex items-center justify-end gap-3 pt-2;
     }
 
     /* ── Danger zone ──────────────────────────────────────────────────── */
@@ -4681,66 +4512,6 @@
        ring and the card has to say so itself. */
     .lp-comment-orphan-pill {
         @apply inline-flex self-start items-center rounded-full bg-status-pending-bg text-status-pending-deep uppercase text-xs font-bold py-1 px-2.5;
-    }
-
-    /* Status chip (thread header + ladder), pill with a colored dot. */
-    .lp-status-chip {
-        @apply inline-flex items-center gap-1.5 ml-auto rounded-md font-medium border text-xs py-0.5 px-2;
-    }
-    .lp-status-chip__dot {
-        @apply inline-block rounded-full shrink-0 w-1.5 h-1.5;
-    }
-    .lp-status-chip--pending {
-        @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
-    }
-    .lp-status-chip--pending .lp-status-chip__dot {
-        @apply bg-status-pending;
-    }
-    .lp-status-chip--addressed {
-        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
-    }
-    .lp-status-chip--addressed .lp-status-chip__dot {
-        @apply bg-status-ok;
-    }
-    .lp-status-chip--resolved {
-        @apply bg-tint text-fg-dim border-line;
-    }
-    .lp-status-chip--resolved .lp-status-chip__dot {
-        @apply bg-fg-faint;
-    }
-    /* Green chip — site-review addressed/resolved comments (handoff §4 pins both
-       to the green trio, unlike the document-review grey "resolved"). */
-    .lp-status-chip--ok {
-        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
-    }
-    .lp-status-chip--ok .lp-status-chip__dot {
-        @apply bg-status-ok;
-    }
-    /* Red chip — a worker run that ran and exited non-zero. */
-    .lp-status-chip--failed {
-        @apply bg-status-danger-bg text-status-danger-deep border-status-danger-border;
-    }
-    .lp-status-chip--failed .lp-status-chip__dot {
-        @apply bg-status-danger;
-    }
-    /* Grey chip for a state that is neither good nor bad, such as a hook that has not run. */
-    .lp-status-chip--neutral {
-        @apply bg-tint text-fg-dim border-line;
-    }
-    .lp-status-chip--neutral .lp-status-chip__dot {
-        @apply bg-fg-faint;
-    }
-    /* A chip that explains itself in a tooltip. It sits above a stretched row
-       target, or the target takes its hover. */
-    .lp-status-chip--reason {
-        @apply relative z-10 cursor-help outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
-    }
-    .lp-status-chip--reason:hover,
-    .lp-status-chip--reason:focus-visible {
-        @apply z-20;
-    }
-    .lp-status-chip__help {
-        @apply w-3 h-3 shrink-0;
     }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head
@@ -7933,18 +7704,12 @@
     .lp-presence--quiet .lp-presence__dot {
         @apply bg-status-pending;
     }
-    /* A small text bubble under its anchor, shown on hover and on keyboard focus. */
-    .lp-tooltip {
-        @apply invisible absolute left-0 top-full z-20 mt-2 flex w-72 flex-col gap-1 rounded-lg bg-ink px-3 py-2 text-xs font-medium leading-snug text-chrome-fg opacity-0 shadow-lg transition-opacity;
-    }
+    /* Show the tooltip of these anchors on hover and on keyboard focus. */
     .lp-presence:hover .lp-tooltip,
     .lp-presence:focus-visible .lp-tooltip,
     .lp-status-chip--reason:hover .lp-tooltip,
     .lp-status-chip--reason:focus-visible .lp-tooltip {
         @apply visible opacity-100;
-    }
-    .lp-tooltip__line--quiet {
-        @apply break-all text-chrome-mute;
     }
     /* A mention of a defined ID, such as R3, in the review prose. */
     .lp-ref {
@@ -8914,6 +8679,15 @@
     }
     .lp-styleguide__specimen {
         @apply flex flex-wrap items-center gap-3;
+    }
+    .lp-styleguide__specimen .lp-dialog {
+        @apply static w-full;
+    }
+    .lp-styleguide__tooltip-anchor {
+        @apply relative inline-block pb-16 text-sm font-semibold text-ink;
+    }
+    .lp-styleguide__tooltip-anchor .lp-tooltip {
+        @apply visible opacity-100;
     }
     .lp-styleguide__empty {
         @apply rounded-xl border border-dashed border-line-strong p-6 text-sm text-fg-mute;

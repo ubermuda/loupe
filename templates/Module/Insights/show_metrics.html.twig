@@ -57,11 +57,9 @@
     </form>
 
     {% if chart is null %}
-    <div class="lp-empty-state" data-metrics-empty>
-        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'analytics.metrics.empty.title'|trans }}</h2>
+    <twig:Ds:EmptyState icon="lucide:chart-column" :title="'analytics.metrics.empty.title'|trans" data-metrics-empty>
         <p>{{ 'analytics.metrics.empty.description'|trans }}</p>
-    </div>
+    </twig:Ds:EmptyState>
     {% else %}
     {% set labels = [] %}
     {% for series in view.series %}
