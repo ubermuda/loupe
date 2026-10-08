@@ -171,7 +171,7 @@ func buildSet(ctx context.Context, src reloadSource) (built, string, error) {
 			return b, "hooks", err
 		}
 	}
-	if src.resolveClaude != nil && set.HasInteractive() {
+	if src.resolveClaude != nil && set.HasInteractive() && set.NeedsClaude() {
 		if b.claude, err = src.resolveClaude(); err != nil {
 			return b, "claude", err
 		}

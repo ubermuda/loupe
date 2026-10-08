@@ -627,9 +627,6 @@ func (s *Set) checkWorkAccounts(kind string, w *WorkEntry, declared []string, ro
 		}
 	case ActionInteractive:
 		w.run = s.resolve(w.Account, w.Model, w.Permissions, true)
-		if w.run.Harness == HarnessCodex {
-			errs = append(errs, fmt.Errorf("%swork %q: account %q runs codex, and an interactive launch on Codex is not supported yet; use a claude-code account", at("action"), kind, w.run.Account))
-		}
 	}
 
 	return errs
@@ -694,6 +691,22 @@ func (s *Set) UsedAccounts() []string {
 	slices.Sort(out)
 
 	return out
+}
+
+// NeedsClaude reports whether the bridge must find the claude program: a run
+// takes a claude-code account, or the set names no account at all. A set whose
+// runs all take codex accounts runs on a machine with no Claude Code.
+func (s *Set) NeedsClaude() bool {
+	used := s.UsedAccounts()
+	if len(used) == 0 {
+		return true
+	}
+
+	return slices.ContainsFunc(used, func(name string) bool {
+		run, ok := s.Account(name, "")
+
+		return ok && run.Harness == HarnessClaudeCode
+	})
 }
 
 // SetAccountProblems turns off each entry that runs on an account of m, which

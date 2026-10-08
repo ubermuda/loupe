@@ -152,10 +152,150 @@ func TestResumeOfAnUnknownRunUsesTheRunID(t *testing.T) {
 	}
 }
 
-func TestInteractiveRefuses(t *testing.T) {
-	body := New("", "", "").Interactive("codex", harness.Spec{})
-	if !strings.Contains(body, "not supported yet") || !strings.Contains(body, "exit 1") {
+func TestInteractiveRunsCodexInTheFolderWithTheRunID(t *testing.T) {
+	h := New("", "openrouter", "")
+	body := h.Interactive("/bin/codex", harness.Spec{
+		Dir: "/work/it's", Model: "openrouter/free", PermissionMode: modeReadOnly, SessionID: runID, Prompt: "do it",
+		Env: []string{"CODEX_HOME=/home/b"},
+	})
+	for _, want := range []string{
+		"rm -f -- \"$0\"\n",
+		"export CODEX_HOME='/home/b'\n",
+		"export LOUPE_SESSION_ID='" + runID + "'\n",
+		"cd -- '/work/it'\\''s' || exit 1\n",
+		"exec '/bin/codex' -p 'openrouter' -m 'openrouter/free' '-s' 'read-only' -- 'do it'\n",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("script lacks %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestInteractiveWorkspaceAddsTheNetwork(t *testing.T) {
+	body := New("", "", "").Interactive("codex", harness.Spec{Dir: t.TempDir(), PermissionMode: modeWorkspace})
+	if !strings.Contains(body, "'-s' 'workspace-write'") || !strings.Contains(body, "'"+networkAccess+"'") {
 		t.Fatalf("script = %q", body)
+	}
+}
+
+// sessionFile writes a session file whose first line is a session_meta.
+func sessionFile(t *testing.T, home, id, cwd string, start time.Time) {
+	t.Helper()
+	dir := filepath.Join(home, "sessions", "2026", "10", "08")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"timestamp":"` + start.UTC().Format(time.RFC3339Nano) + `","type":"session_meta","payload":{"id":"` + id + `","cwd":"` + cwd + `"}}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "rollout-x-"+id+".jsonl"), []byte(line), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAnInteractiveRunFindsItsSessionByFolderAndTime(t *testing.T) {
+	h := newHarness(t, "")
+	at := time.Now()
+	work := t.TempDir()
+	other := "aaaaaaaa-0000-4000-8000-000000000001"
+	late := "aaaaaaaa-0000-4000-8000-000000000002"
+	early := "aaaaaaaa-0000-4000-8000-000000000003"
+	sessionFile(t, h.home, other, t.TempDir(), at.Add(time.Second))
+	sessionFile(t, h.home, early, work, at.Add(-time.Minute))
+	sessionFile(t, h.home, late, work, at.Add(5*time.Second))
+	if err := h.RecordLaunch(runID, work, at); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := h.thread(runID)
+	if err != nil || got != late {
+		t.Fatalf("thread = %q, %v; want %q", got, err, late)
+	}
+	// The match is kept, so a later session in the folder does not take it.
+	sessionFile(t, h.home, "aaaaaaaa-0000-4000-8000-000000000004", work, at.Add(time.Second))
+	if again, err := h.thread(runID); err != nil || again != late {
+		t.Fatalf("thread again = %q, %v", again, err)
+	}
+	if err := h.HasSession(runID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAnInteractiveRunSkipsASessionAnotherRunClaimed(t *testing.T) {
+	h := newHarness(t, "")
+	at := time.Now()
+	work := t.TempDir()
+	first := "aaaaaaaa-0000-4000-8000-000000000001"
+	second := "aaaaaaaa-0000-4000-8000-000000000002"
+	sessionFile(t, h.home, first, work, at.Add(time.Second))
+	sessionFile(t, h.home, second, work, at.Add(2*time.Second))
+	for _, id := range []string{"run-one", "run-two"} {
+		if err := h.RecordLaunch(id, work, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	one, err1 := h.thread("run-one")
+	two, err2 := h.thread("run-two")
+	if err1 != nil || err2 != nil || one != first || two != second {
+		t.Fatalf("threads = %q %q, errors %v %v", one, two, err1, err2)
+	}
+}
+
+func TestALaterLaunchWaitsForTheSessionOfAnEarlierOne(t *testing.T) {
+	h := newHarness(t, "")
+	at := time.Now()
+	work := t.TempDir()
+	first := "aaaaaaaa-0000-4000-8000-000000000001"
+	second := "aaaaaaaa-0000-4000-8000-000000000002"
+	sessionFile(t, h.home, first, work, at.Add(time.Second))
+	sessionFile(t, h.home, second, work, at.Add(2*time.Second))
+	if err := h.RecordLaunch("run-one", work, at); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.RecordLaunch("run-two", work, at.Add(time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+
+	// The later launch asks first and still gets the later session.
+	two, err2 := h.thread("run-two")
+	one, err1 := h.thread("run-one")
+	if err1 != nil || err2 != nil || one != first || two != second {
+		t.Fatalf("threads = %q %q, errors %v %v", one, two, err1, err2)
+	}
+}
+
+func TestAForgottenOrStaleLaunchHoldsNoSession(t *testing.T) {
+	h := newHarness(t, "")
+	at := time.Now()
+	work := t.TempDir()
+	id := "aaaaaaaa-0000-4000-8000-000000000001"
+	sessionFile(t, h.home, id, work, at.Add(time.Second))
+	if err := h.RecordLaunch("failed", work, at.Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.RecordLaunch("stale", work, at.Add(-48*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.RecordLaunch("run", work, at); err != nil {
+		t.Fatal(err)
+	}
+	h.ForgetLaunch("failed")
+
+	if got, err := h.thread("run"); err != nil || got != id {
+		t.Fatalf("thread = %q, %v", got, err)
+	}
+}
+
+func TestAnInteractiveRunWithNoSessionYetHasNone(t *testing.T) {
+	h := newHarness(t, "")
+	work := t.TempDir()
+	if err := h.RecordLaunch(runID, work, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.thread(runID); !errors.Is(err, transcript.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := h.thread("never-launched"); !errors.Is(err, transcript.ErrNotFound) {
+		t.Fatalf("err = %v", err)
 	}
 }
 

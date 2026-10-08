@@ -269,7 +269,8 @@ func (h Harness) threadFile(runID string) (string, error) {
 	return filepath.Join(h.threads, runID), nil
 }
 
-// thread is the Codex thread of the run id.
+// thread is the Codex thread of the run id. A run with no mapping is an
+// interactive one, and its thread comes from the record of its launch.
 func (h Harness) thread(runID string) (string, error) {
 	path, err := h.threadFile(runID)
 	if err != nil {
@@ -277,7 +278,7 @@ func (h Harness) thread(runID string) (string, error) {
 	}
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return "", transcript.ErrNotFound
+		return h.locate(runID)
 	}
 	if err != nil {
 		return "", err
