@@ -308,6 +308,16 @@
     .lp-decision__prompt::before {
     @apply mr-28;
 }
+@media (width < 37.5rem) {
+    .lp-review .lp-decision__clear {
+        @apply static mb-2 block;
+    }
+    .lp-review
+        .lp-decision:has(> .lp-decision__clear)
+        .lp-decision__prompt::before {
+        @apply mr-0;
+    }
+}
 .lp-review .lp-decision__note {
     @apply mt-3 flex items-start gap-2;
 }
