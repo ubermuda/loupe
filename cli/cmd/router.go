@@ -1099,9 +1099,10 @@ func (r *router) resolveVariant(p pending) (string, runPin) {
 		cardID = ""
 	}
 	candidate := exp.Pick(cmp.Or(cardID, p.key))
-	drawn := runPin{Experiment: exp.Name, Variant: candidate.Name, RequestedModel: candidate.Model}
+	model := exp.Settings(candidate).Model
+	drawn := runPin{Experiment: exp.Name, Variant: candidate.Name, RequestedModel: model}
 	if cardID == "" || r.resolvePin == nil {
-		return candidate.Model, drawn
+		return model, drawn
 	}
 
 	names := make([]string, len(exp.Variants))
@@ -1131,11 +1132,12 @@ func (r *router) resolveVariant(p pending) (string, runPin) {
 			)...)
 		}
 
-		return candidate.Model, drawn
+		return model, drawn
 	}
 	v := exp.Variants[i]
+	model = exp.Settings(v).Model
 
-	return v.Model, runPin{Experiment: exp.Name, Variant: v.Name, RequestedModel: v.Model, SwitchedFrom: switchedFrom}
+	return model, runPin{Experiment: exp.Name, Variant: v.Name, RequestedModel: model, SwitchedFrom: switchedFrom}
 }
 
 // liveRun is a worker that started, with what its report and a handover need.

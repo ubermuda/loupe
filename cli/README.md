@@ -400,6 +400,13 @@ a rule file. Write `rules.yaml` beside `config.json` before you upgrade. The
 `projects` map replaces both flags. The file below runs one kind of work:
 
 ```yaml
+accounts:
+  claude:
+    harness: claude-code
+
+defaults:
+  account: claude
+
 projects:
   my-app:
     dir: ~/Code/my-app

@@ -20,6 +20,11 @@ import (
 // workRules claims two kinds of work: implement runs a worker, and check runs
 // a command.
 const workRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -664,6 +669,11 @@ func TestAHandoverKeepsTheWorkClaims(t *testing.T) {
 // interactiveWorkRules opens a session for each design request, and runs a
 // worker with a variant for each split request.
 const interactiveWorkRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -751,7 +761,7 @@ func analysisRequest(n int, kind string) api.WorkRequest {
 // Work about a subject that is no card claims, runs and settles, and each of
 // its run states names the subject and no card.
 func TestAWorkOfferAboutAnotherSubjectReportsItsRun(t *testing.T) {
-	h := newHarnessWith(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectType} {subjectId}.\n", rules.Defaults{})
+	h := newHarnessWith(t, "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectType} {subjectId}.\n", rules.Defaults{})
 	rec := h.states()
 	f := h.withWork()
 	h.worker.result = workerResult{hasResult: true, status: "finished"}

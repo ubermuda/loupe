@@ -167,6 +167,11 @@ func (boardColumns) Sites(context.Context) ([]api.Site, error) {
 
 // defaultRules runs a worker for each plan work request.
 const defaultRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -417,7 +422,7 @@ func TestAMatchingRuleRunsAWorker(t *testing.T) {
 func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	h := newHarnessWith(t, defaultRules+`
   review:
-    permissionMode: plan
+    permissions: read-only
     model: opus
     prompt: Review {cardId} in {project}, for {kind}.
 `, rules.Defaults{PermissionMode: "acceptEdits"})

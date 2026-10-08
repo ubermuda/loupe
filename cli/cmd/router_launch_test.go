@@ -17,6 +17,11 @@ import (
 // launchRules opens a session for plan work, and runs a worker for review
 // work. {launcher} is the launch command.
 const launchRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
