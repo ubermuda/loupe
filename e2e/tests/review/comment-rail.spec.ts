@@ -1,5 +1,9 @@
-import { test as base, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as base,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
 const RUN = Date.now();

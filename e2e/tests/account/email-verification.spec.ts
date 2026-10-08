@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 import {
     countEmailsTo,
     getLatestEmailTo,

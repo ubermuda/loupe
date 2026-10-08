@@ -22,11 +22,13 @@ import {
 export async function suppressToolbar(page: Page): Promise<void> {
     await page.addInitScript(() => {
         const apply = () => {
-            if (!document.getElementById('e2e-suppress-toolbar')) {
+            // The first document has no root yet when the script runs.
+            const root = document.head ?? document.documentElement;
+            if (root && !document.getElementById('e2e-suppress-toolbar')) {
                 const style = document.createElement('style');
                 style.id = 'e2e-suppress-toolbar';
                 style.textContent = '.sf-toolbar { display: none !important; }';
-                (document.head ?? document.documentElement).appendChild(style);
+                root.appendChild(style);
             }
         };
         apply();
@@ -67,6 +69,18 @@ export async function skipUnreachableHub(
         } as unknown as typeof EventSource;
     });
 }
+
+/**
+ * The `test` of a spec that never reads a live update. Its context never opens
+ * the Mercure hub, so no page retries a refused connection. A spec that needs
+ * the real hub imports `test` from `@playwright/test` instead.
+ */
+export const hubStubbedTest = base.extend({
+    context: async ({ context }, use) => {
+        await skipUnreachableHub(context);
+        await use(context);
+    },
+});
 
 /**
  * Signs a user in on a fresh browser context of its own, for a spec that
@@ -226,13 +240,9 @@ export async function signWidgetIn(
 
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 
-export const testWithVerifiedAccount = base.extend<{
+export const testWithVerifiedAccount = hubStubbedTest.extend<{
     verifiedAccount: Credentials;
 }>({
-    context: async ({ context }, use) => {
-        await skipUnreachableHub(context);
-        await use(context);
-    },
     verifiedAccount: [
         async ({ page, request }, use) => {
             const credentials = {
@@ -253,7 +263,7 @@ export const testWithVerifiedAccount = base.extend<{
  * and verifies it via Mailpit automatically.
  */
 export function createTest(credentials: Credentials) {
-    return base.extend<{}, { workerStorageState: StorageState }>({
+    return hubStubbedTest.extend<{}, { workerStorageState: StorageState }>({
         workerStorageState: [
             async ({ browser }, use, workerInfo) => {
                 // Copied explicitly rather than relied upon: Playwright 1.60
@@ -341,10 +351,5 @@ export function createTest(credentials: Credentials) {
         ],
 
         storageState: ({ workerStorageState }, use) => use(workerStorageState),
-
-        context: async ({ context }, use) => {
-            await skipUnreachableHub(context);
-            await use(context);
-        },
     });
 }
