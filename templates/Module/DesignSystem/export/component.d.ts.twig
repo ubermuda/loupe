@@ -32,10 +32,9 @@ export interface {{ entry.name }}Props {
     /** Draws the coloured dot. True by default. */
     dot?: boolean;
 {% endif %}
+    className?: string;
     children?: ReactNode;
-{% if not isButton %}
     [attribute: string]: unknown;
-{% endif %}
 }
 
 export declare function {{ entry.name }}(props: {{ entry.name }}Props): JSX.Element;

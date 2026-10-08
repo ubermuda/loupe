@@ -123,6 +123,10 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
             self::assertStringContainsString('className: extra', $jsx);
             self::assertStringContainsString('classes.push(extra)', $jsx);
             self::assertStringContainsString('{...rest}', $jsx);
+
+            $types = (string) file_get_contents($this->directory.'/components/core/'.$name.'.d.ts');
+            self::assertStringContainsString('className?: string;', $types);
+            self::assertStringContainsString('[attribute: string]: unknown;', $types);
         }
     }
 
