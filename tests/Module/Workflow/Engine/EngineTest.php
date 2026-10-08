@@ -350,6 +350,28 @@ final class EngineTest extends KernelTestCase
         self::assertNull($pause?->releasedAt);
     }
 
+    public function test_a_pause_stays_when_the_resumed_run_belongs_to_another_rule(): void
+    {
+        $card = $this->stoppedCard('needs-person');
+        $pause = $this->activePause($card);
+
+        $this->resumedRun($card, WorkerRunState::Running, ruleId: 'other');
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($pause?->releasedAt);
+    }
+
+    public function test_a_pause_stays_while_a_person_stops_the_resumed_run(): void
+    {
+        $card = $this->stoppedCard('needs-person');
+        $pause = $this->activePause($card);
+
+        $this->resumedRun($card, WorkerRunState::Stopping);
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($pause?->releasedAt);
+    }
+
     public function test_a_resumed_run_that_ended_before_the_evaluation_still_ends_the_pause_and_counts(): void
     {
         $card = $this->stoppedCard('needs-person', ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [10, 60]]);
@@ -2774,12 +2796,12 @@ final class EngineTest extends KernelTestCase
         return $card;
     }
 
-    private function resumedRun(Card $card, WorkerRunState $state, ?\DateTimeImmutable $receivedAt = null): WorkerRun
+    private function resumedRun(Card $card, WorkerRunState $state, ?\DateTimeImmutable $receivedAt = null, ?string $ruleId = null): WorkerRun
     {
-        return $this->workerRun($card, 'work', $state, $this->workerRun($card, 'work', WorkerRunState::Blocked), $receivedAt);
+        return $this->workerRun($card, 'work', $state, $this->workerRun($card, 'work', WorkerRunState::Blocked), $receivedAt, $ruleId);
     }
 
-    private function workerRun(Card $card, string $workKind, WorkerRunState $state, ?WorkerRun $continues = null, ?\DateTimeImmutable $receivedAt = null): WorkerRun
+    private function workerRun(Card $card, string $workKind, WorkerRunState $state, ?WorkerRun $continues = null, ?\DateTimeImmutable $receivedAt = null, ?string $ruleId = null): WorkerRun
     {
         $run = new WorkerRun(
             project: $card->project,
@@ -2791,6 +2813,7 @@ final class EngineTest extends KernelTestCase
             state: $state,
             receivedAt: $receivedAt ?? new \DateTimeImmutable(),
             continuesRun: $continues,
+            ruleId: $ruleId,
         );
         $this->em()->persist($run);
         $this->em()->flush();

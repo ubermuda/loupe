@@ -291,7 +291,7 @@ final readonly class Engine
         if (null === $rule || null === $state || null !== $state->lastRefusal || null === $state->lastRefusalAt || !$run->applies($rule) || $this->waits($run, $rule)) {
             return;
         }
-        $resumed = $this->workerRuns->findLatestContinuationOfCard($cardId);
+        $resumed = $this->workerRuns->findLatestContinuationOfCard($cardId, ruleId: $rule->id);
         $bound = $this->ruleSubject->bind($rule, $run->facts);
         if (null === $resumed || !$resumed->state->isStop() || !$bound->truth) {
             return;
@@ -426,7 +426,7 @@ final readonly class Engine
             return false;
         }
 
-        return null !== $this->workerRuns->findLatestContinuationOfCard($run->card->id ?? throw new \LogicException('A persisted card has an id.'), $pause->createdAt);
+        return null !== $this->workerRuns->findLatestContinuationOfCard($run->card->id ?? throw new \LogicException('A persisted card has an id.'), $pause->createdAt, $pause->ruleId);
     }
 
     /**
