@@ -5214,6 +5214,30 @@
                 <source>board.card.type.site-review</source>
                 <target>Site review</target>
             </trans-unit>
+            <trans-unit id="board.card.source.person">
+                <source>board.card.source.person</source>
+                <target>Person</target>
+            </trans-unit>
+            <trans-unit id="board.card.source.widget">
+                <source>board.card.source.widget</source>
+                <target>Site review</target>
+            </trans-unit>
+            <trans-unit id="board.card.source.run">
+                <source>board.card.source.run</source>
+                <target>Worker run</target>
+            </trans-unit>
+            <trans-unit id="board.card.source.agent">
+                <source>board.card.source.agent</source>
+                <target>Agent</target>
+            </trans-unit>
+            <trans-unit id="board.card.source.loupe">
+                <source>board.card.source.loupe</source>
+                <target>Loupe</target>
+            </trans-unit>
+            <trans-unit id="board.card.overview.source">
+                <source>board.card.overview.source</source>
+                <target>Source</target>
+            </trans-unit>
             <trans-unit id="board.card.reporter.reviewer">
                 <source>board.card.reporter.reviewer</source>
                 <target>Reviewer</target>

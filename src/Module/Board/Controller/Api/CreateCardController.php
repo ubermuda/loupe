@@ -8,6 +8,8 @@ use App\Controller\AppController;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSource;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -63,6 +65,7 @@ final class CreateCardController extends AppController
             type: $type,
             // Not Human: nobody authenticated the person who typed this.
             reporter: CardReporter::Reviewer,
+            source: new CardSource(CardSourceKind::Widget),
         ));
 
         return $this->json([

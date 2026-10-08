@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDocumentsChanged;
@@ -119,6 +120,7 @@ final readonly class CreateCardHandler
                 // Read once, here: the card then carries its own language, so
                 // changing the project's leaves the cards already written alone.
                 searchLanguage: $command->project->searchLanguage,
+                source: $command->source ?? CardSource::fromReporter($command->reporter),
             );
             $card->parent = $parent;
             if (null !== $command->laneEnabled) {
@@ -183,6 +185,7 @@ final readonly class CreateCardHandler
                 'status' => $card->column->slug,
                 'columnId' => (string) $card->column->id,
                 'reporter' => $card->reporter->value,
+                'source' => $card->source->kind->value,
                 'pullRequestCount' => \count($card->pullRequests),
                 'documentCount' => \count($card->documents),
                 'relatedCardCount' => \count($relatedCards),

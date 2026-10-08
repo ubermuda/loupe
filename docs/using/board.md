@@ -667,9 +667,10 @@ to `main`.
 | Number | A short number, counting from 1, unique inside the project. |
 | Title | Plain text, up to 255 characters. Loupe trims it and refuses a blank one. |
 | Body | Markdown. It says what the card asks for. |
-| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`, `site-review`. |
+| Type | A type that the workflow template declares. `board_columns` lists them. |
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
+| Source | Where the card came from: a person, the site review widget, a worker run, an agent outside a run, or Loupe. It never changes. |
 | Pull requests | Any number of links, each with the last state Loupe read. See below. |
 | Linked cards | Other cards of the project, each with a kind. See [Cards linked to a card](#cards-linked-to-a-card). |
 
@@ -677,7 +678,13 @@ A card also carries the moment it was created and the moment it last changed. A
 card in a terminal column carries its completion time as well.
 
 The site-review widget gives the default type of the workflow template to each
-note card and review card it creates.
+note card and review card it creates, and the source site review widget.
+
+The source is set once, when the card is created. A card made by `card_create`
+through a worker run records that run and the card of the run. A card made by an
+agent with no worker run records the source agent. A card made from a ticked
+readiness proposal records the source Loupe. The card page and the card lists
+show the source as a badge.
 
 The reporter never changes. `card_update` refuses that field, because it answers
 who first raised the card rather than who touched it last. An MCP request
@@ -1103,7 +1110,7 @@ the widget deletes the note's card too when all of these are true:
 - The note created the card.
 - The card is still in Backlog.
 - The card holds no other feedback.
-- The card keeps the site review type and the title that the note gave it.
+- The card keeps the default type and the title that the note gave it.
 - The card body is empty.
 - The card has no pull request, no document and no link to or from another card.
 

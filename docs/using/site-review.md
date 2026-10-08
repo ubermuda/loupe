@@ -84,9 +84,10 @@ epic.
 
 A card that the widget creates has these values:
 
-- The type is `site-review` for a note card or a review card, and `epic` for an epic.
+- The type is the default type of the workflow template for a note card or a review card, and the type with the children capability for an epic.
 - The column is the board's Backlog.
 - The reporter is `reviewer`.
+- The source is the site review widget. The card shows a site review badge.
 - A note card takes its title from the first line of the note that is not blank, cut to 80 characters.
 
 After a save that creates a card, the widget names the card and links to it.
@@ -149,7 +150,7 @@ also removes the note's card when all of these are true:
 - The note created the card.
 - The card is still in Backlog.
 - The card holds no other feedback.
-- The card keeps the site review type and the title that the note gave it.
+- The card keeps the default type and the title that the note gave it.
 - The card body is empty.
 - The card has no pull request, no document and no link to or from another card.
 

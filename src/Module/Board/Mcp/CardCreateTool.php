@@ -10,6 +10,8 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSource;
+use App\Module\Board\Entity\CardSourceKind;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
@@ -30,6 +32,7 @@ final readonly class CardCreateTool
         private ShowCardHandler $showCard,
         private CardPayload $payload,
         private BoardToolErrorMessages $errorMessages,
+        private AgentRunSource $runSource,
     ) {
     }
 
@@ -75,6 +78,7 @@ final readonly class CardCreateTool
                 laneEnabled: $laneEnabled,
                 // A claimed human reporter is not the account that makes this call.
                 actor: CardReporter::Agent,
+                source: $this->runSource->forProject($project) ?? new CardSource(CardSourceKind::Agent),
             ));
 
             $view = ($this->showCard)(new ShowCardCommand($card));

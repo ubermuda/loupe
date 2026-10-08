@@ -7,6 +7,7 @@ namespace App\Tests\Module\Readiness\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
@@ -53,6 +54,7 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
         self::assertSame('tooling', $card->type);
         self::assertTrue($card->column->backlog);
         self::assertSame(CardReporter::Human, $card->reporter);
+        self::assertSame(CardSourceKind::Person, $card->source->kind);
         self::assertNotSame('', $card->body);
         self::assertSame([(string) $card->id], $this->evaluatedCardIds());
         $started = array_values(array_filter($this->audit->sink->events, static fn ($event): bool => 'readiness.discovery_started' === $event->operation));
@@ -66,6 +68,7 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
         $run = $this->handler()(new StartDiscoveryCommand($this->liveProject(), CardReporter::Agent));
 
         self::assertSame(CardReporter::Agent, $run->card->reporter);
+        self::assertSame(CardSourceKind::Agent, $run->card->source->kind);
     }
 
     public function test_the_queued_evaluation_opens_the_discovery_request(): void

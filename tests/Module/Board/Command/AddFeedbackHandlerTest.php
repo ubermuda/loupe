@@ -10,6 +10,7 @@ use App\Module\Board\Command\AddFeedbackCommand;
 use App\Module\Board\Command\AddFeedbackHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\NewAnchor;
 use App\Module\SiteReview\Command\NewStroke;
@@ -58,6 +59,7 @@ final class AddFeedbackHandlerTest extends KernelTestCase
         self::assertSame('', $card->body);
         self::assertSame('feature', $card->type);
         self::assertSame(CardReporter::Reviewer, $card->reporter);
+        self::assertSame(CardSourceKind::Widget, $card->source->kind);
         self::assertNull($card->parent);
         self::assertSame(trim($body), $link->comment->body);
         self::assertCount(1, $link->comment->anchors);
