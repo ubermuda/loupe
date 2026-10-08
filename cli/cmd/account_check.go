@@ -15,9 +15,12 @@ import (
 // accountCheckTimeout bounds the checks of all the accounts of a set.
 const accountCheckTimeout = 60 * time.Second
 
-// maxAccountReason is the longest reason the server takes. A longer one
-// fails the whole heartbeat.
-const maxAccountReason = 200
+// maxAccountReason and maxAccountRows are the limits of the server. A row
+// past either fails the whole heartbeat.
+const (
+	maxAccountReason = 200
+	maxAccountRows   = 50
+)
 
 // accountResult is the check of one account, which is ready when it has no
 // problem.
@@ -118,6 +121,9 @@ func accountReports(set *rules.Set) []api.AccountReport {
 			row.State, row.Reason = api.AccountFailing, cutReason(reason)
 		}
 		reports = append(reports, row)
+		if len(reports) == maxAccountRows {
+			break
+		}
 	}
 
 	return reports
