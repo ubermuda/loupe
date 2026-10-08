@@ -3733,7 +3733,7 @@
         try {
             const card = await api('POST', '/api/board/cards', {
                 title,
-                type: mode === 'epic' ? 'epic' : 'site-review',
+                ...(mode === 'epic' ? { type: 'epic' } : {}),
             });
             pickerCreating = false;
             chooseTarget({

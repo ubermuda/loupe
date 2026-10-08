@@ -14,7 +14,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
@@ -241,7 +240,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             project: $this->project,
             title: $title,
             body: 'Body',
-            type: CardType::Bug,
+            type: 'bug',
             column: $this->column($this->project, $column),
             reporter: CardReporter::Agent,
         ));

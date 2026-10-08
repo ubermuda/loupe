@@ -8,7 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -61,7 +60,7 @@ final class ShowBoardQueryCountTest extends KernelTestCase
 
         $number = 1;
         for ($e = 0; $e < $size; ++$e) {
-            $epic = $this->card($project, 'next', $number++, $e, CardType::Epic);
+            $epic = $this->card($project, 'next', $number++, $e, 'epic');
             $this->card($project, 'next', $number++, $size + $e)->parent = $epic;
             for ($i = 0; $i < $size; ++$i) {
                 $this->card($project, 'backlog', $number++, $i)->parent = $epic;
@@ -72,7 +71,7 @@ final class ShowBoardQueryCountTest extends KernelTestCase
         return $project;
     }
 
-    private function card(Project $project, string $slug, int $number, int $position, CardType $type = CardType::Feature): Card
+    private function card(Project $project, string $slug, int $number, int $position, string $type = 'feature'): Card
     {
         $card = new Card(project: $project, column: $this->column($project, $slug), title: 'Card '.$number, body: '', number: $number, type: $type, position: $position);
         $this->em->persist($card);

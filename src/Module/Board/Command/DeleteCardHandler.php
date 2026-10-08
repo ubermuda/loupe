@@ -13,6 +13,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
@@ -34,6 +35,7 @@ final readonly class DeleteCardHandler
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardGroupOrder $groupOrder,
         private CardParentPolicy $parentPolicy,
+        private CardTypeCatalog $catalog,
         private PullRequestTracking $pullRequestTracking,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -75,7 +77,7 @@ final readonly class DeleteCardHandler
 
             $this->cards->refreshTypeAndParent($card);
             $parent = $card->parent;
-            $drawsLane = $card->drawsLane();
+            $drawsLane = $card->drawsLane($this->catalog->forProject($card->project));
 
             // Inside the transaction, so the delete and the renumbering it
             // causes commit together or not at all.

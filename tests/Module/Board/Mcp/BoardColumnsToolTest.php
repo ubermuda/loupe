@@ -42,7 +42,28 @@ final class BoardColumnsToolTest extends KernelTestCase
             ['slug' => 'next', 'label' => 'Next', 'terminal' => false, 'default' => false, 'backlog' => false],
             ['slug' => 'in-progress', 'label' => 'In progress', 'terminal' => false, 'default' => false, 'backlog' => false],
             ['slug' => 'done', 'label' => 'Done', 'terminal' => true, 'default' => false, 'backlog' => false],
-        ]], ($this->tool)());
+        ]], array_diff_key(($this->tool)(), ['types' => 1, 'defaultType' => 1]));
+    }
+
+    public function test_it_returns_the_declared_card_types_and_the_default_type(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('board-columns-types'));
+
+        $result = ($this->tool)();
+
+        self::assertSame('feature', $result['defaultType']);
+        self::assertSame(
+            ['feature', 'bug', 'security', 'tooling', 'docs', 'idea', 'epic'],
+            array_column($result['types'], 'key'),
+        );
+        self::assertSame(
+            ['key' => 'epic', 'label' => 'Epic', 'children' => true, 'lane' => true],
+            $result['types'][6],
+        );
+        self::assertSame(
+            ['key' => 'bug', 'label' => 'Bug', 'children' => false, 'lane' => false],
+            $result['types'][1],
+        );
     }
 
     public function test_a_literal_label_reads_as_written_and_position_sets_the_order(): void

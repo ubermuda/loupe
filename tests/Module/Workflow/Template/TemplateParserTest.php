@@ -421,6 +421,11 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'types[3] (bug): duplicate type key "bug"'];
+        yield 'type key longer than the card column' => [static function (array $t): array {
+            $t['types'][1]['key'] = 'a-type-key-of-21-char';
+
+            return $t;
+        }, 'types[1] (a-type-key-of-21-char): "key" must have at most 20 characters'];
         yield 'card type condition naming an undeclared type' => [static function (array $t): array {
             $t['rules'][0]['when']['all'][0] = ['card.type' => ['type' => 'chore']];
 

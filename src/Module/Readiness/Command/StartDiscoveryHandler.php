@@ -7,7 +7,7 @@ namespace App\Module\Readiness\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
@@ -22,6 +22,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 /** Opens a discovery run on a new Backlog card. The app rule then requests the work from a bridge. */
 final readonly class StartDiscoveryHandler
 {
+    private const string CARD_TYPE = 'tooling';
+
     public const string NO_LIVE_BRIDGE = 'readiness.discovery.error.no_bridge';
 
     public const string NO_WORKFLOW = 'readiness.discovery.error.no_workflow';
@@ -35,6 +37,7 @@ final readonly class StartDiscoveryHandler
         private CardEvaluations $evaluations,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -60,11 +63,12 @@ final readonly class StartDiscoveryHandler
                 return new DiscoveryRunning($latest->card->number);
             }
 
+            $types = $this->catalog->forProject($project);
             $card = ($this->createCard)(new CreateCardCommand(
                 project: $project,
                 title: 'Discover what '.$project->name.' needs for agents', // @translation-check-ignore
                 body: 'This card tracks a read-only discovery run. A worker reads the repository and the workflow, and writes a readiness report. The app moves this card, so leave it where it is.', // @translation-check-ignore
-                type: CardType::Tooling,
+                type: $types->has(self::CARD_TYPE) ? self::CARD_TYPE : $types->defaultKey,
                 reporter: $command->reporter,
             ));
             $run = new DiscoveryRun($project, $card);

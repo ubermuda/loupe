@@ -60,7 +60,7 @@ When no column fits a role, leave the card where it is and tell the owner.
 
 | Tool | Use it to |
 |---|---|
-| `board_columns` | Read the columns of the board, in board order. |
+| `board_columns` | Read the columns of the board, in board order, and the card types of the project with the type a new card gets. |
 | `card_create` | Put a new card on the board. It lands in Backlog unless you pass `status`. |
 | `card_list` | Read one page of the board, with its columns. Filter by `status`, `type`, `reporter`, `parentCardId` or `paused`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
@@ -120,7 +120,7 @@ A row carries eight fields: `cardId`, `number`, `title`, `type`, `status`,
 `reporter`, `parentCardId` and `updatedAt`. It carries no body and no links.
 `parentCardId` is null for a card with no parent.
 
-Pass `parentCardId` to `card_list` to read the children of one epic. It combines
+Pass `parentCardId` to `card_list` to read the children of one card. It combines
 with the other filters.
 
 Pass `paused` true to `card_list` to read the cards that a workflow pause stops,
@@ -160,8 +160,11 @@ item with its card. Mark an item done with `feedback_mark_addressed`, which take
 the same `id`, rather than by editing the card. The `loupe-site-review` skill
 carries the rest of that loop.
 
-`card_create` and `card_update` take a `type` of `feature`, `bug`, `security`,
-`tooling`, `docs`, `idea`, `epic` or `site-review`.
+`card_create` and `card_update` take a `type`. The workflow template of the
+project declares the types, so read them with `board_columns` before you pick
+one. Each type has a `key`, a `label`, and the capabilities `children` and
+`lane`. A key that the template does not declare is refused, and the error
+lists the declared keys. The shipped templates declare these types:
 
 - `feature`: a new or extended capability
 - `bug`: something behaves incorrectly today, including a latent fault
@@ -170,7 +173,6 @@ carries the rest of that loop.
 - `docs`: documentation-only work
 - `idea`: long-horizon thinking, with no commitment yet
 - `epic`: one feature that is too large for one pull request, split into child cards
-- `site-review`: feedback that a reviewer left on a page through the site-review widget
 
 There is no delete tool. You finish a card by moving it to a terminal column,
 which stamps its completion time. A move between two terminal columns keeps the
@@ -185,25 +187,26 @@ last 3 days of each terminal column by default and puts the rest on a history
 page. The owner sets this window in board settings. A person therefore sees
 fewer finished cards than you do.
 
-## An epic groups child cards
+## A type with the children capability groups child cards
 
-`card_create` and `card_update` take `parentCardId`, the id of an epic of this
-project. On `card_update`, omit it to keep the parent, send an empty string to
+`card_create` and `card_update` take `parentCardId`, the id of a card of this
+project whose type has the `children` capability. The shipped templates give that
+capability to `epic`. On `card_update`, omit it to keep the parent, send an empty string to
 clear it, and send an id to set it. These rules apply:
 
-- A card has at most one parent, and the parent is an epic.
-- An epic has no parent, because epics do not nest.
+- A card has at most one parent, and the parent has a type with the `children` capability.
+- Such a card has no parent, because these cards do not nest.
 - The parent is a card of the same project.
-- A card with a parent cannot become an epic.
-- An epic with children keeps the type `epic`, and a person cannot delete it.
+- A card with a parent cannot change to a type with the `children` capability.
+- A card with children keeps its type, and a person cannot delete it.
 
-`laneEnabled` says whether the board draws a lane for an epic. It defaults to
-`true`, and only an epic reads it.
+`laneEnabled` says whether the board draws a lane for the card. It defaults to
+`true`, and only a card of a type with the `lane` capability reads it.
 
 The full card carries four more keys. `parent` holds `cardId`, `number`, `title`
 and `status`, or null. `laneEnabled` is a boolean. `children` lists the children
-of an epic with `cardId`, `number`, `title` and `status`. `progress` holds `done`
-and `total` for an epic, and it is null for any other card. A child counts as
+of a card with `cardId`, `number`, `title` and `status`. `progress` holds `done`
+and `total` for a card of a type with the `children` capability, and it is null for any other card. A child counts as
 done when it sits in a terminal column.
 
 ## A card that opens with `**Parked.**` is paused

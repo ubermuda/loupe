@@ -12,7 +12,6 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Service\CardExporter;
@@ -69,7 +68,7 @@ final class CardExporterTest extends KernelTestCase
             title: 'Rotate the signing key',
             body: 'The key is a year old.',
             number: 1,
-            type: CardType::Bug,
+            type: 'bug',
             origin: CardReporter::Human,
             position: 7,
             createdAt: $createdAt,
@@ -141,7 +140,7 @@ final class CardExporterTest extends KernelTestCase
             title: 'Checkout feedback',
             body: '',
             number: 1,
-            type: CardType::SiteReview,
+            type: 'site-review',
             origin: CardReporter::Reviewer,
             position: 0,
         );
@@ -195,7 +194,7 @@ final class CardExporterTest extends KernelTestCase
         $this->em->persist($project);
         $this->seedColumns($project);
 
-        $epic = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Epic', body: '', number: 1, type: CardType::Epic, createdAt: new \DateTimeImmutable('2026-03-01 09:00:00'));
+        $epic = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Epic', body: '', number: 1, type: 'epic', createdAt: new \DateTimeImmutable('2026-03-01 09:00:00'));
         $epic->laneEnabled = false;
         $child = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Child', body: '', number: 2, createdAt: new \DateTimeImmutable('2026-03-02 09:00:00'));
         $child->parent = $epic;

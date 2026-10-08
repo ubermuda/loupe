@@ -10,7 +10,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogSort;
 use App\Module\Project\Entity\Project;
@@ -161,7 +160,7 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function searchOpenForProject(Project $project, string $query, int $limit, ?CardType $type = null): array
+    public function searchOpenForProject(Project $project, string $query, int $limit, ?string $type = null): array
     {
         $qb = $this->createQueryBuilder('c')
             ->join('c.column', 'k')
@@ -204,12 +203,21 @@ class CardRepository extends ServiceEntityRepository
         return $qb;
     }
 
-    /** The cards a card may take as its parent: the epics of the project, less the card itself. */
-    public function parentCandidates(?Uuid $projectId, ?Uuid $excludeCardId): QueryBuilder
+    /**
+     * The cards a card may take as its parent: the cards of the project whose type may have children, less the card itself.
+     *
+     * @param list<string> $parentTypes the type keys with the children capability
+     */
+    public function parentCandidates(?Uuid $projectId, ?Uuid $excludeCardId, array $parentTypes): QueryBuilder
     {
-        return $this->linkCandidates($projectId, $excludeCardId)
-            ->andWhere('c.type = :parentType')
-            ->setParameter('parentType', CardType::Epic->value);
+        $qb = $this->linkCandidates($projectId, $excludeCardId);
+        if ([] === $parentTypes) {
+            return $qb->andWhere('1 = 0');
+        }
+
+        return $qb
+            ->andWhere('c.type IN (:parentTypes)')
+            ->setParameter('parentTypes', $parentTypes);
     }
 
     /**
@@ -375,7 +383,7 @@ class CardRepository extends ServiceEntityRepository
             return;
         }
 
-        $card->type = CardType::from((string) $row['type']);
+        $card->type = (string) $row['type'];
         $card->laneEnabled = (bool) $row['lane_enabled'];
         $card->parent = null === $row['parent_card_id']
             ? null
@@ -396,14 +404,14 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** The type the database holds for the card now, or null when the row is gone. */
-    public function freshType(Card $card): ?CardType
+    public function freshType(Card $card): ?string
     {
         $type = $this->getEntityManager()->getConnection()->fetchOne(
             'SELECT type FROM board_cards WHERE id = :id',
             ['id' => (string) $card->id],
         );
 
-        return false === $type ? null : CardType::from((string) $type);
+        return false === $type ? null : (string) $type;
     }
 
     /**
@@ -488,14 +496,14 @@ class CardRepository extends ServiceEntityRepository
      * other than the one it was created with, another type, a pull request, a
      * document, or a link to or from another card.
      */
-    public function hasWork(Card $card, string $createdTitle, CardType $createdType): bool
+    public function hasWork(Card $card, string $createdTitle, string $createdType): bool
     {
         return (bool) $this->getEntityManager()->getConnection()->fetchOne(
             "SELECT EXISTS (SELECT 1 FROM board_cards WHERE id = :id AND (body <> '' OR title <> :title OR type <> :type))
                  OR EXISTS (SELECT 1 FROM board_card_pull_requests WHERE card_id = :id)
                  OR EXISTS (SELECT 1 FROM board_card_documents WHERE card_id = :id)
                  OR EXISTS (SELECT 1 FROM board_card_links WHERE source_card_id = :id OR target_card_id = :id)",
-            ['id' => (string) $card->id, 'title' => $createdTitle, 'type' => $createdType->value],
+            ['id' => (string) $card->id, 'title' => $createdTitle, 'type' => $createdType],
         );
     }
 
@@ -906,19 +914,25 @@ class CardRepository extends ServiceEntityRepository
      * The epics the board draws as lanes, Backlog included, in board order:
      * column by column, then down each column. Card::drawsLane() says which.
      *
+     * @param list<string> $laneTypes the type keys with the lane capability
+     *
      * @return list<Card>
      */
-    public function findLaneEpics(Project $project): array
+    public function findLaneEpics(Project $project, array $laneTypes): array
     {
+        if ([] === $laneTypes) {
+            return [];
+        }
+
         return array_values($this->createQueryBuilder('c')
             ->join('c.column', 'k')
             ->addSelect('k')
             ->andWhere('c.project = :project')
-            ->andWhere('c.type = :epic')
+            ->andWhere('c.type IN (:laneTypes)')
             ->andWhere('c.laneEnabled = true')
             ->andWhere('k.terminal = false')
             ->setParameter('project', $project)
-            ->setParameter('epic', CardType::Epic)
+            ->setParameter('laneTypes', $laneTypes)
             ->orderBy('k.position', 'ASC')
             ->addOrderBy('k.id', 'ASC')
             ->addOrderBy('c.position', 'ASC')
@@ -1344,7 +1358,7 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function findForBoard(array $columns, ?CardType $type = null, ?CardReporter $reporter = null, ?Card $parent = null, ?bool $paused = null): array
+    public function findForBoard(array $columns, ?string $type = null, ?CardReporter $reporter = null, ?Card $parent = null, ?bool $paused = null): array
     {
         $cards = [];
         foreach ($columns as $column) {
@@ -1411,7 +1425,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(BoardColumn $column, ?CardType $type, ?CardReporter $reporter, ?Card $parent, ?bool $paused): array
+    private function findColumn(BoardColumn $column, ?string $type, ?CardReporter $reporter, ?Card $parent, ?bool $paused): array
     {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.column = :column')

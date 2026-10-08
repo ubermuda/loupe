@@ -12,7 +12,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Project\Entity\Project;
@@ -67,7 +66,7 @@ final class CardLaneReloadTest extends KernelTestCase
     {
         $project = $this->makeProject('lane-create');
 
-        $this->card($project, type: CardType::Epic);
+        $this->card($project, type: 'epic');
 
         self::assertSame(1, $this->reloads);
     }
@@ -77,8 +76,8 @@ final class CardLaneReloadTest extends KernelTestCase
         $project = $this->makeProject('lane-create-none');
 
         $this->card($project);
-        $this->card($project, type: CardType::Epic, laneEnabled: false);
-        $this->card($project, column: 'done', type: CardType::Epic);
+        $this->card($project, type: 'epic', laneEnabled: false);
+        $this->card($project, column: 'done', type: 'epic');
 
         self::assertSame(3, $this->cardChanges);
         self::assertSame(0, $this->reloads);
@@ -87,7 +86,7 @@ final class CardLaneReloadTest extends KernelTestCase
     public function test_a_deleted_lane_epic_reloads_the_board(): void
     {
         $project = $this->makeProject('lane-delete');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $this->reset();
 
         $this->delete($epic);
@@ -100,8 +99,8 @@ final class CardLaneReloadTest extends KernelTestCase
         $project = $this->makeProject('lane-delete-none');
         $cards = [
             $this->card($project),
-            $this->card($project, type: CardType::Epic, laneEnabled: false),
-            $this->card($project, column: 'done', type: CardType::Epic),
+            $this->card($project, type: 'epic', laneEnabled: false),
+            $this->card($project, column: 'done', type: 'epic'),
         ];
         $this->reset();
 
@@ -119,7 +118,7 @@ final class CardLaneReloadTest extends KernelTestCase
         $card = $this->card($project);
         $this->reset();
 
-        $this->update($card, type: CardType::Epic);
+        $this->update($card, type: 'epic');
 
         self::assertSame(1, $this->reloads);
     }
@@ -127,7 +126,7 @@ final class CardLaneReloadTest extends KernelTestCase
     public function test_a_lane_turned_off_or_on_reloads_the_board(): void
     {
         $project = $this->makeProject('lane-toggle');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $this->reset();
 
         $this->update($epic, laneEnabled: false);
@@ -139,7 +138,7 @@ final class CardLaneReloadTest extends KernelTestCase
     public function test_a_lane_epic_that_finishes_or_reopens_reloads_the_board(): void
     {
         $project = $this->makeProject('lane-move');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $this->reset();
 
         $this->update($epic, column: 'done');
@@ -152,7 +151,7 @@ final class CardLaneReloadTest extends KernelTestCase
     public function test_a_move_reads_the_lane_setting_another_request_committed(): void
     {
         $project = $this->makeProject('lane-stale');
-        $epic = $this->card($project, column: 'done', type: CardType::Epic, laneEnabled: false);
+        $epic = $this->card($project, column: 'done', type: 'epic', laneEnabled: false);
         $this->reset();
 
         $loaded = $this->reload($epic);
@@ -172,9 +171,9 @@ final class CardLaneReloadTest extends KernelTestCase
     public function test_a_change_that_leaves_every_lane_as_it_was_reloads_nothing(): void
     {
         $project = $this->makeProject('lane-none');
-        $laneEpic = $this->card($project, type: CardType::Epic);
-        $quietEpic = $this->card($project, type: CardType::Epic, laneEnabled: false);
-        $doneEpic = $this->card($project, column: 'done', type: CardType::Epic);
+        $laneEpic = $this->card($project, type: 'epic');
+        $quietEpic = $this->card($project, type: 'epic', laneEnabled: false);
+        $doneEpic = $this->card($project, column: 'done', type: 'epic');
         $feature = $this->card($project);
         $this->reset();
 
@@ -194,7 +193,7 @@ final class CardLaneReloadTest extends KernelTestCase
         $this->cardChanges = 0;
     }
 
-    private function card(Project $project, string $column = 'backlog', CardType $type = CardType::Feature, ?bool $laneEnabled = null): Card
+    private function card(Project $project, string $column = 'backlog', string $type = 'feature', ?bool $laneEnabled = null): Card
     {
         $card = ($this->createCard)(new CreateCardCommand(
             $this->reloadProject($project),
@@ -209,7 +208,7 @@ final class CardLaneReloadTest extends KernelTestCase
         return $card;
     }
 
-    private function update(Card $card, ?string $column = null, ?CardType $type = null, ?bool $laneEnabled = null, ?string $title = null): void
+    private function update(Card $card, ?string $column = null, ?string $type = null, ?bool $laneEnabled = null, ?string $title = null): void
     {
         $fresh = $this->reload($card);
         ($this->updateCard)(new UpdateCardCommand(

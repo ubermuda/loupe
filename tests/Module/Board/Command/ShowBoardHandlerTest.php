@@ -11,7 +11,6 @@ use App\Module\Board\Command\BoardView;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -239,7 +238,7 @@ final class ShowBoardHandlerTest extends KernelTestCase
 
     private function epic(string $title, string $column, int $position = 0): Card
     {
-        return $this->card($title, $column, $position, CardType::Epic);
+        return $this->card($title, $column, $position, 'epic');
     }
 
     private function child(Card $epic, string $title, string $column): Card
@@ -251,7 +250,7 @@ final class ShowBoardHandlerTest extends KernelTestCase
         return $child;
     }
 
-    private function card(string $title, string $column, int $position = 0, CardType $type = CardType::Feature): Card
+    private function card(string $title, string $column, int $position = 0, string $type = 'feature'): Card
     {
         $boardColumn = $this->column($this->project, $column);
         $card = new Card(

@@ -8,7 +8,7 @@ use App\Controller\AppController;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -34,6 +34,7 @@ final class CreateCardController extends AppController
         private readonly CreateCardHandler $handler,
         private readonly AuthenticatedProjectResolver $projectResolver,
         private readonly UrlGeneratorInterface $urls,
+        private readonly CardTypeCatalog $catalog,
     ) {
     }
 
@@ -49,11 +50,17 @@ final class CreateCardController extends AppController
             throw new \LogicException('title required after validation');
         }
 
+        $types = $this->catalog->forProject($project);
+        $type = $payload->type ?? $types->defaultKey;
+        if (!$types->has($type)) {
+            return $this->json(['error' => 'unknown_type', 'types' => $types->keys()], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $card = ($this->handler)(new CreateCardCommand(
             project: $project,
             title: $title,
             body: $payload->body,
-            type: $payload->type ?? CardType::Feature,
+            type: $type,
             // Not Human: nobody authenticated the person who typed this.
             reporter: CardReporter::Reviewer,
         ));

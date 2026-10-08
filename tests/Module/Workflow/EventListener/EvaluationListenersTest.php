@@ -10,7 +10,6 @@ use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
@@ -54,6 +53,7 @@ use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Tests\Module\Workflow\Action\ActionScenario;
+use App\Tests\Support\ShippedCardTypes;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -155,7 +155,7 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist($pullRequest);
         $this->em()->persist($unknown);
         $this->em()->flush();
-        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->service(CardRepository::class), $this->trigger());
+        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->service(CardRepository::class), $this->trigger(), new ShippedCardTypes());
 
         $listener(new PullRequestStateChanged($pullRequest, $pullRequest->snapshot(), $pullRequest->snapshot()));
         $listener(new PullRequestStateChanged($unknown, $unknown->snapshot(), $unknown->snapshot()));
@@ -166,7 +166,7 @@ final class EvaluationListenersTest extends KernelTestCase
     public function test_a_pull_request_change_asks_for_the_epic_of_a_child_and_the_children_of_an_epic(): void
     {
         $epic = $this->card($this->project, 'next');
-        $epic->type = CardType::Epic;
+        $epic->type = 'epic';
         [$child, $sibling] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
         $child->parent = $epic;
         $sibling->parent = $epic;
@@ -177,7 +177,7 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist($childPullRequest);
         $this->em()->persist($epicPullRequest);
         $this->em()->flush();
-        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->service(CardRepository::class), $this->trigger());
+        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->service(CardRepository::class), $this->trigger(), new ShippedCardTypes());
 
         $listener(new PullRequestStateChanged($childPullRequest, $childPullRequest->snapshot(), $childPullRequest->snapshot()));
         self::assertEqualsCanonicalizing($this->ids($child, $epic), $this->sent());

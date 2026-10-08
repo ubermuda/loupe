@@ -10,7 +10,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestNotice;
@@ -85,7 +84,7 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         $seeder = self::getContainer()->get(BoardColumnSeeder::class);
         self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
         [$backlog] = $seeder->seed($project);
-        $epic = new Card(project: $project, column: $backlog, title: 'The epic', body: '', number: 1, type: CardType::Epic);
+        $epic = new Card(project: $project, column: $backlog, title: 'The epic', body: '', number: 1, type: 'epic');
         $child = new Card(project: $project, column: $backlog, title: 'The child', body: '', number: 2);
         $child->parent = $epic;
         $em->persist($epic);

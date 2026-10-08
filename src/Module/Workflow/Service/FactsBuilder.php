@@ -86,7 +86,7 @@ final readonly class FactsBuilder
             now: $now,
             card: new CardFacts(
                 slot: $this->slotOf($card->column),
-                type: $card->type->value,
+                type: $card->type,
                 hasOpenBlocker: [] !== $this->cards->findOpenBlockersOf($card),
                 isChild: null !== $card->parent,
                 childCount: $children['total'],

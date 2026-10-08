@@ -16,7 +16,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
@@ -201,7 +200,7 @@ final class CardHistoryTest extends KernelTestCase
             project: $this->project,
             title: 'History',
             body: '',
-            type: CardType::Feature,
+            type: 'feature',
             column: null === $slug ? null : $this->column($this->project, $slug),
             reporter: $reporter,
         ));

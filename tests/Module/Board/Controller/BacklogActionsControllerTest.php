@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\BulkMoveBacklogCardsFormType;
 use App\Module\Board\Form\MoveBacklogCardFormType;
 use App\Module\Project\Entity\Project;
@@ -154,7 +153,7 @@ final class BacklogActionsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'backlog-move-cascade@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'backlog', 0), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'backlog', 0), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Last child', 'backlog', 1));
         $this->card($em, $project, 'Stays', 'backlog', 2);
         $done = (string) $this->column($project, 'done')->id;
@@ -228,7 +227,7 @@ final class BacklogActionsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'backlog-move-reason@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic'), 'epic');
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'next'));
         $done = (string) $this->column($project, 'done')->id;
         $em->clear();
@@ -356,7 +355,7 @@ final class BacklogActionsControllerTest extends WebTestCase
         $owner = $this->user($em, 'backlog-bulk-refused@example.com');
         $project = $this->project($em, $owner);
         $plain = $this->card($em, $project, 'Plain', 'backlog', 0);
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'backlog', 1), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'backlog', 1), 'epic');
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'next'));
         $done = (string) $this->column($project, 'done')->id;
         $em->clear();

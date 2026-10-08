@@ -33,6 +33,30 @@ final readonly class CardTypes
         return array_any($this->all, static fn (CardTypeDefinition $type): bool => $type->key === $key);
     }
 
+    /** @return list<string> */
+    public function keys(): array
+    {
+        return array_map(static fn (CardTypeDefinition $type): string => $type->key, $this->all);
+    }
+
+    /** @return list<string> the keys of the types that may have children */
+    public function withChildren(): array
+    {
+        return array_values(array_map(
+            static fn (CardTypeDefinition $type): string => $type->key,
+            array_filter($this->all, static fn (CardTypeDefinition $type): bool => $type->children),
+        ));
+    }
+
+    /** @return list<string> the keys of the types that get a lane */
+    public function withLane(): array
+    {
+        return array_values(array_map(
+            static fn (CardTypeDefinition $type): string => $type->key,
+            array_filter($this->all, static fn (CardTypeDefinition $type): bool => $type->lane),
+        ));
+    }
+
     public function default(): CardTypeDefinition
     {
         return $this->get($this->defaultKey);

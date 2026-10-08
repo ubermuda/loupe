@@ -30,7 +30,7 @@
                     <a class="lp-backlog-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}">{{ card.title }}</a>
                 </div>
             </div>
-            <div role="cell">{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</div>
+            <div role="cell">{% include '@Board/_card_type_tag.html.twig' with {card: card} only %}</div>
             <span class="lp-document-row__author lp-backlog-row__epic" role="cell">
                 {% if card.parent %}<span class="lp-board-card__number">#{{ card.parent.number }}</span> {{ card.parent.title }}{% else %}<span aria-label="{{ 'board.backlog.table.no_epic'|trans }}">—</span>{% endif %}
             </span>

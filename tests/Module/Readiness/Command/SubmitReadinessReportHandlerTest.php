@@ -6,7 +6,6 @@ namespace App\Tests\Module\Readiness\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Command\ReportFinding;
 use App\Module\Readiness\Command\ReportProposal;
@@ -70,7 +69,7 @@ final class SubmitReadinessReportHandlerTest extends KernelTestCase
         $this->em()->clear();
         $stored = $this->proposals()->findForRun($this->em()->find(DiscoveryRun::class, $this->run->id) ?? throw new \LogicException('The run is stored.'));
         self::assertSame(
-            [['tests', 0, CardType::Feature, null], ['docs', 1, CardType::Docs, null], ['ci', null, CardType::Feature, $covering->number]],
+            [['tests', 0, 'feature', null], ['docs', 1, 'docs', null], ['ci', null, 'feature', $covering->number]],
             array_map(static fn (DiscoveryProposal $proposal): array => [$proposal->key, $proposal->position, $proposal->type, $proposal->openCardNumber], $stored),
         );
     }
