@@ -1,12 +1,12 @@
 {# twig-cs-fixer-disable #}{% autoescape false %}
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 /**
  * {{ entry.summary }} Sentence-case labels. Combine modifiers with a space, such as `ghost icon`.
  *
  * @startingPoint section="{{ section }}" subtitle="Every {{ entry.name }} variant and size" viewport="700x150"
  */
-export interface {{ entry.name }}Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement> & AnchorHTMLAttributes<HTMLAnchorElement>, 'children' | 'onClick' | 'type'> {
+export interface {{ entry.name }}Props extends Omit<HTMLAttributes<HTMLElement>, 'children' | 'onClick'> {
     /** The visual weight and shape. */
     variant?:
 {% for variant in entry.variants %}
@@ -21,6 +21,14 @@ export interface {{ entry.name }}Props extends Omit<ButtonHTMLAttributes<HTMLBut
     type?: 'button' | 'submit' | 'reset';
     /** Renders a link instead of a button. */
     href?: string;
+    /** Button form field name. */
+    name?: string;
+    /** Button form field value. */
+    value?: string;
+    /** Link target and relation. */
+    target?: string;
+    rel?: string;
+    form?: string;
     onClick?: () => void;
     children?: ReactNode;
 }
