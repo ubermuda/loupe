@@ -4941,6 +4941,10 @@
                 <source>inbox.item.kind.notice</source>
                 <target>Notice</target>
             </trans-unit>
+            <trans-unit id="inbox.item.kind.workflow">
+                <source>inbox.item.kind.workflow</source>
+                <target>Workflow question</target>
+            </trans-unit>
             <trans-unit id="inbox.item.dismiss">
                 <source>inbox.item.dismiss</source>
                 <target>Dismiss</target>
@@ -5012,6 +5016,10 @@
             <trans-unit id="inbox.item.error.notice">
                 <source>inbox.item.error.notice</source>
                 <target>A notice takes no response. Loupe closes it when the fact ends.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.workflow_not_declinable">
+                <source>inbox.item.error.workflow_not_declinable</source>
+                <target>A workflow question takes an answer only. Pick an option.</target>
             </trans-unit>
             <trans-unit id="inbox.answer.pick_one">
                 <source>inbox.answer.pick_one</source>
