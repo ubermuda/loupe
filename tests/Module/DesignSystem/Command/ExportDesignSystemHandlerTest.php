@@ -172,6 +172,7 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         $card = (string) file_get_contents($this->directory.'/components/core/core.card.html');
 
         self::assertStringContainsString('<Dialog variant="document" open>document</Dialog>', $card);
+        self::assertStringContainsString('.row > dialog[open] { position: static; margin: 0; }', $card);
         self::assertStringContainsString('<Tabs>Example</Tabs>', $card);
     }
 
