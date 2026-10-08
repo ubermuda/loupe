@@ -20,7 +20,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\EventListener\PublishCardChangedOnCardChanged;
@@ -106,7 +105,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
 
     public function test_creating_a_card_publishes_created_with_content(): void
     {
-        $card = $this->service(CreateCardHandler::class)(new CreateCardCommand($this->project, 'Fix the footer', 'body', CardType::Bug));
+        $card = $this->service(CreateCardHandler::class)(new CreateCardCommand($this->project, 'Fix the footer', 'body', 'bug'));
 
         self::assertSame([$this->message($card, 'created', true)], $this->drain());
     }
@@ -122,7 +121,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         $update(new UpdateCardCommand($card, CardReporter::Human, body: 'A new body'));
         self::assertSame([$this->message($card, 'updated', true)], $this->drain());
 
-        $update(new UpdateCardCommand($card, CardReporter::Human, type: CardType::Tooling));
+        $update(new UpdateCardCommand($card, CardReporter::Human, type: 'tooling'));
         self::assertSame([$this->message($card, 'updated', false)], $this->drain());
 
         $update(new UpdateCardCommand($card, CardReporter::Human, column: $this->column($this->project, 'next')));
@@ -166,7 +165,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         $this->em->getEventManager()->addEventListener(Events::postFlush, $failing);
 
         try {
-            $this->service(CreateCardHandler::class)(new CreateCardCommand($this->project, 'Lost', 'body', CardType::Bug));
+            $this->service(CreateCardHandler::class)(new CreateCardCommand($this->project, 'Lost', 'body', 'bug'));
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the flush', $e->getMessage());

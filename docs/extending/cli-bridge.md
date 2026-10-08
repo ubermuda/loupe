@@ -494,8 +494,25 @@ home folder. Run this once for each Codex home folder:
 CODEX_HOME=~/.codex codex mcp add loupe -- loupe mcp
 ```
 
-The bridge does not check this. A worker without the Loupe tools cannot read its
-card, so the run fails.
+The [account check](#account-checks) fails when the server is missing. A worker
+without the Loupe tools cannot read its card.
+
+`codex exec` runs with the approval policy `never`. At the `workspace` and
+`read-only` levels, Codex refuses a Loupe tool call that needs approval. Add
+this line by hand under `[mcp_servers.loupe]` in the profile file or in
+`config.toml` of the Codex home folder:
+
+```toml
+[mcp_servers.loupe]
+default_tools_approval_mode = "approve"
+```
+
+The check reads the home folder only. It does not read a `.codex/config.toml` in a
+project, because Codex does not print the effective approval mode. A project file that
+sets another mode can still block the Loupe tools.
+
+A run at the `full` level works without the line. The account check still asks for it,
+because the check does not know the levels of the rules. The bridge passes no approval override.
 
 After each run, the bridge checks that Codex used the provider that the profile
 names. A run on another provider fails with the message `codex ran on provider X
@@ -560,8 +577,9 @@ Limits of this release:
 
 ### Account checks
 
-The bridge checks each account that `rules.yaml` uses, when it starts and on
-each `loupe bridge reload`. A check of a Claude Code account asks three
+The bridge checks each account that the `accounts` block of `rules.yaml`
+declares, when it starts and on each `loupe bridge reload`. It also checks an
+account that no rule uses. A check of a Claude Code account asks three
 questions:
 
 1. Is `claude` on the `PATH` of the account, which an env file can set? A
@@ -588,8 +606,20 @@ A check of a Codex account asks these questions:
    the variable named by `env_key` in the profile must hold a value in the
    environment of the account.
 4. Does `codex login status` pass, when the account sets no `profile`?
+5. Does Codex see the `loupe` MCP server in each project folder? The check runs
+   `codex [-p profile] mcp get loupe --json` there.
 
-The check reads no MCP config.
+The MCP check fails in these cases:
+
+- The account has no `loupe` server. Run
+  `CODEX_HOME=<home> codex mcp add loupe -- loupe mcp`.
+- The server is not `loupe mcp` over stdio, for example a server with a URL.
+- The server is disabled.
+- `loupe` is not on the `PATH` of the account.
+- The command takes more than 10 seconds.
+- The server has no `default_tools_approval_mode = "approve"` under
+  `[mcp_servers.loupe]`. Add the line by hand, as
+  [A Codex account](#a-codex-account) describes.
 
 A failing account turns off its own entries only. An entry is off when its
 account, or the account of one of its variants, fails. Every other entry keeps
@@ -600,6 +630,10 @@ and a short reason, and the Agents page in Loupe shows them. A path, an email
 or a key never leaves the machine. The bridge checks again only on a reload,
 so run `loupe bridge reload` after you fix an account. `loupe status` runs the
 same checks.
+
+The Agents page and `loupe status` mark an account that no rule uses as unused.
+A failing unused account turns off no rule. Only a failing account that a rule
+uses makes `loupe status` exit with a non-zero code.
 
 ### Migration and rollback
 
@@ -1182,7 +1216,9 @@ work:
     prompt: Run the loupe-analysis skill for analysis {subjectId} of project {project}.
 ```
 
-The `analysis` entry above runs the analyses that the owner starts on the
+A bridge with `appPrompts: true` runs an analysis with no such entry, because
+the request carries the prompt that Loupe ships. The `analysis` entry above
+runs the analyses that the owner starts on the
 [Reports](../using/analytics.md#reports) tab. The `loupe-analysis` skill of the
 Loupe plugin does the work. A work request can name a model and an effort. A
 request model replaces the `model` of the entry. A request effort reaches
@@ -1200,13 +1236,17 @@ The file needs `work:`, or `appPrompts: true`. The bridge reports the
 `work-requests` capability when the map has an entry or `appPrompts` is on,
 and `interactive` too when an entry opens an interactive session. It also
 reports `subject-<type>` for each subject type other than `card` that an entry
-names, such as `subject-analysis`. A request that needs a capability reaches
-only a bridge that reports it.
+names, such as `subject-analysis`. With `appPrompts: true`, it reports
+`app-prompts` too, unless the account of `defaults.account` is off. A request
+that needs a capability reaches only a bridge that reports it. A request that names a `subject-` capability and carries an app
+prompt also reaches a bridge that reports `app-prompts`.
 
 A rule that Loupe ships can send a prompt with its request. Set
 `appPrompts: true` at the top of `rules.yaml` to run that prompt for a kind that
 `work:` does not map. The prompt runs as a worker in the `default` pool, with
-the `defaults` of the file. An entry under `work:` always wins. A bridge without
+the `defaults` of the file. A model or an effort in the request replaces the
+default model and sets the effort. An entry under `work:` always wins, unless
+it names another subject type than the request. A bridge without
 the key skips such a request, and the request expires after the work timeout.
 
 The bridge finds the project of a request in `projects` through the project

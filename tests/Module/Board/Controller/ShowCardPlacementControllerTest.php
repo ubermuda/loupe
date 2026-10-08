@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -69,7 +68,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), 'epic');
         $epic->laneEnabled = false;
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
         $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
@@ -93,8 +92,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $before = $this->typed($em, $this->card($em, $project, 'Earlier epic', 'triage'), CardType::Epic);
-        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
+        $before = $this->typed($em, $this->card($em, $project, 'Earlier epic', 'triage'), 'epic');
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), 'epic');
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
         $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
         $url = $this->placementUrl((string) $project->id, (string) $epic->id);
@@ -120,7 +119,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-backlog-lane-head@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), 'epic');
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'next'));
         $backlog = $this->column($project, 'backlog');
         $url = $this->placementUrl((string) $project->id, (string) $epic->id);
@@ -170,7 +169,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next', 0), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next', 0), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
         $url = $this->placementUrl((string) $project->id, (string) $child->id);
         $em->clear();
@@ -216,7 +215,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next', 0), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next', 0), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
         $orphan = $this->card($em, $project, 'Orphan', 'triage');
         $next = $this->column($project, 'next');
@@ -454,7 +453,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), 'epic');
         $epic->laneEnabled = false;
         $em->flush();
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'triage'));
@@ -474,7 +473,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), 'epic');
         $epic->laneEnabled = false;
         $em->flush();
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
@@ -500,7 +499,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), 'epic');
         $this->card($em, $project, 'Other first', 'triage', 0);
         $firstChild = $this->childOf($em, $epic, $this->card($em, $project, 'Child first', 'triage', 1));
         $otherSecond = $this->card($em, $project, 'Other second', 'triage', 2);
@@ -529,8 +528,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
-        $closed = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next', 1), CardType::Epic);
+        $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), 'epic');
+        $closed = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next', 1), 'epic');
         $closed->laneEnabled = false;
         $em->flush();
         $child = $this->childOf($em, $closed, $this->card($em, $project, 'Child', 'triage'));
@@ -555,7 +554,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), 'epic');
         $url = $this->placementUrl((string) $project->id, (string) $epic->id);
         $em->clear();
 
@@ -578,7 +577,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $this->typed($em, $this->card($em, $project, 'Epic', 'next'), 'epic');
         $this->card($em, $project, 'Stays', 'triage');
         $triage = $this->column($project, 'triage');
         $url = $this->placementUrl((string) $project->id, '01920000-0000-7000-8000-000000000000');

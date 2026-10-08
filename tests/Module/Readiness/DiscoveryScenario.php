@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Readiness;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
@@ -21,7 +20,7 @@ trait DiscoveryScenario
     private function discoveryCard(Project $project, string $column = 'backlog'): Card
     {
         $card = new Card($project, $this->column($project, $column), 'Discovery', '', ++$this->cardNumber);
-        $card->type = CardType::Tooling;
+        $card->type = 'tooling';
         $this->em()->persist($card);
         $this->em()->flush();
 

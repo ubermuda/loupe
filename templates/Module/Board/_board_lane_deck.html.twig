@@ -26,11 +26,12 @@
                  data-board-drag-target="card"
                  data-action="pointerdown->board-drag#press"
                  data-card-id="{{ card.id }}"
-                 data-card-type="{{ card.type.value }}"
+                 data-card-type="{{ card.type }}"
+                 data-card-lane="{{ card_type(card).lane ? 'true' : 'false' }}"
                  data-card-title="{{ card.title }}">
             <div class="lp-board-card__identity">
                 <span class="lp-board-card__number">#{{ card.number }}</span>
-                {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+                {% include '@Board/_card_type_tag.html.twig' with {card: card} only %}
             </div>
             <a class="lp-deck__title"
                draggable="false"

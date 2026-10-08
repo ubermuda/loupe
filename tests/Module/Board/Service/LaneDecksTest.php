@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\LaneDeckView;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -46,7 +45,7 @@ final class LaneDecksTest extends KernelTestCase
 
     public function test_a_deck_holds_the_first_backlog_children_in_rank_order_and_counts_them_all(): void
     {
-        $epic = $this->card('Epic', 'next', 0, CardType::Epic);
+        $epic = $this->card('Epic', 'next', 0, 'epic');
         $created = new \DateTimeImmutable('-1 hour');
         for ($i = LaneDecks::DECK_SIZE + 1; $i >= 0; --$i) {
             $this->card('Waiting '.$i, 'backlog', $i, parent: $epic, createdAt: $created);
@@ -66,7 +65,7 @@ final class LaneDecksTest extends KernelTestCase
 
     public function test_a_tie_on_rank_and_creation_falls_back_to_the_id(): void
     {
-        $epic = $this->card('Epic', 'next', 0, CardType::Epic);
+        $epic = $this->card('Epic', 'next', 0, 'epic');
         $created = new \DateTimeImmutable('-1 hour');
         $one = $this->card('One', 'backlog', 0, parent: $epic, createdAt: $created);
         $two = $this->card('Two', 'backlog', 0, parent: $epic, createdAt: $created);
@@ -80,16 +79,16 @@ final class LaneDecksTest extends KernelTestCase
 
     public function test_only_backlog_children_of_the_asked_epics_count(): void
     {
-        $epic = $this->card('Epic', 'backlog', 0, CardType::Epic);
-        $other = $this->card('Other epic', 'next', 0, CardType::Epic);
-        $unasked = $this->card('Epic nobody asks for', 'next', 1, CardType::Epic);
+        $epic = $this->card('Epic', 'backlog', 0, 'epic');
+        $other = $this->card('Other epic', 'next', 0, 'epic');
+        $unasked = $this->card('Epic nobody asks for', 'next', 1, 'epic');
         $this->card('Waiting child', 'backlog', 1, parent: $epic);
         $this->card('Child in Next', 'next', 2, parent: $epic);
         $this->card('Finished child', 'done', 0, parent: $epic);
         $this->card('Waiting with no epic', 'backlog', 2);
         $this->card('Waiting child of the other epic', 'backlog', 3, parent: $other);
         $this->card('Waiting child of the unasked epic', 'backlog', 4, parent: $unasked);
-        $empty = $this->card('Epic with nothing waiting', 'next', 3, CardType::Epic);
+        $empty = $this->card('Epic with nothing waiting', 'next', 3, 'epic');
         $this->em->clear();
 
         $decks = $this->decks->forEpics($this->column($this->project, 'backlog'), [(string) $epic->id, (string) $other->id, (string) $empty->id]);
@@ -112,7 +111,7 @@ final class LaneDecksTest extends KernelTestCase
         return $decks[(string) $epic->id] ?? throw new \LogicException('The epic has no deck.');
     }
 
-    private function card(string $title, string $slug, int $position, CardType $type = CardType::Feature, ?Card $parent = null, ?\DateTimeImmutable $createdAt = null): Card
+    private function card(string $title, string $slug, int $position, string $type = 'feature', ?Card $parent = null, ?\DateTimeImmutable $createdAt = null): Card
     {
         $column = $this->column($this->project, $slug);
         $card = new Card(

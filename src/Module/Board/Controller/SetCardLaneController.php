@@ -10,10 +10,10 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\SetCardLaneFormType;
 use App\Module\Board\Form\SetCardLaneRequest;
 use App\Module\Board\Security\CardVoter;
+use App\Module\Board\Service\CardTypeCatalog;
 use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -39,6 +39,7 @@ final class SetCardLaneController extends AppController
         private readonly FormFactoryInterface $formFactory,
         private readonly TranslatorInterface $translator,
         private readonly LoggerInterface $logger,
+        private readonly CardTypeCatalog $catalog,
     ) {
     }
 
@@ -51,9 +52,9 @@ final class SetCardLaneController extends AppController
         $form->handleRequest($request);
 
         $refusal = 'board.card.lane.error.not_saved';
-        if (CardType::Epic !== $card->type) {
+        if (!$this->catalog->forProject($card->project)->get($card->type)->lane) {
             $refusal = 'board.card.lane.error.not_epic';
-            $this->logger->info('board.card_lane_refused', ['cardId' => (string) $card->id, 'type' => $card->type->value]);
+            $this->logger->info('board.card_lane_refused', ['cardId' => (string) $card->id, 'type' => $card->type]);
         } elseif ($form->isSubmitted() && $form->isValid()) {
             try {
                 ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Human, laneEnabled: '1' === $data->laneEnabled));

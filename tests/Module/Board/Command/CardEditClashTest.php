@@ -12,7 +12,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -65,7 +64,7 @@ final class CardEditClashTest extends KernelTestCase
             project: $this->project,
             title: 'Opened title',
             body: $body,
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, 'backlog'),
         ));
     }
@@ -101,7 +100,7 @@ final class CardEditClashTest extends KernelTestCase
             actor: CardReporter::Human,
             title: 'Opened title',
             body: 'Opened body',
-            type: CardType::Bug,
+            type: 'bug',
             expectedFingerprint: Card::contentFingerprint('Opened title', "Opened body\n"),
         ));
         // Editor A saves the same text with the fingerprint it opened with.
@@ -110,12 +109,12 @@ final class CardEditClashTest extends KernelTestCase
             actor: CardReporter::Human,
             title: 'Opened title',
             body: "Opened body\r\n",
-            type: CardType::Docs,
+            type: 'docs',
             expectedFingerprint: $openedByEditorA,
         ));
 
         self::assertSame([false, false], $contentChanged);
-        self::assertSame(CardType::Docs, $this->card->type);
+        self::assertSame('docs', $this->card->type);
     }
 
     public function test_a_whitespace_only_body_change_is_still_reported(): void

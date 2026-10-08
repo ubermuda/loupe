@@ -22,6 +22,7 @@ const WorkRulePrefix = "work:"
 const (
 	CapabilityWorkRequests = "work-requests"
 	CapabilityInteractive  = "interactive"
+	CapabilityAppPrompts   = "app-prompts"
 )
 
 // workPlaceholders are the names a work entry can fill.
@@ -213,7 +214,7 @@ func (s *Set) MatchWork(w api.WorkRequest) Match {
 		return Match{Skip: NoRule}
 	}
 	m := s.MatchKind(w)
-	if _, mapped := s.work[w.Kind]; m.Skip == Run && !mapped && !validAppPrompt(w.Prompt) {
+	if _, mapped := s.entry(w); m.Skip == Run && !mapped && !validAppPrompt(w.Prompt) {
 		return Match{Skip: NoRule, Project: m.Project}
 	}
 
@@ -226,18 +227,30 @@ func validAppPrompt(prompt string) bool {
 	return strings.TrimSpace(prompt) != "" && len(checkPlaceholders("", prompt, event.WorkRequestType, workPlaceholders)) == 0
 }
 
+// entry is the work entry of the kind of w. With appPrompts, an entry about
+// another subject type counts as no entry, so the app prompt runs.
+func (s *Set) entry(w api.WorkRequest) (WorkEntry, bool) {
+	entry, ok := s.work[w.Kind]
+	if ok && s.appPrompts && entry.Subject != w.SubjectType {
+		return WorkEntry{}, false
+	}
+
+	return entry, ok
+}
+
 // MatchKind matches the run of a kind of work against the work map, as a
 // person's command names that run. It reads the project, the subject, the
 // kind and the ids of w, and checks none of them, so the caller checks them
 // first. A request whose subject type differs from the entry's skips as
-// NoRule. A kind the map does not hold runs as an app prompt when the set has
-// appPrompts. A continued run carries no prompt and needs none.
+// NoRule, or runs as an app prompt when the set has appPrompts. A kind the
+// map does not hold runs as an app prompt when the set has appPrompts. A
+// continued run carries no prompt and needs none.
 func (s *Set) MatchKind(w api.WorkRequest) Match {
 	slug, ok := s.slugs[w.ProjectID]
 	if !ok {
 		return Match{Skip: Unmapped}
 	}
-	entry, ok := s.work[w.Kind]
+	entry, ok := s.entry(w)
 	runs := entry.runs()
 	if !ok {
 		runs = []RunSettings{s.appRun}
@@ -256,7 +269,7 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 		// A nil map of fields always builds.
 		schema, _ := resultSchema(nil)
 
-		return Match{
+		m := Match{
 			Skip:    Run,
 			Rule:    WorkRulePrefix + w.Kind,
 			Project: slug,
@@ -265,6 +278,9 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 			Prompt:  directive.Render(w.Prompt, v),
 			Pool:    DefaultPool,
 		}.withRun(s.appRun)
+		m.Model, m.Effort = cmp.Or(w.Model, m.Model), w.Effort
+
+		return m
 	}
 	m := Match{
 		Skip:    Run,
@@ -380,9 +396,9 @@ func (s *Set) WorkDead(slug string) string {
 
 // Capabilities lists what the work map lets the bridge claim: work-requests
 // for any entry or for app prompts, interactive too for an interactive entry,
-// and subject- with the subject type for each entry whose subject is no card.
-// An entry whose agent or account is off adds neither. It is nil for a set
-// with no work.
+// subject- with the subject type for each entry whose subject is no card, and
+// app-prompts when the set runs app prompts. An entry whose agent or account
+// is off adds neither. It is nil for a set with no work.
 func (s *Set) Capabilities() []string {
 	if !s.HasWork() {
 		return nil
@@ -407,6 +423,9 @@ func (s *Set) Capabilities() []string {
 	slices.Sort(subjects)
 	for _, subject := range subjects {
 		out = append(out, subjectCapabilityPrefix+subject)
+	}
+	if s.appPrompts && s.agentsOff == "" && !s.offLocked([]RunSettings{s.appRun}) {
+		out = append(out, CapabilityAppPrompts)
 	}
 
 	return out

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller\Api;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -26,8 +25,11 @@ final class CreateCardRequest
         #[Assert\Length(max: 10000)]
         public string $body = '',
 
-        #[Assert\NotNull]
-        public ?CardType $type = CardType::Feature,
+        /** A type key of the project's template. Null means the default type. */
+        #[Assert\Length(max: 20)]
+        public ?string $type = null,
+        /** Asks for a type that can have children: the given one, or the first of the template. */
+        public bool $parent = false,
     ) {
     }
 }

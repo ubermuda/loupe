@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
+use App\Module\Board\Entity\LabelTone;
+use App\Module\Workflow\Condition\CardChildrenFinished;
 use App\Module\Workflow\Condition\CardDocument;
 use App\Module\Workflow\Condition\CardDocumentApproved;
 use App\Module\Workflow\Condition\CardHasOpenBlocker;
@@ -17,7 +19,10 @@ use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
+use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Template\AppRequest;
+use App\Module\Workflow\Template\AskOption;
 use App\Module\Workflow\Template\InvalidTemplate;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\RuleOrigin;
@@ -33,6 +38,7 @@ final class TemplateParserTest extends TestCase
     protected function setUp(): void
     {
         $this->parser = new TemplateParser(new Conditions([
+            new CardChildrenFinished(),
             new CardDocument(),
             new CardDocumentApproved(),
             new CardHasOpenBlocker(),
@@ -50,6 +56,12 @@ final class TemplateParserTest extends TestCase
         return [
             'key' => 'test',
             'version' => 1,
+            'defaultType' => 'feature',
+            'types' => [
+                ['key' => 'feature', 'label' => 'board.card.type.feature', 'tone' => 'lime'],
+                ['key' => 'bug', 'label' => 'board.card.type.bug', 'tone' => 'amber'],
+                ['key' => 'epic', 'label' => 'board.card.type.epic', 'tone' => 'blue', 'capabilities' => ['children', 'lane']],
+            ],
             'slots' => [
                 ['key' => 'build', 'label' => 'workflow.slot.build'],
                 ['key' => 'review', 'label' => 'workflow.slot.review'],
@@ -132,6 +144,79 @@ final class TemplateParserTest extends TestCase
         self::assertSame(ActionType::Pause, $wait->then->type);
         self::assertSame(['reason' => 'busy'], $wait->then->params);
         self::assertInstanceOf(Not::class, $wait->then->until);
+    }
+
+    public function test_it_reads_the_card_types_and_the_default_type(): void
+    {
+        $template = $this->parser->parse(self::valid());
+
+        self::assertSame(['feature', 'bug', 'epic'], array_map(static fn ($type) => $type->key, $template->types));
+        self::assertSame('feature', $template->defaultType);
+        $epic = $template->type('epic') ?? throw new \LogicException('The template declares an epic.');
+        self::assertSame('board.card.type.epic', $epic->label);
+        self::assertSame(LabelTone::Blue, $epic->tone);
+        self::assertTrue($epic->children);
+        self::assertTrue($epic->lane);
+        $bug = $template->type('bug') ?? throw new \LogicException('The template declares a bug.');
+        self::assertSame(LabelTone::Amber, $bug->tone);
+        self::assertFalse($bug->children);
+        self::assertFalse($bug->lane);
+        self::assertNull($template->type('chore'));
+    }
+
+    public function test_a_type_with_children_may_have_a_rule_that_reads_them(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+        $template['rules'][4]['when'] = ['card.type' => ['type' => 'epic']];
+        $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
+    public function test_a_type_without_children_under_a_not_or_in_another_branch_does_not_read_them(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [
+            ['not' => ['card.type' => ['type' => 'bug']]],
+            ['any' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]],
+        ]];
+        $template['rules'][4]['when'] = ['all' => [['not' => ['card.type' => ['type' => 'bug']]]]];
+        $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
+    public function test_many_any_lists_beside_a_child_read_parse_without_expanding_every_combination(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [
+            ['card.type' => ['type' => 'epic']],
+            ['card.children_finished' => []],
+            ...array_fill(0, 30, ['any' => [['pr.open' => []], ['card.type' => ['type' => 'epic']]]]),
+        ]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
+    public function test_a_pause_until_that_reads_children_only_for_epics_allows_a_rule_that_also_matches_bugs(): void
+    {
+        $template = self::valid();
+        $template['rules'][3]['when'] = ['any' => [['card.type' => ['type' => 'bug']], ['card.type' => ['type' => 'epic']]]];
+        $template['rules'][3]['then']['pause']['until'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
+    }
+
+    public function test_a_branch_that_names_a_second_type_never_holds_and_reads_nothing(): void
+    {
+        $template = self::valid();
+        $template['rules'][0]['when'] = ['all' => [
+            ['card.type' => ['type' => 'bug']],
+            ['any' => [['pr.open' => []], ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]]]],
+        ]];
+
+        self::assertCount(5, $this->parser->parse($template)->rules);
     }
 
     public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
@@ -228,6 +313,50 @@ final class TemplateParserTest extends TestCase
         self::assertSame(['A teardown command'], $rules[0]->then->checks);
     }
 
+    public function test_app_requests_are_optional_and_parse_to_value_objects(): void
+    {
+        self::assertSame([], $this->parser->parseAppRequests(['rules' => []]));
+
+        $requests = $this->parser->parseAppRequests(['requests' => [
+            ['id' => 'insights.analysis', 'kind' => 'analysis', 'prompt' => 'analysis', 'checks' => ['A skill']],
+        ]]);
+
+        self::assertEquals([new AppRequest('insights.analysis', 'analysis', 'analysis', ['A skill'])], $requests);
+    }
+
+    /** @return iterable<string, array{array<mixed>, list<string>}> */
+    public static function appRequestRefusals(): iterable
+    {
+        $request = static fn (array $change): array => ['requests' => [[...['id' => 'r', 'kind' => 'analysis', 'prompt' => 'analysis', 'checks' => ['A skill']], ...$change]]];
+
+        yield 'not a list' => [['requests' => ['a' => 1]], ['requests: must be a list']];
+        yield 'not a map' => [['requests' => ['x']], ['requests[0]: must be a map']];
+        yield 'no id' => [$request(['id' => '']), ['requests[0] id: must be a non-empty string']];
+        yield 'no kind' => [$request(['kind' => '']), ['requests[0] (r): parameter "kind" must be a non-empty string']];
+        yield 'a prompt with a path' => [$request(['prompt' => '../secret']), ['requests[0] (r): parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters']];
+        yield 'empty checks' => [$request(['checks' => []]), ['requests[0] (r): parameter "checks" must be a non-empty list of non-empty strings']];
+        yield 'an unknown key' => [$request(['slot' => 'x']), ['requests[0] (r): unknown key "slot"']];
+        yield 'a duplicate id' => [['requests' => [
+            ['id' => 'r', 'kind' => 'a', 'prompt' => 'a', 'checks' => ['c']],
+            ['id' => 'r', 'kind' => 'b', 'prompt' => 'b', 'checks' => ['c']],
+        ]], ['requests[1] (r): duplicate request id "r"']];
+    }
+
+    /**
+     * @param array<mixed> $source
+     * @param list<string> $errors
+     */
+    #[DataProvider('appRequestRefusals')]
+    public function test_app_requests_refuse_an_invalid_source(array $source, array $errors): void
+    {
+        try {
+            $this->parser->parseAppRequests($source);
+            self::fail('The parser must refuse the app requests.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame($errors, $e->errors);
+        }
+    }
+
     public function test_a_document_condition_takes_a_tag_and_an_optional_status(): void
     {
         $template = self::valid();
@@ -295,6 +424,127 @@ final class TemplateParserTest extends TestCase
         yield 'retry policy with a zero delay' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => [0]]] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
         yield 'retry policy with a text delay' => [static fn (array $t): array => ['onWorkFailed' => ['retryOn' => ['failed'], 'retries' => 1, 'backoffMinutes' => 'x']] + $t, 'onWorkFailed.backoffMinutes: must be a list of positive integers'];
         yield 'wrongly typed work timeout' => [static fn (array $t): array => ['workTimeoutMinutes' => 0] + $t, 'workTimeoutMinutes: must be a positive integer'];
+
+        yield 'missing types' => [static function (array $t): array {
+            unset($t['types']);
+
+            return $t;
+        }, 'types: is missing'];
+        yield 'empty types' => [static fn (array $t): array => ['types' => []] + $t, 'types: must be a non-empty list'];
+        yield 'missing default type' => [static function (array $t): array {
+            unset($t['defaultType']);
+
+            return $t;
+        }, 'defaultType: is missing'];
+        yield 'default type that is not a string' => [static fn (array $t): array => ['defaultType' => 3] + $t, 'defaultType: must be a non-empty string'];
+        yield 'default type that is not declared' => [static fn (array $t): array => ['defaultType' => 'chore'] + $t, 'defaultType: unknown type "chore"'];
+        yield 'default type that may have children' => [static fn (array $t): array => ['defaultType' => 'epic'] + $t, 'defaultType: type "epic" may have children'];
+        yield 'type with no label' => [static function (array $t): array {
+            unset($t['types'][1]['label']);
+
+            return $t;
+        }, 'types[1]: must be a map with a string "key" and a string "label"'];
+        yield 'type with a bad tone' => [static function (array $t): array {
+            $t['types'][1]['tone'] = 'beige';
+
+            return $t;
+        }, 'types[1] (bug): "tone" must be one of neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink, orange'];
+        yield 'type with no tone' => [static function (array $t): array {
+            unset($t['types'][1]['tone']);
+
+            return $t;
+        }, 'types[1] (bug): "tone" must be one of neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink, orange'];
+        yield 'type with an unknown capability' => [static function (array $t): array {
+            $t['types'][1]['capabilities'] = ['children', 'swimming'];
+
+            return $t;
+        }, 'types[1] (bug): "capabilities" must be a list of children, lane'];
+        yield 'type with an unknown key' => [static function (array $t): array {
+            $t['types'][1]['colour'] = 'amber';
+
+            return $t;
+        }, 'types[1] (bug): unknown key "colour"'];
+        yield 'duplicate type key' => [static function (array $t): array {
+            $t['types'][] = ['key' => 'bug', 'label' => 'board.card.type.bug', 'tone' => 'red'];
+
+            return $t;
+        }, 'types[3] (bug): duplicate type key "bug"'];
+        yield 'type key longer than the card column' => [static function (array $t): array {
+            $t['types'][1]['key'] = 'a-type-key-of-21-char';
+
+            return $t;
+        }, 'types[1] (a-type-key-of-21-char): "key" must have at most 20 characters'];
+        yield 'card type condition naming an undeclared type' => [static function (array $t): array {
+            $t['rules'][0]['when']['all'][0] = ['card.type' => ['type' => 'chore']];
+
+            return $t;
+        }, 'rules[0] (start) when.all[0]: card.type: unknown type "chore"'];
+        yield 'pause until naming an undeclared type' => [static function (array $t): array {
+            $t['rules'][3]['then']['pause']['until'] = ['card.type' => ['type' => 'chore']];
+
+            return $t;
+        }, 'rules[3] (wait) then.pause.until: card.type: unknown type "chore"'];
+        yield 'request refill naming an undeclared type' => [static function (array $t): array {
+            $t['rules'][0]['then']['request']['refill'] = ['card.type' => ['type' => 'chore']];
+
+            return $t;
+        }, 'rules[0] (start) then.request.refill: card.type: unknown type "chore"'];
+        yield 'rule reading the children of a type without children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'nested all reading the children of a type without children' => [static function (array $t): array {
+            $t['rules'][1]['when']['any'][] = ['all' => [['card.children_finished' => []], ['card.type' => ['type' => 'feature']]]];
+
+            return $t;
+        }, 'rules[1] (to-review): the type "feature" may not have children, but the rule reads them'];
+        yield 'all inside all reading the children of a type without children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['all' => [['card.children_finished' => []]]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'any branch reading the children of the type around it' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['any' => [['card.children_finished' => []], ['pr.open' => []]]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'any branch naming a type that the list around it reads the children of' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.children_finished' => []], ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'two sibling any lists, one naming the type and one reading the children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [
+                ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]],
+                ['any' => [['card.children_finished' => []], ['pr.open' => []]]],
+            ]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'negated child read beside a type without children' => [static function (array $t): array {
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['not' => ['card.children_finished' => []]]]];
+
+            return $t;
+        }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
+        yield 'pause until reading the children of a type without children' => [static function (array $t): array {
+            $t['rules'][3]['when'] = ['card.type' => ['type' => 'bug']];
+            $t['rules'][3]['then']['pause']['until'] = ['card.children_finished' => []];
+
+            return $t;
+        }, 'rules[3] (wait): the type "bug" may not have children, but the rule reads them'];
+        yield 'when reading the children of a type without children beside an until for another type' => [static function (array $t): array {
+            $t['rules'][3]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+            $t['rules'][3]['then']['pause']['until'] = ['card.type' => ['type' => 'epic']];
+
+            return $t;
+        }, 'rules[3] (wait): the type "bug" may not have children, but the rule reads them'];
+        yield 'evaluate of the children of a type without children' => [static function (array $t): array {
+            $t['rules'][4]['when'] = ['card.type' => ['type' => 'bug']];
+            $t['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
+
+            return $t;
+        }, 'rules[4] (done): the type "bug" may not have children, but the rule reads them'];
 
         yield 'duplicate slot key' => [static function (array $t): array {
             $t['slots'][] = ['key' => 'build', 'label' => 'workflow.slot.build'];
@@ -550,6 +800,113 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[3] (wait) then.pause: a pause must carry an "until" expression'];
+
+        $ask = static fn (callable $mutate): \Closure => static function (array $t) use ($mutate): array {
+            $t['rules'][] = self::askRule();
+            $mutate($t['rules'][5]['then']['ask']);
+
+            return $t;
+        };
+        yield 'ask nesting an ask' => [$ask(static function (array &$ask): void {
+            $ask['options'][0]['then'] = [['ask' => ['question' => 'q', 'options' => [['label' => 'l', 'then' => [['detach' => []]]]]]]];
+        }), 'rules[5] (unplanned) then.ask.options[0].then[0]: the action "ask" is not allowed inside an ask option'];
+        yield 'ask nesting a request' => [$ask(static function (array &$ask): void {
+            $ask['options'][1]['then'] = [['request' => ['kind' => 'implement']]];
+        }), 'rules[5] (unplanned) then.ask.options[1].then[0]: the action "request" is not allowed inside an ask option'];
+        yield 'ask nesting an unknown action' => [$ask(static function (array &$ask): void {
+            $ask['options'][1]['then'] = [['jump' => []]];
+        }), 'rules[5] (unplanned) then.ask.options[1].then[0]: unknown action "jump"'];
+        yield 'ask nesting a move to an unknown slot' => [$ask(static function (array &$ask): void {
+            $ask['options'][1]['then'] = [['move' => ['to' => 'nowhere']]];
+        }), 'rules[5] (unplanned) then.ask.options[1].then[0].move.to: unknown slot "nowhere"'];
+        yield 'ask with no question' => [$ask(static function (array &$ask): void {
+            unset($ask['question']);
+        }), 'rules[5] (unplanned) then.ask: missing parameter "question"'];
+        yield 'ask with no options' => [$ask(static function (array &$ask): void {
+            unset($ask['options']);
+        }), 'rules[5] (unplanned) then.ask: missing parameter "options"'];
+        yield 'ask with an empty options list' => [$ask(static function (array &$ask): void {
+            $ask['options'] = [];
+        }), 'rules[5] (unplanned) then.ask: parameter "options" must be a non-empty list of maps with a "label" and a "then" list'];
+        yield 'ask option with no label' => [$ask(static function (array &$ask): void {
+            unset($ask['options'][0]['label']);
+        }), 'rules[5] (unplanned) then.ask.options[0]: must be a map with a non-empty string "label" and a non-empty "then" list'];
+        yield 'ask option with an empty then' => [$ask(static function (array &$ask): void {
+            $ask['options'][0]['then'] = [];
+        }), 'rules[5] (unplanned) then.ask.options[0]: must be a map with a non-empty string "label" and a non-empty "then" list'];
+        yield 'ask option with a then that is a map' => [$ask(static function (array &$ask): void {
+            $ask['options'][0]['then'] = ['detach' => []];
+        }), 'rules[5] (unplanned) then.ask.options[0]: must be a map with a non-empty string "label" and a non-empty "then" list'];
+        yield 'ask option with an unknown key' => [$ask(static function (array &$ask): void {
+            $ask['options'][0]['when'] = [];
+        }), 'rules[5] (unplanned) then.ask.options[0]: unknown key "when"'];
+        yield 'ask with an unknown parameter' => [$ask(static function (array &$ask): void {
+            $ask['title'] = 'x';
+        }), 'rules[5] (unplanned) then.ask: unknown parameter "title"'];
+        yield 'link-document from the card' => [static function (array $t): array {
+            $t['rules'][] = ['id' => 'link', 'when' => ['pr.open' => []], 'then' => ['link-document' => ['from' => 'card', 'tag' => 'tech-design']]];
+
+            return $t;
+        }, 'rules[5] (link) then.link-document: parameter "from" must be parent'];
+        yield 'link-document with no tag' => [static function (array $t): array {
+            $t['rules'][] = ['id' => 'link', 'when' => ['pr.open' => []], 'then' => ['link-document' => ['from' => 'parent']]];
+
+            return $t;
+        }, 'rules[5] (link) then.link-document: missing parameter "tag"'];
+        yield 'detach with a parameter' => [static function (array $t): array {
+            $t['rules'][] = ['id' => 'detach', 'when' => ['pr.open' => []], 'then' => ['detach' => ['from' => 'parent']]];
+
+            return $t;
+        }, 'rules[5] (detach) then.detach: unknown parameter "from"'];
+    }
+
+    /** @return array<string, mixed> */
+    private static function askRule(): array
+    {
+        return [
+            'id' => 'unplanned',
+            'slot' => '@backlog',
+            'when' => ['pr.open' => []],
+            'then' => ['ask' => [
+                'question' => 'workflow.ask.unplanned_child',
+                'options' => [
+                    ['label' => 'workflow.ask.unplanned_child.link', 'then' => [['link-document' => ['from' => 'parent', 'tag' => 'tech-design']]]],
+                    ['label' => 'workflow.ask.unplanned_child.design', 'then' => [['move' => ['to' => 'build']]]],
+                    ['label' => 'workflow.ask.unplanned_child.detach', 'then' => [['detach' => []], ['move' => ['to' => '@backlog']]]],
+                ],
+            ]],
+        ];
+    }
+
+    public function test_an_ask_reads_its_question_and_its_options_with_their_nested_actions(): void
+    {
+        $template = self::valid();
+        $template['rules'][] = self::askRule();
+
+        $then = $this->parser->parse($template)->rules[5]->then;
+
+        self::assertSame(ActionType::Ask, $then->type);
+        self::assertSame(['question' => 'workflow.ask.unplanned_child'], $then->params);
+        self::assertEquals([
+            new AskOption('workflow.ask.unplanned_child.link', [new ActionCall(ActionType::LinkDocument, ['from' => 'parent', 'tag' => 'tech-design'])]),
+            new AskOption('workflow.ask.unplanned_child.design', [new ActionCall(ActionType::Move, ['to' => 'build'])]),
+            new AskOption('workflow.ask.unplanned_child.detach', [new ActionCall(ActionType::Detach, []), new ActionCall(ActionType::Move, ['to' => '@backlog'])]),
+        ], $then->options);
+    }
+
+    public function test_an_ask_template_round_trips_through_json(): void
+    {
+        $template = self::valid();
+        $template['rules'][] = self::askRule();
+        $decoded = json_decode(json_encode($template, \JSON_THROW_ON_ERROR), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        self::assertEquals($this->parser->parse($template), $this->parser->parseStored($decoded));
+    }
+
+    public function test_an_action_other_than_an_ask_has_no_options(): void
+    {
+        self::assertSame([], $this->parser->parse(self::valid())->rules[0]->then->options);
     }
 
     /** @param \Closure(array<string, mixed>): array<string, mixed> $mutate */
@@ -648,7 +1005,7 @@ final class TemplateParserTest extends TestCase
         yield 'a move to a slot' => [$rule(['move' => ['to' => 'next']]), ['rules[0] (app-rule) then.move.to: unknown slot "next"']];
         yield 'no rules key' => [[], ['rules: is missing']];
         yield 'rules not a list' => [['rules' => ['a' => 1]], ['rules: must be a list']];
-        yield 'another top-level key' => [['rules' => [], 'slots' => []], ['slots: unknown key, app rules hold only "rules"']];
+        yield 'another top-level key' => [['rules' => [], 'slots' => []], ['slots: unknown key, app rules hold only "rules" and "requests"']];
     }
 
     /**

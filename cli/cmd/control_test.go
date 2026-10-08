@@ -433,6 +433,17 @@ func TestBridgeReloadPrintsAChangedDir(t *testing.T) {
 	}
 }
 
+func TestBridgeReloadMarksAnUnusedFailingAccount(t *testing.T) {
+	serveTest(t, func(context.Context) reloadResult {
+		return reloadResult{OK: true, Projects: []string{"loupe"}, AccountsOff: map[string]string{"a": "x", "b": "y"}, AccountsUnused: []string{"b"}}
+	})
+
+	out, _, err := reloadCmd(t, "--rules", "rules.yaml")
+	if err != nil || !strings.HasSuffix(out, "\naccount a failing: x\naccount b (unused) failing: y\n") {
+		t.Fatalf("err = %v, stdout = %q", err, out)
+	}
+}
+
 // A failing account fails no reload, so the output names it after the rules.
 func TestBridgeReloadPrintsEachFailingAccount(t *testing.T) {
 	serveTest(t, func(context.Context) reloadResult {

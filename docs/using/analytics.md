@@ -172,7 +172,8 @@ The agent reads the worker runs, writes a report document, and proposes
 changes. Go to `/projects/{project}/analytics/reports`. Only the project owner
 can open it.
 
-An analysis needs a bridge with a work entry for the `analysis` subject.
+An analysis needs a bridge that sets `appPrompts: true` or has a work entry
+for the `analysis` subject.
 [Work requests](../extending/cli-bridge.md#work-requests) shows the entry. The
 `loupe-analysis` skill of the Loupe plugin does the work. For the **Experiment**
 topic, the agent reads the comparison, looks for causes other than the variant,
@@ -191,8 +192,10 @@ Fill the **Analyse** form, and press **Analyse**.
 | Effort | **Low**, **Medium**, **High**, **Extra high** or **Maximum** |
 
 An empty model or effort takes the project default. The analysis opens a work
-request, and a bridge that reports the `subject-analysis` capability claims it.
-The request model and effort replace the model of the work entry.
+request. A bridge that reports the `subject-analysis` capability claims it.
+So does a bridge that reports `app-prompts`, because the request carries the
+prompt that Loupe ships. The request model and effort replace the model of the
+work entry or the default model.
 
 A **Time** analysis reads the bucket times of the runs, the slowest tool calls
 and the idle gaps. It names repeated steps and polling loops, and it sets apart

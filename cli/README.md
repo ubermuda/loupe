@@ -677,13 +677,17 @@ and a request about another subject type than the entry names.
 A request can carry an app prompt, which ships with Loupe and which no
 project can change. Set
 `appPrompts: true` at the top of the file to run it for a kind that the map
-does not hold. An entry of the kind always wins over the app prompt. The app
+does not hold, or whose entry names another subject type. An entry of the kind
+about the same subject always wins over the app prompt. The app
 prompt takes the placeholders below and gets the
 [prompt footer](#prompt-footer). It runs as a worker in the `default` pool,
-on the account of `defaults.account`. It takes the model and the mode of that
-account, then `defaults.permissions` and the flags. The bridge
+on the account of `defaults.account`. It takes the mode of that account, then
+`defaults.permissions` and the flags. The model and the effort of the request
+apply. A request with no model uses the model of that account. The bridge
 skips a request whose app prompt is blank or names an unknown placeholder. The
-key is off when it is absent.
+key is off when it is absent. With the key on, the bridge reports the
+`app-prompts` capability, unless that account is off. The server then also offers it a request that names a
+`subject-` capability and carries an app prompt.
 
 ```yaml
 appPrompts: true

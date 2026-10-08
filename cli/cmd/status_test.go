@@ -199,16 +199,26 @@ func TestStatusNamesARuleFileThatRunsNoAgent(t *testing.T) {
 	}
 
 	out, err := runStatus(t, "--project", projectA, "--rules", path)
-	if err != nil || !strings.Contains(out, "Accounts:    "+path+" runs no agent, so no account to check\n") {
+	if err != nil || !strings.Contains(out, "Accounts:    "+path+" runs no agent, so no account is in use\n") {
 		t.Fatalf("status: %v\n%s", err, out)
 	}
 }
 
-func TestStatusPassesWhenEachAccountIsReady(t *testing.T) {
+func TestStatusPassesWhenEachUsedAccountIsReady(t *testing.T) {
 	passingStatus(t)
 
 	out, err := runStatus(t, "--project", projectA, "--rules", statusRules(t, false))
-	if err != nil || !strings.Contains(out, "Account:     in (claude-code): ready\n") || strings.Contains(out, "out (") || lastLine(out) != statusPass {
+	if err != nil || !strings.Contains(out, "Account:     in (claude-code): ready\n") || lastLine(out) != statusPass {
+		t.Fatalf("status: %v\n%s", err, out)
+	}
+}
+
+// An account no rule runs on prints its line and its detail, and fails nothing.
+func TestStatusPrintsAFailingUnusedAccountAndStillPasses(t *testing.T) {
+	passingStatus(t)
+
+	out, err := runStatus(t, "--project", projectA, "--rules", statusRules(t, false))
+	if err != nil || !strings.Contains(out, "Account:     out (claude-code, unused): failing: not logged in\n             run `CLAUDE_CONFIG_DIR=") || lastLine(out) != statusPass {
 		t.Fatalf("status: %v\n%s", err, out)
 	}
 }

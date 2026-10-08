@@ -7,7 +7,6 @@ namespace App\Tests\Module\Insights\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Messenger\RecomputeBucketTimes;
@@ -61,7 +60,7 @@ final class AcceptProposalHandlerTest extends KernelTestCase
         self::assertInstanceOf(Card::class, $card);
         self::assertSame('Cache the dependencies', $card->title);
         self::assertSame('Each run installs them again.', $card->body);
-        self::assertSame(CardType::Feature, $card->type);
+        self::assertSame('feature', $card->type);
         self::assertSame('backlog', $card->column->slug);
         self::assertSame([$documentId], array_map(static fn (CardDocument $link): string => (string) $link->document->id, $card->documents->toArray()));
     }

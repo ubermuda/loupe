@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Session\ReadOnlyAwareSessionHandler;
 use Doctrine\ORM\EntityManagerInterface;
@@ -96,7 +95,7 @@ final class ShowBoardStructureControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'structure-lanes@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), 'epic');
         $this->childOf($em, $epic, $this->card($em, $project, 'Child in the lane', 'in-progress'));
         $this->card($em, $project, 'Outside the lane', 'in-progress');
         $columns = $this->columnIds($project);

@@ -12,7 +12,6 @@ use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
@@ -159,7 +158,7 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
             project: $this->project,
             title: $title,
             body: 'Body',
-            type: CardType::Bug,
+            type: 'bug',
             column: $this->column($this->project, 'next'),
             reporter: CardReporter::Agent,
         ));

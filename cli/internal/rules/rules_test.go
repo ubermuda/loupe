@@ -454,6 +454,12 @@ const accountsBody = "appPrompts: true\naccounts:\n  claude:\n    harness: claud
 	"  split:\n    prompt: x\n    variants:\n      - {name: a, weight: 1, model: haiku}\n      - {name: b, weight: 1, account: fourth}\n" +
 	"  test:\n    action: command\n    run: [make, test]\n"
 
+func TestDeclaredAccountsNamesEveryAccount(t *testing.T) {
+	if got := parse(t, accountsBody).DeclaredAccounts(); !slices.Equal(got, []string{"claude", "fourth", "other", "spare", "third"}) {
+		t.Fatalf("DeclaredAccounts = %v", got)
+	}
+}
+
 func TestUsedAccountsNamesTheAccountOfEachAgentRun(t *testing.T) {
 	if got := parse(t, accountsBody).UsedAccounts(); !slices.Equal(got, []string{"claude", "fourth", "other", "third"}) {
 		t.Fatalf("UsedAccounts = %v", got)
@@ -468,7 +474,8 @@ func TestUsedAccountsNamesTheAccountOfEachAgentRun(t *testing.T) {
 }
 
 // An account that fails its check turns off each entry that runs on it, a
-// variant's account included. The other entries and command entries run.
+// variant's account included, and the app prompts of the default account.
+// The other entries and command entries run.
 func TestAFailingAccountTurnsOffItsEntries(t *testing.T) {
 	app := workRequest("triage")
 	app.Prompt = "Triage {cardNumber}."
@@ -501,6 +508,9 @@ func TestAFailingAccountTurnsOffItsEntries(t *testing.T) {
 			want := []string{CapabilityWorkRequests}
 			if tc.interactive {
 				want = append(want, CapabilityInteractive)
+			}
+			if tc.off != "claude" {
+				want = append(want, CapabilityAppPrompts)
 			}
 			if got := s.Capabilities(); !slices.Equal(got, want) {
 				t.Fatalf("Capabilities = %v, want %v", got, want)

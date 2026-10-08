@@ -10,7 +10,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -118,6 +117,6 @@ final class CardLinkResolverTest extends KernelTestCase
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
-        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature));
+        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', 'feature'));
     }
 }

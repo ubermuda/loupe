@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\View;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\View\BacklogDirection;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogSort;
@@ -47,7 +46,7 @@ final class BacklogListQueryTest extends TestCase
     {
         self::assertSame(
             ['page' => 2, 'type' => 'bug', 'sort' => 'created', 'dir' => 'asc'],
-            new BacklogListQuery(page: 2, type: CardType::Bug, dir: BacklogDirection::Asc)->routeParams(),
+            new BacklogListQuery(page: 2, type: 'bug', dir: BacklogDirection::Asc)->routeParams(),
         );
         self::assertSame(
             ['page' => 1, 'sort' => 'type', 'dir' => 'desc'],

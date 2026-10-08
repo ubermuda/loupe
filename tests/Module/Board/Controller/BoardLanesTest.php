@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\SetCardLaneFormType;
 use App\Module\Board\Service\LaneDecks;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
@@ -50,7 +49,7 @@ final class BoardLanesTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Board epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Board epic', 'next'), 'epic');
         $open = $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'triage'));
         $done = $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
         $loose = $this->card($em, $project, 'Loose card', 'triage');
@@ -118,7 +117,7 @@ final class BoardLanesTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Quiet epic', 'in-progress'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Quiet epic', 'in-progress'), 'epic');
         $done = [];
         for ($index = 0; $index < 3; ++$index) {
             $done[] = $this->childOf($em, $epic, $this->card($em, $project, 'Done '.$index, 'done'));
@@ -159,7 +158,7 @@ final class BoardLanesTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Streamed epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Streamed epic', 'next'), 'epic');
         $this->childOf($em, $epic, $this->card($em, $project, 'Child'));
         [$projectId, $epicId] = [(string) $project->id, (string) $epic->id];
         $em->clear();
@@ -218,7 +217,7 @@ final class BoardLanesTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Finished epic', 'done'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Finished epic', 'done'), 'epic');
         $children = [];
         for ($index = 0; $index < 3; ++$index) {
             $children[] = (string) $this->childOf($em, $epic, $this->card($em, $project, 'Finished child '.$index, 'done'))->id;
@@ -246,13 +245,13 @@ final class BoardLanesTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Deck epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Deck epic', 'next'), 'epic');
         $waiting = [];
         for ($index = LaneDecks::DECK_SIZE + 1; $index >= 0; --$index) {
             $waiting[$index] = (string) $this->childOf($em, $epic, $this->card($em, $project, 'Waiting '.$index, 'backlog', $index))->id;
         }
         ksort($waiting);
-        $bare = $this->typed($em, $this->card($em, $project, 'Epic with nothing waiting', 'next', 1), CardType::Epic);
+        $bare = $this->typed($em, $this->card($em, $project, 'Epic with nothing waiting', 'next', 1), 'epic');
         $this->card($em, $project, 'Waiting with no epic', 'backlog', 20);
         [$epicId, $bareId] = [(string) $epic->id, (string) $bare->id];
         $backlogId = (string) $this->column($project, 'backlog')->id;
@@ -298,7 +297,7 @@ final class BoardLanesTest extends WebTestCase
         $this->addTriageColumn($epics);
         $em->flush();
         for ($index = 0; $index < 3; ++$index) {
-            $epic = $this->typed($em, $this->card($em, $epics, 'Epic '.$index, 'next', $index), CardType::Epic);
+            $epic = $this->typed($em, $this->card($em, $epics, 'Epic '.$index, 'next', $index), 'epic');
             $this->childOf($em, $epic, $this->card($em, $epics, 'Child '.$index, 'triage'));
             $this->childOf($em, $epic, $this->card($em, $epics, 'Done child '.$index, 'done'));
             $this->childOf($em, $epic, $this->card($em, $epics, 'Waiting child '.$index, 'backlog', $index));

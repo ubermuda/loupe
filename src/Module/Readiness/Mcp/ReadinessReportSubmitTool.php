@@ -11,12 +11,13 @@ use App\Module\Readiness\Command\ReportFinding;
 use App\Module\Readiness\Command\ReportProposal;
 use App\Module\Readiness\Command\SubmitReadinessReportCommand;
 use App\Module\Readiness\Command\SubmitReadinessReportHandler;
+use App\Module\Readiness\Service\ProposalTypes;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
-#[McpTool(name: self::NAME, description: 'Submit the readiness report of a discovery run. Loupe writes the report as a document for the owner to review, and links it to the discovery card. runId is the run that discovery_start or readiness_get named. workflow names the workflow the project uses. findings lists the checks you made, each with a check name, a status of ready or gap, and the evidence you found. proposals lists cards that would close a gap, each with a key that is unique in the report, a title, a type (feature, bug, security, tooling, docs or idea) and a body. When an open card of this project covers a proposal already, pass its number as openCardNumber, and the report shows that card instead of a tick box. The owner ticks the proposals to keep and approves the report, and Loupe then creates one card in Next for each ticked proposal. One report is allowed for each run, and only while the run waits for it.')]
+#[McpTool(name: self::NAME, description: 'Submit the readiness report of a discovery run. Loupe writes the report as a document for the owner to review, and links it to the discovery card. runId is the run that discovery_start or readiness_get named. workflow names the workflow the project uses. findings lists the checks you made, each with a check name, a status of ready or gap, and the evidence you found. proposals lists cards that would close a gap, each with a key that is unique in the report, a title, a type and a body. The type is a type key from board_columns that has no children capability. When an open card of this project covers a proposal already, pass its number as openCardNumber, and the report shows that card instead of a tick box. The owner ticks the proposals to keep and approves the report, and Loupe then creates one card in Next for each ticked proposal. One report is allowed for each run, and only while the run waits for it.')]
 final readonly class ReadinessReportSubmitTool
 {
     use ResolvesBoundProject;
@@ -38,7 +39,7 @@ final readonly class ReadinessReportSubmitTool
         'properties' => [
             'key' => ['type' => 'string', 'description' => 'a short id that is unique in this report'],
             'title' => ['type' => 'string', 'description' => 'the title of the card to create'],
-            'type' => ['type' => 'string', 'enum' => ['feature', 'bug', 'security', 'tooling', 'docs', 'idea'], 'description' => 'the card type'],
+            'type' => ['type' => 'string', 'description' => 'a type key from board_columns that has no children capability'],
             'body' => ['type' => 'string', 'description' => 'what the card asks for, in Markdown'],
             'openCardNumber' => ['type' => 'integer', 'description' => 'the number of an open card of this project that covers the proposal already'],
         ],
@@ -47,6 +48,7 @@ final readonly class ReadinessReportSubmitTool
 
     public function __construct(
         private SubmitReadinessReportHandler $submitReport,
+        private ProposalTypes $proposalTypes,
         private AuthenticatedProjectResolver $projectResolver,
         private UrlGeneratorInterface $urls,
     ) {
@@ -72,6 +74,7 @@ final readonly class ReadinessReportSubmitTool
         array $proposals = [],
         string $summary = '',
     ): array {
+        $project = null;
         try {
             $project = $this->requireBoundProject($this->projectResolver);
 
@@ -98,7 +101,10 @@ final readonly class ReadinessReportSubmitTool
                 SubmitReadinessReportHandler::ALREADY_REPORTED => 'This run has a report already. Call readiness_get to read it, or discovery_start to open a new run.',
                 SubmitReadinessReportHandler::FINDING_INVALID => 'Each finding needs a check, an evidence text, and a status of ready or gap. Fix the findings, then call readiness_report_submit again.',
                 SubmitReadinessReportHandler::PROPOSAL_INVALID => 'Each proposal needs a key of up to 64 characters, a title of up to 255 characters, and a type. Fix the proposals, then call readiness_report_submit again.',
-                SubmitReadinessReportHandler::PROPOSAL_TYPE => 'A proposal type must be one of feature, bug, security, tooling, docs or idea. Fix the type, then call readiness_report_submit again.',
+                SubmitReadinessReportHandler::PROPOSAL_TYPE => \sprintf(
+                    'A proposal type must be one of %s. Call board_columns for the types of this project. Fix the type, then call readiness_report_submit again.',
+                    null === $project ? 'the types of this project' : implode(', ', $this->proposalTypes->acceptedFor($project)),
+                ),
                 SubmitReadinessReportHandler::PROPOSAL_DUPLICATE => 'Two proposals have the same key. Give each proposal its own key, then call readiness_report_submit again.',
                 SubmitReadinessReportHandler::CARD_NOT_OPEN => 'An openCardNumber names a card that does not exist in this project, or a card that is finished. Use card_search for an open card, or leave openCardNumber out, then call readiness_report_submit again.',
                 SubmitReadinessReportHandler::MARKUP_NOT_ALLOWED => 'The report text holds a decision block. Remove the "<!-- decision" comment from the text, then call readiness_report_submit again.',

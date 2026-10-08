@@ -6,7 +6,6 @@ namespace App\Tests\Module\Readiness\Service;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
@@ -361,7 +360,7 @@ final class ReadinessChecklistTest extends KernelTestCase
         $this->seedColumns($project);
         $em->flush();
         $card = new Card($project, $this->column($project, 'backlog'), 'Discovery', '', 1);
-        $card->type = CardType::Tooling;
+        $card->type = 'tooling';
         $em->persist($card);
         $run = new DiscoveryRun($project, $card);
         $run->state = $state;

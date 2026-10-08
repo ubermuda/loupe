@@ -10,7 +10,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\SearchBoardCommand;
 use App\Module\Board\Command\SearchBoardHandler;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -107,7 +106,7 @@ final class SearchBoardHandlerTest extends KernelTestCase
             project: $this->project,
             title: $title,
             body: $body,
-            type: CardType::Feature,
+            type: 'feature',
         ));
     }
 }
