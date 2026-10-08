@@ -507,6 +507,10 @@ this line by hand under `[mcp_servers.loupe]` in the profile file or in
 default_tools_approval_mode = "approve"
 ```
 
+The check reads the home folder only. It does not read a `.codex/config.toml` in a
+project, because Codex does not print the effective approval mode. A project file that
+sets another mode can still block the Loupe tools.
+
 A run at the `full` level works without the line. The account check still asks for it,
 because the check does not know the levels of the rules. The bridge passes no approval override.
 
