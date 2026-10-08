@@ -113,7 +113,7 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $blockedRun = $this->seedRun($em, $project, receivedAt: $at('10:00'), output: 'Needs a token.', cardId: $blocked, state: WorkerRunState::Blocked, hasResult: true);
         $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $cleared, state: WorkerRunState::GaveUp, hasResult: true);
         $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $cleared, state: WorkerRunState::Succeeded, hasResult: true);
-        $waiting = $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $stillRunning, state: WorkerRunState::Blocked, hasResult: true);
+        $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $stillRunning, state: WorkerRunState::Blocked, hasResult: true);
         $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $stillRunning, state: WorkerRunState::Running);
         $this->seedRun($em, $project, receivedAt: $at('10:00'), exitCode: 1, cardId: $failed);
         $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $onForge, state: WorkerRunState::WaitingOnForge, hasResult: true);
@@ -125,7 +125,7 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $warnings = self::getContainer()->get(CardWorkerRunsExtension::class)->cardRunWarnings($project);
 
         ksort($warnings);
-        $expected = [(string) $gaveUp, (string) $blocked, (string) $stillRunning, (string) $failed];
+        $expected = [(string) $gaveUp, (string) $blocked, (string) $failed];
         sort($expected);
         self::assertSame($expected, array_keys($warnings));
 
@@ -135,8 +135,6 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         self::assertSame('Tests still fail.', $warning->summary);
 
         self::assertSame((string) $blockedRun->id, $warnings[(string) $blocked]->runId);
-        // An open run is not an outcome, so the blocked outcome before it still stands.
-        self::assertSame((string) $waiting->id, $warnings[(string) $stillRunning]->runId);
     }
 
     public function test_one_card_reads_its_own_warning_and_no_other(): void

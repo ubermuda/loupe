@@ -601,7 +601,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame(['selects' => $reads['three-cards']['selects'], 'pauses' => 1, 'holds' => 1], $reads['twelve-cards']);
     }
 
-    /** The warning holds wherever the card goes, until a later outcome replaces it. */
+    /** The warning holds wherever the card goes, until a newer run of the card hides it. */
     public function test_a_card_shows_the_run_that_gave_up_in_any_column(): void
     {
         $client = static::createClient();

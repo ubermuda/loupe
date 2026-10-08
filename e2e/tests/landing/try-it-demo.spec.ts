@@ -19,6 +19,9 @@ test.use({
     viewport: { width: 1440, height: 900 },
 });
 
+// `afterAll` runs once per worker, so a split file switches the flag off mid-run.
+test.describe.configure({ mode: 'default' });
+
 const MARGIN = '[data-comment-anchor-target="margin"]';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 
