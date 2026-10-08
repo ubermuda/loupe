@@ -439,6 +439,32 @@ Claude Code also reads its MCP servers and its skills from the config folder.
 Add the `loupe` MCP server to each config folder. Install the Loupe skills in
 each config folder too. Otherwise a worker of that account cannot reach Loupe.
 
+### Account checks
+
+The bridge checks each account that `rules.yaml` uses, when it starts and on
+each `loupe bridge reload`. A check of a Claude Code account asks three
+questions:
+
+1. Is `claude` on `PATH`?
+2. Does `claude auth status` pass with the environment of the account? That
+   environment is the env files of the account and its `CLAUDE_CONFIG_DIR`. A
+   key such as `ANTHROPIC_API_KEY` in an env file also passes.
+3. Does Claude Code see the `loupe` MCP server and the Loupe skills in each
+   project folder? The server is seen when the project or the account's
+   `.claude.json` declares it, or when an enabled plugin serves it. The skills
+   are seen in `.claude/skills/loupe-*` of the project, in `skills/loupe-*` of
+   the config folder, or in an enabled `loupe@` plugin.
+
+A failing account turns off its own entries only. An entry is off when its
+account, or the account of one of its variants, fails. Every other entry keeps
+running, and a request for an entry that is off waits, as it does when no
+bridge takes it. The log line `account_failed` names the account, the reason
+and the detail. The heartbeat sends each account with its harness, its state
+and a short reason, and the Agents page in Loupe shows them. A path, an email
+or a key never leaves the machine. The bridge checks again only on a reload,
+so run `loupe bridge reload` after you fix an account. `loupe status` runs the
+same checks.
+
 ### Migration and rollback
 
 At each start, the bridge gives an account to a `rules.yaml` with no `accounts`

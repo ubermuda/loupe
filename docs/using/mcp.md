@@ -135,6 +135,8 @@ including ones you create later. The approval page says so before you allow it.
 
 `loupe status` checks the setup. Run it in the repository. It calls
 `project_current` through the MCP server and prints the name of the project.
+When a rule file exists, it also checks each account of the file, as
+[Account checks](../extending/cli-bridge.md#account-checks) says.
 
 ## Connecting by URL
 

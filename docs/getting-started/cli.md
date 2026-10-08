@@ -188,7 +188,8 @@ the Go version and the platform.
 
 After `loupe login` and `loupe init`, run `loupe status` in the repository. It
 asks Loupe for the project of the repository, through the MCP server, and
-prints the project name.
+prints the project name. After you write a rule file, it also checks that each
+account is ready.
 
 Next, sign in with `loupe login` and write a rule file. After a script install,
 the rule file can already hold the `autoUpdate` line. Add an `accounts` block,
