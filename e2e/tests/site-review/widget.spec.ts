@@ -503,6 +503,47 @@ test('epic mode files each note as a card under the epic', async ({ page }) => {
     );
 });
 
+test('epic mode shows a type selector when the template has two grouping types', async ({
+    page,
+}) => {
+    // Both shipped templates declare one grouping type, so the start request
+    // is rewritten to name two. The server still holds the real template.
+    await page.route('**/api/site-review/review*', async (route) => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        payload.parentTypes = [
+            { key: 'initiative', label: 'Initiative' },
+            { key: 'epic', label: 'Epic' },
+        ];
+        await route.fulfill({ response, json: payload });
+    });
+    await openHarness(page, null);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await startNote(page, 'The pricing table overflows');
+    const picker = page.locator('#lp-picker');
+    await picker
+        .getByRole('button', { name: 'A card for each note, under an epic' })
+        .click();
+
+    const selector = picker.getByLabel('New card type');
+    await expect(selector.locator('option')).toHaveText(['Initiative', 'Epic']);
+    await selector.selectOption('epic');
+    const [created] = await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().endsWith('/api/board/cards') &&
+                response.request().method() === 'POST',
+        ),
+        picker.getByRole('button', { name: 'Create', exact: true }).click(),
+    ]);
+
+    expect(created.status()).toBe(201);
+    expect(created.request().postDataJSON()).toMatchObject({
+        parent: true,
+        type: 'epic',
+    });
+});
+
 test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     page,
 }) => {

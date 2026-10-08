@@ -84,6 +84,15 @@ final class CreateCardHandlerSourceTest extends KernelTestCase
         self::assertSame(['source' => 'widget', 'source_run_id' => null, 'source_run_card_id' => null], $row);
     }
 
+    public function test_the_created_row_records_the_type_of_the_card(): void
+    {
+        $card = ($this->handler)(new CreateCardCommand($this->project, 'Ship it', '', 'bug'));
+
+        $detail = $this->em->getConnection()->fetchOne("SELECT detail FROM board_card_events WHERE card_id = :id AND kind = 'created'", ['id' => (string) $card->id]);
+        self::assertIsString($detail);
+        self::assertSame('bug', json_decode($detail, true, flags: \JSON_THROW_ON_ERROR)['type']);
+    }
+
     public function test_a_row_with_no_stored_source_reads_the_reporter(): void
     {
         $card = ($this->handler)(new CreateCardCommand($this->project, 'Ship it', '', 'feature', reporter: CardReporter::Human));

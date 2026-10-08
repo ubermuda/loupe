@@ -10,6 +10,8 @@ use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Command\BindWorkflowTemplateHandler;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AgentCredential;
 use App\Tests\Support\OAuthScenario;
@@ -21,6 +23,16 @@ use Symfony\Component\HttpFoundation\Request;
 final class BoardCardsApiTest extends WebTestCase
 {
     use BoardColumnFixtures;
+
+    private const array GROUPING_TYPES = [
+        ['key' => 'bug', 'label' => 'Bug', 'tone' => 'amber'],
+        ['key' => 'initiative', 'label' => 'Initiative', 'tone' => 'blue', 'capabilities' => ['children', 'lane']],
+        ['key' => 'epic', 'label' => 'Epic', 'tone' => 'lime', 'capabilities' => ['children']],
+    ];
+
+    private const array NO_GROUPING_TYPE = [
+        ['key' => 'bug', 'label' => 'Bug', 'tone' => 'amber'],
+    ];
 
     public function test_a_reviewer_creates_a_card_and_it_records_who_raised_it(): void
     {
@@ -129,6 +141,103 @@ final class BoardCardsApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['feature', 'bug', 'security', 'tooling', 'docs', 'idea', 'epic'], json_decode((string) $client->getResponse()->getContent(), true)['types']);
         self::assertSame([], static::getContainer()->get(CardRepository::class)->findBy(['project' => $project]));
+    }
+
+    public function test_the_picker_lists_the_cards_of_every_type_that_can_have_children(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-parent-list@example.com');
+        $this->declareTypes($project, self::GROUPING_TYPES);
+        $em = $this->em();
+
+        $em->persist(new Card($project, $this->column($project, 'backlog'), 'Q4 initiative', '', 1, type: 'initiative'));
+        $em->persist(new Card($project, $this->column($project, 'backlog'), 'Checkout review', '', 2, type: 'epic'));
+        $em->persist(new Card($project, $this->column($project, 'backlog'), 'Footer overlaps', '', 3, type: 'bug'));
+        $em->persist(new Card($project, $this->column($project, 'done'), 'Old review', '', 4, type: 'epic'));
+        $em->flush();
+
+        $this->api($client, Request::METHOD_GET, '/api/board/cards?parent=1', $raw);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([2, 1], array_column(json_decode((string) $client->getResponse()->getContent(), true)['cards'], 'number'));
+    }
+
+    public function test_the_picker_lists_nothing_when_no_type_can_have_children(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-parent-none@example.com');
+        $this->declareTypes($project, self::NO_GROUPING_TYPE);
+        $this->em()->persist(new Card($project, $this->column($project, 'backlog'), 'Footer overlaps', '', 1, type: 'bug'));
+        $this->em()->flush();
+
+        $this->api($client, Request::METHOD_GET, '/api/board/cards?parent=1', $raw);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([], json_decode((string) $client->getResponse()->getContent(), true)['cards']);
+    }
+
+    public function test_a_parent_card_takes_the_type_the_reviewer_chose(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-parent-create@example.com');
+        $this->declareTypes($project, self::GROUPING_TYPES);
+
+        $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, ['title' => 'Q4', 'parent' => true, 'type' => 'epic']);
+        self::assertResponseStatusCodeSame(201);
+        $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, ['title' => 'Q5', 'parent' => true]);
+        self::assertResponseStatusCodeSame(201);
+
+        $cards = static::getContainer()->get(CardRepository::class)->findBy(['project' => $project], ['number' => 'ASC']);
+        self::assertSame(['epic', 'initiative'], array_map(static fn (Card $card) => $card->type, $cards));
+    }
+
+    public function test_a_parent_card_refuses_a_type_that_cannot_have_children(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-parent-refuse@example.com');
+        $this->declareTypes($project, self::GROUPING_TYPES);
+
+        $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, ['title' => 'Q4', 'parent' => true, 'type' => 'bug']);
+
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('unknown_type', $data['error']);
+        self::assertSame(['initiative', 'epic'], $data['types']);
+        self::assertSame([], static::getContainer()->get(CardRepository::class)->findBy(['project' => $project]));
+    }
+
+    public function test_a_parent_card_is_refused_when_no_type_can_have_children(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-parent-nogroup@example.com');
+        $this->declareTypes($project, self::NO_GROUPING_TYPE);
+
+        $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, ['title' => 'Q4', 'parent' => true]);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    /**
+     * Gives the project a template whose types are the given ones, as the
+     * workflow template parser stores them.
+     *
+     * @param list<array<string, mixed>> $types
+     */
+    private function declareTypes(Project $project, array $types): void
+    {
+        $handler = static::getContainer()->get(BindWorkflowTemplateHandler::class);
+        self::assertInstanceOf(BindWorkflowTemplateHandler::class, $handler);
+        $binding = $handler(new BindWorkflowTemplateCommand($project, 'simple', []));
+        $definition = $binding->definition;
+        $definition['types'] = $types;
+        $definition['defaultType'] = 'bug';
+        $binding->definition = $definition;
+        $this->em()->flush();
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardTypeCatalog;
@@ -36,6 +37,7 @@ final readonly class DeleteFeedbackHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private CardTypeCatalog $catalog,
+        private CardEventRepository $cardEvents,
     ) {
     }
 
@@ -73,7 +75,7 @@ final readonly class DeleteFeedbackHandler
             if (!$card->column->backlog
                 || $types->get($card->type)->children
                 || [] !== $this->cardSiteReviewComments->findForCard($card)
-                || $this->cards->hasWork($card, $link->createdTitle ?? $card->title, $types->defaultKey)) {
+                || $this->cards->hasWork($card, $link->createdTitle ?? $card->title, $this->cardEvents->createdType($card) ?? $types->defaultKey)) {
                 return false;
             }
 

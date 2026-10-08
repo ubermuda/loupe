@@ -46,13 +46,23 @@ final class ListCardsController extends AppController
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
+        $known = $this->catalog->forProject($project);
         $query = $request->query->get('q');
         $type = $request->query->get('type');
+        $types = \is_string($type) && $known->has($type) ? [$type] : [];
+        if ($request->query->getBoolean('parent')) {
+            $types = $known->withChildren();
+            // An empty list would mean every type, which is the wrong answer here.
+            if ([] === $types) {
+                return $this->json(['cards' => []]);
+            }
+        }
+
         $view = ($this->handler)(new SearchCardsCommand(
             $project,
             \is_string($query) ? trim($query) : '',
             self::LIMIT,
-            \is_string($type) && $this->catalog->forProject($project)->has($type) ? $type : null,
+            $types,
         ));
 
         return $this->json(['cards' => array_map(

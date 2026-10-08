@@ -616,7 +616,7 @@ final readonly class ProjectShowcaseSeeder
         $this->em->persist(new WorkerRunStateChange($open, WorkerRunState::Running, $startedAt, $startedAt));
         $this->em->flush();
 
-        $this->cardEvents->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-4 days'));
+        $this->cardEvents->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => $backlog, 'type' => $card->type], new \DateTimeImmutable('-4 days'));
         $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::Agent, $owner, ['from' => $backlog, 'to' => $inProgress, 'cause' => null], new \DateTimeImmutable('-3 days'));
         $this->cardEvents->record($card, CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks-failed', 'pullRequest' => 441], new \DateTimeImmutable('-48 hours'));
         $this->cardEvents->record($card, CardEventKind::RunFinished, CardReporter::Agent, $owner, [
