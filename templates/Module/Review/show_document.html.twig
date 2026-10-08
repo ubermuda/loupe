@@ -85,7 +85,7 @@
     {% set diffUnmarked = diffNavigation and diff.hasChanges and diffView.value != 'source' and diffChangeCount == 0 %}
     <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
         data-controller="{{ (reviewControllers|merge(['review-panels']))|join(' ') }}"
-        data-action="review-panels:filter->comment-anchor#filterThreads comment-anchor:resolved-filter->review-panels#resolvedFilter"
+        data-action="review-panels:filter->comment-anchor#filterThreads comment-anchor:resolved-filter->review-panels#resolvedFilter comment-anchor:reveal->review-panels#reveal"
         {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"{% endif %}
         {%- if diffCommenting %} data-comment-anchor-diff-value="true"
             data-comment-anchor-deleted-message-value="{{ 'review.document.diff.comment.deleted_refused'|trans }}"
@@ -233,7 +233,7 @@
                 class: 'lp-comment-composer',
                 'data-comment-anchor-target': 'composer',
                 'data-controller': 'keyboard-submit',
-                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
+                'data-action': 'turbo:submit-start->comment-anchor#onSubmitStart turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
                 hidden: true,
             }}) }}
                 {{ form_widget(addCommentForm.quote) }}
@@ -381,7 +381,7 @@
                component class outranks the UA [hidden] rule and would un-hide it. #}
             {{ form_start(strikePassageForm, {attr: {
                 'data-comment-anchor-target': 'strikeForm',
-                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd',
+                'data-action': 'turbo:submit-start->comment-anchor#onSubmitStart turbo:submit-end->comment-anchor#onSubmitEnd',
                 hidden: true,
             }}) }}
                 {{ form_widget(strikePassageForm.quote) }}
@@ -397,7 +397,7 @@
                 class: 'lp-comment-composer',
                 'data-comment-anchor-target': 'suggestComposer',
                 'data-controller': 'keyboard-submit',
-                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
+                'data-action': 'turbo:submit-start->comment-anchor#onSubmitStart turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
                 hidden: true,
             }}) }}
                 {{ form_widget(suggestRewordingForm.quote) }}

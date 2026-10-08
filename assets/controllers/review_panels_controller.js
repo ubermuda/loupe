@@ -52,7 +52,27 @@ export default class extends Controller {
         const name = event.params.name;
         const open = button.getAttribute('aria-pressed') !== 'true';
         this.#show(name, open);
+        this.#remember(name, open);
+        window.dispatchEvent(new Event('resize'));
+    }
 
+    reveal() {
+        const button = this.buttonTargets.find(
+            (each) => each.dataset.reviewPanelsNameParam === 'comments',
+        );
+        if (
+            button === undefined ||
+            this.#isDisabled(button) ||
+            button.getAttribute('aria-pressed') === 'true'
+        ) {
+            return;
+        }
+        this.#show('comments', true);
+        this.#remember('comments', true);
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    #remember(name, open) {
         // Stored choices for a panel this page lacks or disables stay as they
         // were, so a comparison does not close Decisions on the document.
         const panels = new Set(this.#storedPanels() ?? DEFAULT_PANELS);
@@ -69,7 +89,6 @@ export default class extends Controller {
         } catch {
             // Storage can be blocked. The toggle still works on this page.
         }
-        window.dispatchEvent(new Event('resize'));
     }
 
     filter(event) {

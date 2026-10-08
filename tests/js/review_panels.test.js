@@ -27,7 +27,7 @@ function button(name, { pressed = false, disabled = false } = {}) {
 }
 
 async function mount({ decisionsDisabled = false, hideResolved = false } = {}) {
-    document.body.innerHTML = `<div data-controller="review-panels"${hideResolved ? ' class="lp-review-block--hide-resolved"' : ''}>
+    document.body.innerHTML = `<div data-controller="review-panels" data-action="comment-anchor:reveal->review-panels#reveal"${hideResolved ? ' class="lp-review-block--hide-resolved"' : ''}>
         ${button('decisions', { pressed: !decisionsDisabled, disabled: decisionsDisabled })}
         ${button('comments')}
         ${button('outline')}
@@ -175,4 +175,31 @@ it('filters the threads and tells the comment controller', async () => {
             .querySelector('[data-review-panels-filter-param="unanchored"]')
             .getAttribute('aria-pressed'),
     ).toBe('true');
+});
+
+it('opens Comments and remembers it when the comment controller reveals a thread', async () => {
+    const element = await mount();
+    element.dispatchEvent(
+        new CustomEvent('comment-anchor:reveal', { bubbles: true }),
+    );
+    expect(openPanels()).toEqual(['decisions', 'comments']);
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY))).toEqual([
+        'decisions',
+        'comments',
+    ]);
+
+    element.dispatchEvent(
+        new CustomEvent('comment-anchor:reveal', { bubbles: true }),
+    );
+    expect(openPanels()).toEqual(['decisions', 'comments']);
+});
+
+it('keeps a disabled Comments panel closed on a reveal', async () => {
+    const element = await mount();
+    buttonFor('comments').setAttribute('aria-disabled', 'true');
+    element.dispatchEvent(
+        new CustomEvent('comment-anchor:reveal', { bubbles: true }),
+    );
+    expect(panelFor('comments').hidden).toBe(true);
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
 });
