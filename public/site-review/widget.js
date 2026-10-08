@@ -987,7 +987,7 @@
         return label.length > 32 ? label.slice(0, 31).trim() + '…' : label;
     };
 
-    // --- Design tokens: the app's Chartreuse palette, restated as literals. ---
+    // --- Design tokens: the app's palette under the app's token names, restated as literals. ---
     // The widget is embedded on other people's sites, so it may load nothing from
     // Loupe but itself: no @font-face, and no app font names either, since a
     // visitor's browser has none of them installed. The host's system UI font is
@@ -1000,16 +1000,16 @@
         '--font':
             "ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
         '--mono': 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace',
-        '--bar-bg': '#0f0f0d',
-        '--bar-raised': '#1c1c18',
-        '--bar-line': '#3a3a34',
-        '--bar-fg': '#e8e8e2',
-        '--bar-mute': '#a8a89e',
-        '--bar-shadow': '0 6px 20px rgba(15,15,13,.35)',
-        '--accent': '#c4d600',
-        '--accent-hover': '#b0c000',
+        '--chrome': '#181d18',
+        '--chrome-raised': '#242a23',
+        '--chrome-line': '#343b30',
+        '--chrome-fg': '#f0f2eb',
+        '--chrome-mute': '#b5bcaf',
+        '--bar-shadow': '0 6px 20px rgba(24,29,24,.35)',
+        '--accent': '#d4e94c',
+        '--accent-hover': '#c4dc32',
         // Chartreuse is a light colour, so its foreground stays ink in both themes.
-        '--on-accent': '#0f0f0d',
+        '--ink': '#20241f',
         // The dark edge that keeps a pin and the picker outline legible over a host
         // page whose background may be any colour, chartreuse-adjacent included.
         // Deep chartreuse rather than ink, so the edge reads as part of the accent
@@ -1021,49 +1021,47 @@
         '--pin-shadow': 'rgba(63,71,0,.35)',
     };
     const LIGHT = {
-        '--panel-bg': '#ffffff',
-        '--panel-border': '#f0f0ec',
-        '--panel-elev': '#f9f9f6',
-        '--hairline': '#f0f0ec',
-        '--text': '#14140f',
-        '--muted': '#6f6f66',
-        '--faint': '#8f8f84',
-        '--chip-bg': '#f4f4f0',
-        '--chip-text': '#6f6f66',
-        '--field-bg': '#f4f4f0',
-        '--field-focus': '#f0f0ec',
+        '--surface-1': '#ffffff',
+        '--border': '#e1e5da',
+        '--surface-2': '#f7f8f3',
+        '--border-faint': '#edf0e8',
+        '--text': '#20241f',
+        '--text-mute': '#555b52',
+        '--text-dim': '#656b60',
+        '--bg-sunken': '#f0f2eb',
+        '--field': '#fcfdf9',
+        '--field-focus': '#edf0e8',
         // Accent dark enough to read as text on paper.
-        '--accent-ink': '#5c6600',
-        '--accent-tint': '#f3f7c4',
-        '--accent-border': '#dfe97a',
-        '--accent-fill': 'rgba(196,214,0,.22)',
-        '--shadow': '0 10px 34px rgba(15,15,13,.22)',
-        '--scrim': 'rgba(15,15,13,.28)',
-        '--success': '#2f9e5c',
-        '--danger': '#c2372b',
+        '--accent-ink': '#596313',
+        '--accent-soft': '#edf2ce',
+        '--accent-border': '#dce69b',
+        '--accent-fill': 'rgba(212,233,76,.22)',
+        '--shadow': '0 10px 34px rgba(24,29,24,.22)',
+        '--scrim': 'rgba(24,29,24,.28)',
+        '--status-ok': '#2f9e5c',
+        '--status-danger': '#c2372b',
     };
-    // The app itself is light-only. This map is built from its dark shell rungs
-    // rather than invented, so a widget on a dark host page still reads as Loupe.
+    // The app itself is light-only. These values exist in the widget alone, built
+    // from the dark shell rungs, so a widget on a dark host page still reads as Loupe.
     const DARK = {
-        '--panel-bg': '#1c1c18',
-        '--panel-border': '#3a3a34',
-        '--panel-elev': '#26261f',
-        '--hairline': '#26261f',
-        '--text': '#e8e8e2',
-        '--muted': '#a8a89e',
-        '--faint': '#8f8f84',
-        '--chip-bg': '#26261f',
-        '--chip-text': '#a8a89e',
-        '--field-bg': '#26261f',
-        '--field-focus': '#33332b',
-        '--accent-ink': '#c4d600',
-        '--accent-tint': '#2c3010',
+        '--surface-1': '#242a23',
+        '--border': '#343b30',
+        '--surface-2': '#30372e',
+        '--border-faint': '#30372e',
+        '--text': '#f0f2eb',
+        '--text-mute': '#b5bcaf',
+        '--text-dim': '#929a8d',
+        '--bg-sunken': '#30372e',
+        '--field': '#30372e',
+        '--field-focus': '#3a4237',
+        '--accent-ink': '#d4e94c',
+        '--accent-soft': '#2c3010',
         '--accent-border': '#59631a',
-        '--accent-fill': 'rgba(196,214,0,.26)',
+        '--accent-fill': 'rgba(212,233,76,.26)',
         '--shadow': '0 12px 36px rgba(0,0,0,.55)',
         '--scrim': 'rgba(0,0,0,.45)',
-        '--success': '#4ab97a',
-        '--danger': '#e4685c',
+        '--status-ok': '#4ab97a',
+        '--status-danger': '#e4685c',
     };
 
     // Inline SVG icons — this widget is embedded on third-party sites with no access
@@ -1267,10 +1265,10 @@
       @keyframes lp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
       @keyframes lp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
       .lp-scroll::-webkit-scrollbar{width:10px;height:10px}
-      .lp-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:9px;border:3px solid transparent;background-clip:content-box}
+      .lp-scroll::-webkit-scrollbar-thumb{background:var(--text-dim);border-radius:9px;border:3px solid transparent;background-clip:content-box}
       .lp-scroll::-webkit-scrollbar-track{background:transparent}
 
-      .lp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--bar-bg);border:1px solid var(--bar-line);border-radius:999px;box-shadow:var(--bar-shadow);font-family:var(--font);pointer-events:auto;cursor:grab;user-select:none;-webkit-user-select:none;transition:box-shadow .14s ease,background .25s ease}
+      .lp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--chrome);border:1px solid var(--chrome-line);border-radius:999px;box-shadow:var(--bar-shadow);font-family:var(--font);pointer-events:auto;cursor:grab;user-select:none;-webkit-user-select:none;transition:box-shadow .14s ease,background .25s ease}
       /* Corner placement. Only the two offsets move: the launcher keeps one
          shape in every corner, so the open/close collapse is untouched. */
       .lp-launcher.at-left{right:auto;left:20px}
@@ -1288,17 +1286,17 @@
          travel above that is time the collapse spends going nowhere. */
       .lp-launch-quick{display:flex;align-items:center;gap:3px;overflow:hidden;max-width:130px;opacity:1;visibility:visible;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s 0s}
       .lp-launcher.open .lp-launch-quick{max-width:0;opacity:0;visibility:hidden;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s .24s}
-      .lp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--bar-mute);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
-      .lp-launch-action:hover{background:var(--bar-raised);color:var(--accent)}
-      .lp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--bar-line);margin:0 3px}
+      .lp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--chrome-mute);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
+      .lp-launch-action:hover{background:var(--chrome-raised);color:var(--accent)}
+      .lp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--chrome-line);margin:0 3px}
       /* A label and not a control: the launcher's chrome weight, no hover state
          and no pointer target of its own, so a press still drags the bar. */
-      .lp-local{flex:0 0 auto;height:22px;margin:0 5px 0 3px;padding:0 8px;display:inline-flex;align-items:center;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;color:var(--bar-mute);font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
-      .lp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--bar-fg);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border-radius:999px;transition:background .14s ease}
-      .lp-launch-main:hover{background:var(--bar-raised)}
+      .lp-local{flex:0 0 auto;height:22px;margin:0 5px 0 3px;padding:0 8px;display:inline-flex;align-items:center;background:var(--chrome-raised);border:1px solid var(--chrome-line);border-radius:999px;color:var(--chrome-mute);font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+      .lp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--chrome-fg);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border-radius:999px;transition:background .14s ease}
+      .lp-launch-main:hover{background:var(--chrome-raised)}
       /* Styled tooltips for the launcher buttons, above each on hover. */
       [data-tip]{position:relative}
-      [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(3px);padding:5px 10px;background:var(--bar-raised);border:1px solid var(--bar-line);color:var(--bar-fg);font-size:11.5px;font-weight:500;line-height:1.4;white-space:nowrap;border-radius:999px;box-shadow:var(--bar-shadow);opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
+      [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(3px);padding:5px 10px;background:var(--chrome-raised);border:1px solid var(--chrome-line);color:var(--chrome-fg);font-size:11.5px;font-weight:500;line-height:1.4;white-space:nowrap;border-radius:999px;box-shadow:var(--bar-shadow);opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
       [data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
       /* A tooltip above a launcher docked at the top would sit off screen, so
          it hangs below instead. The hover rule is restated because the corner
@@ -1306,11 +1304,11 @@
       .lp-launcher.at-top [data-tip]::after{bottom:auto;top:calc(100% + 8px);transform:translateX(-50%) translateY(-3px)}
       .lp-launcher.at-top [data-tip]:hover::after{transform:translateX(-50%) translateY(0)}
       .lp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 7px;border-radius:999px;font-size:11.5px;font-weight:700}
-      .lp-count.solid{background:var(--accent);color:var(--on-accent)}
-      .lp-count.soft{background:var(--accent-tint);color:var(--accent-ink)}
-      .lp-count.danger{background:var(--danger);color:#fff}
+      .lp-count.solid{background:var(--accent);color:var(--ink)}
+      .lp-count.soft{background:var(--accent-soft);color:var(--accent-ink)}
+      .lp-count.danger{background:var(--status-danger);color:#fff}
 
-      .lp-panel{position:fixed;right:20px;bottom:78px;width:348px;max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:16px;box-shadow:var(--shadow);pointer-events:auto;overflow:hidden;font-family:var(--font);color:var(--text);animation:lp-pop .2s cubic-bezier(.2,.9,.3,1);transition:background .25s ease,border-color .25s ease}
+      .lp-panel{position:fixed;right:20px;bottom:78px;width:348px;max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--surface-1);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);pointer-events:auto;overflow:hidden;font-family:var(--font);color:var(--text);animation:lp-pop .2s cubic-bezier(.2,.9,.3,1);transition:background .25s ease,border-color .25s ease}
       /* The panel opens away from the launcher's edge. 78px clears the 46px
          launcher plus its 20px inset, and the 160px max-height budget covers
          that offset at either end, so no corner grows off screen. */
@@ -1320,11 +1318,11 @@
       .lp-header{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:14px 14px 12px 17px}
       .lp-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
       .lp-spacer{flex:1}
-      .lp-iconbtn{width:28px;height:28px;border:0;background:transparent;color:var(--muted);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer}
-      .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
+      .lp-iconbtn{width:28px;height:28px;border:0;background:transparent;color:var(--text-mute);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+      .lp-iconbtn:hover{background:var(--surface-2);color:var(--text)}
       .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
-      .lp-context{display:flex;align-items:flex-start;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:var(--muted);white-space:nowrap}
+      .lp-context{display:flex;align-items:flex-start;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:var(--text-mute);white-space:nowrap}
       .lp-context svg{flex:0 0 auto;opacity:.75;margin-top:1.5px}
       /* The icon replaced the words "Saves to" on screen. A screen reader would
          otherwise hear a bare card title with nothing saying what it is for. */
@@ -1332,21 +1330,21 @@
       /* The widget's own palette, not raw hex. Both themes are injected into
          this shadow root, and hardcoding light values put a white panel inside
          the dark widget. */
-      .lp-picker{margin-top:8px;border:1px solid var(--hairline);border-radius:10px;padding:8px;background:var(--panel-elev)}
-      .lp-picker-search{width:100%;box-sizing:border-box;background:var(--field-bg);color:var(--text);border:1px solid var(--hairline);border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;outline:none}
-      .lp-picker-search::placeholder{color:var(--faint)}
+      .lp-picker{margin-top:8px;border:1px solid var(--border-faint);border-radius:10px;padding:8px;background:var(--surface-2)}
+      .lp-picker-search{width:100%;box-sizing:border-box;background:var(--field);color:var(--text);border:1px solid var(--border-faint);border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;outline:none}
+      .lp-picker-search::placeholder{color:var(--text-dim)}
       .lp-picker-search:focus{border-color:var(--accent-border);background:var(--field-focus)}
       .lp-picker-list{max-height:min(132px,20vh);overflow:auto;margin-top:6px}
       .lp-picker-row{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 6px;border-radius:6px;font:inherit;font-size:12px;color:var(--text);cursor:pointer}
-      /* Three cues, because one is not enough here. --chip-bg was the first
-         attempt and is the same value as --panel-elev in dark, so the hover was
+      /* Three cues, because one is not enough here. --bg-sunken was the first
+         attempt and is the same value as --surface-2 in dark, so the hover was
          invisible; every other fill measured under 1.2:1 against the panel in
          light, where the whole palette is pale. The 1px edge is what carries
          light mode: a crisp border reads where a wash does not. */
       .lp-picker-row:hover,.lp-picker-row:focus-visible{background:var(--accent-fill);box-shadow:inset 0 0 0 1px var(--accent-border);outline:none}
       .lp-picker-row:hover .n,.lp-picker-row:focus-visible .n{color:var(--accent-ink)}
-      .lp-picker-row .n{color:var(--muted);margin-right:5px}
-      .lp-picker-note{padding:6px;font-size:11.5px;color:var(--muted)}
+      .lp-picker-row .n{color:var(--text-mute);margin-right:5px}
+      .lp-picker-note{padding:6px;font-size:11.5px;color:var(--text-mute)}
       .lp-picker-foot{display:flex;align-items:center;gap:8px;margin-top:6px}
       .lp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
       /* A card title runs to 255 characters and the composer is a fixed height
@@ -1367,29 +1365,29 @@
       /* The composer's height is fixed and it clips, so the chips scroll rather
          than push the textarea and the buttons out of the box. */
       .lp-compose-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;min-height:21px;flex-wrap:wrap;max-height:90px;overflow-y:auto;overscroll-behavior:contain}
-      .lp-compose-general{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
-      .lp-dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--faint)}
-      .lp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 9px;background:var(--accent-tint);color:var(--accent-ink);border-radius:999px;font-size:11px;font-weight:600;overflow:hidden}
+      .lp-compose-general{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-mute)}
+      .lp-dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--text-dim)}
+      .lp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 9px;background:var(--accent-soft);color:var(--accent-ink);border-radius:999px;font-size:11px;font-weight:600;overflow:hidden}
       .lp-compose-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       /* The pill names one anchor, so it is a control: point at it and its
          element is emphasised on the page, click it and the page scrolls to it. */
       .lp-chip-name{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;border:0;padding:0;background:transparent;color:inherit;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:1;cursor:pointer}
       .lp-chip-name:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:999px}
-      .lp-compose-chip.lit{background:var(--accent);color:var(--on-accent)}
+      .lp-compose-chip.lit{background:var(--accent);color:var(--ink)}
       .lp-chip-x{flex:0 0 auto;border:0;background:transparent;color:inherit;font-family:inherit;font-size:13px;line-height:1;padding:0;margin-right:-3px;cursor:pointer;opacity:.6}
       .lp-chip-x:hover{opacity:1}
       .lp-chip-x:focus-visible{opacity:1;outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:999px}
-      .lp-compose-hint{flex:0 0 auto;height:21px;line-height:21px;color:var(--muted);font-size:11px;font-weight:600}
+      .lp-compose-hint{flex:0 0 auto;height:21px;line-height:21px;color:var(--text-mute);font-size:11px;font-weight:600}
       /* Borderless: the fill is the field, as everywhere else in the app. */
-      .lp-textarea{width:100%;min-height:74px;resize:none;border:0;background:var(--field-bg);color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.5;outline:none;transition:background .14s ease}
-      .lp-textarea:focus{background:var(--field-focus);box-shadow:inset 0 0 0 1px var(--accent-ink),0 0 0 3px var(--accent-tint)}
-      .lp-textarea::placeholder{color:var(--faint)}
+      .lp-textarea{width:100%;min-height:74px;resize:none;border:0;background:var(--field);color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.5;outline:none;transition:background .14s ease}
+      .lp-textarea:focus{background:var(--field-focus);box-shadow:inset 0 0 0 1px var(--accent-ink),0 0 0 3px var(--accent-soft)}
+      .lp-textarea::placeholder{color:var(--text-dim)}
       .lp-compose-foot{display:flex;align-items:center;margin-top:9px}
-      .lp-hint{font-size:11px;color:var(--faint)}
+      .lp-hint{font-size:11px;color:var(--text-dim)}
       .lp-mono{font-family:var(--mono)}
-      .lp-ghost{height:30px;padding:0 13px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
-      .lp-ghost:hover{background:var(--chip-bg);color:var(--text)}
-      .lp-primary{height:30px;padding:0 15px;margin-left:4px;display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .14s ease}
+      .lp-ghost{height:30px;padding:0 13px;background:transparent;border:0;color:var(--text-mute);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
+      .lp-ghost:hover{background:var(--bg-sunken);color:var(--text)}
+      .lp-primary{height:30px;padding:0 15px;margin-left:4px;display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:var(--ink);border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .14s ease}
       .lp-primary:hover{background:var(--accent-hover)}
       .lp-primary[disabled]{opacity:.55;cursor:default}
 
@@ -1397,78 +1395,78 @@
          the keyboard hints moved to the docs. The full name stays the button's
          accessible name, which is what a screen reader and the specs read. */
       .lp-actions{flex:0 0 auto;display:flex;gap:7px;padding:0 14px 12px}
-      .lp-action{flex:1;min-width:0;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;border:0;background:var(--chip-bg);color:var(--text);transition:background .15s ease,color .15s ease}
+      .lp-action{flex:1;min-width:0;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;border:0;background:var(--bg-sunken);color:var(--text);transition:background .15s ease,color .15s ease}
       /* An icon is a flex item with a min-content width of zero, so a row one
          pixel too tight silently squashes it instead of overflowing. */
       .lp-action svg{flex:0 0 auto}
       .lp-action:hover{background:var(--field-focus)}
       /* Pressed, not primary: a solid accent fill here would compete with the
          Save button for the eye, so the toggle takes the pale tint. */
-      .lp-action.active{background:var(--accent-tint);color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent-border)}
+      .lp-action.active{background:var(--accent-soft);color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent-border)}
       .lp-action[disabled]{opacity:.5;cursor:default}
-      .lp-action[disabled]:hover{background:var(--chip-bg)}
+      .lp-action[disabled]:hover{background:var(--bg-sunken)}
 
-      .lp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px;background:color-mix(in srgb,var(--danger) 10%,transparent);border:1px solid color-mix(in srgb,var(--danger) 28%,transparent);border-radius:12px;font-size:12px;line-height:1.45;color:var(--danger)}
+      .lp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px;background:color-mix(in srgb,var(--status-danger) 10%,transparent);border:1px solid color-mix(in srgb,var(--status-danger) 28%,transparent);border-radius:12px;font-size:12px;line-height:1.45;color:var(--status-danger)}
       .lp-error span{flex:1;padding-top:2px}
-      .lp-error button{flex:0 0 auto;background:transparent;border:0;color:var(--danger);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border-radius:999px;padding:3px 9px}
-      .lp-error button:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}
+      .lp-error button{flex:0 0 auto;background:transparent;border:0;color:var(--status-danger);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border-radius:999px;padding:3px 9px}
+      .lp-error button:hover{background:color-mix(in srgb,var(--status-danger) 14%,transparent)}
 
       .lp-empty-anim{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 26px 28px;gap:4px}
-      .lp-empty-icon{width:42px;height:42px;border-radius:999px;background:var(--chip-bg);display:flex;align-items:center;justify-content:center;color:var(--faint);margin-bottom:8px}
+      .lp-empty-icon{width:42px;height:42px;border-radius:999px;background:var(--bg-sunken);display:flex;align-items:center;justify-content:center;color:var(--text-dim);margin-bottom:8px}
       .lp-empty-title{font-size:13.5px;font-weight:700;color:var(--text)}
-      .lp-empty-sub{font-size:12.5px;color:var(--muted);line-height:1.5;max-width:210px}
+      .lp-empty-sub{font-size:12.5px;color:var(--text-mute);line-height:1.5;max-width:210px}
 
       .lp-list-wrap{flex:0 1 auto;display:flex;flex-direction:column;min-height:0}
       .lp-list-anim{overflow:hidden;transition:max-height .3s cubic-bezier(.4,0,.2,1),opacity .2s ease}
-      .lp-list{max-height:248px;overflow:auto;border-top:1px solid var(--hairline)}
-      .lp-item{position:relative;overflow:hidden;display:flex;gap:11px;padding:12px 15px;border-bottom:1px solid var(--hairline);cursor:default}
-      .lp-item:hover{background:var(--panel-elev)}
-      .lp-item-confirm{position:absolute;inset:0;display:flex;align-items:center;gap:8px;padding:0 15px;background:var(--panel-bg);animation:lp-slide-left .18s cubic-bezier(.4,0,.2,1)}
+      .lp-list{max-height:248px;overflow:auto;border-top:1px solid var(--border-faint)}
+      .lp-item{position:relative;overflow:hidden;display:flex;gap:11px;padding:12px 15px;border-bottom:1px solid var(--border-faint);cursor:default}
+      .lp-item:hover{background:var(--surface-2)}
+      .lp-item-confirm{position:absolute;inset:0;display:flex;align-items:center;gap:8px;padding:0 15px;background:var(--surface-1);animation:lp-slide-left .18s cubic-bezier(.4,0,.2,1)}
       .lp-item-confirm-text{flex:1;font-size:12px;color:var(--text);font-weight:500}
       /* The teardrop is the pin's silhouette, so an anchored comment's badge
          carries the same shape as the marker it points at. */
       .lp-badge{flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
-      .lp-badge.element{border-radius:50% 50% 50% 2px;background:var(--accent);color:var(--on-accent)}
-      .lp-badge.general{border-radius:50%;border:1.5px dashed var(--faint);color:var(--faint)}
+      .lp-badge.element{border-radius:50% 50% 50% 2px;background:var(--accent);color:var(--ink)}
+      .lp-badge.general{border-radius:50%;border:1.5px dashed var(--text-dim);color:var(--text-dim)}
       .lp-item-body{flex:1;min-width:0}
       .lp-item-text{font-size:13px;line-height:1.5;color:var(--text);word-break:break-word}
-      .lp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:6px}
+      .lp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:var(--bg-sunken);color:var(--text-mute);border-radius:999px;font-size:10.5px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:6px}
       .lp-chip.degraded{background:#fef3c7;color:#92400e}
       /* Chip-shaped but a real button: it says which page the comment was made on
          and goes there. Only rendered when that page is not the current one. */
-      .lp-item-page{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:transparent;border:1px solid var(--hairline);color:var(--muted);border-radius:999px;font-family:inherit;font-size:10.5px;font-weight:600;max-width:100%;cursor:pointer}
-      .lp-item-page:hover{background:var(--chip-bg);color:var(--accent-ink)}
+      .lp-item-page{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:transparent;border:1px solid var(--border-faint);color:var(--text-mute);border-radius:999px;font-family:inherit;font-size:10.5px;font-weight:600;max-width:100%;cursor:pointer}
+      .lp-item-page:hover{background:var(--bg-sunken);color:var(--accent-ink)}
       .lp-item-page-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       /* Sits before Edit, because it is the one that finishes a comment. */
-      .lp-resolve{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
-      .lp-resolve:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
-      .lp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
-      .lp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
-      .lp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
-      .lp-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
-      .lp-danger-sm{flex:0 0 auto;height:25px;padding:0 11px;background:var(--danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
-      .lp-ghost-sm{height:25px;padding:0 9px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:600;border-radius:999px;cursor:pointer}
-      .lp-ghost-sm:hover{background:var(--chip-bg);color:var(--text)}
+      .lp-resolve{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--text-dim);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-resolve:hover{opacity:1;background:var(--bg-sunken);color:var(--accent-ink)}
+      .lp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--text-dim);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-edit:hover{opacity:1;background:var(--bg-sunken);color:var(--accent-ink)}
+      .lp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--text-dim);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-del:hover{opacity:1;background:var(--bg-sunken);color:var(--status-danger)}
+      .lp-danger-sm{flex:0 0 auto;height:25px;padding:0 11px;background:var(--status-danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+      .lp-ghost-sm{height:25px;padding:0 9px;background:transparent;border:0;color:var(--text-mute);font-family:inherit;font-size:11.5px;font-weight:600;border-radius:999px;cursor:pointer}
+      .lp-ghost-sm:hover{background:var(--bg-sunken);color:var(--text)}
 
-      .lp-footer{flex:0 0 auto;align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--hairline);background:var(--panel-bg)}
+      .lp-footer{flex:0 0 auto;align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--border-faint);background:var(--surface-1)}
       .lp-footer-row{display:flex;align-items:center;gap:8px;width:100%}
-      .lp-list-toggle{display:flex;align-items:center;gap:6px;height:32px;padding:0 11px 0 9px;background:transparent;border:0;cursor:pointer;color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;border-radius:999px}
-      .lp-list-toggle:hover{background:var(--chip-bg);color:var(--text)}
+      .lp-list-toggle{display:flex;align-items:center;gap:6px;height:32px;padding:0 11px 0 9px;background:transparent;border:0;cursor:pointer;color:var(--text-mute);font-family:inherit;font-size:12px;font-weight:600;border-radius:999px}
+      .lp-list-toggle:hover{background:var(--bg-sunken);color:var(--text)}
       .lp-chev{transition:transform .25s ease}
-      .lp-clear{height:32px;padding:0 13px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
-      .lp-clear:hover{background:var(--chip-bg);color:var(--danger)}
+      .lp-clear{height:32px;padding:0 13px;background:transparent;border:0;color:var(--text-mute);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
+      .lp-clear:hover{background:var(--bg-sunken);color:var(--status-danger)}
       .lp-clear[disabled]{opacity:.55;cursor:default}
       .lp-confirm-text{flex:1;font-size:12px;color:var(--text);font-weight:600;line-height:1.4}
-      .lp-clear-cancel{height:32px;padding:0 13px;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
-      .lp-clear-cancel:hover{background:var(--chip-bg);color:var(--text)}
-      .lp-clear-yes{height:32px;padding:0 15px;background:var(--danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+      .lp-clear-cancel{height:32px;padding:0 13px;background:transparent;border:0;color:var(--text-mute);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;cursor:pointer}
+      .lp-clear-cancel:hover{background:var(--bg-sunken);color:var(--text)}
+      .lp-clear-yes{height:32px;padding:0 15px;background:var(--status-danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
       .lp-spin{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:lp-spin .6s linear infinite}
 
       .lp-fatal{padding:10px 24px 26px;text-align:center;animation:lp-pop .2s ease}
-      .lp-fatal-disc{width:46px;height:46px;margin:6px auto 13px;border-radius:50%;background:color-mix(in srgb,var(--danger) 13%,transparent);display:flex;align-items:center;justify-content:center;color:var(--danger)}
+      .lp-fatal-disc{width:46px;height:46px;margin:6px auto 13px;border-radius:50%;background:color-mix(in srgb,var(--status-danger) 13%,transparent);display:flex;align-items:center;justify-content:center;color:var(--status-danger)}
       .lp-fatal-title{font-size:14.5px;font-weight:700;color:var(--text)}
-      .lp-fatal-sub{max-width:252px;margin:6px auto 0;font-size:12.5px;color:var(--muted);line-height:1.55}
+      .lp-fatal-sub{max-width:252px;margin:6px auto 0;font-size:12.5px;color:var(--text-mute);line-height:1.55}
       .lp-signin .lp-fatal-disc{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
       .lp-signin-button{margin:16px 0 0}
     </style>
@@ -1611,12 +1609,12 @@
       /* The controls live above every box rather than inside one. Two anchors on
          neighbouring elements have overlapping boxes, and a control drawn inside
          its own box would sit under its neighbour and refuse the click. */
-      .lp-hl-x{position:fixed;z-index:5;display:flex;width:22px;height:22px;align-items:center;justify-content:center;padding:0;background:var(--accent);color:var(--on-accent);border:2px solid var(--pin-ring);border-radius:50%;font-family:inherit;font-size:14px;font-weight:700;line-height:1;cursor:pointer;pointer-events:auto;opacity:0;transition:opacity .12s ease;box-shadow:0 2px 8px var(--pin-shadow)}
+      .lp-hl-x{position:fixed;z-index:5;display:flex;width:22px;height:22px;align-items:center;justify-content:center;padding:0;background:var(--accent);color:var(--ink);border:2px solid var(--pin-ring);border-radius:50%;font-family:inherit;font-size:14px;font-weight:700;line-height:1;cursor:pointer;pointer-events:auto;opacity:0;transition:opacity .12s ease;box-shadow:0 2px 8px var(--pin-shadow)}
       /* :focus reveals it, because a mousedown on it is prevented and cannot
          focus it. The ring is :focus-visible, so only a keyboard user sees one. */
       .lp-hl-x.lit,.lp-hl-x:hover,.lp-hl-x:focus{opacity:1}
       .lp-hl-x:focus-visible{outline:2px solid var(--pin-ring);outline-offset:2px}
-      .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-block;max-width:240px;height:21px;line-height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px var(--pin-shadow)}
+      .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-block;max-width:240px;height:21px;line-height:21px;padding:0 9px;background:var(--accent);color:var(--ink);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px var(--pin-shadow)}
       /* Above the outlines, below the pins: the drawing is content over the
          page, and a pin still has to be reachable through it. */
       .lp-canvas{position:fixed;left:0;top:0;z-index:3;pointer-events:none}
@@ -1626,39 +1624,39 @@
       .lp-ov.drawing .lp-canvas{pointer-events:auto;cursor:crosshair;touch-action:none}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
       .lp-ov.targeting .lp-pin-wrap,.lp-ov.drawing .lp-pin-wrap{pointer-events:none}
-      .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--pin-ring);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,15,13,.35);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
+      .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--pin-ring);background:var(--accent);color:var(--ink);font-family:inherit;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,15,13,.35);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
       .pin:hover{transform:scale(1.12)}
       .lp-pop{position:absolute;top:16px;right:0;width:240px;padding-top:14px;cursor:default}
-      .lp-pop-card{position:relative;overflow:hidden;min-height:96px;padding:12px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--shadow);animation:lp-fade .12s ease;display:flex;flex-direction:column}
+      .lp-pop-card{position:relative;overflow:hidden;min-height:96px;padding:12px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);animation:lp-fade .12s ease;display:flex;flex-direction:column}
       .lp-pop-body{font-size:12.5px;line-height:1.5;color:var(--text);word-break:break-word}
       .pin.degraded{border-style:dashed;border-color:#b45309}
       .lp-pop-degraded{margin-top:6px;font-size:11px;line-height:1.4;color:#b45309;word-break:break-word}
       .lp-pop-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px}
-      .lp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .lp-pop-resolve{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
-      .lp-pop-resolve:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
-      .lp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
-      .lp-pop-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
-      .lp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
-      .lp-pop-del:hover{opacity:1;background:var(--chip-bg);color:var(--danger)}
-      .lp-pop-confirm{position:absolute;inset:0;background:var(--panel-bg);border-radius:12px;padding:12px;display:flex;flex-direction:column;justify-content:center;animation:lp-slide-left .18s cubic-bezier(.4,0,.2,1)}
+      .lp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 9px;background:var(--bg-sunken);color:var(--text-mute);border-radius:999px;font-size:10.5px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-pop-resolve{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--text-dim);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-resolve:hover{opacity:1;background:var(--bg-sunken);color:var(--accent-ink)}
+      .lp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--text-dim);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-edit:hover{opacity:1;background:var(--bg-sunken);color:var(--accent-ink)}
+      .lp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--text-dim);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-del:hover{opacity:1;background:var(--bg-sunken);color:var(--status-danger)}
+      .lp-pop-confirm{position:absolute;inset:0;background:var(--surface-1);border-radius:12px;padding:12px;display:flex;flex-direction:column;justify-content:center;animation:lp-slide-left .18s cubic-bezier(.4,0,.2,1)}
       .lp-pop-confirm-title{font-size:12.5px;font-weight:700;color:var(--text)}
-      .lp-pop-confirm-sub{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+      .lp-pop-confirm-sub{font-size:11.5px;color:var(--text-mute);margin-top:3px;line-height:1.45}
       .lp-pop-confirm-row{display:flex;gap:7px;margin-top:11px}
-      .lp-pop-yes{flex:1;height:30px;background:var(--danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
-      .lp-pop-no{flex:1;height:30px;background:var(--chip-bg);border:0;color:var(--text);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
-      .lp-toast{position:fixed;top:18px;left:50%;transform:translate(-50%,0);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 13px 9px 15px;background:var(--bar-bg);border:1px solid var(--bar-line);color:var(--bar-fg);border-radius:999px;font-size:13px;font-weight:600;box-shadow:var(--bar-shadow);animation:lp-fade .18s ease;transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:auto}
-      .lp-toast-sep{color:var(--bar-line)}
-      .lp-toast-dim{color:var(--bar-mute);font-size:12px;font-weight:500}
-      .lp-toast-key{margin-left:2px;padding:3px 9px;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;color:inherit;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:background .12s ease}
-      .lp-toast-key:hover{background:var(--bar-line)}
+      .lp-pop-yes{flex:1;height:30px;background:var(--status-danger);color:#fff;border:0;border-radius:999px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+      .lp-pop-no{flex:1;height:30px;background:var(--bg-sunken);border:0;color:var(--text);border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+      .lp-toast{position:fixed;top:18px;left:50%;transform:translate(-50%,0);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 13px 9px 15px;background:var(--chrome);border:1px solid var(--chrome-line);color:var(--chrome-fg);border-radius:999px;font-size:13px;font-weight:600;box-shadow:var(--bar-shadow);animation:lp-fade .18s ease;transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:auto}
+      .lp-toast-sep{color:var(--chrome-line)}
+      .lp-toast-dim{color:var(--chrome-mute);font-size:12px;font-weight:500}
+      .lp-toast-key{margin-left:2px;padding:3px 9px;background:var(--chrome-raised);border:1px solid var(--chrome-line);border-radius:999px;color:inherit;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:background .12s ease}
+      .lp-toast-key:hover{background:var(--chrome-line)}
       .lp-toast-key[disabled]{opacity:.45;cursor:default}
-      .lp-toast-key[disabled]:hover{background:var(--bar-raised)}
+      .lp-toast-key[disabled]:hover{background:var(--chrome-raised)}
       .lp-toast--saved{padding:9px 15px}
       /* The offer to quote a selection. Same bar furniture as the toasts, so it
          reads as the widget rather than as host-page chrome. */
-      .lp-quote-btn{position:fixed;z-index:6;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;background:var(--bar-bg);border:1px solid var(--bar-line);color:var(--bar-fg);border-radius:999px;font-family:var(--font);font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;pointer-events:auto;box-shadow:var(--bar-shadow);animation:lp-fade .12s ease}
-      .lp-quote-btn:hover{background:var(--bar-raised)}
+      .lp-quote-btn{position:fixed;z-index:6;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;background:var(--chrome);border:1px solid var(--chrome-line);color:var(--chrome-fg);border-radius:999px;font-family:var(--font);font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;pointer-events:auto;box-shadow:var(--bar-shadow);animation:lp-fade .12s ease}
+      .lp-quote-btn:hover{background:var(--chrome-raised)}
       .lp-quote-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     </style>
     <div class="lp-ov" id="lp-ov">
@@ -1684,7 +1682,7 @@
         <button class="lp-toast-key" id="lp-draw-done" type="button">Done</button>
       </div>
       <div class="lp-toast lp-toast--saved" id="lp-saved" style="display:none">
-        ${ICON.check(15, 2.6, 'var(--success)')}
+        ${ICON.check(15, 2.6, 'var(--status-ok)')}
         <span id="lp-saved-text"></span>
       </div>
       <button class="lp-quote-btn" id="lp-quote-btn" type="button" style="display:none">
