@@ -39,6 +39,9 @@ final class DesignSystemChangedScriptTest extends TestCase
             'assets/styles/components/button.css',
             'templates/components/Ds/Button.html.twig',
             'src/Module/DesignSystem/Catalog.php',
+            'assets/styles/design-system.css',
+            'assets/fonts/Geist-Variable.woff2',
+            'docs/contributing/design-system.md',
             'assets/styles/app.css',
             'assets/styles/tokens.css.bak',
             'templates/components/Other/Thing.html.twig',
@@ -54,8 +57,11 @@ final class DesignSystemChangedScriptTest extends TestCase
         self::assertSame(0, $result->getExitCode());
         self::assertSame(
             [
+                'assets/fonts/Geist-Variable.woff2',
                 'assets/styles/components/button.css',
+                'assets/styles/design-system.css',
                 'assets/styles/tokens.css',
+                'docs/contributing/design-system.md',
                 'src/Module/DesignSystem/Catalog.php',
                 'templates/components/Ds/Button.html.twig',
             ],
