@@ -175,6 +175,10 @@ test('columns added, reordered and deleted in one browser update another in plac
     browser,
     request,
 }) => {
+    // Two cards go through the create form, and two browsers sign in. Beside
+    // three other workers that took the whole 90 s of test.slow().
+    test.setTimeout(test.info().timeout * 2);
+
     const email = `e2e+refresh+columns+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Refresh User', email, password: PASSWORD },
@@ -257,7 +261,7 @@ test('columns added, reordered and deleted in one browser update another in plac
         watcher.locator(
             `${COLUMN}[data-column-slug="in-progress"] .lp-board-card[data-card-title="Moved"]`,
         ),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     await expect(kept).toHaveJSProperty('kept', true);
     expect(boardLoads).toEqual([]);
 
