@@ -45,6 +45,28 @@
     .lp-agent-card__pool {
         @apply m-0 flex flex-wrap items-baseline justify-between gap-x-3;
     }
+    /* The accounts a bridge checked with its last heartbeat. A failing one takes the danger tone. */
+    .lp-agent-card__accounts {
+        @apply mt-3;
+    }
+    .lp-agent-card__account {
+        @apply grid gap-0.5;
+    }
+    .lp-agent-card__account--failing {
+        @apply rounded-md border border-status-danger-border bg-status-danger-bg p-2 text-status-danger-deep;
+    }
+    .lp-agent-card__account--failing strong {
+        @apply text-status-danger-deep;
+    }
+    .lp-agent-card__account-line {
+        @apply m-0 flex flex-wrap items-baseline gap-x-3;
+    }
+    .lp-agent-card__account-line > :last-child {
+        @apply ml-auto;
+    }
+    .lp-agent-card__account-hint {
+        @apply m-0;
+    }
     /* A narrow card at a large text size wraps the menu under the label. */
     .lp-redesign-agents .lp-agent-card__heading {
         @apply flex-wrap;

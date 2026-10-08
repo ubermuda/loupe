@@ -36,6 +36,10 @@ The path holds no project, because one bridge follows several projects.
     {"name": "default", "size": 3, "inUse": 2, "queued": 0},
     {"name": "quick", "size": 1, "inUse": 1, "queued": 4}
   ],
+  "accounts": [
+    {"name": "claude", "harness": "claude-code", "state": "ready", "reason": null},
+    {"name": "work", "harness": "claude-code", "state": "failing", "reason": "not logged in"}
+  ],
   "hostSamples": [
     {
       "sampledAt": "2026-10-07T09:15:00Z",
@@ -62,6 +66,7 @@ The path holds no project, because one bridge follows several projects.
 | `update.install` | optional. How the CLI was installed. `homebrew` is the only value now. The server stores an unknown value as no value, and does not refuse the heartbeat |
 | `hooks` | optional. A list of at most 100 rows, one for each event of each [hook package](../extending/bridge-hooks.md) the bridge runs. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `workerPools` | optional. A list of at most 50 rows, one for each worker pool of the bridge. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
+| `accounts` | optional. A list of at most 50 rows, one for each account the bridge checked. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `paused` | optional. `true` when the bridge takes no new work now. A missing or `null` value keeps the state the server holds. See [Pause and commands](#pause-and-commands) |
 | `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. `session-usage` says that the bridge takes a command of the kind `collect-session-usage`. `work-requests` says that the bridge claims [work requests](#work-requests), and `interactive` says that it runs an interactive session. A missing or `null` value keeps the list the server holds |
 | `workClaims` | optional. A list of at most 200 rows, one for each work request the bridge holds. Each row has an `id` and a `claimToken`, both uuids. The server renews the lease of each claim the bridge still holds, as [Work requests](#work-requests) says. A missing or `null` value renews nothing |
@@ -93,6 +98,22 @@ the bridge, with the time of the heartbeat that carried them. The server
 stamps that time from its own clock when a heartbeat carries a `workerPools`
 list, an empty list included. A heartbeat with no list keeps the rows and their
 time. A bridge that never sent a `workerPools` list shows no pools.
+
+Each row of `accounts` holds these fields:
+
+| Field | Rule |
+|---|---|
+| `name` | required. The account name from the `accounts` block of `rules.yaml`. It starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens |
+| `harness` | required. The agent tool of the account, such as `claude-code`, with the same rule as `name` |
+| `state` | required. `ready` when the last check of the account passed, and `failing` when it did not |
+| `reason` | optional. Why the check failed, at most 200 characters after trimming. The server keeps it for a `failing` row only, and stores a blank value as no value |
+
+The [agents page](../using/worker-runs.md#bridge-health) shows the accounts on
+the card of the bridge, with the time of the heartbeat that carried them. The
+server stamps that time from its own clock when a heartbeat carries an
+`accounts` list, an empty list included. A heartbeat with no list keeps the
+rows and their time. A bridge that never sent an `accounts` list shows no
+accounts.
 
 ### Host samples
 
@@ -297,6 +318,7 @@ holds, by `commandId`. Each command carries these fields:
 | `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
 | `context` | the context of the work request of the run, taken when the command was stored, with the five keys of the [work request context](#work-requests). Each key is `null` for a run with no work request. A server from before the context sends no `context` key |
 | `model`, `effort` | the [model and the effort](#work-requests) of the work request of the run, taken when the command was stored, or `null`. A resume runs with them, as the first run did. A server from before these keys sends none |
+| `harness`, `account`, `runModel` | what the run started on, as its reports recorded them, or `null` when a report named none. A resume runs on that account, with that model. A server from before these keys sends none of them |
 
 The `bridge.command_ttl_minutes` feature flag sets how long a command waits,
 and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from
@@ -551,7 +573,7 @@ writes a `bridge.work_request_settled` record to the audit log.
 Deleting an account deletes the rows of its bridges and their commands. The
 data export holds the bridges in `bridges.json`, with the stored update state,
 version and install method, the hook rows, the worker pool rows with their
-report time, the pause state, the capabilities, the name the bridge holds,
+report time, the account rows with their report time, the pause state, the capabilities, the name the bridge holds,
 the name it asked for and the push login. It holds the commands in
 `bridge_commands.json`. Deleting an account also deletes the host samples of
 its bridges. The data export holds them in `bridge_host_samples.json`, with the

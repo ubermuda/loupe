@@ -122,6 +122,11 @@ type RunStateReport struct {
 	Variant        string `json:"variant,omitempty"`
 	RequestedModel string `json:"requestedModel,omitempty"`
 	SwitchedFrom   string `json:"switchedFrom,omitempty"`
+	// Harness, Account and Model go on running and on the outcome of an agent
+	// run. An empty one is not sent, and the server keeps what it holds.
+	Harness string `json:"harness,omitempty"`
+	Account string `json:"account,omitempty"`
+	Model   string `json:"model,omitempty"`
 }
 
 // MarshalJSON sends every field of an outcome, so an empty output, a null
@@ -156,6 +161,7 @@ type InventoryRun struct {
 // 201 for a new state and 200 for a state the run already holds.
 func (c *Client) ReportRunState(ctx context.Context, handle, runID string, report RunStateReport) (bool, error) {
 	report.Output = clip(report.Output, maxRunOutput)
+	report.Model = sendableModel(report.Model)
 	if report.FailureReason != nil {
 		reason := clip(*report.FailureReason, maxFailureReason)
 		report.FailureReason = &reason

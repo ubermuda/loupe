@@ -54,9 +54,7 @@ func newMcpCmd() *cobra.Command {
 			hc := &http.Client{Transport: &mcpproxy.Credentials{
 				Tokens:  tokenSource(cfg, &http.Client{Timeout: refreshTimeout}),
 				Project: project,
-				Session: func() string {
-					return cmp.Or(os.Getenv(sessionEnv), os.Getenv("CLAUDE_CODE_SESSION_ID"))
-				},
+				Session: mcpSession,
 			}}
 
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
@@ -68,6 +66,12 @@ func newMcpCmd() *cobra.Command {
 	cmd.Flags().StringVar(&projectID, "project", "", "project id to act on (else "+projectfile.Name+" in this directory)")
 
 	return cmd
+}
+
+// mcpSession is the id of the session that runs `loupe mcp`: the run id the
+// bridge set, else the id Claude Code or Codex gives its own session.
+func mcpSession() string {
+	return cmp.Or(os.Getenv(sessionEnv), os.Getenv("CLAUDE_CODE_SESSION_ID"), os.Getenv("CODEX_THREAD_ID"))
 }
 
 // mcpPath is the MCP endpoint of every Loupe instance. The project never

@@ -57,6 +57,12 @@ final class DevExperimentSeederTest extends KernelTestCase
         foreach ($open as $card) {
             self::assertNull($card->completedAt, $card->title);
         }
+
+        $runs = $this->service(WorkerRunRepository::class)->findBy(['project' => $project->id]);
+        self::assertNotEmpty($runs);
+        foreach ($runs as $run) {
+            self::assertSame(['claude-code', 'claude'], [$run->harness, $run->account]);
+        }
     }
 
     private function seeder(): DevExperimentSeeder

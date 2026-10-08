@@ -72,6 +72,46 @@ final class InteractiveLaunchApiTest extends WebTestCase
         self::assertSame('design-on-entry', $run->ruleId);
     }
 
+    public function test_a_launch_stores_its_harness_fields(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'launch-harness@example.com');
+        $project = $this->project($em, $owner, 'Launch Harness');
+        $raw = $this->agentToken($client, $owner);
+        $harness = ['harness' => 'codex', 'account' => 'work', 'model' => 'gpt-5', 'harnessSessionId' => 'thread-1'];
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload($harness));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([...$harness, 'state' => 'not-started', 'failureReason' => 'codex exited 1']));
+        self::assertResponseStatusCodeSame(201);
+
+        $runs = $this->allRuns();
+        self::assertCount(2, $runs);
+        foreach ($runs as $run) {
+            self::assertSame(['codex', 'work', 'gpt-5', 'thread-1'], [$run->harness, $run->account, $run->model, $run->harnessSessionId]);
+        }
+    }
+
+    /** A null keeps a stored value, and a retry can carry a value the first report did not. */
+    public function test_a_retry_fills_the_harness_fields_of_the_run_and_a_null_keeps_them(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'launch-harness-retry@example.com');
+        $project = $this->project($em, $owner, 'Launch Harness Retry');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload(['harness' => 'codex', 'account' => 'work']));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $path, $raw, $this->payload(['harnessSessionId' => 'thread-1']));
+        self::assertResponseStatusCodeSame(200);
+
+        $run = $this->onlyRun();
+        self::assertSame(['codex', 'work', null, 'thread-1'], [$run->harness, $run->account, $run->model, $run->harnessSessionId]);
+    }
+
     public function test_a_retry_of_a_running_launch_answers_200_with_the_same_run(): void
     {
         $client = static::createClient();
@@ -140,10 +180,11 @@ final class InteractiveLaunchApiTest extends WebTestCase
         self::assertInstanceOf(InteractiveRuns::class, $interactiveRuns);
         $open = $interactiveRuns->open($project, Uuid::fromString(self::CARD_ID), 1, $sessionId, 'card_run_open');
 
-        $this->put($client, $this->path($project->id, (string) $sessionId), $raw, $this->payload());
+        $this->put($client, $this->path($project->id, (string) $sessionId), $raw, $this->payload(['harness' => 'claude-code']));
 
         self::assertResponseStatusCodeSame(200);
         self::assertSame((string) $open->id, $this->idOf($client));
+        self::assertSame('claude-code', $this->onlyRun()->harness);
     }
 
     public function test_a_launch_that_failed_records_a_run_that_never_started(): void
@@ -247,6 +288,12 @@ final class InteractiveLaunchApiTest extends WebTestCase
         yield 'not-started with a blank reason' => [['state' => 'not-started', 'failureReason' => '  ']];
         yield 'a reason above the limit' => [['state' => 'not-started', 'failureReason' => str_repeat('x', WorkerRun::MAX_FAILURE_REASON_LENGTH + 1)]];
         yield 'running with a reason' => [['failureReason' => 'launcher exited 1']];
+        yield 'a harness with a space and capitals' => [['harness' => 'Claude Code']];
+        yield 'an account with a slash' => [['account' => 'home/geoffrey']];
+        yield 'a model with a newline' => [['model' => "gpt\n5"]];
+        yield 'a model above the limit' => [['model' => str_repeat('m', WorkerRun::MAX_MODEL_LENGTH + 1)]];
+        yield 'a harness session id with a space' => [['harnessSessionId' => 'thread 1']];
+        yield 'a blank harness session id' => [['harnessSessionId' => '']];
     }
 
     /**

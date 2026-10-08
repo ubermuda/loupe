@@ -266,6 +266,79 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         self::assertSame([], $this->reload($owner, $bridgeId)->workerPools);
     }
 
+    public function test_a_bridge_that_never_reported_accounts_stores_none(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-none@example.com');
+        $bridgeId = Uuid::v4();
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
+
+        $bridge = $this->reload($owner, $bridgeId);
+        self::assertNull($bridge->accounts);
+        self::assertNull($bridge->accountsReportedAt);
+    }
+
+    public function test_an_account_report_replaces_the_stored_rows_and_stamps_the_time(): void
+    {
+        self::bootKernel();
+        $clock = new MockClock('2026-09-14 16:00:00');
+        self::getContainer()->set('clock', $clock);
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-replace@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+        $failing = ['state' => 'failing', 'reason' => 'not logged in'] + self::account();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', accounts: [self::account()]));
+        self::assertSame([self::account()], $this->reload($owner, $bridgeId)->accounts);
+
+        $clock->modify('+1 minute');
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', accounts: [$failing]));
+
+        $bridge = $this->reload($owner, $bridgeId);
+        self::assertSame([$failing], $bridge->accounts);
+        self::assertSame('2026-09-14 16:01:00', $bridge->accountsReportedAt?->format('Y-m-d H:i:s'));
+    }
+
+    /** An older bridge sends no accounts, and its heartbeat must neither clear the rows nor make them look fresh. */
+    public function test_a_heartbeat_without_accounts_keeps_the_rows_and_their_time(): void
+    {
+        self::bootKernel();
+        $clock = new MockClock('2026-09-14 16:00:00');
+        self::getContainer()->set('clock', $clock);
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-keep@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', accounts: [self::account()]));
+        $clock->modify('+1 minute');
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
+
+        $bridge = $this->reload($owner, $bridgeId);
+        self::assertSame('2026-09-14 16:01:00', $bridge->lastSeenAt->format('Y-m-d H:i:s'));
+        self::assertSame([self::account()], $bridge->accounts);
+        self::assertSame('2026-09-14 16:00:00', $bridge->accountsReportedAt?->format('Y-m-d H:i:s'));
+    }
+
+    public function test_an_empty_account_report_clears_the_stored_rows(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-clear@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', accounts: [self::account()]));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', accounts: []));
+
+        $bridge = $this->reload($owner, $bridgeId);
+        self::assertSame([], $bridge->accounts);
+        self::assertNotNull($bridge->accountsReportedAt);
+    }
+
     public function test_a_first_heartbeat_answers_no_commands_and_stores_the_reports(): void
     {
         self::bootKernel();
@@ -407,6 +480,12 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         $handler(new RecordBridgeHeartbeatCommand($second, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
 
         self::assertSame('laptop', $this->reload($second, $bridgeId)->name);
+    }
+
+    /** @return array{name: string, harness: string, state: 'ready'|'failing', reason: ?string} */
+    private static function account(): array
+    {
+        return ['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null];
     }
 
     /** @return array{name: string, size: int, inUse: int, queued: int} */

@@ -110,7 +110,7 @@ order.
 | `workKind` | the kind of the work request, such as `implement` or `fix`. It matches `^[a-z][a-z0-9-]{0,39}$` |
 | `ruleId` | the id of the workflow rule that opened the work request. It matches `^[a-z0-9][a-z0-9._-]{0,99}$` |
 | `kind` | `worker` or `command`. A missing or `null` value means `worker`. See [Command runs](#command-runs) |
-| `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running`, except on a command run |
+| `sessionId` | the uuid of the session the worker runs as. Required for `running`, except on a command run. A harness that names its session with its own id sends that id in `harnessSessionId` |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
 | `endedAt` | when the worker ended, on the bridge clock. Required for an outcome. A `stopped` report may leave it out, and the server then uses `at`. The end, or `at` in its place, cannot be before the `startedAt` of the same report |
 | `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished`, `blocked` and `waiting-on-forge` need 0, `failed` needs any other code, and `not-started` needs `null` |
@@ -132,6 +132,10 @@ order.
 | `variant` | the variant of the experiment that the card runs with, such as `sonnet`. It matches the same pattern |
 | `requestedModel` | the model the variant asked for, such as `claude-sonnet-5-5`, at most 100 characters with no control characters |
 | `switchedFrom` | the variant the card was pinned to before this run, when the rule no longer offers it. It matches the same pattern |
+| `harness` | the harness that runs the worker, such as `claude-code` or `codex`. It starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens |
+| `account` | the named harness account the worker uses. It holds 1 to 64 letters, digits, dots, underscores and hyphens, and starts with a letter or a digit. It is a short name, never a path or a key |
+| `model` | the model the harness runs, at most 100 characters with no control characters |
+| `harnessSessionId` | the id the harness gives the session, such as a Codex thread id. It holds 1 to 100 letters, digits, dots, colons, underscores and hyphens, and starts with a letter or a digit. Loupe keeps its own session id in `sessionId` |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
 outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
@@ -151,6 +155,17 @@ with no `workerPool` keeps the stored pool. A bridge built before worker pools
 sends none, and its runs have no pool. The bridge can move a queued run to
 another pool before the run starts. Until the next report arrives, a queued run
 can show the pool it had before the move.
+
+The server stores `harness`, `account`, `model` and `harnessSessionId` from
+every report that carries them, a repeat of a state included. A report with no
+value for a field keeps the stored value. So a value can arrive late: Codex
+names its thread only after it starts, and the model can come with the outcome.
+A blank value, or a value that breaks its rule, gets a 422. A bridge built
+before harnesses sends none of the four fields. The runs from before this
+release show the harness `claude-code`, because each bridge then ran Claude
+Code. A command run runs no harness, so it has none of the four. The
+[interactive launch report](../extending/cli-bridge.md#interactive-action)
+takes the same four fields with the same rules.
 
 The bridge sends `experiment`, `variant`, `requestedModel` and `switchedFrom`
 on `running` and on the outcome, never on `queued`. A run with no experiment
@@ -395,6 +410,7 @@ what the bridge reads from the stream of the worker.
     {
       "seq": 1,
       "tool": "Bash",
+      "kind": "shell",
       "startedAt": "2026-10-06T14:12:03.120Z",
       "durationMs": 840,
       "isError": false,
@@ -414,13 +430,14 @@ what the bridge reads from the stream of the worker.
 | `calls` | required. A list of at most 500 calls, which may be empty |
 | `calls[].seq` | required. The place of the call in the run, from 1 to 2147483647 |
 | `calls[].tool` | required. The tool name, such as `Bash`, `Read` or `Agent`, of 1 to 64 characters |
+| `calls[].kind` | `shell` for a call that runs shell commands, `subagent` for a call that starts a subagent, and `tool` for any other call. The harness adapter of the bridge sets it, so the server reads no tool name. `null` from a bridge older than call kinds |
 | `calls[].startedAt` | required. When the call started, in any offset. The server stores it in UTC |
 | `calls[].durationMs` | an integer of 0 or more. `null` when the stream holds no result of the call |
 | `calls[].isError` | `true` when the tool answered with an error. `null` when the stream holds no result of the call |
 | `calls[].inSubagent` | required. `true` when a subagent made the call |
 | `calls[].backgroundId` | the id of the background task the call started, of at most 64 characters |
 | `calls[].waitsOn` | the `backgroundId` of an earlier call that this call reads, of at most 64 characters |
-| `calls[].signatures` | required. A list of at most 20 strings of at most 120 characters. For a Bash call, the program and its subcommand for each command. For any other call, the tool name |
+| `calls[].signatures` | required. A list of at most 20 strings of at most 120 characters. For a call of the kind `shell`, the program and its subcommand for each command. For any other call, the tool name |
 | `calls[].fullText` | the full input of the call, of at most 20000 characters. `null` unless the project collects full text |
 | `timing.toolTimeMs` | an integer of 0 or more. The time the main session spent in tool calls, with overlaps counted once |
 | `timing.idleGapMs` | an integer of 0 or more. The sum of each pause of more than 300 seconds between two timed lines of the stream |
@@ -470,7 +487,7 @@ the tokens, the row holds the timing of the run. The MCP tools
 | `toolCalls` | the count of the calls of the run, the calls of subagents included |
 | `failedCalls` | the count of the calls with `isError` true |
 | `longestCallMs` | the longest `durationMs` of the calls |
-| `subagentMs` | the sum of `durationMs` of the `Agent` and `Task` calls of the main session |
+| `subagentMs` | the sum of `durationMs` of the calls of the kind `subagent` in the main session. `null` when a call of the main session has no `kind` |
 | `peakContextTokens` | the [peak context](#peak-context) the bridge sent |
 | `meanCpuPct` | the mean use of all cores, in percent, over the host samples of the bridge within the run |
 | `peakMemBytes` | the largest `memUsed` of those samples, in bytes |
@@ -719,7 +736,7 @@ its experiment weights and its card holds with it. Deleting an account deletes
 the same data of every project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
-`requestedModel` and `switchedFrom`, its `workRequestId`, `workKind` and `ruleId`, and its `toolTimeMs`, `idleGapMs` and `peakContextTokens`. It holds every usage
+`requestedModel` and `switchedFrom`, its `harness`, `account`, `model` and `harnessSessionId`, its `workRequestId`, `workKind` and `ruleId`, and its `toolTimeMs`, `idleGapMs` and `peakContextTokens`. It holds every usage
 row in `worker_run_usage.json`. It holds every tool call in
 `worker_run_tool_calls.json`, with its project, the `runKey` of its run, and the
 fields of [the tool call report](#reporting-the-tool-calls-of-a-run). It holds the time of each run in each bucket in

@@ -110,7 +110,7 @@ func TestRunWorkerReadsTheExitCodeAndTheOutputFromItsRunDirectory(t *testing.T) 
 		t.Fatalf("dir = %q", res.dir)
 	}
 	rec, err := readRunRecord(res.dir)
-	if err != nil || rec.RunID != "run-1" || rec.PID <= 0 || rec.StartTime == "" {
+	if err != nil || rec.RunID != "run-1" || rec.PID <= 0 || rec.StartTime == "" || rec.Harness != "claude-code" {
 		t.Fatalf("run record = %+v, %v", rec, err)
 	}
 }
@@ -192,7 +192,7 @@ func TestRunWorkerPassesThePromptUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
-	if want := workerArgs(spec); !slices.Equal(got, want) {
+	if want := spec.harnessCommand(nil).Args; !slices.Equal(got, want) {
 		t.Fatalf("claude got %q, want %q", got, want)
 	}
 }
@@ -224,10 +224,30 @@ func TestRunWorkerWithNoClaudeNeverStarts(t *testing.T) {
 	}
 }
 
+// The account's variables beat the inherited ones, the bridge's own session id
+// beats both, and the run record names the account and its config folder.
+func TestRunWorkerTakesTheEnvironmentOfItsAccount(t *testing.T) {
+	workerClaude(t, `echo "{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"$SHARED $LOUPE_SESSION_ID\"}}"`)
+	t.Setenv("SHARED", "inherited")
+	spec := workerSpec{
+		dir: t.TempDir(), sessionID: testSession, prompt: "go", runID: "account-run", account: "a", configDir: "/c",
+		env: []string{"SHARED=account", sessionEnv + "=from-file"},
+	}
+
+	res := runWorker(context.Background(), spec, nil)
+	if res.err != nil || res.output != "account "+testSession {
+		t.Fatalf("runWorker = %+v", res)
+	}
+	rec, err := readRunRecord(res.dir)
+	if err != nil || rec.Account != "a" || rec.ConfigDir != "/c" || rec.Harness != "claude-code" {
+		t.Fatalf("run record = %+v, %v", rec, err)
+	}
+}
+
 // The run record round-trips, so a later bridge can read what this one wrote.
 func TestRunRecordRoundTrips(t *testing.T) {
 	dir := t.TempDir()
-	want := runRecord{PID: 42, StartedAt: time.Now().UTC().Truncate(time.Second), RunID: "r", Dir: "/w", PermissionMode: "plan", Model: "opus", SessionID: testSession, Resume: true, Prompt: "go"}
+	want := runRecord{PID: 42, StartedAt: time.Now().UTC().Truncate(time.Second), RunID: "r", Dir: "/w", PermissionMode: "plan", Model: "opus", SessionID: testSession, Resume: true, Prompt: "go", Account: "a", ConfigDir: "/c"}
 	if err := writeRunRecord(dir, want); err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +315,7 @@ func endedRunDir(t *testing.T, stdout []byte) string {
 // A run an older bridge started prints the old single JSON document, which
 // holds the result and no tool call.
 func TestAdoptReadsTheOldJSONDocument(t *testing.T) {
-	doc, err := os.ReadFile(filepath.Join("..", "internal", "stream", "testdata", "old_json.json"))
+	doc, err := os.ReadFile(filepath.Join("..", "internal", "harness", "claude", "testdata", "old_json.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +331,7 @@ func TestAdoptReadsTheOldJSONDocument(t *testing.T) {
 
 // The outcome of a worker carries the peak context of its main session.
 func TestAdoptReadsThePeakContext(t *testing.T) {
-	stdout, err := os.ReadFile(filepath.Join("..", "internal", "stream", "testdata", "peak_context.jsonl"))
+	stdout, err := os.ReadFile(filepath.Join("..", "internal", "harness", "claude", "testdata", "peak_context.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}

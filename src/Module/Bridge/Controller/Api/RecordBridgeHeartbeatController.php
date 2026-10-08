@@ -68,6 +68,7 @@ final class RecordBridgeHeartbeatController extends AppController
             name: $payload->name(),
             hostSamples: $payload->hostSamples(),
             pushLogin: $payload->pushLogin,
+            accounts: $payload->accounts(),
         ));
 
         return new JsonResponse([

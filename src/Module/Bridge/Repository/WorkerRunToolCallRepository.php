@@ -21,14 +21,14 @@ class WorkerRunToolCallRepository extends ServiceEntityRepository
 {
     private const string INSERT_SQL = <<<'SQL'
         INSERT INTO bridge_worker_run_tool_calls (
-            id, run_id, seq, tool, started_at, duration_ms, is_error, in_subagent,
+            id, run_id, seq, tool, kind, started_at, duration_ms, is_error, in_subagent,
             background_id, waits_on, signatures, full_text
         )
         SELECT
-            c.id, c.run_id, c.seq, c.tool, c.started_at, c.duration_ms, c.is_error, c.in_subagent,
+            c.id, c.run_id, c.seq, c.tool, c.kind, c.started_at, c.duration_ms, c.is_error, c.in_subagent,
             c.background_id, c.waits_on, c.signatures, c.full_text
         FROM jsonb_to_recordset(CAST(:calls AS jsonb)) AS c(
-            id uuid, run_id uuid, seq int, tool text, started_at timestamp, duration_ms bigint, is_error boolean,
+            id uuid, run_id uuid, seq int, tool text, kind text, started_at timestamp, duration_ms bigint, is_error boolean,
             in_subagent boolean, background_id text, waits_on text, signatures json, full_text text
         )
         ON CONFLICT (run_id, seq) DO NOTHING
@@ -59,6 +59,7 @@ class WorkerRunToolCallRepository extends ServiceEntityRepository
             'run_id' => $runId,
             'seq' => $call->seq,
             'tool' => $call->tool,
+            'kind' => $call->kind?->value,
             'started_at' => $call->startedAt->format('Y-m-d H:i:s.u'),
             'duration_ms' => $call->durationMs,
             'is_error' => $call->isError,

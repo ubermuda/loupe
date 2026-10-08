@@ -18,7 +18,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type InboxAskSummary from InboxItemPayload
  */
-#[McpTool(name: self::NAME, description: 'Add an open item that is already in the inbox to your own ask, so you wait for the same answer instead of asking again. Find the item with inbox_search or inbox_list. Pass your sessionId, from $CLAUDE_CODE_SESSION_ID, and bridgeId when the bridge started you. The item goes to your session\'s open ask, or to a new ask when you have none. One answer then counts toward every ask that holds the item. A new ask whose only item does not block closes at once. A closed item is refused: read its answer with inbox_get. The response carries the askId and the item.')]
+#[McpTool(name: self::NAME, description: 'Add an open item that is already in the inbox to your own ask, so you wait for the same answer instead of asking again. Find the item with inbox_search or inbox_list. Pass your sessionId, the first set value of $LOUPE_SESSION_ID, $CLAUDE_CODE_SESSION_ID and $CODEX_THREAD_ID. Pass bridgeId when the bridge started you. The item goes to your session\'s open ask, or to a new ask when you have none. One answer then counts toward every ask that holds the item. A new ask whose only item does not block closes at once. A closed item is refused: read its answer with inbox_get. The response carries the askId and the item.')]
 final readonly class InboxJoinTool implements FlagGatedToolInterface
 {
     public const string NAME = 'inbox_join';
@@ -46,7 +46,7 @@ final readonly class InboxJoinTool implements FlagGatedToolInterface
 
     /**
      * @param string      $itemId    the id of the open item to wait for, from inbox_search or inbox_list
-     * @param string      $sessionId the id of your Claude Code session, from $CLAUDE_CODE_SESSION_ID
+     * @param string      $sessionId the id of your agent session, the first set value of $LOUPE_SESSION_ID, $CLAUDE_CODE_SESSION_ID and $CODEX_THREAD_ID
      * @param string|null $bridgeId  the id of the bridge that started you, when one did
      *
      * @return InboxAskSummary

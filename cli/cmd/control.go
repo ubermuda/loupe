@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -31,8 +33,10 @@ const (
 	// reloadTimeout bounds a whole `loupe bridge reload`. The bridge checks the
 	// rule file against the server, which can take several requests.
 	reloadTimeout = 60 * time.Second
-	// reloadBuildTimeout stays below reloadTimeout, so the bridge answers first.
-	reloadBuildTimeout = 50 * time.Second
+	// reloadBuildTimeout and reloadAccountsTimeout, the bound of the account
+	// checks, add up to less than reloadTimeout, so the bridge answers first.
+	reloadBuildTimeout    = 30 * time.Second
+	reloadAccountsTimeout = 20 * time.Second
 )
 
 // rulesPathOr gives path, or the default rule file when path is empty.
@@ -416,4 +420,7 @@ func printReload(w io.Writer, path string, res reloadResult) {
 		fmt.Fprintln(w, "no rule changed")
 	}
 	fmt.Fprintln(w, "projects: "+strings.Join(res.Projects, ", "))
+	for _, name := range slices.Sorted(maps.Keys(res.AccountsOff)) {
+		fmt.Fprintln(w, "account "+name+" failing: "+res.AccountsOff[name])
+	}
 }
