@@ -3662,9 +3662,9 @@
         root.querySelector(
             '#lp-picker-modes [data-mode="epic"]',
         ).style.display = parentTypes.length ? '' : 'none';
-        const keys = parentTypes.map((type) => type.key);
+        const keys = parentTypes.map((type) => `${type.key}:${type.label}`);
         const listed = [...pickerTypeNode.options].map(
-            (option) => option.value,
+            (option) => `${option.value}:${option.textContent}`,
         );
         if (keys.join('\n') !== listed.join('\n')) {
             pickerTypeNode.textContent = '';
