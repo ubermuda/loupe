@@ -1,5 +1,10 @@
 @import 'tailwindcss' source(none);
 @import './tokens.css';
 @import './components/button.css';
+@import './components/badge.css';
+@import './components/empty-state.css';
+@import './components/flash.css';
+@import './components/status-chip.css';
+@import './components/tag.css';
 
 @source "../../templates/components/Ds";

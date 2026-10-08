@@ -105,6 +105,16 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         }
     }
 
+    public function test_the_second_tailwind_input_imports_every_component_stylesheet(): void
+    {
+        $root = \dirname(__DIR__, 4).'/assets/styles';
+        $input = (string) file_get_contents($root.'/design-system.css');
+
+        foreach (glob($root.'/components/*.css') ?: [] as $file) {
+            self::assertStringContainsString("@import './components/".basename($file)."';", $input);
+        }
+    }
+
     public function test_tokens_are_plain_root_blocks(): void
     {
         $css = (string) file_get_contents($this->directory.'/tokens/elevation.css');
