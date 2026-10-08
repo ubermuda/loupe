@@ -10,10 +10,13 @@ use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Repository\CardVerdictRepository;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\GitHub\Entity\GitHubUserConnection;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Command\BindWorkflowTemplateHandler;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Board\CardVerdictScenario;
 use App\Tests\Support\AgentCredential;
@@ -48,8 +51,27 @@ final class CardVerdictApiTest extends WebTestCase
         self::assertSame([['id' => (string) $open->id, 'label' => 'acme/widgets#7', 'ownPullRequest' => false]], $data['pullRequests']);
         self::assertSame([['id' => (string) $note->id, 'url' => 'https://app.example/page', 'body' => 'The footer overlaps the launcher.', 'anchorCount' => 1]], $data['notes']);
         self::assertSame(['state' => 'none'], $data['connection']);
-        self::assertSame([], $data['preview']);
+        self::assertSame(['approve' => ['actions' => []], 'request-changes' => ['actions' => []], 'comment' => ['actions' => []]], $data['preview']);
         self::assertNull($data['latestVerdict']);
+    }
+
+    public function test_the_panel_previews_the_review_write_for_every_kind_while_the_workflow_and_the_opt_in_are_on(): void
+    {
+        $client = static::createClient();
+        [$raw, $project] = $this->projectWithToken($client, 'verdict-api-preview@example.com', 'verdict-api-preview');
+        $card = $this->card($project);
+        $this->service(BindWorkflowTemplateHandler::class)(new BindWorkflowTemplateCommand($project, 'simple', []));
+        $this->service(BoardAutomation::class)->settingsForUpdate($project)->postWidgetReviews = true;
+        $this->em->flush();
+
+        $data = $this->call($client, Request::METHOD_GET, $this->panelPath($card), $raw);
+
+        self::assertResponseIsSuccessful();
+        $action = ['code' => 'post-review', 'label' => 'Posts your verdict as a review on the pull requests you pick.'];
+        self::assertSame(
+            ['approve' => ['actions' => [$action]], 'request-changes' => ['actions' => [$action]], 'comment' => ['actions' => [$action]]],
+            $data['preview'],
+        );
     }
 
     public function test_a_sent_verdict_is_stored_and_shows_in_the_panel_with_its_delivery_states(): void

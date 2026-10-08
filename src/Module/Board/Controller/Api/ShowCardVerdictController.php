@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\ShowCardVerdictCommand;
 use App\Module\Board\Command\ShowCardVerdictHandler;
 use App\Module\Board\Command\ShowCardVerdictView;
+use App\Module\Board\Command\VerdictActionOption;
 use App\Module\Board\Command\VerdictPullRequestOption;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Service\PullRequestLabel;
@@ -65,7 +66,13 @@ final class ShowCardVerdictController extends AppController
                 $view->pullRequests,
             ),
             'notes' => $view->notes,
-            'preview' => [],
+            'preview' => array_map(
+                static fn (array $options): array => ['actions' => array_map(
+                    static fn (VerdictActionOption $option): array => ['code' => $option->code, 'label' => $option->label],
+                    $options,
+                )],
+                $view->actions,
+            ),
             'latestVerdict' => null === $latest ? null : [
                 'id' => (string) $latest->id,
                 'kind' => $latest->kind->value,

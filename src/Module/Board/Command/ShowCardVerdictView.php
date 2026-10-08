@@ -14,6 +14,7 @@ final readonly class ShowCardVerdictView
      * @param list<VerdictPullRequestOption>                                       $pullRequests
      * @param list<array{id: string, url: string, body: string, anchorCount: int}> $notes
      * @param list<CardVerdictDelivery>                                            $latestDeliveries
+     * @param array<string, list<VerdictActionOption>>                             $actions          keyed by verdict kind
      */
     public function __construct(
         public Card $card,
@@ -22,6 +23,7 @@ final readonly class ShowCardVerdictView
         public string $connection,
         public ?CardVerdict $latest,
         public array $latestDeliveries,
+        public array $actions,
     ) {
     }
 }
