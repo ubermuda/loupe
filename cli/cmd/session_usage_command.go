@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -24,18 +25,15 @@ func (r *router) collectSessionUsage(c api.Command) (state, reason string) {
 	if r.reportRunUsage == nil {
 		return api.CommandRefused, usageNotSent + "no usage endpoint"
 	}
-	dir, err := transcript.ConfigDir()
-	if err != nil {
-		return api.CommandRefused, usageNotRead + err.Error()
+	// The transcript is in the config folder of the account the run started on.
+	var run rules.RunSettings
+	if set := r.rules(); set != nil {
+		run, _ = set.Account(c.Account, "")
 	}
-	path, err := transcript.Find(dir, c.SessionID)
+	usage, err := harnessOf(run.Harness, run.ConfigDir).SessionUsage(c.SessionID, *c.StartedAt, windowEnd(*c.EndedAt))
 	if errors.Is(err, transcript.ErrNotFound) {
 		return api.CommandRefused, noSessionTranscript
 	}
-	if err != nil {
-		return api.CommandRefused, usageNotRead + err.Error()
-	}
-	usage, err := transcript.Between(path, *c.StartedAt, windowEnd(*c.EndedAt))
 	if err != nil {
 		return api.CommandRefused, usageNotRead + err.Error()
 	}
