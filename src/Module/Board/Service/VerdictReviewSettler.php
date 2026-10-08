@@ -38,19 +38,21 @@ final readonly class VerdictReviewSettler
      * Settles each pending delivery of the card, so a later verdict forms a new edge. A transient failure leaves its
      * delivery pending.
      *
-     * @return ?string the cause of the first transient failure
+     * The result holds the cause of the first transient failure, and whether a delivery settled.
      */
-    public function settle(Card $card): ?string
+    public function settle(Card $card): SiteReviewWriteResult
     {
         $optedIn = $this->boardAutomation->settingsOf($card->project)->postWidgetReviews;
         $transient = null;
+        $changed = false;
         foreach ($this->cardVerdictDeliveries->findPendingForCard($card) as $delivery) {
             $cause = $this->settleOne($delivery, $optedIn);
             $transient ??= $cause;
+            $changed = $changed || null === $cause;
             $this->em->flush();
         }
 
-        return $transient;
+        return new SiteReviewWriteResult($transient, $changed);
     }
 
     private function settleOne(CardVerdictDelivery $delivery, bool $optedIn): ?string

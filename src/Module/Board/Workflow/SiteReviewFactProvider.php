@@ -81,6 +81,7 @@ final readonly class SiteReviewFactProvider implements FactProvider
                 $posted?->headSha,
                 $posted?->conclusion,
                 $posted?->checkRunId,
+                $posted?->noteCount,
             );
         }
 
@@ -114,7 +115,7 @@ final readonly class SiteReviewFactProvider implements FactProvider
 
         return [
             $facts->pendingDeliveryIds,
-            array_map(static fn (CheckWanted $check): array => [$check->headSha, $check->wantedConclusion], $facts->checks),
+            array_map(static fn (CheckWanted $check): array => [$check->headSha, $check->wantedConclusion, $check->noteCount], $facts->checks),
         ];
     }
 

@@ -41,26 +41,27 @@ final readonly class SiteReviewCheckPublisher
     /**
      * Posts the check where it is stale. A failure on one pull request does not hold back the others.
      *
-     * @return ?string the cause of the first failure
+     * The result holds the cause of the first failure, and whether a state row changed.
      */
-    public function publish(Card $card): ?string
+    public function publish(Card $card): SiteReviewWriteResult
     {
         $pullRequests = $this->cardPullRequests->findOpenGitHubForCard($card);
         $wanted = $this->facts->wantedChecks($card, $pullRequests);
         if ([] === $wanted) {
-            return null;
+            return new SiteReviewWriteResult(null, false);
         }
 
         $optedIn = $this->boardAutomation->settingsOf($card->project)->siteReviewCheck;
         $notes = $this->facts->carriedPendingNotes($card);
         $failure = null;
+        $changed = false;
         foreach ($pullRequests as $pullRequest) {
             $check = $wanted[(string) $pullRequest->id] ?? null;
             if (null === $check) {
                 continue;
             }
             $state = $this->siteReviewCheckStates->findOneByPullRequest($pullRequest);
-            $current = null !== $state && $state->headSha === $check->headSha && $state->conclusion === $check->wantedConclusion;
+            $current = null !== $state && $state->headSha === $check->headSha && $state->conclusion === $check->wantedConclusion && $state->noteCount === $check->noteCount;
             if ($current && (!$optedIn || null !== $state->checkRunId)) {
                 continue;
             }
@@ -99,9 +100,10 @@ final readonly class SiteReviewCheckPublisher
             $state->checkRunId = $runId;
             $state->postedAt = \DateTimeImmutable::createFromInterface($this->clock->now());
             $this->em->flush();
+            $changed = true;
         }
 
-        return $failure;
+        return new SiteReviewWriteResult($failure, $changed);
     }
 
     private function title(CheckWanted $check): string

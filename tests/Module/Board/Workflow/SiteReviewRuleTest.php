@@ -7,7 +7,9 @@ namespace App\Tests\Module\Board\Workflow;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
+use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Entity\CardVerdictKind;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Engine\Engine;
@@ -39,6 +41,27 @@ final class SiteReviewRuleTest extends KernelTestCase
         $this->evaluate($card);
 
         self::assertSame(1, $this->fires($card, 'post-widget-review'));
+    }
+
+    public function test_a_second_verdict_after_the_first_review_posts_a_second_review(): void
+    {
+        $this->boot();
+        $card = $this->card($this->boundProject('lifecycle'));
+        $pullRequest = $this->linkedPullRequest($card, 7);
+        $first = $this->deliveryOf($card, $pullRequest);
+        $this->em()->flush();
+
+        // The first pass only baselines the card.
+        $this->evaluate($card);
+        $this->evaluate($card);
+        self::assertSame(CardVerdictDeliveryState::Skipped, $first->state);
+        // The write queued this evaluation, and it resets the truth of the rule.
+        $this->evaluate($card);
+        $second = $this->deliveryOf($card, $pullRequest);
+        $this->em()->flush();
+        $this->evaluate($card);
+
+        self::assertSame(CardVerdictDeliveryState::Skipped, $second->state);
     }
 
     #[DataProvider('templates')]
@@ -90,6 +113,16 @@ final class SiteReviewRuleTest extends KernelTestCase
         }
 
         return $project;
+    }
+
+    private function deliveryOf(Card $card, ForgePullRequest $pullRequest): CardVerdictDelivery
+    {
+        $verdict = new CardVerdict($card, CardVerdictKind::Comment, $card->project->owner, 'Note', []);
+        $this->em()->persist($verdict);
+        $delivery = new CardVerdictDelivery($verdict, $pullRequest);
+        $this->em()->persist($delivery);
+
+        return $delivery;
     }
 
     private function evaluate(Card $card): void

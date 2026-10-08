@@ -24,6 +24,7 @@ use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
+use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Service\CardPullRequests;
@@ -56,6 +57,7 @@ final readonly class ForgeWrite implements Action
         private UrlGeneratorInterface $urlGenerator,
         private VerdictReviewSettler $reviewSettler,
         private SiteReviewCheckPublisher $checkPublisher,
+        private CardEvaluations $evaluations,
 
         #[Autowire(param: 'app.workflow.merge_method')]
         private string $mergeMethod,
@@ -81,9 +83,13 @@ final readonly class ForgeWrite implements Action
             return $this->openEpic($rule, $card, $pullRequests);
         }
         if (ForgeWriteKind::PostReview === $write || ForgeWriteKind::SiteReviewCheck === $write) {
-            $cause = ForgeWriteKind::PostReview === $write ? $this->reviewSettler->settle($card) : $this->checkPublisher->publish($card);
+            $result = ForgeWriteKind::PostReview === $write ? $this->reviewSettler->settle($card) : $this->checkPublisher->publish($card);
+            // The engine keeps the truth of the facts it built before the write, so only a new evaluation resets it.
+            if ($result->changed && $this->evaluations->isOn()) {
+                $this->evaluations->forCards([$card->id ?? throw new \LogicException('A stored card has an id.')]);
+            }
 
-            return null === $cause ? ActionOutcome::done() : ActionOutcome::refused($cause);
+            return null === $result->failure ? ActionOutcome::done() : ActionOutcome::refused($result->failure);
         }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
             if ([] === $pullRequests) {

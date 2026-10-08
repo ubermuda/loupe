@@ -43,6 +43,7 @@ final readonly class CheckStale implements Condition
             if (null === $check->postedSha
                 || $check->postedSha !== $check->headSha
                 || $check->postedConclusion !== $check->wantedConclusion
+                || $check->postedNoteCount !== $check->noteCount
                 || ($site->checkOptedIn && null === $check->postedRunId)) {
                 return true;
             }

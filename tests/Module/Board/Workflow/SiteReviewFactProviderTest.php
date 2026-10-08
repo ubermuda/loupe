@@ -84,7 +84,7 @@ final class SiteReviewFactProviderTest extends KernelTestCase
 
         $facts = $this->build($card);
 
-        self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-1', 'success', 0, null, null, null)], $facts->checks);
+        self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-1', 'success', 0, null, null, null, null)], $facts->checks);
     }
 
     public function test_the_wanted_check_fails_while_a_note_that_a_verdict_carried_is_pending(): void
@@ -157,7 +157,7 @@ final class SiteReviewFactProviderTest extends KernelTestCase
 
         $facts = $this->build($card);
 
-        self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-2', 'success', 0, 'sha-1', 'failure', 99)], $facts->checks);
+        self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-2', 'success', 0, 'sha-1', 'failure', 99, 3)], $facts->checks);
         self::assertTrue($facts->checkOptedIn);
     }
 
@@ -173,6 +173,24 @@ final class SiteReviewFactProviderTest extends KernelTestCase
 
         self::assertSame([(string) $open->id], array_keys($this->build($card)->checks));
         self::assertNull($noHead->headSha);
+    }
+
+    public function test_the_fingerprint_changes_when_the_wanted_note_count_changes(): void
+    {
+        $card = $this->card($this->project);
+        $pullRequest = $this->linkedPullRequest($card, 7);
+        $pullRequest->headSha = 'sha-1';
+        $first = $this->note($card, 'Footer overlaps');
+        $second = $this->note($card, 'Logo is blurry');
+        $this->delivery($card, $pullRequest, [$first, $second]);
+        $this->em->flush();
+        $before = $this->fingerprint($card);
+
+        $second->status = SiteReviewCommentStatus::Resolved;
+        $this->em->flush();
+
+        self::assertSame('failure', $this->build($card)->checks[(string) $pullRequest->id]->wantedConclusion);
+        self::assertNotSame($before, $this->fingerprint($card));
     }
 
     public function test_the_fingerprint_changes_with_the_pending_deliveries_the_head_and_the_wanted_conclusion(): void

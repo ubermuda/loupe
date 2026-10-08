@@ -41,7 +41,9 @@ use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Service\CardPullRequests;
+use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Board\Fake\FakeCheckWriter;
 use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
@@ -51,6 +53,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -494,6 +497,47 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([], $this->checkWriter->published);
     }
 
+    public function test_a_write_that_changed_a_row_queues_a_fresh_evaluation_of_the_card(): void
+    {
+        $project = $this->project(siteReviewCheck: true);
+        $card = $this->card($project, 'in-review');
+        $this->pullRequest($card);
+        $this->transport()->reset();
+
+        $this->write($card, 'site-review-check', fallback: null);
+
+        self::assertEquals([new EvaluateCard((string) $card->id)], $this->queuedEvaluations());
+    }
+
+    public function test_a_write_that_changed_nothing_queues_no_evaluation(): void
+    {
+        $project = $this->project(postWidgetReviews: true, siteReviewCheck: true);
+        $card = $this->card($project, 'in-review');
+        $this->transport()->reset();
+
+        $this->write($card, 'post-review', fallback: null);
+        $this->write($card, 'site-review-check', fallback: null);
+
+        self::assertSame([], $this->queuedEvaluations());
+    }
+
+    /** @return list<EvaluateCard> */
+    private function queuedEvaluations(): array
+    {
+        return array_values(array_filter(
+            array_map(static fn ($envelope): object => $envelope->getMessage(), $this->transport()->getSent()),
+            static fn (object $message): bool => $message instanceof EvaluateCard,
+        ));
+    }
+
+    private function transport(): InMemoryTransport
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        return $transport;
+    }
+
     private function project(
         bool $mergePullRequests = false,
         bool $changeBase = false,
@@ -561,6 +605,7 @@ final class ForgeWriteTest extends KernelTestCase
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),
             ),
+            $this->service(EvaluationTrigger::class),
             'squash',
         );
 

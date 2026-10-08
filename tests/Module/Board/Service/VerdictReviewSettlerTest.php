@@ -224,6 +224,26 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         self::assertSame([(string) $failing->id], $this->pendingOf($card));
     }
 
+    public function test_the_result_says_whether_a_delivery_settled(): void
+    {
+        $card = $this->card($this->project);
+        $this->delivery($card, 7, CardVerdictKind::Approve, '');
+        $this->em->flush();
+
+        self::assertTrue($this->settler()->settle($card)->changed);
+        self::assertFalse($this->settler()->settle($card)->changed);
+    }
+
+    public function test_a_transient_failure_alone_changes_nothing(): void
+    {
+        $card = $this->card($this->project);
+        $this->delivery($card, 7, CardVerdictKind::Approve, '');
+        $this->poster->failure = new PullRequestReviewFailed('rate_limited', false);
+        $this->em->flush();
+
+        self::assertFalse($this->settler()->settle($card)->changed);
+    }
+
     public function test_a_settled_delivery_is_not_posted_again(): void
     {
         $card = $this->card($this->project);
@@ -260,6 +280,12 @@ final class VerdictReviewSettlerTest extends KernelTestCase
     private function settle(Card $card): ?string
     {
         $this->em->flush();
+
+        return $this->settler()->settle($card)->failure;
+    }
+
+    private function settler(): VerdictReviewSettler
+    {
         $translator = $this->service(TranslatorInterface::class);
 
         return new VerdictReviewSettler(
@@ -270,7 +296,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
             $translator,
             $this->em,
             new MockClock('2026-10-08 12:00:00'),
-        )->settle($card);
+        );
     }
 
     /**

@@ -20,6 +20,7 @@ use App\Module\Forge\Service\PullRequestCheckConclusion;
 use App\Module\Forge\Service\PullRequestCheckWriters;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Tests\Module\Board\CardVerdictScenario;
 use App\Tests\Module\Board\Fake\FakeCheckWriter;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -132,6 +133,25 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertSame(101, $this->writer->published[1]['runId']);
         self::assertSame('failure', $this->stateOf($pullRequest)->conclusion);
         self::assertSame(101, $this->stateOf($pullRequest)->checkRunId);
+    }
+
+    public function test_a_changed_note_count_posts_again_on_the_same_run(): void
+    {
+        $card = $this->card($this->project);
+        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
+        $first = $this->note($card, 'Footer overlaps');
+        $second = $this->note($card, 'Logo is blurry');
+        $this->verdict($card, 7, [$first, $second]);
+        $this->publish($card);
+        $second->status = SiteReviewCommentStatus::Resolved;
+
+        $this->publish($card);
+
+        self::assertCount(2, $this->writer->published);
+        self::assertSame(PullRequestCheckConclusion::Failure, $this->writer->published[1]['conclusion']);
+        self::assertSame(101, $this->writer->published[1]['runId']);
+        self::assertSame('- https://app.example/page: Footer overlaps', $this->writer->published[1]['summary']);
+        self::assertSame(1, $this->stateOf($pullRequest)->noteCount);
     }
 
     public function test_a_new_head_starts_a_new_run(): void
@@ -265,7 +285,7 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
             $this->service(TranslatorInterface::class),
             $this->em,
             new MockClock('2026-10-08 12:00:00'),
-        )->publish($card);
+        )->publish($card)->failure;
     }
 
     /**

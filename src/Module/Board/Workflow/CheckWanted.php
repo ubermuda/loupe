@@ -19,6 +19,7 @@ final readonly class CheckWanted
         public ?string $postedSha,
         public ?string $postedConclusion,
         public ?int $postedRunId,
+        public ?int $postedNoteCount,
     ) {
     }
 }
