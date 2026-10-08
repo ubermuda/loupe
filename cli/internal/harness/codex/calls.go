@@ -153,11 +153,13 @@ func outputError(text string) *bool {
 	return nil
 }
 
-// tree is a session and the sessions of the subagents it started.
+// tree is a session and the sessions of the subagents it started. skipped
+// says the load left out a subagent of an earlier run.
 type tree struct {
 	session
 	children []*tree
 	byThread map[string]*tree
+	skipped  bool
 }
 
 // load reads the session files of the subagents s started, and of theirs.
@@ -180,6 +182,8 @@ func (h Harness) load(s session, seen map[string]bool, since time.Time) (*tree, 
 		}
 		if err != nil || child.id == "" {
 			if sp.at.Before(since) {
+				t.skipped = true
+
 				continue
 			}
 
@@ -189,6 +193,7 @@ func (h Harness) load(s session, seen map[string]bool, since time.Time) (*tree, 
 		if err != nil {
 			return nil, err
 		}
+		t.skipped = t.skipped || c.skipped
 		t.children = append(t.children, c)
 		t.byThread[sp.thread] = c
 	}

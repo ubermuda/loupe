@@ -469,6 +469,10 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 		out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since)
 	}
 	switch {
+	case treeErr == nil && len(sess.events) > 0 && t.skipped:
+		// No baseline reads without the skipped subagent, so the run counts
+		// only what it spent itself.
+		out.Usage = toUsage(t.between(run.Since, time.Time{}))
 	case treeErr == nil && len(sess.events) > 0:
 		out.Usage = toUsage(t.between(time.Time{}, time.Time{}))
 	case stdout.usage != nil:
