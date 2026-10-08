@@ -295,3 +295,18 @@ func TestHarnessByName(t *testing.T) {
 		t.Fatalf("recordHarness of an unknown name = %q", got)
 	}
 }
+
+// A stdout that does not read names its error in the output once, though the
+// capped read and the harness both fail on it.
+func TestAnOutcomeWithNoStdoutNamesTheReadErrorOnce(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "stderr"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	res := workerOutcome(dir, false, nil)
+
+	if n := strings.Count(res.output, "read worker output"); n != 1 || res.streamed {
+		t.Fatalf("output = %q, streamed = %v", res.output, res.streamed)
+	}
+}

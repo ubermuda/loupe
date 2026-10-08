@@ -705,7 +705,8 @@ func TestCheckReadsThePathOfTheRepositoryEntry(t *testing.T) {
 	}
 }
 
-// ReadRun reads the calls of stdout, and reads none when stdout is missing.
+// ReadRun reads the calls of stdout, and reads none and keeps the error when
+// stdout is missing.
 func TestReadRunReadsTheCallsOfStdout(t *testing.T) {
 	dir := t.TempDir()
 	stdout := `{"type":"assistant","timestamp":"2026-10-06T10:00:00.000Z","message":{"usage":{"input_tokens":1,"cache_read_input_tokens":2,"cache_creation_input_tokens":3},"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}]}}` + "\n" +
@@ -716,7 +717,7 @@ func TestReadRunReadsTheCallsOfStdout(t *testing.T) {
 	}
 
 	got := New("").ReadRun(dir, harness.RunInfo{})
-	if !got.Decoded || got.Result != "r" || !got.CallsRead || len(got.Calls) != 1 || got.Calls[0].Kind != stream.KindShell {
+	if !got.Decoded || got.Result != "r" || !got.CallsRead || got.ReadErr != nil || len(got.Calls) != 1 || got.Calls[0].Kind != stream.KindShell {
 		t.Fatalf("ReadRun = %+v", got)
 	}
 	if got.Timing.ToolTimeMs == nil || *got.Timing.ToolTimeMs != 2000 || got.PeakContextTokens == nil || *got.PeakContextTokens != 6 {
@@ -724,7 +725,7 @@ func TestReadRunReadsTheCallsOfStdout(t *testing.T) {
 	}
 
 	got = New("").ReadRun(t.TempDir(), harness.RunInfo{})
-	if got.Decoded || got.CallsRead || got.Calls != nil || got.Timing.ToolTimeMs != nil || got.PeakContextTokens != nil {
+	if got.Decoded || got.CallsRead || got.Calls != nil || got.Timing.ToolTimeMs != nil || got.PeakContextTokens != nil || got.ReadErr == nil {
 		t.Fatalf("ReadRun of no stdout = %+v", got)
 	}
 }

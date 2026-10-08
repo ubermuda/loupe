@@ -95,7 +95,8 @@ type Command struct {
 // Output is what a worker left. Decoded says the run left a valid document,
 // and Result can hold text of one that did not decode. CallsRead says the
 // harness read the calls of the run, so Calls and Timing are what the run
-// held. A nil PeakContextTokens is unknown.
+// held. A nil PeakContextTokens is unknown. ReadErr says why the output of
+// the run did not read to its end.
 type Output struct {
 	Decoded           bool
 	StructuredOutput  json.RawMessage
@@ -105,4 +106,5 @@ type Output struct {
 	Calls             []stream.Call
 	Timing            stream.Timing
 	PeakContextTokens *int64
+	ReadErr           error
 }

@@ -109,10 +109,11 @@ func (Harness) Interactive(program string, spec harness.Spec) string {
 }
 
 // ReadRun reads the stdout of claude in dir. A stdout that does not read to
-// its end gives no calls, and keeps the result line it held.
+// its end gives no calls and its error, and keeps the result line it held.
 func (Harness) ReadRun(dir string, _ harness.RunInfo) harness.Output {
 	out, err := ReadFile(filepath.Join(dir, "stdout"))
 	doc := decode(out.Result)
+	doc.ReadErr = err
 	if err == nil {
 		doc.CallsRead, doc.Calls, doc.Timing, doc.PeakContextTokens = true, out.Calls, out.Timing, out.PeakContextTokens
 	}

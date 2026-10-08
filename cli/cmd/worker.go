@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -422,7 +423,7 @@ func workerOutcome(dir string, killed bool, waitErr error) workerResult {
 	doc := recordHarness(rec).ReadRun(dir, harn.RunInfo{SessionID: rec.SessionID, Model: rec.Model, Since: since})
 	res := decodeWorkerOutput(doc, head.buf.Bytes(), head.dropped, stderr.text())
 	res.streamed, res.calls, res.timing, res.peakContextTokens = doc.CallsRead, doc.Calls, doc.Timing, doc.PeakContextTokens
-	if readErr := errors.Join(headErr, stderrErr); readErr != nil {
+	if readErr := errors.Join(cmp.Or(doc.ReadErr, headErr), stderrErr); readErr != nil {
 		res.output = strings.TrimLeft(res.output+"\n"+readErr.Error(), "\n")
 	}
 	res.killed, res.dir = killed, dir
