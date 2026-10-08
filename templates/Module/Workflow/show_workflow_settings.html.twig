@@ -61,7 +61,7 @@
             <div class="lp-data-table__row" data-card-type="{{ type.key }}">
                 <span class="lp-data-table__cell lp-data-table__title">
                     {% include '_tone_tag.html.twig' with {label: type.labelKey|trans, tone: type.tone} only %}
-                    {%- if type.isDefault %} <span class="lp-tag lp-tag--neutral" data-card-type-default>{{ 'workflow.settings.types.default'|trans }}</span>{% endif -%}
+                    {%- if type.isDefault %} <twig:Ds:Tag tone="neutral" data-card-type-default>{{ 'workflow.settings.types.default'|trans }}</twig:Ds:Tag>{% endif -%}
                 </span>
                 <span class="lp-data-table__cell" data-card-type-capabilities>
                     {%- set capabilities = [] -%}
