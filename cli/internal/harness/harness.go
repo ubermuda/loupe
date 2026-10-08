@@ -41,10 +41,13 @@ type Harness interface {
 }
 
 // RunInfo is what the bridge knows about a run when it reads it. SessionID is
-// the id the bridge gave the run, and Model is the model it asked for.
+// the id the bridge gave the run, and Model is the model it asked for. Since
+// is a time before the run started, and zero when the bridge does not know
+// it. A session file can hold the earlier runs of a resumed session.
 type RunInfo struct {
 	SessionID string
 	Model     string
+	Since     time.Time
 }
 
 // CheckSpec is one account to check. Env holds what the account adds to the

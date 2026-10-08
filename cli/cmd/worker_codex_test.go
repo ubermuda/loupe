@@ -83,8 +83,8 @@ func TestRunWorkerRunsCodexAndReadsItsFiles(t *testing.T) {
 	if res.err != nil || res.exitCode != 0 || !res.hasResult || res.status != "finished" || res.output != "all done" {
 		t.Fatalf("runWorker = %+v", res)
 	}
-	if res.streamed {
-		t.Fatalf("a Codex run reads as streamed: %+v", res)
+	if !res.streamed || len(res.calls) != 0 {
+		t.Fatalf("a Codex run reads the calls of its session file, and this one holds none: %+v", res)
 	}
 	model, ok := res.usage.Models["openrouter/free"]
 	if res.usage.Source != api.UsageReported || !ok || model.InputTokens != 100062-4352 || model.CacheReadTokens != 4352 || model.OutputTokens != 128 || model.CostUSD != nil {

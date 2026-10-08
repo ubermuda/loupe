@@ -2,7 +2,6 @@ package codex
 
 import (
 	"bufio"
-	"bytes"
 	"cmp"
 	"encoding/json"
 	"errors"
@@ -78,7 +77,7 @@ type stdoutRun struct {
 // decode counts for nothing, as a torn last line does.
 func readStdout(path string) stdoutRun {
 	var run stdoutRun
-	_ = eachLine(path, nil, func(line []byte) {
+	_ = eachLine(path, func(line []byte) {
 		var ev struct {
 			Type     string          `json:"type"`
 			ThreadID string          `json:"thread_id"`
@@ -132,10 +131,9 @@ func errorText(message string, raw json.RawMessage) string {
 	return ""
 }
 
-// eachLine calls fn with each line of the file. When markers is not nil, only a
-// line that holds one of them. A line can hold a whole prompt, so it has no
-// length limit.
-func eachLine(path string, markers [][]byte, fn func(line []byte)) error {
+// eachLine calls fn with each line of the file. A line can hold a whole
+// prompt, so it has no length limit.
+func eachLine(path string, fn func(line []byte)) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -145,9 +143,7 @@ func eachLine(path string, markers [][]byte, fn func(line []byte)) error {
 	r := bufio.NewReaderSize(f, 1<<16)
 	for {
 		line, err := r.ReadBytes('\n')
-		if markers == nil || slices.ContainsFunc(markers, func(m []byte) bool { return bytes.Contains(line, m) }) {
-			fn(line)
-		}
+		fn(line)
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -165,66 +161,137 @@ type tokenEvent struct {
 	delta tokens
 }
 
-// session is what a Codex session file holds that the bridge reads.
+// session is what a Codex session file holds that the bridge reads. id is the
+// thread of the file.
 type session struct {
+	id       string
 	cwd      string
 	provider string
 	model    string
 	events   []tokenEvent
+	// lines holds the time of each timed line, in file order, and contexts the
+	// input context of each token count.
+	lines    []time.Time
+	contexts []sample
+	calls    []rawCall
+	// spawns are the subagents the thread started.
+	spawns []spawn
+	// byID maps a call_id to its index in calls, and shells holds the index
+	// of each call that can run a shell command.
+	byID   map[string]int
+	shells []int
 }
 
-var sessionMarkers = [][]byte{[]byte(`"session_meta"`), []byte(`"turn_context"`), []byte(`"token_count"`)}
+// sample is one value at one time.
+type sample struct {
+	at    time.Time
+	value int64
+}
 
 // readSession reads a session file. The format is Codex's own and has no
 // documentation, so a line that does not decode counts for nothing.
 func readSession(path string) (session, error) {
-	var s session
+	s := session{byID: map[string]int{}}
 	var previous tokens
-	err := eachLine(path, sessionMarkers, func(line []byte) {
+	err := eachLine(path, func(line []byte) {
 		var entry struct {
-			Timestamp time.Time `json:"timestamp"`
-			Type      string    `json:"type"`
-			Payload   struct {
-				Type          string `json:"type"`
-				Cwd           string `json:"cwd"`
-				ModelProvider string `json:"model_provider"`
-				Model         string `json:"model"`
-				Info          *struct {
-					Total *tokens `json:"total_token_usage"`
-					Last  *tokens `json:"last_token_usage"`
-				} `json:"info"`
-			} `json:"payload"`
+			Timestamp time.Time       `json:"timestamp"`
+			Type      string          `json:"type"`
+			Payload   json.RawMessage `json:"payload"`
 		}
 		if json.Unmarshal(line, &entry) != nil {
 			return
 		}
-		p := entry.Payload
-		switch {
-		case entry.Type == "session_meta":
-			s.cwd, s.provider = cmp.Or(s.cwd, p.Cwd), cmp.Or(s.provider, p.ModelProvider)
-		case entry.Type == "turn_context":
-			s.model = cmp.Or(p.Model, s.model)
-		case entry.Type == "event_msg" && p.Type == "token_count" && p.Info != nil:
-			// The total counts the whole thread, so a line the file repeats adds
-			// nothing the second time.
-			var delta tokens
-			switch {
-			case p.Info.Total != nil && p.Info.Total.Input >= previous.Input && p.Info.Total.Output >= previous.Output:
-				delta = p.Info.Total.minus(previous)
-				previous = *p.Info.Total
-			case p.Info.Last != nil:
-				delta = *p.Info.Last
-				if p.Info.Total != nil {
-					previous = *p.Info.Total
-				}
-			default:
-				return
+		if !entry.Timestamp.IsZero() {
+			s.lines = append(s.lines, entry.Timestamp)
+		}
+		switch entry.Type {
+		case "session_meta":
+			var p struct {
+				ID            string `json:"id"`
+				Cwd           string `json:"cwd"`
+				ModelProvider string `json:"model_provider"`
 			}
-			s.events = append(s.events, tokenEvent{at: entry.Timestamp, model: s.model, delta: delta})
+			if json.Unmarshal(entry.Payload, &p) == nil {
+				s.id, s.cwd, s.provider = cmp.Or(s.id, p.ID), cmp.Or(s.cwd, p.Cwd), cmp.Or(s.provider, p.ModelProvider)
+			}
+		case "turn_context":
+			var p struct {
+				Model string `json:"model"`
+			}
+			if json.Unmarshal(entry.Payload, &p) == nil {
+				s.model = cmp.Or(p.Model, s.model)
+			}
+		case "event_msg":
+			s.event(entry.Timestamp, entry.Payload, &previous)
+		case "response_item":
+			s.item(entry.Timestamp, entry.Payload)
 		}
 	})
 
 	return s, err
+}
+
+// event reads one event line: a token count or a finished item.
+func (s *session) event(at time.Time, raw json.RawMessage, previous *tokens) {
+	var p struct {
+		Type string `json:"type"`
+		Info *struct {
+			Total *tokens `json:"total_token_usage"`
+			Last  *tokens `json:"last_token_usage"`
+		} `json:"info"`
+		ThreadID    string `json:"thread_id"`
+		StartedAtMs *int64 `json:"started_at_ms"`
+		Item        struct {
+			Type          string                 `json:"type"`
+			Kind          string                 `json:"kind"`
+			Command       json.RawMessage        `json:"command"`
+			ParsedCmd     []struct{ Cmd string } `json:"parsed_cmd"`
+			ExitCode      *int                   `json:"exit_code"`
+			AgentThreadID string                 `json:"agent_thread_id"`
+			AgentPath     string                 `json:"agent_path"`
+		} `json:"item"`
+	}
+	if json.Unmarshal(raw, &p) != nil {
+		return
+	}
+	switch {
+	case p.Type == "token_count" && p.Info != nil:
+		if p.Info.Last != nil {
+			s.contexts = append(s.contexts, sample{at, p.Info.Last.Input})
+		}
+		// The total counts the whole thread, so a line the file repeats adds
+		// nothing the second time.
+		var delta tokens
+		switch {
+		case p.Info.Total != nil && p.Info.Total.Input >= previous.Input && p.Info.Total.Output >= previous.Output:
+			delta = p.Info.Total.minus(*previous)
+			*previous = *p.Info.Total
+		case p.Info.Last != nil:
+			delta = *p.Info.Last
+			if p.Info.Total != nil {
+				*previous = *p.Info.Total
+			}
+		default:
+			return
+		}
+		s.events = append(s.events, tokenEvent{at: at, model: s.model, delta: delta})
+	case p.Type != "item_completed" || p.ThreadID != s.id || s.id == "":
+		// A file can log the items of another thread, such as a review.
+	case p.Item.Type == "CommandExecution":
+		var argv []string
+		_ = json.Unmarshal(p.Item.Command, &argv)
+		parsed := make([]string, 0, len(p.Item.ParsedCmd))
+		for _, c := range p.Item.ParsedCmd {
+			parsed = append(parsed, c.Cmd)
+		}
+		if p.StartedAtMs != nil {
+			at = time.UnixMilli(*p.StartedAtMs)
+		}
+		s.attach(at, shellText(argv, parsed), p.Item.ExitCode)
+	case p.Item.Type == "SubAgentActivity" && p.Item.Kind == "started" && p.Item.AgentThreadID != "":
+		s.spawns = append(s.spawns, spawn{path: p.Item.AgentPath, thread: p.Item.AgentThreadID})
+	}
 }
 
 // between sums the token counts at or after from, and before to when to is set.
@@ -319,6 +386,16 @@ func (h Harness) session(runID string) (session, error) {
 	return readSession(path)
 }
 
+// tree is the session of the run id, with the sessions of its subagents.
+func (h Harness) tree(runID string) (*tree, error) {
+	s, err := h.session(runID)
+	if err != nil {
+		return nil, err
+	}
+
+	return h.load(s, map[string]bool{}), nil
+}
+
 // ReadRun reads a finished run from the stdout of Codex and the files it wrote.
 // A run whose profile names another provider than the session used did not run
 // as configured, so it reads as undecoded.
@@ -336,13 +413,22 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 		out.Result = cmp.Or(stdout.errMsg, text)
 	}
 
-	// The session file gives usage per model, with the keys SessionTotal uses, so
-	// a resume subtracts its baseline model by model. The stdout total is the
-	// fallback when the file is missing or unreadable.
-	sess, sessErr := h.session(run.SessionID)
+	// The session files give usage per model, with the keys SessionTotal uses,
+	// so a resume subtracts its baseline model by model. The stdout total is
+	// the fallback when the main file is missing or unreadable. A file that
+	// does not parse leaves the calls unknown.
+	t, sessErr := h.tree(run.SessionID)
+	var sess session
+	if sessErr == nil {
+		sess = t.session
+		if sess.id != "" {
+			out.CallsRead = true
+			out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since)
+		}
+	}
 	switch {
 	case sessErr == nil && len(sess.events) > 0:
-		out.Usage = toUsage(sess.between(time.Time{}, time.Time{}, cmp.Or(sess.model, fallbackModel)))
+		out.Usage = toUsage(t.between(time.Time{}, time.Time{}))
 	case stdout.usage != nil:
 		out.Usage = toUsage(map[string]tokens{cmp.Or(sess.model, run.Model, fallbackModel): *stdout.usage})
 	}
@@ -371,25 +457,25 @@ func document(text string) json.RawMessage {
 	return json.RawMessage(text)
 }
 
-// SessionUsage is what the thread spent at or after from, and before to when
-// to is set.
+// SessionUsage is what the thread and its subagents spent at or after from,
+// and before to when to is set.
 func (h Harness) SessionUsage(runID string, from, to time.Time) (transcript.Usage, error) {
-	sess, err := h.session(runID)
+	t, err := h.tree(runID)
 	if err != nil {
 		return nil, err
 	}
-	if len(sess.events) == 0 {
+	if len(t.events) == 0 {
 		return nil, errNoUsage
 	}
 
-	return toUsage(sess.between(from, to, cmp.Or(sess.model, fallbackModel))), nil
+	return toUsage(t.between(from, to)), nil
 }
 
 // errNoUsage says the session file holds no token count, so the spend is
 // unknown and not zero.
 var errNoUsage = errors.New("the Codex session holds no token count")
 
-// SessionTotal is what the whole thread spent.
+// SessionTotal is what the whole thread and its subagents spent.
 func (h Harness) SessionTotal(runID string) (transcript.Usage, error) {
 	return h.SessionUsage(runID, time.Time{}, time.Time{})
 }

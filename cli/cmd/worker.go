@@ -415,7 +415,11 @@ func workerOutcome(dir string, killed bool, waitErr error) workerResult {
 	head, headErr := readCapped(filepath.Join(dir, "stdout"), maxOutput)
 	stderr, stderrErr := readCapped(filepath.Join(dir, "stderr"), maxOutput)
 	rec, recErr := readRunRecord(dir)
-	doc := recordHarness(rec).ReadRun(dir, harn.RunInfo{SessionID: rec.SessionID, Model: rec.Model})
+	since := rec.LaunchedAt
+	if since.IsZero() {
+		since = rec.StartedAt
+	}
+	doc := recordHarness(rec).ReadRun(dir, harn.RunInfo{SessionID: rec.SessionID, Model: rec.Model, Since: since})
 	res := decodeWorkerOutput(doc, head.buf.Bytes(), head.dropped, stderr.text())
 	res.streamed, res.calls, res.timing, res.peakContextTokens = doc.CallsRead, doc.Calls, doc.Timing, doc.PeakContextTokens
 	if readErr := errors.Join(headErr, stderrErr); readErr != nil {
