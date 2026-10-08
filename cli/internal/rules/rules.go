@@ -123,6 +123,10 @@ var claudeCodeModes = map[string]string{
 	PermissionsFull:      "bypassPermissions",
 }
 
+// MaxAccounts is the most accounts a file declares, because the heartbeat
+// reports each one and the server takes 50 rows.
+const MaxAccounts = 50
+
 // agentsOffNoAccounts is why a file with no accounts block runs no agent.
 const agentsOffNoAccounts = "rules.yaml has no accounts block"
 
@@ -324,6 +328,9 @@ type Set struct {
 	// other caller.
 	mu       sync.RWMutex
 	deadWork map[string]string
+	// accountsOff maps each account that failed its check to the reason. It
+	// is nil until a check ran, and mu guards it.
+	accountsOff map[string]string
 }
 
 // ErrMissing marks a rule file that does not exist.
@@ -455,6 +462,9 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 func checkAccounts(accounts map[string]Account, root *yaml.Node) (map[string]Account, []error) {
 	out := map[string]Account{}
 	var errs []error
+	if len(accounts) > MaxAccounts {
+		errs = append(errs, fmt.Errorf("%saccounts: at most %d accounts, got %d", lineOf(root, "accounts"), MaxAccounts, len(accounts)))
+	}
 	for _, name := range slices.Sorted(maps.Keys(accounts)) {
 		a := accounts[name]
 		at := func(field string) string { return lineOf(root, "accounts", name, field) }
@@ -598,6 +608,53 @@ func (s *Set) Account(name, level string) (RunSettings, bool) {
 // and "" while it runs them. Command entries run either way.
 func (s *Set) AgentsOff() string {
 	return s.agentsOff
+}
+
+// UsedAccounts names, in order, each account that a worker entry, an
+// interactive entry, one of their variants or an app prompt runs on.
+func (s *Set) UsedAccounts() []string {
+	var out []string
+	runs := []RunSettings{}
+	for _, w := range s.work {
+		runs = append(runs, w.runs()...)
+	}
+	if s.appPrompts {
+		runs = append(runs, s.appRun)
+	}
+	for _, r := range runs {
+		if r.Account != "" && !slices.Contains(out, r.Account) {
+			out = append(out, r.Account)
+		}
+	}
+	slices.Sort(out)
+
+	return out
+}
+
+// SetAccountProblems turns off each entry that runs on an account of m, which
+// maps the account to the reason its check failed. A nil m turns none off.
+func (s *Set) SetAccountProblems(m map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.accountsOff = maps.Clone(m)
+	if s.accountsOff == nil {
+		s.accountsOff = map[string]string{}
+	}
+}
+
+// AccountsOff maps each account that failed its check to the reason. It is
+// nil until SetAccountProblems ran.
+func (s *Set) AccountsOff() map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return maps.Clone(s.accountsOff)
+}
+
+// offLocked reports whether one of runs takes an account that failed its
+// check. The caller holds mu.
+func (s *Set) offLocked(runs []RunSettings) bool {
+	return slices.ContainsFunc(runs, func(r RunSettings) bool { return s.accountsOff[r.Account] != "" })
 }
 
 // keyNode is the key node at path in the document root, or nil. A string

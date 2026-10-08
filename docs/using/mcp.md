@@ -135,6 +135,8 @@ including ones you create later. The approval page says so before you allow it.
 
 `loupe status` checks the setup. Run it in the repository. It calls
 `project_current` through the MCP server and prints the name of the project.
+When a rule file exists, it also checks each account of the file, as
+[Account checks](../extending/cli-bridge.md#account-checks) says.
 
 ## Connecting by URL
 
@@ -317,7 +319,7 @@ Roughly in the order an agent uses them:
 | `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
 | `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, the programs with subcommands, and whether the bridge sends the full text of each tool call |
 | `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort, or an empty list of programs, clears the project value, so the instance default applies |
-| `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools and their open runs |
+| `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools, their account checks and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
 | `card_hold` | Make a card unmanaged, by `cardId` or `number`. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until `card_release`. A live run goes on |

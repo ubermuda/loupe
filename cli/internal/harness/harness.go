@@ -4,6 +4,7 @@
 package harness
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -34,6 +35,26 @@ type Harness interface {
 	StartDir(sessionID string) (string, error)
 	// HasSession fails when this machine holds no record of the session.
 	HasSession(sessionID string) error
+	// Check lists what keeps the account from running a worker in each
+	// project of spec, and is nil when the account is ready.
+	Check(ctx context.Context, spec CheckSpec) []Problem
+}
+
+// CheckSpec is one account to check. Env holds what the account adds to the
+// environment, and Projects maps each project slug to its folder.
+type CheckSpec struct {
+	Account   string
+	ConfigDir string
+	Env       []string
+	Projects  map[string]string
+}
+
+// Problem is one thing that keeps an account from running. Reason is a short
+// fixed phrase that leaves the machine, so it names no path and no identity.
+// Detail goes to the bridge log alone.
+type Problem struct {
+	Reason string
+	Detail string
 }
 
 // Spec is one run. An empty Model, Effort, PermissionMode or Schema passes no

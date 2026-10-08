@@ -458,6 +458,23 @@ func TestAResumeIsRefusedWhenItsAccountChanged(t *testing.T) {
 	}
 }
 
+// A resume runs on the account the run started on, so a failing check of
+// that account refuses it, whatever account the rule names now.
+func TestAResumeIsRefusedWhenItsAccountFailsItsCheck(t *testing.T) {
+	h, _, _ := withAccounts(t, nil)
+	h.transcripts(true)
+	h.router.rules().SetAccountProblems(map[string]string{"b": "not logged in"})
+
+	state, reason := h.resume(resumeOnB())
+
+	if want := "The account b that the run started on fails its check: not logged in."; state != api.CommandRefused || reason != want {
+		t.Fatalf("resume = %s %q, want refused %q", state, reason, want)
+	}
+	if h.runs() != 0 {
+		t.Fatalf("workers = %d after a refused resume", h.runs())
+	}
+}
+
 // A run of an older bridge names no account, so its resume runs on the
 // account the rule names now.
 func TestAResumeOfARunWithNoAccountTakesTheAccountOfTheRule(t *testing.T) {

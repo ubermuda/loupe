@@ -366,7 +366,7 @@ work:
 | `envFile` | no | An [environment file](#environment-files) that each run of the account reads |
 
 An account name is 1 to 40 lowercase letters, digits and hyphens, and starts
-with a letter. `configDir` and `envFile` are absolute paths or start with `~/`.
+with a letter. A file declares at most 50 accounts. `configDir` and `envFile` are absolute paths or start with `~/`.
 Neither path has to exist when the file loads. `defaults.account` is required,
 and it names an account of the block. The bridge refuses the file at start, and
 a reload fails, when an entry names an account that the block does not declare.
@@ -438,6 +438,38 @@ type `/login` in that session.
 Claude Code also reads its MCP servers and its skills from the config folder.
 Add the `loupe` MCP server to each config folder. Install the Loupe skills in
 each config folder too. Otherwise a worker of that account cannot reach Loupe.
+
+### Account checks
+
+The bridge checks each account that `rules.yaml` uses, when it starts and on
+each `loupe bridge reload`. A check of a Claude Code account asks three
+questions:
+
+1. Is `claude` on the `PATH` of the account, which an env file can set? A
+   relative `PATH` entry counts from each project folder, as it does for a
+   worker.
+2. Does `claude auth status` pass with the environment of the account? That
+   environment is the env files of the account and its `CLAUDE_CONFIG_DIR`. A
+   key such as `ANTHROPIC_API_KEY` in an env file also passes.
+3. Does Claude Code see the `loupe` MCP server and the Loupe skills in each
+   project folder? The server is seen when the project or the account's
+   `.claude.json` declares it as `loupe mcp`, or, when neither declares it, an
+   enabled plugin serves it. A declared entry that starts another command
+   fails, because Claude Code prefers it to a plugin. A declared entry also
+   fails when `loupe` is not on the `PATH` of the account. The skills are seen
+   when a `loupe-*` folder with a `SKILL.md` is in `.claude/skills` of the
+   project or in `skills` of the config folder, or when an enabled `loupe@`
+   plugin is installed.
+
+A failing account turns off its own entries only. An entry is off when its
+account, or the account of one of its variants, fails. Every other entry keeps
+running, and a request for an entry that is off waits, as it does when no
+bridge takes it. The log line `account_failed` names the account, the reason
+and the detail. The heartbeat sends each account with its harness, its state
+and a short reason, and the Agents page in Loupe shows them. A path, an email
+or a key never leaves the machine. The bridge checks again only on a reload,
+so run `loupe bridge reload` after you fix an account. `loupe status` runs the
+same checks.
 
 ### Migration and rollback
 

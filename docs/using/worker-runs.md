@@ -358,6 +358,15 @@ counts and their time. The counts cover every project that the bridge follows, n
 current project. A bridge that sends no pool report, such as an older bridge,
 shows no pools.
 
+A bridge that checks its accounts reports the result with each heartbeat. The
+card of the bridge then lists each account: the account name, its harness, and
+**Ready** or **Failing**. A failing account shows in red, with the reason the
+check failed and a note. The rules that use a failing account stay off until
+the account passes its check and the bridge reloads. The heading gives the time
+of the heartbeat that carried the accounts. A later heartbeat with no account
+report keeps the rows and their time. A bridge that sends no account report,
+such as an older bridge, shows no accounts.
+
 The page also has a **Hooks** section. It shows one block for each of your
 bridges whose heartbeat names the project, the latest heartbeat first. Each
 block shows the last 12 characters of the bridge id, with the full id in the

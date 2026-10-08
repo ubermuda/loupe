@@ -185,8 +185,9 @@ trait BridgeScenario
     }
 
     /**
-     * @param list<string>                                                       $projects
-     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null $workerPools
+     * @param list<string>                                                                               $projects
+     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null                         $workerPools
+     * @param list<array{name: string, harness: string, state: 'ready'|'failing', reason: ?string}>|null $accounts
      */
     private function seedBridge(
         EntityManagerInterface $em,
@@ -197,10 +198,14 @@ trait BridgeScenario
         \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(),
         ?array $workerPools = null,
         ?\DateTimeImmutable $workerPoolsReportedAt = null,
+        ?array $accounts = null,
+        ?\DateTimeImmutable $accountsReportedAt = null,
     ): Bridge {
         $bridge = new Bridge(AgentCredential::managed($em, $owner, $owner->id), $id ?? Uuid::v4(), $projects, $cliVersion, $lastSeenAt);
         $bridge->workerPools = $workerPools;
         $bridge->workerPoolsReportedAt = $workerPoolsReportedAt;
+        $bridge->accounts = $accounts;
+        $bridge->accountsReportedAt = $accountsReportedAt;
         $em->persist($bridge);
         $em->flush();
 

@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -361,5 +362,344 @@ func TestTheAdapterReadsItsOwnConfigFolder(t *testing.T) {
 	}
 	if dir, err := New(own).StartDir(testSession); dir != "/start" || err != nil {
 		t.Fatalf("StartDir = %q, %v", dir, err)
+	}
+}
+
+// checkClaude puts on PATH a claude that answers auth status with authExit and
+// plugin list with plugins, and returns the log of each call: its config
+// folder, its folder and its arguments.
+func checkClaude(t *testing.T, authExit, plugins string) string {
+	t.Helper()
+	dir := t.TempDir()
+	log, list := filepath.Join(dir, "calls.log"), filepath.Join(dir, "plugins.json")
+	if err := os.WriteFile(list, []byte(plugins), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body := "#!/bin/sh\necho \"$CLAUDE_CONFIG_DIR|$(pwd)|$*\" >> " + shellQuote(log) + "\n" +
+		"case \"$1\" in\nauth) exit " + authExit + " ;;\nplugin) cat " + shellQuote(list) + " ;;\nesac\n"
+	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte(body), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "loupe"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	return log
+}
+
+// isolate points CLAUDE_CONFIG_DIR and HOME at empty folders, so no check
+// reads the configuration of whoever runs the suite.
+func isolate(t *testing.T) {
+	t.Helper()
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+}
+
+func mkdir(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// addSkill makes a skill folder that holds a SKILL.md.
+func addSkill(t *testing.T, dir string) {
+	t.Helper()
+	mkdir(t, dir)
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+const userLoupe = `{"mcpServers":{"loupe":{"type":"stdio","command":"loupe","args":["mcp"]}}}`
+
+func TestCheck(t *testing.T) {
+	missing := func(slug string) []harness.Problem {
+		return []harness.Problem{
+			{Reason: "loupe MCP server not declared for project " + slug},
+			{Reason: "Loupe skills not found for project " + slug},
+		}
+	}
+	for name, tc := range map[string]struct {
+		authExit string
+		plugins  string
+		// setup readies the project folder and the config folder.
+		setup func(t *testing.T, project, config string)
+		want  []harness.Problem
+	}{
+		"ready through the project and the config folder": {
+			authExit: "0", plugins: "[]",
+			setup: func(t *testing.T, project, config string) {
+				addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+				if err := os.WriteFile(filepath.Join(config, ".claude.json"), []byte(userLoupe), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		"ready through the skills of the config folder": {
+			authExit: "0", plugins: "[]",
+			setup: func(t *testing.T, project, config string) {
+				addSkill(t, filepath.Join(config, "skills", "loupe-board"))
+				if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(`{"mcpServers":{"loupe":{"command":"loupe","args":["mcp"]}}}`), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		"ready through an enabled plugin": {
+			authExit: "0", plugins: `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`,
+		},
+		"a plugin that is off gives nothing": {
+			authExit: "0", plugins: `[{"id":"loupe@loupe","enabled":false,"mcpServers":{"loupe":{}}}]`,
+			want: missing("loupe"),
+		},
+		"a plugin list that does not decode is its own problem": {
+			authExit: "0", plugins: `not json`,
+			want: []harness.Problem{{Reason: "plugin list failed for project loupe"}},
+		},
+		"a plugin list is not needed when the project answers": {
+			authExit: "0", plugins: `not json`,
+			setup: func(t *testing.T, project, config string) {
+				addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+				if err := os.WriteFile(filepath.Join(config, ".claude.json"), []byte(userLoupe), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		"a declared server that is not loupe mcp beats a plugin": {
+			authExit: "0", plugins: `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`,
+			setup: func(t *testing.T, project, config string) {
+				addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+				if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(`{"mcpServers":{"loupe":{"command":"other","args":["serve"]}}}`), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: []harness.Problem{{Reason: "loupe MCP server is not loupe mcp for project loupe"}},
+		},
+		"not logged in": {
+			authExit: "1", plugins: `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`,
+			want: []harness.Problem{{Reason: "not logged in"}},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			isolate(t)
+			log := checkClaude(t, tc.authExit, tc.plugins)
+			project, config := t.TempDir(), t.TempDir()
+			if tc.setup != nil {
+				tc.setup(t, project, config)
+			}
+			spec := harness.CheckSpec{Account: "a", ConfigDir: config, Env: []string{"CLAUDE_CONFIG_DIR=" + config}, Projects: map[string]string{"loupe": project}}
+
+			got := New(config).Check(context.Background(), spec)
+			if len(got) != len(tc.want) {
+				t.Fatalf("Check = %+v, want %+v", got, tc.want)
+			}
+			for i, p := range got {
+				if p.Reason != tc.want[i].Reason {
+					t.Fatalf("Check = %+v, want %+v", got, tc.want)
+				}
+				if strings.Contains(p.Reason, "/") {
+					t.Fatalf("reason %q names a path", p.Reason)
+				}
+			}
+			calls, err := os.ReadFile(log)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(calls), config+"|") {
+				t.Fatalf("claude ran without the account's config folder:\n%s", calls)
+			}
+		})
+	}
+}
+
+// claude logged out says how to log in with the account's config folder.
+func TestCheckNamesTheLoginOfTheConfigFolder(t *testing.T) {
+	isolate(t)
+	checkClaude(t, "1", "[]")
+	config := t.TempDir()
+	got := New(config).Check(context.Background(), harness.CheckSpec{ConfigDir: config, Env: []string{"CLAUDE_CONFIG_DIR=" + config}})
+	if len(got) != 1 || !strings.Contains(got[0].Detail, "CLAUDE_CONFIG_DIR="+shellQuote(config)+" claude auth login") {
+		t.Fatalf("Check = %+v", got)
+	}
+}
+
+// The plugin list runs in each project's folder, in slug order, because a
+// plugin can be on for one project alone.
+func TestCheckListsThePluginsOfEachProject(t *testing.T) {
+	isolate(t)
+	log := checkClaude(t, "0", "[]")
+	a, b := t.TempDir(), t.TempDir()
+	got := New("").Check(context.Background(), harness.CheckSpec{Projects: map[string]string{"b": b, "a": a}})
+	if len(got) != 4 || got[0].Reason != "loupe MCP server not declared for project a" || got[2].Reason != "loupe MCP server not declared for project b" {
+		t.Fatalf("Check = %+v", got)
+	}
+	calls, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dirs []string
+	for _, line := range strings.Split(strings.TrimSpace(string(calls)), "\n") {
+		if parts := strings.Split(line, "|"); strings.HasPrefix(parts[2], "plugin") {
+			dir, _ := filepath.EvalSymlinks(parts[1])
+			dirs = append(dirs, dir)
+		}
+	}
+	ra, _ := filepath.EvalSymlinks(a)
+	rb, _ := filepath.EvalSymlinks(b)
+	slices.Sort(dirs)
+	if want := slices.Sorted(slices.Values([]string{ra, rb})); !slices.Equal(dirs, want) {
+		t.Fatalf("plugin list ran in %q, want %q", dirs, []string{ra, rb})
+	}
+}
+
+func TestCheckStopsWhenClaudeIsNotOnPath(t *testing.T) {
+	isolate(t)
+	t.Setenv("PATH", t.TempDir())
+	got := New("").Check(context.Background(), harness.CheckSpec{Projects: map[string]string{"loupe": t.TempDir()}})
+	if len(got) != 1 || got[0].Reason != "claude is not on PATH" {
+		t.Fatalf("Check = %+v", got)
+	}
+}
+
+func TestALoginCheckThatTimesOutSaysSo(t *testing.T) {
+	got := loginProblem(errors.Join(errors.New("signal: killed"), context.DeadlineExceeded), "")
+	if got.Reason != "login check timed out" {
+		t.Fatalf("Reason = %q, want login check timed out", got.Reason)
+	}
+	if got := loginProblem(errors.New("exit status 1"), ""); got.Reason != "not logged in" {
+		t.Fatalf("Reason = %q, want not logged in", got.Reason)
+	}
+}
+
+// A plugin list that runs out of time names the timeout, and does not claim
+// that the project lacks the server or the skills.
+func TestCheckNamesAPluginListThatTimedOut(t *testing.T) {
+	isolate(t)
+	checkClaude(t, "0", "[]")
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	got := New("").Check(ctx, harness.CheckSpec{Projects: map[string]string{"loupe": t.TempDir()}})
+	if len(got) != 2 || got[1].Reason != "check timed out for project loupe" || got[1].Detail == "" {
+		t.Fatalf("Check = %+v", got)
+	}
+}
+
+func TestCheckFindsClaudeOnThePathOfTheAccount(t *testing.T) {
+	isolate(t)
+	checkClaude(t, "0", "[]")
+	bin := t.TempDir()
+	spec := harness.CheckSpec{Account: "a", Env: []string{"PATH=" + bin}}
+
+	got := New("").Check(context.Background(), spec)
+	if len(got) != 1 || got[0].Reason != "claude is not on PATH" {
+		t.Fatalf("Check = %+v, want claude is not on PATH", got)
+	}
+}
+
+func TestAnEmptySkillFolderIsNoSkill(t *testing.T) {
+	dir := t.TempDir()
+	mkdir(t, filepath.Join(dir, "loupe-board"))
+	if hasSkills(dir) {
+		t.Fatal("hasSkills is true for a skill folder with no SKILL.md")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "loupe-board", "SKILL.md"), []byte("# x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !hasSkills(dir) {
+		t.Fatal("hasSkills is false for a skill with SKILL.md")
+	}
+}
+
+func TestCheckFindsClaudeOnARelativePathFromEachProject(t *testing.T) {
+	isolate(t)
+	fake := filepath.Dir(checkClaude(t, "0", `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`))
+	with, without := t.TempDir(), t.TempDir()
+	mkdir(t, filepath.Join(with, "bin"))
+	if err := os.Symlink(filepath.Join(fake, "claude"), filepath.Join(with, "bin", "claude")); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", Env: []string{"PATH=bin:/bin:/usr/bin"}, Projects: map[string]string{"a": with, "b": without}}
+
+	got := New("").Check(context.Background(), spec)
+	if len(got) != 1 || got[0].Reason != "claude is not on PATH for project b" {
+		t.Fatalf("Check = %+v, want claude missing for project b alone", got)
+	}
+}
+
+func TestCheckFailsWhenTheAccountPathHasNoLoupe(t *testing.T) {
+	isolate(t)
+	fake := filepath.Dir(checkClaude(t, "0", "[]"))
+	bin, project := t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(fake, "claude"), filepath.Join(bin, "claude")); err != nil {
+		t.Fatal(err)
+	}
+	addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+	if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(`{"mcpServers":{"loupe":{"command":"loupe","args":["mcp"]}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", Env: []string{"PATH=" + bin + ":/bin:/usr/bin"}, Projects: map[string]string{"loupe": project}}
+
+	got := New("").Check(context.Background(), spec)
+	if len(got) != 1 || got[0].Reason != "loupe is not on PATH for project loupe" {
+		t.Fatalf("Check = %+v, want loupe is not on PATH for project loupe", got)
+	}
+}
+
+func TestCheckReadsThePathOfTheServerEntry(t *testing.T) {
+	isolate(t)
+	fake := filepath.Dir(checkClaude(t, "0", "[]"))
+	bin, project, config := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(fake, "claude"), filepath.Join(bin, "claude")); err != nil {
+		t.Fatal(err)
+	}
+	addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+	entry := `{"mcpServers":{"loupe":{"type":"stdio","command":"loupe","args":["mcp"],"env":{"PATH":"` + fake + `"}}}}`
+	if err := os.WriteFile(filepath.Join(config, ".claude.json"), []byte(entry), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", ConfigDir: config, Env: []string{"PATH=" + bin + ":/bin:/usr/bin", "CLAUDE_CONFIG_DIR=" + config}, Projects: map[string]string{"loupe": project}}
+
+	if got := New(config).Check(context.Background(), spec); len(got) != 0 {
+		t.Fatalf("Check = %+v, want ready through the PATH of the entry", got)
+	}
+}
+
+func TestCheckReadsTheConfigOfTheAccountHome(t *testing.T) {
+	isolate(t)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	checkClaude(t, "0", "[]")
+	home, project := t.TempDir(), t.TempDir()
+	addSkill(t, filepath.Join(home, ".claude", "skills", "loupe-board"))
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(userLoupe), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", Env: []string{"HOME=" + home}, Projects: map[string]string{"loupe": project}}
+
+	if got := New("").Check(context.Background(), spec); len(got) != 0 {
+		t.Fatalf("Check = %+v, want ready through the HOME of the account", got)
+	}
+	spec.Env = nil
+	if got := New("").Check(context.Background(), spec); len(got) != 2 {
+		t.Fatalf("Check with the bridge HOME = %+v, want two problems", got)
+	}
+}
+
+func TestCheckReadsThePathOfTheRepositoryEntry(t *testing.T) {
+	isolate(t)
+	fake := filepath.Dir(checkClaude(t, "0", "[]"))
+	bin, project := t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(fake, "claude"), filepath.Join(bin, "claude")); err != nil {
+		t.Fatal(err)
+	}
+	addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+	entry := `{"mcpServers":{"loupe":{"command":"loupe","args":["mcp"],"env":{"PATH":"` + fake + `"}}}}`
+	if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(entry), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", Env: []string{"PATH=" + bin + ":/bin:/usr/bin"}, Projects: map[string]string{"loupe": project}}
+
+	if got := New("").Check(context.Background(), spec); len(got) != 0 {
+		t.Fatalf("Check = %+v, want ready through the PATH of the repository entry", got)
 	}
 }

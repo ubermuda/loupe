@@ -71,6 +71,20 @@ type WorkEntry struct {
 	commandTimeout time.Duration
 }
 
+// runs are the settings of each agent run the entry can start, its variants
+// included, and nil for a command entry.
+func (w WorkEntry) runs() []RunSettings {
+	if w.Action == ActionCommand {
+		return nil
+	}
+	runs := []RunSettings{w.run}
+	if w.experiment != nil {
+		runs = append(runs, w.experiment.settings...)
+	}
+
+	return runs
+}
+
 // workRefusals lists, for each action, the fields its work entries refuse.
 var workRefusals = map[string][]refusal{
 	"": {
@@ -224,10 +238,15 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 		return Match{Skip: Unmapped}
 	}
 	entry, ok := s.work[w.Kind]
+	runs := entry.runs()
+	if !ok {
+		runs = []RunSettings{s.appRun}
+	}
 	s.mu.RLock()
 	dead := s.deadWork[slug] != ""
+	off := s.offLocked(runs)
 	s.mu.RUnlock()
-	off := s.agentsOff != "" && (!ok || entry.Action != ActionCommand)
+	off = off || s.agentsOff != "" && (!ok || entry.Action != ActionCommand)
 	if (!ok && !s.appPrompts) || dead || off || (ok && entry.Subject != w.SubjectType) {
 		return Match{Skip: NoRule, Project: slug}
 	}
@@ -362,7 +381,8 @@ func (s *Set) WorkDead(slug string) string {
 // Capabilities lists what the work map lets the bridge claim: work-requests
 // for any entry or for app prompts, interactive too for an interactive entry,
 // and subject- with the subject type for each entry whose subject is no card.
-// An entry whose agent is off adds neither. It is nil for a set with no work.
+// An entry whose agent or account is off adds neither. It is nil for a set
+// with no work.
 func (s *Set) Capabilities() []string {
 	if !s.HasWork() {
 		return nil
@@ -370,8 +390,10 @@ func (s *Set) Capabilities() []string {
 	out := []string{CapabilityWorkRequests}
 	interactive := false
 	var subjects []string
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, entry := range s.work {
-		if s.agentsOff != "" && entry.Action != ActionCommand {
+		if s.agentsOff != "" && entry.Action != ActionCommand || s.offLocked(entry.runs()) {
 			continue
 		}
 		interactive = interactive || entry.Action == ActionInteractive

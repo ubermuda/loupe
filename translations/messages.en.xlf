@@ -7086,6 +7086,11 @@
             <trans-unit id="bridge.agents.worker_pools.as_of"><source>bridge.agents.worker_pools.as_of</source><target>As of %time%</target></trans-unit>
             <trans-unit id="bridge.agents.worker_pools.in_use"><source>bridge.agents.worker_pools.in_use</source><target>%inUse% in use of %size%</target></trans-unit>
             <trans-unit id="bridge.agents.worker_pools.queued"><source>bridge.agents.worker_pools.queued</source><target>%queued% queued</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.heading"><source>bridge.agents.accounts.heading</source><target>Accounts</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.as_of"><source>bridge.agents.accounts.as_of</source><target>As of %time%</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.state.ready"><source>bridge.agents.accounts.state.ready</source><target>Ready</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.state.failing"><source>bridge.agents.accounts.state.failing</source><target>Failing</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.failing_hint"><source>bridge.agents.accounts.failing_hint</source><target>The rules that use this account stay off until the account passes its check and the bridge reloads.</target></trans-unit>
             <trans-unit id="bridge.agents.never"><source>bridge.agents.never</source><target>Not reported</target></trans-unit>
             <trans-unit id="bridge.agents.empty.title"><source>bridge.agents.empty.title</source><target>No crew connection yet</target></trans-unit>
             <trans-unit id="bridge.agents.empty.description"><source>bridge.agents.empty.description</source><target>Connect the bridge to make this project available to your local crew.</target></trans-unit>

@@ -5,6 +5,8 @@ package envfile
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -65,4 +67,49 @@ func Overlay(environ, pairs []string) []string {
 	})
 
 	return append(out, pairs...)
+}
+
+// LookPath finds program on the PATH of env, which a worker shell in dir
+// searches, and on the PATH of the bridge when env sets none. A relative entry
+// counts from dir, and an empty dir skips it.
+func LookPath(program string, env []string, dir string) (string, error) {
+	if strings.Contains(program, "/") {
+		path := program
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(dir, path)
+		}
+		if !isExecutable(path) {
+			return "", fmt.Errorf("%s is not an executable file", path)
+		}
+
+		return path, nil
+	}
+	path, ok := "", false
+	for _, kv := range env {
+		if v, found := strings.CutPrefix(kv, "PATH="); found {
+			path, ok = v, true
+		}
+	}
+	if !ok {
+		return exec.LookPath(program)
+	}
+	for _, entry := range filepath.SplitList(path) {
+		if !filepath.IsAbs(entry) {
+			if dir == "" {
+				continue
+			}
+			entry = filepath.Join(dir, entry)
+		}
+		if candidate := filepath.Join(entry, program); isExecutable(candidate) {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s not found in PATH %s", program, path)
+}
+
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+
+	return err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0
 }

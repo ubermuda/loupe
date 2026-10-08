@@ -36,9 +36,14 @@ const (
 	e2eWait = 30 * time.Second
 )
 
-// e2eClaude records the pid of its worker shell, which leads the worker's
-// process group, and waits for the test to release it.
+// e2eClaude passes the account check at once. As a worker, it records the
+// pid of its shell, which leads the worker's process group, and waits for the
+// test to release it.
 const e2eClaude = `#!/bin/sh
+case "$1" in
+auth) exit 0 ;;
+plugin) echo '[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]'; exit 0 ;;
+esac
 eval "card=\${$#}"; card=${card%%[!0-9]*}
 echo $PPID > "$LOUPE_E2E_DIR/started-$card.tmp" && mv "$LOUPE_E2E_DIR/started-$card.tmp" "$LOUPE_E2E_DIR/started-$card"
 n=0

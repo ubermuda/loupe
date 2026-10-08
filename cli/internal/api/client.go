@@ -536,6 +536,24 @@ type Heartbeat struct {
 	// PushLogin is the GitHub login that workers push as. It follows Name:
 	// nil keeps the stored login, and "" clears it.
 	PushLogin *string `json:"pushLogin,omitempty"`
+	// Accounts is nil until the bridge checked its accounts, which sends no
+	// key and keeps the rows the server holds.
+	Accounts []AccountReport `json:"accounts,omitzero"`
+}
+
+// The states of an account row.
+const (
+	AccountReady   = "ready"
+	AccountFailing = "failing"
+)
+
+// AccountReport is the state of one account that the rule file uses. Reason
+// is a short fixed phrase, and names no path and no identity.
+type AccountReport struct {
+	Name    string `json:"name"`
+	Harness string `json:"harness"`
+	State   string `json:"state"`
+	Reason  string `json:"reason,omitempty"`
 }
 
 // MaxHostSamples caps the samples the bridge keeps. HostSamplesPerHeartbeat

@@ -404,6 +404,7 @@ const (
 	resumingAlready = "The bridge resumes this run already."
 	accountGone     = "The account %s that the run started on is no longer in rules.yaml."
 	accountHarness  = "The account %s that the run started on now names the harness %s, and the run started on %s."
+	accountFailing  = "The account %s that the run started on fails its check: %s."
 )
 
 // runStart is the harness, the account and the model a resumed run started
@@ -430,6 +431,9 @@ func (o runStart) settings(set *rules.Set, r rules.RunSettings) (rules.RunSettin
 	}
 	if o.Harness != "" && a.Harness != o.Harness {
 		return r, fmt.Sprintf(accountHarness, o.Account, a.Harness, o.Harness)
+	}
+	if reason := set.AccountsOff()[o.Account]; reason != "" {
+		return r, fmt.Sprintf(accountFailing, o.Account, reason)
 	}
 	a.Model = cmp.Or(o.Model, a.Model)
 
