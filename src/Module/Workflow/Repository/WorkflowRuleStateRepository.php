@@ -33,6 +33,7 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     /**
      * Forgets the truth, the retries and the work count of the rules of the cards, in one statement, so it joins a caller's transaction.
      * The fingerprint and the subject pull request stay, for the pauses that compare against them. A managed state is stale after it.
+     * It clears the ask item and withdraws nothing. Its caller releases held cards, and the inbox withdrew their items when the holds began.
      *
      * @param non-empty-list<Uuid> $cardIds
      */
@@ -40,7 +41,7 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     {
         $this->getEntityManager()->getConnection()->executeStatement(
             'UPDATE workflow_rule_states SET truth = false, attempts = 0, fires = 0, due_at = NULL, last_refusal = NULL,
-             last_refusal_at = NULL, work_request_id = NULL, repaired = false, updated_at = :now
+             last_refusal_at = NULL, work_request_id = NULL, repaired = false, ask_item_id = NULL, updated_at = :now
              WHERE card_id IN (:cardIds)',
             [
                 'now' => $now,
@@ -48,6 +49,11 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
             ],
             ['now' => Types::DATETIME_IMMUTABLE, 'cardIds' => ArrayParameterType::STRING],
         );
+    }
+
+    public function findOneByAskItemId(Uuid $itemId): ?WorkflowRuleState
+    {
+        return $this->findOneBy(['askItemId' => $itemId]);
     }
 
     /** @return array<string, WorkflowRuleState> keyed by rule id */

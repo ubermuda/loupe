@@ -22,6 +22,7 @@ use App\Module\Insights\Entity\AnalysisState;
 use App\Module\Insights\Entity\AnalysisTopic;
 use App\Module\Insights\Repository\AnalysisRepository;
 use App\Module\Insights\Service\AnalysisSettings;
+use App\Module\Workflow\Template\AppRules;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Insights\InsightsScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -67,6 +68,7 @@ final class StartAnalysisHandlerTest extends KernelTestCase
         self::assertNull($request->cardNumber);
         self::assertSame('analysis', $request->kind);
         self::assertSame('subject-analysis', $request->capability);
+        self::assertSame(file_get_contents(\dirname(__DIR__, 4).'/config/workflows/app/prompts/analysis.md'), $request->prompt);
         self::assertSame('insights.analysis', $request->ruleId);
         self::assertSame('sonnet', $request->model);
         self::assertSame('medium', $request->effort);
@@ -181,7 +183,7 @@ final class StartAnalysisHandlerTest extends KernelTestCase
             $this->service(WorkerRunRepository::class),
             new WorkSubjectHandlers([]),
         );
-        $handler = new StartAnalysisHandler($this->em(), $blind, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class));
+        $handler = new StartAnalysisHandler($this->em(), $blind, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class), $this->service(AppRules::class));
 
         try {
             $handler(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All));
@@ -213,7 +215,7 @@ final class StartAnalysisHandlerTest extends KernelTestCase
             $this->service(WorkerRunRepository::class),
             $this->service(WorkSubjectHandlers::class),
         );
-        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class));
+        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class), $this->service(AppRules::class));
 
         try {
             $handler(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All));
@@ -251,7 +253,7 @@ final class StartAnalysisHandlerTest extends KernelTestCase
             $this->service(WorkerRunRepository::class),
             $this->service(WorkSubjectHandlers::class),
         );
-        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class));
+        $handler = new StartAnalysisHandler($this->em(), $failing, $this->service(AnalysisSettings::class), new MockClock(self::NOW), $this->service(Auditor::class), $this->service(ListExperimentsHandler::class), $this->service(AppRules::class));
 
         try {
             $handler(new StartAnalysisCommand($project, AnalysisTopic::Cost, MetricRange::All));

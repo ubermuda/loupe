@@ -215,6 +215,8 @@ test('A revised draft stays a draft until Publish sends it to review', async ({
     page,
     review,
 }) => {
+    // A create, a revise and a publish, each a server round trip on top of the login.
+    test.slow();
     await page.goto(review.dashboardUrl);
     await page
         .getByRole('button', { name: 'New document', exact: true })
@@ -737,6 +739,9 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     context,
     review,
 }) => {
+    // Two tabs, a submit with its redirect and two page loads, after a login
+    // that took 15 s of the 30 s budget on a loaded runner.
+    test.slow();
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();
@@ -1070,6 +1075,9 @@ for (const width of [1440, 390]) {
         page,
         review,
     }) => {
+        // Four page loads and two delete round trips, after a login that took
+        // 8 s of the 30 s budget on a loaded runner.
+        test.slow();
         await page.setViewportSize({ width, height: 900 });
         await postComment(page);
         await expectThreadVisible(page);

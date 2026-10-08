@@ -7,7 +7,6 @@ namespace App\Module\Board\Command;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 
 /**
@@ -22,7 +21,7 @@ final readonly class ListCardsCommand
         public Project $project,
         /** A column of this project's board. Null reads every column. */
         public ?BoardColumn $column = null,
-        public ?CardType $type = null,
+        public ?string $type = null,
         public ?CardReporter $reporter = null,
         public int $page = 1,
         public int $perPage = ListCardsHandler::DEFAULT_PER_PAGE,

@@ -15,6 +15,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * @phpstan-import-type HookRow from Bridge
  * @phpstan-import-type WorkerPoolRow from Bridge
+ * @phpstan-import-type AccountRow from Bridge
  */
 final class RecordBridgeHeartbeatRequest
 {
@@ -26,6 +27,9 @@ final class RecordBridgeHeartbeatRequest
 
     /** Far above the pools one bridge runs, and small enough to bound the JSON column. */
     public const int MAX_WORKER_POOLS = 50;
+
+    /** Far above the accounts one bridge runs, and small enough to bound the JSON column. */
+    public const int MAX_ACCOUNTS = 50;
 
     /** Far above the features one bridge reports, and small enough to bound the JSON column. */
     public const int MAX_CAPABILITIES = 20;
@@ -46,6 +50,7 @@ final class RecordBridgeHeartbeatRequest
      * @param string|null                      $name         null from a bridge that predates names; blank clears the name
      * @param list<BridgeHostSampleInput>|null $hostSamples  null from a bridge that predates host samples
      * @param string|null                      $pushLogin    null from a bridge that predates push logins; empty clears the login
+     * @param list<BridgeAccountInput>|null    $accounts     null from a bridge that predates account checks
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -98,6 +103,12 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Length(max: GitHubLogin::MAX_LENGTH)]
         #[Assert\Regex(pattern: GitHubLogin::PATTERN)]
         public ?string $pushLogin = null,
+
+        #[Assert\All([new Assert\Type(BridgeAccountInput::class)])]
+        #[Assert\Count(max: self::MAX_ACCOUNTS)]
+        #[Assert\Type('list')]
+        #[Assert\Valid]
+        public ?array $accounts = null,
     ) {
     }
 
@@ -183,6 +194,32 @@ final class RecordBridgeHeartbeatRequest
             'inUse' => $pool->inUse ?? 0,
             'queued' => $pool->queued ?? 0,
         ], array_values($this->workerPools));
+    }
+
+    /**
+     * The account rows as the bridge row stores them. A reason is kept for a
+     * failing account alone. Null when the bridge sent no report.
+     *
+     * @return list<AccountRow>|null
+     */
+    public function accounts(): ?array
+    {
+        if (null === $this->accounts) {
+            return null;
+        }
+
+        return array_map(static function (BridgeAccountInput $account): array {
+            $failing = BridgeAccountInput::STATE_FAILING === $account->state;
+            $reason = trim($account->reason ?? '');
+
+            return [
+                'name' => $account->name ?? '',
+                'harness' => $account->harness ?? '',
+                'state' => $failing ? BridgeAccountInput::STATE_FAILING : BridgeAccountInput::STATE_READY,
+                'reason' => $failing && '' !== $reason ? $reason : null,
+                'used' => $account->used ?? true,
+            ];
+        }, array_values($this->accounts));
     }
 
     /**

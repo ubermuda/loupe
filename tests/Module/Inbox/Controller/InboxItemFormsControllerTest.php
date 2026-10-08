@@ -8,6 +8,9 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Inbox\Command\ShowInboxHandler;
+use App\Module\Inbox\Entity\InboxAsk;
+use App\Module\Inbox\Entity\InboxAskItem;
+use App\Module\Inbox\Entity\InboxAskOrigin;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -218,6 +221,27 @@ final class InboxItemFormsControllerTest extends WebTestCase
         self::assertSame('CSV, because the importer reads it.', $stored->answerText);
         $this->client->followRedirect();
         self::assertSelectorTextContains('.lp-flash', 'Item 4 is answered.');
+    }
+
+    public function test_the_page_form_answers_a_workflow_question_once(): void
+    {
+        $item = new InboxItem(project: $this->project, number: 6, kind: InboxItemKind::Workflow, title: 'Child 3 has no design', blocking: true, options: ['Link', 'Design', 'Detach']);
+        $this->em->persist($item);
+        $ask = new InboxAsk(project: $this->project, sessionId: null, bridgeId: null, origin: InboxAskOrigin::Loupe);
+        $ask->items->add(new InboxAskItem($ask, $item));
+        $this->em->persist($ask);
+        $this->em->flush();
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+        $name = 'inbox_answer_'.$item->id;
+
+        self::assertCount(0, $crawler->filter('#inbox-item-6 .lp-inbox-item__buttons [form]'));
+        $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([$name.'[selectedOptions]' => '2']));
+
+        self::assertResponseRedirects($this->completedUrl().'#inbox-item-6');
+        self::assertSame([2], $this->reload($item)->selectedOptions);
+        $crawler = $this->client->request(Request::METHOD_GET, $this->completedUrl());
+        self::assertCount(0, $crawler->filter('form[name="'.$name.'"]'));
+        self::assertSelectorExists('#inbox-item-6 [data-inbox-editable="no"]');
     }
 
     public function test_a_refused_answer_re_renders_the_page_with_422_and_the_error(): void

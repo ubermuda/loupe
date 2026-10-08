@@ -1,2 +1,3 @@
-{#- A card type as a coloured label. Props: type (CardType). -#}
-{% include '_tone_tag.html.twig' with {label: ('board.card.type.' ~ type.value)|trans, tone: type.tone.value} only %}
+{#- A card type as a coloured label. Props: card (Card). -#}
+{% set definition = card_type(card) %}
+{% include '_tone_tag.html.twig' with {label: definition.label|trans, tone: definition.tone.value} only %}

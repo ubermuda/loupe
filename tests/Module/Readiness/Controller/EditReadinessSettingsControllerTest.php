@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Readiness\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Tests\Module\Readiness\ReadinessScenario;
@@ -59,7 +58,7 @@ final class EditReadinessSettingsControllerTest extends WebTestCase
         self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
         $backlog = array_find($seeder->seed($project), static fn ($column): bool => $column->backlog) ?? throw new \LogicException('The seed has a Backlog.');
         $card = new Card($project, $backlog, 'Discovery', '', 7);
-        $card->type = CardType::Tooling;
+        $card->type = 'tooling';
         $this->em()->persist($card);
         $this->em()->persist(new DiscoveryRun($project, $card));
         $this->em()->flush();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Controller\Api\BridgeAccountInput;
 use App\Module\Bridge\Controller\Api\BridgeHookInput;
 use App\Module\Bridge\Controller\Api\BridgeHostSampleInput;
 use App\Module\Bridge\Controller\Api\RecordBridgeHeartbeatRequest;
@@ -319,6 +320,93 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(200);
         self::assertCount(1, $this->bridge($owner, $bridgeId)->workerPools ?? []);
+    }
+
+    public function test_the_accounts_are_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'accounts' => [
+            self::account(),
+            self::account(['name' => 'personal', 'state' => 'failing', 'reason' => '  claude is not logged in  ']),
+            self::account(['name' => 'spare', 'state' => 'failing', 'reason' => ' ']),
+        ]]);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertSame([
+            ['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null, 'used' => true],
+            ['name' => 'personal', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'claude is not logged in', 'used' => true],
+            ['name' => 'spare', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => null, 'used' => true],
+        ], $bridge->accounts);
+        self::assertNotNull($bridge->accountsReportedAt);
+    }
+
+    /** A reason belongs to a failing account alone, so a ready account drops it rather than failing the heartbeat. */
+    public function test_a_ready_account_drops_its_reason(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-ready-reason@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'accounts' => [self::account(['reason' => 'stale text'])]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null, 'used' => true]], $this->bridge($owner, $bridgeId)->accounts);
+    }
+
+    /** The CLI sends used on every account. A false value is stored, and a missing value reads as true. */
+    public function test_the_used_flag_is_stored_and_defaults_to_true(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-used@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'accounts' => [
+            self::account(['name' => 'idle', 'used' => false]),
+            self::account(['name' => 'busy', 'used' => true]),
+            self::account(['name' => 'legacy']),
+        ]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([false, true, true], array_column($this->bridge($owner, $bridgeId)->accounts ?? [], 'used'));
+    }
+
+    public function test_a_used_flag_that_is_not_a_boolean_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-used-bad@example.com');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, (string) Uuid::v4(), $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'accounts' => [self::account(['used' => 'maybe'])]]);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    /** A bridge from before accounts sends none, so its heartbeat leaves the stored rows alone. */
+    public function test_a_heartbeat_without_accounts_keeps_the_stored_rows(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-absent@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'accounts' => [self::account()]]);
+        self::assertResponseStatusCodeSame(200);
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertCount(1, $this->bridge($owner, $bridgeId)->accounts ?? []);
     }
 
     public function test_the_pause_state_and_the_capabilities_are_stored(): void
@@ -687,6 +775,16 @@ final class BridgeHeartbeatApiTest extends WebTestCase
      *
      * @return array<string, mixed>
      */
+    private static function account(array $overrides = []): array
+    {
+        return array_merge(['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null], $overrides);
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     *
+     * @return array<string, mixed>
+     */
     private static function pool(array $overrides = []): array
     {
         return array_merge(['name' => 'default', 'size' => 3, 'inUse' => 2, 'queued' => 5], $overrides);
@@ -757,6 +855,20 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'a worker pool with a queue above the limit' => [['workerPools' => [self::pool(['queued' => 1001])]]];
         yield 'a worker pool size above the limit' => [['workerPools' => [self::pool(['size' => 1001])]]];
         yield 'a worker pool size as text' => [['workerPools' => [self::pool(['size' => 'three'])]]];
+        yield 'accounts that are not a list' => [['accounts' => 'work']];
+        yield 'accounts keyed by name' => [['accounts' => ['work' => self::account()]]];
+        yield 'an account that is not an object' => [['accounts' => ['work']]];
+        yield 'too many accounts' => [['accounts' => array_fill(0, RecordBridgeHeartbeatRequest::MAX_ACCOUNTS + 1, self::account())]];
+        yield 'an account with a bad name' => [['accounts' => [self::account(['name' => 'Work Account'])]]];
+        yield 'an account with no name' => [['accounts' => [self::account(['name' => null])]]];
+        yield 'an account name with a trailing newline' => [['accounts' => [self::account(['name' => "work\n"])]]];
+        yield 'an account name that is too long' => [['accounts' => [self::account(['name' => str_repeat('a', 41)])]]];
+        yield 'an account with a bad harness' => [['accounts' => [self::account(['harness' => 'Claude Code'])]]];
+        yield 'an account with no harness' => [['accounts' => [self::account(['harness' => null])]]];
+        yield 'an account with an unknown state' => [['accounts' => [self::account(['state' => 'broken'])]]];
+        yield 'an account with no state' => [['accounts' => [self::account(['state' => null])]]];
+        yield 'an account reason that is too long' => [['accounts' => [self::account(['state' => 'failing', 'reason' => str_repeat('a', BridgeAccountInput::MAX_REASON_LENGTH + 1)])]]];
+        yield 'an account reason that is not text' => [['accounts' => [self::account(['state' => 'failing', 'reason' => 7])]]];
         yield 'capabilities that are not a list' => [['capabilities' => 'commands']];
         yield 'capabilities keyed by name' => [['capabilities' => ['commands' => 'commands']]];
         yield 'too many capabilities' => [['capabilities' => array_map(static fn (int $i): string => 'c'.$i, range(0, RecordBridgeHeartbeatRequest::MAX_CAPABILITIES))]];

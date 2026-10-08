@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\SetCardLaneFormType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
@@ -25,7 +24,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-page-children@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic'), 'epic');
         $open = $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'next'));
         $done = $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
         $this->card($em, $project, 'Not a child');
@@ -53,7 +52,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-page-order@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Ordered epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Ordered epic'), 'epic');
         $lowerRank = $this->childOf($em, $epic, $this->card($em, $project, 'Second in next', 'next', 1));
         $higherRank = $this->childOf($em, $epic, $this->card($em, $project, 'First in next', 'next', 0));
         $doneEarlier = $this->childOf($em, $epic, $this->card($em, $project, 'Done earlier', 'done'));
@@ -83,7 +82,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-page-empty@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Lonely epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lonely epic'), 'epic');
         $epicId = $epic->id;
         $em->clear();
 
@@ -101,7 +100,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-page-parent@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Parent epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Parent epic'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'A child'));
         [$epicId, $childId, $epicNumber] = [$epic->id, $child->id, $epic->number];
         $em->clear();
@@ -124,7 +123,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-lane-toggle@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Toggled epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Toggled epic'), 'epic');
         $epicId = $epic->id;
         $em->clear();
 
@@ -148,7 +147,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-lane-drawer@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Drawer epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Drawer epic'), 'epic');
         $epicId = $epic->id;
         $em->clear();
 
@@ -165,7 +164,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-lane-board@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Board epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Board epic'), 'epic');
         $em->clear();
 
         $client->loginUser($owner);
@@ -182,7 +181,7 @@ final class EpicCardPagesTest extends WebTestCase
         $owner = $this->user($em, 'epic-lane-owner@example.com');
         $stranger = $this->user($em, 'epic-lane-stranger@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Guarded epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Guarded epic'), 'epic');
         $em->clear();
 
         $client->loginUser($stranger);
@@ -198,7 +197,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-lane-forged@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Forged epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Forged epic'), 'epic');
         $em->clear();
 
         $client->loginUser($owner);
@@ -234,7 +233,7 @@ final class EpicCardPagesTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'epic-list-parent@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Listed epic', 'in-progress'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Listed epic', 'in-progress'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Listed child', 'next'));
         [$epicId, $childId, $epicNumber] = [$epic->id, $child->id, $epic->number];
         $em->clear();

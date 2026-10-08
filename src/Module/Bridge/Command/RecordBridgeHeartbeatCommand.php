@@ -14,6 +14,7 @@ use Symfony\Component\Uid\Uuid;
 /**
  * @phpstan-import-type HookRow from Bridge
  * @phpstan-import-type WorkerPoolRow from Bridge
+ * @phpstan-import-type AccountRow from Bridge
  */
 final readonly class RecordBridgeHeartbeatCommand
 {
@@ -27,6 +28,7 @@ final readonly class RecordBridgeHeartbeatCommand
      * @param string|null                  $name         null keeps the stored names, because a bridge that predates names sends none; '' clears both; any other value claims the name
      * @param list<BridgeHostSampleReport> $hostSamples  stored only while host sampling is on
      * @param string|null                  $pushLogin    null keeps the stored login, because a bridge that predates push logins sends none; '' clears it
+     * @param list<AccountRow>|null        $accounts     null keeps the stored rows, because a bridge that predates account checks sends none
      */
     public function __construct(
         public User $owner,
@@ -44,6 +46,7 @@ final readonly class RecordBridgeHeartbeatCommand
         public ?string $name = null,
         public array $hostSamples = [],
         public ?string $pushLogin = null,
+        public ?array $accounts = null,
     ) {
     }
 }

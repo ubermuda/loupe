@@ -57,6 +57,11 @@ final readonly class ReportWorkerRunStateCommand
         public ?string $switchedFrom = null,
         /** Stored when the report creates the run. A later report never changes it. */
         public WorkerRunKind $kind = WorkerRunKind::Worker,
+        /** The four harness fields: a null keeps the value the run holds, because a value can arrive in a later report. */
+        public ?string $harness = null,
+        public ?string $account = null,
+        public ?string $model = null,
+        public ?string $harnessSessionId = null,
         /** Null keeps the peak the run holds. */
         public ?int $peakContextTokens = null,
     ) {

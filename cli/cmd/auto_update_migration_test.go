@@ -213,7 +213,7 @@ func TestAPendingMigrationEndsWhenTheFileHoldsTheKey(t *testing.T) {
 // reads wins over it.
 func TestAutoUpdateOnTakesAMissingKeyAsOnAfterTheMigration(t *testing.T) {
 	parse := func(line string) *rules.Set {
-		set, err := rules.Parse([]byte(line+"projects:\n  loupe:\n    dir: "+t.TempDir()+"\nwork:\n  plan: {prompt: go}\n"), rules.Defaults{})
+		set, err := rules.Parse([]byte(line+"accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: "+t.TempDir()+"\nwork:\n  plan: {prompt: go}\n"), rules.Defaults{})
 		if err != nil {
 			t.Fatal(err)
 		}

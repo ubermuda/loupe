@@ -115,6 +115,27 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+                {% if connection.bridge.accounts is not empty %}
+                <div class="lp-agent-card__current lp-agent-card__accounts" data-agent-accounts>
+                    <span>{{ 'bridge.agents.accounts.heading'|trans }}{% if connection.bridge.accountsReportedAt %} · {{ 'bridge.agents.accounts.as_of'|trans({'%time%': connection.bridge.accountsReportedAt|date('M j, H:i')}) }}{% endif %}</span>
+                    {% for account in connection.bridge.accounts %}
+                    <div class="lp-agent-card__account{% if account.state == 'failing' %} lp-agent-card__account--failing{% endif %}" data-agent-account="{{ account.name }}" data-agent-account-state="{{ account.state }}" data-agent-account-used="{{ (account.used ?? true) ? 'true' : 'false' }}">
+                        <p class="lp-agent-card__account-line">
+                            <strong>{{ account.name }}</strong>
+                            <span>{{ account.harness }}</span>
+                            <span>{{ (account.state == 'failing' ? 'bridge.agents.accounts.state.failing' : 'bridge.agents.accounts.state.ready')|trans }}</span>
+                            {% if account.used ?? true %}{% else %}<span data-agent-account-unused>{{ 'bridge.agents.accounts.state.unused'|trans }}</span>{% endif %}
+                        </p>
+                        {% if account.state == 'failing' %}
+                        {% if account.reason %}
+                        <p class="lp-agent-card__account-hint" data-agent-account-reason>{{ account.reason }}</p>
+                        {% endif %}
+                        <p class="lp-agent-card__account-hint">{{ ((account.used ?? true) ? 'bridge.agents.accounts.failing_hint' : 'bridge.agents.accounts.unused_hint')|trans }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 <footer>
                     <span>{{ connection.bridge.cliVersion|short_sha }}</span>
                     {% if connection.updateChip and connection.updateChip.command %}

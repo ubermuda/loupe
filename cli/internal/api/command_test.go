@@ -22,7 +22,7 @@ func TestHeartbeatReadsThePauseAndTheCommands(t *testing.T) {
 		fmt.Fprintf(w, `{"cliRange":"^1.0","paused":true,"commands":[{"type":"bridge.command","projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",`+
 			`"subject":{"type":"bridge-command","id":%[1]q},"commandId":%[1]q,"kind":"stop-run","bridgeId":%[2]q,"runKey":null,"sessionId":null,`+
 			`"subjectType":"card","subjectId":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7","cardNumber":42,"workRequestId":"0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7","workKind":"plan","ruleId":"plan-on-entry",`+
-			`"expiresAt":"2026-09-29T10:15:00+00:00"}]}`, ackCommandID, ackBridgeID)
+			`"harness":"claude-code","account":"claude-b","model":"opus","expiresAt":"2026-09-29T10:15:00+00:00"}]}`, ackCommandID, ackBridgeID)
 	}))
 	t.Cleanup(server.Close)
 
@@ -37,7 +37,8 @@ func TestHeartbeatReadsThePauseAndTheCommands(t *testing.T) {
 	want := time.Date(2026, 9, 29, 10, 15, 0, 0, time.UTC)
 	if c.Type != "bridge.command" || c.CommandID != ackCommandID || c.Subject.ID != ackCommandID || c.Kind != CommandStopRun ||
 		c.BridgeID != ackBridgeID || c.RunKey != "" || c.SessionID != "" || c.CardNumber != 42 || c.SubjectType != SubjectCard || c.SubjectID != "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7" || c.WorkKind != "plan" ||
-		c.WorkRequestID != "0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7" || c.RuleID != "plan-on-entry" || !c.ExpiresAt.Equal(want) {
+		c.WorkRequestID != "0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7" || c.RuleID != "plan-on-entry" || !c.ExpiresAt.Equal(want) ||
+		c.Harness != "claude-code" || c.Account != "claude-b" || c.Model != "opus" {
 		t.Fatalf("command = %+v", c)
 	}
 }

@@ -9,6 +9,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Messenger\RecomputeBucketTimes;
 use App\Module\Bridge\Messenger\RecomputeBucketTimesHandler;
 use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -84,8 +85,8 @@ final class RecomputeBucketTimesHandlerTest extends KernelTestCase
         $repository = self::getContainer()->get(WorkerRunToolCallRepository::class);
         self::assertInstanceOf(WorkerRunToolCallRepository::class, $repository);
         $repository->insertNew($run, [
-            new WorkerRunToolCallReport(1, 'Bash', new \DateTimeImmutable('2026-01-01 10:00:00', new \DateTimeZone('UTC')), 500, false, false, null, null, ['Bash'], null),
-            new WorkerRunToolCallReport(2, 'Bash', new \DateTimeImmutable('2026-01-01 10:00:01', new \DateTimeZone('UTC')), 200, false, false, null, null, ['Bash'], null),
+            new WorkerRunToolCallReport(1, 'Bash', WorkerRunToolCallKind::Shell, new \DateTimeImmutable('2026-01-01 10:00:00', new \DateTimeZone('UTC')), 500, false, false, null, null, ['Bash'], null),
+            new WorkerRunToolCallReport(2, 'Bash', WorkerRunToolCallKind::Shell, new \DateTimeImmutable('2026-01-01 10:00:01', new \DateTimeZone('UTC')), 200, false, false, null, null, ['Bash'], null),
         ]);
     }
 

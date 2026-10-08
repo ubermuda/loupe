@@ -8,7 +8,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -41,21 +40,21 @@ final readonly class DevExperimentSeeder
 
     /** The last card has a pin and no run, so the figures leave it out. */
     private const array CARDS = [
-        ['Export the board as CSV', 'opus', CardType::Feature, 'done', true, [], [['4.200000', 32]]],
-        ['Fix the empty search state', 'opus', CardType::Bug, 'done', true, [], [['3.800000', 28]]],
-        ['Show the run cost on a card', 'opus', CardType::Feature, 'done', true, ['conflict'], [['3.100000', 26], ['2.000000', 14]]],
-        ['Retry a lost webhook', 'opus', CardType::Bug, 'done', true, [], [['4.600000', 35]]],
-        ['Sort the inbox by due date', 'opus', CardType::Feature, 'done', true, [], [['3.900000', 30]]],
-        ['Link a document to a card', 'opus', CardType::Feature, 'done', true, [], [['4.400000', 38]]],
-        ['Archive a finished epic', 'opus', CardType::Feature, 'in-progress', false, [], [['4.000000', 31]]],
-        ['Paginate the audit log', 'sonnet', CardType::Feature, 'done', true, [], [['1.600000', 41]]],
-        ['Fix a stale badge count', 'sonnet', CardType::Bug, 'done', true, ['checks-failed'], [['1.200000', 33], ['0.700000', 18]]],
-        ['Rename a board column', 'sonnet', CardType::Feature, 'done', true, [], [['1.400000', 37]]],
-        ['Mute a noisy bridge', 'sonnet', CardType::Feature, 'done', true, ['conflict', 'checks-failed'], [['1.500000', 44], ['0.600000', 21]]],
-        ['Show the merge time on a card', 'sonnet', CardType::Feature, 'done', true, [], [['1.700000', 39]]],
-        ['Fix the dark mode chart colours', 'sonnet', CardType::Bug, 'done', false, [], [['1.500000', 52]]],
-        ['Filter the runs by bridge', 'sonnet', CardType::Feature, 'in-progress', false, [], [['1.800000', 47]]],
-        ['Import cards from a CSV file', 'sonnet', CardType::Feature, 'next', false, [], []],
+        ['Export the board as CSV', 'opus', 'feature', 'done', true, [], [['4.200000', 32]]],
+        ['Fix the empty search state', 'opus', 'bug', 'done', true, [], [['3.800000', 28]]],
+        ['Show the run cost on a card', 'opus', 'feature', 'done', true, ['conflict'], [['3.100000', 26], ['2.000000', 14]]],
+        ['Retry a lost webhook', 'opus', 'bug', 'done', true, [], [['4.600000', 35]]],
+        ['Sort the inbox by due date', 'opus', 'feature', 'done', true, [], [['3.900000', 30]]],
+        ['Link a document to a card', 'opus', 'feature', 'done', true, [], [['4.400000', 38]]],
+        ['Archive a finished epic', 'opus', 'feature', 'in-progress', false, [], [['4.000000', 31]]],
+        ['Paginate the audit log', 'sonnet', 'feature', 'done', true, [], [['1.600000', 41]]],
+        ['Fix a stale badge count', 'sonnet', 'bug', 'done', true, ['checks-failed'], [['1.200000', 33], ['0.700000', 18]]],
+        ['Rename a board column', 'sonnet', 'feature', 'done', true, [], [['1.400000', 37]]],
+        ['Mute a noisy bridge', 'sonnet', 'feature', 'done', true, ['conflict', 'checks-failed'], [['1.500000', 44], ['0.600000', 21]]],
+        ['Show the merge time on a card', 'sonnet', 'feature', 'done', true, [], [['1.700000', 39]]],
+        ['Fix the dark mode chart colours', 'sonnet', 'bug', 'done', false, [], [['1.500000', 52]]],
+        ['Filter the runs by bridge', 'sonnet', 'feature', 'in-progress', false, [], [['1.800000', 47]]],
+        ['Import cards from a CSV file', 'sonnet', 'feature', 'next', false, [], []],
     ];
 
     public function __construct(
@@ -109,7 +108,7 @@ final readonly class DevExperimentSeeder
         return true;
     }
 
-    private function card(Project $project, BoardColumn $column, string $title, CardType $type, int $number, \DateTimeImmutable $createdAt): Card
+    private function card(Project $project, BoardColumn $column, string $title, string $type, int $number, \DateTimeImmutable $createdAt): Card
     {
         $card = new Card(project: $project, column: $column, title: $title, body: '', number: $number, type: $type, createdAt: $createdAt);
         $this->em->persist($card);
@@ -141,6 +140,7 @@ final readonly class DevExperimentSeeder
         $run->experiment = self::EXPERIMENT;
         $run->variant = $variant;
         $run->requestedModel = self::MODELS[$variant];
+        $run->recordHarness('claude-code', 'claude', null, null);
         $run->usageSource = WorkerRunUsageSource::Reported;
         $this->em->persist($run);
         $tokens = (int) round((float) $costUsd * 40_000);

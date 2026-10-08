@@ -38,6 +38,8 @@ final readonly class WorkerRunFactExporter implements UserDataExporterInterface
                 'experiment' => $fact->experiment,
                 'variant' => $fact->variant,
                 'model' => $fact->model,
+                'harness' => $fact->harness,
+                'account' => $fact->account,
                 'bridgeId' => $fact->bridgeId?->toRfc4122(),
                 'outcome' => $fact->outcome->value,
                 'startedAt' => $fact->startedAt?->format(\DateTimeInterface::ATOM),

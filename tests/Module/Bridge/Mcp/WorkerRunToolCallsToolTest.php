@@ -6,6 +6,7 @@ namespace App\Tests\Module\Bridge\Mcp;
 
 use App\Module\Bridge\Mcp\WorkerRunToolCallsTool;
 use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -42,6 +43,7 @@ final class WorkerRunToolCallsToolTest extends KernelTestCase
         self::assertSame([
             'seq' => 1,
             'tool' => 'Tool1',
+            'kind' => 'tool',
             'startedAt' => '2026-01-01T10:00:01.000+00:00',
             'durationMs' => 1500,
             'isError' => false,
@@ -60,6 +62,7 @@ final class WorkerRunToolCallsToolTest extends KernelTestCase
         $this->repository()->insertNew($run, [new WorkerRunToolCallReport(
             seq: 1,
             tool: 'Bash',
+            kind: WorkerRunToolCallKind::Shell,
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:02.345'),
             durationMs: null,
             isError: null,
@@ -74,6 +77,7 @@ final class WorkerRunToolCallsToolTest extends KernelTestCase
         self::assertSame([
             'seq' => 1,
             'tool' => 'Bash',
+            'kind' => 'shell',
             'startedAt' => '2026-01-01T10:00:02.345+00:00',
             'durationMs' => null,
             'isError' => null,

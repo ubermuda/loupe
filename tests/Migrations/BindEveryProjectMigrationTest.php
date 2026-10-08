@@ -8,7 +8,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Bridge\Service\CardHolds;
@@ -194,10 +193,11 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         $cards['backlog'] = $this->card($project, 'backlog');
         $cards['backlog open pull request'] = $this->card($project, 'backlog');
         $this->pullRequest($cards['backlog open pull request']);
-        $cards['backlog epic'] = $this->card($project, 'backlog', CardType::Epic);
+        $cards['backlog epic'] = $this->card($project, 'backlog', 'epic');
         $this->pullRequest($cards['backlog epic']);
-        $cards['backlog parent'] = $this->card($project, 'backlog', CardType::Epic);
+        $cards['backlog parent'] = $this->card($project, 'backlog', 'epic');
         $cards['backlog child'] = $this->card($project, 'backlog', parent: $cards['backlog parent']);
+        $this->approvedDocument($cards['backlog child'], 'tech-design');
         $cards['next'] = $this->card($project, 'next');
         $cards['product design'] = $this->card($project, 'product-design');
         $cards['approved design'] = $this->card($project, 'tech-design');
@@ -207,8 +207,8 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         $cards['implementation no pull request'] = $this->card($project, 'implementation');
         $cards['failing checks'] = $this->card($project, 'implementation');
         $this->pullRequest($cards['failing checks'])->checks = PullRequestChecks::Failed;
-        $cards['epic with no children'] = $this->card($project, 'implementation', CardType::Epic);
-        $cards['epic with an open child'] = $this->card($project, 'implementation', CardType::Epic);
+        $cards['epic with no children'] = $this->card($project, 'implementation', 'epic');
+        $cards['epic with an open child'] = $this->card($project, 'implementation', 'epic');
         $this->pullRequest($cards['epic with an open child']);
         $cards['open child'] = $this->card($project, 'implementation', parent: $cards['epic with an open child']);
         $this->pullRequest($cards['open child'], base: 'epic', head: 'child');
@@ -239,7 +239,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         return $project;
     }
 
-    private function card(Project $project, string $column, CardType $type = CardType::Feature, ?Card $parent = null): Card
+    private function card(Project $project, string $column, string $type = 'feature', ?Card $parent = null): Card
     {
         $card = new Card($project, $this->column($project, $column), 'Card', '', ++$this->cardNumber, $type);
         $card->parent = $parent;

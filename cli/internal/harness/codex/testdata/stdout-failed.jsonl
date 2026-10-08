@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"01a11b44-0eb9-71f3-b3f1-3066d6b81ee6"}
+{"type":"turn.started"}
+{"type":"error","message":"stream disconnected before completion"}
+{"type":"turn.failed","error":{"message":"stream disconnected before completion"}}

@@ -18,6 +18,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\ValueObject\WorkRequestState;
@@ -85,6 +86,10 @@ trait BridgeScenario
         ?Uuid $workRequestId = null,
         \DateTimeImmutable $endedAt = new \DateTimeImmutable('2026-01-01 10:05:00'),
         string $subjectType = WorkSubject::CARD,
+        ?string $harness = null,
+        ?string $account = null,
+        ?string $model = null,
+        ?string $harnessSessionId = null,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -107,6 +112,7 @@ trait BridgeScenario
             workRequestId: $workRequestId,
         );
         $run->workerPool = $workerPool;
+        $run->recordHarness($harness, $account, $model, $harnessSessionId);
         $em->persist($run);
         $em->flush();
         // What the report endpoint does after it writes the row. A run seeded
@@ -132,13 +138,15 @@ trait BridgeScenario
         return $usage;
     }
 
-    private function seedToolCall(WorkerRun $run, int $seq = 1, string $tool = 'Bash'): void
+    /** With no kind given, Bash is shell and any other tool is tool. */
+    private function seedToolCall(WorkerRun $run, int $seq = 1, string $tool = 'Bash', ?WorkerRunToolCallKind $kind = null): void
     {
         $repository = static::getContainer()->get(WorkerRunToolCallRepository::class);
         self::assertInstanceOf(WorkerRunToolCallRepository::class, $repository);
         $repository->insertNew($run, [new WorkerRunToolCallReport(
             seq: $seq,
             tool: $tool,
+            kind: $kind ?? ('Bash' === $tool ? WorkerRunToolCallKind::Shell : WorkerRunToolCallKind::Tool),
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:01'),
             durationMs: 1500,
             isError: false,
@@ -180,8 +188,9 @@ trait BridgeScenario
     }
 
     /**
-     * @param list<string>                                                       $projects
-     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null $workerPools
+     * @param list<string>                                                                                            $projects
+     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null                                      $workerPools
+     * @param list<array{name: string, harness: string, state: 'ready'|'failing', reason: ?string, used?: bool}>|null $accounts
      */
     private function seedBridge(
         EntityManagerInterface $em,
@@ -192,10 +201,14 @@ trait BridgeScenario
         \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(),
         ?array $workerPools = null,
         ?\DateTimeImmutable $workerPoolsReportedAt = null,
+        ?array $accounts = null,
+        ?\DateTimeImmutable $accountsReportedAt = null,
     ): Bridge {
         $bridge = new Bridge(AgentCredential::managed($em, $owner, $owner->id), $id ?? Uuid::v4(), $projects, $cliVersion, $lastSeenAt);
         $bridge->workerPools = $workerPools;
         $bridge->workerPoolsReportedAt = $workerPoolsReportedAt;
+        $bridge->accounts = $accounts;
+        $bridge->accountsReportedAt = $accountsReportedAt;
         $em->persist($bridge);
         $em->flush();
 
@@ -247,6 +260,7 @@ trait BridgeScenario
         string $ruleId = 'implement-on-entry',
         ?WorkSubject $subject = null,
         ?\DateTimeImmutable $reopenedAt = null,
+        ?string $prompt = null,
     ): WorkRequest {
         $subject ??= WorkSubject::card($cardId ?? Uuid::v7());
         $request = new WorkRequest(
@@ -264,6 +278,7 @@ trait BridgeScenario
         $request->claimToken = $claimToken;
         $request->leaseUntil = $leaseUntil;
         $request->reopenedAt = $reopenedAt;
+        $request->prompt = $prompt;
         $em->persist($request);
         $em->flush();
 

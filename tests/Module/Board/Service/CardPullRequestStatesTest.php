@@ -8,7 +8,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardPullRequestStates;
@@ -120,6 +119,6 @@ final class CardPullRequestStatesTest extends KernelTestCase
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
-        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature, null === $column ? null : $this->column($project, $column)));
+        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', 'feature', null === $column ? null : $this->column($project, $column)));
     }
 }

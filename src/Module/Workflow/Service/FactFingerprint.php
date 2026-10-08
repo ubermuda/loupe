@@ -41,6 +41,7 @@ final readonly class FactFingerprint
             // A false merge fact adds nothing, so the stored fingerprints stay as they were.
             FactKey::Children => [$card->childCount, $card->openChildCount, ...($card->childMergedIntoEpicBranch ? [true] : [])],
             FactKey::Documents => self::sorted(array_map(self::document(...), $card->documents)),
+            FactKey::ParentDocuments => self::sorted(array_map(self::document(...), $card->parentDocuments)),
             FactKey::PullRequest => null === $facts->pullRequest ? null : self::pullRequest($facts->pullRequest),
             FactKey::PullRequests => self::sorted(array_map(self::pullRequest(...), $facts->pullRequests)),
             FactKey::WorkRequests => self::sorted($facts->run->activeWorkKinds),
