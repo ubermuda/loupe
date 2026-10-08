@@ -9,6 +9,7 @@ const run = (status) => ({
 const report = {
     suites: [
         {
+            title: 'a.spec.ts',
             file: 'a.spec.ts',
             specs: [
                 {
@@ -37,6 +38,19 @@ const report = {
                     tests: [run('skipped')],
                 },
             ],
+            suites: [
+                {
+                    title: 'group',
+                    file: 'a.spec.ts',
+                    specs: [
+                        {
+                            title: 'steady',
+                            file: 'a.spec.ts',
+                            tests: [run('failed')],
+                        },
+                    ],
+                },
+            ],
         },
     ],
 };
@@ -46,16 +60,17 @@ describe('e2e flake report', () => {
         const rows = summarise(report);
 
         expect(rows.map((t) => [t.name, t.runs, t.failures])).toEqual([
+            ['a.spec.ts > group > steady [chromium]', 1, 1],
             ['a.spec.ts > flaky [chromium]', 4, 2],
             ['a.spec.ts > steady [chromium]', 4, 0],
         ]);
-        expect(rows[0].rate).toBe(0.5);
+        expect(rows[1].rate).toBe(0.5);
     });
 
     it('prints a rate and a total', () => {
         const text = format(summarise(report));
 
         expect(text).toContain('50.0%');
-        expect(text).toContain('2 tests, 8 runs, 2 failures');
+        expect(text).toContain('3 tests, 9 runs, 3 failures');
     });
 });

@@ -10,7 +10,11 @@ const FAILED = new Set(['failed', 'timedOut', 'interrupted']);
 function collect(suites, file, titles, out) {
     for (const suite of suites ?? []) {
         const suiteFile = suite.file ?? file;
-        const path = suite.file || !suite.title ? titles : [...titles, suite.title];
+        // A file suite is titled with its path. A describe suite keeps its title.
+        const path =
+            !suite.title || suite.title === suite.file
+                ? titles
+                : [...titles, suite.title];
         for (const spec of suite.specs ?? []) {
             for (const test of spec.tests ?? []) {
                 const last = test.results?.at(-1);
@@ -63,7 +67,9 @@ export function format(rows) {
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     const paths = process.argv.slice(2);
     if (paths.length === 0) {
-        console.error('Usage: node bin/e2e-flake-report.mjs <playwright-results.json> [...]');
+        console.error(
+            'Usage: node bin/e2e-flake-report.mjs <playwright-results.json> [...]',
+        );
         process.exit(2);
     }
     for (const path of paths) {

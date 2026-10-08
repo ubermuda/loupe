@@ -47,7 +47,9 @@ jobs:
 
       - name: Failure rate per test
         if: always() && hashFiles('var/e2e-timing/results.json') != ''
-        run: node bin/e2e-flake-report.mjs var/e2e-timing/results.json | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          node bin/e2e-flake-report.mjs var/e2e-timing/results.json | tee var/e2e-flake-report.txt
+          { echo '```'; cat var/e2e-flake-report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Web server log
         if: always()

@@ -46,4 +46,3 @@ runs:
     - run: npx playwright install chromium
       shell: bash
       working-directory: e2e
-      timeout-minutes: 5
