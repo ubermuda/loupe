@@ -48,6 +48,11 @@ type accountFiles struct {
 	global, envA, envB, configA, configB string
 }
 
+// fill puts the paths of f in a rule file.
+func (f accountFiles) fill(body string) string {
+	return strings.NewReplacer("{global}", f.global, "{envA}", f.envA, "{envB}", f.envB, "{configA}", f.configA, "{configB}", f.configB).Replace(body)
+}
+
 func writeEnv(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
@@ -71,8 +76,7 @@ func withAccounts(t *testing.T, edit func(string) string) (*harness, *stateRecor
 	if edit != nil {
 		body = edit(body)
 	}
-	body = strings.NewReplacer("{global}", f.global, "{envA}", f.envA, "{envB}", f.envB, "{configA}", f.configA, "{configB}", f.configB).Replace(body)
-	h := newHarnessWith(t, body, rules.Defaults{})
+	h := newHarnessWith(t, f.fill(body), rules.Defaults{})
 
 	return h, h.states(), f
 }
@@ -385,5 +389,131 @@ func TestAnEnvFileCannotSetTheConfigFolder(t *testing.T) {
 	wantStates(t, sent, api.RunQueued, api.RunNotStarted)
 	if r := sent[1].report; r.FailureReason == nil || !strings.Contains(*r.FailureReason, f.global) || !strings.Contains(*r.FailureReason, "configDir") {
 		t.Fatalf("report = %+v", r)
+	}
+}
+
+// resumeOnB is a person's resume of a plan run that started on account b,
+// while the plan entry now runs on account a.
+func resumeOnB() api.Command {
+	c := resumeOf(endedRunKey)
+	c.Account, c.Harness, c.Model = "b", rules.HarnessClaudeCode, "opus"
+
+	return c
+}
+
+// A resume runs on the account the run started on, whatever account the rule
+// names now. It finds the session in the config folder of that account, and
+// keeps the model the run started with.
+func TestAResumeRunsOnTheAccountTheRunStartedOn(t *testing.T) {
+	h, _, f := withAccounts(t, nil)
+	writeTranscript(t, f.configB, testSession, "{}")
+
+	if state, reason := h.resume(resumeOnB()); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+
+	calls := h.worker.recorded()
+	if len(calls) != 1 {
+		t.Fatalf("workers = %+v", calls)
+	}
+	c := calls[0]
+	if !c.resume || c.account != "b" || c.configDir != f.configB || c.model != "opus" || c.permissionMode != "acceptEdits" {
+		t.Fatalf("worker = %+v", c)
+	}
+	if v, _ := envOf(c.env, "SHARED"); v != "b" {
+		t.Fatalf("SHARED = %q", v)
+	}
+	if _, ok := envOf(c.env, "A_ONLY"); ok {
+		t.Fatalf("env %q holds the key of account a", c.env)
+	}
+}
+
+// A resume of a run whose account is gone from rules.yaml, or whose account
+// now names another harness, is refused with a reason that names the account.
+func TestAResumeIsRefusedWhenItsAccountChanged(t *testing.T) {
+	for name, tc := range map[string]struct {
+		change func(c *api.Command)
+		reason string
+	}{
+		"a removed account": {change: func(c *api.Command) { c.Account = "c" }, reason: "The account c that the run started on is no longer in rules.yaml."},
+		"another harness": {change: func(c *api.Command) { c.Harness = "codex" },
+			reason: "The account b that the run started on now names the harness claude-code, and the run started on codex."},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, _, _ := withAccounts(t, nil)
+			h.transcripts(true)
+			c := resumeOnB()
+			tc.change(&c)
+
+			state, reason := h.resume(c)
+
+			if state != api.CommandRefused || reason != tc.reason {
+				t.Fatalf("resume = %s %q, want refused %q", state, reason, tc.reason)
+			}
+			if h.runs() != 0 {
+				t.Fatalf("workers = %d after a refused resume", h.runs())
+			}
+		})
+	}
+}
+
+// A run of an older bridge names no account, so its resume runs on the
+// account the rule names now.
+func TestAResumeOfARunWithNoAccountTakesTheAccountOfTheRule(t *testing.T) {
+	h, _, f := withAccounts(t, nil)
+	writeTranscript(t, f.configA, testSession, "{}")
+
+	if state, reason := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+
+	calls := h.worker.recorded()
+	if len(calls) != 1 || calls[0].account != "a" || calls[0].configDir != f.configA || calls[0].model != "sonnet" {
+		t.Fatalf("workers = %+v", calls)
+	}
+}
+
+// A reload and a handover match a queued resume again, and it keeps the
+// account the run started on.
+func TestAQueuedResumeKeepsItsAccountThroughAReloadAndAHandover(t *testing.T) {
+	h, _, f := withAccounts(t, nil)
+	h.transcripts(true)
+	h.reply(pausedReply(true))
+	if state, reason := h.resume(resumeOnB()); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+	if res := h.reload(t, f.fill(strings.Replace(accountRules, "  a:\n    harness: claude-code\n    model: sonnet\n", "  a:\n    harness: claude-code\n    model: haiku\n", 1))); !res.OK {
+		t.Fatalf("reload = %+v", res)
+	}
+	st := h.router.freeze()
+
+	h2 := newHarnessWith(t, f.fill(accountRules), rules.Defaults{})
+	h2.states()
+	h2.router.adopt(roundTrip(t, st))
+	h2.reply(pausedReply(false))
+
+	calls := h2.worker.recorded()
+	if len(calls) != 1 || calls[0].account != "b" || calls[0].configDir != f.configB || calls[0].model != "opus" {
+		t.Fatalf("workers = %+v", calls)
+	}
+}
+
+// A reload that removes the account of a queued resume drops the resume.
+func TestAReloadDropsAQueuedResumeWhoseAccountIsGone(t *testing.T) {
+	h, _, f := withAccounts(t, nil)
+	h.transcripts(true)
+	h.reply(pausedReply(true))
+	if state, reason := h.resume(resumeOnB()); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+	body := strings.Replace(accountRules, "  review:\n    account: b\n", "  review:\n", 1)
+	body = body[:strings.Index(body, "  b:\n")] + body[strings.Index(body, "defaults:"):]
+	if res := h.reload(t, f.fill(body)); !res.OK {
+		t.Fatalf("reload = %+v", res)
+	}
+	h.reply(pausedReply(false))
+
+	if h.runs() != 0 || len(h.queued()) != 0 {
+		t.Fatalf("workers = %d, queue = %v", h.runs(), h.queued())
 	}
 }

@@ -58,6 +58,11 @@ type Command struct {
 	// Context is the context of the work request of the run, so a rerun or a
 	// resume fills the values the run had. An older server sends none.
 	Context WorkRequestContext `json:"context"`
+	// Harness, Account and Model name what the run started on, so a resume
+	// runs there. An older server or bridge sends none.
+	Harness string `json:"harness,omitempty"`
+	Account string `json:"account,omitempty"`
+	Model   string `json:"model,omitempty"`
 }
 
 // CommandSubject names the command itself.

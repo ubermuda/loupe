@@ -175,13 +175,15 @@ type Account struct {
 }
 
 // RunSettings are what an agent run takes from its account, its entry and the
-// defaults. EnvFiles lists the global file before the account's.
+// defaults. EnvFiles lists the global file before the account's. Permissions
+// is the level the entry names, and "" when it names none.
 type RunSettings struct {
 	Account        string
 	Harness        string
 	ConfigDir      string
 	Model          string
 	PermissionMode string
+	Permissions    string
 	EnvFiles       []string
 }
 
@@ -563,7 +565,7 @@ func (s *Set) checkWorkAccounts(kind string, w *WorkEntry, declared []string, ro
 func (s *Set) resolve(account, model, level string, interactive bool) RunSettings {
 	name := cmp.Or(account, s.fileDefaults.Account)
 	a := s.accounts[name]
-	r := RunSettings{Account: name, Harness: a.Harness, ConfigDir: a.ConfigDir, Model: cmp.Or(model, a.Model, s.defaults.Model)}
+	r := RunSettings{Account: name, Harness: a.Harness, ConfigDir: a.ConfigDir, Model: cmp.Or(model, a.Model, s.defaults.Model), Permissions: level}
 	r.PermissionMode = claudeCodeModes[level]
 	if !interactive {
 		r.PermissionMode = cmp.Or(r.PermissionMode, a.PermissionMode, claudeCodeModes[s.fileDefaults.Permissions], s.defaults.PermissionMode)
@@ -575,6 +577,16 @@ func (s *Set) resolve(account, model, level string, interactive bool) RunSetting
 	}
 
 	return r
+}
+
+// Account gives the settings of a worker run on the named account, with the
+// permissions level of its entry. ok is false when the set has no such account.
+func (s *Set) Account(name, level string) (RunSettings, bool) {
+	if _, ok := s.accounts[name]; !ok {
+		return RunSettings{}, false
+	}
+
+	return s.resolve(name, "", level, false), true
 }
 
 // AgentsOff is why the set runs no worker, interactive entry or app prompt,
@@ -1177,7 +1189,9 @@ type Match struct {
 	Project        string
 	Dir            string
 	PermissionMode string
-	Model          string
+	// Permissions is the level of the entry, and "" when it names none.
+	Permissions string
+	Model       string
 	// Account, Harness, ConfigDir and EnvFiles come from the account the run
 	// takes. They are empty for a command entry.
 	Account   string
@@ -1211,8 +1225,17 @@ func (m Match) ApplyVariant(v Variant) Match {
 func (m Match) withRun(r RunSettings) Match {
 	r = r.clone()
 	m.Account, m.Harness, m.ConfigDir, m.Model, m.PermissionMode, m.EnvFiles = r.Account, r.Harness, r.ConfigDir, r.Model, r.PermissionMode, r.EnvFiles
+	m.Permissions = r.Permissions
 
 	return m
+}
+
+// Run is the settings of an agent run that the match resolved.
+func (m Match) Run() RunSettings {
+	return RunSettings{
+		Account: m.Account, Harness: m.Harness, ConfigDir: m.ConfigDir, Model: m.Model,
+		PermissionMode: m.PermissionMode, Permissions: m.Permissions, EnvFiles: slices.Clone(m.EnvFiles),
+	}
 }
 
 // KillWork marks dead the work of the project that a project.renamed event

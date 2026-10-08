@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
 	"os"
@@ -393,7 +394,40 @@ const (
 	bridgeShutting  = "The bridge is shutting down."
 	runOpen         = "The run is still open."
 	resumingAlready = "The bridge resumes this run already."
+	accountGone     = "The account %s that the run started on is no longer in rules.yaml."
+	accountHarness  = "The account %s that the run started on now names the harness %s, and the run started on %s."
 )
+
+// runStart is the harness, the account and the model a resumed run started
+// on. A run of an older bridge or server names no account.
+type runStart struct {
+	Harness string `json:"harness,omitempty"`
+	Account string `json:"account,omitempty"`
+	Model   string `json:"model,omitempty"`
+}
+
+func runStartOf(c api.Command) runStart {
+	return runStart{Harness: c.Harness, Account: c.Account, Model: c.Model}
+}
+
+// settings gives r on the account the run started on, with the model it
+// started with. reason says why the run cannot resume there. With no account,
+// r stays as the rule gives it.
+func (o runStart) settings(set *rules.Set, r rules.RunSettings) (rules.RunSettings, string) {
+	if o.Account == "" {
+		return r, ""
+	}
+	a, ok := set.Account(o.Account, r.Permissions)
+	if !ok {
+		return r, fmt.Sprintf(accountGone, o.Account)
+	}
+	if o.Harness != "" && a.Harness != o.Harness {
+		return r, fmt.Sprintf(accountHarness, o.Account, a.Harness, o.Harness)
+	}
+	a.Model = cmp.Or(o.Model, a.Model)
+
+	return a, ""
+}
 
 // resumeRun queues a resume of the session of a run that ended, as its next
 // run. The work entry of the run's kind says how the run starts. The resume
@@ -417,7 +451,13 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 			return api.CommandRefused, "The bridge could not read the card: " + err.Error()
 		}
 	}
-	if pre, _ := matchCommandWork(r.rules(), c, ""); !r.hasTranscript(c.SessionID, pre) {
+	started := runStartOf(c)
+	pre, matched := matchCommandWork(r.rules(), c, "")
+	run, reason := started.settings(r.rules(), pre.Run())
+	if matched && reason != "" {
+		return api.CommandRefused, reason
+	}
+	if !r.hasTranscript(c.SessionID, run) {
 		return api.CommandRefused, noTranscript
 	}
 
@@ -428,6 +468,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	r.mu.Lock()
 	current := r.rules()
 	m, ok := matchCommandWork(current, c, "")
+	_, onAccount := started.settings(current, m.Run())
 	_, held := r.held[c.RunKey]
 	_, live := r.live[c.RunKey]
 	continued := slices.ContainsFunc(r.queue, func(p pending) bool { return p.continues == c.RunKey })
@@ -441,6 +482,8 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 		reason = bridgeShutting
 	case !ok:
 		reason = noWorkerRule
+	case onAccount != "":
+		reason = onAccount
 	case held || live:
 		reason = runOpen
 	case continued:
@@ -457,7 +500,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 		prompt = directive.RenderResumeAskClosed()
 	}
 	p := pending{
-		key: keyFor(e), event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, origin: commandWork(c),
+		key: keyFor(e), event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, startedOn: started, origin: commandWork(c),
 		spec: workerSpec{resume: true, sessionID: c.SessionID, prompt: prompt},
 	}
 	p.apply(m)
@@ -577,12 +620,12 @@ func commandCard(c api.Command) string {
 	return c.SubjectID
 }
 
-// hasTranscript reports whether the account of m holds the transcript of the
-// session on this machine, which a resume needs.
-func (r *router) hasTranscript(sessionID string, m rules.Match) bool {
+// hasTranscript reports whether the account of run holds the transcript of
+// the session on this machine, which a resume needs.
+func (r *router) hasTranscript(sessionID string, run rules.RunSettings) bool {
 	find := r.findTranscript
 	if find == nil {
-		find = harnessOf(m.Harness, m.ConfigDir).HasSession
+		find = harnessOf(run.Harness, run.ConfigDir).HasSession
 	}
 
 	return find(sessionID) == nil

@@ -250,8 +250,9 @@ type pending struct {
 	// reload swapped the set in between.
 	set *rules.Set
 	// continues is the run id that a person's resume or rerun continues, and
-	// "" for any other run.
+	// "" for any other run. startedOn is what that run started on.
 	continues string
+	startedOn runStart
 	// action and project are the rule's action and project slug.
 	action  string
 	project string
@@ -294,7 +295,8 @@ func (p *pending) apply(m rules.Match) {
 	if p.continues != "" {
 		p.spec.dir, p.spec.schema = m.Dir, m.Schema
 		p.spec.before, p.spec.command = m.Before, m.Command
-		p.spec.useRun(m)
+		run, _ := p.startedOn.settings(p.set, m.Run())
+		p.spec.useSettings(run)
 
 		return
 	}
@@ -310,10 +312,7 @@ func (p *pending) apply(m rules.Match) {
 // useRun takes the account, the harness, the model and the mode that the
 // match resolved.
 func (s *workerSpec) useRun(m rules.Match) {
-	s.useSettings(rules.RunSettings{
-		Account: m.Account, Harness: m.Harness, ConfigDir: m.ConfigDir, EnvFiles: m.EnvFiles,
-		Model: m.Model, PermissionMode: m.PermissionMode,
-	})
+	s.useSettings(m.Run())
 }
 
 func (s *workerSpec) useSettings(r rules.RunSettings) {
@@ -922,6 +921,7 @@ func (r *router) start(p pending) {
 		if p.experiment != nil {
 			var settings rules.RunSettings
 			settings, p.pin = r.resolveVariant(p)
+			settings, _ = p.startedOn.settings(p.set, settings)
 			p.spec.useSettings(settings)
 			r.log.Info("worker_variant", append(about(p.event, p.rule),
 				"session_id", p.spec.sessionID, "experiment", p.pin.Experiment, "variant", p.pin.Variant,

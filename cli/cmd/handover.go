@@ -89,15 +89,16 @@ type handoverPending struct {
 
 // handoverSeries names the run that a person's resume or rerun continues.
 type handoverSeries struct {
-	Continues string `json:"continues,omitempty"`
+	Continues string   `json:"continues,omitempty"`
+	StartedOn runStart `json:"startedOn,omitzero"`
 }
 
 func seriesOf(p pending) handoverSeries {
-	return handoverSeries{Continues: p.continues}
+	return handoverSeries{Continues: p.continues, StartedOn: p.startedOn}
 }
 
 func (s handoverSeries) applyTo(p *pending) {
-	p.continues = s.Continues
+	p.continues, p.startedOn = s.Continues, s.StartedOn
 }
 
 type handoverSession struct {

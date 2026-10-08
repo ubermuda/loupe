@@ -42,6 +42,10 @@ final class BridgeCommandPayload
             'expiresAt' => $command->expiresAt->format(\DateTimeInterface::ATOM),
             'cause' => $command->cause->value,
             'context' => $command->context->toArray(),
+            // What the run started on, so a resume runs on the same account.
+            'harness' => $run->harness,
+            'account' => $run->account,
+            'model' => $run->model,
         ];
     }
 }

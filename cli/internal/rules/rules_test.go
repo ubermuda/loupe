@@ -204,9 +204,40 @@ func TestParseResolvesTheAccountOfARun(t *testing.T) {
 	if r := exp.Settings(exp.Variants[0]); r.Account != "claude" || r.Model != "haiku" {
 		t.Fatalf("variant a = %+v", r)
 	}
-	want.PermissionMode = "bypassPermissions"
+	want.PermissionMode, want.Permissions = "bypassPermissions", PermissionsFull
 	if r := exp.Settings(exp.Variants[1]); !reflect.DeepEqual(r, want) {
 		t.Fatalf("variant b = %+v, want %+v", r, want)
+	}
+}
+
+// Account gives the settings of a run on a named account, with the level a
+// rule names. It finds no account the set does not hold.
+func TestAccountGivesTheSettingsOfANamedAccount(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	body := "envFile: ~/global.env\n" +
+		"accounts:\n  claude:\n    harness: claude-code\n    model: opus\n" +
+		"  other:\n    harness: claude-code\n    model: sonnet\n    permissionMode: acceptEdits\n    configDir: ~/.claude-b\n    envFile: /etc/b.env\n" +
+		claudeDefaults + oneWork
+	text, _ := file(t, body)
+	s, err := Parse([]byte(text), Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := RunSettings{
+		Account: "other", Harness: HarnessClaudeCode, ConfigDir: filepath.Join(home, ".claude-b"), Model: "sonnet",
+		PermissionMode: "acceptEdits", EnvFiles: []string{filepath.Join(home, "global.env"), "/etc/b.env"},
+	}
+	if r, ok := s.Account("other", ""); !ok || !reflect.DeepEqual(r, want) {
+		t.Fatalf("other = %+v, %v; want %+v", r, ok, want)
+	}
+	want.PermissionMode, want.Permissions = "plan", PermissionsReadOnly
+	if r, ok := s.Account("other", PermissionsReadOnly); !ok || !reflect.DeepEqual(r, want) {
+		t.Fatalf("other read-only = %+v, %v; want %+v", r, ok, want)
+	}
+	if r, ok := s.Account("gone", ""); ok {
+		t.Fatalf("gone = %+v, want no account", r)
 	}
 }
 
