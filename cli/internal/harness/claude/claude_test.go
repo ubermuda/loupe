@@ -606,3 +606,19 @@ func TestAnEmptySkillFolderIsNoSkill(t *testing.T) {
 		t.Fatal("hasSkills is false for a skill with SKILL.md")
 	}
 }
+
+func TestCheckFindsClaudeOnARelativePathFromEachProject(t *testing.T) {
+	isolate(t)
+	fake := filepath.Dir(checkClaude(t, "0", `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`))
+	with, without := t.TempDir(), t.TempDir()
+	mkdir(t, filepath.Join(with, "bin"))
+	if err := os.Symlink(filepath.Join(fake, "claude"), filepath.Join(with, "bin", "claude")); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", Env: []string{"PATH=bin:/bin:/usr/bin"}, Projects: map[string]string{"a": with, "b": without}}
+
+	got := New("").Check(context.Background(), spec)
+	if len(got) != 1 || got[0].Reason != "claude is not on PATH for project b" {
+		t.Fatalf("Check = %+v, want claude missing for project b alone", got)
+	}
+}

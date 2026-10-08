@@ -37,20 +37,60 @@ type plugin struct {
 // no field of auth status, because those name the person.
 func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Problem {
 	env := envfile.Overlay(os.Environ(), spec.Env)
-	binary, err := envfile.LookPath(h.Program(), env, "")
-	if err != nil {
-		return []harness.Problem{{Reason: "claude is not on PATH", Detail: err.Error()}}
+	slugs := slices.Sorted(maps.Keys(spec.Projects))
+	// A worker starts in its project folder, which a relative PATH entry
+	// counts from, so each project finds its own claude.
+	binaries, loginDir := map[string]string{}, ""
+	var lookErr error
+	for _, slug := range slugs {
+		binary, err := envfile.LookPath(h.Program(), env, spec.Projects[slug])
+		if err != nil {
+			lookErr = err
+
+			continue
+		}
+		if len(binaries) == 0 {
+			loginDir = spec.Projects[slug]
+		}
+		binaries[slug] = binary
+	}
+	if len(slugs) == 0 {
+		binary, err := envfile.LookPath(h.Program(), env, "")
+		if err != nil {
+			return []harness.Problem{{Reason: "claude is not on PATH", Detail: err.Error()}}
+		}
+		binaries[""] = binary
+	}
+	if len(binaries) == 0 {
+		return []harness.Problem{{Reason: "claude is not on PATH", Detail: lookErr.Error()}}
 	}
 	var problems []harness.Problem
-	if _, err := runCheck(ctx, binary, "", env, "auth", "status"); err != nil {
+	if _, err := runCheck(ctx, binaries[firstKey(binaries, slugs)], loginDir, env, "auth", "status"); err != nil {
 		problems = append(problems, loginProblem(err, spec.ConfigDir))
 	}
 	skillsHome := userSkills(spec.ConfigDir)
-	for _, slug := range slices.Sorted(maps.Keys(spec.Projects)) {
+	for _, slug := range slugs {
+		binary, ok := binaries[slug]
+		if !ok {
+			problems = append(problems, harness.Problem{Reason: "claude is not on PATH for project " + slug, Detail: "no claude on the PATH of the account from " + spec.Projects[slug]})
+
+			continue
+		}
 		problems = append(problems, projectProblems(ctx, binary, env, spec.ConfigDir, skillsHome, slug, spec.Projects[slug])...)
 	}
 
 	return problems
+}
+
+// firstKey is the first slug, in order, that has a binary.
+func firstKey(binaries map[string]string, slugs []string) string {
+	for _, slug := range slugs {
+		if _, ok := binaries[slug]; ok {
+			return slug
+		}
+	}
+
+	return ""
 }
 
 // projectProblems checks that the project sees the loupe MCP server and the
