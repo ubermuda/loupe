@@ -79,3 +79,19 @@ func TestAReloadWarnsThatTheAgentsAreOff(t *testing.T) {
 	}
 	h.only(t, "agents_off")
 }
+
+// A start that stops before its log would open still logs the rewrite, which
+// the next start does not repeat.
+func TestAStartThatStopsEarlyLogsTheAccountsMigration(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	path := writeRuleFile(t, "defaults:\n  model: opus\nwork:\n  plan:\n    prompt: Plan {nope}.\n")
+	logPath := filepath.Join(t.TempDir(), "bridge.log")
+
+	if err := runBridge(t, "--rules", path, "--log-file", logPath); err == nil {
+		t.Fatal("the bridge started")
+	}
+	if data, _ := os.ReadFile(logPath); !strings.Contains(string(data), `"event":"accounts_migration_done"`) {
+		t.Fatalf("log = %s", data)
+	}
+}

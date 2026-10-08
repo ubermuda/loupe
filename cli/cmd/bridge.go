@@ -170,6 +170,17 @@ func startBridge(cmd *cobra.Command, o bridgeRunOptions) error {
 // socket itself.
 func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults, path string, bl *bridgeLog, b *bridgeUpdate, control net.Listener) error {
 	migration := migrateAccounts(path)
+	if bl == nil && migration.notable() {
+		// The start can stop before its log opens, and the next start finds nothing to log.
+		var err error
+		if bl, err = openBridgeLog(cmd, o.logFile); err != nil {
+			return err
+		}
+		defer bl.file.Close()
+	}
+	if bl != nil {
+		migration.log(bl.log, path)
+	}
 	set, err := rules.Load(path, defaults)
 	if err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
@@ -208,7 +219,6 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		}
 		defer bl.file.Close()
 	}
-	migration.log(bl.log, path)
 
 	if b == nil {
 		sock, err := socketPath(path)

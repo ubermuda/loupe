@@ -7,7 +7,7 @@ import (
 )
 
 // accountsMigration is the outcome of the accounts migration of one start. It
-// runs before the rule file loads, and the bridge logs it once its log is open.
+// runs before the rule file loads.
 type accountsMigration struct {
 	changed bool
 	block   string
@@ -20,6 +20,11 @@ func migrateAccounts(path string) accountsMigration {
 	changed, block, err := rules.MigrateAccounts(path)
 
 	return accountsMigration{changed: changed, block: block, err: err}
+}
+
+// notable reports whether the migration has an outcome to log.
+func (m accountsMigration) notable() bool {
+	return m.changed || m.err != nil
 }
 
 func (m accountsMigration) log(log *slog.Logger, path string) {

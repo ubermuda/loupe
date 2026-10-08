@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -169,7 +170,7 @@ func TestMigrateAccountsRefusesWhatALineEditCannotChange(t *testing.T) {
 		"merged mode":      "base: &b\n  permissionMode: plan\nwork:\n  implement:\n    <<: *b\n    prompt: Go.\n",
 	} {
 		changed, _, after, err := migrate(t, body)
-		if err == nil || changed || after != body {
+		if !errors.Is(err, ErrMigrationRefused) || changed || after != body {
 			t.Fatalf("%s: changed = %v, err = %v, file =\n%s", name, changed, err, after)
 		}
 	}
