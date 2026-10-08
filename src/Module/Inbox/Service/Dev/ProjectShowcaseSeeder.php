@@ -14,6 +14,8 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Entity\CardSource;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
@@ -248,6 +250,7 @@ final readonly class ProjectShowcaseSeeder
             body: 'Replace the legacy checkout with a single-page flow. Keep saved subscriptions and recovery behavior intact.',
             number: $number,
             type: 'feature',
+            source: new CardSource(CardSourceKind::Person),
         );
         $history = new Card(
             project: $project,
@@ -264,6 +267,7 @@ final readonly class ProjectShowcaseSeeder
             body: 'A column rename must not silently detach the rules that point at it. Decide the handoff behavior before implementation.',
             number: $number + 2,
             type: 'bug',
+            source: CardSource::run(Uuid::v4(), Uuid::v4()),
         );
         $onboarding = new Card(
             project: $project,
@@ -272,6 +276,7 @@ final readonly class ProjectShowcaseSeeder
             body: 'Make the first agent handoff obvious. Explain which rule runs when a card enters Ready and what the person should expect back.',
             number: $number + 3,
             type: 'feature',
+            source: new CardSource(CardSourceKind::Loupe),
         );
 
         foreach ([$checkout, $history, $columnRules, $onboarding] as $card) {

@@ -103,6 +103,28 @@ class Card implements ProjectScopedSubject
         get => $this->storedReporter ?? $this->origin;
     }
 
+    /**
+     * Null on a row an image without this column wrote, which is why nothing
+     * reads it directly. Read $source instead.
+     */
+    #[ORM\Column(name: 'source', length: 20, nullable: true, enumType: CardSourceKind::class)]
+    private ?CardSourceKind $sourceKind = null;
+
+    /** No foreign key, so the source survives the delete of the run. */
+    #[ORM\Column(name: 'source_run_id', type: UuidType::NAME, nullable: true)]
+    private ?Uuid $sourceRunId = null;
+
+    /** No foreign key, for the same reason. */
+    #[ORM\Column(name: 'source_run_card_id', type: UuidType::NAME, nullable: true)]
+    private ?Uuid $sourceRunCardId = null;
+
+    /** Where the card came from, falling back to the reporter on a row with no stored source. */
+    public CardSource $source {
+        get => null === $this->sourceKind
+            ? CardSource::fromReporter($this->reporter)
+            : new CardSource($this->sourceKind, $this->sourceRunId, $this->sourceRunCardId);
+    }
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]
@@ -145,7 +167,13 @@ class Card implements ProjectScopedSubject
          */
         #[ORM\Column(name: 'search_language', length: 20, enumType: SearchLanguage::class, options: ['default' => SearchLanguage::DEFAULT->value])]
         public readonly SearchLanguage $searchLanguage = SearchLanguage::DEFAULT,
+        /* Null derives the source from $origin. */
+        ?CardSource $source = null,
     ) {
+        $source ??= CardSource::fromReporter($this->origin);
+        $this->sourceKind = $source->kind;
+        $this->sourceRunId = $source->runId;
+        $this->sourceRunCardId = $source->runCardId;
         $this->storedReporter = $this->origin;
         $this->pullRequests = new ArrayCollection();
         $this->documents = new ArrayCollection();

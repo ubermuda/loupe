@@ -6,6 +6,8 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSource;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -42,6 +44,7 @@ final class BoardCardsApiTest extends WebTestCase
         self::assertCount(1, $cards);
         // Not Human. Nobody authenticated the person who typed it.
         self::assertSame(CardReporter::Reviewer, $cards[0]->reporter);
+        self::assertEquals(new CardSource(CardSourceKind::Widget), $cards[0]->source);
         // The endpoint accepts neither, so a reviewer cannot file into a column
         // or attach a URL of their choosing.
         self::assertSame('backlog', $cards[0]->column->slug);

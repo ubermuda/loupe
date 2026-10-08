@@ -11,6 +11,7 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -162,6 +163,7 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('tooling', $created->type);
         // A form is a person writing the card down, whatever an agent does later.
         self::assertSame(CardReporter::Human, $created->reporter);
+        self::assertSame(CardSourceKind::Person, $created->source->kind);
         self::assertCount(2, $created->pullRequests);
     }
 
@@ -383,7 +385,7 @@ final class CardCrudControllerTest extends WebTestCase
         // The overview names its linked work and shows the card's dates, never a raw key.
         self::assertSelectorTextContains('.lp-card-docs', 'Linked work');
         self::assertStringNotContainsString('board.', $crawler->filter('.lp-card-overview')->text());
-        self::assertSame(['Status', 'Type', 'Reporter', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
+        self::assertSame(['Status', 'Type', 'Reporter', 'Source', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
         // A finished run leaves the list. The owner still gets the runs section, for its pause control.
         self::assertCount(0, $crawler->filter('[data-card-run="'.$runId.'"]'));
         self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] form[data-card-agents-pause]'));

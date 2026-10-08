@@ -112,6 +112,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'status' => 'next',
             'columnId' => (string) $this->column($this->project, 'next')->id,
             'reporter' => 'agent',
+            'source' => 'agent',
             'pullRequestCount' => 0,
             'documentCount' => 0,
             'relatedCardCount' => 0,
