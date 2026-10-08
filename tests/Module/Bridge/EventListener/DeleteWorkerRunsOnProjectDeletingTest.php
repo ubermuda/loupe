@@ -12,8 +12,11 @@ use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Tests\Module\Bridge\BridgeScenario;
+use DoctrineMigrations\Version20261006005345;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
+
+require_once __DIR__.'/../../../../migrations/Version20261006005345.php';
 
 /**
  * Without the listener the run rows outlive the project, and the foreign key
@@ -103,6 +106,49 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
 
         self::assertSame(1, $this->countUsage($em));
         self::assertSame((string) $keptUsageId, $em->getConnection()->fetchOne('SELECT id FROM bridge_worker_run_usage'));
+    }
+
+    /** The run foreign key cascades, and the DQL delete of the runs is a plain DELETE in the database. */
+    public function test_deleting_a_project_takes_the_tool_calls_of_its_runs(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'tool-calls-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Tool Calls');
+        $kept = $this->project($em, $owner, 'Kept Tool Calls');
+        $this->seedToolCall($this->seedRun($em, $doomed));
+        $keptRun = $this->seedRun($em, $kept);
+        $this->seedToolCall($keptRun);
+        self::assertSame(2, $this->countToolCalls($em));
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(1, $this->countToolCalls($em));
+        self::assertSame((string) $keptRun->id, $em->getConnection()->fetchOne('SELECT run_id FROM bridge_worker_run_tool_calls'));
+    }
+
+    public function test_deleting_a_project_takes_its_facts_and_leaves_another_projects_facts(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'facts-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Facts');
+        $kept = $this->project($em, $owner, 'Kept Facts');
+        $this->seedRun($em, $doomed);
+        $keptRun = $this->seedRun($em, $kept);
+        $connection = $em->getConnection();
+        $connection->executeStatement(Version20261006005345::BACKFILL_SQL);
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(
+            [(string) $keptRun->id],
+            $connection->fetchFirstColumn('SELECT run_id FROM bridge_worker_run_facts'),
+        );
     }
 
     public function test_deleting_a_project_takes_its_experiment_pins_and_leaves_another_projects_pins(): void

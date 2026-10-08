@@ -13,10 +13,10 @@ Open **Activity** in the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
 The open runs also show on the [Workshop](workshop.md), under In motion.
 
-The Activity page has three tabs. **Runs** lists the runs, and the rest of this
+The Activity page has two tabs. **Runs** lists the runs, and the rest of this
 page describes it. **Events** lists the [project events](activity.md).
-**Cost** charts what a finished card costs on average, as
-[The cost of finished cards](#the-cost-of-finished-cards) says.
+The [Analytics](analytics.md) page charts the metrics of the runs and compares
+the variants of each [experiment](experiments.md).
 
 ## What a row shows
 
@@ -31,6 +31,12 @@ page describes it. **Events** lists the [project events](activity.md).
 Select a row to open its drawer. The drawer holds the detail the row
 leaves out: the bridge, the exit code, the run a resume continues, the
 failure reason and the output.
+
+The drawer also shows a **Metrics** block from the metrics row of the run. The
+block gives the cost, the input, output, cache read and cache write tokens, the
+model and the duration. A run with no price shows the cost as **unknown**. A
+token count or a model that the run did not report has no line. A command run
+shows no **Metrics** block, and a run with no metrics row shows none either.
 
 A bridge runs its workers in named worker pools, and each report of a run names
 its pool. The row and the drawer show the pool that the last report named. A
@@ -178,6 +184,48 @@ withdraw requests. `card_hold` makes a card unmanaged, as **Make unmanaged**
 does, and `card_release` makes it managed again. The connection acts as the project
 owner, on its own project only.
 
+Each run row also carries `usage`, `model`, `experiment`, `variant` and
+`metrics`. The server keeps a metrics row for each run, with its cost, its
+tokens, its model, its duration and its outcome. The metrics row stays after the
+[retention](../reference/worker-runs.md#retention) sweep deletes the run.
+The metrics rows start with the oldest run that the server held when it was
+upgraded to this release. A run that the sweep deleted before then has no
+metrics row, and the card cost total on the board still counts its usage.
+`metric_query` reads the metrics rows over time, by run or by finished card, and
+`metric_list` lists the metrics it takes.
+
+The metrics row also holds the timing of the run, from the tool calls the
+bridge reads from the stream of the worker. `toolTimeMs` is the time the main
+session spent in tool calls, and `modelTimeMs` is the rest of the duration.
+`idleGapMs` sums the pauses of more than five minutes. `subagentMs` is the time
+of the subagents of the main session. `toolCalls`, `failedCalls` and
+`longestCallMs` count the calls. A run whose bridge sent no tool calls holds
+`null` in each of them. `worker_run_tool_calls` reads the calls of one run.
+`peakContextTokens` is the largest context the main session held during the
+run, in tokens. It shows how close a worker came to its context limit. A run
+whose bridge sent no value holds `null`.
+
+The metrics row also holds the host of the run, from the samples a bridge takes
+of its machine. `meanCpuPct` is the mean CPU use during the run, in percent.
+`peakMemBytes` and `peakSwapBytes` are the largest memory and swap use, in
+bytes. `onBattery` says whether the machine ran on battery during the run.
+`concurrentRuns` counts the runs of the same bridge that overlapped the run,
+the run itself included. The samples are off by default, so the CPU, memory,
+swap and battery values are `null` until an admin turns them on.
+[Host samples](../extending/cli-bridge.md#host-samples) says how.
+`bridge_host_samples` reads the samples of one run.
+[Run metrics](../reference/worker-runs.md#run-metrics) defines each value.
+
+A tool call holds its tool, its start, its duration, its error flag, and
+signatures that name what it ran. For a shell command, a signature keeps only
+the program name, such as `grep`. A program on the subcommand list, such as
+`git`, also keeps its subcommand, such as `git status`. No other argument
+reaches Loupe. A call holds its full input text only when its project collects
+full text, and no setting turns that on yet.
+[Tool calls](../extending/cli-bridge.md#tool-calls) gives the rules. Set
+`collect: false` in the `rules.yaml` of a bridge, and that bridge sends no tool
+call, no timing and no host sample.
+
 The tools apply the same checks as the controls on this page. A resume needs a
 session and an ended run in a state that can resume. A run with a request that still waits refuses a second
 one, and so does a bridge that does not take commands. A refused run gives a
@@ -223,54 +271,12 @@ spent nothing, so a card with only such runs shows $0.00. See
 
 ## The cost of finished cards
 
-The **Cost** tab, at `/projects/{project}/worker-runs/cost`, shows one bar for
-each day, week or month in which a finished card with usage finished. A card is
-finished when it sits in a terminal column, such as **Done**. The cost of a
-card is the dollar total of every usage row of the card. The date of a run does
-not matter, so a card that finished this week keeps the runs of earlier weeks.
+The [Metrics](analytics.md) tab of the **Analytics** page charts the cost of
+finished cards over time. It replaces the **Cost** tab of this page, and the old
+address `/projects/{project}/worker-runs/cost` opens it.
 
-The height of a bar is the average cost per card of its period: the total of
-its cards divided by the number of cards. A period with no finished card has no
-bar, and keeps its place on the time axis. A week starts on Monday.
-
-A dashed line crosses the chart at the median cost per card, the same amount as
-the first figure above the chart.
-
-The dollars are the API list price that claude reports. On a subscription, you
-do not pay this amount.
-
-The controls above the chart change what it shows:
-
-| Control | Effect |
-|---|---|
-| Range | **30 days**, **90 days** or **All time**, by the date the card finished. The default is 90 days |
-| Split | **No split**, **By rule** or **By model**. A split stacks each bar in one colour for each rule or model, and adds a legend. Each part is the average of that rule or model over the cards of the period |
-| Group | **Per day**, **Per week** or **Per month**. The default follows the range: per day for 30 days, per week for 90 days and per month for all time. A new range goes back to its default |
-| Rule and model | keep only the matching part of each bar. A card with no matching part leaves the chart |
-
-A rule or a model keeps its colour when a filter hides other rules or models.
-With more than eight rules or models, the first seven in name order keep their
-colours, and the rest share one grey, labelled **Other**.
-
-Three figures above the chart follow the controls: the median cost per card,
-the total cost, and the number of finished cards with usage.
-
-A wide bar shows its number of cards and its average above it. A narrow bar
-shows **×N** when it holds N cards. A bar carries the marks of the
-[usage total](#the-usage-total-of-a-card). The whole bar is hatched when a card
-of the period includes an estimate or a model with no price. A **+** after the
-average, or above a narrow bar, means that some runs of a card have no usage.
-The model filter does not apply to the **+**, because a run with no usage has no
-model.
-
-Point at a bar, or move to it with the Tab key, to see its period, its number of
-cards, its average and its parts. The hover card then lists each card of the
-period with its cost. A bar of one card opens that card when you click it or
-press Enter. **Show the data as a table** lists each card as text, with the
-exact date it finished.
-
-When no finished card with usage falls in the range, the tab shows **No
-finished card with usage in this range.**
+The **Estimated** and **n runs have no usage** marks show only on the
+[usage total](#the-usage-total-of-a-card) of a card.
 
 ## Interactive sessions
 
@@ -296,6 +302,14 @@ These actions close an open interactive run, and it then shows **Closed**:
 - The card moves to another column. A move inside the same column closes
   nothing. The delete of a column moves its cards, so it closes their runs.
 - A person deletes the card.
+
+Each of these closes makes Loupe ask the bridges that follow the project for
+the usage of the run. The bridge that holds the session transcript sums the
+tokens between the start and the end of the run, subagents included, and
+reports them. The run then shows its usage, marked **Estimated**, and the card
+total counts it. A bridge older than this feature never gets the request. While
+the run has no usage, each later `card_run_close` call from the session asks
+again. A run with no bridge that holds its transcript keeps no usage.
 
 No timeout closes the run. A session that stops with no call leaves its run open
 until the owner closes it or the card moves. While the run is open, a bridge

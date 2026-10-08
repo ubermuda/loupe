@@ -197,7 +197,8 @@ before command rules sends no `kind`, and its runs are worker runs.
 ### Usage
 
 An outcome can carry the tokens the worker spent, per model. `claude -p
---output-format json` returns them in `modelUsage`.
+--verbose --output-format stream-json` returns them in `modelUsage`, on its
+`result` line.
 
 ```json
 {
@@ -234,6 +235,20 @@ reported counts, and a second report from the same source changes nothing. The
 
 Send any timestamp in any offset. The server converts each one to UTC and
 stores it to the second.
+
+### Peak context
+
+An outcome or a `stopped` report can carry `peakContextTokens`, an integer of 0
+or more. It is the largest context of the main session during the run: the
+largest `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`
+over the assistant lines of the stream whose `parent_tool_use_id` is null. The
+lines of subagents do not count. A line counts only when it holds all three
+fields, so a field that is missing reads as unknown, never as zero.
+
+The bridge leaves the field out when no line counts, for example for a command
+run. The server stores a value from the outcome or the `stopped` report, and a
+report with no value keeps the stored value. A run with no value has an unknown
+peak.
 
 ### How a report moves the run
 
@@ -339,6 +354,7 @@ after their runs closed, such as from the session transcript.
 |---|---|
 | `processes` | required. A list of 1 to 100 usage objects, one for each worker process of the session, in the order the processes started |
 | `processes[]` | a usage object, with the rules of [Usage](#usage) |
+| `runId` | optional. The id of one interactive run of the session. With it, `processes` holds exactly one usage object, the usage of that run |
 
 The server finds the worker runs of that session in the project that have a
 start time, and orders them by `startedAt`. An interactive run, and a run that
@@ -353,6 +369,17 @@ Otherwise each run takes the process at the same place in the list, with the
 rule of [Usage](#usage). The report fills a run with unknown usage, and replaces
 estimated counts with reported ones. It never replaces reported counts.
 
+An interactive run has no worker process, so a report without `runId` never
+reaches it. When such a run closes, the server sends a
+`collect-session-usage` command to the bridges that can hold its transcript. See
+[Pause and commands](bridge-heartbeat.md#pause-and-commands). The bridge that
+holds it sends this report with the `runId` of the command and one usage object.
+The server then gives that object to the interactive run of that id, in the
+project and the session of the path, with the same rule. The run must have
+ended. A run that still runs, a run of another session, a worker run and an
+unknown id count as no run, so the server writes nothing and answers 409 with
+`process_count_mismatch`. So does a list of more than one object.
+
 | Status | Body | When |
 |---|---|---|
 | 200 | `{"runs":2,"updated":1}` | the counts match. `updated` counts the runs whose usage changed |
@@ -360,11 +387,132 @@ estimated counts with reported ones. It never replaces reported counts.
 | 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | | agent push is switched off on the instance, or the server has no such endpoint |
-| 409 | `{"error":"process_count_mismatch"}` | the session has another count of started worker runs, and the server wrote nothing |
+| 409 | `{"error":"process_count_mismatch"}` | the session has another count of started worker runs, or `runId` names no ended interactive run of the session, and the server wrote nothing |
 | 409 | `{"error":"ambiguous_start_order"}` | two started worker runs of the session start in the same second, and the server wrote nothing |
 | 422 | `{"error":"invalid_session_id"}` | `sessionId` is not a uuid |
+| 422 | `{"error":"invalid_run_id"}` | `runId` is not a uuid |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
+
+## Reporting the tool calls of a run
+
+`PUT /api/projects/{handle}/worker-runs/{runId}/tool-calls`
+
+The bridge sends this report when a worker ends, after the final state of the
+run. `runId` is the uuid the bridge generated for the run. One request holds at
+most 500 calls, so a long run sends more than one. The last request also
+carries `timing`. [Tool calls](../extending/cli-bridge.md#tool-calls) says
+what the bridge reads from the stream of the worker.
+
+```json
+{
+  "calls": [
+    {
+      "seq": 1,
+      "tool": "Bash",
+      "startedAt": "2026-10-06T14:12:03.120Z",
+      "durationMs": 840,
+      "isError": false,
+      "inSubagent": false,
+      "backgroundId": null,
+      "waitsOn": null,
+      "signatures": ["git status"],
+      "fullText": null
+    }
+  ],
+  "timing": {"toolTimeMs": 412000, "idleGapMs": 0}
+}
+```
+
+| Field | Rule |
+|---|---|
+| `calls` | required. A list of at most 500 calls, which may be empty |
+| `calls[].seq` | required. The place of the call in the run, from 1 to 2147483647 |
+| `calls[].tool` | required. The tool name, such as `Bash`, `Read` or `Agent`, of 1 to 64 characters |
+| `calls[].startedAt` | required. When the call started, in any offset. The server stores it in UTC |
+| `calls[].durationMs` | an integer of 0 or more. `null` when the stream holds no result of the call |
+| `calls[].isError` | `true` when the tool answered with an error. `null` when the stream holds no result of the call |
+| `calls[].inSubagent` | required. `true` when a subagent made the call |
+| `calls[].backgroundId` | the id of the background task the call started, of at most 64 characters |
+| `calls[].waitsOn` | the `backgroundId` of an earlier call that this call reads, of at most 64 characters |
+| `calls[].signatures` | required. A list of at most 20 strings of at most 120 characters. For a Bash call, the program and its subcommand for each command. For any other call, the tool name |
+| `calls[].fullText` | the full input of the call, of at most 20000 characters. `null` unless the project collects full text |
+| `timing.toolTimeMs` | an integer of 0 or more. The time the main session spent in tool calls, with overlaps counted once |
+| `timing.idleGapMs` | an integer of 0 or more. The sum of each pause of more than 300 seconds between two timed lines of the stream |
+
+The `insights.subcommand_programs` feature flag holds the programs that keep a
+subcommand in a signature, as a comma list for the whole instance. You change
+it at **`/admin/feature-flags`**. [Tool calls](../extending/cli-bridge.md#tool-calls)
+gives its default.
+
+`timing` is optional, and a `null` value in it is unknown. The server stores
+`timing` on the run each time a request carries it.
+
+The server finds the run by `runId` among the runs of the project, from any
+bridge. It stores each call whose `seq` the run does not hold yet, and skips
+the others. A retry is therefore safe, and it answers 200 with a lower
+`stored`. Each request then rewrites the metrics row of the run, as
+[Run metrics](#run-metrics) describes.
+
+| Status | Body | When |
+|---|---|---|
+| 200 | `{"stored":12}` | the request is taken. `stored` counts the calls the server stored for the first time |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | `{"error":"run_not_found"}` | the project has no run with that `runId`, or two runs of the project share it |
+| 404 | | agent push is switched off on the instance, or the server has no such endpoint |
+| 422 | `{"error":"invalid_run_id"}` | `runId` is not a uuid |
+| 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
+| 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
+
+The bridge reads a 404 with no error code as a server with no tool call
+endpoint, and drops that batch with no retry. The batches of later runs still
+try.
+
+### Run metrics
+
+The server keeps a metrics row for each run. Besides the duration, the cost and
+the tokens, the row holds the timing of the run. The MCP tools
+`worker_run_list` and `worker_run_get` show it in `metrics`, and
+`worker_run_tool_calls` reads the calls one by one. A `null` value is unknown.
+
+| Field | Value |
+|---|---|
+| `toolTimeMs` | the `timing.toolTimeMs` the bridge sent |
+| `idleGapMs` | the `timing.idleGapMs` the bridge sent |
+| `modelTimeMs` | the duration of the run less `toolTimeMs` and `idleGapMs`, and never below zero. `null` when one of them is unknown |
+| `toolCalls` | the count of the calls of the run, the calls of subagents included |
+| `failedCalls` | the count of the calls with `isError` true |
+| `longestCallMs` | the longest `durationMs` of the calls |
+| `subagentMs` | the sum of `durationMs` of the `Agent` and `Task` calls of the main session |
+| `peakContextTokens` | the [peak context](#peak-context) the bridge sent |
+| `meanCpuPct` | the mean use of all cores, in percent, over the host samples of the bridge within the run |
+| `peakMemBytes` | the largest `memUsed` of those samples, in bytes |
+| `peakSwapBytes` | the largest `swapUsed` of those samples, in bytes |
+| `concurrentRuns` | the count of the runs of the same bridge whose time overlaps the run, the run itself included |
+| `onBattery` | `true` when one of those samples has `onAc` false, and `false` when every sample with a known power source has `onAc` true |
+
+`toolCalls`, `failedCalls`, `longestCallMs` and `subagentMs` are `null` for a
+run with no stored call.
+
+The host values read the [host samples](bridge-heartbeat.md#host-samples) of
+the bridge from the start of the run to its end. The fact table stores them in
+the columns `mean_cpu_pct`, `peak_mem_bytes`, `peak_swap_bytes`,
+`concurrent_runs` and `on_battery`. `meanCpuPct`, `peakMemBytes` and
+`peakSwapBytes` are `null` when the bridge sent no sample within the run, or
+while the run has no end. A
+bridge sends none while the `bridge.host_sampling_enabled` flag is off, or when
+its `rules.yaml` sets `collect: false`. A run shorter than the sample interval
+can also hold none. `onBattery` is also `null` when no sample knew the power
+source. A sample that arrives after the run ended updates these values.
+
+`concurrentRuns` needs no sample. It is `null` for a run with no bridge, no
+start or no end. A run with no end counts as an overlap only while it is
+`preparing`, `running` or `stopping`, so a lost run does not count forever.
+Loupe takes the count when the run ends, and does not change it when another
+run reports later. `bin/console app:bridge:rebuild-run-facts` counts every run
+again from the stored times.
 
 ## Resolving an experiment pin
 
@@ -383,7 +531,8 @@ The endpoint needs a token with the `agent` scope.
 {
   "candidate": "sonnet",
   "variants": ["opus", "sonnet"],
-  "weights": [3, 1]
+  "weights": [3, 1],
+  "metrics": ["merge-rate", "cost"]
 }
 ```
 
@@ -392,10 +541,17 @@ The endpoint needs a token with the `agent` scope.
 | `variants` | required. The variants the rule offers now, as a list of 1 to 32 unique names. Each name matches `^[a-z0-9][a-z0-9_-]{0,63}$` |
 | `candidate` | required. The variant the bridge drew for the card. It must be one of `variants` |
 | `weights` | optional. The weight of each variant, in the order of `variants`. Each weight is an integer from 1 to 1000000 |
+| `metrics` | optional. The metric keys the Comparison tab of the experiment shows, in this order, as a list of 1 to 16 unique keys. Each key matches `^[a-z][a-z0-9:-]{0,63}$` |
 
 The server keeps the latest valid `weights` of each experiment in a project. It
 ignores a `weights` list that breaks its rule, and still resolves the pin. A
 fault in `weights` never changes the answer, and never refuses the request.
+
+The server stores the valid `metrics` with the weights, so a request with no
+valid `weights` stores no metrics. A request with valid weights and no valid
+`metrics` resets the list, and the Comparison tab then shows the default
+metrics. The server keeps a key that it does not know, and the page shows a
+note for it. A fault in `metrics` never refuses the request.
 
 The server answers the variant the card runs with:
 
@@ -522,7 +678,8 @@ endpoint answers 404 there.
 
 The endpoints on this page share one limit, `agent_worker_runs`, of 240
 requests in one minute for each token. A run sends about four state reports,
-and a run in an experiment adds one pin call. The limit lets a bridge drain a
+and one tool call report for each 500 calls, with a minimum of one. A run in
+an experiment adds one pin call. The limit lets a bridge drain a
 full queue of 256 reports before its retries give up.
 
 ## What a missing record means
@@ -557,7 +714,8 @@ typed zero cannot take the whole history.
 
 The sweep keeps the usage of a run it deletes. The usage row loses the link to
 its run, and keeps its project, its card, its work kind and its source, so the spend
-of a card outlives the run records.
+of a card outlives the run records. The sweep deletes the tool calls of a run
+with the run. The metrics row of the run keeps their counts and their timing.
 
 The sweep cuts on the server's arrival time rather than on the bridge clock. A
 bridge with a wrong clock would otherwise stamp a run outside the window and
@@ -568,17 +726,26 @@ whose last resolve is older than the run retention window. The next run of that
 card then picks a variant again. Every resolve refreshes a pin, so the sweep
 takes only the pins of idle cards.
 
-Deleting a project deletes its run records, its usage, its experiment pins,
+The same sweep also deletes each [host sample](bridge-heartbeat.md#host-samples)
+whose `sampledAt` is older than the window.
+
+Deleting a project deletes its run records, its tool calls, its usage, its run facts, its experiment pins,
 its experiment weights and its card holds with it. Deleting an account deletes
 the same data of every project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
-`requestedModel` and `switchedFrom`, its `harness`, `account`, `model` and `harnessSessionId`, and its `workRequestId`, `workKind` and `ruleId`. It holds every usage
-row in `worker_run_usage.json`. It holds every experiment pin in
+`requestedModel` and `switchedFrom`, its `harness`, `account`, `model` and `harnessSessionId`, its `workRequestId`, `workKind` and `ruleId`, and its `toolTimeMs`, `idleGapMs` and `peakContextTokens`. It holds every usage
+row in `worker_run_usage.json`. It holds every tool call in
+`worker_run_tool_calls.json`, with its project, the `runKey` of its run, and the
+fields of [the tool call report](#reporting-the-tool-calls-of-a-run). It holds the time of each run in each bucket in
+`worker_run_bucket_times.json`, with its project, the `runKey` of its run, the `bucket` and the `ms`. It holds the fact row of each run in
+`worker_run_facts.json`, with its outcome, its duration, its cost, its token sums and the
+[run metrics](#run-metrics) of its timing, its peak context and its host.
+A fact row stays after the retention sweep deletes its run. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of
 each experiment in `experiment_definitions.json`, with its project, its
-experiment, its `weights` as a list of `name` and `weight` objects, and when the
-bridge sent them. It holds
+experiment, its `weights` as a list of `name` and `weight` objects, its
+`metrics` as a list of keys or null, and when the bridge sent them. It holds
 every card hold in `bridge_card_holds.json`, with its project, its card, the run it stopped and
 when it began. The run is null after the retention sweep deletes it.

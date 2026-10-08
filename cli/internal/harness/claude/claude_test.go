@@ -71,11 +71,12 @@ func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
 		spec harness.Spec
 		want string
 	}{
-		{harness.Spec{SessionID: testSession, Prompt: "go"}, "--output-format json -p --session-id " + testSession + " -- go"},
-		{harness.Spec{SessionID: testSession, PermissionMode: "plan", Prompt: "go"}, "--permission-mode plan --output-format json -p --session-id " + testSession + " -- go"},
-		{harness.Spec{SessionID: testSession, Model: "opus", Prompt: "go"}, "--model opus --output-format json -p --session-id " + testSession + " -- go"},
-		{harness.Spec{SessionID: testSession, Schema: `{"type":"object"}`, Prompt: "go"}, `--output-format json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
-		{harness.Spec{SessionID: testSession, PermissionMode: "plan", Model: "opus", Schema: "{}", Prompt: "go"}, "--permission-mode plan --model opus --output-format json --json-schema {} -p --session-id " + testSession + " -- go"},
+		{harness.Spec{SessionID: testSession, Prompt: "go"}, "--verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
+		{harness.Spec{SessionID: testSession, PermissionMode: "plan", Prompt: "go"}, "--permission-mode plan --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
+		{harness.Spec{SessionID: testSession, Model: "opus", Prompt: "go"}, "--model opus --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
+		{harness.Spec{SessionID: testSession, Schema: `{"type":"object"}`, Prompt: "go"}, `--verbose --output-format stream-json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
+		{harness.Spec{SessionID: testSession, Effort: "xhigh", Prompt: "go"}, "--effort xhigh --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
+		{harness.Spec{SessionID: testSession, PermissionMode: "plan", Model: "opus", Effort: "low", Schema: "{}", Prompt: "go"}, "--permission-mode plan --model opus --effort low --verbose --output-format stream-json --json-schema {} -p --session-id " + testSession + " -- go"},
 	} {
 		if got := strings.Join(New().Worker(tc.spec).Args, " "); got != tc.want {
 			t.Fatalf("Worker(%+v) = %q, want %q", tc.spec, got, tc.want)
@@ -85,7 +86,7 @@ func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
 
 func TestResumeArgsContinueTheSession(t *testing.T) {
 	spec := harness.Spec{SessionID: testSession, PermissionMode: "plan", Model: "opus", Schema: "{}", Prompt: "go"}
-	want := "--permission-mode plan --model opus --output-format json --json-schema {} -p --resume " + testSession + " -- go"
+	want := "--permission-mode plan --model opus --verbose --output-format stream-json --json-schema {} -p --resume " + testSession + " -- go"
 	if got := strings.Join(New().Resume(spec).Args, " "); got != want {
 		t.Fatalf("Resume = %q, want %q", got, want)
 	}
@@ -102,13 +103,13 @@ func TestAPromptThatLooksLikeAnOptionFollowsTheSeparator(t *testing.T) {
 	}
 }
 
-// The shapes claude -p --output-format json prints. A cut-off or undecodable
-// stdout holds no document.
+// The result lines claude -p --output-format stream-json prints. No line, or
+// an undecodable one, holds no document.
 func TestOutput(t *testing.T) {
 	for name, tc := range map[string]struct {
-		stdout   string
-		overflow bool
-		want     harness.Output
+		stdout string
+		none   bool
+		want   harness.Output
 	}{
 		"finished": {
 			stdout: `{"is_error":false,"result":"Done.","structured_output":{"status":"finished"}}`,
@@ -125,9 +126,8 @@ func TestOutput(t *testing.T) {
 			stdout: `{"result":"r","is_error":"yes","structured_output":{}}`,
 			want:   harness.Output{Result: "r"},
 		},
-		"overflow": {
-			stdout:   `{"result":"r"}`,
-			overflow: true,
+		"no result line": {
+			none: true,
 		},
 		"usage": {
 			stdout: `{"result":"r","total_cost_usd":0.5,"modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":3,"cacheCreationInputTokens":4,"costUSD":0.5}}}`,
@@ -149,7 +149,11 @@ func TestOutput(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := New().Output([]byte(tc.stdout), tc.overflow); !reflect.DeepEqual(got, tc.want) {
+			var result []byte
+			if !tc.none {
+				result = []byte(tc.stdout)
+			}
+			if got := New().Output(result); !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("Output = %+v, want %+v", got, tc.want)
 			}
 		})
@@ -213,6 +217,16 @@ func TestTheLaunchScriptPassesEachValueAsItIs(t *testing.T) {
 
 	got := runScript(t, spec)
 	want := []string{"--session-id", spec.SessionID, "--model", spec.Model, "--permission-mode", spec.PermissionMode, "--", spec.Prompt}
+	if !slices.Equal(got, want) {
+		t.Fatalf("args = %q, want %q", got, want)
+	}
+}
+
+func TestTheLaunchScriptPassesTheEffort(t *testing.T) {
+	spec := harness.Spec{Dir: t.TempDir(), SessionID: "s1", Model: "opus", Effort: "high", Prompt: "go"}
+
+	got := runScript(t, spec)
+	want := []string{"--session-id", "s1", "--model", "opus", "--effort", "high", "--", "go"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("args = %q, want %q", got, want)
 	}

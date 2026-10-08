@@ -114,6 +114,10 @@ final class ReportWorkerRunStateRequest
         #[Assert\Valid]
         public ?WorkerRunUsageInput $usage = null,
 
+        /** The largest main-session context of the run, stored from an outcome or a stop alone. */
+        #[Assert\PositiveOrZero]
+        public ?int $peakContextTokens = null,
+
         /** Null from a bridge that predates worker pools. */
         #[Assert\NotBlank(allowNull: true)]
         #[Assert\Regex(pattern: WorkerRun::WORKER_POOL_PATTERN)]

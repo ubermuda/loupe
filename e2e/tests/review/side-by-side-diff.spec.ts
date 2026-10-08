@@ -25,6 +25,9 @@ const test = createTest({
     password: 'E2eSideBySide1!',
 });
 
+// Split over workers, this file would register one fixed account twice at once.
+test.describe.configure({ mode: 'default' });
+
 test.beforeEach(async ({ page }) => {
     await suppressToolbar(page);
     await suppressWidget(page);

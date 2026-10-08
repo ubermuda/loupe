@@ -74,6 +74,9 @@ final readonly class WorkerRunExporter implements UserDataExporterInterface
                 'account' => $run->account,
                 'model' => $run->model,
                 'harnessSessionId' => $run->harnessSessionId,
+                'toolTimeMs' => $run->toolTimeMs,
+                'idleGapMs' => $run->idleGapMs,
+                'peakContextTokens' => $run->peakContextTokens,
                 'history' => $history[$run] ?? [],
             ];
         }

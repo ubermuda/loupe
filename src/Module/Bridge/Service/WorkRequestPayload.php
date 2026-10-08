@@ -38,6 +38,8 @@ final class WorkRequestPayload
             'createdAt' => $request->createdAt->format(\DateTimeInterface::ATOM),
             'resumeSessionId' => $request->resumeSessionId?->toRfc4122(),
             'context' => $request->context->toArray(),
+            'model' => $request->model,
+            'effort' => $request->effort,
             'prompt' => $request->prompt,
         ];
     }

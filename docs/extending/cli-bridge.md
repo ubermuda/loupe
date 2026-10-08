@@ -67,6 +67,12 @@ reload fails. A reload sends the new name with the next heartbeat. Two bridges
 of one account cannot hold one name, as
 [The bridge name](../reference/bridge-heartbeat.md#the-bridge-name) says.
 
+The optional `collect:` key at the top of `rules.yaml` turns the
+[tool call report](#tool-calls) on or off. It is on when the key is absent.
+Set `collect: false`, and the bridge sends no tool call and no timing of any
+run. It also takes and sends no [host sample](#host-samples). A reload applies
+a change to the key.
+
 A worker entry can also split its runs between models with variants, as
 [Experiments](#experiments) describes. Such an entry takes no model from the
 `defaults:` block.
@@ -80,13 +86,15 @@ device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
 `GET /api/projects/{handle}/board/cards/{cardId}`,
 `PUT /api/projects/{handle}/worker-runs/{runId}`,
+`PUT /api/projects/{handle}/worker-runs/{runId}/tool-calls`,
 `PUT /api/projects/{handle}/interactive-runs/{sessionId}`,
 `PUT /api/bridges/{bridgeId}/runs`,
 `PUT /api/bridges/{bridgeId}/heartbeat`,
 `POST /api/bridges/{bridgeId}/work-requests/{workRequestId}/claim` and
 `PUT /api/bridges/{bridgeId}/work-requests/{workRequestId}/result`, and no
 other endpoint.
-The two run endpoints record the states of each worker run and each interactive session, and the
+The three run endpoints record the states and the tool calls of each worker
+run, and the states of each interactive session, and the
 [Worker run API](../reference/worker-runs.md) page covers them. The heartbeat
 endpoint records that the bridge runs, and the
 [Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
@@ -158,8 +166,12 @@ what each state means. The server adds `timed-out` and `lost` on its own. It
 also sets `closed` on an interactive run, which no bridge holds.
 
 A clean exit does not prove that the work finished. The bridge runs each
-worker with `--output-format json` and `--json-schema`, and every prompt asks
-for a structured result. The core schema requires `status`, which is
+worker with `--verbose --output-format stream-json` and `--json-schema`, and
+every prompt asks for a structured result. claude prints one JSON line for each
+step, and the bridge reads the first line of type `result`. A later `result`
+line comes from a turn that a background task notification starts, and the
+bridge ignores it. The bridge also reads the single JSON document of
+`--output-format json`, so a run that an older bridge started still reports. The core schema requires `status`, which is
 `finished`, `blocked`, `unfinished` or `waiting`, and a one-sentence `summary`. A worker with
 no valid structured result logs `worker_no_result` at `ERROR`, and its record
 carries `hasResult: false`. The stage skills still print a `STAGE RESULT:`
@@ -192,7 +204,7 @@ empty value, keeps that value.
 
 Each outcome carries the tokens the worker process spent, per model, as the
 `usage` field of the [Worker run API](../reference/worker-runs.md#usage). A
-worker that ends on its own prints `modelUsage` in its JSON result. The bridge
+worker that ends on its own prints `modelUsage` in its result line. The bridge
 sends those counts with the source `reported`, and the cost claude computed.
 
 claude's counts cover the whole session, so a resume would count the earlier
@@ -310,6 +322,90 @@ across runs.
 
 The bridge needs a Mercure hub to have anything to subscribe to.
 
+## Tool calls
+
+The bridge reads each tool call of a worker from the stream on claude's stdout.
+When the worker ends, the bridge sends the calls after the final state of the
+run, to `PUT /api/projects/{handle}/worker-runs/{runId}/tool-calls`. One
+request holds at most 500 calls. The last request also holds the tool time and
+the idle time of the run, so a run with no call still sends one request.
+[Reporting the tool calls of a run](../reference/worker-runs.md#reporting-the-tool-calls-of-a-run)
+gives the fields.
+
+A call holds its tool, its start, its duration, its error flag, and whether a
+subagent made it. A call with no timestamp in the stream stays out. A call that
+starts a background task holds the id of that task, and a later call whose
+input names that id waits on it. An `Agent` or `Task` call lasts until the last
+line of its subagent, so a background subagent counts in full.
+
+A call also holds signatures, which name what it ran. A Bash call gets one
+signature for each program its command runs, such as `grep` or `git status`.
+A signature keeps the base name of the program and no argument. A program on
+the subcommand list also keeps its second word, when that word is a lowercase
+word of up to 31 characters. Any other call gets its tool name. A call holds at
+most 20 signatures.
+
+The `insights.subcommand_programs` feature flag holds the subcommand list, as a
+comma list, and you change it at **`/admin/feature-flags`**. Its default is
+`git,just,npm,pnpm,yarn,cargo,go,docker,gh,composer,make,pip,uv`, and an empty
+value reads as the default. The flag is one list for the whole instance.
+`GET /api/projects` gives the list to the bridge as `subcommandPrograms` on
+each project. The bridge keeps the answer for 10 minutes. When it cannot read
+it, the bridge uses the default list.
+
+`GET /api/projects` also gives `collectFullText` on each project. The bridge
+sends the full input text of a call only when that value is `true`. The
+project setting **Collect the full text of each tool call** turns it on, in the
+analysis settings on the
+[Reports](../using/analytics.md#reports) tab. It is off by default.
+
+A server with no tool call endpoint answers 404 with no error code, and so does
+a server with agent push switched off. The bridge then logs
+`tool_calls_unsupported` once. It drops that batch with no retry. The batches
+of later runs still try, so the calls come back when agent push comes back on. Set `collect: false` in `rules.yaml` to send no tool call and no
+timing at all.
+
+## Host samples
+
+The bridge can sample the machine it runs on. A sample holds the use of each
+CPU core, the memory in use and in total, the swap in use, the battery charge
+and the power source. The bridge keeps up to 720 samples, and sends at most
+60 of them with each
+[heartbeat](../reference/bridge-heartbeat.md#host-samples), oldest first. The server uses
+them for the host metrics of each run, as
+[Run metrics](../reference/worker-runs.md#run-metrics) describes.
+
+The bridge reads the CPU, the memory and the swap through gopsutil. It skips a
+sample when one of them cannot be read. The battery source depends on the
+system:
+
+| System | Source |
+|---|---|
+| macOS | the output of `pmset -g batt` |
+| Linux | the `power_supply` class under `/sys/class/power_supply`. A battery of a device such as a mouse does not count |
+| other | none, so the charge and the power source are unknown |
+
+A machine with no battery sends no charge. A power source that the bridge
+cannot read is unknown, and the server stores it as `null`.
+
+Two feature flags control the samples. Change them at
+**`/admin/feature-flags`**:
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `bridge.host_sampling_enabled` | off | the bridges of the instance take samples |
+| `bridge.host_sample_interval_seconds` | 60 | the seconds between two samples. A value below 5 reads as 60 |
+
+To turn the samples on:
+
+1. Open **`/admin/feature-flags`** as an admin.
+2. Switch on `bridge.host_sampling_enabled`.
+3. Optionally, set `bridge.host_sample_interval_seconds`.
+4. Wait for each bridge to reconnect, or restart it.
+
+The bridge reads both flags from the [events endpoint](#events-endpoint) at
+start and at each reconnect. A bridge with `collect: false` in its `rules.yaml`
+takes no sample, whatever the flags say.
 ## Agent account
 
 `loupe agent-account set` stores the token of a separate GitHub user for
@@ -370,10 +466,32 @@ The `model` of the `defaults:` block does not fill an entry with variants. A
 variant's weight sets its share of the cards, so weights of 3 and 1 give the
 first variant three cards in four.
 
+An entry with variants can also list its `metrics`. Each key is a metric key
+that the `metric_list` MCP tool names, such as `cost` or `merge-rate`:
+
+```yaml
+work:
+  implement:
+    prompt: Implement card {cardNumber}.
+    variants:
+      - {name: opus, weight: 1, model: opus}
+      - {name: sonnet, weight: 1, model: claude-sonnet-5-5}
+    metrics: [merge-rate, cost, duration]
+```
+
+The Comparison tab of the experiment shows the declared metrics in that order.
+An entry with no `metrics` shows the default six. The bridge sends the list
+with each pin request, so the latest list wins. The bridge does not know the
+metrics of the server, so it checks the shape of each key only. The server
+shows a note for a key that it does not know.
+
 The bridge refuses the file, at start and on a reload, when:
 
 - an entry sets both `model` and `variants`
-- an interactive entry or a command entry sets `variants`
+- an interactive entry or a command entry sets `variants` or `metrics`
+- an entry sets `metrics` and no `variants`
+- an entry lists more than 16 metrics, or one metric twice
+- a metric key does not match `^[a-z][a-z0-9:-]{0,63}$`
 - an entry has no variants, or more than 32
 - a variant has a weight below 1 or above 1,000,000
 - a variant has no model, or a model longer than 100 characters, with
@@ -405,7 +523,7 @@ their rules. A live run keeps its variant through an [update](#updates).
 
 A card keeps its variant only in the kind that has the variants. Another kind
 with its own `model:` runs that model on the card. The
-[Experiments](../using/experiments.md) tab of the project's **Activity** page
+[Experiments](../using/experiments.md) tab of the project's **Analytics** page
 compares the variants of each experiment. To end an experiment, give the entry a
 plain `model:` again, and remove its `variants:`. Then run `loupe bridge reload`.
 
@@ -588,9 +706,10 @@ its fields, the failure events included.
 
 ## Pause, stop and resume
 
-The server can pause a bridge, stop or resume one of its runs, and run a
-failed command run again. Each heartbeat tells the server that the bridge takes
-these commands, with `capabilities: ["commands", "rerun-command"]`.
+The server can pause a bridge, stop or resume one of its runs, run a failed
+command run again, and ask for the usage of an interactive run. Each heartbeat
+tells the server that the bridge takes these commands, with
+`capabilities: ["commands", "rerun-command", "session-usage"]`.
 [Pause and commands](../reference/bridge-heartbeat.md#pause-and-commands)
 describes the protocol.
 
@@ -627,6 +746,13 @@ request id of a run from before the work map. A rerun or a resume carries the
 context of the run's work request, so the command and the `before` command fill
 the pull request and the document that the first run had. A bridge that does not report the
 `rerun-command` capability gets no rerun, and the web UI disables the control.
+
+A usage request asks for the token usage of one interactive Claude Code run,
+which has no worker process. The bridge reads the usage of the run's window
+from the transcript of the session on this machine, subagents included, and
+sends it as an estimate. It refuses the request when this machine holds no
+transcript of the session. Only a bridge that reports the `session-usage`
+capability gets a usage request.
 [Pause and commands](../../cli/README.md#pause-and-commands) in `cli/README.md`
 gives every field and log event.
 
@@ -664,7 +790,7 @@ work:
 placeholders that a prompt takes. The command runs in the project's `dir`, with
 the bridge's environment. `timeout` defaults to `10m`, and the check refuses
 more than `60m`. The check refuses `prompt`, `model`, `permissionMode`,
-`variants`, `workerPool` and `before` on a command entry.
+`variants`, `metrics`, `workerPool` and `before` on a command entry.
 
 A command takes no worker slot. It holds its card, so it waits for a worker of
 the card that runs, and a worker that arrives later waits for it. Commands on
@@ -703,7 +829,7 @@ work:
 ```
 
 The key is the kind of work. A worker entry takes `prompt`, `model`,
-`permissionMode`, `before`, `workerPool` and `variants`. A command entry takes
+`permissionMode`, `before`, `workerPool`, `variants` and `metrics`. A command entry takes
 `run` and `timeout`. The rule check
 refuses a field that the action does not use.
 
@@ -717,8 +843,20 @@ interactive session.
 work:
   analysis:
     subject: analysis
+    model: sonnet
     prompt: Run the loupe-analysis skill for analysis {subjectId} of project {project}.
-``` Both shipped workflow templates
+```
+
+The `analysis` entry above runs the analyses that the owner starts on the
+[Reports](../using/analytics.md#reports) tab. The `loupe-analysis` skill of the
+Loupe plugin does the work. A work request can name a model and an effort. A
+request model replaces the `model` of the entry. A request effort reaches
+claude as `--effort`. A work entry has no effort of its own. A request model
+also skips the [experiment](#experiments) draw of an entry with variants, so
+the run joins no experiment. An analysis always names its model and its
+effort.
+
+Both shipped workflow templates
 request `teardown` each time a card reaches a terminal column. A `teardown`
 request that no bridge takes expires after the work timeout, and the card does
 not pause.
@@ -788,7 +926,9 @@ project the token's user owns:
     "inbox.enabled": false,
     "bridge.heartbeat_interval_seconds": 60,
     "bridge.stop_sigterm_after_ms": 7500,
-    "bridge.stop_sigkill_after_ms": 2500
+    "bridge.stop_sigkill_after_ms": 2500,
+    "bridge.host_sampling_enabled": false,
+    "bridge.host_sample_interval_seconds": 60
   },
   "cliRange": "^1.0",
   "head": 4812
@@ -815,7 +955,7 @@ heartbeat reply.
 `flags` holds the feature flags a bridge reads. The server lists a flag here
 only when its code names the flag, so no other flag reaches a token holder. A
 value is a boolean or an integer, as the flag's type says. Today the map holds
-four flags:
+six flags:
 
 | Flag | Type | Value |
 |---|---|---|
@@ -823,6 +963,8 @@ four flags:
 | `bridge.heartbeat_interval_seconds` | integer | the seconds between two heartbeats, 60 on an instance that holds no row for it. A stored value below 10 reads as 60 |
 | `bridge.stop_sigterm_after_ms` | integer | the milliseconds from SIGINT to SIGTERM when the bridge stops a run, 7500 on an instance that holds no row for it. A stored value below 100 reads as 7500 |
 | `bridge.stop_sigkill_after_ms` | integer | the milliseconds from SIGTERM to SIGKILL when the bridge stops a run, 2500 on an instance that holds no row for it. A stored value below 100 reads as 2500 |
+| `bridge.host_sampling_enabled` | boolean | whether the bridge takes [host samples](#host-samples), `false` on an instance that holds no row for it |
+| `bridge.host_sample_interval_seconds` | integer | the seconds between two host samples, 60 on an instance that holds no row for it. A stored value below 5 reads as 60 |
 
 The bridge reads the map at start and again at each reconnect. A flag change
 therefore reaches a running bridge at its next reconnect.
@@ -973,7 +1115,7 @@ work:
 ```
 
 An interactive entry takes `prompt`, `model` and `permissionMode`. The check
-refuses `before`, `variants` and `workerPool` on it. It also refuses the action
+refuses `before`, `variants`, `metrics` and `workerPool` on it. It also refuses the action
 on Windows, because the launch script is a POSIX shell script. The action works
 on macOS and Linux.
 
@@ -1035,6 +1177,11 @@ reason.
 The prompt must close its own run, and the product design skill does. A prompt
 that calls neither `card_run_open` nor `card_run_close` leaves the run open,
 until the card moves or a person closes it.
+
+An interactive run has no worker process, so the bridge sees none of its usage
+as it runs. When the server asks, the bridge reads the usage of the run's
+window from the local transcript and sends it as an estimate. See
+[Pause, stop and resume](#pause-stop-and-resume).
 
 ## Columns endpoint
 

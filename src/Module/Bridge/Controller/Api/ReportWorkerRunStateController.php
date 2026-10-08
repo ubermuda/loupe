@@ -82,6 +82,7 @@ final class ReportWorkerRunStateController extends AppController
             account: $payload->account,
             model: $payload->model,
             harnessSessionId: $payload->harnessSessionId,
+            peakContextTokens: $payload->peakContextTokens,
         ));
 
         if (null === $result->run) {

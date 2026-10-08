@@ -128,6 +128,12 @@ enum WorkerRunState: string
         return \in_array($this, [self::Succeeded, self::Failed, self::NotStarted, self::NoResult, self::Unfinished, self::Blocked, self::WaitingOnForge, self::GaveUp], true);
     }
 
+    /** The outcomes that count as a stop in a stop rate. */
+    public function isStop(): bool
+    {
+        return \in_array($this, [self::Blocked, self::Failed, self::NoResult, self::GaveUp], true);
+    }
+
     /** The outcomes that warn on the card while they are its latest. */
     public function isWarning(): bool
     {

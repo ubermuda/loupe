@@ -7,7 +7,10 @@ namespace App\Module\Bridge\Controller\Api;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use Symfony\Component\Validator\Constraints as Assert;
 
-/** The usage of each worker process of one session, in the order the processes started. */
+/**
+ * The usage of each worker process of one session, in the order the processes
+ * started. With a run id, the one process is the interactive run of that id.
+ */
 final class ReportSessionUsageRequest
 {
     public const int MAX_PROCESSES = 100;
@@ -18,6 +21,7 @@ final class ReportSessionUsageRequest
         #[Assert\NotNull]
         #[Assert\Valid]
         public ?array $processes = null,
+        public ?string $runId = null,
     ) {
     }
 

@@ -62,6 +62,17 @@ type router struct {
 	runs    *runReports
 	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
 	heartbeat *heartbeater
+	// hostSampling and hostInterval are the host sampling flags, under mu.
+	hostSampling bool
+	hostInterval time.Duration
+	// sampler is the running host sampler, or nil. samplerMu guards it, and
+	// is taken before mu.
+	samplerMu sync.Mutex
+	sampler   *hostSampler
+	// hostAfter and hostSample stand in for time.After and the host reader in
+	// a test. Nil uses the real ones.
+	hostAfter  func(time.Duration) <-chan time.Time
+	hostSample func(context.Context) (api.HostSample, error)
 	// hookRunner runs the hook packages on start, stop, busy and idle. A nil
 	// one runs nothing.
 	hookRunner *hookRunner
@@ -79,7 +90,7 @@ type router struct {
 	readHolds func(ctx context.Context) ([]api.CardHold, error)
 	// resolvePin asks which variant of an experiment a card runs with, before
 	// its worker starts. A nil one runs the variant the bridge drew.
-	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error)
+	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int, metrics []string) (string, string, error)
 	// control is the socket that `loupe bridge reload` reaches, and source is
 	// what a reload reads. A nil control, as in most tests, opens no socket.
 	control net.Listener
@@ -113,6 +124,9 @@ type router struct {
 	// findTranscript fails when this machine holds no transcript of the
 	// session. A nil one asks the default harness.
 	findTranscript func(sessionID string) error
+	// reportRunUsage sends the usage of one run of a session. A nil one
+	// refuses each usage request.
+	reportRunUsage func(ctx context.Context, handle, sessionID, runID string, usage api.Usage) error
 	// startDir is the folder a session started in, and "" when this machine
 	// holds no transcript of it. A nil one asks the harness of the run.
 	startDir func(sessionID string) (string, error)
@@ -292,13 +306,13 @@ func (p *pending) apply(m rules.Match) {
 	p.rule, p.action, p.project, p.pool = m.Rule, m.Action, m.Project, m.Pool
 	p.experiment, p.pin = m.Experiment, runPin{}
 	if p.continues != "" {
-		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
+		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.effort, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Effort, m.Schema
 		p.spec.before, p.spec.command = m.Before, m.Command
 
 		return
 	}
 	p.spec = workerSpec{
-		dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt,
+		dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, effort: m.Effort, schema: m.Schema, prompt: m.Prompt,
 		before: m.Before, command: m.Command,
 	}
 	// The server asks the work to resume the session of an unfinished run,
@@ -543,15 +557,18 @@ func (r *router) markGone(id string, seq uint64) ([]pending, bool) {
 }
 
 // applyFlags keeps the flags of one GET /api/events answer for the workers that
-// start after it, and gives its heartbeat interval to the heartbeat.
+// start after it, gives its heartbeat interval to the heartbeat, and starts or
+// stops the host sampler.
 func (r *router) applyFlags(events api.Events) {
 	r.mu.Lock()
 	r.inbox = events.Enabled(api.InboxFlag)
 	r.stopWaits = stopWaitsOf(events)
+	r.hostSampling, r.hostInterval = events.Enabled(api.HostSamplingFlag), hostSampleInterval(events)
 	r.mu.Unlock()
 	if r.heartbeat != nil {
 		r.heartbeat.setInterval(heartbeatInterval(events))
 	}
+	r.syncHostSampler()
 }
 
 // onRefresh applies the flags of a fresh GET /api/events. It logs, once for
@@ -1114,7 +1131,7 @@ func (r *router) resolveVariant(p pending) (string, runPin) {
 		timeout = readTimeout
 	}
 	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-	name, switchedFrom, err := r.resolvePin(ctx, p.event.ProjectID, exp.Name, cardID, candidate.Name, names, weights)
+	name, switchedFrom, err := r.resolvePin(ctx, p.event.ProjectID, exp.Name, cardID, candidate.Name, names, weights, exp.Metrics)
 	cancel()
 	i := slices.IndexFunc(exp.Variants, func(v rules.Variant) bool { return v.Name == name })
 	if err == nil && i < 0 {
@@ -1167,6 +1184,7 @@ func (r *router) settle(p pending, e endedRun) {
 	defer r.quiesce.RUnlock()
 	done := func() {
 		r.end(p, e)
+		r.sendToolCalls(p, e.res)
 		if e.res.dir != "" {
 			_ = os.RemoveAll(e.res.dir)
 		}
@@ -1188,6 +1206,26 @@ func (r *router) settle(p pending, e endedRun) {
 	}
 	r.mu.Unlock()
 	done()
+}
+
+// sendToolCalls queues the tool calls and the timing that claude's stdout
+// held, behind the outcome of the run. The reports hold the calls, so the run
+// directory can go. A run the server holds no record of sends none.
+func (r *router) sendToolCalls(p pending, res workerResult) {
+	subjectType, _, cardNumber := subjectOf(p)
+	if !res.streamed || !r.reporting() || !r.rules().Collect() || subjectType == "" || (p.isWork() && p.claimToken == "") {
+		return
+	}
+	timeout := r.checkTimeout
+	if timeout <= 0 {
+		timeout = readTimeout
+	}
+	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+	reports := r.runs.toolCalls(ctx, p.event.ProjectID, p.runID, cardNumber, p.rule, res.calls, res.timing)
+	cancel()
+	for _, report := range reports {
+		r.reports.Enqueue(report)
+	}
 }
 
 // endedRun is how one worker ended. state is the outcome to report, and
@@ -1379,6 +1417,7 @@ func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 		report.ResultFields = r.resultFields(p, e.res.fields)
 	}
 	report.Usage = r.usage(p, e.res.usage)
+	report.PeakContextTokens = e.res.peakContextTokens
 
 	return report
 }

@@ -12,6 +12,9 @@ const base = createTest({
     fullName: FULL_NAME,
 });
 
+// Split over workers, this file would register one fixed account twice at once.
+base.describe.configure({ mode: 'default' });
+
 interface SeededHistory {
     documentId: string;
     reviewUrl: string;

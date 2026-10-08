@@ -71,8 +71,9 @@ time. Name the biggest thing you changed, then check the summary mentions it.
 Both rules cost time on a large diff. Put the pass count and what the last pass
 covered on the body's gate line, so "Codex: clean" never claims more than it did.
 
-e2e is not in the local gate. The required checks `e2e-chromium`,
-`e2e-chromium-2` and `e2e-rest` on the PR gate the suite. They run the same
+e2e is not in the local gate. The eight `e2e-*` checks on the PR gate the
+suite: `e2e-chromium`, `e2e-chromium-2` to `e2e-chromium-6`, `e2e-rest` and
+`e2e-global-flags`. They run the same
 `just e2e` on disposable runners. Push, then read those checks. Fix every
 failure they report, including pre-existing ones. Do not run the full suite
 locally before you open the PR. See "Running the suite
@@ -288,7 +289,9 @@ called "Try it", "Click it" or "Verification", sitting two thirds of the way
 down next to the gate results, makes the reviewer hunt for the one thing they
 opened the page to find. Lead with the links, then explain the change.
 
-Give each link a one-line label saying what state it shows. When a change has
+Give each link a one-line label saying what state it shows. A child of an epic
+also writes a `State:` text on each line, as "A child of an epic targets the
+epic branch" says. When a change has
 several states, seed one document per state and link each: a reviewer who can
 see all of them side by side reviews what the code does, rather than the one
 case you happened to seed.
@@ -413,13 +416,19 @@ test discriminates rather than passing vacuously.
 
 ## Running the suite locally is debugging, not gating
 
-The three shard checks `e2e-chromium`, `e2e-chromium-2` and `e2e-rest` are the
-gate. They run the same `just e2e` against a disposable stack, with both
-`E2E_BASE_URL` and `MAILPIT_URL` set correctly. See `.github/workflows/ci.yml`.
+The eight `e2e-*` legs are the gate: `e2e-chromium`, `e2e-chromium-2` to
+`e2e-chromium-6`, `e2e-rest` and `e2e-global-flags`. They run the same
+`just e2e` against a disposable stack, with both `E2E_BASE_URL` and
+`MAILPIT_URL` set correctly. See `.github/workflows/ci.yml`.
 
-Each shard is its own required check, on its own runner with its own stack.
-Read the red shard for the failure. `maxFailures: 1` is per process, so a red
-run can report one failure in each shard.
+The six chromium legs split that project per test. `rest` runs admin and the
+destructive chain, and `global-flags` runs alone. Each leg is on its own runner
+with its own stack. Read the red leg for the failure. `maxFailures: 1` is per
+process, so a red run can report one failure in each leg.
+
+Each leg is a required check only after the owner adds it to the main ruleset.
+On `main`, the `lint` job fails and names each leg that the ruleset does not
+require.
 
 Locally the same suite is slower, destructive, and measurably less truthful.
 Across one wave of five branches, every local e2e problem was environmental and

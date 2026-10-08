@@ -76,6 +76,9 @@ test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1440, height: 900 },
 });
+// Sign-in, seeding and three posted threads alone were measured at 30 seconds
+// on a loaded CI runner, which overruns the default.
+test.describe.configure({ timeout: 90000 });
 
 /** Select a phrase in the prose the way a drag would, then post a comment on it. */
 async function commentOn(

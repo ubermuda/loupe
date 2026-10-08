@@ -26,9 +26,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_bridge_commands_bridge_state', columns: ['owner_id', 'bridge_id', 'state'])]
 #[ORM\Index(name: 'idx_bridge_commands_state_expires', columns: ['state', 'expires_at'])]
 #[ORM\Table(name: 'bridge_commands')]
-// One run holds one pending command. The predicate is written the way Postgres
-// stores it, so migrate-diff stays quiet.
-#[ORM\UniqueConstraint(name: self::PENDING_RUN_INDEX, columns: ['worker_run_id'], options: ['where' => "((state)::text = 'pending'::text)"])]
+// One run holds one pending command per bridge. The predicate is written the way
+// Postgres stores it, so migrate-diff stays quiet.
+#[ORM\UniqueConstraint(name: self::PENDING_RUN_INDEX, columns: ['worker_run_id', 'bridge_id'], options: ['where' => "((state)::text = 'pending'::text)"])]
 class BridgeCommand
 {
     public const string PENDING_RUN_INDEX = 'uniq_bridge_command_pending_run';
@@ -59,6 +59,13 @@ class BridgeCommand
     #[ORM\Column(name: 'context', type: Types::JSON, nullable: true)]
     private ?array $contextData = null;
 
+    /** The model and the effort of the work request of the run, so a resume runs as its first run did. */
+    #[ORM\Column(name: 'model', length: WorkRequest::MAX_MODEL_LENGTH, nullable: true)]
+    public ?string $model = null;
+
+    #[ORM\Column(name: 'effort', length: 16, nullable: true)]
+    public ?string $effort = null;
+
     public function __construct(
         /** The owner of the bridge row, which is the owner of the project. */
         #[ORM\JoinColumn(nullable: false)]
@@ -77,7 +84,7 @@ class BridgeCommand
         #[ORM\ManyToOne(targetEntity: WorkerRun::class)]
         public WorkerRun $workerRun,
 
-        #[ORM\Column(name: 'kind', length: 20, enumType: BridgeCommandKind::class)]
+        #[ORM\Column(name: 'kind', length: 32, enumType: BridgeCommandKind::class)]
         public BridgeCommandKind $kind,
 
         #[ORM\JoinColumn(name: 'requested_by_id', nullable: true, onDelete: 'SET NULL')]

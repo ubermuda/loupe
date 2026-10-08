@@ -34,9 +34,21 @@ func (e *UsageRefused) Error() string {
 // ReportSessionUsage sends the usage of each worker process of a session, in
 // the order the processes started.
 func (c *Client) ReportSessionUsage(ctx context.Context, handle, sessionID string, processes []Usage) (SessionUsageResult, error) {
+	return c.reportUsage(ctx, handle, sessionID, "", processes)
+}
+
+// ReportRunUsage sends the usage of one worker run of a session.
+func (c *Client) ReportRunUsage(ctx context.Context, handle, sessionID, runID string, usage Usage) (SessionUsageResult, error) {
+	return c.reportUsage(ctx, handle, sessionID, runID, []Usage{usage})
+}
+
+// reportUsage sends the usage of the processes of a session. With a run id,
+// the processes hold the usage of that run alone.
+func (c *Client) reportUsage(ctx context.Context, handle, sessionID, runID string, processes []Usage) (SessionUsageResult, error) {
 	body, err := json.Marshal(struct {
+		RunID     string  `json:"runId,omitempty"`
 		Processes []Usage `json:"processes"`
-	}{processes})
+	}{runID, processes})
 	if err != nil {
 		return SessionUsageResult{}, fmt.Errorf("encode the session usage: %w", err)
 	}

@@ -23,7 +23,7 @@ func TestResolveExperimentPinSendsTheContractBody(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	variant, switchedFrom, err := New(server.URL, "secret", server.Client()).
-		ResolveExperimentPin(context.Background(), "my project", "impl-model", pinCard, "sonnet", []string{"opus", "sonnet"}, []int{1, 2})
+		ResolveExperimentPin(context.Background(), "my project", "impl-model", pinCard, "sonnet", []string{"opus", "sonnet"}, []int{1, 2}, []string{"cost", "merge-rate"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,27 @@ func TestResolveExperimentPinSendsTheContractBody(t *testing.T) {
 	if auth != "Bearer secret" || contentType != "application/json" {
 		t.Fatalf("auth = %q, content type = %q", auth, contentType)
 	}
-	if want := `{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1,2]}`; body != want {
+	if want := `{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1,2],"metrics":["cost","merge-rate"]}`; body != want {
+		t.Fatalf("body = %s, want %s", body, want)
+	}
+}
+
+// An experiment with no declared metrics sends an empty list, which the server
+// reads as the default metrics.
+func TestResolveExperimentPinSendsAnEmptyMetricList(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		_, _ = io.WriteString(w, `{"variant":"sonnet","switchedFrom":null}`)
+	}))
+	t.Cleanup(server.Close)
+
+	if _, _, err := New(server.URL, "t", server.Client()).
+		ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"candidate":"sonnet","variants":[],"weights":[],"metrics":[]}`; body != want {
 		t.Fatalf("body = %s, want %s", body, want)
 	}
 }
@@ -48,7 +68,7 @@ func TestResolveExperimentPinReadsASwitchedPin(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	variant, switchedFrom, err := New(server.URL, "t", server.Client()).
-		ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", []string{"opus", "sonnet"}, []int{1, 1})
+		ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", []string{"opus", "sonnet"}, []int{1, 1}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +99,7 @@ func TestResolveExperimentPinNamesEachFailure(t *testing.T) {
 			t.Cleanup(server.Close)
 
 			variant, _, err := New(server.URL, "t", server.Client()).
-				ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", []string{"sonnet"}, []int{1})
+				ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", []string{"sonnet"}, []int{1}, nil)
 			if err == nil {
 				t.Fatalf("variant = %q, want an error", variant)
 			}
@@ -104,7 +124,7 @@ func TestResolveExperimentPinStopsAtTheDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	_, _, err := New(server.URL, "t", server.Client()).
-		ResolveExperimentPin(ctx, "loupe", "impl-model", pinCard, "sonnet", []string{"sonnet"}, []int{1})
+		ResolveExperimentPin(ctx, "loupe", "impl-model", pinCard, "sonnet", []string{"sonnet"}, []int{1}, nil)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("err = %v, want the deadline", err)
 	}

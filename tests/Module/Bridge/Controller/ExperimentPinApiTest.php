@@ -72,6 +72,82 @@ final class ExperimentPinApiTest extends WebTestCase
         self::assertSame([['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]], $definitions[0]->weights);
     }
 
+    public function test_the_declared_metrics_are_stored_in_their_order(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-metrics@example.com');
+        $project = $this->project($em, $owner, 'Pin Api Metrics');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1,3],"metrics":["merge-rate","cost","no-such-metric"]}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        $definitions = $this->allDefinitions();
+        self::assertCount(1, $definitions);
+        self::assertSame(['merge-rate', 'cost', 'no-such-metric'], $definitions[0]->metrics);
+    }
+
+    /** A metric fault never changes the variant of a run, and never refuses it. */
+    public function test_invalid_metrics_still_pin_and_store_no_metrics(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-bad-metrics@example.com');
+        $project = $this->project($em, $owner, 'Pin Api Bad Metrics');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1,3],"metrics":["cost","cost"]}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertJsonStringEqualsJsonString('{"variant":"sonnet","switchedFrom":null}', $this->body($client));
+        $definitions = $this->allDefinitions();
+        self::assertCount(1, $definitions);
+        self::assertNull($definitions[0]->metrics);
+    }
+
+    /** An older bridge sends no metrics, and its valid weights clear the stored list. */
+    public function test_valid_weights_with_no_metrics_clear_the_stored_metrics(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-no-metrics@example.com');
+        $project = $this->project($em, $owner, 'Pin Api No Metrics');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1,3],"metrics":["cost"]}',
+        );
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['cost'], $this->allDefinitions()[0]->metrics);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"opus","variants":["opus","sonnet"],"weights":[2,3]}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        $definitions = $this->allDefinitions();
+        self::assertCount(1, $definitions);
+        self::assertSame([['name' => 'opus', 'weight' => 2], ['name' => 'sonnet', 'weight' => 3]], $definitions[0]->weights);
+        self::assertNull($definitions[0]->metrics);
+    }
+
     public function test_numeric_variant_names_are_stored_with_their_names(): void
     {
         $client = static::createClient();
