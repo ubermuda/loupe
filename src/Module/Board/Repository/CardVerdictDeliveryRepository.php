@@ -95,4 +95,26 @@ class CardVerdictDeliveryRepository extends ServiceEntityRepository
 
         return array_map(static fn (array $row): string => (string) $row['id'], $rows);
     }
+
+    /**
+     * The deliveries of a card that wait to be sent, with the verdict and the pull request loaded.
+     *
+     * @return list<CardVerdictDelivery>
+     */
+    public function findPendingForCard(Card $card): array
+    {
+        return array_values($this->createQueryBuilder('d')
+            ->addSelect('v', 'pr')
+            ->join('d.verdict', 'v')
+            ->join('d.pullRequest', 'pr')
+            ->andWhere('v.card = :card')
+            ->andWhere('d.state = :pending')
+            ->setParameter('card', $card)
+            ->setParameter('pending', CardVerdictDeliveryState::Pending)
+            ->orderBy('v.createdAt', 'ASC')
+            ->addOrderBy('pr.repository', 'ASC')
+            ->addOrderBy('pr.number', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
 }

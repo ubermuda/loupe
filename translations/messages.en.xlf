@@ -7827,6 +7827,10 @@
             <trans-unit id="readiness.discovery.reason.no_taker"><source>readiness.discovery.reason.no_taker</source><target>No bridge took the work.</target></trans-unit>
             <trans-unit id="readiness.discovery.reason.card_moved"><source>readiness.discovery.reason.card_moved</source><target>The discovery card left Backlog before the work ended.</target></trans-unit>
             <trans-unit id="board.verdict.action.post_review"><source>board.verdict.action.post_review</source><target>Posts your verdict as a review on the pull requests you pick.</target></trans-unit>
+            <trans-unit id="board.verdict.review.fallback_body"><source>board.verdict.review.fallback_body</source><target>Reviewed in the Loupe site review.</target></trans-unit>
+            <trans-unit id="board.site_review_check.title"><source>board.site_review_check.title</source><target>{0} No open site review notes|{1} One site review note is open|]1,Inf[ %count% site review notes are open</target></trans-unit>
+            <trans-unit id="board.site_review_check.summary_clear"><source>board.site_review_check.summary_clear</source><target>Every site review note of this card is closed.</target></trans-unit>
+            <trans-unit id="board.site_review_check.summary_more"><source>board.site_review_check.summary_more</source><target>{0} No more notes.|{1} And one more note.|]1,Inf[ And %count% more notes.</target></trans-unit>
         </body>
     </file>
 </xliff>

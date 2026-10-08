@@ -13,6 +13,8 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardEventCause;
+use App\Module\Board\Service\SiteReviewCheckPublisher;
+use App\Module\Board\Service\VerdictReviewSettler;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -52,6 +54,8 @@ final readonly class ForgeWrite implements Action
         private WorkRequestOpener $opener,
         private UpdateCardHandler $updateCard,
         private UrlGeneratorInterface $urlGenerator,
+        private VerdictReviewSettler $reviewSettler,
+        private SiteReviewCheckPublisher $checkPublisher,
 
         #[Autowire(param: 'app.workflow.merge_method')]
         private string $mergeMethod,
@@ -77,7 +81,9 @@ final readonly class ForgeWrite implements Action
             return $this->openEpic($rule, $card, $pullRequests);
         }
         if (ForgeWriteKind::PostReview === $write || ForgeWriteKind::SiteReviewCheck === $write) {
-            return ActionOutcome::done();
+            $cause = ForgeWriteKind::PostReview === $write ? $this->reviewSettler->settle($card) : $this->checkPublisher->publish($card);
+
+            return null === $cause ? ActionOutcome::done() : ActionOutcome::refused($cause);
         }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
             if ([] === $pullRequests) {

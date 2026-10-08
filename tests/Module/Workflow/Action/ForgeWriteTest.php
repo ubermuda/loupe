@@ -9,9 +9,18 @@ use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\CardVerdict;
+use App\Module\Board\Entity\CardVerdictDelivery;
+use App\Module\Board\Entity\CardVerdictDeliveryState;
+use App\Module\Board\Entity\CardVerdictKind;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\CardVerdictDeliveryRepository;
+use App\Module\Board\Repository\SiteReviewCheckStateRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\SiteReviewCheckPublisher;
+use App\Module\Board\Service\VerdictReviewSettler;
+use App\Module\Board\Workflow\SiteReviewFactProvider;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -20,8 +29,11 @@ use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\ForgePullRequestWrites;
 use App\Module\Forge\Service\PullRequestBaseChangers;
 use App\Module\Forge\Service\PullRequestBranchUpdaters;
+use App\Module\Forge\Service\PullRequestCheckWriters;
 use App\Module\Forge\Service\PullRequestMergers;
 use App\Module\Forge\Service\PullRequestOpeners;
+use App\Module\Forge\Service\PullRequestReviewFailed;
+use App\Module\Forge\Service\PullRequestReviewPosters;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
@@ -31,12 +43,16 @@ use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
+use App\Tests\Module\Board\Fake\FakeCheckWriter;
+use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
+use App\Tests\Module\Board\Fake\FakeReviewPoster;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ForgeWriteTest extends KernelTestCase
 {
@@ -44,10 +60,16 @@ final class ForgeWriteTest extends KernelTestCase
 
     private FakeForgeWriter $writer;
 
+    private FakeReviewPoster $reviewPoster;
+
+    private FakeCheckWriter $checkWriter;
+
     protected function setUp(): void
     {
         self::bootKernel();
         $this->writer = new FakeForgeWriter();
+        $this->reviewPoster = new FakeReviewPoster();
+        $this->checkWriter = new FakeCheckWriter();
     }
 
     public function test_a_card_with_no_pull_request_is_refused(): void
@@ -392,6 +414,86 @@ final class ForgeWriteTest extends KernelTestCase
         return [$epic, $this->pullRequest($child, state: PullRequestState::Merged, base: 'epic/'.$epic->number)];
     }
 
+    public function test_post_review_posts_the_pending_delivery_and_settles_it(): void
+    {
+        $project = $this->project(postWidgetReviews: true);
+        $card = $this->card($project, 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $verdict = new CardVerdict($card, CardVerdictKind::RequestChanges, $project->owner, 'Fix it', []);
+        $delivery = new CardVerdictDelivery($verdict, $pullRequest);
+        $this->em()->persist($verdict);
+        $this->em()->persist($delivery);
+        $this->em()->flush();
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'post-review', fallback: null));
+
+        self::assertSame([$pullRequest->number], array_column($this->reviewPoster->posts, 'number'));
+        self::assertSame(CardVerdictDeliveryState::Posted, $delivery->state);
+    }
+
+    public function test_post_review_with_the_opt_in_off_settles_the_delivery_as_skipped(): void
+    {
+        $project = $this->project();
+        $card = $this->card($project, 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $verdict = new CardVerdict($card, CardVerdictKind::Approve, $project->owner, '', []);
+        $delivery = new CardVerdictDelivery($verdict, $pullRequest);
+        $this->em()->persist($verdict);
+        $this->em()->persist($delivery);
+        $this->em()->flush();
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'post-review', fallback: null));
+
+        self::assertSame([], $this->reviewPoster->posts);
+        self::assertSame(CardVerdictDeliveryState::Skipped, $delivery->state);
+    }
+
+    public function test_post_review_is_refused_on_a_transient_failure(): void
+    {
+        $project = $this->project(postWidgetReviews: true);
+        $card = $this->card($project, 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $verdict = new CardVerdict($card, CardVerdictKind::Approve, $project->owner, '', []);
+        $delivery = new CardVerdictDelivery($verdict, $pullRequest);
+        $this->em()->persist($verdict);
+        $this->em()->persist($delivery);
+        $this->em()->flush();
+        $this->reviewPoster->failure = new PullRequestReviewFailed('rate_limited', false);
+
+        self::assertEquals(ActionOutcome::refused('rate_limited'), $this->write($card, 'post-review', fallback: null));
+
+        self::assertSame(CardVerdictDeliveryState::Pending, $delivery->state);
+    }
+
+    public function test_site_review_check_posts_the_check_of_each_open_pull_request(): void
+    {
+        $project = $this->project(siteReviewCheck: true);
+        $card = $this->card($project, 'in-review');
+        $pullRequest = $this->pullRequest($card, headSha: 'sha-9');
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'site-review-check', fallback: null));
+
+        self::assertSame([[$pullRequest->number, 'sha-9']], array_map(static fn (array $call): array => [$call['number'], $call['sha']], $this->checkWriter->published));
+    }
+
+    public function test_site_review_check_is_refused_when_the_forge_refuses_the_check(): void
+    {
+        $project = $this->project(siteReviewCheck: true);
+        $card = $this->card($project, 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $this->checkWriter->failingNumbers = [$pullRequest->number];
+
+        self::assertEquals(ActionOutcome::refused('permission'), $this->write($card, 'site-review-check', fallback: null));
+    }
+
+    public function test_site_review_check_with_no_pull_request_is_done(): void
+    {
+        $card = $this->card($this->project(siteReviewCheck: true), 'in-review');
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'site-review-check', fallback: null));
+        self::assertSame([], $this->checkWriter->published);
+    }
+
     private function project(
         bool $mergePullRequests = false,
         bool $changeBase = false,
@@ -399,6 +501,8 @@ final class ForgeWriteTest extends KernelTestCase
         bool $epicDraftSwitch = false,
         bool $closeEpicPullRequests = false,
         bool $openEpicPullRequests = false,
+        bool $postWidgetReviews = false,
+        bool $siteReviewCheck = false,
     ): Project {
         $project = $this->workflowProject('forge-write');
         $this->em()->persist(new BoardAutomationSettings(
@@ -409,6 +513,8 @@ final class ForgeWriteTest extends KernelTestCase
             epicDraftSwitch: $epicDraftSwitch,
             closeEpicPullRequests: $closeEpicPullRequests,
             openEpicPullRequests: $openEpicPullRequests,
+            postWidgetReviews: $postWidgetReviews,
+            siteReviewCheck: $siteReviewCheck,
         ));
         $this->em()->flush();
 
@@ -436,6 +542,25 @@ final class ForgeWriteTest extends KernelTestCase
             $this->opener(),
             $this->service(UpdateCardHandler::class),
             $this->service(UrlGeneratorInterface::class),
+            new VerdictReviewSettler(
+                $this->service(CardVerdictDeliveryRepository::class),
+                $this->service(BoardAutomation::class),
+                new PullRequestReviewPosters([$this->reviewPoster]),
+                new FakeReviewerForgeAccount(),
+                $this->service(TranslatorInterface::class),
+                $this->service(EntityManagerInterface::class),
+                new MockClock('2026-10-02 12:00:00'),
+            ),
+            new SiteReviewCheckPublisher(
+                $this->service(CardPullRequestRepository::class),
+                $this->service(SiteReviewFactProvider::class),
+                $this->service(SiteReviewCheckStateRepository::class),
+                $this->service(BoardAutomation::class),
+                new PullRequestCheckWriters([$this->checkWriter]),
+                $this->service(TranslatorInterface::class),
+                $this->service(EntityManagerInterface::class),
+                new MockClock('2026-10-02 12:00:00'),
+            ),
             'squash',
         );
 
