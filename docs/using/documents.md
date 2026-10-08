@@ -82,27 +82,46 @@ The history retains the original verdict and its withdrawal.
 If another verdict or revision arrives first, Loupe rejects the old Undo form.
 Reload the page before withdrawing the current verdict.
 
-The margin has Comments, Outline, Decisions and Details tabs.
-Outline and Decisions show current progress and link to passages in the document.
-Details shows linked cards, outgoing and incoming references, tags, series and version notes.
-It lists only what the document has, and says so when it has none of them.
-The History tab opens the full version list.
+A small toolbar in the top-right corner of the review page has three buttons:
+**Decisions**, **Comments** and **Outline**. Each button switches its panel on
+or off, and a button with a light green fill shows a panel that is on.
+Decisions is on when you first open a document. The other two are off.
+Your browser remembers which panels you left on, and opens them on the next
+document you review.
 
-Use Left and Right Arrow to select the adjacent tab.
-Use Home or End to select the first or last tab.
-Tab moves focus out of the tab list.
-On narrow screens, the margin tabs scroll horizontally. Selecting a tab brings its label into view.
-Switching tabs preserves an unfinished reply.
+The open panels stack under the toolbar in that order: Decisions, Comments,
+Outline. On a wide window they sit to the right of the text. When the open
+panels are taller than the window, the panel column scrolls on its own. On a
+narrower window, the toolbar and the open panels show above the document.
 
-The filter beside Comments shows counts for Open, Resolved, Unanchored and All.
-**Open** is the default view, so a resolved thread leaves the margin as you resolve it.
+The Decisions panel lists every decision with its answer. Its heading counts the
+answers, for example "3 of 3 answered". Each row starts with a tag such as
+**D4**. The tag comes from the nearest heading above the decision when that
+heading starts with D and a number. Otherwise it is D and the place of the
+decision in the list. A green tag shows an answered decision, and a grey tag
+shows one with no answer. A note shows under the answer as "Note:" and its text.
+Select a row to go to its decision in the text.
+
+The Comments panel lists the threads, general comments first, then the others in
+passage order. The Outline panel lists the sections and links to each one.
+Decisions is disabled when the document has no decisions. Its tooltip says why.
+
+The filter in the Comments panel head shows counts for Open, Resolved, Unanchored and All.
+**Open** is the default view, so a resolved thread leaves the panel as you resolve it.
 Select **All** to bring it back. The filter icon turns purple while it hides threads.
-With the filter closed, Tab moves focus to Comments. Arrow keys select the other margin tabs.
 The selected filter stays active when you resolve or reopen a thread.
-An empty result shows a message in the margin.
+An empty result shows a message in the panel.
+
+The **⋯** button at the end of the byline opens a menu about the document. It
+lists the cards linked to the document with their type and column, the
+documents it links to, and the documents that link to it, with their status.
+When a kind has more than one link, the menu shows its count and the first
+three links. Select **Show N more** to see the rest. The menu ends with
+**Version history** and, when the document has more than one version,
+**Compare versions**. The History page shows the version notes.
 
 Select **Add general comment** in the header to comment on the whole document.
-Its composer opens above the document.
+Its composer opens above the text.
 
 When the inbox is on, the review page lists the inbox items linked to the
 document above it, and you can answer them there. See
@@ -136,7 +155,7 @@ messages skip their movement when your system requests reduced motion.
 ### Deleted threads
 
 Delete hides a thread and its replies from the review without changing their status.
-Confirm the deletion, then a notice replaces the thread in the margin.
+Confirm the deletion, then a notice replaces the thread in the Comments panel.
 Select **Undo** in that notice to restore the thread and its replies.
 A thread restored on an older version stays read-only.
 
@@ -147,12 +166,9 @@ Deleting the project or account also removes its hidden threads.
 
 ### On a narrow screen
 
-On narrow screens, the workspace tabs and context tabs use separate rows.
-The context panels appear below the document.
+On narrow screens, the toolbar and the open panels appear above the document.
 The corner menu also provides section navigation, version links, references and review actions.
-
-A wide window puts comment cards beside the document, aligned with their passages.
-Each card shows its author, status, body, replies and actions.
+Each comment card shows its author, status, body, replies and actions.
 Cards move down when necessary to prevent overlap.
 Reply opens an inline form, puts the caret in it, and preserves its draft when closed.
 Select **Cancel** in that form to close it again.
@@ -193,8 +209,9 @@ and the change count with the two jump arrows at the right end. `j` and `k` move
 between changes as well. **Return to document** in the header goes back to the
 latest version.
 
-The margin keeps its Outline and Details tabs, plus Comments when the comparison
-accepts comments.
+The toolbar keeps Outline, plus Comments when the comparison accepts comments.
+Decisions stays in the toolbar, disabled, because a comparison cannot answer a
+decision. The **⋯** menu stays in the byline.
 
 **Side by side** puts the two versions in two columns, the older one on the
 left. Each block sits opposite the block it became, so a reworded paragraph
@@ -202,13 +219,13 @@ reads whole on both sides. Where one version has nothing, that side shows an
 empty slot and the pair stays level. The change count and the jump arrows work
 here too, and a jump can land in either column.
 
-This view spends its whole width on the two versions, so it carries no comment
-column and takes no new comment. Read or write comments on **Rendered**, or in
+This view spends its whole width on the two versions, so it carries no toolbar
+and no panels, and takes no new comment. Read or write comments on **Rendered**, or in
 the document itself. On a phone the columns stack, older above newer, and each
 names its version.
 
 **Markdown** compares the two sources line by line, so it shows a change the
-other views cannot mark. Its Outline tab names every heading line, the removed
+other views cannot mark. Its Outline panel names every heading line, the removed
 ones included, and a row takes you to that line.
 
 The toolbar includes the from/to picker and **Compare** button.
@@ -267,7 +284,7 @@ Which host should an emailed reset link be built from?
 
 A click on an option saves it at once. Each block also has a note field. Use it
 to explain your choice, or to write your own answer with no option picked. The
-**Decisions** tab counts a note with no pick as an answer. The
+**Decisions** panel counts a note with no pick as an answer. The
 note saves 800 ms after you stop typing, and again when you leave the field.
 **Clear** removes the pick and keeps the note. The status line shows "Saved." or
 "Cleared." after each save.
@@ -425,7 +442,7 @@ it.
 
 The documents list gets a series filter beside the tag filter. Pick a series and
 the list shows only its documents, in their own order rather than newest first.
-A document page shows the series and the position under the title.
+The documents list shows the series and the position of each document.
 
 Renaming a series keeps every document in place. A name another series already
 holds is refused rather than merged, because two series carry two independent
