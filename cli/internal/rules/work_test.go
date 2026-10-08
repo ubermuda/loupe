@@ -13,7 +13,7 @@ import (
 
 const workRequestID = "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90"
 
-const workFile = `
+const workFile = claudeAccount + claudeDefaults + `
 projects:
   loupe:
     dir: {dir}
@@ -26,7 +26,7 @@ work:
   implement:
     prompt: Implement {cardNumber} {cardId} {project} {projectId} {kind} {ruleId} {workRequestId}.
     workerPool: quick
-    permissionMode: plan
+    permissions: read-only
     before:
       run: [prep, '{cardNumber}', '{workRequestId}']
   pair:
@@ -92,7 +92,8 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 		"interactive with run":         {entry("x", interactive+"run: [x]"), "run belongs to action command, and this entry launches an interactive session"},
 		"command with prompt":          {entry("x", command+"prompt: x"), "prompt names agent behaviour, and action command starts no agent"},
 		"command with model":           {entry("x", command+"model: opus"), "model names agent behaviour"},
-		"command with permissionMode":  {entry("x", command+"permissionMode: plan"), "permissionMode names agent behaviour"},
+		"command with permissions":     {entry("x", command+"permissions: full"), "permissions names agent behaviour"},
+		"command with account":         {entry("x", command+"account: claude"), "account names agent behaviour"},
 		"command with before":          {entry("x", command+"before:\n  run: [x]"), "before names agent behaviour"},
 		"command with variants":        {entry("x", command+variants), "variants names agent behaviour"},
 		"command with workerPool":      {entry("x", command+"workerPool: quick"), "workerPool names agent behaviour"},
@@ -111,12 +112,11 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 		"unknown before placeholder":   {entry("x", "prompt: x\nbefore:\n  run: [prep, '{title}']"), "before.run: unknown placeholder {title}"},
 		"before without run":           {entry("x", "prompt: x\nbefore:\n  timeout: 1m"), "before.run is required"},
 		"model with a space":           {entry("x", "prompt: x\nmodel: 'claude opus'"), `model "claude opus" holds whitespace`},
-		"permissionMode spaced":        {entry("x", "prompt: x\npermissionMode: accept edits"), `permissionMode "accept edits" holds whitespace`},
 		"variants and model":           {entry("x", "prompt: x\nmodel: opus\n"+variants), "model and variants are both set"},
 		"empty variants":               {entry("x", "prompt: x\nvariants: []"), "it has no variants"},
 		"variant weight":               {entry("x", "prompt: x\nvariants:\n  - {name: a, weight: 0, model: opus}"), `variant "a": weight must be at least 1`},
 		"variant name":                 {entry("x", "prompt: x\nvariants:\n  - {name: A, weight: 1, model: opus}"), "a name is 1 to 64"},
-		"variant without model":        {entry("x", "prompt: x\nvariants:\n  - {name: a, weight: 1}"), "model is required"},
+		"variant without model":        {entry("x", "prompt: x\nvariants:\n  - {name: a, weight: 1}"), "model or account is required"},
 		"variant model too long":       {entry("x", "prompt: x\nvariants:\n  - {name: a, weight: 1, model: "+strings.Repeat("m", 101)+"}"), "the server takes at most 100"},
 		"two variants of one name":     {entry("x", "prompt: x\nvariants:\n  - {name: a, weight: 1, model: opus}\n  - {name: a, weight: 1, model: sonnet}"), `two variants are named "a"`},
 		"undeclared pool":              {entry("x", "prompt: x\nworkerPool: slow"), `work "x": workerPool "slow" is not in workerPools, which declares default, quick`},
@@ -205,7 +205,8 @@ func TestMatchWorkRunsAWorker(t *testing.T) {
 
 	m := s.MatchWork(workRequest("implement"))
 	if m.Skip != Run || m.Rule != "work:implement" || m.Action != "" || m.Project != "loupe" || m.Dir != dir || m.Pool != "quick" ||
-		m.PermissionMode != "plan" || m.Model != "sonnet" || m.Schema == "" || m.Experiment != nil || m.Command != nil {
+		m.PermissionMode != "plan" || m.Model != "sonnet" || m.Account != "claude" || m.Harness != HarnessClaudeCode ||
+		m.Schema == "" || m.Experiment != nil || m.Command != nil {
 		t.Fatalf("match = %+v", m)
 	}
 	want := directive.Render("Implement 87 "+cardID+" loupe "+projectID+" implement impl.rule "+workRequestID+".", nil)
@@ -268,6 +269,9 @@ func TestMatchWorkCarriesTheVariantsAsAnExperiment(t *testing.T) {
 	m := s.MatchWork(workRequest("split"))
 	if m.Skip != Run || m.Model != "" || m.Pool != DefaultPool || m.Experiment == nil || m.Experiment.Name != "split" {
 		t.Fatalf("match = %+v", m)
+	}
+	if got := m.ApplyVariant(m.Experiment.Variants[1]); got.Model != "sonnet" || got.Account != "claude" || got.PermissionMode != "" {
+		t.Fatalf("ApplyVariant = %+v", got)
 	}
 	want := []Variant{{Name: "a", Weight: 1, Model: "opus"}, {Name: "b", Weight: 3, Model: "sonnet"}}
 	if !slices.Equal(m.Experiment.Variants, want) {
@@ -349,7 +353,7 @@ func TestAGoneProjectKillsItsWork(t *testing.T) {
 // An entry runs the subject type it names, card by default, and skips a
 // request about another subject.
 func TestMatchWorkRunsTheSubjectOfTheEntry(t *testing.T) {
-	s := checked(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: Implement {cardNumber}.\n"+
+	s := checked(t, claudeAccount+claudeDefaults+"projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: Implement {cardNumber}.\n"+
 		"  analyse:\n    subject: analysis\n    action: command\n    run: [analyse, '{subjectType}', '{subjectId}', '{project}']\n")
 	analysis := workRequest("analyse")
 	analysis.SubjectType, analysis.SubjectID, analysis.CardNumber = "analysis", "0199a0e2-aaaa-7c5e-9f2a-3b1c6d7e8f90", 0
@@ -370,7 +374,7 @@ func TestMatchWorkRunsTheSubjectOfTheEntry(t *testing.T) {
 
 // A card subject fills the card placeholders and the subject ones alike.
 func TestMatchWorkFillsTheSubjectOfACard(t *testing.T) {
-	s := checked(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: '{cardId} {cardNumber} {subjectType} {subjectId}'\n")
+	s := checked(t, claudeAccount+claudeDefaults+"projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: '{cardId} {cardNumber} {subjectType} {subjectId}'\n")
 	m := s.MatchWork(workRequest("implement"))
 	if want := cardID + " 87 card " + cardID; !strings.HasPrefix(m.Prompt, want) {
 		t.Fatalf("prompt = %q, want it to start with %q", m.Prompt, want)
@@ -382,10 +386,12 @@ func TestCapabilities(t *testing.T) {
 		body string
 		want []string
 	}{
-		"workers only":     {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n", []string{"work-requests"}},
+		"workers only":     {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    prompt: x\n", []string{"work-requests"}},
 		"with interactive": {workFile, []string{"work-requests", "interactive"}},
-		"app prompts only": {"projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\n", []string{"work-requests"}},
-		"with subjects": {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    subject: review\n    prompt: x\n" +
+		"app prompts only": {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\n", []string{"work-requests", "app-prompts"}},
+		"app prompts with subjects": {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nappPrompts: true\nwork:\n  y:\n    subject: analysis\n    prompt: x\n",
+			[]string{"work-requests", "subject-analysis", "app-prompts"}},
+		"with subjects": {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nwork:\n  x:\n    subject: review\n    prompt: x\n" +
 			"  y:\n    subject: analysis\n    prompt: x\n  z:\n    subject: analysis\n    prompt: x\n  w:\n    subject: card\n    prompt: x\n",
 			[]string{"work-requests", "subject-analysis", "subject-review"}},
 	} {
@@ -425,7 +431,7 @@ func checkLoupe(t *testing.T, s *Set) {
 	}
 }
 
-const contextFile = `
+const contextFile = claudeAccount + claudeDefaults + `
 projects:
   loupe:
     dir: {dir}
@@ -532,7 +538,7 @@ func TestMatchWorkRunsTheAppPromptOfAnUnmappedKind(t *testing.T) {
 		"an unknown placeholder":           {"appPrompts: true\n" + workFile, withPrompt("review", "Review {cardNumber} on {branch}."), NoRule, ""},
 	} {
 		t.Run(name, func(t *testing.T) {
-			text, dir := file(t, "defaults:\n  model: opus\n"+tc.body)
+			text, dir := file(t, strings.Replace(tc.body, "harness: claude-code\n", "harness: claude-code\n    model: opus\n", 1))
 			s, err := Parse([]byte(text), Defaults{PermissionMode: "acceptEdits", Model: "sonnet"})
 			if err != nil {
 				t.Fatal(err)
@@ -579,6 +585,42 @@ func TestMatchKindContinuesTheRunOfAnAppPrompt(t *testing.T) {
 		t.Fatalf("match = %+v", m)
 	}
 	if m := checked(t, workFile).MatchKind(workRequest("review")); m.Skip != NoRule {
+		t.Fatalf("no opt-in: match = %+v", m)
+	}
+}
+
+// An app prompt run takes the model and effort of the request over the
+// account model, and an entry of the kind still wins.
+func TestMatchKindAppPromptTakesRequestModelAndEffort(t *testing.T) {
+	s := checked(t, "appPrompts: true\n"+strings.Replace(workFile, claudeAccount, claudeAccount+"    model: opus\n", 1))
+	w := workRequest("review")
+	w.Prompt = "Review."
+	w.Model, w.Effort = "haiku", "high"
+	if m := s.MatchWork(w); m.Skip != Run || m.Model != "haiku" || m.Effort != "high" {
+		t.Fatalf("request values: match = %+v", m)
+	}
+	w.Model, w.Effort = "", ""
+	if m := s.MatchWork(w); m.Skip != Run || m.Model != "opus" || m.Effort != "" {
+		t.Fatalf("defaults: match = %+v", m)
+	}
+	w = workRequest("implement")
+	w.Prompt = "Ignore."
+	w.Effort = "high"
+	if m := s.MatchWork(w); m.Rule != "work:implement" || m.Prompt == "Ignore." {
+		t.Fatalf("entry: match = %+v", m)
+	}
+}
+
+// With appPrompts, an entry of the kind about another subject type leaves the
+// request to its app prompt.
+func TestAppPromptRunsWhenTheEntryNamesAnotherSubject(t *testing.T) {
+	w := workRequest("review")
+	w.SubjectType, w.CardNumber = "analysis", 0
+	w.Prompt = "Analyse {subjectId}."
+	if m := checked(t, "appPrompts: true\n"+workFile).MatchWork(w); m.Skip != Run || !strings.Contains(m.Prompt, "Analyse "+w.SubjectID+".") {
+		t.Fatalf("app prompt: match = %+v", m)
+	}
+	if m := checked(t, workFile).MatchWork(w); m.Skip != NoRule {
 		t.Fatalf("no opt-in: match = %+v", m)
 	}
 }

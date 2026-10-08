@@ -17,6 +17,11 @@ import (
 // launchRules opens a session for plan work, and runs a worker for review
 // work. {launcher} is the launch command.
 const launchRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -115,7 +120,7 @@ func TestAnInteractiveMatchLaunchesASession(t *testing.T) {
 		t.Fatalf("scripts = %v", got)
 	}
 	body, _ := os.ReadFile(filepath.Join(h.router.scriptDir, testSession+".sh"))
-	want := "#!/bin/sh\nrm -f -- \"$0\"\ncd -- '" + h.dir + "' || exit 1\nexec '/usr/local/bin/claude' --session-id '" + testSession + "' --model 'opus' -- 'Design card 87.'\n"
+	want := "#!/bin/sh\nrm -f -- \"$0\"\nexport LOUPE_SESSION_ID='" + testSession + "'\ncd -- '" + h.dir + "' || exit 1\nexec '/usr/local/bin/claude' --session-id '" + testSession + "' --model 'opus' -- 'Design card 87.'\n"
 	if string(body) != want {
 		t.Fatalf("script = %q, want %q", body, want)
 	}
@@ -323,5 +328,31 @@ func TestALaunchReportToAnOldServerCountsAsDelivered(t *testing.T) {
 	reports, _ = newTestRunReports(client)
 	if _, err := reports.launch(testProject, testSession, report).Send(context.Background()); err == nil {
 		t.Fatal("a failed send was delivered")
+	}
+}
+
+// A launch on a codex account runs the Codex program, not the path of Claude
+// Code, and records the launch so the session is found later.
+func TestAnInteractiveMatchOnACodexAccountLaunchesCodex(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	body := strings.Replace(launchRules, "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude",
+		"accounts:\n  cdx:\n    harness: codex\n    codexHome: "+t.TempDir()+"\ndefaults:\n  account: cdx", 1)
+	body = strings.Replace(body, "    model: opus\n", "    model: gpt-5\n", 1)
+	h, rec := launchHarnessWith(t, body, `[sh, -c, 'exit 0', sh, '{script}']`)
+
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+
+	if sent := rec.launches(); len(sent) != 1 || sent[0].report.State != api.RunRunning || sent[0].report.Harness != "codex" {
+		t.Fatalf("launches = %+v", sent)
+	}
+	script, _ := os.ReadFile(filepath.Join(h.router.scriptDir, testSession+".sh"))
+	if !strings.Contains(string(script), "exec '"+filepath.Join(bin, "codex")+"' -m 'gpt-5'") || !strings.Contains(string(script), "export LOUPE_SESSION_ID='"+testSession+"'") {
+		t.Fatalf("script = %q", script)
 	}
 }

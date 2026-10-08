@@ -281,14 +281,17 @@ func TestCollectFalseStopsTheHostSampler(t *testing.T) {
 	}
 
 	h := &harness{router: sh.r, dir: t.TempDir()}
-	if res := h.reload(t, defaultRules); !res.OK {
+	reload := func(body string) reloadResult {
+		return h.router.reload(context.Background(), withFlags(h.source(body), samplingFlags(true, 30).Flags))
+	}
+	if res := reload(defaultRules); !res.OK {
 		t.Fatalf("reload = %+v", res)
 	}
 	if sh.running() == nil {
 		t.Fatal("the sampler does not run after collect went back on")
 	}
 	sh.hh.h.addHostSample(hostSampleAt(1))
-	if res := h.reload(t, "collect: false\n"+defaultRules); !res.OK {
+	if res := reload("collect: false\n" + defaultRules); !res.OK {
 		t.Fatalf("reload = %+v", res)
 	}
 	if sh.running() != nil {

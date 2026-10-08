@@ -175,6 +175,46 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         $this->assertCardStays($project, $link);
     }
 
+    public function test_a_card_created_with_the_type_the_project_default_has_since_left_goes_with_its_note(): void
+    {
+        $project = $this->project('delete-feedback-default-changed');
+        $link = $this->addNote($project);
+        $this->recordTypes($link, created: 'bug', now: 'bug');
+
+        self::assertTrue(($this->handler)($this->command($project, $link)));
+
+        self::assertSame(0, $this->rows('board_cards', $project));
+    }
+
+    public function test_a_card_retyped_away_from_its_recorded_type_stays_even_when_that_is_the_default(): void
+    {
+        $project = $this->project('delete-feedback-retyped-recorded');
+        $link = $this->addNote($project);
+        $this->recordTypes($link, created: 'bug', now: 'feature');
+
+        $this->assertCardStays($project, $link);
+    }
+
+    public function test_a_card_with_no_recorded_type_is_compared_with_the_default(): void
+    {
+        $project = $this->project('delete-feedback-no-recorded-type');
+        $link = $this->addNote($project);
+        $this->recordTypes($link, created: null, now: 'bug');
+
+        $this->assertCardStays($project, $link);
+    }
+
+    public function test_a_card_with_no_recorded_type_and_the_default_type_goes(): void
+    {
+        $project = $this->project('delete-feedback-no-recorded-default');
+        $link = $this->addNote($project);
+        $this->recordTypes($link, created: null, now: $link->card->type);
+
+        self::assertTrue(($this->handler)($this->command($project, $link)));
+
+        self::assertSame(0, $this->rows('board_cards', $project));
+    }
+
     public function test_a_created_card_someone_wrote_a_body_for_stays(): void
     {
         $project = $this->project('delete-feedback-body');
@@ -299,6 +339,17 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         }
 
         self::assertTrue($this->em->isOpen(), 'A refusal must not close the EntityManager.');
+    }
+
+    /** Rewrites the type the `created` row records, and the type the card holds now. */
+    private function recordTypes(CardSiteReviewComment $link, ?string $created, string $now): void
+    {
+        $connection = $this->em->getConnection();
+        $connection->executeStatement(
+            'UPDATE board_card_events SET detail = ?::jsonb WHERE card_id = ? AND kind = ?',
+            [json_encode(null === $created ? ['column' => []] : ['column' => [], 'type' => $created], \JSON_THROW_ON_ERROR), (string) $link->card->id, 'created'],
+        );
+        $connection->executeStatement('UPDATE board_cards SET type = ? WHERE id = ?', [$now, (string) $link->card->id]);
     }
 
     private function assertCardStays(Project $project, CardSiteReviewComment $link, int $cards = 1): void

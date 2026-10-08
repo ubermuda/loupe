@@ -143,6 +143,39 @@ final class ListWorkerRunsHandlerTest extends KernelTestCase
         self::assertSame([(string) $kept->id], $this->ids($view));
     }
 
+    public function test_the_harness_account_and_model_filters_keep_the_matching_runs(): void
+    {
+        [$project, $handler] = $this->filterScenario('harness');
+        $em = $this->em();
+        $codex = $this->seedRun($em, $project, harness: 'codex', account: 'work', model: 'gpt-5');
+        $claude = $this->seedRun($em, $project, harness: 'claude-code', account: 'home', model: 'opus');
+        $this->seedRun($em, $project);
+
+        self::assertSame([(string) $codex->id], $this->ids($handler(new ListWorkerRunsCommand($project, new WorkerRunListQuery(harness: 'codex')))));
+        self::assertSame([(string) $claude->id], $this->ids($handler(new ListWorkerRunsCommand($project, new WorkerRunListQuery(account: 'home')))));
+        self::assertSame([(string) $codex->id], $this->ids($handler(new ListWorkerRunsCommand($project, new WorkerRunListQuery(model: 'gpt-5')))));
+        self::assertSame([], $this->ids($handler(new ListWorkerRunsCommand($project, new WorkerRunListQuery(harness: 'codex', account: 'home')))));
+    }
+
+    /** The page filters offer the values the project's runs hold, sorted, with no null and no other project's value. */
+    public function test_the_view_lists_the_distinct_harnesses_accounts_and_models(): void
+    {
+        [$project, $handler] = $this->filterScenario('harness-values');
+        $em = $this->em();
+        $this->seedRun($em, $project, harness: 'codex', account: 'work', model: 'gpt-5');
+        $this->seedRun($em, $project, harness: 'codex', account: 'home');
+        $this->seedRun($em, $project, harness: 'claude-code', model: 'opus');
+        $this->seedRun($em, $project);
+        $other = $this->project($em, $project->owner, 'Other harness values');
+        $this->seedRun($em, $other, harness: 'elsewhere', account: 'elsewhere', model: 'elsewhere');
+
+        $view = $handler(new ListWorkerRunsCommand($project, new WorkerRunListQuery()));
+
+        self::assertSame(['claude-code', 'codex'], $view->harnesses);
+        self::assertSame(['home', 'work'], $view->accounts);
+        self::assertSame(['gpt-5', 'opus'], $view->models);
+    }
+
     /** Both bounds are inclusive, and a run with no end counts at the time its first report arrived. */
     public function test_the_time_window_reads_the_end_or_else_the_first_report(): void
     {

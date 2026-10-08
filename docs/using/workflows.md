@@ -101,6 +101,14 @@ the request expire after the work timeout, and the card then pauses with "no
 bridge took the work". [The development
 lifecycle](../contributing/lifecycle.md) shows a `repair` entry.
 
+A resumed run ends the pause of its card. When a person resumes a run, or a
+closed [inbox](inbox.md) ask resumes it, the workflow releases the pause as soon
+as the resumed run reports to Loupe. This holds for every pause a person can
+release, and not for a pause that a rule sets with its own release condition.
+The card then asks for no second worker. A resumed run that fails earns the
+retries of a fresh budget, and a resumed run that ends as blocked pauses the
+card again at once.
+
 The template sets this behaviour in its `onWorkFailed` block:
 
 ```yaml
@@ -229,6 +237,8 @@ child and the epic, and it has three options:
    at once if it has no open blocker. If the design is back in review, the
    child waits until the epic design is approved again. When the epic has no
    tech design, nothing is linked and the card history records the refusal.
+   The implementation worker then builds the card body against the epic
+   design. The plan covers only the work that the card body describes.
 2. **Move the card to Tech design.** The child gets a tech design of its own.
 3. **Detach the card.** The card stops being a child of the epic.
 

@@ -70,7 +70,7 @@ go:
 |---|---|
 | A new card for each note | Creates a new card for the note. |
 | One card for this review | Adds the note to one card. Pick an open card, or create one. |
-| A card for each note, under an epic | Creates a new card for the note, as a child of one epic. Pick an open epic, or create one. |
+| A card for each note, under an epic | Creates a new card for the note, as a child of one epic. Pick an open epic, or create one. The widget shows this choice only when the workflow template has a card type with the children capability. |
 
 The widget keeps the choice in the browser's local storage, for this instance
 and this project. It holds for every later note, and after a reload, until you
@@ -79,8 +79,10 @@ again.
 
 The second and third choices open a card picker. Search the open cards, or
 type a title and create a card. The title starts as `Review: ` and the page
-path, and you can edit it. The third choice lists epics only, and it creates an
-epic.
+path, and you can edit it. The third choice lists the open cards of every type that has the children
+capability, and it creates a card of one of those types. When the template has
+two or more such types, a type selector shows beside the Create button. The
+first type of the template is chosen at first.
 
 A card that the widget creates has these values:
 

@@ -119,7 +119,7 @@ func offerServer(cmd *cobra.Command, dir string, write, skip, useFile bool) erro
 	// the count: `claude mcp` reports success for a call that changed nothing,
 	// so a loop that trusts it must still end.
 	for range 3 {
-		got, err := claudecode.Effective(dir, mcpjson.ServerKey)
+		got, err := claudecode.Effective(dir, mcpjson.ServerKey, "")
 		if err != nil {
 			// Claude Code owns its configuration. Failing to read it says
 			// nothing about whether loupe init did its job, so it is a note.
@@ -221,7 +221,7 @@ func writeRepositoryFile(cmd *cobra.Command, dir string, write bool) error {
 	// agent gates it behind an approval the first time rather than on trust.
 	fmt.Fprintf(out, "Wrote %s. Restart your agent, which asks you to approve the server once.\n", mcpjson.Name)
 
-	higher, err := claudecode.Effective(dir, mcpjson.ServerKey)
+	higher, err := claudecode.Effective(dir, mcpjson.ServerKey, "")
 	if err == nil && higher.Declared() && claudecode.ScopeProject != higher.Scope {
 		fmt.Fprintf(out, "Claude Code starts %q from %s instead, so the file has no effect yet.\n", mcpjson.ServerKey, higher.Where())
 		fmt.Fprintf(out, "Run `%s` to let the file win.\n", claudecode.RemoveCommand(mcpjson.ServerKey, higher.Scope))

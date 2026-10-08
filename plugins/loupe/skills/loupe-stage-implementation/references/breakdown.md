@@ -74,10 +74,13 @@ A design with no Breakdown section gives the epic no entries. The run then creat
 
 ## Build a child
 
-A Breakdown child has the entry line in its body. A standalone child has none, for example a card that a person moved under an epic by hand. The epic still groups it on the board. To find the design of the epic, call `card_get` on `parent.cardId` and read its linked tech design. A standalone child skips a linked document with that id.
+A Breakdown child has the entry line in its body. A standalone child has none, for example a card that a person moved under an epic by hand, or a card that the owner answered with "Link the tech design of the epic". The epic still groups it on the board. To find the design of the epic, call `card_get` on `parent.cardId` and read its linked tech design.
 
 1. A Breakdown child uses the tech design of its epic. The breakdown links that design to the child, whether it created the child or matched it, and a Breakdown child skips product design and tech design.
 2. The entry line of the body names the entry. Find the entry with that ID in the Breakdown section of the design.
 3. When the design has no entry with that ID, stop with `STAGE RESULT: blocked: no breakdown item`.
 4. The plan, the code and the pull request cover only the design sections that the entry covers. Another child builds the rest.
-5. A standalone child needs a tech design of its own, as any other card. It builds that design, and never the design of its epic.
+5. A standalone child that links a tech design of its own builds that design, as any other card. It never builds the design of its epic.
+6. A standalone child that links only the approved tech design of its epic is an epic-design child. The card body is the requirement. The design of the epic is the frame: the plan follows its architecture and its decided items, and references it. The plan covers only the work that the card body describes. Another child builds the rest.
+7. When the card body asks for something that the design of the epic contradicts, stop with `STAGE RESULT: blocked: card body conflicts with the epic design`. Name the conflict in the sentences after it.
+8. A standalone child that links no approved tech design stops with `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.

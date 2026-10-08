@@ -135,6 +135,8 @@ including ones you create later. The approval page says so before you allow it.
 
 `loupe status` checks the setup. Run it in the repository. It calls
 `project_current` through the MCP server and prints the name of the project.
+When a rule file exists, it also checks each account of the file, as
+[Account checks](../extending/cli-bridge.md#account-checks) says.
 
 ## Connecting by URL
 
@@ -306,7 +308,7 @@ Roughly in the order an agent uses them:
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
 | `inbox_settings_update` | Turn the inbox wait switches on or off (off with the inbox) |
-| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended. Each row gives the reason the run ended, its usage per model, its model, its experiment and variant, and its metrics. The metrics hold the sums of the run and its timing: the tool time, the model time, the idle gaps, the subagent time, and the count, failures and longest duration of its tool calls. They also hold the host of the run: the mean CPU use, the peak memory and swap, the count of runs that overlapped it on its bridge, and whether its machine ran on battery |
+| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, harness, account, model, words or the time a run ended. Each row gives the reason the run ended, its harness and account, its usage per model, its model, its experiment and variant, and its metrics. The metrics hold the sums of the run and its timing: the tool time, the model time, the idle gaps, the subagent time, and the count, failures and longest duration of its tool calls. They also hold the host of the run: the mean CPU use, the peak memory and swap, the count of runs that overlapped it on its bridge, and whether its machine ran on battery |
 | `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output, its metrics and the commands sent to its bridge |
 | `worker_run_tool_calls` | Read a page of the tool calls of one worker run, in the order the worker made them. Each call gives its tool, its start, its duration, its error flag, whether a subagent made it, and its signatures. `perPage` defaults to 20, with a maximum of 100 |
 | `bridge_host_samples` | Read a page of the host samples of the bridge that ran one worker run, oldest first, from the start of the run to its end, or to now while the run is open. Each sample gives its time, the use of each core, the memory and swap in use, the total memory, the battery charge and the power source. The samples cover the whole machine, so they cover every run on that bridge at that time. `perPage` defaults to 100, with a maximum of 500 |
@@ -317,7 +319,7 @@ Roughly in the order an agent uses them:
 | `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
 | `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, the programs with subcommands, and whether the bridge sends the full text of each tool call |
 | `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort, or an empty list of programs, clears the project value, so the instance default applies |
-| `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools and their open runs |
+| `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools, their account checks and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
 | `card_hold` | Make a card unmanaged, by `cardId` or `number`. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until `card_release`. A live run goes on |
@@ -582,8 +584,9 @@ that calls one anyway gets a plain refusal.
 
 An item is one question, review request, or to-do for the project owner. An ask is the set of
 items that one agent session hands over at once. `inbox_ask` and `inbox_join`
-take a required `sessionId`, which a Claude Code session reads from
-`$CLAUDE_CODE_SESSION_ID`. One session holds at most one open ask, so a second
+take a required `sessionId`. A session reads it from the first set variable of
+`$LOUPE_SESSION_ID`, `$CLAUDE_CODE_SESSION_ID` and `$CODEX_THREAD_ID`. The
+bridge sets `$LOUPE_SESSION_ID` for each session it starts. One session holds at most one open ask, so a second
 `inbox_ask` from the same session adds its items to that ask. A question blocks
 by default; a to-do or review requires `blocking: true` to block. An ask with no blocking item closes at once,
 and its items stay open in the inbox.

@@ -47,6 +47,10 @@ final class BridgeCommandPayload
             'context' => $command->context->toArray(),
             'model' => $command->model,
             'effort' => $command->effort,
+            // What the run started on, so a resume runs on the same account.
+            'harness' => $run->harness,
+            'account' => $run->account,
+            'runModel' => $run->model,
         ];
     }
 }

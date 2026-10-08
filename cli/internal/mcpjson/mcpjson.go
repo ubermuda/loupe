@@ -28,8 +28,9 @@ const maxSize = 1 << 20
 // Entry is one server declaration. Only the fields this command writes are
 // named, and any other key in the file travels as raw JSON.
 type Entry struct {
-	Command string   `json:"command"`
-	Args    []string `json:"args"`
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env,omitempty"`
 }
 
 // Desired is the entry `loupe mcp` needs.

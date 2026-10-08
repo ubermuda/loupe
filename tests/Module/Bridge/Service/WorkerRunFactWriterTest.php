@@ -8,6 +8,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunFactWriter;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class WorkerRunFactWriterTest extends KernelTestCase
 {
@@ -54,6 +55,33 @@ final class WorkerRunFactWriterTest extends KernelTestCase
             [(string) $known->id => 3_000_000_000, (string) $unknown->id => null],
             $connection->fetchAllKeyValue('SELECT run_id, peak_context_tokens FROM bridge_worker_run_facts'),
         );
+    }
+
+    public function test_it_copies_the_harness_and_the_account_of_the_run_and_updates_them(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'facts-writer-harness@example.com'), 'Facts Writer Harness');
+        $codex = $this->seedRun($em, $project, harness: 'codex', account: 'work');
+        $unknown = $this->seedRun($em, $project, cardNumber: 2);
+        $connection = $em->getConnection();
+        $connection->executeStatement('DELETE FROM bridge_worker_run_facts');
+        $ids = [
+            $codex->id ?? throw new \LogicException('The run has no id.'),
+            $unknown->id ?? throw new \LogicException('The run has no id.'),
+        ];
+
+        $this->writer()->upsert($ids);
+
+        self::assertSame(
+            [(string) $codex->id => ['codex', 'work'], (string) $unknown->id => [null, null]],
+            $this->harnessesOf($ids),
+        );
+
+        $connection->executeStatement("UPDATE bridge_worker_runs SET harness = 'claude-code', account = 'personal' WHERE id = ?", [(string) $unknown->id]);
+        $this->writer()->upsert($ids);
+
+        self::assertSame(['claude-code', 'personal'], $this->harnessesOf($ids)[(string) $unknown->id]);
     }
 
     public function test_it_reads_the_host_samples_inside_the_run_window(): void
@@ -169,7 +197,7 @@ final class WorkerRunFactWriterTest extends KernelTestCase
         ], $this->hostColumns());
     }
 
-    private static function id(WorkerRun $run): \Symfony\Component\Uid\Uuid
+    private static function id(WorkerRun $run): Uuid
     {
         return $run->id ?? throw new \LogicException('The run has no id.');
     }
@@ -189,6 +217,23 @@ final class WorkerRunFactWriterTest extends KernelTestCase
         }
 
         return $columns;
+    }
+
+    /**
+     * @param list<Uuid> $ids
+     *
+     * @return array<string, array{?string, ?string}>
+     */
+    private function harnessesOf(array $ids): array
+    {
+        $harnesses = [];
+        foreach ($ids as $id) {
+            $row = $this->em()->getConnection()->fetchAssociative('SELECT harness, account FROM bridge_worker_run_facts WHERE run_id = ?', [(string) $id]);
+            self::assertIsArray($row);
+            $harnesses[(string) $id] = [$row['harness'], $row['account']];
+        }
+
+        return $harnesses;
     }
 
     private function writer(): WorkerRunFactWriter

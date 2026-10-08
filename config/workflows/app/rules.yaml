@@ -13,3 +13,12 @@ rules:
               checks:
                   - The Loupe plugin skills are installed for the agent, with the loupe-discovery skill
                   - The bridge rule file maps the discovery kind, or sets appPrompts to true
+
+# Work the app asks a bridge for outside the engine. Each entry ships a prompt.
+requests:
+    - id: insights.analysis
+      kind: analysis
+      prompt: analysis
+      checks:
+          - The Loupe plugin skills are installed for the agent, with the loupe-analysis skill
+          - The bridge rule file maps the analysis kind, or sets appPrompts to true

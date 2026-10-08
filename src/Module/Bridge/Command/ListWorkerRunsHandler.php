@@ -77,6 +77,9 @@ final readonly class ListWorkerRunsHandler
             page: $page,
             perPage: $perPage,
             bridgeLabels: $this->bridgeLabels->forOwner($command->project->owner, $bridgeIds),
+            harnesses: $this->workerRuns->distinctValuesOf($command->project, 'harness'),
+            accounts: $this->workerRuns->distinctValuesOf($command->project, 'account'),
+            models: $this->workerRuns->distinctValuesOf($command->project, 'model'),
         );
     }
 }

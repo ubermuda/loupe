@@ -22,7 +22,7 @@ again when you change a control. Without JavaScript, press **Apply**.
 | Metric | one metric from [the list below](#the-metrics) | **Cost** |
 | Unit | **Per run** or **Per finished card** | **Per finished card** |
 | Statistic | **Median**, **Mean**, **Sum**, **90th percentile** or **Count** | **Median** |
-| Group | **By stage**, **By model**, **By variant**, **By card type**, **By bridge** or **No grouping** | **No grouping** |
+| Group | **By stage**, **By model**, **By variant**, **By card type**, **By bridge**, **By harness**, **By account** or **No grouping** | **No grouping** |
 | Range | **30 days**, **90 days** or **All time** | **90 days** |
 | Bucket | **Per day**, **Per week** or **Per month** | **Per week** |
 
@@ -46,7 +46,7 @@ value of a card is the sum over its runs. A run that started and has no value
 makes the value of its card unknown. A command run has no agent, so its missing
 cost and tokens count as none.
 
-With **By stage**, **By model**, **By variant** or **By bridge**, a card gives
+With **By stage**, **By model**, **By variant**, **By bridge**, **By harness** or **By account**, a card gives
 one row for each group that its runs used. A card whose runs used two variants
 gives two rows. Each row of a card outcome metric carries the whole outcome of
 the card. Thus the card counts once for each variant.
@@ -101,6 +101,8 @@ A group splits the rows into one series for each value:
 | **By variant** | variant of an experiment |
 | **By card type** | type of card |
 | **By bridge** | bridge, by its name. A bridge with no name shows the end of its id |
+| **By harness** | harness that ran the run, such as `claude-code` or `codex` |
+| **By account** | named harness account of the bridge, such as `claude` |
 | **No grouping** | one series for all the rows |
 
 The rows with no value for the group form the series **No group**, which comes
@@ -170,7 +172,8 @@ The agent reads the worker runs, writes a report document, and proposes
 changes. Go to `/projects/{project}/analytics/reports`. Only the project owner
 can open it.
 
-An analysis needs a bridge with a work entry for the `analysis` subject.
+An analysis needs a bridge that sets `appPrompts: true` or has a work entry
+for the `analysis` subject.
 [Work requests](../extending/cli-bridge.md#work-requests) shows the entry. The
 `loupe-analysis` skill of the Loupe plugin does the work. For the **Experiment**
 topic, the agent reads the comparison, looks for causes other than the variant,
@@ -189,8 +192,10 @@ Fill the **Analyse** form, and press **Analyse**.
 | Effort | **Low**, **Medium**, **High**, **Extra high** or **Maximum** |
 
 An empty model or effort takes the project default. The analysis opens a work
-request, and a bridge that reports the `subject-analysis` capability claims it.
-The request model and effort replace the model of the work entry.
+request. A bridge that reports the `subject-analysis` capability claims it.
+So does a bridge that reports `app-prompts`, because the request carries the
+prompt that Loupe ships. The request model and effort replace the model of the
+work entry or the default model.
 
 A **Time** analysis reads the bucket times of the runs, the slowest tool calls
 and the idle gaps. It names repeated steps and polling loops, and it sets apart

@@ -120,7 +120,7 @@ func TestTheFlagsOfTheFirstEventsCallReachTheFirstWorker(t *testing.T) {
 	t.Cleanup(server.Close)
 	cfg := testLogin(server.URL)
 
-	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n  plan:\n    prompt: go\n"
+	body := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n  plan:\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
 	if err != nil {
 		t.Fatal(err)

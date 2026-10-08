@@ -94,6 +94,10 @@ final readonly class RecordBridgeHeartbeatHandler
                 $bridge->workerPools = $command->workerPools;
                 $bridge->workerPoolsReportedAt = $now;
             }
+            if (null !== $command->accounts) {
+                $bridge->accounts = $command->accounts;
+                $bridge->accountsReportedAt = $now;
+            }
             $pauseChanged = null !== $command->paused && $bridge->pausedReported !== $command->paused;
             if (null !== $command->paused) {
                 $bridge->pausedReported = $command->paused;

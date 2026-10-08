@@ -41,6 +41,29 @@ final class WorkerRunListQueryTest extends TestCase
         self::assertSame(['page' => 1], $query->routeParams());
     }
 
+    public function test_the_harness_account_and_model_words_are_page_filters(): void
+    {
+        $query = WorkerRunListQuery::fromQuery(Request::create('/?harness=%20codex%20&account=work&model=gpt-5')->query);
+
+        self::assertSame('codex', $query->harness);
+        self::assertSame('work', $query->account);
+        self::assertSame('gpt-5', $query->model);
+        self::assertTrue($query->isNarrowed());
+        self::assertSame(['page' => 1, 'harness' => 'codex', 'account' => 'work', 'model' => 'gpt-5'], $query->routeParams());
+        self::assertSame(['page' => 3, 'harness' => 'codex', 'account' => 'work', 'model' => 'gpt-5'], $query->withPage(3)->routeParams());
+    }
+
+    public function test_an_empty_harness_account_or_model_word_is_no_filter(): void
+    {
+        $query = WorkerRunListQuery::fromQuery(Request::create('/?harness=&account=%20&model=')->query);
+
+        self::assertNull($query->harness);
+        self::assertNull($query->account);
+        self::assertNull($query->model);
+        self::assertFalse($query->isNarrowed());
+        self::assertSame(['page' => 1], $query->routeParams());
+    }
+
     /** @return iterable<string, array{WorkerRunListQuery}> */
     public static function agentFilters(): iterable
     {

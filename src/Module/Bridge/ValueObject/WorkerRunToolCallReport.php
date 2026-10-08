@@ -11,6 +11,7 @@ final readonly class WorkerRunToolCallReport
     public function __construct(
         public int $seq,
         public string $tool,
+        public ?WorkerRunToolCallKind $kind,
         public \DateTimeImmutable $startedAt,
         public ?int $durationMs,
         public ?bool $isError,
@@ -27,6 +28,7 @@ final readonly class WorkerRunToolCallReport
         return new self(
             $this->seq,
             $this->tool,
+            $this->kind,
             $this->startedAt,
             $this->durationMs,
             $this->isError,

@@ -251,7 +251,7 @@ final readonly class BoardSubjectResolver
         try {
             return Uuid::fromString($sessionId);
         } catch (\InvalidArgumentException $e) {
-            throw new ToolCallException(\sprintf('"%s" is not a valid sessionId. Pass the value of $CLAUDE_CODE_SESSION_ID.', $sessionId), previous: $e);
+            throw new ToolCallException(\sprintf('"%s" is not a valid sessionId. Pass the first set value of $LOUPE_SESSION_ID, $CLAUDE_CODE_SESSION_ID and $CODEX_THREAD_ID.', $sessionId), previous: $e);
         }
     }
 

@@ -30,6 +30,9 @@ final class BridgeExporterTest extends TestCase
         $pool = ['name' => 'default', 'size' => 3, 'inUse' => 1, 'queued' => 0];
         $bridge->workerPools = [$pool];
         $bridge->workerPoolsReportedAt = new \DateTimeImmutable('2026-09-14T15:59:00+00:00');
+        $account = ['name' => 'work', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'not logged in'];
+        $bridge->accounts = [$account];
+        $bridge->accountsReportedAt = new \DateTimeImmutable('2026-09-14T15:58:00+00:00');
         $bridge->pauseRequested = true;
         $bridge->pauseRequestedAt = new \DateTimeImmutable('2026-09-14T15:30:00+00:00');
         $bridge->pauseRequestedBy = $owner;
@@ -52,6 +55,8 @@ final class BridgeExporterTest extends TestCase
             'hooks' => [$hook],
             'workerPools' => [$pool],
             'workerPoolsReportedAt' => '2026-09-14T15:59:00+00:00',
+            'accounts' => [$account],
+            'accountsReportedAt' => '2026-09-14T15:58:00+00:00',
             'pauseRequested' => true,
             'pauseRequestedAt' => '2026-09-14T15:30:00+00:00',
             'pausedReported' => false,

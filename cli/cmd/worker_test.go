@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -8,47 +10,24 @@ import (
 	"testing"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
-	"github.com/ubermuda/loupe/cli/internal/stream"
+	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
 const (
-	ceilingVar = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="
+	ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
+	ceilingVar = ceilingEnv + "="
 	sessionVar = "LOUPE_SESSION_ID="
 )
 
-// claude -p ends a worker at its background wait ceiling and exits 0. The
-// bridge lifts the ceiling unless the operator set it.
-func TestWorkerEnvLiftsTheWaitCeiling(t *testing.T) {
-	base := make([]string, 1, 3)
-	base[0] = "HOME=/home/a"
-
-	got := workerEnv(base, "s1", nil)
-	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0", sessionVar + "s1"}) {
-		t.Fatalf("workerEnv = %q", got)
-	}
-	if extended := base[:3]; extended[1] != "" || extended[2] != "" {
-		t.Fatalf("workerEnv wrote into the caller's array: %q", extended)
-	}
-}
-
-func TestWorkerEnvKeepsTheOperatorsCeiling(t *testing.T) {
-	for _, set := range []string{ceilingVar + "5000", ceilingVar + "0", ceilingVar} {
-		base := []string{"HOME=/home/a", set}
-		want := []string{"HOME=/home/a", set, sessionVar + "s1"}
-		if got := workerEnv(base, "s1", nil); !slices.Equal(got, want) {
-			t.Fatalf("workerEnv(%q) = %q", base, got)
-		}
-	}
-}
-
 // The bridge names the session of each worker, so the server can name the run
-// that moves a card. An inherited value names another session.
+// that moves a card. An inherited value names another session. The harness
+// then adds what it needs.
 func TestWorkerEnvReplacesAnInheritedSession(t *testing.T) {
 	base := []string{sessionVar + "outer", "HOME=/home/a", sessionVar + "again"}
 
-	got := workerEnv(base, "s1", nil)
-	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0", sessionVar + "s1"}) {
+	got := workerSpec{sessionID: "s1"}.harnessCommand(workerEnv(base, "s1", nil)).Env
+	if !slices.Equal(got, []string{"HOME=/home/a", sessionVar + "s1", ceilingVar + "0"}) {
 		t.Fatalf("workerEnv = %q", got)
 	}
 	if !slices.Equal(base, []string{sessionVar + "outer", "HOME=/home/a", sessionVar + "again"}) {
@@ -69,7 +48,7 @@ func TestWorkerEnvPushesAsTheAgentAccount(t *testing.T) {
 
 	got := workerEnv(base, "s1", account)
 	want := []string{
-		"HOME=/home/a", ceilingVar + "0", sessionVar + "s1",
+		"HOME=/home/a", sessionVar + "s1",
 		"GH_TOKEN=ghp_agent",
 		"GIT_AUTHOR_NAME=loupe-bot", "GIT_COMMITTER_NAME=loupe-bot",
 		"GIT_AUTHOR_EMAIL=4242+loupe-bot@users.noreply.github.com",
@@ -231,11 +210,11 @@ func TestDecodeWorkerOutput(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			out, err := stream.Read(strings.NewReader(tc.stdout))
-			if err != nil {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "stdout"), []byte(tc.stdout), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			got := decodeWorkerOutput(out.Result, []byte(tc.stdout), tc.overflow, tc.stderr)
+			got := decodeWorkerOutput(defaultHarness().ReadRun(dir, harn.RunInfo{}), []byte(tc.stdout), tc.overflow, tc.stderr)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("decodeWorkerOutput = %+v, want %+v", got, tc.want)
 			}
@@ -275,27 +254,6 @@ func TestCapWriterAcceptsWritesPastTheCap(t *testing.T) {
 	}
 }
 
-// A rule's permission mode and model reach claude as flags, and an empty value
-// passes none. The session id always follows -p, and the prompt is always the
-// last argument.
-func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
-	for _, tc := range []struct {
-		spec workerSpec
-		want string
-	}{
-		{workerSpec{sessionID: testSession, prompt: "go"}, "--verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", prompt: "go"}, "--permission-mode plan --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, model: "opus", prompt: "go"}, "--model opus --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, schema: `{"type":"object"}`, prompt: "go"}, `--verbose --output-format stream-json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, effort: "xhigh", prompt: "go"}, "--effort xhigh --verbose --output-format stream-json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", model: "opus", effort: "low", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --effort low --verbose --output-format stream-json --json-schema {} -p --session-id " + testSession + " -- go"},
-	} {
-		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
-			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)
-		}
-	}
-}
-
 var v4UUID = regexp.MustCompile(`\A[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z`)
 
 // claude refuses a session id that is not a uuid, and two workers must never
@@ -314,22 +272,41 @@ func TestTheDefaultOpsGiveEachWorkerANewV4SessionID(t *testing.T) {
 	}
 }
 
-// claude reads `-p "- x"` as the unknown option "- x". After --, any prompt
-// text is the prompt.
-func TestAPromptThatLooksLikeAnOptionFollowsTheSeparator(t *testing.T) {
-	for _, prompt := range []string{"- x", "--version", "-p"} {
-		args := workerArgs(workerSpec{model: "opus", sessionID: testSession, prompt: prompt})
-		if len(args) < 2 || args[len(args)-2] != "--" || args[len(args)-1] != prompt {
-			t.Fatalf("workerArgs(%q) = %q, want the prompt right after --", prompt, args)
-		}
-	}
-}
-
 func TestCapWriterKeepsShortOutputWhole(t *testing.T) {
 	w := &capWriter{limit: maxOutput}
 	_, _ = w.Write([]byte("all done\n"))
 
 	if got := w.text(); got != "all done" {
 		t.Fatalf("text = %q", got)
+	}
+}
+
+// A run record of an older image names no harness, so it reads as Claude Code.
+func TestHarnessByName(t *testing.T) {
+	for _, name := range []string{"", "claude-code"} {
+		if h, err := harnessByName(name, "", ""); err != nil || h.Name() != "claude-code" {
+			t.Fatalf("harnessByName(%q) = %v, %v", name, h, err)
+		}
+	}
+	if _, err := harnessByName("other", "", ""); err == nil {
+		t.Fatal("an unknown harness resolved")
+	}
+	if got := recordHarness(runRecord{Harness: "other"}).Name(); got != "claude-code" {
+		t.Fatalf("recordHarness of an unknown name = %q", got)
+	}
+}
+
+// A stdout that does not read names its error in the output once, though the
+// capped read and the harness both fail on it.
+func TestAnOutcomeWithNoStdoutNamesTheReadErrorOnce(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "stderr"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	res := workerOutcome(dir, false, nil)
+
+	if n := strings.Count(res.output, "read worker output"); n != 1 || res.streamed {
+		t.Fatalf("output = %q, streamed = %v", res.output, res.streamed)
 	}
 }

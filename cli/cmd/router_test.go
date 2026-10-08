@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -167,6 +168,11 @@ func (boardColumns) Sites(context.Context) ([]api.Site, error) {
 
 // defaultRules runs a worker for each plan work request.
 const defaultRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -417,7 +423,7 @@ func TestAMatchingRuleRunsAWorker(t *testing.T) {
 func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	h := newHarnessWith(t, defaultRules+`
   review:
-    permissionMode: plan
+    permissions: read-only
     model: opus
     prompt: Review {cardId} in {project}, for {kind}.
 `, rules.Defaults{PermissionMode: "acceptEdits"})
@@ -436,9 +442,9 @@ func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	want := workerSpec{
 		dir: h.dir, permissionMode: "plan", model: "opus", schema: schema, sessionID: testSession,
 		prompt: "Review " + testCard + " in loupe, for review.\n\n" + directive.Footer,
-		runID:  calls[0].runID, rule: "work:review", key: testCard,
+		runID:  calls[0].runID, rule: "work:review", key: testCard, account: "claude", harnessName: "claude-code",
 	}
-	if calls[0] != want {
+	if !reflect.DeepEqual(calls[0], want) {
 		t.Fatalf("worker = %+v, want %+v", calls[0], want)
 	}
 	if got := str(t, h.only(t, "worker_started"), "rule"); got != "work:review" {
