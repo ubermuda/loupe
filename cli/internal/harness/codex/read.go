@@ -474,7 +474,7 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 	}
 	if treeErr == nil && sess.id != "" {
 		out.CallsRead = true
-		out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since)
+		out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since, runEnd(dir))
 	}
 	switch {
 	case treeErr == nil && t.skipped:
@@ -492,6 +492,19 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 	}
 
 	return out
+}
+
+// runEnd bounds the lines of the run in dir. Codex writes stdout until it
+// exits, so a later resume of the session adds nothing to an adopted run read
+// after it. The margin covers the last lines of the session file. It is zero
+// when stdout does not stat.
+func runEnd(dir string) time.Time {
+	info, err := os.Stat(filepath.Join(dir, "stdout"))
+	if err != nil {
+		return time.Time{}
+	}
+
+	return info.ModTime().Add(10 * time.Second)
 }
 
 // document is the JSON object in the final message, which a model can wrap in

@@ -488,3 +488,35 @@ func TestALineOfAnotherThreadAddsNoIdleTime(t *testing.T) {
 		t.Fatalf("timing = %+v", got.Timing)
 	}
 }
+
+// A run read after a later resume of its session counts nothing past its end.
+func TestARunCountsNothingAfterItsStdoutEnded(t *testing.T) {
+	const main = "aaaaaaaa-0000-0000-0000-000000000006"
+	home := t.TempDir()
+	writeSession(t, home, main,
+		metaLine(main),
+		call("2026-10-08T10:00:01.000Z", "function_call", "c1", "read_file", "arguments", `{}`),
+		output("2026-10-08T10:00:02.000Z", "function_call_output", "c1", "ok"),
+		call("2026-10-08T10:20:00.000Z", "function_call", "c2", "read_file", "arguments", `{}`),
+		output("2026-10-08T10:20:01.000Z", "function_call_output", "c2", "ok"),
+	)
+	h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+	if err := h.remember(runID, main); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	stdout := filepath.Join(dir, "stdout")
+	if err := os.WriteFile(stdout, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	end := at(t, "2026-10-08T10:00:03.000Z")
+	if err := os.Chtimes(stdout, end, end); err != nil {
+		t.Fatal(err)
+	}
+
+	got := h.ReadRun(dir, harness.RunInfo{SessionID: runID})
+
+	if len(got.Calls) != 1 || got.Timing.IdleGapMs == nil || *got.Timing.IdleGapMs != 0 {
+		t.Fatalf("calls = %+v, timing = %+v", got.Calls, got.Timing)
+	}
+}

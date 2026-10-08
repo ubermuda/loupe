@@ -296,19 +296,19 @@ type timed struct {
 	end  stream.End
 }
 
-// collect adds the calls of the thread from since on, then the calls of each
-// subagent they started.
-func (t *tree) collect(since time.Time, inSubagent bool, out []timed) []timed {
+// collect adds the calls of the thread from since on, and before until when
+// until is set, then the calls of each subagent they started.
+func (t *tree) collect(since, until time.Time, inSubagent bool, out []timed) []timed {
 	spawned := t.spawned()
 	for i, c := range t.calls {
-		if c.start.Before(since) {
+		if !within(c.start, since, until) {
 			continue
 		}
 		call := c.toCall(inSubagent)
 		out = append(out, timed{call: call, end: stream.End{Result: c.end}})
 		if child := spawned[i]; child != nil {
 			out[len(out)-1].end.Last = child.last()
-			out = child.collect(time.Time{}, true, out)
+			out = child.collect(time.Time{}, until, true, out)
 		}
 	}
 
@@ -369,10 +369,15 @@ func (c rawCall) isError() *bool {
 	return &failed
 }
 
+// within says at is at or after since, and before until when until is set.
+func within(at, since, until time.Time) bool {
+	return !at.Before(since) && (until.IsZero() || at.Before(until))
+}
+
 // metrics are the calls, the timing and the peak context of the run that
-// started at since.
-func (t *tree) metrics(since time.Time) ([]stream.Call, stream.Timing, *int64) {
-	items := t.collect(since, false, nil)
+// started at since and ended before until. A zero until sets no end.
+func (t *tree) metrics(since, until time.Time) ([]stream.Call, stream.Timing, *int64) {
+	items := t.collect(since, until, false, nil)
 	slices.SortStableFunc(items, func(a, b timed) int { return a.call.StartedAt.Compare(b.call.StartedAt) })
 	var calls []stream.Call
 	var ends []stream.End
@@ -383,7 +388,7 @@ func (t *tree) metrics(since time.Time) ([]stream.Call, stream.Timing, *int64) {
 
 	var clock stream.Clock
 	for _, at := range t.lines {
-		if !at.Before(since) {
+		if within(at, since, until) {
 			clock.Tick(at)
 		}
 	}
@@ -391,7 +396,7 @@ func (t *tree) metrics(since time.Time) ([]stream.Call, stream.Timing, *int64) {
 
 	var peak *int64
 	for _, c := range t.contexts {
-		if !c.at.Before(since) && (peak == nil || c.value > *peak) {
+		if within(c.at, since, until) && (peak == nil || c.value > *peak) {
 			peak = &c.value
 		}
 	}
