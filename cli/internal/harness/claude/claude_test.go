@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/harness"
+	"github.com/ubermuda/loupe/cli/internal/stream"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -154,7 +155,7 @@ func TestOutput(t *testing.T) {
 			if !tc.none {
 				result = []byte(tc.stdout)
 			}
-			if got := New("").Output(result); !reflect.DeepEqual(got, tc.want) {
+			if got := decode(result); !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("Output = %+v, want %+v", got, tc.want)
 			}
 		})
@@ -701,5 +702,30 @@ func TestCheckReadsThePathOfTheRepositoryEntry(t *testing.T) {
 
 	if got := New("").Check(context.Background(), spec); len(got) != 0 {
 		t.Fatalf("Check = %+v, want ready through the PATH of the repository entry", got)
+	}
+}
+
+// ReadRun reads the calls of stdout, and reads none and keeps the error when
+// stdout is missing.
+func TestReadRunReadsTheCallsOfStdout(t *testing.T) {
+	dir := t.TempDir()
+	stdout := `{"type":"assistant","timestamp":"2026-10-06T10:00:00.000Z","message":{"usage":{"input_tokens":1,"cache_read_input_tokens":2,"cache_creation_input_tokens":3},"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}]}}` + "\n" +
+		`{"type":"user","timestamp":"2026-10-06T10:00:02.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"x"}]}}` + "\n" +
+		`{"type":"result","result":"r"}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "stdout"), []byte(stdout), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got := New("").ReadRun(dir, harness.RunInfo{})
+	if !got.Decoded || got.Result != "r" || !got.CallsRead || got.ReadErr != nil || len(got.Calls) != 1 || got.Calls[0].Kind != stream.KindShell {
+		t.Fatalf("ReadRun = %+v", got)
+	}
+	if got.Timing.ToolTimeMs == nil || *got.Timing.ToolTimeMs != 2000 || got.PeakContextTokens == nil || *got.PeakContextTokens != 6 {
+		t.Fatalf("timing %+v, peak %v", got.Timing, got.PeakContextTokens)
+	}
+
+	got = New("").ReadRun(t.TempDir(), harness.RunInfo{})
+	if got.Decoded || got.CallsRead || got.Calls != nil || got.Timing.ToolTimeMs != nil || got.PeakContextTokens != nil || got.ReadErr == nil {
+		t.Fatalf("ReadRun of no stdout = %+v", got)
 	}
 }

@@ -1,6 +1,6 @@
 // Package harness is what the bridge needs from the coding agent that runs a
-// worker: how to start and resume one, how to read its output, and where its
-// sessions are.
+// worker: how to start and resume one, how to read a finished run, and where
+// its sessions are.
 package harness
 
 import (
@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/ubermuda/loupe/cli/internal/stream"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -22,9 +23,8 @@ type Harness interface {
 	// Interactive is the body of the launch script that runs program in a
 	// terminal.
 	Interactive(program string, spec Spec) string
-	// Output decodes the result document a worker printed, which is nil when
-	// its stdout held none.
-	Output(result []byte) Output
+	// ReadRun reads a finished run from the files in its run directory.
+	ReadRun(dir string, run RunInfo) Output
 	// SessionUsage is what the session spent at or after from, and before to
 	// when to is set.
 	SessionUsage(sessionID string, from, to time.Time) (transcript.Usage, error)
@@ -40,13 +40,6 @@ type Harness interface {
 	Check(ctx context.Context, spec CheckSpec) []Problem
 }
 
-// RunReader is a harness that reads a finished run from files in the run
-// directory, in place of a result line on stdout. The bridge uses it when the
-// harness implements it.
-type RunReader interface {
-	ReadRun(dir string, run RunInfo) Output
-}
-
 // LaunchRecorder is a harness that cannot name its session when an interactive
 // launch starts. The bridge records the folder and the time of the launch, and
 // the harness finds the session from them when it is asked.
@@ -57,10 +50,13 @@ type LaunchRecorder interface {
 }
 
 // RunInfo is what the bridge knows about a run when it reads it. SessionID is
-// the id the bridge gave the run, and Model is the model it asked for.
+// the id the bridge gave the run, and Model is the model it asked for. Since
+// is a time before the run started, and zero when the bridge does not know
+// it. A session file can hold the earlier runs of a resumed session.
 type RunInfo struct {
 	SessionID string
 	Model     string
+	Since     time.Time
 }
 
 // CheckSpec is one account to check. Env holds what the account adds to the
@@ -105,11 +101,19 @@ type Command struct {
 	Files map[string]string
 }
 
-// Output is what a worker printed. Decoded says stdout held a valid document,
-// and Result can hold text of one that did not decode.
+// Output is what a worker left. Decoded says the run left a valid document,
+// and Result can hold text of one that did not decode. CallsRead says the
+// harness read the calls of the run, so Calls and Timing are what the run
+// held. A nil PeakContextTokens is unknown. ReadErr says why the output of
+// the run did not read to its end.
 type Output struct {
-	Decoded          bool
-	StructuredOutput json.RawMessage
-	Result           string
-	Usage            transcript.Usage
+	Decoded           bool
+	StructuredOutput  json.RawMessage
+	Result            string
+	Usage             transcript.Usage
+	CallsRead         bool
+	Calls             []stream.Call
+	Timing            stream.Timing
+	PeakContextTokens *int64
+	ReadErr           error
 }

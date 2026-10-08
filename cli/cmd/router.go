@@ -1279,9 +1279,9 @@ func (r *router) settle(p pending, e endedRun) {
 	done()
 }
 
-// sendToolCalls queues the tool calls and the timing that claude's stdout
-// held, behind the outcome of the run. The reports hold the calls, so the run
-// directory can go. A run the server holds no record of sends none.
+// sendToolCalls queues the tool calls and the timing that the harness read
+// from the run, behind the outcome of the run. The reports hold the calls, so
+// the run directory can go. A run the server holds no record of sends none.
 func (r *router) sendToolCalls(p pending, res workerResult) {
 	subjectType, _, cardNumber := subjectOf(p)
 	if !res.streamed || !r.reporting() || !r.rules().Collect() || subjectType == "" || (p.isWork() && p.claimToken == "") {

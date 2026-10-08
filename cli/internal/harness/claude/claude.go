@@ -4,6 +4,7 @@ package claude
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -107,10 +108,23 @@ func (Harness) Interactive(program string, spec harness.Spec) string {
 	return b.String()
 }
 
-// Output reads the result line of claude --output-format stream-json. A line
+// ReadRun reads the stdout of claude in dir. A stdout that does not read to
+// its end gives no calls and its error, and keeps the result line it held.
+func (Harness) ReadRun(dir string, _ harness.RunInfo) harness.Output {
+	out, err := ReadFile(filepath.Join(dir, "stdout"))
+	doc := decode(out.Result)
+	doc.ReadErr = err
+	if err == nil {
+		doc.CallsRead, doc.Calls, doc.Timing, doc.PeakContextTokens = true, out.Calls, out.Timing, out.PeakContextTokens
+	}
+
+	return doc
+}
+
+// decode reads the result line of claude --output-format stream-json. A line
 // with a field of the wrong type does not decode, and keeps the result it
 // held.
-func (Harness) Output(result []byte) harness.Output {
+func decode(result []byte) harness.Output {
 	var doc struct {
 		StructuredOutput json.RawMessage `json:"structured_output"`
 		Result           string          `json:"result"`

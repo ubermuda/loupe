@@ -24,19 +24,19 @@ var (
 // keywords are the shell words that lead a simple command and name no program.
 var keywords = []string{"do", "then", "else", "elif", "if", "!", "time", "done", "fi", "esac"}
 
-// Command is one simple command of a Bash call. Sub is its second word when
+// Command is one simple command of a shell call. Sub is its second word when
 // that word looks like a subcommand, and "" otherwise.
 type Command struct {
 	Program string
 	Sub     string
 }
 
-// Signatures names what a call ran, with no argument a person typed. A Bash
-// call gets a signature for each program its command runs. Any other call
+// Signatures names what a call ran, with no argument a person typed. A shell
+// call gets a signature for each program its commands run. Any other call
 // gets its tool name. programs are the programs that keep a subcommand, and
 // nil means DefaultPrograms.
 func Signatures(c Call, programs []string) []string {
-	if c.Tool != "Bash" {
+	if c.Kind != KindShell {
 		if c.Tool == "" {
 			return []string{}
 		}
@@ -58,7 +58,7 @@ func signaturesOf(commands []Command, programs []string) []string {
 		if c.Sub != "" && slices.Contains(programs, c.Program) {
 			sig += " " + c.Sub
 		}
-		sig = cut(sig, maxSignature)
+		sig = Cut(sig, maxSignature)
 		if len(sigs) < maxSignatures && !slices.Contains(sigs, sig) {
 			sigs = append(sigs, sig)
 		}
@@ -91,9 +91,9 @@ type tokenizer struct {
 	heredocs  []heredoc
 }
 
-// commands are the distinct simple commands of a shell command, at most
+// Commands are the distinct simple commands of a shell command, at most
 // maxSignatures of them, in order.
-func commands(command string) []Command {
+func Commands(command string) []Command {
 	t := &tokenizer{s: command}
 	t.run()
 
@@ -101,7 +101,7 @@ func commands(command string) []Command {
 }
 
 func commandSignatures(command string, programs []string) []string {
-	sigs := signaturesOf(commands(command), programs)
+	sigs := signaturesOf(Commands(command), programs)
 	if len(sigs) == 0 {
 		return nil
 	}
@@ -281,7 +281,7 @@ func (t *tokenizer) endCommand() {
 	if program == "" {
 		return
 	}
-	c := Command{Program: cut(program, maxSignature)}
+	c := Command{Program: Cut(program, maxSignature)}
 	if len(words) > 1 && subcommandPattern.MatchString(words[1]) {
 		c.Sub = words[1]
 	}

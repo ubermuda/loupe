@@ -7193,6 +7193,8 @@
             <trans-unit id="analytics.metrics.group.variant"><source>analytics.metrics.group.variant</source><target>By variant</target></trans-unit>
             <trans-unit id="analytics.metrics.group.card-type"><source>analytics.metrics.group.card-type</source><target>By card type</target></trans-unit>
             <trans-unit id="analytics.metrics.group.bridge"><source>analytics.metrics.group.bridge</source><target>By bridge</target></trans-unit>
+            <trans-unit id="analytics.metrics.group.harness"><source>analytics.metrics.group.harness</source><target>By harness</target></trans-unit>
+            <trans-unit id="analytics.metrics.group.account"><source>analytics.metrics.group.account</source><target>By account</target></trans-unit>
             <trans-unit id="analytics.metrics.range.thirty-days"><source>analytics.metrics.range.thirty-days</source><target>30 days</target></trans-unit>
             <trans-unit id="analytics.metrics.range.ninety-days"><source>analytics.metrics.range.ninety-days</source><target>90 days</target></trans-unit>
             <trans-unit id="analytics.metrics.range.all"><source>analytics.metrics.range.all</source><target>All time</target></trans-unit>
