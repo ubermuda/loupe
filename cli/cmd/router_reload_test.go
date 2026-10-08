@@ -70,6 +70,11 @@ const twoRuleFile = defaultRules + `
 
 // twoProjectFile maps loupe and other, with a rule on next in each.
 const twoProjectFile = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -173,6 +178,32 @@ func TestAReloadThatOutlastsItsTimeoutKeepsTheSet(t *testing.T) {
 	}
 }
 
+// The account checks of a reload get their own time, so a slow build does not
+// turn off a healthy account, and the bound keeps the answer in time.
+func TestTheAccountChecksOfAReloadHaveTheirOwnTime(t *testing.T) {
+	h := newHarness(t)
+	h.router.buildTimeout = time.Hour
+	src := h.source(defaultRules)
+	var left time.Duration
+	src.checkAccounts = func(ctx context.Context, _ *rules.Set) []accountResult {
+		if d, ok := ctx.Deadline(); ok {
+			left = time.Until(d)
+		}
+
+		return nil
+	}
+
+	if res := h.router.reload(context.Background(), src); !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	if left <= reloadAccountsTimeout-5*time.Second || left > reloadAccountsTimeout {
+		t.Fatalf("the checks had %s, want %s of their own", left, reloadAccountsTimeout)
+	}
+	if reloadBuildTimeout+reloadAccountsTimeout >= reloadTimeout {
+		t.Fatalf("build %s and checks %s do not answer before %s", reloadBuildTimeout, reloadAccountsTimeout, reloadTimeout)
+	}
+}
+
 func TestASecondReloadIsRefusedWhileOneRuns(t *testing.T) {
 	h := newHarness(t)
 	src, entered, release := blocked(h.source(twoRuleFile))
@@ -246,6 +277,11 @@ func TestAReloadDropsAQueuedEventItsRuleNoLongerRuns(t *testing.T) {
 
 	// plan is gone, and review now runs a command.
 	res := h.reload(t, `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -276,6 +312,11 @@ func TestReloadAppliedNamesWhatChanged(t *testing.T) {
 
 	// plan keeps its entry, so it is the same.
 	res := h.reload(t, `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -313,7 +354,7 @@ func TestReloadAppliedNamesAProjectWhoseDirChanged(t *testing.T) {
 func TestAReloadWarnsOfAnUnknownPermissionMode(t *testing.T) {
 	h := newHarness(t)
 
-	if res := h.reload(t, strings.Replace(defaultRules, "  plan:\n", "  plan:\n    permissionMode: yolo\n", 1)); !res.OK {
+	if res := h.reload(t, strings.Replace(defaultRules, "harness: claude-code\n", "harness: claude-code\n    permissionMode: yolo\n", 1)); !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
 	if line := h.only(t, "permission_mode_unknown"); str(t, line, "mode") != "yolo" {
@@ -672,7 +713,7 @@ func TestAGoneProjectDoesNotKillAProjectWithItsSlugAndANewID(t *testing.T) {
 func TestDiffRulesSeesAChangedVariant(t *testing.T) {
 	parse := func(model string) *rules.Set {
 		t.Helper()
-		body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n" +
+		body := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\n" +
 			"work:\n  plan:\n    prompt: go\n    variants:\n      - {name: a, weight: 1, model: " + model + "}\n"
 		set, err := rules.Parse([]byte(body), rules.Defaults{})
 		if err != nil {

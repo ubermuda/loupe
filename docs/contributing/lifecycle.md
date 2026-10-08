@@ -160,6 +160,13 @@ loads.
 ```yaml
 maxWorkers: 1
 
+accounts:
+  claude:
+    harness: claude-code
+
+defaults:
+  account: claude
+
 projects:
   loupe:
     dir: ~/Code/loupe
@@ -173,14 +180,14 @@ work:
     prompt: /loupe:product-design {cardNumber}
 
   product-design-revise:
-    permissionMode: acceptEdits
+    permissions: workspace
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column product-design.
       Loupe instance https://loupe.ac.
 
   tech-design:
-    permissionMode: acceptEdits
+    permissions: workspace
     prompt: |
       Use the loupe-stage-tech-design skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered tech-design.
@@ -188,14 +195,14 @@ work:
       If the card is no longer in tech-design, stop.
 
   tech-design-revise:
-    permissionMode: acceptEdits
+    permissions: workspace
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column tech-design.
       Loupe instance https://loupe.ac.
 
   implement:
-    permissionMode: bypassPermissions
+    permissions: full
     before:
       run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}"]
       timeout: 15m
@@ -206,7 +213,7 @@ work:
       If the card is no longer in implementation, stop.
 
   breakdown:
-    permissionMode: bypassPermissions
+    permissions: full
     prompt: |
       Use the loupe-stage-implementation skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered implementation.
@@ -214,7 +221,7 @@ work:
       If the card is no longer in implementation, stop.
 
   fix:
-    permissionMode: bypassPermissions
+    permissions: full
     before:
       run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}"]
       timeout: 15m
@@ -225,7 +232,7 @@ work:
       Loupe instance https://loupe.ac.
 
   merge:
-    permissionMode: bypassPermissions
+    permissions: full
     prompt: |
       Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -233,7 +240,7 @@ work:
       Loupe instance https://loupe.ac.
 
   sync:
-    permissionMode: bypassPermissions
+    permissions: full
     prompt: |
       Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -241,7 +248,7 @@ work:
       Loupe instance https://loupe.ac.
 
   epic-preview:
-    permissionMode: bypassPermissions
+    permissions: full
     prompt: |
       Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -249,7 +256,7 @@ work:
       Loupe instance https://loupe.ac.
 
   repair:
-    permissionMode: bypassPermissions
+    permissions: full
     before:
       run: [bin/worktrees/bridge-before.sh, "--git-only", "{cardNumber}", "{cardId}"]
       timeout: 15m
@@ -314,15 +321,14 @@ describes every field and placeholder.
 
 ## Permissions
 
-The design entries use `acceptEdits`. On one machine, a
-probe showed that this mode reaches the Loupe write tools in `claude -p` with
-no allow rule. When a worker run reports a denied tool, add an
-`mcp__loupe__*` allow rule to `.claude/settings.local.json`.
+The design entries use the `workspace` level, which runs Claude Code in `auto`
+mode. When a worker run reports a denied tool, add an `mcp__loupe__*` allow
+rule to `.claude/settings.local.json`.
 
 The `implement`, `breakdown`, `fix`, `merge`, `sync` and `repair` entries use
-`bypassPermissions`. The gate and the `gh` calls run arbitrary
-commands, and a worker in `acceptEdits` cannot approve them, because nobody
-answers a permission prompt. This choice has a cost. The worker can run any
+the `full` level, which runs Claude Code in `bypassPermissions` mode. The gate
+and the `gh` calls run arbitrary commands, and nobody answers a permission
+prompt in a worker. This choice has a cost. The worker can run any
 command as the owner from the moment it starts. The worker folder is a separate
 tree, but a command can still reach any path on the machine.
 
@@ -343,6 +349,8 @@ that change from one setup to the next.
    `.agents/skills/loupe-stage-implementation/references/harnesses/generic.md`.
    The compatibility adapter for Claude Code is
    `.agents/skills/loupe-stage-implementation/references/harnesses/claude-code.md`.
+   The adapter for Codex is
+   `.agents/skills/loupe-stage-implementation/references/harnesses/codex.md`.
 3. A forge adapter maps the pull request operations to the commands of one
    forge. The adapter for GitHub is
    `.agents/skills/loupe-stage-implementation/references/forges/github.md`.

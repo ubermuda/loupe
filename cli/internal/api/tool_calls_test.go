@@ -39,7 +39,7 @@ func TestReportToolCallsSendsEveryKey(t *testing.T) {
 	tool, idle := int64(123), int64(0)
 	batch := ToolCallBatch{
 		Calls: []ToolCall{
-			{Seq: 1, Tool: "Bash", StartedAt: time.Date(2026, 10, 6, 16, 32, 31, 0, time.FixedZone("x", 3600)), DurationMs: &d, IsError: &f, BackgroundID: &id, Signatures: []string{"echo"}, FullText: &full},
+			{Seq: 1, Tool: "Bash", Kind: "shell", StartedAt: time.Date(2026, 10, 6, 16, 32, 31, 0, time.FixedZone("x", 3600)), DurationMs: &d, IsError: &f, BackgroundID: &id, Signatures: []string{"echo"}, FullText: &full},
 			{Seq: 2, Tool: "Read", StartedAt: time.Date(2026, 10, 6, 16, 32, 31, 797_000_000, time.UTC), InSubagent: true, WaitsOn: &id},
 		},
 		Timing: &ToolTiming{ToolTimeMs: &tool, IdleGapMs: &idle},
@@ -53,8 +53,8 @@ func TestReportToolCallsSendsEveryKey(t *testing.T) {
 		t.Fatalf("path = %s", path)
 	}
 	want := `{"calls":[` +
-		`{"seq":1,"tool":"Bash","startedAt":"2026-10-06T15:32:31.000Z","durationMs":157,"isError":false,"inSubagent":false,"backgroundId":"bg1","waitsOn":null,"signatures":["echo"],"fullText":"{\"command\":\"echo\"}"},` +
-		`{"seq":2,"tool":"Read","startedAt":"2026-10-06T16:32:31.797Z","durationMs":null,"isError":null,"inSubagent":true,"backgroundId":null,"waitsOn":"bg1","signatures":[],"fullText":null}` +
+		`{"seq":1,"tool":"Bash","kind":"shell","startedAt":"2026-10-06T15:32:31.000Z","durationMs":157,"isError":false,"inSubagent":false,"backgroundId":"bg1","waitsOn":null,"signatures":["echo"],"fullText":"{\"command\":\"echo\"}"},` +
+		`{"seq":2,"tool":"Read","kind":null,"startedAt":"2026-10-06T16:32:31.797Z","durationMs":null,"isError":null,"inSubagent":true,"backgroundId":null,"waitsOn":"bg1","signatures":[],"fullText":null}` +
 		`],"timing":{"toolTimeMs":123,"idleGapMs":0}}`
 	if body != want {
 		t.Fatalf("body = %s\nwant %s", body, want)

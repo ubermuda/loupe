@@ -144,7 +144,7 @@ func toolCallRows(calls []stream.Call, site api.Site) []api.ToolCall {
 			continue
 		}
 		row := api.ToolCall{
-			Seq: c.Seq, Tool: c.Tool, StartedAt: c.StartedAt, DurationMs: c.DurationMs, IsError: c.IsError,
+			Seq: c.Seq, Tool: c.Tool, Kind: c.Kind, StartedAt: c.StartedAt, DurationMs: c.DurationMs, IsError: c.IsError,
 			InSubagent: c.InSubagent, BackgroundID: c.BackgroundID, WaitsOn: c.WaitsOn,
 			Signatures: stream.Signatures(c, site.SubcommandPrograms),
 		}

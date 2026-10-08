@@ -36,6 +36,8 @@ final readonly class BridgeExporter implements UserDataExporterInterface
                 'hooks' => $bridge->hooks,
                 'workerPools' => $bridge->workerPools,
                 'workerPoolsReportedAt' => $bridge->workerPoolsReportedAt?->format(\DateTimeInterface::ATOM),
+                'accounts' => $bridge->accounts,
+                'accountsReportedAt' => $bridge->accountsReportedAt?->format(\DateTimeInterface::ATOM),
                 'pauseRequested' => $bridge->pauseRequested,
                 'pauseRequestedAt' => $bridge->pauseRequestedAt?->format(\DateTimeInterface::ATOM),
                 'pausedReported' => $bridge->pausedReported,

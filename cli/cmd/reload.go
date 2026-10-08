@@ -25,11 +25,14 @@ type reloadResult struct {
 	Projects []string `json:"projects,omitempty"`
 	Problems []string `json:"problems,omitempty"`
 	Stage    string   `json:"stage,omitempty"`
+	// AccountsOff maps each account that failed its check to the reason.
+	AccountsOff map[string]string `json:"accountsOff,omitempty"`
 }
 
 // reloadSource gives a reload what it needs from the disk and the server; tests
 // replace it. A nil lock takes no lock, a nil resolveHooks resolves no hooks,
-// and a nil resolveClaude keeps the claude path.
+// a nil resolveClaude keeps the claude path, and a nil checkAccounts checks
+// no account.
 type reloadSource struct {
 	lock          func() (check func() error, done func(applied bool), err error)
 	load          func() (*rules.Set, error)
@@ -37,6 +40,7 @@ type reloadSource struct {
 	resolveClaude func() (string, error)
 	check         func(ctx context.Context, set *rules.Set) error
 	events        func(ctx context.Context) (api.Events, error)
+	checkAccounts func(ctx context.Context, set *rules.Set) []accountResult
 }
 
 // newReloadSource reads the rule file at path with the bridge flags as
@@ -49,6 +53,7 @@ func newReloadSource(path string, defaults rules.Defaults, cfg config.Config, lo
 		resolveClaude: resolveClaude,
 		check:         func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, apiClient(cfg)) },
 		events:        func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx, cfg.BridgeID) },
+		checkAccounts: checkAccounts,
 	}
 	if lock != nil {
 		src.lock = lock.follow
@@ -106,13 +111,22 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 	}
 	buildCtx, cancel := context.WithTimeout(ctx, timeout)
 	b, stage, err := buildSet(buildCtx, src)
-	cancel()
 	if err != nil {
+		cancel()
 		done(false)
 		problems := problemsOf(err)
 		r.log.Error("reload_failed", "stage", stage, "problems", problems)
 
 		return reloadResult{Stage: stage, Problems: problems}
+	}
+	cancel()
+	// The checks have their own time, so a slow build turns off no account.
+	// A failing account fails no reload.
+	if src.checkAccounts != nil {
+		checkCtx, cancel := context.WithTimeout(ctx, reloadAccountsTimeout)
+		b.accounts = src.checkAccounts(checkCtx, b.set)
+		cancel()
+		b.set.SetAccountProblems(accountsOff(b.accounts))
 	}
 	if err := check(); err != nil {
 		done(false)
@@ -136,12 +150,14 @@ func shuttingDown() reloadResult {
 }
 
 // built is a set a reload built, with its hooks, the GET /api/events answer it
-// was checked against, and the claude path when the set has an interactive rule.
+// was checked against, the claude path when the set has an interactive rule,
+// and the checks of its accounts.
 type built struct {
-	set    *rules.Set
-	hooks  []hooks.Hook
-	claude string
-	events api.Events
+	set      *rules.Set
+	hooks    []hooks.Hook
+	claude   string
+	accounts []accountResult
+	events   api.Events
 }
 
 // buildSet loads, checks and confirms a new set, resolves its hooks and its
@@ -158,7 +174,7 @@ func buildSet(ctx context.Context, src reloadSource) (built, string, error) {
 			return b, "hooks", err
 		}
 	}
-	if src.resolveClaude != nil && set.HasInteractive() {
+	if src.resolveClaude != nil && set.HasInteractive() && set.NeedsClaude() {
 		if b.claude, err = src.resolveClaude(); err != nil {
 			return b, "claude", err
 		}
@@ -234,6 +250,7 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 		r.heartbeat.setBody(heartbeatBody(set, r.pushLogin))
 	}
 	r.useFlags()
+	r.refreshPrices(set)
 
 	res := diffRules(old, set)
 	attrs := []any{"added", res.Added, "removed", res.Removed, "changed", res.Changed, "dirs", res.Dirs, "projects", res.Projects}
@@ -245,6 +262,11 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	}
 	r.log.Info("reload_applied", attrs...)
 	warnUnknownModes(r.log, set)
+	warnAgentsOff(r.log, set)
+	warnAccountsOff(r.log, b.accounts)
+	if off := set.AccountsOff(); len(off) > 0 {
+		res.AccountsOff = off
+	}
 
 	return res
 }

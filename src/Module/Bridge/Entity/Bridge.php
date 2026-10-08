@@ -24,6 +24,7 @@ use Symfony\Component\Uid\Uuid;
  *
  * @phpstan-type HookRow array{package: string, ref: string, event: string, lastRunAt: ?string, outcome: string, error: ?string}
  * @phpstan-type WorkerPoolRow array{name: string, size: int, inUse: int, queued: int}
+ * @phpstan-type AccountRow array{name: string, harness: string, state: 'ready'|'failing', reason: ?string}
  */
 #[ORM\Entity(repositoryClass: BridgeRepository::class)]
 #[ORM\Table(name: 'bridges')]
@@ -96,6 +97,18 @@ class Bridge
     /** The server clock at the heartbeat that carried the worker pool rows. */
     #[ORM\Column(name: 'worker_pools_reported_at', nullable: true)]
     public ?\DateTimeImmutable $workerPoolsReportedAt = null;
+
+    /**
+     * The accounts the bridge checked, as its last heartbeat reported them. Null until a bridge sends a report.
+     *
+     * @var list<AccountRow>|null
+     */
+    #[ORM\Column(name: 'accounts', type: Types::JSON, nullable: true)]
+    public ?array $accounts = null;
+
+    /** The server clock at the heartbeat that carried the account rows. */
+    #[ORM\Column(name: 'accounts_reported_at', nullable: true)]
+    public ?\DateTimeImmutable $accountsReportedAt = null;
 
     /** Whether a person asked the bridge to start no new work. It stays until a person clears it. */
     #[ORM\Column(name: 'pause_requested', options: ['default' => false])]

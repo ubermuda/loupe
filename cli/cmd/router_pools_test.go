@@ -18,6 +18,11 @@ maxWorkers: 4
 workerPools:
   quick:
     size: 1
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -35,6 +40,11 @@ maxWorkers: 2
 workerPools:
   quick:
     size: 1
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -259,6 +269,11 @@ maxWorkers: 2
 workerPools:
   quick:
     size: 1
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}

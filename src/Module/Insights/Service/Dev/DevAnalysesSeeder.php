@@ -10,6 +10,7 @@ use App\Module\Bridge\Entity\WorkerRunUsage;
 use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Bridge\Service\BucketTimeComputer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Insights\Command\StartAnalysisHandler;
 use App\Module\Insights\Entity\Analysis;
@@ -193,7 +194,7 @@ final readonly class DevAnalysesSeeder
     private function seedToolCalls(WorkerRun $run): void
     {
         foreach (self::CALLS as $index => [$tool, $offset, $durationMs, $signatures]) {
-            $this->em->persist(new WorkerRunToolCall(Uuid::v7(), $run, $index + 1, $tool, $run->startedAt?->modify(\sprintf('+%d seconds', $offset)) ?? throw new \LogicException('A seeded run has a start.'), $durationMs, false, false, null, null, $signatures, null));
+            $this->em->persist(new WorkerRunToolCall(Uuid::v7(), $run, $index + 1, $tool, 'Agent' === $tool ? WorkerRunToolCallKind::Subagent : WorkerRunToolCallKind::Shell, $run->startedAt?->modify(\sprintf('+%d seconds', $offset)) ?? throw new \LogicException('A seeded run has a start.'), $durationMs, false, false, null, null, $signatures, null));
         }
     }
 

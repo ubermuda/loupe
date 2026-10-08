@@ -11,7 +11,7 @@ import (
 // each variant gets the checks an experiment had.
 func TestParseRefusesInvalidVariants(t *testing.T) {
 	body := func(variants ...string) string {
-		return "projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: x\n    variants:" + strings.Join(variants, "") + "\n"
+		return claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: x\n    variants:" + strings.Join(variants, "") + "\n"
 	}
 	variant := func(name string, weight int, model string) string {
 		return fmt.Sprintf("\n      - {name: %q, weight: %d, model: %q}", name, weight, model)
@@ -21,11 +21,11 @@ func TestParseRefusesInvalidVariants(t *testing.T) {
 		body string
 		want string
 	}{
-		"no variants":         {"projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: x\n    variants: []\n", "it has no variants"},
+		"no variants":         {claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nwork:\n  implement:\n    prompt: x\n    variants: []\n", "it has no variants"},
 		"zero weight":         {body(variant("a", 0, "opus")), `variant "a": weight must be at least 1, got 0`},
 		"negative weight":     {body(variant("a", -2, "opus")), `variant "a": weight must be at least 1, got -2`},
 		"weight over the cap": {body(variant("a", MaxWeight+1, "opus")), fmt.Sprintf(`variant "a": weight must be at most %d`, MaxWeight)},
-		"no model":            {body(variant("a", 1, "")), `variant "a": model is required`},
+		"no model":            {body(variant("a", 1, "")), `variant "a": model or account is required`},
 		"model with a space":  {body(variant("a", 1, "opus 5")), `variant "a": model "opus 5" holds whitespace`},
 		"model over 100":      {body(variant("a", 1, strings.Repeat("m", MaxModelLength+1))), `variant "a": model is 101 characters, and the server takes at most 100`},
 		"duplicate variant":   {body(variant("a", 1, "opus"), variant("a", 1, "sonnet")), `two variants are named "a"`},

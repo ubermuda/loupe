@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunFact;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -787,6 +788,20 @@ class WorkerRunRepository extends ServiceEntityRepository
                 ->setParameter('bridgeId', $query->bridgeId, UuidType::NAME);
         }
 
+        if (null !== $query->harness) {
+            $qb->andWhere('r.harness = :harness')->setParameter('harness', $query->harness);
+        }
+
+        if (null !== $query->account) {
+            $qb->andWhere('r.account = :account')->setParameter('account', $query->account);
+        }
+
+        if (null !== $query->model) {
+            // A run with no reported model shows the model of its fact, so the filter reads it too.
+            $qb->andWhere('r.model = :model OR (r.model IS NULL AND EXISTS (SELECT 1 FROM '.WorkerRunFact::class.' f WHERE f.runId = r.id AND f.model = :model))')
+                ->setParameter('model', $query->model);
+        }
+
         // Nothing is fetch-joined, so the page LIMIT already counts runs.
         return new Paginator($qb->getQuery(), fetchJoinCollection: false);
     }
@@ -834,6 +849,51 @@ class WorkerRunRepository extends ServiceEntityRepository
             static fn (Uuid|string $row): Uuid => $row instanceof Uuid ? $row : Uuid::fromString($row),
             $rows,
         );
+    }
+
+    /**
+     * The values the project's runs hold in one of these columns, sorted, for a page filter.
+     *
+     * @param 'harness'|'account'|'model' $field
+     *
+     * @return list<string>
+     */
+    public function distinctValuesOf(Project $project, string $field): array
+    {
+        if (!\in_array($field, ['harness', 'account', 'model'], true)) {
+            throw new \InvalidArgumentException(\sprintf('No page filter reads the field "%s".', $field));
+        }
+
+        /** @var list<string> $values */
+        $values = $this->createQueryBuilder('r')
+            ->select('DISTINCT r.'.$field)
+            ->andWhere('r.project = :project')
+            ->andWhere('r.'.$field.' IS NOT NULL')
+            ->setParameter('project', $project)
+            ->orderBy('r.'.$field, 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        if ('model' !== $field) {
+            return $values;
+        }
+
+        // The model filter also matches the fact model of a run with no reported model.
+        /** @var list<string> $factModels */
+        $factModels = $this->getEntityManager()->createQueryBuilder()
+            ->select('DISTINCT f.model')
+            ->from(WorkerRunFact::class, 'f')
+            ->innerJoin(WorkerRun::class, 'r', Join::WITH, 'r.id = f.runId')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.model IS NULL')
+            ->andWhere('f.model IS NOT NULL')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleColumnResult();
+        $values = array_values(array_unique([...$values, ...$factModels]));
+        sort($values);
+
+        return $values;
     }
 
     /**
