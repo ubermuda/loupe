@@ -443,6 +443,8 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $live->name = 'laptop';
         $live->requestedName = 'laptop';
         $live->pushLogin = 'acme-agent';
+        $live->accounts = [['name' => 'work', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'not logged in']];
+        $live->accountsReportedAt = new \DateTimeImmutable('2026-09-30 10:59:00');
         $quiet = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('-1 day'));
         $quiet->requestedName = 'laptop';
         $this->seedBridge($em, $project->owner, projects: [(string) $other->id]);
@@ -470,6 +472,10 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertTrue($row['takesReruns']);
         self::assertSame([['name' => 'default', 'size' => 2, 'inUse' => 1, 'queued' => 0]], $row['workerPools']);
         self::assertSame('2026-09-30T11:00:00+00:00', $row['workerPoolsReportedAt']);
+        self::assertSame([['name' => 'work', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'not logged in']], $row['accounts']);
+        self::assertSame('2026-09-30T10:59:00+00:00', $row['accountsReportedAt']);
+        self::assertNull($bridges[$quiet->id->toRfc4122()]['accounts']);
+        self::assertNull($bridges[$quiet->id->toRfc4122()]['accountsReportedAt']);
         self::assertSame([['runId' => (string) $open->id, 'subjectType' => 'card', 'subjectId' => (string) $open->subjectId, 'cardNumber' => 3, 'workKind' => 'plan', 'state' => 'running']], $row['openRuns']);
         self::assertSame('quiet', $bridges[$quiet->id->toRfc4122()]['liveness']);
         self::assertNull($bridges[$quiet->id->toRfc4122()]['name']);
