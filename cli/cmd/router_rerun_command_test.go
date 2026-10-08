@@ -223,6 +223,11 @@ func TestARerunFromAHeartbeatIsAnswered(t *testing.T) {
 // contextWorkRules runs a command and a worker that read the context of the
 // work request.
 const contextWorkRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}

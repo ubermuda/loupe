@@ -248,6 +248,58 @@ final class ListAgentsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-worker-pools]'));
     }
 
+    public function test_a_connection_shows_each_account_and_marks_a_failing_one(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-accounts@example.com');
+        $project = $this->project($em, $owner, 'Accounts');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('2026-09-14 16:09:00'), accounts: [
+            ['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null],
+            ['name' => 'personal', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'claude is not logged in'],
+        ], accountsReportedAt: new \DateTimeImmutable('2026-09-14 16:05:00'));
+        $older = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $accounts = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-accounts]');
+        self::assertStringContainsString('Accounts', $accounts->text());
+        self::assertStringContainsString('As of Sep 14, 16:05', $accounts->text());
+        self::assertStringNotContainsString('16:09', $accounts->text());
+        $ready = $accounts->filter('[data-agent-account="work"]');
+        self::assertSame('ready', $ready->attr('data-agent-account-state'));
+        self::assertSame('work claude-code Ready', preg_replace('/\s+/', ' ', trim($ready->text())));
+        $failing = $accounts->filter('[data-agent-account="personal"]');
+        self::assertSame('failing', $failing->attr('data-agent-account-state'));
+        self::assertStringContainsString('Failing', $failing->text());
+        self::assertStringContainsString('claude is not logged in', $failing->filter('[data-agent-account-reason]')->text());
+        self::assertStringContainsString('until the account passes its check and the bridge reloads', $failing->text());
+        self::assertCount(0, $ready->filter('[data-agent-account-reason]'));
+        // The guard: the older bridge's card renders, so the absent block is not an absent card.
+        self::assertCount(1, $crawler->filter('[data-agent-connection-id="'.$older->id.'"] [data-agent-health]'));
+        self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$older->id.'"] [data-agent-accounts]'));
+    }
+
+    public function test_an_empty_account_report_shows_no_block(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-accounts-empty@example.com');
+        $project = $this->project($em, $owner, 'No accounts');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], accounts: []);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-health]'));
+        self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-accounts]'));
+    }
+
     #[TestWith([false, true, true, 'stale', 'Stale'])]
     #[TestWith([true, true, true, 'paused', 'Paused'])]
     #[TestWith([true, true, false, 'pausing', 'Pausing'])]

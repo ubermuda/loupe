@@ -433,6 +433,18 @@ func TestBridgeReloadPrintsAChangedDir(t *testing.T) {
 	}
 }
 
+// A failing account fails no reload, so the output names it after the rules.
+func TestBridgeReloadPrintsEachFailingAccount(t *testing.T) {
+	serveTest(t, func(context.Context) reloadResult {
+		return reloadResult{OK: true, Projects: []string{"loupe"}, AccountsOff: map[string]string{"b": "not logged in", "a": "claude is not on PATH"}}
+	})
+
+	out, _, err := reloadCmd(t, "--rules", "rules.yaml")
+	if err != nil || !strings.HasSuffix(out, "\nprojects: loupe\naccount a failing: claude is not on PATH\naccount b failing: not logged in\n") {
+		t.Fatalf("err = %v, stdout = %q", err, out)
+	}
+}
+
 func TestBridgeReloadPrintsEachProblemAndFails(t *testing.T) {
 	serveTest(t, func(context.Context) reloadResult {
 		return reloadResult{Stage: "check", Problems: []string{"rule plan: no column next", "rule fix: no project x"}}
@@ -476,7 +488,7 @@ func TestTheBridgeAnswersAReloadOnItsSocket(t *testing.T) {
 	t.Cleanup(server.Close)
 	cfg := testLogin(server.URL)
 	path := filepath.Join(t.TempDir(), "rules.yaml")
-	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" +
+	body := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" +
 		"  plan:\n    prompt: go\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)

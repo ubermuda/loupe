@@ -18,6 +18,11 @@ import (
 // work. One slot is free for workers.
 const commandRunRules = `
 maxWorkers: 1
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}

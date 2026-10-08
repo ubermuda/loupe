@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Entity;
 
 use App\Doctrine\Type\MicrosecondDateTimeImmutableType;
 use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -46,6 +47,10 @@ class WorkerRunToolCall
 
         #[ORM\Column(name: 'tool', length: self::MAX_TOOL_LENGTH)]
         public readonly string $tool,
+
+        /** Null from an older bridge, which sends no kind. */
+        #[ORM\Column(name: 'kind', length: 20, nullable: true, enumType: WorkerRunToolCallKind::class)]
+        public readonly ?WorkerRunToolCallKind $kind,
 
         #[ORM\Column(name: 'started_at', type: MicrosecondDateTimeImmutableType::NAME, columnDefinition: 'TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL')]
         public readonly \DateTimeImmutable $startedAt,
