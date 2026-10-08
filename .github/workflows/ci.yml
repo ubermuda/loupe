@@ -91,6 +91,24 @@ jobs:
           node: 'true'
       - run: just lint
 
+      # A matrix leg the ruleset does not name can fail and still merge.
+      - name: Every e2e leg is a required check
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          required=$(gh api repos/${{ github.repository }}/rules/branches/main \
+            --jq '.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context')
+          legs=$(awk '/^  e2e-shard:/{j=1} j&&/include:/{i=1} j&&/^    steps:/{exit} i&&/- name:/{print "e2e-" $3}' .github/workflows/ci.yml)
+          [ -n "$legs" ] || { echo "::error::No e2e legs found in ci.yml."; exit 1; }
+          missing=0
+          for leg in $legs; do
+            grep -qxF "$leg" <<<"$required" && continue
+            echo "::error::$leg is not a required check. Add it to the main ruleset."
+            missing=1
+          done
+          exit $missing
+
   cs-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -189,11 +207,10 @@ jobs:
           images: golang:1.26-alpine
       - run: just cli-test
 
-  # Three runners, each with its own stack, database and seed. `chromium` holds
-  # 281 of the 354 tests and sets the wall time, so `--shard` now splits it
-  # over two runners. `rest` holds the one-worker projects and the chain
-  # that has to stay in one runner's order. Each leg is a required check under
-  # its own name, so a renamed or added leg needs a ruleset edit.
+  # Eight runners, each with its own stack, database and seed. Six legs split
+  # `chromium` per test. `rest` holds admin and the destructive chain, which
+  # has to stay in one runner's order, and `global-flags` runs alone. Each leg
+  # is a required check under its own name, so a new leg needs a ruleset edit.
   e2e-shard:
     name: e2e-${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -203,17 +220,33 @@ jobs:
       # and Playwright report to read.
       fail-fast: false
       matrix:
-        # `--shard` splits the `chromium` half and cannot split `rest`, where
-        # every project is a dependency of another and the half is one unit.
+        # `--shard` splits `chromium` per test. It cannot split `rest`, where
+        # every project is a dependency of another, so `rest` and
+        # `global-flags` each run whole.
         include:
           - name: chromium
             shard: chromium
-            split: '--shard=1/2'
+            split: '--shard=1/6'
           - name: chromium-2
             shard: chromium
-            split: '--shard=2/2'
+            split: '--shard=2/6'
+          - name: chromium-3
+            shard: chromium
+            split: '--shard=3/6'
+          - name: chromium-4
+            shard: chromium
+            split: '--shard=4/6'
+          - name: chromium-5
+            shard: chromium
+            split: '--shard=5/6'
+          - name: chromium-6
+            shard: chromium
+            split: '--shard=6/6'
           - name: rest
             shard: rest
+            split: ''
+          - name: global-flags
+            shard: global-flags
             split: ''
     steps:
       - uses: actions/checkout@v7
@@ -259,9 +292,9 @@ jobs:
 
       # The runner's whole database is disposable, so the suite runs against the
       # main stack rather than the `just e2e-up` sidecar, whose only purpose is
-      # to keep a developer's own database out of the way. Playwright shards
-      # whole test groups and never splits one, so a serial spec stays on one
-      # runner. An empty `split` runs the whole half.
+      # to keep a developer's own database out of the way. Playwright splits
+      # `chromium` per test, and a file that opts out of parallel mode stays on
+      # one runner. An empty `split` runs the whole shard.
       - run: just e2e ${{ matrix.split }}
         timeout-minutes: 25
         env:

@@ -6,6 +6,9 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
+// Split over workers, this file would register one fixed account twice at once.
+test.describe.configure({ mode: 'default' });
+
 async function contrast(
     locator: Locator,
     indicator: 'text' | 'ring' = 'text',
