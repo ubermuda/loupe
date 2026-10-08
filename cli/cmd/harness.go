@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/ubermuda/loupe/cli/internal/envfile"
 	harn "github.com/ubermuda/loupe/cli/internal/harness"
@@ -61,15 +63,26 @@ func (s workerSpec) harnessCommand(env []string) harn.Command {
 	return s.adapter().Worker(s.harnessSpec(env))
 }
 
+// configDirEnv names Claude Code's config folder. Only an account's configDir
+// sets it, so the bridge reads the sessions where claude writes them.
+const configDirEnv = "CLAUDE_CONFIG_DIR"
+
 // accountEnv is what the run's account adds to the environment: the env
 // files in order, then CLAUDE_CONFIG_DIR when the account has a config folder.
 func (s workerSpec) accountEnv() ([]string, error) {
-	env, err := envfile.ReadAll(s.envFiles)
-	if err != nil {
-		return nil, err
+	var env []string
+	for _, path := range s.envFiles {
+		pairs, err := envfile.Read(path)
+		if err != nil {
+			return nil, err
+		}
+		if slices.ContainsFunc(pairs, func(p string) bool { return strings.HasPrefix(p, configDirEnv+"=") }) {
+			return nil, fmt.Errorf("%s: %s is not allowed in an env file; set the configDir of the account", path, configDirEnv)
+		}
+		env = envfile.Overlay(env, pairs)
 	}
 	if s.configDir != "" {
-		env = envfile.Overlay(env, []string{"CLAUDE_CONFIG_DIR=" + s.configDir})
+		env = envfile.Overlay(env, []string{configDirEnv + "=" + s.configDir})
 	}
 
 	return env, nil

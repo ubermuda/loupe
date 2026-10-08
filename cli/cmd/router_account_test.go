@@ -369,3 +369,21 @@ func TestALaunchWithAMissingEnvFileDoesNotStart(t *testing.T) {
 		t.Fatalf("scripts = %v", got)
 	}
 }
+
+// An env file cannot set CLAUDE_CONFIG_DIR, because the bridge would then
+// read the sessions of the run in another folder than claude writes them.
+func TestAnEnvFileCannotSetTheConfigFolder(t *testing.T) {
+	h, rec, f := withAccounts(t, nil)
+	writeEnv(t, f.global, "CLAUDE_CONFIG_DIR=/elsewhere\n")
+
+	h.send(cardMoved(87))
+
+	if got := h.worker.recorded(); len(got) != 0 {
+		t.Fatalf("workers = %+v", got)
+	}
+	sent := rec.states()
+	wantStates(t, sent, api.RunQueued, api.RunNotStarted)
+	if r := sent[1].report; r.FailureReason == nil || !strings.Contains(*r.FailureReason, f.global) || !strings.Contains(*r.FailureReason, "configDir") {
+		t.Fatalf("report = %+v", r)
+	}
+}

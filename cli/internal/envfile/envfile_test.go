@@ -78,19 +78,6 @@ func TestReadNamesAMissingFile(t *testing.T) {
 	}
 }
 
-func TestReadAllLetsALaterFileWin(t *testing.T) {
-	global := write(t, "SHARED=global\nGLOBAL=g\n")
-	account := write(t, "SHARED=account\nACCOUNT=a\n")
-
-	got, err := ReadAll([]string{global, account})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := []string{"GLOBAL=g", "SHARED=account", "ACCOUNT=a"}; !slices.Equal(got, want) {
-		t.Fatalf("ReadAll = %q, want %q", got, want)
-	}
-}
-
 func TestOverlayReplacesInheritedKeys(t *testing.T) {
 	got := Overlay([]string{"PATH=/bin", "SHARED=old", "KEEP=1"}, []string{"SHARED=new", "ADDED=2"})
 	if want := []string{"PATH=/bin", "KEEP=1", "SHARED=new", "ADDED=2"}; !slices.Equal(got, want) {

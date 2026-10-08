@@ -51,21 +51,6 @@ func unquote(v string) string {
 	return v
 }
 
-// ReadAll reads the files in order. A key a later file sets again takes the
-// later value.
-func ReadAll(paths []string) ([]string, error) {
-	var pairs []string
-	for _, path := range paths {
-		p, err := Read(path)
-		if err != nil {
-			return nil, err
-		}
-		pairs = Overlay(pairs, p)
-	}
-
-	return pairs, nil
-}
-
 // Overlay is environ with each key of pairs replaced by its value in pairs.
 func Overlay(environ, pairs []string) []string {
 	keys := make(map[string]bool, len(pairs))
