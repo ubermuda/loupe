@@ -234,14 +234,17 @@ func (t *tree) counted() bool {
 	return len(t.events) > 0 || slices.ContainsFunc(t.children, (*tree).counted)
 }
 
-// last is the time of the last line of the thread and of its subagents.
-func (t *tree) last() time.Time {
+// last is the time of the last line of the thread and of its subagents,
+// before until when until is set.
+func (t *tree) last(until time.Time) time.Time {
 	var last time.Time
-	if len(t.lines) > 0 {
-		last = slices.MaxFunc(t.lines, time.Time.Compare)
+	for _, at := range t.lines {
+		if within(at, time.Time{}, until) && at.After(last) {
+			last = at
+		}
 	}
 	for _, c := range t.children {
-		if l := c.last(); l.After(last) {
+		if l := c.last(until); l.After(last) {
 			last = l
 		}
 	}
@@ -307,7 +310,7 @@ func (t *tree) collect(since, until time.Time, inSubagent bool, out []timed) []t
 		call := c.toCall(inSubagent)
 		out = append(out, timed{call: call, end: stream.End{Result: c.end}})
 		if child := spawned[i]; child != nil {
-			out[len(out)-1].end.Last = child.last()
+			out[len(out)-1].end.Last = child.last(until)
 			out = child.collect(time.Time{}, until, true, out)
 		}
 	}

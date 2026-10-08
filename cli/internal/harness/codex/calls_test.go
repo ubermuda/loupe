@@ -490,7 +490,7 @@ func TestALineOfAnotherThreadAddsNoIdleTime(t *testing.T) {
 }
 
 // A run read after a later resume of its session counts nothing past its end.
-func TestARunCountsNothingAfterItsStdoutEnded(t *testing.T) {
+func TestARunCountsNothingAfterItsProcessEnded(t *testing.T) {
 	const main = "aaaaaaaa-0000-0000-0000-000000000006"
 	home := t.TempDir()
 	writeSession(t, home, main,
@@ -505,12 +505,12 @@ func TestARunCountsNothingAfterItsStdoutEnded(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	stdout := filepath.Join(dir, "stdout")
-	if err := os.WriteFile(stdout, nil, 0o600); err != nil {
+	exit := filepath.Join(dir, "status.exit")
+	if err := os.WriteFile(exit, []byte("0\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	end := at(t, "2026-10-08T10:00:03.000Z")
-	if err := os.Chtimes(stdout, end, end); err != nil {
+	if err := os.Chtimes(exit, end, end); err != nil {
 		t.Fatal(err)
 	}
 
@@ -518,5 +518,41 @@ func TestARunCountsNothingAfterItsStdoutEnded(t *testing.T) {
 
 	if len(got.Calls) != 1 || got.Timing.IdleGapMs == nil || *got.Timing.IdleGapMs != 0 {
 		t.Fatalf("calls = %+v, timing = %+v", got.Calls, got.Timing)
+	}
+}
+
+// A subagent that works on after the run ended does not stretch its spawn call.
+func TestASpawnCallEndsWithTheRun(t *testing.T) {
+	const main, child = "aaaaaaaa-0000-0000-0000-000000000007", "aaaaaaaa-0000-0000-0000-000000000008"
+	home := t.TempDir()
+	writeSession(t, home, main,
+		metaLine(main),
+		call("2026-10-08T10:00:01.000Z", "function_call", "c1", "spawn_agent", "arguments", `{}`),
+		started("2026-10-08T10:00:01.100Z", main, "c1", "/root/x", child),
+		output("2026-10-08T10:00:01.200Z", "function_call_output", "c1", `{"task_name":"/root/x"}`),
+	)
+	writeSession(t, home, child,
+		metaLine(child),
+		call("2026-10-08T10:00:02.000Z", "function_call", "d1", "read_file", "arguments", `{}`),
+		call("2026-10-08T10:20:00.000Z", "function_call", "d2", "read_file", "arguments", `{}`),
+	)
+	h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+	if err := h.remember(runID, main); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	exit := filepath.Join(dir, "status.exit")
+	if err := os.WriteFile(exit, []byte("0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	end := at(t, "2026-10-08T10:00:03.000Z")
+	if err := os.Chtimes(exit, end, end); err != nil {
+		t.Fatal(err)
+	}
+
+	got := h.ReadRun(dir, harness.RunInfo{SessionID: runID})
+
+	if len(got.Calls) != 2 || got.Calls[0].DurationMs == nil || *got.Calls[0].DurationMs != 1000 {
+		t.Fatalf("calls = %+v", got.Calls)
 	}
 }

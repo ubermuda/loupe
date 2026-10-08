@@ -494,17 +494,16 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 	return out
 }
 
-// runEnd bounds the lines of the run in dir. Codex writes stdout until it
-// exits, so a later resume of the session adds nothing to an adopted run read
-// after it. The margin covers the last lines of the session file. It is zero
-// when stdout does not stat.
+// runEnd bounds the lines of the run in dir, so a later resume of the session
+// adds nothing to an adopted run read after it. The worker shell writes its
+// exit file when Codex exits. It is zero when the file does not stat.
 func runEnd(dir string) time.Time {
-	info, err := os.Stat(filepath.Join(dir, "stdout"))
+	info, err := os.Stat(filepath.Join(dir, "status.exit"))
 	if err != nil {
 		return time.Time{}
 	}
 
-	return info.ModTime().Add(10 * time.Second)
+	return info.ModTime()
 }
 
 // document is the JSON object in the final message, which a model can wrap in
