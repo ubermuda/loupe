@@ -55,6 +55,9 @@ final readonly class Engine
     private const string SUBJECT_CHANGED = 'subject-changed';
     private const string REFILLED = 'refilled';
 
+    /** @var \ArrayObject<string, bool> the cards whose evaluation runs now, and whether a nested call asked for another pass */
+    private \ArrayObject $running;
+
     public function __construct(
         private EntityManagerInterface $em,
         private CardRepository $cards,
@@ -76,9 +79,37 @@ final readonly class Engine
         private EventDispatcherInterface $events,
         private LoggerInterface $logger,
     ) {
+        /** @var \ArrayObject<string, bool> $running */
+        $running = new \ArrayObject();
+        $this->running = $running;
     }
 
+    /**
+     * A sync transport runs an evaluation that an action starts inside the pass of the same card, where it reads none
+     * of the rows the pass has not flushed. That call only asks for one more pass, which runs after this one commits.
+     */
     public function evaluate(Uuid $cardId, \DateTimeImmutable $now): void
+    {
+        $key = $cardId->toRfc4122();
+        if ($this->running->offsetExists($key)) {
+            $this->running[$key] = true;
+
+            return;
+        }
+
+        $this->running[$key] = false;
+        try {
+            $this->evaluateOnce($cardId, $now);
+            $again = $this->running[$key];
+        } finally {
+            unset($this->running[$key]);
+        }
+        if ($again) {
+            $this->evaluate($cardId, $now);
+        }
+    }
+
+    private function evaluateOnce(Uuid $cardId, \DateTimeImmutable $now): void
     {
         $run = $this->em->wrapInTransaction(fn (): ?Evaluation => $this->evaluateLocked($cardId, $now));
         if (null === $run) {
