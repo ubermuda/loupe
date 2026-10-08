@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -47,10 +48,12 @@ func newStatusCmd() *cobra.Command {
 			"other than Claude Code keeps its own configuration. A pass proves the login and the " +
 			"project that `loupe mcp` uses in this directory. It does not read the command an " +
 			"agent is configured to start.\n\n" +
-			"Then it checks each account that the rule file of the bridge uses, as the bridge " +
-			"does at start: claude is on PATH, the account is logged in, and each project sees " +
-			"the `" + mcpjson.ServerKey + "` MCP server and the Loupe skills. A failing account " +
-			"fails the check. With no rule file, it checks no account.\n\n" +
+			"Then it checks each account that the rule file of the bridge declares, as the bridge " +
+			"does at start: the agent program is on PATH, the account is logged in, and each project sees " +
+			"the `" + mcpjson.ServerKey + "` MCP server and, for Claude Code, the Loupe skills. " +
+			"An account that no rule runs on is labelled `unused`. A failing account that a rule runs on " +
+			"fails the check. A failing unused account is printed and does not fail it. " +
+			"With no rule file, it checks no account.\n\n" +
 			"The last line on stdout is `" + statusPass + "` or `" + statusFail + "`. A failure " +
 			"exits non-zero, and the error on stderr says what to run next. Read the exit " +
 			"status, because the error comes after the verdict when the two streams merge.",
@@ -141,18 +144,24 @@ func checkStatusAccounts(ctx context.Context, out io.Writer, rulesPath string) e
 		return fmt.Errorf("rule file %s: %w", path, err)
 	}
 	results := checkAccounts(ctx, set)
-	if len(results) == 0 {
-		fmt.Fprintf(out, "Accounts:    %s runs no agent, so no account to check\n", path)
+	if !slices.ContainsFunc(results, func(a accountResult) bool { return a.used }) {
+		fmt.Fprintf(out, "Accounts:    %s runs no agent, so no account is in use\n", path)
 	}
 	var failing []string
 	for _, a := range results {
+		label := a.harness
+		if !a.used {
+			label += ", unused"
+		}
 		if len(a.problems) == 0 {
-			fmt.Fprintf(out, "Account:     %s (%s): ready\n", a.name, a.harness)
+			fmt.Fprintf(out, "Account:     %s (%s): ready\n", a.name, label)
 
 			continue
 		}
-		failing = append(failing, a.name)
-		fmt.Fprintf(out, "Account:     %s (%s): failing: %s\n", a.name, a.harness, a.reason())
+		if a.used {
+			failing = append(failing, a.name)
+		}
+		fmt.Fprintf(out, "Account:     %s (%s): failing: %s\n", a.name, label, a.reason())
 		for _, p := range a.problems {
 			fmt.Fprintf(out, "             %s\n", p.Detail)
 		}

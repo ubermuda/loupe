@@ -107,6 +107,7 @@ Each row of `accounts` holds these fields:
 | `harness` | required. The agent tool of the account, such as `claude-code`, with the same rule as `name` |
 | `state` | required. `ready` when the last check of the account passed, and `failing` when it did not |
 | `reason` | optional. Why the check failed, at most 200 characters after trimming. The server keeps it for a `failing` row only, and stores a blank value as no value |
+| `used` | optional. `false` when no rule uses the account, so a failing check turns off nothing. The CLI always sends it. A missing value reads as `true` |
 
 The [agents page](../using/worker-runs.md#bridge-health) shows the accounts on
 the card of the bridge, with the time of the heartbeat that carried them. The

@@ -107,9 +107,9 @@ func TestTheHeartbeatReportsEachAccountWithNoPath(t *testing.T) {
 	set.SetAccountProblems(accountsOff(checkAccounts(context.Background(), set)))
 	hb := heartbeatBody(set, "")
 	want := []api.AccountReport{
-		{Name: "broken", Harness: "claude-code", State: api.AccountFailing, Reason: "env file does not read"},
-		{Name: "in", Harness: "claude-code", State: api.AccountReady},
-		{Name: "out", Harness: "claude-code", State: api.AccountFailing, Reason: "not logged in"},
+		{Name: "broken", Harness: "claude-code", State: api.AccountFailing, Reason: "env file does not read", Used: true},
+		{Name: "in", Harness: "claude-code", State: api.AccountReady, Used: true},
+		{Name: "out", Harness: "claude-code", State: api.AccountFailing, Reason: "not logged in", Used: true},
 	}
 	if !slices.Equal(hb.Accounts, want) {
 		t.Fatalf("Accounts = %+v, want %+v", hb.Accounts, want)
@@ -121,14 +121,14 @@ func TestTheHeartbeatReportsEachAccountWithNoPath(t *testing.T) {
 	if strings.Contains(string(b), "/") {
 		t.Fatalf("the account rows name a path: %s", b)
 	}
-	if !strings.Contains(string(b), `{"name":"in","harness":"claude-code","state":"ready"}`) {
+	if !strings.Contains(string(b), `{"name":"in","harness":"claude-code","state":"ready","used":true}`) {
 		t.Fatalf("a ready row = %s", b)
 	}
 }
 
-// A checked set that uses no account sends an empty list, which clears the
-// rows the server holds.
-func TestACheckedSetOfCommandsSendsNoAccountRows(t *testing.T) {
+// A checked set whose rules use no account still reports each declared
+// account, as unused.
+func TestACheckedSetOfCommandsSendsUnusedAccountRows(t *testing.T) {
 	body := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + t.TempDir() +
 		"\nwork:\n  test:\n    action: command\n    run: [make]\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
@@ -140,7 +140,7 @@ func TestACheckedSetOfCommandsSendsNoAccountRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(b), `"accounts":[]`) {
+	if !strings.Contains(string(b), `"accounts":[{"name":"claude","harness":"claude-code",`) || !strings.Contains(string(b), `"used":false}]`) {
 		t.Fatalf("heartbeat body = %s", b)
 	}
 }
@@ -152,7 +152,7 @@ func TestAReloadTurnsOffAFailingAccount(t *testing.T) {
 	h.router.heartbeat = hh.h
 	src := h.source(defaultRules)
 	src.checkAccounts = func(_ context.Context, set *rules.Set) []accountResult {
-		return []accountResult{{name: "claude", harness: "claude-code", problems: []harn.Problem{{Reason: "not logged in", Detail: "run `claude auth login`"}}}}
+		return []accountResult{{name: "claude", harness: "claude-code", used: true, problems: []harn.Problem{{Reason: "not logged in", Detail: "run `claude auth login`"}}}}
 	}
 
 	res := h.router.reload(context.Background(), src)
@@ -188,18 +188,18 @@ func TestAReloadTurnsOffAFailingAccount(t *testing.T) {
 	if rows := sent(1); rows != nil {
 		t.Fatalf("the heartbeat before the reload has account rows %+v", rows)
 	}
-	if rows, want := sent(2), []api.AccountReport{{Name: "claude", Harness: "claude-code", State: api.AccountFailing, Reason: "not logged in"}}; !slices.Equal(rows, want) {
+	if rows, want := sent(2), []api.AccountReport{{Name: "claude", Harness: "claude-code", State: api.AccountFailing, Reason: "not logged in", Used: true}}; !slices.Equal(rows, want) {
 		t.Fatalf("the heartbeat of the swap has rows %+v, want %+v", rows, want)
 	}
 
 	// A later reload that finds the account ready sends the ready row.
 	src.checkAccounts = func(context.Context, *rules.Set) []accountResult {
-		return []accountResult{{name: "claude", harness: "claude-code"}}
+		return []accountResult{{name: "claude", harness: "claude-code", used: true}}
 	}
 	if res := h.router.reload(context.Background(), src); !res.OK || res.AccountsOff != nil {
 		t.Fatalf("result = %+v", res)
 	}
-	if rows, want := sent(3), []api.AccountReport{{Name: "claude", Harness: "claude-code", State: api.AccountReady}}; !slices.Equal(rows, want) {
+	if rows, want := sent(3), []api.AccountReport{{Name: "claude", Harness: "claude-code", State: api.AccountReady, Used: true}}; !slices.Equal(rows, want) {
 		t.Fatalf("the heartbeat of the second swap has rows %+v, want %+v", rows, want)
 	}
 }
@@ -212,5 +212,38 @@ func TestALongReasonFitsTheServerLimit(t *testing.T) {
 	}
 	if short := "not logged in"; cutReason(short) != short {
 		t.Fatalf("cutReason changed a short reason to %q", cutReason(short))
+	}
+}
+
+// An account that no rule runs on is checked and reported, and its failure
+// turns nothing off.
+func TestAFailingUnusedAccountIsReportedAndTurnsNothingOff(t *testing.T) {
+	loggedInClaude(t)
+	in, out := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(in, "in"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body := "accounts:\n  in:\n    harness: claude-code\n    configDir: " + in + "\n" +
+		"  spare:\n    harness: claude-code\n    configDir: " + out + "\n" +
+		"defaults:\n  account: in\nprojects:\n  loupe:\n    dir: " + readyProject(t) + "\nwork:\n  plan:\n    prompt: go\n"
+	set, err := rules.Parse([]byte(body), rules.Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := checkAccounts(context.Background(), set)
+	if len(got) != 2 || got[0].name != "in" || !got[0].used || got[1].name != "spare" || got[1].used || got[1].reason() != "not logged in" {
+		t.Fatalf("checkAccounts = %+v", got)
+	}
+	set.SetAccountProblems(accountsOff(got))
+	if m := set.MatchWork(workRequest(1, 7, "plan", api.WorkRequestOpen)); m.Skip == rules.NoRule {
+		t.Fatalf("the used account is off: %+v", m)
+	}
+	want := []api.AccountReport{
+		{Name: "in", Harness: "claude-code", State: api.AccountReady, Used: true},
+		{Name: "spare", Harness: "claude-code", State: api.AccountFailing, Reason: "not logged in"},
+	}
+	if rows := accountReports(set); !slices.Equal(rows, want) {
+		t.Fatalf("rows = %+v, want %+v", rows, want)
 	}
 }
