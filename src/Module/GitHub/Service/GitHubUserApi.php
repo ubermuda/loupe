@@ -6,14 +6,14 @@ namespace App\Module\GitHub\Service;
 
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
 use App\Module\GitHub\GitHubRepositoryRef;
+use Psr\Clock\ClockInterface;
 use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * The calls the App install makes as the installing user. The user token lives
- * in the caller's request only: this class never stores it or puts it in an
- * exception.
+ * The calls Loupe makes to GitHub as a user. This class never stores a token
+ * and never puts one in an exception.
  */
 final readonly class GitHubUserApi
 {
@@ -24,33 +24,68 @@ final readonly class GitHubUserApi
         private HttpClientInterface $githubOauthClient,
         private HttpClientInterface $githubApiClient,
         private GitHubAppConfiguration $configuration,
+        private ClockInterface $clock,
     ) {
     }
 
-    /**
-     * @return non-empty-string the user access token
-     *
-     * @throws GitHubUserApiFailed
-     */
-    public function exchangeCode(string $code, string $codeVerifier, string $redirectUri): string
+    /** @throws GitHubUserApiFailed */
+    public function exchangeCode(string $code, string $codeVerifier, string $redirectUri): GitHubUserTokens
     {
-        $body = $this->send($this->githubOauthClient, 'POST', '/login/oauth/access_token', ['body' => [
-            'client_id' => $this->configuration->clientId,
-            'client_secret' => $this->configuration->clientSecret,
+        return $this->tokens([
             'code' => $code,
             'redirect_uri' => $redirectUri,
             'code_verifier' => $codeVerifier,
-        ]]);
+        ]);
+    }
 
-        $token = $body['access_token'] ?? null;
-        if (\is_string($token) && '' !== $token) {
-            return $token;
+    /**
+     * A refresh token works once, so the caller must store the new set at once.
+     *
+     * @throws GitHubUserApiFailed with reason `token_bad_refresh_token` when GitHub refuses the token for good
+     */
+    public function refresh(#[\SensitiveParameter] string $refreshToken): GitHubUserTokens
+    {
+        return $this->tokens(['grant_type' => 'refresh_token', 'refresh_token' => $refreshToken]);
+    }
+
+    /** @throws GitHubUserApiFailed */
+    public function user(#[\SensitiveParameter] string $token): GitHubUserProfile
+    {
+        $body = $this->send($this->githubApiClient, 'GET', '/user', ['headers' => ['Authorization' => 'Bearer '.$token]]);
+        $id = $body['id'] ?? null;
+        $login = $body['login'] ?? null;
+        if (!\is_int($id) || !\is_string($login) || '' === $login) {
+            throw new GitHubUserApiFailed('malformed_body');
         }
 
-        // GitHub answers a refused exchange with 200 and an error code.
-        $error = $body['error'] ?? null;
+        return new GitHubUserProfile($id, $login);
+    }
 
-        throw new GitHubUserApiFailed(\is_string($error) && 1 === preg_match('/^[a-z_]{1,64}$/', $error) ? 'token_'.$error : 'token_missing');
+    /**
+     * Removes the App's grant for the user, which voids every token of it.
+     *
+     * @throws GitHubUserApiFailed
+     */
+    public function revokeGrant(#[\SensitiveParameter] string $accessToken): void
+    {
+        $clientId = $this->configuration->clientId;
+        $clientSecret = $this->configuration->clientSecret;
+        if (null === $clientId || '' === $clientId || null === $clientSecret || '' === $clientSecret) {
+            throw new GitHubUserApiFailed('not_configured');
+        }
+
+        try {
+            $status = $this->githubApiClient->request('DELETE', '/applications/'.rawurlencode($clientId).'/grant', [
+                'auth_basic' => [$clientId, $clientSecret],
+                'json' => ['access_token' => $accessToken],
+            ])->getStatusCode();
+        } catch (TransportExceptionInterface) {
+            throw new GitHubUserApiFailed('transport');
+        }
+
+        if (204 !== $status) {
+            throw new GitHubUserApiFailed('http_status', $status);
+        }
     }
 
     /**
@@ -94,6 +129,43 @@ final readonly class GitHubUserApi
         }
 
         return new GitHubRepositoryList($repositories, $complete);
+    }
+
+    /**
+     * @param array<string, string> $grant
+     *
+     * @throws GitHubUserApiFailed
+     */
+    private function tokens(array $grant): GitHubUserTokens
+    {
+        $body = $this->send($this->githubOauthClient, 'POST', '/login/oauth/access_token', ['body' => [
+            'client_id' => $this->configuration->clientId,
+            'client_secret' => $this->configuration->clientSecret,
+            ...$grant,
+        ]]);
+
+        $accessToken = $body['access_token'] ?? null;
+        if (!\is_string($accessToken) || '' === $accessToken) {
+            // GitHub answers a refused exchange with 200 and an error code.
+            $error = $body['error'] ?? null;
+
+            throw new GitHubUserApiFailed(\is_string($error) && 1 === preg_match('/^[a-z_]{1,64}$/', $error) ? 'token_'.$error : 'token_missing');
+        }
+
+        $refreshToken = $body['refresh_token'] ?? null;
+        $now = $this->clock->now();
+
+        return new GitHubUserTokens(
+            $accessToken,
+            \is_string($refreshToken) && '' !== $refreshToken ? $refreshToken : null,
+            $this->expiry($now, $body['expires_in'] ?? null),
+            $this->expiry($now, $body['refresh_token_expires_in'] ?? null),
+        );
+    }
+
+    private function expiry(\DateTimeImmutable $now, mixed $seconds): ?\DateTimeImmutable
+    {
+        return \is_int($seconds) && $seconds > 0 ? $now->modify('+'.$seconds.' seconds') : null;
     }
 
     /**
