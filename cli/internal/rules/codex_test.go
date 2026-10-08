@@ -115,3 +115,14 @@ func TestParseRefusesAnInvalidCodexAccount(t *testing.T) {
 		})
 	}
 }
+
+func TestNeedsClaudeOnlyWhenARunTakesAClaudeAccount(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if s := parse(t, codexAccount+codexDefaults+oneWork); s.NeedsClaude() {
+		t.Fatal("a set of codex runs needs no claude")
+	}
+	mixed := codexAccount + "  claude:\n    harness: claude-code\n" + codexDefaults + oneWork + "  other:\n    prompt: x\n    account: claude\n"
+	if s := parse(t, mixed); !s.NeedsClaude() {
+		t.Fatal("a claude run needs claude")
+	}
+}

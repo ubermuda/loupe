@@ -105,9 +105,39 @@ func meta(path string) (thread, cwd string, start time.Time, ok bool) {
 	return entry.Payload.ID, entry.Payload.Cwd, entry.Timestamp, true
 }
 
-// locate finds the thread of an interactive run: the first session that no run
-// claimed, which started in the launch folder at or after the launch. A run
-// with no launch record has no thread.
+// pendingBefore counts the launches in dir before this one that no thread was
+// matched to yet. They own the earliest sessions that started in dir, so this
+// launch takes the session after them.
+func (h Harness) pendingBefore(runID, dir string, at time.Time) int {
+	entries, err := os.ReadDir(h.threads)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, e := range entries {
+		id, ok := strings.CutSuffix(e.Name(), launchSuffix)
+		if !ok || id == runID {
+			continue
+		}
+		other, otherAt, err := h.launchRecord(id)
+		if err != nil || realPath(other) != realPath(dir) {
+			continue
+		}
+		if otherAt.After(at) || (otherAt.Equal(at) && id > runID) {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(h.threads, id)); errors.Is(err, os.ErrNotExist) {
+			n++
+		}
+	}
+
+	return n
+}
+
+// locate finds the thread of an interactive run among the sessions that no run
+// claimed, which started in the launch folder at or after the launch. Sessions
+// start in launch order, so a launch skips one session for each earlier launch
+// in the folder that has none yet. A run with no launch record has no thread.
 func (h Harness) locate(runID string) (string, error) {
 	dir, at, err := h.launchRecord(runID)
 	if err != nil {
@@ -123,9 +153,12 @@ func (h Harness) locate(runID string) (string, error) {
 	}
 	want := realPath(dir)
 	taken := h.claimed()
-	var best string
-	var bestStart time.Time
-	for _, path := range slices.Sorted(slices.Values(files)) {
+	type found struct {
+		id    string
+		start time.Time
+	}
+	var matches []found
+	for _, path := range files {
 		if info, err := os.Stat(path); err != nil || info.ModTime().Before(at.Add(-launchSlack)) {
 			continue
 		}
@@ -133,16 +166,16 @@ func (h Harness) locate(runID string) (string, error) {
 		if !ok || taken[id] || start.Before(at.Add(-launchSlack)) || realPath(cwd) != want {
 			continue
 		}
-		if best == "" || start.Before(bestStart) {
-			best, bestStart = id, start
-		}
+		matches = append(matches, found{id, start})
 	}
-	if best == "" {
+	slices.SortFunc(matches, func(a, b found) int { return a.start.Compare(b.start) })
+	skip := h.pendingBefore(runID, dir, at)
+	if skip >= len(matches) {
 		return "", transcript.ErrNotFound
 	}
-	if err := h.remember(runID, best); err != nil {
+	if err := h.remember(runID, matches[skip].id); err != nil {
 		return "", err
 	}
 
-	return best, nil
+	return matches[skip].id, nil
 }

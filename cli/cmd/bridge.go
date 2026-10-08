@@ -189,9 +189,11 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	if err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
 	}
-	claude, err := resolveClaude()
-	if err != nil {
-		return err
+	claude := ""
+	if set.NeedsClaude() {
+		if claude, err = resolveClaude(); err != nil {
+			return err
+		}
 	}
 
 	cfg, err := config.Load()

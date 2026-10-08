@@ -240,6 +240,29 @@ func TestAnInteractiveRunSkipsASessionAnotherRunClaimed(t *testing.T) {
 	}
 }
 
+func TestALaterLaunchWaitsForTheSessionOfAnEarlierOne(t *testing.T) {
+	h := newHarness(t, "")
+	at := time.Now()
+	work := t.TempDir()
+	first := "aaaaaaaa-0000-4000-8000-000000000001"
+	second := "aaaaaaaa-0000-4000-8000-000000000002"
+	sessionFile(t, h.home, first, work, at.Add(time.Second))
+	sessionFile(t, h.home, second, work, at.Add(2*time.Second))
+	if err := h.RecordLaunch("run-one", work, at); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.RecordLaunch("run-two", work, at.Add(time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+
+	// The later launch asks first and still gets the later session.
+	two, err2 := h.thread("run-two")
+	one, err1 := h.thread("run-one")
+	if err1 != nil || err2 != nil || one != first || two != second {
+		t.Fatalf("threads = %q %q, errors %v %v", one, two, err1, err2)
+	}
+}
+
 func TestAnInteractiveRunWithNoSessionYetHasNone(t *testing.T) {
 	h := newHarness(t, "")
 	work := t.TempDir()

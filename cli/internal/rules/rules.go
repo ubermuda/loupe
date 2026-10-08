@@ -693,6 +693,22 @@ func (s *Set) UsedAccounts() []string {
 	return out
 }
 
+// NeedsClaude reports whether the bridge must find the claude program: a run
+// takes a claude-code account, or the set names no account at all. A set whose
+// runs all take codex accounts runs on a machine with no Claude Code.
+func (s *Set) NeedsClaude() bool {
+	used := s.UsedAccounts()
+	if len(used) == 0 {
+		return true
+	}
+
+	return slices.ContainsFunc(used, func(name string) bool {
+		run, ok := s.Account(name, "")
+
+		return ok && run.Harness == HarnessClaudeCode
+	})
+}
+
 // SetAccountProblems turns off each entry that runs on an account of m, which
 // maps the account to the reason its check failed. A nil m turns none off.
 func (s *Set) SetAccountProblems(m map[string]string) {
