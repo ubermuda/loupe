@@ -7383,6 +7383,10 @@
             <trans-unit id="workflow.waiting.not.run_worker_active"><source>workflow.waiting.not.run_worker_active</source><target>Waiting: a matching worker run is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.parent_document_approved"><source>workflow.waiting.parent_document_approved</source><target>Waiting: no %tag% document of the parent card is approved.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.parent_document_approved"><source>workflow.waiting.not.parent_document_approved</source><target>Waiting: a %tag% document of the parent card is approved.</target></trans-unit>
+            <trans-unit id="workflow.ask.unplanned_child"><source>workflow.ask.unplanned_child</source><target>Card #%child% is a child of epic #%epic%, and it links no approved tech design. What must happen to it?</target></trans-unit>
+            <trans-unit id="workflow.ask.unplanned_child.link"><source>workflow.ask.unplanned_child.link</source><target>Link the tech design of epic #%epic% to card #%child%</target></trans-unit>
+            <trans-unit id="workflow.ask.unplanned_child.design"><source>workflow.ask.unplanned_child.design</source><target>Move card #%child% to Tech design</target></trans-unit>
+            <trans-unit id="workflow.ask.unplanned_child.detach"><source>workflow.ask.unplanned_child.detach</source><target>Detach card #%child% from epic #%epic%</target></trans-unit>
             <trans-unit id="workflow.waiting.parent_work_active"><source>workflow.waiting.parent_work_active</source><target>Waiting: no matching worker run or work request of the parent card is open.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.parent_work_active"><source>workflow.waiting.not.parent_work_active</source><target>Waiting: a matching worker run or work request of the parent card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.run_last_refusal"><source>workflow.waiting.run_last_refusal</source><target>Waiting: the last run did not refuse with the code %code%.</target></trans-unit>
