@@ -388,7 +388,7 @@ test('a verdict leaves no button that opens an empty panel', async ({
         .tap();
     await page.getByRole('radio', { name: 'Approve', exact: true }).check();
     await page.getByRole('button', { name: 'Submit review' }).tap();
-    await expect(page.locator('.lp-verdict-bar')).toBeVisible({
+    await expect(page.locator('.lp-verdict-chip')).toBeVisible({
         timeout: 20000,
     });
 
@@ -442,7 +442,7 @@ test('the desktop review actions sit beside the document title', async ({
 
     await expect(
         page
-            .locator('.lp-review-doc__actions')
+            .locator('.lp-topbar__actions')
             .getByRole('button', { name: 'Finish review' }),
     ).toBeVisible();
     await expect(page.locator(MENU)).toBeHidden();

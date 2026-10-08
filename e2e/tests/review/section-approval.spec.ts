@@ -128,9 +128,6 @@ async function expectSectionCount(page: Page, count: string): Promise<void> {
     await expect(page.locator('#section-summary-count')).toHaveText(count, {
         timeout: 20000,
     });
-    await expect(page.locator('#section-byline-count')).toHaveText(
-        `${count} sections approved`,
-    );
 }
 
 /**
@@ -222,7 +219,7 @@ test.describe('per-section approval', () => {
         await page.getByRole('button', { name: 'Submit review' }).click();
         // Same generous wait as the count above: the verdict still redirects
         // and re-renders on the shared container.
-        await expect(page.locator('.lp-verdict-bar')).toBeVisible({
+        await expect(page.locator('.lp-verdict-chip')).toBeVisible({
             timeout: 20000,
         });
         await expectSectionCount(page, '1/2');

@@ -1319,11 +1319,18 @@
                 <source>review.document.page.title</source>
                 <target>%title%</target>
             </trans-unit>
+            <trans-unit id="inbox.document_wait.line">
+                <source>inbox.document_wait.line</source>
+                <target>{0}No card waits on this review|{1}Card %cards% waits on this review|]1,Inf[Cards %cards% wait on this review</target>
+            </trans-unit>
+            <trans-unit id="inbox.document_wait.and">
+                <source>inbox.document_wait.and</source>
+                <target>and</target>
+            </trans-unit>
             <trans-unit id="review.document.byline_updated">
                 <source>review.document.byline_updated</source>
                 <target>updated %updated%</target>
             </trans-unit>
-            <trans-unit id="review.document.sections.progress"><source>review.document.sections.progress</source><target>%approved%/%total% sections approved</target></trans-unit>
             <trans-unit id="review.document.margin.label"><source>review.document.margin.label</source><target>Document context</target></trans-unit>
             <trans-unit id="review.document.margin.filter"><source>review.document.margin.filter</source><target>Filter comments</target></trans-unit>
             <trans-unit id="review.document.margin.comments"><source>review.document.margin.comments</source><target>Comments</target></trans-unit>

@@ -31,9 +31,9 @@ final class CreateDocumentControllerTest extends WebTestCase
         self::assertResponseRedirects();
         $client->followRedirect();
         self::assertSelectorTextContains('h1', 'A new draft');
-        self::assertSelectorTextContains('.lp-review-doc__byline', 'Draft');
-        self::assertSelectorExists('button[data-action="click->modal#open"]');
-        self::assertSelectorNotExists('.lp-verdict-bar');
+        self::assertSelectorExists('[data-document-publish]');
+        self::assertSelectorExists('.lp-topbar__actions button[data-action="click->review-finish#open"]');
+        self::assertSelectorNotExists('.lp-verdict-chip');
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         $document = static::getContainer()->get(DocumentRepository::class)->findOneBy(['title' => 'A new draft']);

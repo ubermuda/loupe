@@ -1,0 +1,10 @@
+{# Params: project, waiting (card number => inbox item number). #}
+<p class="lp-review-doc__wait" id="document-wait-line">
+    {%- set links -%}
+        {%- for cardNumber, itemNumber in waiting -%}
+            <a href="{{ path('app_project_inbox', {id: project.id, _fragment: 'inbox-item-' ~ itemNumber}) }}">#{{ cardNumber }}</a>
+            {%- if loop.revindex == 2 %} {{ 'inbox.document_wait.and'|trans }} {% elseif not loop.last %}, {% endif -%}
+        {%- endfor -%}
+    {%- endset -%}
+    {{ 'inbox.document_wait.line'|trans({'%count%': waiting|length, '%cards%': links})|raw }}
+</p>

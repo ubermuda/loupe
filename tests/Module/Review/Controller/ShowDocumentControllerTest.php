@@ -229,13 +229,13 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.lp-review-doc__byline', 'Ribbonowner');
-        self::assertSelectorTextContains('.lp-review-doc__byline', '0/0 sections approved');
+        self::assertSelectorNotExists('#section-byline-count');
         self::assertSelectorCount(4, '.lp-review-margin-tabs [role="tab"]');
         self::assertSelectorTextContains('.lp-review-margin-tabs', 'Comments');
         self::assertSelectorExists('[data-margin-panel="details"]');
         self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="approved"]');
         self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="changes-requested"]');
-        self::assertSelectorNotExists('.lp-verdict-bar');
+        self::assertSelectorNotExists('.lp-verdict-chip');
     }
 
     public function test_agent_highlights_are_carried_outside_the_document_pane(): void
@@ -510,9 +510,9 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-verdict-bar__undo'));
+        self::assertCount(1, $crawler->filter('.lp-verdict-chip__undo'));
 
-        $client->submit($crawler->filter('.lp-verdict-bar__undo button')->form());
+        $client->submit($crawler->filter('.lp-verdict-chip__undo button')->form());
 
         self::assertResponseRedirects('/projects/'.$projectId.'/documents/'.$documentId.'/review');
 
@@ -531,7 +531,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSame((string) $owner->id, (string) $log[1]->reviewer->id, 'The log records who withdrew it');
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
-        self::assertSelectorNotExists('.lp-verdict-bar');
+        self::assertSelectorNotExists('.lp-verdict-chip');
         // The top bar carries the pair above lg and the review menu below it.
         self::assertCount(2, $crawler->filter('dialog input[name="submit_review_form[verdict]"]'));
         self::assertCount(1, $crawler->filter('.lp-review-menu__verdict'));
@@ -592,15 +592,15 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.lp-verdict-bar--approved');
-        self::assertSelectorTextContains('.lp-verdict-bar__title', 'Approved');
+        self::assertSelectorExists('.lp-verdict-chip--approved');
+        self::assertSelectorTextContains('.lp-verdict-chip__title', 'Approved');
         self::assertSelectorNotExists('input[name="undo_verdict_form[reviewId]"]');
-        self::assertSelectorTextSame('.lp-verdict-bar button[data-action="click->modal#open"]', 'Change verdict');
+        self::assertSelectorTextSame('.lp-verdict-chip button[data-action="click->review-finish#open"]', 'Change verdict');
         self::assertSelectorExists('.lp-review[data-controller~="modal"] dialog[data-modal-target="dialog"]');
         self::assertSelectorExists('dialog input[name="submit_review_form[verdict]"][value="approved"]');
-        // The verdict bar is the one entry point once a verdict stands.
+        // The verdict chip is the one entry point once a verdict stands.
         self::assertSelectorNotExists('.lp-review-menu__verdict');
-        self::assertSelectorNotExists('.lp-review-doc__actions button.lp-btn--primary[data-action="click->modal#open"]');
+        self::assertSelectorNotExists('.lp-review-topbar-actions button.lp-btn--primary');
     }
 
     public function test_non_owner_gets_403(): void

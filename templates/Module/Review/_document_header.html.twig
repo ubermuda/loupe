@@ -7,63 +7,52 @@
             <twig:ux:icon name="lucide:arrow-left" />
         </a>
         <div class="lp-review-doc__identity-text">
-            <div class="lp-review-doc__title-row">
-                <h1 class="lp-review-doc__title" id="review-document-title">{{ document.title }}</h1>
-                <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
-            </div>
+            <h1 class="lp-review-doc__title" id="review-document-title">{{ document.title }}</h1>
             <div class="lp-review-doc__byline">
-                <span class="lp-badge lp-badge--{{ document.status.value }}">{{ ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans }}</span>
-                <span class="lp-review-doc__middot" aria-hidden="true">·</span>
                 <span class="lp-review-doc__author">
                     <span class="lp-review-doc__avatar" aria-hidden="true">{{ document.owner.fullName|first|upper }}</span>
                     {{ document.owner.fullName }}
                 </span>
                 <span class="lp-review-doc__middot" aria-hidden="true">·</span>
                 <span>{{ 'review.document.byline_updated'|trans({'%updated%': version.createdAt|relative_time}) }}</span>
-                {% if totalSections is not null %}
                 <span class="lp-review-doc__middot" aria-hidden="true">·</span>
-                <span id="section-byline-count">{{ 'review.document.sections.progress'|trans({
-                    '%approved%': approvedSections,
-                    '%total%': totalSections,
-                }) }}</span>
+                {% set lastSeen = lastSeenVersionNumber|default(null) %}
+                {% if lastSeen is not null and lastSeen < version.versionNumber %}
+                <a class="lp-btn lp-btn--ghost lp-btn--sm lp-doc-meta__unread"
+                   href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: lastSeen, toVersionNumber: version.versionNumber}) }}">
+                    {{ 'review.document.since_last_visit.chip'|trans({'%from%': lastSeen, '%to%': version.versionNumber}) }}
+                </a>
+                {% else %}
+                <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
+                {% endif %}
+                {% if canComment %}
+                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="comment-anchor#startUntargeted">
+                    <twig:ux:icon name="lucide:message-square-plus" />
+                    {{ 'review.document.comment.untargeted'|trans }}
+                </button>
+                {% endif %}
+                {% if returnToDocument %}
+                <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
+                    <twig:ux:icon name="lucide:file-text" />
+                    {{ 'review.document.diff.return'|trans }}
+                </a>
+                {% endif %}
+                {% if showDocumentActions %}
+                {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
+                {% if document.status.value == 'draft' and is_granted(constant('App\\Module\\Review\\Security\\DocumentVoter::MANAGE'), document) %}
+                <form method="post" action="{{ path('app_document_publish', {projectId: document.project.id, documentId: document.id}) }}" data-document-publish>
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-publish') }}">
+                    <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">
+                        <twig:ux:icon name="lucide:send" />
+                        {{ 'review.publish.submit'|trans }}
+                    </button>
+                </form>
+                {% endif %}
                 {% endif %}
             </div>
+            {% if showWaitLine|default(false) %}{{ inbox_document_wait_line(document) }}{% endif %}
         </div>
     </div>
-    {% if showDocumentActions or canComment or returnToDocument %}
-    <div class="lp-review-doc__actions">
-        {% if canComment %}
-        <button type="button" class="lp-btn lp-btn--ghost" data-action="comment-anchor#startUntargeted">
-            <twig:ux:icon name="lucide:message-square-plus" />
-            {{ 'review.document.comment.untargeted'|trans }}
-        </button>
-        {% endif %}
-        {% if returnToDocument %}
-        <a class="lp-btn" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
-            <twig:ux:icon name="lucide:file-text" />
-            {{ 'review.document.diff.return'|trans }}
-        </a>
-        {% endif %}
-        {% if showDocumentActions %}
-        {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
-        {% if document.status.value == 'draft' and is_granted(constant('App\\Module\\Review\\Security\\DocumentVoter::MANAGE'), document) %}
-        <form method="post" action="{{ path('app_document_publish', {projectId: document.project.id, documentId: document.id}) }}" data-document-publish>
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-publish') }}">
-            <button type="submit" class="lp-btn">
-                <twig:ux:icon name="lucide:send" />
-                {{ 'review.publish.submit'|trans }}
-            </button>
-        </form>
-        {% endif %}
-        {% if document.status.value in ['draft', 'in-review'] %}
-        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
-            <twig:ux:icon name="lucide:check" />
-            {{ 'review.document.finish.title'|trans }}
-        </button>
-        {% endif %}
-        {% endif %}
-    </div>
-    {% endif %}
     </div>
     <div class="lp-review-workspace-nav">
     <nav class="lp-tabs" aria-label="{{ 'review.document.navigation.label'|trans }}">
