@@ -41,6 +41,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $wasEnabled = $settings->enabled;
         $wasSyncing = $settings->enabled && $settings->syncBehind;
         $wasOpeningEpics = $settings->openEpicPullRequests;
+        $wasChecking = $settings->siteReviewCheck;
         $settings->enabled = $command->enabled;
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
@@ -58,6 +59,7 @@ final readonly class SaveBoardAutomationSettingsHandler
             $command->project,
             !$wasEnabled && $command->enabled,
             !$wasOpeningEpics && $command->openEpicPullRequests,
+            !$wasChecking && $command->siteReviewCheck,
         ));
 
         // A pull request that fell behind while the sync was off waits for no other trigger.
