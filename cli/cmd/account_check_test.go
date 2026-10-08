@@ -37,6 +37,9 @@ func readyProject(t *testing.T) string {
 	if err := os.MkdirAll(filepath.Join(dir, ".claude", "skills", "loupe-board"), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, ".claude", "skills", "loupe-board", "SKILL.md"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(dir, ".mcp.json"), []byte(`{"mcpServers":{"loupe":{"command":"loupe","args":["mcp"]}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}

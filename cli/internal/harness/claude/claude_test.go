@@ -400,6 +400,15 @@ func mkdir(t *testing.T, path string) {
 	}
 }
 
+// addSkill makes a skill folder that holds a SKILL.md.
+func addSkill(t *testing.T, dir string) {
+	t.Helper()
+	mkdir(t, dir)
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 const userLoupe = `{"mcpServers":{"loupe":{"type":"stdio","command":"loupe","args":["mcp"]}}}`
 
 func TestCheck(t *testing.T) {
@@ -419,7 +428,7 @@ func TestCheck(t *testing.T) {
 		"ready through the project and the config folder": {
 			authExit: "0", plugins: "[]",
 			setup: func(t *testing.T, project, config string) {
-				mkdir(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+				addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
 				if err := os.WriteFile(filepath.Join(config, ".claude.json"), []byte(userLoupe), 0o600); err != nil {
 					t.Fatal(err)
 				}
@@ -428,7 +437,7 @@ func TestCheck(t *testing.T) {
 		"ready through the skills of the config folder": {
 			authExit: "0", plugins: "[]",
 			setup: func(t *testing.T, project, config string) {
-				mkdir(t, filepath.Join(config, "skills", "loupe-board"))
+				addSkill(t, filepath.Join(config, "skills", "loupe-board"))
 				if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(`{"mcpServers":{"loupe":{"command":"loupe","args":["mcp"]}}}`), 0o600); err != nil {
 					t.Fatal(err)
 				}
@@ -448,7 +457,7 @@ func TestCheck(t *testing.T) {
 		"a plugin list is not needed when the project answers": {
 			authExit: "0", plugins: `not json`,
 			setup: func(t *testing.T, project, config string) {
-				mkdir(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+				addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
 				if err := os.WriteFile(filepath.Join(config, ".claude.json"), []byte(userLoupe), 0o600); err != nil {
 					t.Fatal(err)
 				}
@@ -457,7 +466,7 @@ func TestCheck(t *testing.T) {
 		"a declared server that is not loupe mcp beats a plugin": {
 			authExit: "0", plugins: `[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]`,
 			setup: func(t *testing.T, project, config string) {
-				mkdir(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+				addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
 				if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(`{"mcpServers":{"loupe":{"command":"other","args":["serve"]}}}`), 0o600); err != nil {
 					t.Fatal(err)
 				}
@@ -569,5 +578,31 @@ func TestCheckNamesAPluginListThatTimedOut(t *testing.T) {
 	got := New("").Check(ctx, harness.CheckSpec{Projects: map[string]string{"loupe": t.TempDir()}})
 	if len(got) != 2 || got[1].Reason != "check timed out for project loupe" || got[1].Detail == "" {
 		t.Fatalf("Check = %+v", got)
+	}
+}
+
+func TestCheckFindsClaudeOnThePathOfTheAccount(t *testing.T) {
+	isolate(t)
+	checkClaude(t, "0", "[]")
+	bin := t.TempDir()
+	spec := harness.CheckSpec{Account: "a", Env: []string{"PATH=" + bin}}
+
+	got := New("").Check(context.Background(), spec)
+	if len(got) != 1 || got[0].Reason != "claude is not on PATH" {
+		t.Fatalf("Check = %+v, want claude is not on PATH", got)
+	}
+}
+
+func TestAnEmptySkillFolderIsNoSkill(t *testing.T) {
+	dir := t.TempDir()
+	mkdir(t, filepath.Join(dir, "loupe-board"))
+	if hasSkills(dir) {
+		t.Fatal("hasSkills is true for a skill folder with no SKILL.md")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "loupe-board", "SKILL.md"), []byte("# x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !hasSkills(dir) {
+		t.Fatal("hasSkills is false for a skill with SKILL.md")
 	}
 }

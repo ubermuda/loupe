@@ -445,7 +445,7 @@ The bridge checks each account that `rules.yaml` uses, when it starts and on
 each `loupe bridge reload`. A check of a Claude Code account asks three
 questions:
 
-1. Is `claude` on `PATH`?
+1. Is `claude` on the `PATH` of the account, which an env file can set?
 2. Does `claude auth status` pass with the environment of the account? That
    environment is the env files of the account and its `CLAUDE_CONFIG_DIR`. A
    key such as `ANTHROPIC_API_KEY` in an env file also passes.
@@ -453,9 +453,10 @@ questions:
    project folder? The server is seen when the project or the account's
    `.claude.json` declares it as `loupe mcp`, or, when neither declares it, an
    enabled plugin serves it. A declared entry that starts another command
-   fails, because Claude Code prefers it to a plugin. The skills
-   are seen in `.claude/skills/loupe-*` of the project, in `skills/loupe-*` of
-   the config folder, or in an enabled `loupe@` plugin.
+   fails, because Claude Code prefers it to a plugin. The skills are seen
+   when a `loupe-*` folder with a `SKILL.md` is in `.claude/skills` of the
+   project or in `skills` of the config folder, or when an enabled `loupe@`
+   plugin is installed.
 
 A failing account turns off its own entries only. An entry is off when its
 account, or the account of one of its variants, fails. Every other entry keeps

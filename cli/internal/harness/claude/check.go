@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/ubermuda/loupe/cli/internal/envfile"
 	"maps"
 	"os"
 	"os/exec"
@@ -35,11 +37,11 @@ type plugin struct {
 // that each project sees the loupe MCP server and the Loupe skills. It reads
 // no field of auth status, because those name the person.
 func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Problem {
-	binary, err := exec.LookPath(h.Program())
+	env := envfile.Overlay(os.Environ(), spec.Env)
+	binary, err := lookPathIn(h.Program(), env)
 	if err != nil {
 		return []harness.Problem{{Reason: "claude is not on PATH", Detail: err.Error()}}
 	}
-	env := append(os.Environ(), spec.Env...)
 	var problems []harness.Problem
 	if _, err := runCheck(ctx, binary, "", env, "auth", "status"); err != nil {
 		problems = append(problems, loginProblem(err, spec.ConfigDir))
@@ -139,10 +141,40 @@ func isLoupePlugin(p plugin) bool {
 	return p.Enabled && strings.HasPrefix(p.ID, "loupe@")
 }
 
+// hasSkills reports whether dir holds a Loupe skill that claude can read.
 func hasSkills(dir string) bool {
-	found, _ := filepath.Glob(filepath.Join(dir, skillsGlob))
+	found, _ := filepath.Glob(filepath.Join(dir, skillsGlob, "SKILL.md"))
+	for _, path := range found {
+		if f, err := os.Open(path); err == nil {
+			_ = f.Close()
 
-	return len(found) > 0
+			return true
+		}
+	}
+
+	return false
+}
+
+// lookPathIn finds program on the PATH of env, which the worker shell
+// searches, rather than on the PATH of the bridge.
+func lookPathIn(program string, env []string) (string, error) {
+	path, ok := "", false
+	for _, kv := range env {
+		if v, found := strings.CutPrefix(kv, "PATH="); found {
+			path, ok = v, true
+		}
+	}
+	if !ok {
+		return exec.LookPath(program)
+	}
+	for _, dir := range filepath.SplitList(path) {
+		candidate := filepath.Join(cmp.Or(dir, "."), program)
+		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s not found in PATH %s", program, path)
 }
 
 // userSkills is the skills folder of the config folder claude reads.
