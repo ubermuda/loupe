@@ -502,11 +502,29 @@ The bridge gives each run its own id, and Codex picks its own thread id. The
 bridge keeps the pair in the `codex-threads` folder of its config folder, so
 `resume` continues the right thread.
 
+#### Codex metrics
+
+A Codex run reports the same metrics as a Claude Code run. The bridge reads
+them from the session file of the run in `<codexHome>/sessions/`, and from the
+session file of each subagent, which Codex writes beside it:
+
+1. The tool calls are the function calls and the custom tool calls of the
+   files. A call of a subagent counts as made by a subagent.
+2. The signatures of a shell call come from the commands that Codex ran inside
+   it.
+3. A `spawn_agent` call lasts until the last line of the session file of its
+   subagent.
+4. The peak context is the largest input of one reply of the main thread.
+5. The tokens and the cost add the tokens of each subagent.
+
+Codex does not document the session file, so a new Codex release can change
+it. When the bridge cannot read the file, the tool calls, the timing and the
+peak context of the run are unknown, never zero.
+
 Limits of this release:
 
-- The run page shows the tokens and the cost of a Codex run. The cost is empty
-  for a model with no list price, such as `openrouter/free`. The tool call and
-  timing metrics of a Codex run come in a later release.
+- The cost of a Codex run is empty for a model with no list price, such as
+  `openrouter/free`.
 - An [interactive entry](#interactive-action) on a `codex` account is not
   supported yet, and the bridge refuses a rule file that has one.
 - The `effort` of a work request does not reach Codex.
@@ -595,8 +613,10 @@ names now.
 
 ## Tool calls
 
-The bridge reads each tool call of a worker from the stream on claude's stdout.
-When the worker ends, the bridge sends the calls after the final state of the
+The harness adapter of the bridge reads each tool call of a worker. For Claude
+Code, it reads the stream on claude's stdout. For Codex, it reads the session
+file of the run and the session file of each subagent, as
+[Codex metrics](#codex-metrics) says. When the worker ends, the bridge sends the calls after the final state of the
 run, to `PUT /api/projects/{handle}/worker-runs/{runId}/tool-calls`. One
 request holds at most 500 calls. The last request also holds the tool time and
 the idle time of the run, so a run with no call still sends one request.
@@ -606,10 +626,15 @@ gives the fields.
 A call holds its tool, its start, its duration, its error flag, and whether a
 subagent made it. A call with no timestamp in the stream stays out. A call that
 starts a background task holds the id of that task, and a later call whose
-input names that id waits on it. An `Agent` or `Task` call lasts until the last
-line of its subagent, so a background subagent counts in full.
+input names that id waits on it. A call that starts a subagent lasts until the
+last line of its subagent, so a background subagent counts in full.
 
-A call also holds signatures, which name what it ran. A Bash call gets one
+The adapter gives each call a kind. A call that runs shell commands is `shell`,
+such as a Claude Code `Bash` call. A call that starts a subagent is `subagent`,
+such as a Claude Code `Agent` or `Task` call or a Codex `spawn_agent` call. Any
+other call is `tool`. The server reads the kind and never the tool name.
+
+A call also holds signatures, which name what it ran. A `shell` call gets one
 signature for each program its command runs, such as `grep` or `git status`.
 A signature keeps the base name of the program and no argument. A program on
 the subcommand list also keeps its second word, when that word is a lowercase

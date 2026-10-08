@@ -410,6 +410,7 @@ what the bridge reads from the stream of the worker.
     {
       "seq": 1,
       "tool": "Bash",
+      "kind": "shell",
       "startedAt": "2026-10-06T14:12:03.120Z",
       "durationMs": 840,
       "isError": false,
@@ -429,13 +430,14 @@ what the bridge reads from the stream of the worker.
 | `calls` | required. A list of at most 500 calls, which may be empty |
 | `calls[].seq` | required. The place of the call in the run, from 1 to 2147483647 |
 | `calls[].tool` | required. The tool name, such as `Bash`, `Read` or `Agent`, of 1 to 64 characters |
+| `calls[].kind` | `shell` for a call that runs shell commands, `subagent` for a call that starts a subagent, and `tool` for any other call. The harness adapter of the bridge sets it, so the server reads no tool name. `null` from a bridge older than call kinds |
 | `calls[].startedAt` | required. When the call started, in any offset. The server stores it in UTC |
 | `calls[].durationMs` | an integer of 0 or more. `null` when the stream holds no result of the call |
 | `calls[].isError` | `true` when the tool answered with an error. `null` when the stream holds no result of the call |
 | `calls[].inSubagent` | required. `true` when a subagent made the call |
 | `calls[].backgroundId` | the id of the background task the call started, of at most 64 characters |
 | `calls[].waitsOn` | the `backgroundId` of an earlier call that this call reads, of at most 64 characters |
-| `calls[].signatures` | required. A list of at most 20 strings of at most 120 characters. For a Bash call, the program and its subcommand for each command. For any other call, the tool name |
+| `calls[].signatures` | required. A list of at most 20 strings of at most 120 characters. For a call of the kind `shell`, the program and its subcommand for each command. For any other call, the tool name |
 | `calls[].fullText` | the full input of the call, of at most 20000 characters. `null` unless the project collects full text |
 | `timing.toolTimeMs` | an integer of 0 or more. The time the main session spent in tool calls, with overlaps counted once |
 | `timing.idleGapMs` | an integer of 0 or more. The sum of each pause of more than 300 seconds between two timed lines of the stream |
@@ -485,7 +487,7 @@ the tokens, the row holds the timing of the run. The MCP tools
 | `toolCalls` | the count of the calls of the run, the calls of subagents included |
 | `failedCalls` | the count of the calls with `isError` true |
 | `longestCallMs` | the longest `durationMs` of the calls |
-| `subagentMs` | the sum of `durationMs` of the `Agent` and `Task` calls of the main session |
+| `subagentMs` | the sum of `durationMs` of the calls of the kind `subagent` in the main session. `null` when a call of the main session has no `kind` |
 | `peakContextTokens` | the [peak context](#peak-context) the bridge sent |
 | `meanCpuPct` | the mean use of all cores, in percent, over the host samples of the bridge within the run |
 | `peakMemBytes` | the largest `memUsed` of those samples, in bytes |
