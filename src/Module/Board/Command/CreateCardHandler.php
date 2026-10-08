@@ -140,6 +140,7 @@ final readonly class CreateCardHandler
             $actor = $command->actor ?? $command->reporter;
             $this->cardEvents->record($card, CardEventKind::Created, $actor, $this->eventActor->userFor($actor), [
                 'column' => CardEvent::columnDetail($column),
+                'type' => $card->type,
             ], $card->createdAt);
             $this->cardLinkSync->sync($card, $relatedCards);
             $this->em->flush();
