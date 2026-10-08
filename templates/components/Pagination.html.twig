@@ -16,7 +16,7 @@
         {% if page > 1 %}
             <twig:Ds:Button variant="ghost" size="sm" href="{{ path(route, routeParams|merge({page: page - 1})) }}"  aria-label="{{ 'pagination.previous'|trans }}">‹</twig:Ds:Button>
         {% else %}
-            <twig:Ds:Button variant="ghost" size="sm" class="lp-pagination__disabled" disabled aria-disabled="true">‹</twig:Ds:Button>
+            <twig:Ds:Button variant="ghost" size="sm" class="lp-pagination__disabled" disabled aria-disabled="true" aria-label="{{ 'pagination.previous'|trans }}">‹</twig:Ds:Button>
         {% endif %}
         {% for p in pageList %}
             {% if p is null %}
@@ -28,7 +28,7 @@
         {% if page < totalPages %}
             <twig:Ds:Button variant="ghost" size="sm" href="{{ path(route, routeParams|merge({page: page + 1})) }}"  aria-label="{{ 'pagination.next'|trans }}">›</twig:Ds:Button>
         {% else %}
-            <twig:Ds:Button variant="ghost" size="sm" class="lp-pagination__disabled" disabled aria-disabled="true">›</twig:Ds:Button>
+            <twig:Ds:Button variant="ghost" size="sm" class="lp-pagination__disabled" disabled aria-disabled="true" aria-label="{{ 'pagination.next'|trans }}">›</twig:Ds:Button>
         {% endif %}
     </div>
 </nav>
