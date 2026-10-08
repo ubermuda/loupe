@@ -1,0 +1,43 @@
+/* The tag: a label chip with a tone. `templates/components/Ds/Tag.html.twig` renders it. */
+@layer components {
+    .lp-tag {
+        @apply inline-flex items-center py-1 px-2.5 rounded-md text-xs font-semibold bg-surface-3 text-fg-mute;
+    }
+    /* Label tones for card types and board columns; LabelTone names each one. */
+    .lp-tag--neutral {
+        @apply bg-surface-3 text-fg-mute;
+    }
+    .lp-tag--lime {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-tag--purple {
+        @apply bg-status-active-bg text-status-active;
+    }
+    .lp-tag--green {
+        @apply bg-status-ok-bg text-status-ok-deep;
+    }
+    .lp-tag--amber {
+        @apply bg-status-pending-bg text-status-pending-deep;
+    }
+    .lp-tag--red {
+        @apply bg-status-danger-bg text-status-danger-deep;
+    }
+    .lp-tag--teal {
+        @apply bg-tone-teal-bg text-tone-teal;
+    }
+    .lp-tag--sky {
+        @apply bg-tone-sky-bg text-tone-sky;
+    }
+    .lp-tag--blue {
+        @apply bg-tone-blue-bg text-tone-blue;
+    }
+    .lp-tag--indigo {
+        @apply bg-tone-indigo-bg text-tone-indigo;
+    }
+    .lp-tag--pink {
+        @apply bg-tone-pink-bg text-tone-pink;
+    }
+    .lp-tag--orange {
+        @apply bg-tone-orange-bg text-tone-orange;
+    }
+}

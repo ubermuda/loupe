@@ -91,10 +91,9 @@
                     <span class="lp-reports-analysis__range" data-analysis-experiment>{{ analysis.scope.experiment }}</span>
                     {% endif %}
                 </h3>
-                <span class="lp-status-chip lp-status-chip--{{ chip }}">
-                    <span class="lp-status-chip__dot"></span>
+                <twig:Ds:StatusChip :modifier="chip">
                     <span data-analysis-state>{{ ('insights.reports.state.' ~ analysis.state.value)|trans }}{% if analysis.reason is not null %}: {{ analysis.reason }}{% endif %}</span>
-                </span>
+                </twig:Ds:StatusChip>
             </div>
             <dl class="lp-reports-analysis__facts">
                 <div>
@@ -124,10 +123,9 @@
                 <li class="lp-reports-proposal" data-proposal="{{ proposal.id }}">
                     <div class="lp-reports-analysis__head">
                         <h4 class="lp-reports-proposal__title" data-proposal-title>{{ proposal.title }}</h4>
-                        <span class="lp-status-chip lp-status-chip--{{ proposalChip }}">
-                            <span class="lp-status-chip__dot"></span>
+                        <twig:Ds:StatusChip :modifier="proposalChip">
                             <span data-proposal-state>{{ ('insights.reports.proposal.state.' ~ (proposal.kind.value == 'bucket-rule' and proposal.state.value == 'created' ? 'rule_created' : proposal.state.value))|trans }}{% if proposal.dismissReason is not null %}: {{ proposal.dismissReason }}{% endif %}</span>
-                        </span>
+                        </twig:Ds:StatusChip>
                     </div>
                     <div class="prose lp-prose lp-reports-proposal__body" data-proposal-body>{{ proposal.body|proposal_body }}</div>
                     {% if proposal.kind.value == 'bucket-rule' %}
@@ -169,12 +167,7 @@
     </ol>
     <twig:Ds:Pagination route="app_project_analytics_reports" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
     {% else %}
-    <div class="lp-empty-state" data-reports-empty>
-        <twig:ux:icon name="lucide:file-chart-column" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'insights.reports.empty.title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'insights.reports.empty.description'|trans }}</p>
-        <a class="lp-empty-state__link" href="{{ app_docs_url }}/extending/cli-bridge/#work-requests" target="_blank" rel="noopener noreferrer">{{ 'insights.reports.empty.docs'|trans }}</a>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:file-chart-column" :title="'insights.reports.empty.title'|trans" :body="'insights.reports.empty.description'|trans" linkHref="{{ app_docs_url }}/extending/cli-bridge/#work-requests" :linkLabel="'insights.reports.empty.docs'|trans" data-reports-empty />
     {% endif %}
 </div>
 {% endblock %}

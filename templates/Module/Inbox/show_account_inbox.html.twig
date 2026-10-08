@@ -16,10 +16,7 @@
     </header>
 
     {% if inbox.isEmpty %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'inbox.account.page.empty'|trans }}</h2>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:inbox" iconClass="text-accent w-12 h-12" :title="'inbox.account.page.empty'|trans" />
     {% else %}
     <div class="lp-account-inbox__grid">
         {# One card per project: what it is, how much waits, how long, and the way in. #}

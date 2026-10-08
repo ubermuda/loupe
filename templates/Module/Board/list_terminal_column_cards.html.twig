@@ -38,12 +38,9 @@
 
     <twig:Ds:Pagination route="app_project_board_terminal_column" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="routeParams" />
     {% else %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:square-check-big" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'board.terminal.empty.title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'board.terminal.empty.body'|trans }}</p>
+    <twig:Ds:EmptyState icon="lucide:square-check-big" :title="'board.terminal.empty.title'|trans" :body="'board.terminal.empty.body'|trans">
         <twig:Ds:Button href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.terminal.empty.action'|trans }}</twig:Ds:Button>
-    </div>
+    </twig:Ds:EmptyState>
     {% endif %}
 </div>
 {% endblock %}

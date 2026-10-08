@@ -12,7 +12,7 @@
                 <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
             </div>
             <div class="lp-review-doc__byline">
-                <span class="lp-badge lp-badge--{{ document.status.value }}">{{ ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans }}</span>
+                <twig:Ds:Badge :status="document.status.value">{{ ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans }}</twig:Ds:Badge>
                 <span class="lp-review-doc__middot" aria-hidden="true">·</span>
                 <span class="lp-review-doc__author">
                     <span class="lp-review-doc__avatar" aria-hidden="true">{{ document.owner.fullName|first|upper }}</span>
