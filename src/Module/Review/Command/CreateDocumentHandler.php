@@ -88,10 +88,11 @@ final readonly class CreateDocumentHandler
                 } catch (DomainErrors $errors) {
                     return $errors;
                 }
+                // Before the links, because a listener of a link change may flush.
+                $this->em->persist($document);
                 if (null !== $command->workLinkIds) {
                     $this->workLinks->synchronize($document, $command->workLinkIds);
                 }
-                $this->em->persist($document);
                 $this->tagApplier->apply($document, $command->tagNames);
 
                 return null;

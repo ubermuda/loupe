@@ -6,6 +6,7 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -13,6 +14,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 final class DocumentWorkLinksControllerTest extends WebTestCase
@@ -116,6 +118,31 @@ final class DocumentWorkLinksControllerTest extends WebTestCase
         self::assertResponseRedirects($url);
         $client->followRedirect();
         self::assertSame(1, static::getContainer()->get(CardDocumentRepository::class)->count(['card' => $linkedId]));
+    }
+
+    public function test_creation_survives_a_link_listener_that_flushes(): void
+    {
+        static::bootKernel();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'document-flushing-listener@example.test');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Linked card');
+        $flushes = 0;
+        static::getContainer()->get(EventDispatcherInterface::class)->addListener(
+            CardDocumentsChanged::class,
+            static function () use ($em, &$flushes): void {
+                $em->flush();
+                ++$flushes;
+            },
+        );
+
+        $document = (static::getContainer()->get(CreateDocumentHandler::class))(new CreateDocumentCommand(
+            $project, 'Flushed document', '# Flushed',
+            workLinkIds: [(string) $card->id],
+        ));
+
+        self::assertSame(1, $flushes);
+        self::assertSame(1, static::getContainer()->get(CardDocumentRepository::class)->count(['document' => $document->id]));
     }
 
     public function test_creation_handler_refuses_foreign_card_links_without_partial_writes(): void
