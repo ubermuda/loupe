@@ -152,7 +152,9 @@ export default class extends Controller {
         clear.addEventListener('click', () => this.clear(block));
         // It sits in the block header beside the kind-of-answer chip, apart
         // from the note field, and is no part of the legend's text.
-        block.prepend(clear);
+        const legend = block.querySelector(':scope > legend');
+        if (legend) legend.after(clear);
+        else block.prepend(clear);
         block.append(controls);
         const saved = this.stateKey({
             indexes: this.savedIndexes(block),

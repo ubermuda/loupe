@@ -181,7 +181,8 @@ it('puts Clear choice in the block header, away from the note field', async () =
     const button = fieldset.querySelector('input[type="button"]');
 
     expect(button.parentElement).toBe(fieldset);
-    expect(fieldset.firstElementChild).toBe(button);
+    expect(fieldset.firstElementChild.tagName).toBe('LEGEND');
+    expect(fieldset.firstElementChild.nextElementSibling).toBe(button);
     expect(fieldset.querySelector('.lp-decision__note').contains(button)).toBe(
         false,
     );
