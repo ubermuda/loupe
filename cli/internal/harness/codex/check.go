@@ -247,13 +247,14 @@ func (h Harness) mcpProblems(ctx context.Context, binary, home, slug, dir string
 		return fail("loupe is not on PATH", err.Error())
 	}
 
-	return h.approvalProblems(home, slug, dir)
+	return h.approvalProblems(home, slug)
 }
 
 // approvalProblems checks that the loupe MCP server approves its tools. The
-// first file that sets the mode wins: the project, the profile, then config.toml.
-func (h Harness) approvalProblems(home, slug, dir string) []harness.Problem {
-	paths := []string{filepath.Join(dir, ".codex", "config.toml")}
+// first file that sets the mode wins: the profile, then config.toml. The project
+// file is not read, because Codex ignores it for a project it does not trust.
+func (h Harness) approvalProblems(home, slug string) []harness.Problem {
+	var paths []string
 	target := filepath.Join(home, "config.toml")
 	if h.profile != "" {
 		target = profileFile(home, h.profile)

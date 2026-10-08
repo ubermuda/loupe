@@ -499,8 +499,8 @@ without the Loupe tools cannot read its card.
 
 `codex exec` runs with the approval policy `never`. At the `workspace` and
 `read-only` levels, Codex refuses a Loupe tool call that needs approval. Add
-this line by hand under `[mcp_servers.loupe]` in the profile file, in
-`config.toml`, or in the `.codex/config.toml` of the project:
+this line by hand under `[mcp_servers.loupe]` in the profile file or in
+`config.toml` of the Codex home folder:
 
 ```toml
 [mcp_servers.loupe]

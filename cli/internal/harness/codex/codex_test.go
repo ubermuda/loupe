@@ -620,7 +620,7 @@ func TestCheckLoupeMcpServer(t *testing.T) {
 		h, home := plain(t, "[mcp_servers.loupe]\ndefault_tools_approval_mode = \"prompt\"\n")
 		one(t, check(t, h, home, fakeCodexMcp(t, stdioLoupe, true)), "loupe MCP tools need approval for project loupe", "config.toml")
 	})
-	t.Run("the project file wins over config.toml", func(t *testing.T) {
+	t.Run("the project file does not count", func(t *testing.T) {
 		h, home := plain(t, "[mcp_servers.loupe]\ndefault_tools_approval_mode = \"prompt\"\n")
 		f := fakeCodexMcp(t, stdioLoupe, true)
 		if err := os.MkdirAll(filepath.Join(f.project, ".codex"), 0o700); err != nil {
@@ -629,9 +629,7 @@ func TestCheckLoupeMcpServer(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(f.project, ".codex", "config.toml"), []byte(approveCfg), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if got := check(t, h, home, f); len(got) != 0 {
-			t.Fatalf("problems = %+v", got)
-		}
+		one(t, check(t, h, home, f), "loupe MCP tools need approval for project loupe", "config.toml")
 	})
 	t.Run("a config file that does not parse fails", func(t *testing.T) {
 		h, home := plain(t, "[mcp_servers.loupe\n")
