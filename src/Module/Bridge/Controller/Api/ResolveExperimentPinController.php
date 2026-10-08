@@ -70,6 +70,7 @@ final class ResolveExperimentPinController extends AppController
             candidate: $choice['candidate'],
             variants: $choice['variants'],
             weights: $payload?->weights(),
+            metrics: $payload?->metrics(),
         ));
 
         if (null === $result->variant) {

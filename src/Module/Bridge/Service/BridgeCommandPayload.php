@@ -31,6 +31,7 @@ final class BridgeCommandPayload
             'commandId' => (string) $command->id,
             'kind' => $command->kind->value,
             'bridgeId' => (string) $command->bridgeId,
+            'runId' => (string) $run->id,
             'runKey' => null === $run->runKey ? null : (string) $run->runKey,
             'sessionId' => null === $run->sessionId ? null : (string) $run->sessionId,
             'subjectType' => $run->subjectType,
@@ -39,9 +40,13 @@ final class BridgeCommandPayload
             'workRequestId' => $run->workRequestId?->toRfc4122(),
             'workKind' => $run->workKind,
             'ruleId' => $run->ruleId,
+            'startedAt' => $run->startedAt?->format('Y-m-d\TH:i:s.uP'),
+            'endedAt' => $run->endedAt?->format('Y-m-d\TH:i:s.uP'),
             'expiresAt' => $command->expiresAt->format(\DateTimeInterface::ATOM),
             'cause' => $command->cause->value,
             'context' => $command->context->toArray(),
+            'model' => $command->model,
+            'effort' => $command->effort,
         ];
     }
 }

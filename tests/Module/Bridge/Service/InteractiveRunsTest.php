@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Service;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
+use App\Module\Bridge\Messenger\CollectSessionUsage;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\InteractiveRuns;
@@ -19,6 +20,8 @@ use App\Tests\Support\DispatchedEvents;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -260,9 +263,10 @@ final class InteractiveRunsTest extends KernelTestCase
         $sessionId = Uuid::v4();
         $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
 
-        $closed = $this->runs()->close($project, $cardId, $sessionId);
+        [$closed, $closedNow] = $this->runs()->close($project, $cardId, $sessionId);
 
         self::assertNotNull($closed);
+        self::assertTrue($closedNow);
         $run = $this->reload($closed);
         self::assertSame(WorkerRunState::Closed, $run->state);
         self::assertSame(self::NOW, $run->endedAt?->format('Y-m-d H:i:s'));
@@ -277,9 +281,10 @@ final class InteractiveRunsTest extends KernelTestCase
         $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
         $this->runs()->close($project, $cardId, $sessionId);
 
-        $again = $this->runs()->close($project, $cardId, $sessionId);
+        [$again, $closedNow] = $this->runs()->close($project, $cardId, $sessionId);
 
         self::assertNotNull($again);
+        self::assertFalse($closedNow);
         self::assertSame(WorkerRunState::Closed, $this->reload($again)->state);
         self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($again));
     }
@@ -293,8 +298,9 @@ final class InteractiveRunsTest extends KernelTestCase
         $run = $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
         $this->closeBehindTheEntityManager($run);
 
-        $closed = $this->runs()->close($project, $cardId, $sessionId);
+        [$closed, $closedNow] = $this->runs()->close($project, $cardId, $sessionId);
 
+        self::assertFalse($closedNow);
         self::assertEquals($run->id, $closed?->id);
         self::assertSame(WorkerRunState::Closed, $closed?->state);
         self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($run));
@@ -318,7 +324,7 @@ final class InteractiveRunsTest extends KernelTestCase
     {
         $project = $this->scenario('interactive-close-none');
 
-        self::assertNull($this->runs()->close($project, Uuid::v7(), Uuid::v4()));
+        self::assertSame([null, false], $this->runs()->close($project, Uuid::v7(), Uuid::v4()));
     }
 
     public function test_close_by_id_closes_only_an_interactive_run_of_the_project(): void
@@ -436,10 +442,46 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertSame([$depth], $changes->transactionDepths());
     }
 
+    public function test_each_close_queues_one_usage_request_and_a_second_close_none(): void
+    {
+        $project = $this->scenario('interactive-usage-close');
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $run = $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
+        $byId = $this->runs()->open($project, Uuid::v7(), 4, Uuid::v4(), 'design');
+        $byIdRunId = $byId->id ?? throw new \LogicException('An opened run has an id.');
+
+        $this->runs()->close($project, $cardId, $sessionId);
+        $this->runs()->close($project, $cardId, $sessionId);
+        $this->runs()->closeById($project, $byIdRunId);
+        $this->runs()->closeById($project, $byIdRunId);
+
+        self::assertSame([[(string) $project->id, (string) $run->id], [(string) $project->id, (string) $byIdRunId]], $this->usageRequests());
+    }
+
+    public function test_a_move_queues_one_usage_request_for_each_run_it_closes(): void
+    {
+        $project = $this->scenario('interactive-usage-move');
+        $cardId = Uuid::v7();
+        $first = $this->runs()->open($project, $cardId, 3, Uuid::v4(), 'design');
+        $second = $this->runs()->open($project, $cardId, 3, Uuid::v4(), 'review');
+        $this->runs()->open($project, Uuid::v7(), 4, Uuid::v4(), 'design');
+
+        $this->runs()->closeOnMove($project, [$cardId]);
+        $this->runs()->closeOnMove($project, [$cardId]);
+
+        $expected = [[(string) $project->id, (string) $first->id], [(string) $project->id, (string) $second->id]];
+        $actual = $this->usageRequests();
+        sort($expected);
+        sort($actual);
+        self::assertSame($expected, $actual);
+    }
+
     private function scenario(string $name): Project
     {
         self::bootKernel();
         self::getContainer()->set('clock', new MockClock(self::NOW));
+        $this->asyncTransport()->reset();
         $em = $this->em();
 
         return $this->project($em, $this->user($em, $name.'@example.com'), 'Project '.substr(md5($name), 0, 8));
@@ -452,12 +494,36 @@ final class InteractiveRunsTest extends KernelTestCase
         $clock = $container->get('clock');
         $publisher = $container->get(WorkerRunChangedPublisher::class);
         $events = $container->get('event_dispatcher');
+        $bus = $container->get(MessageBusInterface::class);
         self::assertInstanceOf(WorkerRunRepository::class, $workerRuns);
         self::assertInstanceOf(ClockInterface::class, $clock);
         self::assertInstanceOf(WorkerRunChangedPublisher::class, $publisher);
         self::assertInstanceOf(EventDispatcherInterface::class, $events);
+        self::assertInstanceOf(MessageBusInterface::class, $bus);
 
-        return new InteractiveRuns($workerRuns, $this->searchIndexer(), $this->em(), $clock, $publisher, $events);
+        return new InteractiveRuns($workerRuns, $this->searchIndexer(), $this->em(), $clock, $publisher, $events, $bus);
+    }
+
+    private function asyncTransport(): InMemoryTransport
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        return $transport;
+    }
+
+    /** @return list<array{string, string}> project and run of each queued usage request */
+    private function usageRequests(): array
+    {
+        $requests = [];
+        foreach ($this->asyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof CollectSessionUsage) {
+                $requests[] = [$message->projectId, $message->runId];
+            }
+        }
+
+        return $requests;
     }
 
     private function closeBehindTheEntityManager(WorkerRun $run): void

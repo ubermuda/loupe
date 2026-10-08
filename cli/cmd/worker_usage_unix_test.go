@@ -22,7 +22,7 @@ func TestRunWorkerReportsWhatAResumeAdded(t *testing.T) {
 	dir := claudeHome(t, testSession, costState)
 	totals := `{"claude-opus-5-5":{"inputTokens":150,"outputTokens":30,"cacheReadInputTokens":1500,"cacheCreationInputTokens":50,"costUSD":2}}`
 	fakeClaude(t, "echo '{\"type\":\"cost-state\",\"modelUsage\":"+totals+"}' >> '"+dir+"/projects/-work/"+testSession+".jsonl'\n"+
-		"echo '{\"result\":\"ok\",\"modelUsage\":"+totals+"}'\n")
+		"echo '{\"type\":\"result\",\"result\":\"ok\",\"modelUsage\":"+totals+"}'\n")
 
 	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, resume: true, prompt: "go"}, nil)
 	want := &api.Usage{Source: api.UsageReported, Models: map[string]api.ModelUsage{
@@ -43,7 +43,7 @@ func TestRunWorkerReportsAResumeAfterAKilledProcess(t *testing.T) {
 	shortConfigHome(t)
 	claudeHome(t, testSession, costState, streamed2)
 	totals := `{"claude-opus-5-5":{"inputTokens":150,"outputTokens":30,"cacheReadInputTokens":1500,"cacheCreationInputTokens":50,"costUSD":2}}`
-	fakeClaude(t, "echo '{\"result\":\"ok\",\"modelUsage\":"+totals+"}'\n")
+	fakeClaude(t, "echo '{\"type\":\"result\",\"result\":\"ok\",\"modelUsage\":"+totals+"}'\n")
 
 	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, resume: true, prompt: "go"}, nil)
 	want := &api.Usage{Source: api.UsageReported, Models: map[string]api.ModelUsage{
@@ -69,7 +69,7 @@ func TestAdoptWorkerReportsWhatAResumeAdded(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := map[string]string{
-		"stdout":      `{"result":"ok","modelUsage":{"claude-opus-5-5":{"inputTokens":130,"costUSD":1.5}}}`,
+		"stdout":      `{"type":"result","result":"ok","modelUsage":{"claude-opus-5-5":{"inputTokens":130,"costUSD":1.5}}}`,
 		"stderr":      "",
 		"status.exit": "0\n",
 	}
@@ -90,7 +90,7 @@ func TestAdoptWorkerReportsWhatAResumeAdded(t *testing.T) {
 func TestRunWorkerReportsANewSessionWhole(t *testing.T) {
 	shortConfigHome(t)
 	claudeHome(t, testSession)
-	fakeClaude(t, `echo '{"result":"ok","modelUsage":{"claude-sonnet-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":3,"cacheCreationInputTokens":4,"costUSD":0.1}}}'`)
+	fakeClaude(t, `echo '{"type":"result","result":"ok","modelUsage":{"claude-sonnet-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":3,"cacheCreationInputTokens":4,"costUSD":0.1}}}'`)
 
 	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil)
 	want := &api.Usage{Source: api.UsageReported, Models: map[string]api.ModelUsage{

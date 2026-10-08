@@ -18,10 +18,15 @@ final class ResolveExperimentPinRequest
 
     public const int MAX_WEIGHT = 1_000_000;
 
+    public const int MAX_METRICS = 16;
+
+    private const string METRIC_KEY_PATTERN = '/^[a-z][a-z0-9:-]{0,63}$/D';
+
     public function __construct(
         public mixed $candidate = null,
         public mixed $variants = null,
         public mixed $weights = null,
+        public mixed $metrics = null,
     ) {
     }
 
@@ -79,6 +84,31 @@ final class ResolveExperimentPinRequest
         }
 
         return $named;
+    }
+
+    /**
+     * The metric keys the experiment declares, in their order. Null when they
+     * are not a list of 1 to MAX_METRICS unique keys of the right shape. A key
+     * the registry does not know stays, so the page can name it.
+     *
+     * @return non-empty-list<string>|null
+     */
+    public function metrics(): ?array
+    {
+        $metrics = $this->metrics;
+        if (!\is_array($metrics) || [] === $metrics || !array_is_list($metrics) || \count($metrics) > self::MAX_METRICS) {
+            return null;
+        }
+
+        $keys = [];
+        foreach ($metrics as $key) {
+            if (!\is_string($key) || 1 !== preg_match(self::METRIC_KEY_PATTERN, $key) || \in_array($key, $keys, true)) {
+                return null;
+            }
+            $keys[] = $key;
+        }
+
+        return $keys;
     }
 
     public static function isName(string $name): bool

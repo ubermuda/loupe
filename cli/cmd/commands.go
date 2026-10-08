@@ -145,12 +145,19 @@ func (r *router) handleCommand(c api.Command) (string, string) {
 	switch c.Kind {
 	case api.CommandStopRun:
 		return r.stopRun(c)
+	case api.CommandResumeRun:
+		return r.resumeRun(c)
 	case api.CommandRerunCommand:
 		return r.rerunCommand(c)
+	case api.CommandCollectSessionUsage:
+		return r.collectSessionUsage(c)
 	}
 
-	return r.resumeRun(c)
+	return api.CommandRefused, unknownCommandKind
 }
+
+// unknownCommandKind answers a kind this bridge does not know.
+const unknownCommandKind = "The bridge does not know the kind of the command."
 
 // The answers of a stop the bridge cannot act on. A resume in a handover
 // takes handingOver too.
@@ -316,6 +323,7 @@ func (r *router) stoppedReport(p pending, e endedRun) api.RunStateReport {
 	}
 	if e.res.err == nil {
 		report.Usage = r.usage(p, e.res.usage)
+		report.PeakContextTokens = e.res.peakContextTokens
 	}
 
 	return report
@@ -555,7 +563,7 @@ func commandWork(c api.Command) api.WorkRequest {
 	return api.WorkRequest{
 		Type: event.WorkRequestType, ProjectID: c.ProjectID, Subject: api.WorkRequestSubject{Type: "work-request", ID: c.WorkRequestID},
 		WorkRequestID: c.WorkRequestID, Kind: c.WorkKind, SubjectType: c.SubjectType, SubjectID: c.SubjectID,
-		CardNumber: c.CardNumber, RuleID: c.RuleID, Context: c.Context,
+		CardNumber: c.CardNumber, RuleID: c.RuleID, Context: c.Context, Model: c.Model, Effort: c.Effort,
 	}
 }
 

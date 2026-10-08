@@ -43,7 +43,7 @@ eval "card=\${$#}"; card=${card%%[!0-9]*}
 echo $PPID > "$LOUPE_E2E_DIR/started-$card.tmp" && mv "$LOUPE_E2E_DIR/started-$card.tmp" "$LOUPE_E2E_DIR/started-$card"
 n=0
 while [ ! -e "$LOUPE_E2E_DIR/release" ] && [ $n -lt 600 ]; do sleep 0.1; n=$((n+1)); done
-echo "{\"structured_output\":{\"status\":\"finished\",\"summary\":\"done $card\"}}"
+echo "{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"done $card\"}}"
 exit "$(cat "$LOUPE_E2E_DIR/exit-$card" 2>/dev/null || echo 0)"
 `
 
@@ -187,6 +187,8 @@ func (f *e2eLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			_ = json.NewEncoder(w).Encode(map[string]string{"state": body.State})
 		}
+	case r.Method == http.MethodPut && strings.HasSuffix(path, "/tool-calls"):
+		fmt.Fprint(w, `{"stored":0}`)
 	case r.Method == http.MethodPut && strings.Contains(path, "/worker-runs/"):
 		var report api.RunStateReport
 		_ = json.NewDecoder(r.Body).Decode(&report)

@@ -50,8 +50,11 @@ type WorkEntry struct {
 	// Variants pick the model, as the variants of an experiment named after
 	// the kind. An entry that sets them sets no model.
 	Variants []Variant `yaml:"variants"`
-	Run      []string  `yaml:"run"`
-	Timeout  string    `yaml:"timeout"`
+	// Metrics are the metric keys the Comparison tab of the experiment shows,
+	// in this order. Only an entry with variants sets them.
+	Metrics []string `yaml:"metrics"`
+	Run     []string `yaml:"run"`
+	Timeout string   `yaml:"timeout"`
 	// Subject is the subject type the entry runs. The check fills card when
 	// it is empty.
 	Subject string `yaml:"subject"`
@@ -68,11 +71,11 @@ var workRefusals = map[string][]refusal{
 		{[]string{"run", "timeout"}, "%s belongs to action command, and this entry runs a worker"},
 	},
 	ActionInteractive: {
-		{[]string{"before", "variants", "workerPool"}, "%s names worker behaviour, and action interactive launches no worker"},
+		{[]string{"before", "metrics", "variants", "workerPool"}, "%s names worker behaviour, and action interactive launches no worker"},
 		{[]string{"run", "timeout"}, "%s belongs to action command, and this entry launches an interactive session"},
 	},
 	ActionCommand: {
-		{[]string{"before", "model", "permissionMode", "prompt", "variants", "workerPool"}, "%s names agent behaviour, and action command starts no agent"},
+		{[]string{"before", "metrics", "model", "permissionMode", "prompt", "variants", "workerPool"}, "%s names agent behaviour, and action command starts no agent"},
 	},
 }
 
@@ -87,6 +90,7 @@ func checkWork(kind string, w *WorkEntry) error {
 	if table, ok := workRefusals[w.Action]; ok {
 		errs = append(errs, refuse(table, map[string]bool{
 			"before":         w.Before != nil,
+			"metrics":        w.Metrics != nil,
 			"model":          w.Model != "",
 			"permissionMode": w.PermissionMode != "",
 			"prompt":         w.Prompt != "",
@@ -122,13 +126,16 @@ func checkWork(kind string, w *WorkEntry) error {
 	}
 	errs = append(errs, checkSubject(w)...)
 
+	if w.Action == "" && w.Metrics != nil && w.Variants == nil {
+		errs = append(errs, errors.New("metrics needs variants, and only an experiment shows metrics"))
+	}
 	if w.Variants != nil {
 		if w.Model != "" {
 			errs = append(errs, errors.New("model and variants are both set, and the variants name the model"))
 		}
 		// An invalid kind has its own error, and is no experiment name.
 		if validKind {
-			e := Experiment{Name: kind, Variants: w.Variants}
+			e := Experiment{Name: kind, Variants: w.Variants, Metrics: w.Metrics}
 			if err := checkExperiment(e); err != nil {
 				errs = append(errs, err)
 			}
@@ -242,14 +249,16 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 		Project:        slug,
 		Dir:            s.dirs[slug],
 		PermissionMode: entry.PermissionMode,
-		Model:          entry.Model,
+		Model:          cmp.Or(w.Model, entry.Model),
+		Effort:         w.Effort,
 		Schema:         entry.schema,
 	}
 	switch entry.Action {
 	case "":
 		m.Prompt = directive.Render(entry.Prompt, v)
 		m.Pool = cmp.Or(entry.WorkerPool, DefaultPool)
-		if entry.experiment != nil {
+		// A model the request names is no draw, so the run joins no experiment.
+		if entry.experiment != nil && w.Model == "" {
 			m.Experiment = entry.experiment.clone()
 		}
 		if entry.Before != nil {

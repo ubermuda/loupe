@@ -13,9 +13,11 @@ use App\Module\Project\Entity\Project;
 final readonly class ExperimentReportView
 {
     /**
-     * @param list<ExperimentVariant>         $variants by name
-     * @param array<string, ExperimentMetric> $metrics  key => metric, in display order, empty when the command skips them
-     * @param list<ExperimentCard>            $cards    one page of the Cards tab, the latest run first
+     * @param list<ExperimentVariant>         $variants        by name
+     * @param array<string, ExperimentMetric> $metrics         key => metric, in display order, empty when the command skips them
+     * @param list<string>|null               $declaredMetrics the metric keys the rule declares, null when it declares none
+     * @param list<string>                    $unknownMetrics  the declared metric keys that the registry does not know
+     * @param list<ExperimentCard>            $cards           one page of the Cards tab, the latest run first
      * @param list<int|null>                  $pageList
      */
     public function __construct(
@@ -25,6 +27,8 @@ final readonly class ExperimentReportView
         public ?ExperimentHeadline $headline,
         public array $variants,
         public array $metrics,
+        public ?array $declaredMetrics,
+        public array $unknownMetrics,
         public int $includedCards,
         public int $leftOutCards,
         public array $cards,

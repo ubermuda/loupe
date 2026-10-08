@@ -49,6 +49,9 @@ class Bridge
     /** The capability of a bridge that runs a command run again. */
     public const string CAPABILITY_RERUN_COMMAND = 'rerun-command';
 
+    /** The capability of a bridge that reports the usage of an interactive run from the session transcript. */
+    public const string CAPABILITY_SESSION_USAGE = 'session-usage';
+
     /** The capability of a bridge that claims work requests. */
     public const string CAPABILITY_WORK_REQUESTS = 'work-requests';
 
@@ -164,6 +167,11 @@ class Bridge
     public function takesReruns(): bool
     {
         return $this->takesCommands() && \in_array(self::CAPABILITY_RERUN_COMMAND, $this->capabilities ?? [], true);
+    }
+
+    public function takesSessionUsage(): bool
+    {
+        return $this->takesCommands() && \in_array(self::CAPABILITY_SESSION_USAGE, $this->capabilities ?? [], true);
     }
 
     public function takesWorkRequests(): bool

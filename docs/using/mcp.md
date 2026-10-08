@@ -221,7 +221,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs twelve skills, each covering one part of working a Loupe project:
+It installs one skill for each part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -230,6 +230,7 @@ It installs twelve skills, each covering one part of working a Loupe project:
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
 | `loupe:loupe-workers` | Reading worker runs and bridges, and stopping, resuming or cancelling a run |
+| `loupe:loupe-analysis` | Running an analysis: a cost report, or a comparison of the variants of an experiment, with proposals |
 | `loupe:loupe-discovery` | A read-only discovery run that writes the readiness report of a project |
 | `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
 | `loupe:loupe-stage-product-design` | One review round on a product document |
@@ -292,7 +293,7 @@ Roughly in the order an agent uses them:
 | `card_get_history` | Read a page of one card's history, newest first: its creation, its moves and the automation's actions |
 | `card_update` | Change a card, or move it to another column |
 | `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
-| `card_run_close` | Close the interactive run a session opened on a card |
+| `card_run_close` | Close the interactive run a session opened on a card, and ask the bridges for the usage of the run |
 | `column_create` | Add a column at the end of the board, from a label |
 | `column_update` | Rename a column, or set whether it is terminal |
 | `column_reorder` | Put the columns in a new order; Backlog stays first |
@@ -305,8 +306,17 @@ Roughly in the order an agent uses them:
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
 | `inbox_settings_update` | Turn the inbox wait switches on or off (off with the inbox) |
-| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended, each with the reason it ended |
-| `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
+| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended. Each row gives the reason the run ended, its usage per model, its model, its experiment and variant, and its metrics. The metrics hold the sums of the run and its timing: the tool time, the model time, the idle gaps, the subagent time, and the count, failures and longest duration of its tool calls. They also hold the host of the run: the mean CPU use, the peak memory and swap, the count of runs that overlapped it on its bridge, and whether its machine ran on battery |
+| `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output, its metrics and the commands sent to its bridge |
+| `worker_run_tool_calls` | Read a page of the tool calls of one worker run, in the order the worker made them. Each call gives its tool, its start, its duration, its error flag, whether a subagent made it, and its signatures. `perPage` defaults to 20, with a maximum of 100 |
+| `bridge_host_samples` | Read a page of the host samples of the bridge that ran one worker run, oldest first, from the start of the run to its end, or to now while the run is open. Each sample gives its time, the use of each core, the memory and swap in use, the total memory, the battery charge and the power source. The samples cover the whole machine, so they cover every run on that bridge at that time. `perPage` defaults to 100, with a maximum of 500 |
+| `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes. It adds one `bucket-time:<name>` entry for each bucket that has time on a run of the project |
+| `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it. The metric `bucket-time:<name>` reads the time of the main-session tool calls of a run in one bucket, in milliseconds. A name is 1 to 64 characters of `a-z`, `0-9`, `_` and `-`. A run with no data for any bucket has an unknown value |
+| `experiment_get` | Read the comparison of one experiment: the variants, each metric with its likely range per variant and whether it gives a clear answer, and one page of the cards, with the reasons a card is left out |
+| `analysis_get` | Read one analysis, with its topic, its range, the experiment that an experiment analysis compares, its model and effort, its state and reason, its cost so far and its proposals |
+| `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
+| `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, the programs with subcommands, and whether the bridge sends the full text of each tool call |
+| `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort, or an empty list of programs, clears the project value, so the instance default applies |
 | `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |

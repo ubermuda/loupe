@@ -84,4 +84,11 @@ return static function (Config $config): void {
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Board']))
             ->because('GitHub announces a delivery through the Forge event, and Board decides what it means for a card'),
     );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Bridge'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Insights']))
+            ->because('Insights reads worker runs and metrics from Bridge to show the Analytics pages, so an import back closes a cycle'),
+    );
 };

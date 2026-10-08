@@ -27,18 +27,20 @@ class ExperimentDefinitionRepository extends ServiceEntityRepository
      * Writes past the identity map, so clear the entity manager before a read.
      *
      * @param list<array{name: string, weight: int}> $weights
+     * @param list<string>|null                      $metrics
      */
-    public function upsert(Project $project, string $experiment, array $weights, \DateTimeImmutable $reportedAt): void
+    public function upsert(Project $project, string $experiment, array $weights, ?array $metrics, \DateTimeImmutable $reportedAt): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(
-            'INSERT INTO bridge_experiment_definitions (id, project_id, experiment, weights, reported_at)'
-            .' VALUES (:id, :project, :experiment, :weights, :reportedAt)'
-            .' ON CONFLICT (project_id, experiment) DO UPDATE SET weights = EXCLUDED.weights, reported_at = EXCLUDED.reported_at',
+            'INSERT INTO bridge_experiment_definitions (id, project_id, experiment, weights, metrics, reported_at)'
+            .' VALUES (:id, :project, :experiment, :weights, :metrics, :reportedAt)'
+            .' ON CONFLICT (project_id, experiment) DO UPDATE SET weights = EXCLUDED.weights, metrics = EXCLUDED.metrics, reported_at = EXCLUDED.reported_at',
             [
                 'id' => Uuid::v7(),
                 'project' => $project->id,
                 'experiment' => $experiment,
                 'weights' => $weights,
+                'metrics' => $metrics,
                 'reportedAt' => $reportedAt,
             ],
             [
@@ -46,6 +48,7 @@ class ExperimentDefinitionRepository extends ServiceEntityRepository
                 'project' => UuidType::NAME,
                 'experiment' => Types::STRING,
                 'weights' => Types::JSON,
+                'metrics' => Types::JSON,
                 'reportedAt' => Types::DATETIME_IMMUTABLE,
             ],
         );
