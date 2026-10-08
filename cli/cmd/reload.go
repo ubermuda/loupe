@@ -57,8 +57,9 @@ func newReloadSource(path string, defaults rules.Defaults, cfg config.Config, lo
 	return src
 }
 
-// reload builds a new rule set and swaps it in. It runs one at a time. It
-// builds and checks the set off mu, and any failure changes nothing.
+// reload builds a new rule set, swaps it in and applies the server flags of
+// its GET /api/events answer. It runs one at a time. It builds and checks the
+// set off mu, and any failure changes nothing.
 func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 	if !r.reloadMu.TryLock() {
 		return reloadResult{Problems: []string{"a reload is already running"}}
@@ -134,12 +135,13 @@ func shuttingDown() reloadResult {
 	return reloadResult{Problems: []string{"the bridge is shutting down"}}
 }
 
-// built is a set a reload built, with its hooks, and the claude path when the
-// set has an interactive rule.
+// built is a set a reload built, with its hooks, the GET /api/events answer it
+// was checked against, and the claude path when the set has an interactive rule.
 type built struct {
 	set    *rules.Set
 	hooks  []hooks.Hook
 	claude string
+	events api.Events
 }
 
 // buildSet loads, checks and confirms a new set, resolves its hooks and its
@@ -171,6 +173,7 @@ func buildSet(ctx context.Context, src reloadSource) (built, string, error) {
 	if missing := missingProjects(set, events); len(missing) > 0 {
 		return b, "server", fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
+	b.events = events
 
 	return b, "", nil
 }
@@ -221,6 +224,7 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	dropped := r.rewriteLocked(set)
 	r.pruneLocked(set, gone)
 	r.projects = set.Projects()
+	r.keepFlagsLocked(b.events)
 	shutDropped := r.dispatchLocked()
 	r.mu.Unlock()
 
@@ -229,7 +233,7 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	if r.heartbeat != nil {
 		r.heartbeat.setBody(heartbeatBody(set, r.pushLogin))
 	}
-	r.syncHostSampler()
+	r.useFlags()
 
 	res := diffRules(old, set)
 	attrs := []any{"added", res.Added, "removed", res.Removed, "changed", res.Changed, "dirs", res.Dirs, "projects", res.Projects}

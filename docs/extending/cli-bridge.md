@@ -401,11 +401,11 @@ To turn the samples on:
 1. Open **`/admin/feature-flags`** as an admin.
 2. Switch on `bridge.host_sampling_enabled`.
 3. Optionally, set `bridge.host_sample_interval_seconds`.
-4. Wait for each bridge to reconnect, or restart it.
+4. Wait for each bridge to reconnect, or run `loupe bridge reload` for it.
 
 The bridge reads both flags from the [events endpoint](#events-endpoint) at
-start and at each reconnect. A bridge with `collect: false` in its `rules.yaml`
-takes no sample, whatever the flags say.
+start, at each reconnect and at each `loupe bridge reload`. A bridge with
+`collect: false` in its `rules.yaml` takes no sample, whatever the flags say.
 ## Agent account
 
 `loupe agent-account set` stores the token of a separate GitHub user for
@@ -971,8 +971,9 @@ six flags:
 | `bridge.host_sampling_enabled` | boolean | whether the bridge takes [host samples](#host-samples), `false` on an instance that holds no row for it |
 | `bridge.host_sample_interval_seconds` | integer | the seconds between two host samples, 60 on an instance that holds no row for it. A stored value below 5 reads as 60 |
 
-The bridge reads the map at start and again at each reconnect. A flag change
-therefore reaches a running bridge at its next reconnect.
+The bridge reads the map at start, at each reconnect and at each
+`loupe bridge reload`. A flag change therefore reaches a running bridge at its
+next reconnect or reload.
 
 `topic` is the user's own topic. The server publishes each event of a project on
 the project's topic and on its owner's topic. The JWT expires after an hour, and
