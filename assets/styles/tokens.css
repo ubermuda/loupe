@@ -1,0 +1,331 @@
+/* The one place a value is set. /styleguide reads it, and a `@group` marker
+   starts a group. */
+
+/* @group colour */
+:root {
+    /* Accent (chartreuse). Deliberately not lime-400: the handoff maps it there
+       only to honour its own named-Tailwind-token rule, and says the prototype
+       wins wherever the two disagree. lime-400 is visibly greener. */
+    --accent: #d4e94c;
+    --accent-hover: #c4dc32;
+    /* Highlight — the open-comment anchor, open-thread chip, trial chip. */
+    --accent-soft: #edf2ce;
+    --accent-faint: #f5f8df;
+    --accent-faint-2: #fafbf1;
+    --accent-border: #dce69b;
+    /* Accent dark enough to read as text on paper — links, active counts. */
+    --accent-ink: #596313;
+    --switcher-hover-border: #3a3a34;
+
+    /* Text ladder */
+    --ink: #20241f;
+    --text: #20241f;
+    --text-mute: #555b52;
+    /* Labels that name a value: darker than mute, 7.76:1 on the app background. */
+    --text-label: #4a5049;
+    --text-dim: #656b60;
+    --faint: #bec3b7;
+    --prose: #22262b;
+
+    /* Borders / hairlines */
+    --border: #e1e5da;
+    --border-strong: #cdd3c6;
+    --border-faint: #edf0e8;
+
+    /* Surfaces — "paper": the white panel the content sits on. */
+    --bg: #f7f8f3;
+    --sidebar: #181d18;
+    --surface-1: #ffffff;
+    --surface-2: #f7f8f3;
+    --surface-3: #f0f2eb;
+    --bg-elev: #ffffff;
+    --bg-sunken: #f0f2eb;
+    --bg-hover: #f7f8f3;
+    --bg-active: #e9ede3;
+    /* Warm paper for the mascot notes that sit beside the work. */
+    --bg-warm: #f1eee4;
+    --border-warm: #e9e5d8;
+    /* Form fields: a barely tinted fill and border, and a green-grey label. */
+    --field: #fcfdf9;
+    --border-field: #dce4d2;
+    --label: #5f724d;
+
+    /* Chrome — the dark shell the paper is inset into. */
+    --chrome: #181d18;
+    --chrome-raised: #242a23;
+    --chrome-control: #30372e;
+    --chrome-line: #343b30;
+    --chrome-fg: #f0f2eb;
+    --chrome-mute: #b5bcaf;
+    --chrome-dim: #929a8d;
+
+    /* Status ladder — pending (amber) / addressed·resolved (green) / removed (red) */
+    --status-pending: #9a6a1c;
+    --status-pending-deep: #7a5514;
+    --status-pending-bg: #fdf4e3;
+    --status-pending-border: #f0e2c0;
+    --status-ok: #2f9e5c;
+    --status-ok-deep: #25794a;
+    --status-ok-bg: #eaf7ee;
+    --status-ok-border: #b8f2c8;
+    --status-danger: #c2372b;
+    --status-danger-deep: #8c1e14;
+    --status-danger-bg: #fbe9e7;
+    --status-danger-border: #f8d7d2;
+    /* Purple rung: running and in-progress work, and card or column labels. */
+    --status-active: #984482;
+    --status-active-bg: #f3e8f1;
+    /* More label hues for board columns: a pale fill with an ink at WCAG AA or better. */
+    --tone-teal: #1f6f65;
+    --tone-teal-bg: #e3f4f1;
+    --tone-sky: #1d6a8f;
+    --tone-sky-bg: #e4f2fa;
+    --tone-blue: #2f58b0;
+    --tone-blue-bg: #e8eefb;
+    --tone-indigo: #4a45a8;
+    --tone-indigo-bg: #ecebfa;
+    --tone-pink: #a8325f;
+    --tone-pink-bg: #fbe8ef;
+    --tone-orange: #a14a14;
+    --tone-orange-bg: #fdede2;
+
+    /* Chart series, in this order: the order keeps neighbours apart for colour-blind readers. */
+    --chart-1: #2a78d6;
+    --chart-2: #eb6834;
+    --chart-3: #1baf7a;
+    --chart-4: #eda100;
+    --chart-5: #e87ba4;
+    --chart-6: #008300;
+    --chart-7: #4a3aa7;
+    --chart-8: #e34948;
+    --chart-other: #898781;
+
+    /* Ink dark enough to sit on the -border rung, which the design uses as a
+       solid chip fill (Approved, Changes requested) as well as a hairline. The
+       -deep rung is tuned for the pale -bg and is too light there. */
+    --status-ok-ink: #0f3d20;
+    --status-danger-chip: #ffd9d5;
+
+    /* Ink for a badge on the neutral raised fill. Lighter than --ink so a
+       resting "In review" does not shout as loudly as a heading. */
+    --ink-soft: #3d3d36;
+
+    /* The strike rule is its own red: brighter than --status-danger because it
+       has to stay visible as a 3px line over body text, and it never carries
+       text of its own. */
+    --strike: #ff4a3d;
+    --strike-on-chrome: #ff8f85;
+
+    /* Agent mark (fuchsia), deliberately outside the amber/green status ladder
+       so a reviewer can tell an agent mark from their own earlier pass. The wavy
+       underline is load-bearing rather than decorative: --agent-mark-bg sits ΔE
+       ~1-2 from --status-pending-bg under tritanopia, so for some readers the
+       tint says nothing. Do not trade the decoration for a stronger tint. */
+    --agent-mark: #b23aa0;
+    --agent-mark-bg: #fbecf7;
+
+    /* Dark code block (Connect page .mcp.json) — handoff §5. Intentionally a
+       dark component on the otherwise light Connect screen, not a theme. */
+    --code-dark-header: #0f0f0d;
+    --code-dark-bg: #0f0f0d;
+    --code-dark-text: #e8e8e2;
+
+    /* Document review tones from the approved redesign. The anchor rungs are
+       warmer than the status ladder so a highlighted passage never reads as a
+       status chip. */
+    --review-anchor: #faf0bd;
+    --review-anchor-strong: #f2df88;
+    --review-anchor-line: #c3a344;
+    --review-suggestion: #f1e3f0;
+    --review-suggestion-line: #b881ad;
+    --review-strike: #fbe9e4;
+    --review-strike-ink: #a24738;
+    --review-tab: #789344;
+    --review-tab-ink: #334925;
+    --review-decision: #f7faef;
+    --review-decision-line: #dfe8ca;
+    --review-open: #fbf0d8;
+    --review-open-ink: #986a1e;
+    --review-addressed: #f3e8f1;
+    --review-addressed-ink: #984482;
+    --review-resolved: #e7f3eb;
+    --review-resolved-ink: #367858;
+}
+
+@theme inline {
+    /* Colors — semantic palette */
+    --color-app: var(--bg);
+    --color-sidebar: var(--sidebar);
+    --color-elev: var(--bg-elev);
+    --color-sunken: var(--bg-sunken);
+    --color-tint: var(--bg-hover);
+    --color-tint-strong: var(--bg-active);
+    --color-warm: var(--bg-warm);
+    --color-field: var(--field);
+    --color-line-field: var(--border-field);
+    --color-label: var(--label);
+    --color-line-warm: var(--border-warm);
+    --color-surface-1: var(--surface-1);
+    --color-surface-2: var(--surface-2);
+    --color-surface-3: var(--surface-3);
+    --color-line: var(--border);
+    --color-line-strong: var(--border-strong);
+    --color-line-faint: var(--border-faint);
+    --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
+    --color-fg: var(--text);
+    --color-fg-mute: var(--text-mute);
+    --color-fg-label: var(--text-label);
+    --color-fg-dim: var(--text-dim);
+    --color-fg-faint: var(--faint);
+    --color-accent: var(--accent);
+    --color-accent-hover: var(--accent-hover);
+    --color-accent-soft: var(--accent-soft);
+    --color-accent-faint: var(--accent-faint);
+    --color-accent-faint-2: var(--accent-faint-2);
+    --color-accent-border: var(--accent-border);
+    --color-accent-ink: var(--accent-ink);
+
+    /* Chrome — the dark shell (sidebar, top bar). A second ladder rather than
+       an inversion of the light one: only these six values are legible on the
+       near-black, and reusing --text-* there lands unreadable. */
+    --color-chrome: var(--chrome);
+    --color-chrome-raised: var(--chrome-raised);
+    --color-chrome-control: var(--chrome-control);
+    --color-chrome-line: var(--chrome-line);
+    --color-chrome-fg: var(--chrome-fg);
+    --color-chrome-mute: var(--chrome-mute);
+    --color-chrome-dim: var(--chrome-dim);
+    --color-switcher-hover: var(--switcher-hover-border);
+
+    --color-prose: var(--prose);
+
+    /* Status ladder — pending (amber) / ok (green) trios */
+    --color-status-pending: var(--status-pending);
+    --color-status-pending-deep: var(--status-pending-deep);
+    --color-status-pending-bg: var(--status-pending-bg);
+    --color-status-pending-border: var(--status-pending-border);
+    --color-status-ok: var(--status-ok);
+    --color-status-ok-deep: var(--status-ok-deep);
+    --color-status-ok-bg: var(--status-ok-bg);
+    --color-status-ok-border: var(--status-ok-border);
+    --color-status-danger: var(--status-danger);
+    --color-status-danger-deep: var(--status-danger-deep);
+    --color-status-danger-bg: var(--status-danger-bg);
+    --color-status-danger-border: var(--status-danger-border);
+    --color-status-ok-ink: var(--status-ok-ink);
+    --color-status-danger-chip: var(--status-danger-chip);
+    --color-status-active: var(--status-active);
+    --color-status-active-bg: var(--status-active-bg);
+    --color-tone-teal: var(--tone-teal);
+    --color-tone-teal-bg: var(--tone-teal-bg);
+    --color-tone-sky: var(--tone-sky);
+    --color-tone-sky-bg: var(--tone-sky-bg);
+    --color-tone-blue: var(--tone-blue);
+    --color-tone-blue-bg: var(--tone-blue-bg);
+    --color-tone-indigo: var(--tone-indigo);
+    --color-tone-indigo-bg: var(--tone-indigo-bg);
+    --color-tone-pink: var(--tone-pink);
+    --color-tone-pink-bg: var(--tone-pink-bg);
+    --color-tone-orange: var(--tone-orange);
+    --color-tone-orange-bg: var(--tone-orange-bg);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-chart-6: var(--chart-6);
+    --color-chart-7: var(--chart-7);
+    --color-chart-8: var(--chart-8);
+    --color-chart-other: var(--chart-other);
+    --color-strike: var(--strike);
+    --color-strike-on-chrome: var(--strike-on-chrome);
+
+    /* Dark .mcp.json code block (Connect page) */
+    --color-code-dark-header: var(--code-dark-header);
+    --color-code-dark-bg: var(--code-dark-bg);
+    --color-code-dark-text: var(--code-dark-text);
+
+    --color-danger: var(--status-danger);
+    --color-review-anchor: var(--review-anchor);
+    --color-review-anchor-strong: var(--review-anchor-strong);
+    --color-review-anchor-line: var(--review-anchor-line);
+    --color-review-suggestion: var(--review-suggestion);
+    --color-review-strike: var(--review-strike);
+    --color-review-strike-ink: var(--review-strike-ink);
+    --color-review-tab: var(--review-tab);
+    --color-review-tab-ink: var(--review-tab-ink);
+    --color-review-decision: var(--review-decision);
+    --color-review-decision-line: var(--review-decision-line);
+    --color-review-open: var(--review-open);
+    --color-review-open-ink: var(--review-open-ink);
+    --color-review-addressed: var(--review-addressed);
+    --color-review-addressed-ink: var(--review-addressed-ink);
+    --color-review-resolved: var(--review-resolved);
+    --color-review-resolved-ink: var(--review-resolved-ink);
+}
+
+/* @group type */
+@theme inline {
+    /* Fonts */
+    --font-sans:
+        'DM Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui,
+        sans-serif;
+    --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* Type scale: the Tailwind text sizes carry the scale, with the line height
+       each one bundles. */
+}
+
+/* @group spacing */
+/* The `static` keyword keeps a token in the output when no class uses it, so
+   the styleguide can read every token from the page. */
+@theme static {
+    /* One step of the spacing scale. Every gap, padding and size is a multiple. */
+    --spacing: 0.25rem;
+}
+
+/* @group radius */
+@theme static {
+    /* Small chips and inline marks. */
+    --radius-sm: 0.25rem;
+    /* Compact controls. */
+    --radius-md: 0.375rem;
+    /* Buttons, inputs and menus. */
+    --radius-lg: 0.5rem;
+    /* Cards and panels. */
+    --radius-xl: 0.75rem;
+    /* Large surfaces and dialogs. */
+    --radius-2xl: 1rem;
+}
+
+/* @group shadow */
+@theme static inline {
+    /* Shadows — reserved for surfaces that float above the page: the selection
+       toolbar, the floating composer, and menus and overlays (`--shadow-card`).
+       `--shadow-focus` is the halo for a selected surface. The comic balloon is
+       a hard offset rather than a blur and belongs to the landing page alone. */
+    --shadow-comic: 6px 6px 0 var(--accent);
+    --shadow-toolbar: 0 6px 20px rgba(15, 15, 13, 0.25);
+    --shadow-composer: 0 10px 34px rgba(15, 15, 13, 0.22);
+    --shadow-card: 0 8px 26px rgba(15, 15, 13, 0.18);
+    --shadow-focus: 0 0 0 3px var(--accent-faint);
+    /* A card of an epic lane's Up next deck, fanned out over the lane head. */
+    --shadow-deck: 0 6px 16px rgba(24, 29, 24, 0.1);
+}
+
+/* @group motion */
+@theme static {
+    /* Hover and press feedback. */
+    --duration-fast: 120ms;
+    /* Menus, popovers and disclosures. */
+    --duration-base: 200ms;
+    /* Panels and dialogs that travel. */
+    --duration-slow: 320ms;
+    /* The default curve for a state change. */
+    --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+    /* The deck fans out, and an epic lane opens and closes, on these curves. */
+    --ease-deck: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-lane: cubic-bezier(0.3, 0.8, 0.2, 1);
+}

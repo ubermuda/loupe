@@ -14,9 +14,9 @@
             <time datetime="{{ entry.occurredAt|date('c') }}">{{ entry.occurredAt|relative_time }}</time>
             {% if entry.run %}
             {% if entry.run.duration %}<span>{{ entry.run.duration }}</span>{% endif %}
-            {% if entry.run.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
-            {% if entry.run.command %}<span class="lp-tag lp-tag--neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</span>{% endif %}
-            <span class="lp-status-chip lp-status-chip--{{ entry.run.chipModifier }}">{{ entry.run.stateKey|trans }}</span>
+            {% if entry.run.interactive %}<twig:Ds:Tag tone="neutral">{{ 'bridge.worker_runs.interactive'|trans }}</twig:Ds:Tag>{% endif %}
+            {% if entry.run.command %}<twig:Ds:Tag tone="neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</twig:Ds:Tag>{% endif %}
+            <twig:Ds:StatusChip :modifier="entry.run.chipModifier" :dot="false">{{ entry.run.stateKey|trans }}</twig:Ds:StatusChip>
             {% endif %}
         </p>
     </div>

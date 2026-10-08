@@ -218,10 +218,10 @@
                             {% include 'outbox/_activity_drawer.html.twig' with {project: project} only %}
                             {% endif %}
                             {% if project %}
-                            <a class="lp-btn lp-btn--primary lp-topbar__new-work" href="{{ path('app_board_card_create', {id: project.id}) }}" aria-label="{{ 'nav.new_work'|trans }}">
+                            <twig:Ds:Button variant="primary" class="lp-topbar__new-work" href="{{ path('app_board_card_create', {id: project.id}) }}" aria-label="{{ 'nav.new_work'|trans }}">
                                 <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
                                 <span>{{ 'nav.new_work'|trans }}</span>
-                            </a>
+                            </twig:Ds:Button>
                             {% endif %}
                         </div>
                         {% block topbar_actions %}{% endblock %}

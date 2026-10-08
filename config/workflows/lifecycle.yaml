@@ -1,5 +1,14 @@
 key: lifecycle
 version: 1
+defaultType: feature
+types:
+    - { key: feature, label: board.card.type.feature, tone: lime }
+    - { key: bug, label: board.card.type.bug, tone: amber }
+    - { key: security, label: board.card.type.security, tone: red }
+    - { key: tooling, label: board.card.type.tooling, tone: neutral }
+    - { key: docs, label: board.card.type.docs, tone: green }
+    - { key: idea, label: board.card.type.idea, tone: purple }
+    - { key: epic, label: board.card.type.epic, tone: blue, capabilities: [children, lane] }
 slots:
     - { key: next, label: workflow.slot.next }
     - { key: product-design, label: workflow.slot.product_design }
@@ -14,7 +23,6 @@ manualMoves:
     - { from: next, to: product-design }
     - { from: next, to: tech-design }
     - { from: implementation, to: tech-design }
-    - { from: '@backlog', to: implementation, by: parent-run }
 backoffMinutes: [10, 60, 360]
 workTimeoutMinutes: 120
 onWorkFailed:
@@ -236,7 +244,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - pr.open: {}
-              - not: { run.work_active: { kind: breakdown } }
+              - not: { run.work_active: {} }
       then: { move: { to: in-review } }
 
     - id: epic-to-done
@@ -248,7 +256,7 @@ rules:
               - card.children_finished: {}
               - not: { pr.linked: {} }
               - not: { card.child_merged_into_epic_branch: {} }
-              - not: { run.work_active: { kind: breakdown } }
+              - not: { run.work_active: {} }
       then: { move: { to: '@terminal' } }
 
     - id: breakdown-ended
@@ -327,10 +335,27 @@ rules:
       when:
           all:
               - card.is_child: {}
+              - card.document_approved: { tag: tech-design }
               - not: { card.has_open_blocker: {} }
               - not: { pr.linked: {} }
               - not: { parent.work_active: {} }
       then: { move: { to: implementation } }
+
+    - id: unplanned-child
+      slot: '@backlog'
+      when:
+          all:
+              - card.is_child: {}
+              - not: { card.document_approved: { tag: tech-design } }
+              - parent.document_approved: { tag: tech-design }
+              - not: { parent.work_active: {} }
+      then:
+          ask:
+              question: workflow.ask.unplanned_child
+              options:
+                  - { label: workflow.ask.unplanned_child.link, then: [{ link-document: { from: parent, tag: tech-design } }] }
+                  - { label: workflow.ask.unplanned_child.design, then: [{ move: { to: tech-design } }] }
+                  - { label: workflow.ask.unplanned_child.detach, then: [{ detach: {} }] }
 
     # No slot, so its truth outlives a move: a person who moves a card with an open pull request to the Backlog makes no edge.
     - id: pull-request-reopened

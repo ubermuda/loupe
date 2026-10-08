@@ -16,10 +16,7 @@
             <h1 class="lp-workspace-title">{{ 'workflow.settings.page.title'|trans }}</h1>
         </div>
     </header>
-    <div class="lp-empty-state" data-workflow-unbound>
-        <twig:ux:icon name="lucide:workflow" class="lp-empty-state__icon w-12 h-12" />
-        <p>{{ 'workflow.settings.unbound'|trans }}</p>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:workflow" :body="'workflow.settings.unbound'|trans" data-workflow-unbound />
     {% else %}
     <header class="lp-orchestration-header" data-workflow-template="{{ template.key }}">
         <div>
@@ -43,7 +40,7 @@
             <div class="lp-data-table__row" data-slot-key="{{ slot.key }}">
                 <span class="lp-data-table__cell lp-data-table__title">{{ slot.labelKey|trans }}</span>
                 <span class="lp-data-table__cell" data-slot-column>
-                    {%- if slot.columnLabel is not null %}{{ slot.columnLabel|trans }}{% else %}<span class="lp-tag lp-tag--amber">{{ 'workflow.settings.slots.not_linked'|trans }}</span>{% endif -%}
+                    {%- if slot.columnLabel is not null %}{{ slot.columnLabel|trans }}{% else %}<twig:Ds:Tag tone="amber">{{ 'workflow.settings.slots.not_linked'|trans }}</twig:Ds:Tag>{% endif -%}
                 </span>
             </div>
             {% endfor %}
@@ -51,6 +48,30 @@
         {% else %}
         <p class="lp-workspace-desc">{{ 'workflow.settings.slots.none'|trans }}</p>
         {% endif %}
+    </section>
+
+    <section class="lp-workflow-section" data-workflow-types>
+        <h2 class="lp-section-title">{{ 'workflow.settings.types.heading'|trans }}</h2>
+        <p class="lp-workspace-desc">{{ 'workflow.settings.types.description'|trans }}</p>
+        <twig:DataTable :columns="[
+            {label: 'workflow.settings.types.type'|trans},
+            {label: 'workflow.settings.types.capabilities'|trans},
+        ]">
+            {% for type in template.types %}
+            <div class="lp-data-table__row" data-card-type="{{ type.key }}">
+                <span class="lp-data-table__cell lp-data-table__title">
+                    {% include '_tone_tag.html.twig' with {label: type.labelKey|trans, tone: type.tone} only %}
+                    {%- if type.isDefault %} <twig:Ds:Tag tone="neutral" data-card-type-default>{{ 'workflow.settings.types.default'|trans }}</twig:Ds:Tag>{% endif -%}
+                </span>
+                <span class="lp-data-table__cell" data-card-type-capabilities>
+                    {%- set capabilities = [] -%}
+                    {%- if type.children %}{% set capabilities = capabilities|merge(['workflow.settings.types.capability.children'|trans]) %}{% endif -%}
+                    {%- if type.lane %}{% set capabilities = capabilities|merge(['workflow.settings.types.capability.lane'|trans]) %}{% endif -%}
+                    {{- capabilities is empty ? 'workflow.settings.types.capability.none'|trans : capabilities|join(', ') -}}
+                </span>
+            </div>
+            {% endfor %}
+        </twig:DataTable>
     </section>
 
     <section class="lp-workflow-section" data-workflow-template-rules>

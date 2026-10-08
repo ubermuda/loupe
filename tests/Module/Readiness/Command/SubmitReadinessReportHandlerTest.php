@@ -6,7 +6,6 @@ namespace App\Tests\Module\Readiness\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Command\ReportFinding;
 use App\Module\Readiness\Command\ReportProposal;
@@ -16,8 +15,10 @@ use App\Module\Readiness\Entity\DiscoveryProposal;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryProposalRepository;
+use App\Module\Readiness\Service\ProposalTypes;
 use App\Module\Review\Entity\Document;
 use App\Module\Workflow\Messenger\EvaluateCard;
+use App\Module\Workflow\Service\TemplateCardTypeCatalog;
 use App\Tests\Module\Readiness\DiscoveryScenario;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -70,7 +71,7 @@ final class SubmitReadinessReportHandlerTest extends KernelTestCase
         $this->em()->clear();
         $stored = $this->proposals()->findForRun($this->em()->find(DiscoveryRun::class, $this->run->id) ?? throw new \LogicException('The run is stored.'));
         self::assertSame(
-            [['tests', 0, CardType::Feature, null], ['docs', 1, CardType::Docs, null], ['ci', null, CardType::Feature, $covering->number]],
+            [['tests', 0, 'feature', null], ['docs', 1, 'docs', null], ['ci', null, 'feature', $covering->number]],
             array_map(static fn (DiscoveryProposal $proposal): array => [$proposal->key, $proposal->position, $proposal->type, $proposal->openCardNumber], $stored),
         );
     }
@@ -143,9 +144,35 @@ final class SubmitReadinessReportHandlerTest extends KernelTestCase
     }
 
     #[DataProvider('badProposalTypes')]
-    public function test_a_proposal_type_the_tool_does_not_allow_is_refused(string $type, string $key): void
+    public function test_a_proposal_type_the_template_does_not_allow_is_refused(string $type, string $key): void
     {
         $this->assertRefused($key, fn () => $this->submit(proposals: [$this->proposal('a', 'A', type: $type)]));
+    }
+
+    public function test_a_custom_template_sets_the_accepted_types(): void
+    {
+        $project = $this->workflowProject('submit-report-custom-types');
+        $binding = $this->bindLifecycle($project);
+        $definition = $binding->definition;
+        $definition['types'] = [
+            ['key' => 'feature', 'label' => 'Feature', 'tone' => 'lime'],
+            ['key' => 'chore', 'label' => 'Chore', 'tone' => 'pink'],
+            ['key' => 'epic', 'label' => 'Epic', 'tone' => 'blue', 'capabilities' => ['children', 'lane']],
+        ];
+        $binding->definition = $definition;
+        $this->em()->flush();
+        $catalog = self::getContainer()->get(TemplateCardTypeCatalog::class);
+        self::assertInstanceOf(TemplateCardTypeCatalog::class, $catalog);
+        $catalog->reset();
+        $proposalTypes = self::getContainer()->get(ProposalTypes::class);
+        self::assertInstanceOf(ProposalTypes::class, $proposalTypes);
+        $run = $this->discoveryRun($this->discoveryCard($project));
+        $refusedRun = (string) $this->discoveryRun($this->discoveryCard($project))->id;
+
+        self::assertSame(['feature', 'chore'], $proposalTypes->acceptedFor($project));
+        $this->submit(runId: (string) $run->id, project: $project, proposals: [$this->proposal('a', 'A', type: 'chore')]);
+        $this->assertRefused(SubmitReadinessReportHandler::PROPOSAL_TYPE, fn () => $this->submit(runId: $refusedRun, project: $project, proposals: [$this->proposal('a', 'A', type: 'epic')]));
+        $this->assertRefused(SubmitReadinessReportHandler::PROPOSAL_TYPE, fn () => $this->submit(runId: $refusedRun, project: $project, proposals: [$this->proposal('a', 'A', type: 'bug')]));
     }
 
     public function test_two_proposals_with_the_same_key_are_refused(): void
@@ -215,10 +242,7 @@ final class SubmitReadinessReportHandlerTest extends KernelTestCase
      */
     private function submit(?string $runId = null, ?Project $project = null, ?array $findings = null, array $proposals = [], string $summary = ''): Document
     {
-        $handler = self::getContainer()->get(SubmitReadinessReportHandler::class);
-        self::assertInstanceOf(SubmitReadinessReportHandler::class, $handler);
-
-        return $handler(new SubmitReadinessReportCommand(
+        return $this->handler()(new SubmitReadinessReportCommand(
             project: $project ?? $this->project,
             runId: $runId ?? (string) $this->run->id,
             workflow: 'lifecycle',
@@ -226,6 +250,14 @@ final class SubmitReadinessReportHandlerTest extends KernelTestCase
             proposals: $proposals,
             summary: $summary,
         ));
+    }
+
+    private function handler(): SubmitReadinessReportHandler
+    {
+        $handler = self::getContainer()->get(SubmitReadinessReportHandler::class);
+        self::assertInstanceOf(SubmitReadinessReportHandler::class, $handler);
+
+        return $handler;
     }
 
     private function proposal(string $key, string $title, string $type = 'feature', string $body = 'Body.', ?int $openCardNumber = null): ReportProposal

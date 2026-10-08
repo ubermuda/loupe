@@ -15,7 +15,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
@@ -25,6 +24,7 @@ use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
+use App\Tests\Support\ShippedCardTypes;
 use App\Tests\Support\SilentAuditor;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -78,7 +78,7 @@ final class CardOrderingTest extends KernelTestCase
         self::assertInstanceOf(CardHolds::class, $cardHolds);
         $pullRequestTracking = self::getContainer()->get(PullRequestTracking::class);
         self::assertInstanceOf(PullRequestTracking::class, $pullRequestTracking);
-        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards), $pullRequestTracking, $this->em, SilentAuditor::create(), new EventDispatcher(), $interactiveRuns, $cardHolds);
+        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards, new ShippedCardTypes()), new ShippedCardTypes(), $pullRequestTracking, $this->em, SilentAuditor::create(), new EventDispatcher(), $interactiveRuns, $cardHolds);
 
         $owner = new User(fullName: 'Riley', email: 'board-ordering-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -117,7 +117,7 @@ final class CardOrderingTest extends KernelTestCase
             project: $other,
             title: 'First there',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
         ));
 
         self::assertSame([1, 1], [$here->number, $there->number]);
@@ -327,7 +327,7 @@ final class CardOrderingTest extends KernelTestCase
             project: $this->project,
             title: 'Already done',
             body: 'Body',
-            type: CardType::Docs,
+            type: 'docs',
             column: $this->column($this->project, 'done'),
         ));
 
@@ -358,7 +358,7 @@ final class CardOrderingTest extends KernelTestCase
             actor: CardReporter::Agent,
             title: 'Changed',
             body: 'Rewritten',
-            type: CardType::Bug,
+            type: 'bug',
             column: $this->column($this->project, 'next'),
         ));
 
@@ -368,7 +368,7 @@ final class CardOrderingTest extends KernelTestCase
         self::assertInstanceOf(Card::class, $stored);
         self::assertInstanceOf(Card::class, $storedIncumbent);
         self::assertSame(['Changed', 'Rewritten'], [$stored->title, $stored->body]);
-        self::assertSame(CardType::Bug, $stored->type);
+        self::assertSame('bug', $stored->type);
         self::assertSame('next', $stored->column->slug);
         self::assertSame([0, 1], [$storedIncumbent->position, $stored->position]);
     }
@@ -390,7 +390,7 @@ final class CardOrderingTest extends KernelTestCase
             project: $this->project,
             title: $title,
             body: 'Body of '.$title,
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($this->project, $column),
         ));
     }

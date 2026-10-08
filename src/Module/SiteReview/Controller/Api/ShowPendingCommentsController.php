@@ -11,6 +11,8 @@ use App\Module\SiteReview\Command\ShowPendingCommentsHandler;
 use App\Module\SiteReview\Context\ContextLabelResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
+use App\Module\SiteReview\ParentType\ParentType;
+use App\Module\SiteReview\ParentType\ParentTypeProviderInterface;
 use App\Module\SiteReview\SiteReviewDrawing;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +36,7 @@ final class ShowPendingCommentsController extends AppController
         private readonly AuthenticatedProjectResolver $projectResolver,
         private readonly FeatureFlagService $featureFlags,
         private readonly ContextLabelResolver $contextLabels,
+        private readonly ParentTypeProviderInterface $parentTypes,
     ) {
     }
 
@@ -58,6 +61,12 @@ final class ShowPendingCommentsController extends AppController
         return $this->json([
             'projectId' => (string) $project->id,
             'drawingEnabled' => $this->featureFlags->isEnabled(SiteReviewDrawing::FLAG, SiteReviewDrawing::DEFAULT),
+            // The types the mode "a card for each note, under an epic" can use.
+            // Empty hides the mode.
+            'parentTypes' => array_map(
+                static fn (ParentType $type): array => ['key' => $type->key, 'label' => $type->label],
+                $this->parentTypes->forProject($project),
+            ),
             'context' => null === $label ? null : ['label' => $label->label, 'url' => $label->url],
             'comments' => array_values(array_map(
                 static function (SiteReviewComment $c): array {

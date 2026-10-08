@@ -51,7 +51,7 @@
     {% if view.hasLiveSubscription %}
     <form method="post" action="{{ path('app_billing_portal') }}" data-turbo="false">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-portal') }}">
-        <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.portal.button'|trans }}</button>
+        <twig:Ds:Button variant="primary" type="submit">{{ 'billing.subscribe.portal.button'|trans }}</twig:Ds:Button>
     </form>
     <p class="lp-connect-hint">{{ 'billing.subscribe.secure_note'|trans }}</p>
     {% elseif view.capFull and view.waitlistOpen %}
@@ -68,7 +68,7 @@
                hook lets csrf_protection_controller.js double-submit it exactly
                as form_widget-rendered forms do. #}
             <input type="hidden" name="waitlist_join_form[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.waitlist.button_label'|trans }}</button>
+            <twig:Ds:Button variant="primary" type="submit">{{ 'billing.subscribe.waitlist.button_label'|trans }}</twig:Ds:Button>
         </form>
     </section>
     {% elseif view.capFull %}
@@ -84,7 +84,7 @@
         {% if view.inviteToken %}
         <input type="hidden" name="invite" value="{{ view.inviteToken }}">
         {% endif %}
-        <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.subscribe.checkout.button'|trans }}</button>
+        <twig:Ds:Button variant="primary" type="submit">{{ 'billing.subscribe.checkout.button'|trans }}</twig:Ds:Button>
     </form>
     <p class="lp-connect-hint">{{ 'billing.subscribe.secure_note'|trans }}</p>
     {% endif %}

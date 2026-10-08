@@ -18,14 +18,14 @@
     <div class="lp-card-drawer-overlay__error" data-card-drawer-target="error" hidden>
         <p class="lp-dialog-desc" role="alert">{{ 'board.card.drawer.failed'|trans }}</p>
         <div class="lp-dialog-actions">
-            <button type="button" class="lp-btn lp-btn--primary" data-action="card-drawer#retry">{{ 'board.card.drawer.retry'|trans }}</button>
-            <button type="button" class="lp-btn" data-action="card-drawer#close">{{ 'board.card.drawer.close'|trans }}</button>
+            <twig:Ds:Button variant="primary" type="button" data-action="card-drawer#retry">{{ 'board.card.drawer.retry'|trans }}</twig:Ds:Button>
+            <twig:Ds:Button type="button" data-action="card-drawer#close">{{ 'board.card.drawer.close'|trans }}</twig:Ds:Button>
         </div>
     </div>
     <div class="lp-card-drawer-overlay__deleted" data-card-drawer-target="deleted" hidden>
         <p class="lp-dialog-desc" role="alert">{{ 'board.card.drawer.deleted'|trans }}</p>
         <div class="lp-dialog-actions">
-            <button type="button" class="lp-btn" data-action="card-drawer#close">{{ 'board.card.drawer.close'|trans }}</button>
+            <twig:Ds:Button type="button" data-action="card-drawer#close">{{ 'board.card.drawer.close'|trans }}</twig:Ds:Button>
         </div>
     </div>
     <turbo-frame id="card-drawer-frame"

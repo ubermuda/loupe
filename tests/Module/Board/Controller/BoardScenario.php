@@ -8,7 +8,6 @@ use App\Mercure\LiveUpdates;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\PullRequestSnapshot;
@@ -86,7 +85,7 @@ trait BoardScenario
             title: $title,
             body: $body,
             number: $number,
-            type: CardType::Feature,
+            type: 'feature',
             position: $position,
         );
 
@@ -111,7 +110,7 @@ trait BoardScenario
         $em->flush();
     }
 
-    private function typed(EntityManagerInterface $em, Card $card, CardType $type): Card
+    private function typed(EntityManagerInterface $em, Card $card, string $type): Card
     {
         $card->type = $type;
         $em->flush();

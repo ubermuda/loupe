@@ -26,7 +26,7 @@
             <span>{{ 'board.card.create.page.title'|trans }}</span>
         </div>
         <div class="lp-card-drawer__header-actions">
-            <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ returnUrl }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-turbo-frame="_top" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
+            <twig:Ds:Button variant="ghost icon" href="{{ returnUrl }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-turbo-frame="_top" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></twig:Ds:Button>
         </div>
     </header>
 

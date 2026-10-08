@@ -1,0 +1,16 @@
+{#
+  Props:  @comment-budget-ignore
+    variant   string   One or more of primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open or on-card, separated by spaces. Optional.
+    size      string   sm or lg. Optional.
+    href      string   Renders a link instead of a button. Optional.
+  Any other attribute, class included, is passed to the element. A null attribute is left out.
+#}
+{%- props variant = null, size = null, href = null -%}
+{%- for name, value in attributes.all -%}
+    {%- if value is null -%}
+        {%- set attributes = attributes.remove(name) -%}
+    {%- endif -%}
+{%- endfor -%}
+{%- set tag = href ? 'a' : 'button' -%}
+{%- set defaults = {class: ds_button_class(variant, size)} -%}
+<{{ tag }}{{ attributes.defaults(href ? defaults|merge({href: href}) : defaults) }}>{% block content %}{% endblock %}</{{ tag }}>

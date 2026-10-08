@@ -21,10 +21,10 @@
 
     <form method="post" action="{{ path('app_account_accept_terms_submit') }}" class="mt-1.5 w-full">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('accept-terms') }}">
-        <button type="submit" class="btn primary sm w-full justify-center">
+        <twig:Ds:Button type="submit" variant="primary" size="sm" class="w-full justify-center">
             <twig:UX:Icon name="lucide:check" class="w-3.5 h-3.5" aria-hidden="true" />
             {{ 'account.accept_terms.submit'|trans }}
-        </button>
+        </twig:Ds:Button>
     </form>
 
     {# A POST with a token, not a link: logout has enable_csrf on, so a bare GET 403s. #}

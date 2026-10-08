@@ -554,6 +554,8 @@ type AccountReport struct {
 	Harness string `json:"harness"`
 	State   string `json:"state"`
 	Reason  string `json:"reason,omitempty"`
+	// Used is false for an account no rule runs on.
+	Used bool `json:"used"`
 }
 
 // MaxHostSamples caps the samples the bridge keeps. HostSamplesPerHeartbeat

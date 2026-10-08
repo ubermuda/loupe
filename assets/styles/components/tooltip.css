@@ -1,0 +1,11 @@
+/* The tooltip. `templates/components/Ds/Tooltip.html.twig` renders it. The
+   feature that owns the anchor decides when it shows. */
+@layer components {
+    /* A small text bubble under its anchor. */
+    .lp-tooltip {
+        @apply invisible absolute left-0 top-full z-20 mt-2 flex w-72 flex-col gap-1 rounded-lg bg-ink px-3 py-2 text-xs font-medium leading-snug text-chrome-fg opacity-0 shadow-lg transition-opacity;
+    }
+    .lp-tooltip__line--quiet {
+        @apply break-all text-chrome-mute;
+    }
+}

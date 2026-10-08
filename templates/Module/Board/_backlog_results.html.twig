@@ -30,7 +30,7 @@
                     <a class="lp-backlog-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}">{{ card.title }}</a>
                 </div>
             </div>
-            <div role="cell">{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</div>
+            <div role="cell">{% include '@Board/_card_type_tag.html.twig' with {card: card} only %}{% include '@Board/_card_source_tag.html.twig' with {card: card} only %}</div>
             <span class="lp-document-row__author lp-backlog-row__epic" role="cell">
                 {% if card.parent %}<span class="lp-board-card__number">#{{ card.parent.number }}</span> {{ card.parent.title }}{% else %}<span aria-label="{{ 'board.backlog.table.no_epic'|trans }}">—</span>{% endif %}
             </span>
@@ -38,8 +38,7 @@
             <time class="lp-document-row__updated" datetime="{{ card.createdAt|date('c') }}" role="cell">{{ card.createdAt|relative_time }}</time>
             <div class="lp-document-row__actions" role="cell">
                 <div class="lp-backlog-move" data-controller="popover">
-                    <button type="button"
-                            class="lp-btn lp-btn--ghost lp-btn--sm"
+                    <twig:Ds:Button variant="ghost" size="sm" type="button"
                             aria-label="{{ 'board.backlog.move_card'|trans({'%number%': card.number}) }}"
                             aria-expanded="false"
                             aria-controls="backlog-move-{{ card.id }}"
@@ -47,7 +46,7 @@
                             data-action="click->popover#toggle">
                         {{ 'board.backlog.move_to'|trans }}
                         <twig:ux:icon name="lucide:chevron-down" class="w-4 h-4 shrink-0" />
-                    </button>
+                    </twig:Ds:Button>
                     <form id="backlog-move-{{ card.id }}" class="lp-backlog-menu" method="post" action="{{ path('app_project_board_backlog_move', routeParams) }}" data-popover-target="panel" hidden>
                         <input type="hidden" name="{{ moveName }}[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
                         {% for column in view.boardColumns %}
@@ -63,19 +62,13 @@
     </div>
 </div>
 
-<twig:Pagination route="app_project_board_backlog" :page="listQuery.page" :totalPages="view.totalPages" :pageList="view.pageList" :routeParams="{projectId: project.id}|merge(listQuery.routeParams)" />
+<twig:Ds:Pagination route="app_project_board_backlog" :page="listQuery.page" :totalPages="view.totalPages" :pageList="view.pageList" :routeParams="{projectId: project.id}|merge(listQuery.routeParams)" />
 {% elseif listQuery.isNarrowed %}
-<div class="lp-empty-state">
-    <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-8 h-8" />
-    <h2 class="lp-empty-state__title">{{ 'board.backlog.empty_filtered.title'|trans }}</h2>
-    <p class="lp-empty-state__body">{{ 'board.backlog.empty_filtered.body'|trans }}</p>
-    <a class="lp-btn" href="{{ backlogPath }}">{{ 'board.backlog.filter.clear_filters'|trans }}</a>
-</div>
+<twig:Ds:EmptyState icon="lucide:search-x" iconClass="w-8 h-8" :title="'board.backlog.empty_filtered.title'|trans" :body="'board.backlog.empty_filtered.body'|trans">
+    <twig:Ds:Button href="{{ backlogPath }}">{{ 'board.backlog.filter.clear_filters'|trans }}</twig:Ds:Button>
+</twig:Ds:EmptyState>
 {% else %}
-<div class="lp-empty-state">
-    <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon w-12 h-12" />
-    <h2 class="lp-empty-state__title">{{ 'board.backlog.empty.title'|trans }}</h2>
-    <p class="lp-empty-state__body">{{ 'board.backlog.empty.body'|trans }}</p>
-    <a class="lp-btn" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.backlog.empty.action'|trans }}</a>
-</div>
+<twig:Ds:EmptyState icon="lucide:inbox" :title="'board.backlog.empty.title'|trans" :body="'board.backlog.empty.body'|trans">
+    <twig:Ds:Button href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.backlog.empty.action'|trans }}</twig:Ds:Button>
+</twig:Ds:EmptyState>
 {% endif %}

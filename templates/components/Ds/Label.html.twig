@@ -1,0 +1,12 @@
+{#
+  Props:  @comment-budget-ignore
+    as   string   label, legend, p, span or div. Defaults to label.
+  Any other attribute, class included, is passed to the element. A null attribute is left out.
+#}
+{%- props as = 'label' -%}
+{%- for name, value in attributes.all -%}
+    {%- if value is null -%}
+        {%- set attributes = attributes.remove(name) -%}
+    {%- endif -%}
+{%- endfor -%}
+<{{ as }}{{ attributes.defaults({class: ds_label_class()}) }}>{% block content %}{% endblock %}</{{ as }}>

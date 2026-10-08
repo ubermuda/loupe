@@ -56,6 +56,7 @@ final readonly class PaywallExemptions
      */
     public const array DEV_ROUTES = [
         'app_dev_billing_state',
+        'app_dev_styleguide',
     ];
 
     /**

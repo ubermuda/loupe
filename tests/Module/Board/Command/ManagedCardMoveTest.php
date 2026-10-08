@@ -12,7 +12,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -20,6 +19,7 @@ use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Workflow\WorkflowProjects;
@@ -32,11 +32,13 @@ final class ManagedCardMoveTest extends KernelTestCase
 
     private Project $project;
 
+    private WorkflowBinding $binding;
+
     protected function setUp(): void
     {
         self::bootKernel();
         $this->project = $this->workflowProject('managed-move');
-        $this->bindLifecycle($this->project);
+        $this->binding = $this->bindLifecycle($this->project);
     }
 
     public function test_a_refused_move_leaves_the_card_where_it_was(): void
@@ -86,9 +88,31 @@ final class ManagedCardMoveTest extends KernelTestCase
         self::assertCount(1, $this->heldEvents());
     }
 
+    public function test_the_lifecycle_template_refuses_a_run_of_the_epic_that_moves_its_child_from_the_backlog(): void
+    {
+        $epic = $this->card('in-progress', 'epic');
+        $child = $this->card('backlog');
+
+        try {
+            $this->updateCard()(new UpdateCardCommand(
+                card: $child,
+                actor: CardReporter::Agent,
+                column: $this->column($this->project, 'in-progress'),
+                parentCardId: (string) $epic->id,
+                cause: $this->breakdownRunOf($epic),
+            ));
+            self::fail('Lifecycle names no move for a run of the parent.');
+        } catch (CardManaged) {
+        }
+
+        self::assertSame('backlog', $child->column->slug);
+    }
+
     public function test_a_breakdown_run_may_set_the_parent_and_move_the_child_from_the_backlog_in_one_update(): void
     {
-        $epic = $this->card('in-progress', CardType::Epic);
+        $this->binding->definition['manualMoves'][] = ['from' => '@backlog', 'to' => 'implementation', 'by' => 'parent-run'];
+        $this->em()->flush();
+        $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog');
 
         $this->updateCard()(new UpdateCardCommand(
@@ -105,7 +129,7 @@ final class ManagedCardMoveTest extends KernelTestCase
 
     public function test_a_refused_move_keeps_the_parent_the_update_named(): void
     {
-        $epic = $this->card('in-progress', CardType::Epic);
+        $epic = $this->card('in-progress', 'epic');
         $card = $this->card('next');
         $cardId = $this->idOf($card);
 
@@ -201,7 +225,7 @@ final class ManagedCardMoveTest extends KernelTestCase
         return CardEventCause::run($run->id ?? throw new \LogicException('A stored run has an id.'), $run->workKind);
     }
 
-    private function card(string $column, CardType $type = CardType::Feature): Card
+    private function card(string $column, string $type = 'feature'): Card
     {
         $create = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $create);
