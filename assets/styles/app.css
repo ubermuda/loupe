@@ -4680,69 +4680,11 @@
         @apply ml-auto text-xs text-fg-dim;
     }
 
-    /* ── Section state, in the contents panel ───────────────────────────
-       The row itself is a contents row; these are the state it carries. */
-    .lp-section-approvals__approved {
-        @apply inline-flex items-baseline gap-1 ml-auto text-xs text-fg-mute;
-    }
-    .lp-section-approvals__check {
-        @apply w-3.5 h-3.5 shrink-0 self-center text-accent-ink;
-    }
-    .lp-section-approvals__pending {
-        @apply ml-auto text-xs text-fg-dim;
-    }
-
-    /* ── The approve control beside a heading ───────────────────────────
-       The wrapper is only `relative`, which creates no block formatting
-       context, so the heading's own margins still collapse through it and the
-       document keeps its vertical rhythm. */
-    .lp-section-head {
-        @apply relative;
-    }
-    .lp-section-head > :is(h1, h2, h3, h4, h5, h6) {
-        @apply pr-9;
-    }
-    /* `prose` zeroes the top margin of its FIRST child, which is now the
-       wrapper rather than the heading inside it. */
-    .lp-review-doc__prose
-        > .lp-section-head:first-child
-        > :is(h1, h2, h3, h4, h5, h6) {
-        @apply mt-0;
-    }
     /* Names the block a contents link took the reader to. The scroll ends with
        several of them on screen and no sign of which was asked for. */
     .lp-arrived {
         @apply rounded-lg;
         animation: lp-arrived 2600ms ease-out both;
-    }
-    .lp-section-approve {
-        @apply absolute right-0 top-0 m-0 flex;
-    }
-    .lp-section-approve__button {
-        @apply inline-flex items-center justify-center rounded-md p-1 cursor-pointer border-0 bg-transparent text-fg-dim transition hover:bg-tint hover:text-fg;
-    }
-    .lp-section-approve__button:active {
-        @apply translate-y-px scale-97;
-    }
-    .lp-section-approve__button--approved {
-        @apply text-status-ok-deep;
-    }
-    .lp-section-approve__button--approved:hover {
-        @apply bg-status-ok-bg text-status-ok-deep;
-    }
-    .lp-section-approve__icon {
-        @apply w-5 h-5 shrink-0;
-    }
-    /* Hovering an unapproved section shows the tick the click would leave, so
-       the empty circle says what it does before the reviewer commits. */
-    .lp-section-approve__icon--hover {
-        @apply hidden;
-    }
-    .lp-section-approve__button:hover .lp-section-approve__icon--rest {
-        @apply hidden;
-    }
-    .lp-section-approve__button:hover .lp-section-approve__icon--hover {
-        @apply block;
     }
 
     /* ── Admin primitives ───────────────────────────────────────────────

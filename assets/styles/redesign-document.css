@@ -172,11 +172,7 @@
         @apply py-5;
     }
 }
-.lp-review .lp-review-doc__prose > :first-child,
-.lp-review
-    .lp-review-doc__prose
-    > .lp-section-head:first-child
-    > :is(h1, h2, h3, h4, h5, h6) {
+.lp-review .lp-review-doc__prose > :first-child {
     @apply mt-0;
 }
 /* Sections are separated by whitespace, never by a rule. */
@@ -195,10 +191,7 @@
 .lp-review .lp-review-doc__prose :is(p, li) {
     @apply leading-7.5;
 }
-.lp-review
-    .lp-review-doc__prose
-    :is(.lp-section-head, h1, h2, h3, h4, h5, h6)
-    + :is(p, ul, ol) {
+.lp-review .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) + :is(p, ul, ol) {
     @apply mt-0;
 }
 /* A code block reads as a quiet inset of the paper, not a dark slab. */
@@ -208,22 +201,6 @@
 .lp-review .lp-review-doc__prose pre code {
     @apply bg-transparent p-0 text-ink;
 }
-/* Transparent at rest and when approved: the icon colour carries the state. */
-.lp-review .lp-section-approve__button,
-.lp-review .lp-section-approve__button:hover,
-.lp-review .lp-section-approve__button--approved:hover {
-    @apply bg-transparent;
-}
-.lp-review .lp-section-approve__button {
-    @apply text-fg-faint hover:text-review-tab;
-}
-.lp-review .lp-section-approve__button--approved {
-    @apply text-review-resolved-ink;
-}
-.lp-review .lp-section-approve__icon {
-    @apply size-4.5;
-}
-
 /* ── Decision blocks ────────────────────────────────────────────── */
 .lp-review .lp-decision {
     @apply mt-6 mb-0 rounded-lg border border-review-decision-line bg-review-decision p-5;
@@ -382,11 +359,6 @@
 }
 .lp-review .lp-review-context-panel .lp-review-contents__tick--on {
     @apply text-review-resolved-ink;
-}
-.lp-review
-    .lp-review-context-panel
-    :is(.lp-section-approvals__approved, .lp-section-approvals__pending) {
-    @apply hidden;
 }
 .lp-review .lp-review-context-panel .lp-decision-summary__item {
     @apply grid grid-cols-1 gap-1 border-b border-line py-3.5;
@@ -587,7 +559,6 @@
     :is(
         .lp-review-margin-tabs__item,
         .lp-review-margin-filter__menu button,
-        .lp-section-approve__button,
         .lp-comment-action,
         .lp-decision__option,
         .lp-decision__option input,

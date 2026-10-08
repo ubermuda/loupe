@@ -764,12 +764,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         );
         $this->assertContentsRowsResolve($diff);
 
-        // A diff approves nothing, so no row offers or reports a state.
         self::assertCount(0, $diff->filter('.lp-review-contents__tick'));
-        self::assertCount(0, $diff->filter('.lp-section-approvals__pending'));
 
-        // Both counts below lg say how many headings there are. An approved-of-
-        // total reading there claims every section of a diff awaits approval.
+        // Both counts below lg say how many headings there are.
         self::assertSame('5', trim($diff->filter('#review-menu-sections-count')->text()));
         self::assertSame('5', trim($diff->filter('#review-menu-sections-head-count')->text()));
 
@@ -808,11 +805,11 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             ),
         );
 
-        // The review page for the same document still reports approval state, so
-        // the assertions above cannot pass by the panel having lost it outright.
+        // The review page for the same document lists its headings, so the
+        // assertions above cannot pass by the panel having lost them outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
         self::assertCount(1, $latest->filter('[data-margin-panel="outline"]'));
-        self::assertCount(3, $latest->filter('[data-margin-panel="outline"] .lp-review-contents__tick'));
+        self::assertCount(3, $latest->filter('[data-margin-panel="outline"] .lp-review-contents__link'));
     }
 
     /**
@@ -922,9 +919,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             self::assertStringContainsString($label, $source->filter($href)->text(), $href.' names another line.');
         }
 
-        // A diff approves nothing here either, so the count is the headings alone.
         self::assertCount(0, $source->filter('.lp-review-contents__tick'));
-        self::assertSame('4', trim($source->filter('#section-summary-count')->text()));
+        self::assertSame('4', trim($source->filter('[data-margin-panel="outline"] h2 span')->text()));
     }
 
     /**

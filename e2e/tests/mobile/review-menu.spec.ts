@@ -251,8 +251,7 @@ test('Contents drills down inside the panel and the button walks back', async ({
     await page.locator(TRIGGER).tap();
     const contents = page.locator(ROW, { hasText: 'Contents' });
     await expect(contents).toBeVisible();
-    // Approved-of-total, the same count the desktop tab carries.
-    await expect(contents).toContainText('0/3');
+    await expect(contents.locator('.lp-review-menu__count')).toHaveText('3');
 
     await contents.tap();
     // The panel stays open and swaps its contents, rather than closing and

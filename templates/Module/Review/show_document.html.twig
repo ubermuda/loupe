@@ -151,31 +151,15 @@
                appears nowhere else. #}
             {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
             {% set showVersions = versions|length > 1 or hasVersionDescription %}
-            {# Contents and section approvals are one panel: both list the same
-               headings. A diff is passed no `sections`, hence the lazy ternary,
-               and its rows come from the merged render, which is the markup the
-               page holds. A diff approves nothing, so its rows carry no state. #}
-            {% set sectionRows = diffMode
-                ? diffHeadings|map(heading => {level: heading.level, headingId: heading.id, label: heading.text, approved: false})
-                : sections.rows %}
-            {% set sectionsApprovable = not diffMode %}
-            {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
-            {# One section is enough, where the old table of contents wanted two:
-               the panel now reports approval state, which changes and is worth
-               seeing for a single section. An untexted heading keeps a row too,
+            {# A diff lists the headings of the merged render, which is the
+               markup the page holds. An untexted heading keeps a row too,
                labelled by its id, or the tab count would outrun the list. #}
+            {% set sectionRows = (diffMode ? diffHeadings : headings)
+                |map(heading => {level: heading.level, headingId: heading.id, label: heading.text is not empty ? heading.text : heading.id}) %}
             {% set showContents = sectionRows|length > 0 %}
             {% set referenceCount = document.references|length + document.referencedBy|length %}
-            {# The pane HTML with an approval control beside each heading. Built
-               here rather than in the block below, so the diff branch never
-               evaluates `decisionMarkedHtml`, which it is not passed. An older
-               version gets no controls: they would post onto the current one. #}
-            {% set documentPaneHtml = diffMode ? '' : section_approval_controls(
-                decisionMarkedHtml,
-                readOnly ? [] : sectionRows,
-                document,
-                version.versionNumber,
-            ) %}
+            {# The diff is not passed `decisionMarkedHtml`, hence the lazy ternary. #}
+            {% set documentPaneHtml = diffMode ? '' : decisionMarkedHtml %}
 
             {% if diffMode %}
             <div class="lp-doc-meta-bar">
@@ -248,7 +232,6 @@
 
             {% if not diffMode %}
                 {% if decisionRows|length > 0 %}<p id="decision-status" class="lp-decision-status" aria-live="polite"></p>{% endif %}
-                {% if not readOnly and showContents %}<p id="section-status" class="lp-decision-status" aria-live="polite"></p>{% endif %}
             {% endif %}
 
             {% if canComment %}
@@ -303,12 +286,10 @@
             <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="outline" data-panel="contents"
                    data-controller="contents-rail" id="review-margin-panel-outline" role="tabpanel" aria-labelledby="review-margin-tab-outline" tabindex="0"{{ marginTabs|first != 'outline' ? ' hidden' }}>
                 <div class="lp-review-context-panel__inner">
-                    <h2>{{ 'review.document.margin.outline'|trans }} <span id="section-summary-count">{{ sectionsApprovable
-                        ? 'review.document.sections.count_compact'|trans({'%approved%': approvedSections, '%total%': sectionRows|length})
-                        : sectionRows|length }}</span></h2>
+                    <h2>{{ 'review.document.margin.outline'|trans }} <span>{{ sectionRows|length }}</span></h2>
                     {% if sectionRows|length > 0 %}
                     <ul class="lp-review-contents__list" id="section-summary-list">
-                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
+                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
                     </ul>
                     {% else %}<p class="lp-review-context-panel__hint">{{ 'review.document.margin.outline_empty'|trans }}</p>{% endif %}
                 </div>
@@ -553,8 +534,6 @@
             showVersions: showVersions,
             showContents: showContents,
             sectionRows: sectionRows,
-            sectionsApprovable: sectionsApprovable,
-            approvedSections: approvedSections,
             referenceCount: referenceCount,
             decisionRows: decisionRows,
             answeredDecisions: answeredDecisions,
@@ -577,7 +556,6 @@
     {% include '@Review/_finish_review.html.twig' with {
         document: document,
         submitReviewForm: submitReviewForm,
-        sections: sections,
         signals: signals,
     } only %}
     {% endif %}

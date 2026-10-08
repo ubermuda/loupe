@@ -34,8 +34,6 @@
         activeView: 'history',
         showDocumentActions: true,
         reviseDocumentForm: reviseDocumentForm,
-        approvedSections: sections.approvedCount,
-        totalSections: sections.rows|length,
         showMarginControls: false,
         commentCount: null,
         canComment: false,
@@ -141,7 +139,6 @@
 {% include '@Review/_finish_review.html.twig' with {
     document: document,
     submitReviewForm: submitReviewForm,
-    sections: sections,
     signals: signals,
 } only %}
 {% endif %}
