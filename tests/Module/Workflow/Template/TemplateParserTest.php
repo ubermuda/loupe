@@ -393,6 +393,7 @@ final class TemplateParserTest extends TestCase
         }, 'defaultType: is missing'];
         yield 'default type that is not a string' => [static fn (array $t): array => ['defaultType' => 3] + $t, 'defaultType: must be a non-empty string'];
         yield 'default type that is not declared' => [static fn (array $t): array => ['defaultType' => 'chore'] + $t, 'defaultType: unknown type "chore"'];
+        yield 'default type that may have children' => [static fn (array $t): array => ['defaultType' => 'epic'] + $t, 'defaultType: type "epic" may have children'];
         yield 'type with no label' => [static function (array $t): array {
             unset($t['types'][1]['label']);
 

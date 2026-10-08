@@ -19,6 +19,7 @@ final readonly class BoardProposalCardCreator implements ProposalCardCreatorInte
 {
     public function __construct(
         private CreateCardHandler $createCard,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -29,7 +30,7 @@ final readonly class BoardProposalCardCreator implements ProposalCardCreatorInte
             project: $project,
             title: $card->title,
             body: $card->body,
-            type: 'feature',
+            type: $this->catalog->forProject($project)->defaultKey,
             reporter: CardReporter::Agent,
             documentIds: null === $card->reportDocumentId ? [] : [$card->reportDocumentId->toRfc4122()],
             actor: CardReporter::Human,

@@ -124,6 +124,9 @@ final readonly class TemplateParser
             $defaultType = '';
         } elseif (null !== $types && !isset($types[$defaultType])) {
             $errors[] = \sprintf('defaultType: unknown type "%s"', $defaultType);
+        } elseif (null !== $types && $types[$defaultType]->children) {
+            // A widget note under a parent creates a card of the default type, and a parent-capable card cannot have a parent.
+            $errors[] = \sprintf('defaultType: type "%s" may have children', $defaultType);
         }
 
         $workTimeoutMinutes = $source['workTimeoutMinutes'] ?? null;
