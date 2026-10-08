@@ -1025,6 +1025,9 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,
 }) => {
+    // Three page loads after a submit, a comment and a resolve, after a login
+    // that took 10 s of the 30 s budget on a loaded runner.
+    test.slow();
     // A verdict is reached on a document that has been commented on, so the
     // thread is part of the state under test, not incidental setup.
     await postComment(page);
