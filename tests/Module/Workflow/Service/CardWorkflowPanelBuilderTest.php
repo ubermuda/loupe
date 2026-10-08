@@ -92,13 +92,13 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
 
     public function test_a_slot_with_no_rule_of_its_own_shows_the_first_global_move_rule(): void
     {
-        $card = $this->card('next');
+        $card = $this->card('backlog');
 
         $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on.');
 
-        self::assertSame('Next', $progress->slot);
-        self::assertSame('Waiting: a pull request is still open, or none is merged.', $progress->waiting);
-        self::assertSame('Move the card to a terminal column', $progress->nextAction);
+        self::assertSame('Backlog', $progress->slot);
+        self::assertSame('Waiting: the pull request is not open.', $progress->waiting);
+        self::assertSame('Move the card to Implementation', $progress->nextAction);
         self::assertNull($progress->lastRefusal);
     }
 

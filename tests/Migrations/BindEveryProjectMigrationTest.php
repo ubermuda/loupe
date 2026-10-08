@@ -152,7 +152,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         foreach ([
             'backlog open pull request pull-request-reopened',
             'backlog epic epic-close',
-            'backlog child child-unblocked',
+            'backlog child child-to-next',
             'product design product-design-session',
             'approved design tech-design-approved',
             'implementation no pull request implement',
