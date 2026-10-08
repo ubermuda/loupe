@@ -593,6 +593,19 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setParameter('running', WorkerRunState::Running->value);
     }
 
+    private function continuationsOfCard(Uuid $cardId): QueryBuilder
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
+            ->andWhere('r.kind = :kind')
+            ->andWhere('r.continuesRun IS NOT NULL')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC');
+    }
+
     private function interactive(Project $project): QueryBuilder
     {
         return $this->createQueryBuilder('r')
@@ -826,6 +839,26 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->addOrderBy('r.id', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    /** An open worker run of the card that resumes or reruns an earlier run. */
+    public function findOpenContinuationOfCard(Uuid $cardId): ?WorkerRun
+    {
+        return $this->continuationsOfCard($cardId)
+            ->andWhere('r.state IN (:openStates)')
+            ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The newest worker run of the card that resumes or reruns an earlier run, open or ended. */
+    public function findLatestContinuationOfCard(Uuid $cardId): ?WorkerRun
+    {
+        return $this->continuationsOfCard($cardId)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /**
