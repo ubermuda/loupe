@@ -89,6 +89,31 @@ final readonly class GitHubUserApi
     }
 
     /**
+     * Submits a review as the user. The body may be empty for an approval.
+     *
+     * @param 'APPROVE'|'REQUEST_CHANGES'|'COMMENT' $event
+     *
+     * @return ?string the URL of the review
+     *
+     * @throws GitHubUserApiFailed
+     */
+    public function postReview(#[\SensitiveParameter] string $token, string $repositoryPath, int $number, string $event, string $body): ?string
+    {
+        $payload = ['event' => $event];
+        if ('' !== $body) {
+            $payload['body'] = $body;
+        }
+
+        $answer = $this->send($this->githubApiClient, 'POST', $repositoryPath.'/pulls/'.$number.'/reviews', [
+            'headers' => ['Authorization' => 'Bearer '.$token],
+            'json' => $payload,
+        ]);
+        $url = $answer['html_url'] ?? null;
+
+        return \is_string($url) && '' !== $url ? $url : null;
+    }
+
+    /**
      * @return list<GitHubUserInstallation>
      *
      * @throws GitHubUserApiFailed

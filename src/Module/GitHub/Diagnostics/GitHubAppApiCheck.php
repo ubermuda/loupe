@@ -87,6 +87,16 @@ final readonly class GitHubAppApiCheck implements DiagnosticInterface
             );
         }
 
+        $noChecks = array_filter($installations, static fn ($installation): bool => [] !== $installation->missingWriteAccess(['checks']));
+        if ([] !== $noChecks) {
+            return new Diagnostic(
+                'github_app_api',
+                DiagnosticState::Warning,
+                'github.system_status.app_api.missing_checks_write',
+                ['%accounts%' => implode(', ', array_map(static fn ($installation): string => $installation->account, $noChecks))],
+            );
+        }
+
         return new Diagnostic('github_app_api', DiagnosticState::Ok, 'github.system_status.app_api.working', ['%count%' => \count($installations)]);
     }
 }
