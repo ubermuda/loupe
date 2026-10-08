@@ -895,7 +895,7 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
         `${review.reviewUrl}/submit`,
     );
     await expect(
-        current.locator('.lp-verdict-chip--changes-requested'),
+        current.locator('.lp-review-doc__verdict-detail'),
     ).toContainText('Clarify the retry policy.');
 
     await page
@@ -905,13 +905,13 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     await expect(page.locator('[data-review-withdrawal-errors]')).toContainText(
         'The review changed after this page loaded.',
     );
-    await expect(
-        page.locator('.lp-verdict-chip--changes-requested'),
-    ).toContainText('Clarify the retry policy.');
+    await expect(page.locator('.lp-review-doc__verdict-detail')).toContainText(
+        'Clarify the retry policy.',
+    );
     await page.reload();
-    await expect(
-        page.locator('.lp-verdict-chip--changes-requested'),
-    ).toContainText('Clarify the retry policy.');
+    await expect(page.locator('.lp-review-doc__verdict-detail')).toContainText(
+        'Clarify the retry policy.',
+    );
     await submitRedirectingForm(
         page,
         page
