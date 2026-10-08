@@ -517,3 +517,23 @@ func TestAReloadDropsAQueuedResumeWhoseAccountIsGone(t *testing.T) {
 		t.Fatalf("workers = %d, queue = %v", h.runs(), h.queued())
 	}
 }
+
+// The variant of an experiment can run on another account than its entry, so
+// an unfinished run resumes when its transcript is in the variant's folder.
+func TestAWorkRequestResumesASessionInTheFolderOfItsVariant(t *testing.T) {
+	h, _, f := withAccounts(t, func(body string) string {
+		return strings.Replace(body, "  plan:\n    prompt: Card {cardNumber}.\n",
+			"  plan:\n    prompt: Card {cardNumber}.\n    variants:\n      - {name: on-b, weight: 1, account: b}\n", 1)
+	})
+	writeTranscript(t, f.configB, unfinishedSession, "{}")
+	work := h.withWork()
+	w := workRequest(1, 87, "plan", api.WorkRequestOpen)
+	w.ResumeSessionID = unfinishedSession
+
+	h.offer(work, w)
+
+	calls := h.worker.recorded()
+	if len(calls) != 1 || !calls[0].resume || calls[0].sessionID != unfinishedSession || calls[0].account != "b" || calls[0].configDir != f.configB {
+		t.Fatalf("workers = %+v", calls)
+	}
+}

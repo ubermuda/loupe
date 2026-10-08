@@ -195,11 +195,26 @@ func (r *router) offerWork(w api.WorkRequest, source string) {
 	}
 	p := pending{key: w.SubjectID, event: workEvent(w), work: w, set: set}
 	// A session that is not on this machine cannot resume, so the work starts fresh.
-	if w.ResumeSessionID != "" && m.Action == "" && r.hasTranscript(w.ResumeSessionID, m.Run()) {
+	if w.ResumeSessionID != "" && m.Action == "" && slices.ContainsFunc(resumeRuns(m), func(run rules.RunSettings) bool {
+		return r.hasTranscript(w.ResumeSessionID, run)
+	}) {
 		p.event.SessionID = w.ResumeSessionID
 	}
 	p.apply(m)
 	r.enqueue(p)
+}
+
+// resumeRuns are the settings a run of m can take: those of its entry, and
+// those of each variant, which resolves only at start.
+func resumeRuns(m rules.Match) []rules.RunSettings {
+	runs := []rules.RunSettings{m.Run()}
+	if m.Experiment != nil {
+		for _, v := range m.Experiment.Variants {
+			runs = append(runs, m.Experiment.Settings(v))
+		}
+	}
+
+	return runs
 }
 
 // workAttrs names a work request in a log line.
