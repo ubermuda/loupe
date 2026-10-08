@@ -27,17 +27,25 @@ function Demo() {
     <div className="col">
 {% for entry in entries %}
       <div className="row">
+{% if entry.variants %}
 {% for variant in entry.variants %}
         <{{ entry.name }} variant="{{ variant }}">{{ variant }}</{{ entry.name }}>
 {% endfor %}
+{% else %}
+        <{{ entry.name }}>Example</{{ entry.name }}>
+{% endif %}
       </div>
+{% if entry.sizes or 'button' == entry.element %}
       <div className="row">
 {% for size in entry.sizes %}
         <{{ entry.name }} size="{{ size }}">{{ size }}</{{ entry.name }}>
 {% endfor %}
+{% if 'button' == entry.element %}
         <{{ entry.name }} disabled>disabled</{{ entry.name }}>
         <{{ entry.name }} href="#">link</{{ entry.name }}>
+{% endif %}
       </div>
+{% endif %}
 {% endfor %}
     </div>
   );

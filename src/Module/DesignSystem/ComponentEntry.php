@@ -25,6 +25,7 @@ final readonly class ComponentEntry
         public array $sizes = [],
         public string $group = 'core',
         public string $summary = '',
+        public string $element = 'div',
     ) {
     }
 }

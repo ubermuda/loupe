@@ -120,7 +120,23 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         $card = (string) file_get_contents($this->directory.'/components/core/core.card.html');
 
         self::assertStringStartsWith('<!-- @dsCard group="Components" viewport="700x300"', $card);
-        self::assertStringContainsString("dsFind('Button')", $card);
+        self::assertStringContainsString("dsFind('Button', 'Flash'", $card);
         self::assertStringContainsString('<script src="../../ds-mount.js">', $card);
+    }
+
+    public function test_a_non_button_component_is_not_a_button(): void
+    {
+        $jsx = (string) file_get_contents($this->directory.'/components/core/Flash.jsx');
+        $types = (string) file_get_contents($this->directory.'/components/core/Badge.d.ts');
+        $prompt = (string) file_get_contents($this->directory.'/components/core/Flash.prompt.md');
+        $card = (string) file_get_contents($this->directory.'/components/core/core.card.html');
+
+        self::assertStringContainsString('<div {...rest} className={className}>', $jsx);
+        self::assertStringNotContainsString('<button', $jsx);
+        self::assertStringNotContainsString('disabled', $jsx);
+        self::assertStringNotContainsString('href', $types);
+        self::assertStringNotContainsString('disabled', $prompt);
+        self::assertStringContainsString('<Flash variant="success">Example</Flash>', $prompt);
+        self::assertStringContainsString('<EmptyState>Example</EmptyState>', $card);
     }
 }

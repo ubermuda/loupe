@@ -1,30 +1,37 @@
 {# twig-cs-fixer-disable #}{% autoescape false %}
-import type { HTMLAttributes, ReactNode } from 'react';
+{% set isButton = 'button' == entry.element %}
+import type { ReactNode } from 'react';
 
 /**
- * {{ entry.summary }} Sentence-case labels. Combine modifiers with a space, such as `ghost icon`.
+ * {{ entry.summary }}{% if isButton %} Sentence-case labels. Combine modifiers with a space, such as `ghost icon`.{% endif %}
+
  *
- * @startingPoint section="{{ section }}" subtitle="Every {{ entry.name }} variant and size" viewport="700x150"
+ * @startingPoint section="{{ section }}" subtitle="Every {{ entry.name }} variant{% if entry.sizes %} and size{% endif %}" viewport="700x150"
  */
-export interface {{ entry.name }}Props extends Omit<HTMLAttributes<HTMLElement>, 'children' | 'onClick'> {
+export interface {{ entry.name }}Props {
+{% if entry.variants %}
     /** The visual weight and shape. */
     variant?:
 {% for variant in entry.variants %}
         | '{{ variant }}'
 {% endfor %}
         | (string & {});
+{% endif %}
 {% if entry.sizes %}
     /** The size step. Leave it out for the default size. */
     size?: {% for size in entry.sizes %}'{{ size }}'{% if not loop.last %} | {% endif %}{% endfor %};
 {% endif %}
+{% if isButton %}
     disabled?: boolean;
     type?: 'button' | 'submit' | 'reset';
     /** Renders a link instead of a button. */
     href?: string;
     onClick?: () => void;
+{% endif %}
     children?: ReactNode;
-    /** Any other attribute goes to the element, such as `name`, `target` or `aria-label`. */
+{% if not isButton %}
     [attribute: string]: unknown;
+{% endif %}
 }
 
 export declare function {{ entry.name }}(props: {{ entry.name }}Props): JSX.Element;

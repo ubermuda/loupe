@@ -1,33 +1,44 @@
 {# twig-cs-fixer-disable #}{% autoescape false %}
+{% set isButton = 'button' == entry.element %}
 import React from 'react';
 
 export const {{ entry.name|upper }}_VARIANTS = [{{ entry.variants|map(v => "'" ~ v ~ "'")|join(', ') }}];
 export const {{ entry.name|upper }}_SIZES = [{{ entry.sizes|map(v => "'" ~ v ~ "'")|join(', ') }}];
 
-export function {{ entry.name }}({ variant, size, disabled = false, type = 'button', href, onClick, className: extra, children, ...rest }) {
+{% if isButton %}
+export function {{ entry.name }}({ variant, size, disabled = false, type = 'button', href, onClick, children }) {
+{% else %}
+export function {{ entry.name }}({ variant, size, children, ...rest }) {
+{% endif %}
     const classes = ['{{ entry.rootClass }}'];
     for (const modifiers of [variant, size]) {
         for (const modifier of (modifiers || '').split(/\s+/).filter(Boolean)) {
             classes.push('{{ entry.rootClass }}--' + modifier);
         }
     }
-    if (extra) {
-        classes.push(extra);
-    }
     const className = classes.join(' ');
+{% if isButton %}
 
     if (href) {
         return (
-            <a {...rest} className={className} href={href} onClick={onClick}>
+            <a className={className} href={href} onClick={onClick}>
                 {children}
             </a>
         );
     }
 
     return (
-        <button {...rest} className={className} type={type} disabled={disabled} onClick={onClick}>
+        <button className={className} type={type} disabled={disabled} onClick={onClick}>
             {children}
         </button>
     );
+{% else %}
+
+    return (
+        <{{ entry.element }} {...rest} className={className}>
+            {children}
+        </{{ entry.element }}>
+    );
+{% endif %}
 }
 {% endautoescape %}

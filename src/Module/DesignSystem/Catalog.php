@@ -24,6 +24,7 @@ final readonly class Catalog
                 sizes: ['sm', 'lg'],
                 group: 'core',
                 summary: 'Any action or link that looks like a button.',
+                element: 'button',
             ),
             new ComponentEntry(
                 name: 'Flash',
@@ -32,6 +33,9 @@ final readonly class Catalog
                 variants: ['success', 'error', 'warning', 'info'],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'A short message about the result of an action.',
+                element: 'div',
             ),
             new ComponentEntry(
                 name: 'EmptyState',
@@ -40,6 +44,9 @@ final readonly class Catalog
                 variants: [],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'The block that tells a user a list or page has no content yet.',
+                element: 'div',
             ),
             new ComponentEntry(
                 name: 'Badge',
@@ -48,6 +55,9 @@ final readonly class Catalog
                 variants: ['in-review', 'draft', 'approved', 'changes-requested'],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'A small label for the review status of a document.',
+                element: 'span',
             ),
             new ComponentEntry(
                 name: 'Tag',
@@ -56,6 +66,9 @@ final readonly class Catalog
                 variants: ['neutral', 'lime', 'purple', 'green', 'amber', 'red', 'teal', 'sky', 'blue', 'indigo', 'pink', 'orange'],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'A small coloured label for a category or a tone.',
+                element: 'span',
             ),
             new ComponentEntry(
                 name: 'StatusChip',
@@ -64,6 +77,9 @@ final readonly class Catalog
                 variants: ['pending', 'addressed', 'resolved', 'ok', 'failed', 'neutral'],
                 states: ['reason'],
                 enforced: true,
+                group: 'core',
+                summary: 'A chip that names a state, with an optional reason in a tooltip.',
+                element: 'span',
             ),
         ];
     }
