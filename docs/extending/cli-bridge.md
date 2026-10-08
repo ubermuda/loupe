@@ -518,8 +518,10 @@ session file of each subagent, which Codex writes beside it:
 5. The tokens and the cost add the tokens of each subagent.
 
 Codex does not document the session file, so a new Codex release can change
-it. When the bridge cannot read the file, the tool calls, the timing and the
-peak context of the run are unknown, never zero.
+it. When the bridge cannot read the file of the run or of one subagent, the
+tool calls, the timing and the peak context of the run are unknown, never zero.
+The tokens then come from the total that Codex prints, which leaves out the
+subagents.
 
 Limits of this release:
 
