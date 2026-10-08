@@ -3306,6 +3306,7 @@
             // hides the panel rather than breaking the widget.
             if (generation !== verdictGeneration) return;
             verdict.data = null;
+            verdict.cardId = null;
         }
         sync();
     };
@@ -3473,9 +3474,7 @@
           ${own ? '<div class="lp-verdict-warn">You opened this pull request, so GitHub accepts no verdict from you. The review goes as a comment.</div>' : ''}
           ${notes}
           <textarea class="lp-textarea" id="lp-verdict-message" aria-label="Message" placeholder="${
-              kind === 'approve' || data.notes.length
-                  ? 'Message (optional)'
-                  : 'Message'
+              kind === 'approve' ? 'Message (optional)' : 'Message'
           }"></textarea>
           ${does}
           ${verdict.error ? `<div class="lp-verdict-error" role="alert">${escapeHtml(verdict.error)}</div>` : ''}
