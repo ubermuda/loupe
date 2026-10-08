@@ -2807,17 +2807,19 @@ test('a stroke on an anchored comment moves with its element', async ({
     const narrowBox = (await page.locator('#target-wide').boundingBox())!;
     expect(narrowBox.width).toBeLessThan(wideBox.width - 200);
 
-    await expect
-        .poll(async () => (await inkBounds(page)).right, inkTimeout)
-        .toBeLessThan(narrowBox.x + narrowBox.width + 8);
-    const narrowInk = await inkBounds(page);
-    // Still spanning the element, and still inside it. Page coordinates would
-    // put the drawing well above the block, because the whole page scales.
-    expect(narrowInk.right - narrowInk.left).toBeGreaterThan(
-        narrowBox.width * 0.8,
-    );
-    expect(narrowInk.top).toBeGreaterThan(narrowBox.y - 8);
-    expect(narrowInk.bottom).toBeLessThan(narrowBox.y + narrowBox.height + 8);
+    // An empty canvas between the resize and its repaint also has a small right
+    // edge, so read the box and the ink together until the repaint settles.
+    await expect(async () => {
+        const box = (await page.locator('#target-wide').boundingBox())!;
+        const ink = await inkBounds(page);
+        expect(ink.count).toBeGreaterThan(0);
+        expect(ink.right).toBeLessThan(box.x + box.width + 8);
+        // Still spanning the element, and still inside it. Page coordinates
+        // would put the drawing well above the block, because the page scales.
+        expect(ink.right - ink.left).toBeGreaterThan(box.width * 0.8);
+        expect(ink.top).toBeGreaterThan(box.y - 8);
+        expect(ink.bottom).toBeLessThan(box.y + box.height + 8);
+    }).toPass(inkTimeout);
 });
 
 /**
