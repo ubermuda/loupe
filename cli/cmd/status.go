@@ -163,7 +163,7 @@ func noteClaudeCode(out io.Writer) {
 
 		return
 	}
-	got, err := claudecode.Effective(dir, mcpjson.ServerKey)
+	got, err := claudecode.Effective(dir, mcpjson.ServerKey, "")
 	switch {
 	case err != nil:
 		fmt.Fprintf(out, "Claude Code: could not check how it starts %q: %v\n", mcpjson.ServerKey, err)

@@ -19,6 +19,7 @@
 package claudecode
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -125,10 +126,11 @@ func (r Resolution) Where() string {
 }
 
 // Effective reports the entry Claude Code resolves for server in dir, across
-// all three scopes. An undeclared server is not an error: Claude Code may not
-// be installed at all.
-func Effective(dir, server string) (Resolution, error) {
-	path, err := configPath()
+// all three scopes, with the file of configDir, or of the environment when it
+// is "". An undeclared server is not an error: Claude Code may not be
+// installed at all.
+func Effective(dir, server, configDir string) (Resolution, error) {
+	path, err := configPath(configDir)
 	if err != nil {
 		return Resolution{}, err
 	}
@@ -191,7 +193,7 @@ func Add(ctx context.Context, dir, server string, scope Scope) error {
 		return err
 	}
 
-	got, err := Effective(dir, server)
+	got, err := Effective(dir, server, "")
 	if err != nil {
 		return err
 	}
@@ -209,7 +211,7 @@ func Remove(ctx context.Context, dir, server string, scope Scope) error {
 		return err
 	}
 
-	got, err := Effective(dir, server)
+	got, err := Effective(dir, server, "")
 	if err != nil {
 		return err
 	}
@@ -248,10 +250,10 @@ func run(ctx context.Context, dir string, args ...string) (string, error) {
 	return string(out), nil
 }
 
-// configPath is CLAUDE_CONFIG_DIR's file when that is set, and the one in the
-// home directory otherwise.
-func configPath() (string, error) {
-	if dir := strings.TrimSpace(os.Getenv("CLAUDE_CONFIG_DIR")); dir != "" {
+// configPath is the file of configDir, else CLAUDE_CONFIG_DIR's file when that
+// is set, and the one in the home directory otherwise.
+func configPath(configDir string) (string, error) {
+	if dir := strings.TrimSpace(cmp.Or(configDir, os.Getenv("CLAUDE_CONFIG_DIR"))); dir != "" {
 		return filepath.Join(dir, configName), nil
 	}
 
