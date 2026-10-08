@@ -50,6 +50,28 @@ func resolveProgram(h harn.Harness) (string, error) {
 	return filepath.Abs(path)
 }
 
+// resolveInPath finds the program of h on the PATH that env sets, which an
+// account env file can do. The launch script exports the same PATH.
+func resolveInPath(h harn.Harness, env []string) (string, error) {
+	notFound := errors.New(h.Program() + " is not installed or not on PATH")
+	for i := len(env) - 1; i >= 0; i-- {
+		list, ok := strings.CutPrefix(env[i], "PATH=")
+		if !ok {
+			continue
+		}
+		for _, dir := range filepath.SplitList(list) {
+			path := filepath.Join(dir, h.Program())
+			if info, err := os.Stat(path); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 && filepath.IsAbs(path) {
+				return path, nil
+			}
+		}
+
+		break
+	}
+
+	return "", notFound
+}
+
 // writeLaunchScript writes the script of one session into root and returns its
 // path. O_EXCL refuses a file or a link that is already there.
 func writeLaunchScript(root, sessionID, body string) (string, error) {
@@ -236,6 +258,9 @@ func (r *router) runLaunch(l launch) {
 	if err == nil && adapter.Program() != defaultHarness().Program() {
 		// The bridge resolved the path of the default harness at start alone.
 		program, err = resolveProgram(adapter)
+		if err != nil {
+			program, err = resolveInPath(adapter, env)
+		}
 	}
 	if err == nil {
 		path, err = writeLaunchScript(l.dir, p.spec.sessionID, adapter.Interactive(program, p.spec.harnessSpec(env)))

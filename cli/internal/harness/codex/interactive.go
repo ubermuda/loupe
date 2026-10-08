@@ -18,8 +18,10 @@ import (
 const launchSuffix = ".launch"
 
 // pendingAge is the age past which an unmatched launch counts no more. Its
-// terminal closed, or Codex never started in it.
-const pendingAge = 24 * time.Hour
+// terminal closed, or Codex never started in it. A launch that holds its place
+// for this long can still push the next launch in its folder onto a later
+// session.
+const pendingAge = time.Hour
 
 // launchSlack lets a session file start a little before the recorded launch
 // time, because the two clocks are read at different moments.
