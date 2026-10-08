@@ -73,6 +73,48 @@ final class DecisionBlockServiceTest extends TestCase
      * A block that takes several answers asks for them with `[ ]`, which is the
      * GFM task-list marker every other renderer already shows as a checkbox.
      */
+    public function test_each_block_reads_the_nearest_heading_above_it(): void
+    {
+        $html = $this->renderer->render(<<<'MD'
+            <!-- decision: before-any -->
+
+            - ( ) A
+            - ( ) B
+
+            <!-- /decision -->
+
+            ## D4: How do we *ship*?
+
+            <!-- decision: under-d4 -->
+
+            - ( ) A
+            - ( ) B
+
+            <!-- /decision -->
+
+            <!-- decision: also-under-d4 -->
+
+            - ( ) A
+            - ( ) B
+
+            <!-- /decision -->
+
+            ### Notes
+
+            <!-- decision: under-notes -->
+
+            - ( ) A
+            - ( ) B
+
+            <!-- /decision -->
+            MD);
+
+        self::assertSame(
+            ['under-d4' => 'D4: How do we ship?', 'also-under-d4' => 'D4: How do we ship?', 'under-notes' => 'Notes'],
+            $this->decisions->headingsAbove($html),
+        );
+    }
+
     public function test_a_task_list_fence_becomes_a_group_of_checkboxes(): void
     {
         $html = $this->renderer->render(self::MULTIPLE_FENCE);

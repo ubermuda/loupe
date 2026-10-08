@@ -318,6 +318,35 @@ final readonly class DecisionBlockService
     }
 
     /**
+     * The text of the nearest heading above each block, keyed by decision id.
+     *
+     * A block with no heading above it is absent.
+     *
+     * @return array<string, string>
+     */
+    public function headingsAbove(string $html): array
+    {
+        preg_match_all('~<h[1-6](?:\s[^>]*)?>(.*?)</h[1-6]>~s', $html, $headings, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+
+        $found = [];
+        foreach ($this->fieldsets($html) as $block) {
+            $above = null;
+            foreach ($headings as $heading) {
+                if ($heading[0][1] > $block['offset']) {
+                    break;
+                }
+                $above = $heading[1][0];
+            }
+
+            if (null !== $above) {
+                $found[$block['id']] = DisplayLabel::fromHtml($above);
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * Every decision fieldset in the rendered HTML, as id, inner markup and whole.
      *
      * Split on the closing tag rather than matched across it. A body written as
@@ -328,14 +357,17 @@ final readonly class DecisionBlockService
      * fieldsets emitted here are flat: fieldset() writes one per block and never
      * nests them.
      *
-     * @return list<array{id: string, type: DecisionType, inner: string}>
+     * @return list<array{id: string, type: DecisionType, inner: string, offset: int}>
      */
     private function fieldsets(string $html): array
     {
         $found = [];
+        $segmentOffset = 0;
 
         foreach (explode('</fieldset>', $html) as $segment) {
             $start = strrpos($segment, '<fieldset');
+            $offset = $segmentOffset;
+            $segmentOffset += \strlen($segment) + \strlen('</fieldset>');
             if (false === $start) {
                 continue;
             }
@@ -354,6 +386,7 @@ final readonly class DecisionBlockService
                 'id' => $openTag[1],
                 'type' => self::typeOfOpenTag($openTag[0]),
                 'inner' => substr($element, \strlen($openTag[0])),
+                'offset' => $offset + $start,
             ];
         }
 
