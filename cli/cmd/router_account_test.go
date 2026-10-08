@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -556,5 +557,30 @@ func TestAResumeStartsFreshWhenThePinnedVariantCannotFindTheSession(t *testing.T
 	calls := h.worker.recorded()
 	if len(calls) != 1 || calls[0].resume || calls[0].sessionID == unfinishedSession || calls[0].account != "b" || !strings.HasPrefix(calls[0].prompt, "Card 87.") {
 		t.Fatalf("workers = %+v", calls)
+	}
+}
+
+// A config folder the bridge cannot read at start says nothing about the
+// session, so the run resumes as it queued.
+func TestAResumeKeepsItsSessionWhenTheFolderCannotBeRead(t *testing.T) {
+	h, _, _ := withAccounts(t, nil)
+	calls := 0
+	h.router.findTranscript = func(string) error {
+		calls++
+		if calls == 1 {
+			return nil
+		}
+
+		return errors.New("permission denied")
+	}
+	work := h.withWork()
+	w := workRequest(1, 87, "plan", api.WorkRequestOpen)
+	w.ResumeSessionID = unfinishedSession
+
+	h.offer(work, w)
+
+	got := h.worker.recorded()
+	if calls < 2 || len(got) != 1 || !got[0].resume || got[0].sessionID != unfinishedSession {
+		t.Fatalf("checks = %d, workers = %+v", calls, got)
 	}
 }

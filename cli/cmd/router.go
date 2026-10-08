@@ -28,6 +28,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
+	"github.com/ubermuda/loupe/cli/internal/transcript"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
 
@@ -993,9 +994,16 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 func (r *router) resumeDir(p pending) (pending, string) {
 	// The variant of an experiment resolves at start, and its account may not
 	// hold the session that the work request names.
-	run := rules.RunSettings{Harness: p.spec.harnessName, ConfigDir: p.spec.configDir}
-	if p.event.Type != event.CommandType && !r.hasTranscript(p.spec.sessionID, run) {
-		return r.freshSession(p, "resume_session_missing", "the session is not in the config folder of account "+p.spec.account)
+	// A read error says nothing about the session, so the resume goes on.
+	if p.event.Type != event.CommandType {
+		run := rules.RunSettings{Harness: p.spec.harnessName, ConfigDir: p.spec.configDir}
+		err := r.findSession(p.spec.sessionID, run)
+		if errors.Is(err, transcript.ErrNotFound) {
+			return r.freshSession(p, "resume_session_missing", "the session is not in the config folder of account "+p.spec.account)
+		}
+		if err != nil {
+			r.log.Warn("resume_session_unknown", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "account", p.spec.account, "error", err.Error())...)
+		}
 	}
 	lookup := r.startDir
 	if lookup == nil {

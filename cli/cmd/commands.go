@@ -622,12 +622,18 @@ func commandCard(c api.Command) string {
 // hasTranscript reports whether the account of run holds the transcript of
 // the session on this machine, which a resume needs.
 func (r *router) hasTranscript(sessionID string, run rules.RunSettings) bool {
+	return r.findSession(sessionID, run) == nil
+}
+
+// findSession looks for the transcript of the session in the account of run.
+// A missing one is transcript.ErrNotFound.
+func (r *router) findSession(sessionID string, run rules.RunSettings) error {
 	find := r.findTranscript
 	if find == nil {
 		find = harnessOf(run.Harness, run.ConfigDir).HasSession
 	}
 
-	return find(sessionID) == nil
+	return find(sessionID)
 }
 
 // sendAck hands the answer to the report queue, which retries a failure. A
