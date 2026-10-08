@@ -36,6 +36,8 @@ final readonly class Catalog
                 group: 'core',
                 summary: 'A short message about the result of an action.',
                 element: 'div',
+                dotClass: 'lp-flash__dot',
+                contentClass: 'lp-flash__message',
             ),
             new ComponentEntry(
                 name: 'EmptyState',
@@ -80,6 +82,7 @@ final readonly class Catalog
                 group: 'core',
                 summary: 'A chip that names a state, with an optional reason in a tooltip.',
                 element: 'span',
+                dotClass: 'lp-status-chip__dot',
             ),
         ];
     }

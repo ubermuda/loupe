@@ -26,6 +26,8 @@ final readonly class ComponentEntry
         public string $group = 'core',
         public string $summary = '',
         public string $element = 'div',
+        public string $dotClass = '',
+        public string $contentClass = '',
     ) {
     }
 }

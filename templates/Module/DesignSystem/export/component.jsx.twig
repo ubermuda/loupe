@@ -39,7 +39,14 @@ export function {{ entry.name }}({ variant, size, className: extra, children, ..
 
     return (
         <{{ entry.element }} {...rest} className={className}>
+{% if entry.dotClass %}
+            <span className="{{ entry.dotClass }}"></span>
+{% endif %}
+{% if entry.contentClass %}
+            <span className="{{ entry.contentClass }}">{children}</span>
+{% else %}
             {children}
+{% endif %}
         </{{ entry.element }}>
     );
 {% endif %}

@@ -160,4 +160,16 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         self::assertStringContainsString('<Flash variant="success">Example</Flash>', $prompt);
         self::assertStringContainsString('<EmptyState>Example</EmptyState>', $card);
     }
+
+    public function test_a_component_with_a_dot_renders_its_child_elements(): void
+    {
+        $flash = (string) file_get_contents($this->directory.'/components/core/Flash.jsx');
+        $chip = (string) file_get_contents($this->directory.'/components/core/StatusChip.jsx');
+        $badge = (string) file_get_contents($this->directory.'/components/core/Badge.jsx');
+
+        self::assertStringContainsString('<span className="lp-flash__dot"></span>', $flash);
+        self::assertStringContainsString('<span className="lp-flash__message">{children}</span>', $flash);
+        self::assertStringContainsString('<span className="lp-status-chip__dot"></span>', $chip);
+        self::assertStringNotContainsString('__dot', $badge);
+    }
 }
