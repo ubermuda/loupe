@@ -31,8 +31,10 @@ rule 5 puts them. The fence holds only the question and the options.
 
 **Mark the option you recommend at the end of its line.** Write
 `(recommended: high)`, `(recommended: moderate)` or `(recommended: low)` after
-the option text. Loupe removes the marker from the label and shows a badge with
-the confidence next to that option. Mark one option only. A second marker
+the option text. Loupe removes the marker from the label and shows three stars
+next to that option: three filled for high, two for moderate, one for low. The
+words, such as "Recommended, moderate confidence", show on hover and on keyboard
+focus. Mark one option only. A second marker
 cancels both, so the block shows no badge and keeps the marker text. Other
 Markdown renderers show the marker as ordinary text.
 
@@ -43,8 +45,8 @@ Markdown renderers show the marker as ordinary text.
 
 **A click saves at once.** The reviewer can also write a note, with a pick or
 alone. The note saves shortly after the reviewer stops typing, and comes back as
-`note` on the decision in `document_get_review`. A **Clear** button removes the
-pick and keeps the note. The last write wins: a save from an older version of the
+`note` on the decision in `document_get_review`. A **Clear choice** button, beside the
+"Pick one" chip, removes the pick and keeps the note. The last write wins: a save from an older version of the
 document carries onto the current version by option label.
 
 Numbered and bulleted lists both convert, and rule 2 applies here as everywhere:
@@ -54,6 +56,36 @@ refused and renders as an ordinary list, and so is a second fence reusing an id
 already used above it. Every other Markdown renderer hides the comments, so a
 document read outside Loupe still shows the list, which is why the fence uses
 comments rather than a visible marker.
+
+## Show an Option, Pros and Cons table as blocks
+
+**Wrap every Option, Pros and Cons table in an options fence.** Put
+`<!-- options -->` on its own line above the table and `<!-- /options -->` on
+its own line below it. Loupe shows each row as a tinted block. The first column
+is the name of the option, and the other columns sit side by side under their
+own headings. On a phone the columns stack.
+
+```markdown
+<!-- options -->
+
+| Option | Pros | Cons |
+|---|---|---|
+| 1. Any project member | Matches who may create a tag | A member can remove a tag in use |
+| 2. The project owner only | No surprise removals | The owner must do every clean-up |
+
+<!-- /options -->
+```
+
+1. The fence marks every table between its two comments. A fence may hold more
+   than one table.
+2. A table needs at least two columns. A table with one column stays a plain
+   table.
+3. A fence with no table inside, an opener with no closer, and a closer with no
+   opener all do nothing. Loupe shows the stray comment as a visible note, as it
+   does for any comment, so you can see the mistake.
+4. A table outside a fence stays a plain table. Its text is the same in both
+   shapes, so comments on it anchor the same way.
+5. Other Markdown renderers hide the two comments and show a plain table.
 
 ## Ask for one answer, or for several
 

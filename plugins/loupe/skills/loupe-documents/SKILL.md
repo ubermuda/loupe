@@ -160,11 +160,13 @@ reading context, not for a terminal or a README.
     the alternatives renders them as radio buttons, whose answer comes back in
     `document_get_review` under `decisions`. Mark every option `- [ ]` instead
     to let the reviewer pick several. End the one option you recommend with
-    `(recommended: high)`, `moderate` or `low` to show a badge on it. **An id
+    `(recommended: high)`, `moderate` or `low` to show three stars on it. **An id
     is permanent once published**, and **a changed id silently discards the answer**: no error, no
     warning, and the decision reads as unanswered again. A malformed fence
     degrades to a plain list, also with no error. Read
-    `references/decision-fences.md` before you write one.
+    `references/decision-fences.md` before you write one. Wrap each Option,
+    Pros and Cons table in an `<!-- options -->` and `<!-- /options -->` fence,
+    so Loupe shows each row as a block. The same file says how.
 
 13. **A stray HTML comment renders as a visible annotation**, on its own line as
     a block note or inside a paragraph as an inline note. Never wrap such a

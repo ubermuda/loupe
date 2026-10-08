@@ -498,7 +498,7 @@ test('a note saves after typing stops and reaches the review payload', async ({
     ).toHaveValue(NOTE);
 });
 
-test('Clear removes the pick and keeps the note', async ({ page }) => {
+test('Clear choice removes the pick and keeps the note', async ({ page }) => {
     await signedInReviewer(page, 'clear');
     const { documentId, reviewUrl } = await seedDocument(
         page,
@@ -515,7 +515,9 @@ test('Clear removes the pick and keeps the note', async ({ page }) => {
     expect((await readNoted(page, documentId))?.note).toBe(NOTE);
 
     await saving(page, () =>
-        block.getByRole('button', { name: 'Clear', exact: true }).click(),
+        block
+            .getByRole('button', { name: 'Clear choice', exact: true })
+            .click(),
     );
     await expect(page.locator('#decision-status')).toHaveText('Cleared.');
     await expect(
@@ -563,6 +565,14 @@ test('a recommended marker shows a badge on its option', async ({ page }) => {
         'aria-label',
         'Recommended, high confidence',
     );
+    await expect(badges).toHaveAttribute(
+        'title',
+        'Recommended, high confidence',
+    );
+    await expect(badges.locator('.lp-decision__star')).toHaveCount(3);
+    await expect(badges.locator('.lp-decision__star--filled')).toHaveCount(3);
+    await badges.focus();
+    await expect(badges).toBeFocused();
     await expect(
         block
             .locator('.lp-decision__option')

@@ -326,22 +326,95 @@
 .lp-review .lp-decision__option input:checked {
     @apply border-review-tab bg-review-tab;
 }
-/* Generated text, so the badge never joins the anchor basis. The page names it
-   in the reader's language; the English fallback covers a diff pane. */
+/* Three stars show the confidence of a recommendation: filled for the steps it
+   reaches, outlined for the rest. The star elements hold no text, so they
+   never join the anchor basis. The words sit in `title` and `aria-label`.
+   The star shape is the committed Lucide star, inlined as a mask. */
 .lp-review .lp-decision__badge {
-    @apply ml-auto shrink-0 rounded-md bg-accent-faint px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-review-tab;
+    @apply relative ml-auto inline-flex shrink-0 items-center gap-0.5 rounded-md bg-accent-faint px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-review-tab;
 }
-.lp-review .lp-decision__badge[data-decision-recommended='high']::after {
+.lp-review .lp-decision__star {
+    @apply inline-block size-3.5 bg-current;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z'/%3E%3C/svg%3E");
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+.lp-review .lp-decision__star--filled {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z'/%3E%3C/svg%3E");
+}
+/* A version stored before the stars existed has an empty badge. Generated
+   text names it, and the page names it in the reader's language. */
+.lp-review .lp-decision__badge:empty[data-decision-recommended='high']::after {
     content: 'Recommended, high confidence';
 }
-.lp-review .lp-decision__badge[data-decision-recommended='moderate']::after {
+.lp-review
+    .lp-decision__badge:empty[data-decision-recommended='moderate']::after {
     content: 'Recommended, moderate confidence';
 }
-.lp-review .lp-decision__badge[data-decision-recommended='low']::after {
+.lp-review .lp-decision__badge:empty[data-decision-recommended='low']::after {
     content: 'Recommended, low confidence';
 }
-.lp-review .lp-decision__badge[aria-label]::after {
+.lp-review .lp-decision__badge:empty[aria-label]::after {
     content: attr(aria-label);
+}
+/* Hover shows the native `title`. Keyboard focus shows this tooltip, which is
+   generated content, so the words never join the anchor basis either. */
+.lp-review .lp-decision__badge:not(:empty):focus-visible {
+    @apply outline-2 outline-offset-2 outline-review-tab;
+}
+.lp-review .lp-decision__badge:not(:empty):focus-visible::after {
+    @apply absolute right-0 bottom-full z-10 mb-1.5 rounded-md bg-ink px-2 py-1 font-normal whitespace-nowrap text-surface-1;
+    content: 'Recommended';
+}
+.lp-review
+    .lp-decision__badge:not(
+        :empty
+    )[data-decision-recommended='high']:focus-visible::after {
+    content: 'Recommended, high confidence';
+}
+.lp-review
+    .lp-decision__badge:not(
+        :empty
+    )[data-decision-recommended='moderate']:focus-visible::after {
+    content: 'Recommended, moderate confidence';
+}
+.lp-review
+    .lp-decision__badge:not(
+        :empty
+    )[data-decision-recommended='low']:focus-visible::after {
+    content: 'Recommended, low confidence';
+}
+.lp-review .lp-decision__badge:not(:empty)[aria-label]:focus-visible::after {
+    content: attr(aria-label);
+}
+/* Clear choice sits in the header row, beside the kind-of-answer chip and away
+   from the note field. The chip moves left to make room for it. */
+.lp-review .lp-decision {
+    @apply relative;
+}
+.lp-review .lp-decision__clear {
+    @apply absolute top-4.5 right-5;
+}
+.lp-review
+    .lp-decision:has(> .lp-decision__clear)
+    .lp-decision__prompt::before {
+    @apply mr-28;
+}
+@media (width < 37.5rem) {
+    .lp-review .lp-decision__clear {
+        @apply static mb-2 block;
+    }
+    .lp-review
+        .lp-decision:has(> .lp-decision__clear)
+        .lp-decision__prompt::before {
+        @apply mr-0;
+    }
 }
 .lp-review .lp-decision__note {
     @apply mt-3 flex items-start gap-2;
@@ -351,6 +424,71 @@
 }
 .lp-review .lp-decision__note-field[readonly] {
     @apply cursor-default bg-surface-1 text-fg-mute;
+}
+
+/* ── Tables in the document ─────────────────────────────────────── */
+/* Roomier than the typography default: 15px text, taller rows, a bold first
+   column and small-capital headings. A wide table scrolls inside its own box
+   rather than pushing the paper sideways. Front matter keeps its own look. */
+.lp-review .lp-review-doc__prose table:not(.lp-front-matter) {
+    @apply my-6 block max-w-full overflow-x-auto border-collapse;
+    font-size: 0.9375rem;
+}
+.lp-review .lp-review-doc__prose table:not(.lp-front-matter) :is(th, td) {
+    @apply px-4 py-3.5 text-left align-top leading-normal;
+}
+.lp-review .lp-review-doc__prose table:not(.lp-front-matter) th {
+    @apply border-b border-line-strong text-xs font-bold tracking-wider text-fg-dim uppercase;
+}
+.lp-review .lp-review-doc__prose table:not(.lp-front-matter) td {
+    @apply border-b border-line;
+}
+.lp-review .lp-review-doc__prose table:not(.lp-front-matter) td:first-child {
+    @apply font-bold text-ink;
+}
+
+/* An option table from an options fence: each row is a tinted block with the
+   option name on top and the other cells side by side under their own
+   headings. The headings come from `data-label` as generated content, so the
+   text a comment anchor measures is the table's own. The header row stays in
+   the page for screen readers and the anchor basis. */
+.lp-review .lp-review-doc__prose table.lp-option-table {
+    @apply block overflow-visible;
+}
+.lp-review .lp-review-doc__prose table.lp-option-table thead {
+    @apply sr-only;
+}
+.lp-review .lp-review-doc__prose table.lp-option-table tbody {
+    @apply grid gap-3;
+}
+.lp-review .lp-review-doc__prose table.lp-option-table tr {
+    @apply grid gap-x-6 gap-y-3 rounded-lg bg-surface-2 p-4;
+    grid-template-columns: repeat(
+        auto-fit,
+        minmax(calc(var(--spacing) * 40), 1fr)
+    );
+}
+.lp-review .lp-review-doc__prose table.lp-option-table td {
+    @apply min-w-0 border-0 p-0;
+}
+.lp-review .lp-review-doc__prose table.lp-option-table td:first-child {
+    grid-column: 1 / -1;
+    @apply text-base;
+}
+.lp-review .lp-review-doc__prose table.lp-option-table td:empty {
+    @apply hidden;
+}
+.lp-review .lp-review-doc__prose table.lp-option-table td::before {
+    content: attr(data-label);
+    @apply mb-1 block text-xs font-bold tracking-wider text-fg-dim uppercase;
+}
+.lp-review .lp-review-doc__prose table.lp-option-table td:first-child::before {
+    content: none;
+}
+@media (width < 37.5rem) {
+    .lp-review .lp-review-doc__prose table.lp-option-table tr {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* ── Comment cards ──────────────────────────────────────────────── */
