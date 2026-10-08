@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Gamache\Check\CommentBudgetCheck;
 use Gamache\Check\DeploymentConfigParityCheck;
+use Gamache\Check\DesignSystemAdoptionCheck;
+use Gamache\Check\DesignSystemComponent;
 use Gamache\Check\FormTypeTranslationKeysCheck;
 use Gamache\Check\MessengerRoutingCheck;
 use Gamache\Check\NoArbitraryValuesCheck;
@@ -130,6 +132,24 @@ return (new GamacheConfig())->registerChecks([
         // consecutive green gates here. `@comment-budget-ignore` marks the
         // blocks that have earned their length.
         severity: Severity::Error,
+    ),
+    new DesignSystemAdoptionCheck(
+        components: [
+            new DesignSystemComponent('Button', 'lp-btn'),
+            new DesignSystemComponent('Input', 'lp-input'),
+            new DesignSystemComponent('Select', 'lp-select'),
+            new DesignSystemComponent('FormField', 'lp-form-field'),
+            new DesignSystemComponent('Label', 'lp-label'),
+            new DesignSystemComponent('Tag', 'lp-tag'),
+            new DesignSystemComponent('Badge', 'lp-badge'),
+            new DesignSystemComponent('StatusChip', 'lp-status-chip', 'templates/components/StatusChip.html.twig'),
+            new DesignSystemComponent('EmptyState', 'lp-empty-state'),
+            new DesignSystemComponent('Flash', 'lp-flash'),
+            new DesignSystemComponent('Dialog', 'lp-dialog'),
+            new DesignSystemComponent('Tabs', 'lp-tabs'),
+            new DesignSystemComponent('Pagination', 'lp-pagination', 'templates/components/Pagination.html.twig'),
+            new DesignSystemComponent('Tooltip', 'lp-tooltip'),
+        ],
     ),
     new FormTypeTranslationKeysCheck(),
     new TurboStreamTargetsCheck(),
