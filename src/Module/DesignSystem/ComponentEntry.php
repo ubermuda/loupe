@@ -13,6 +13,7 @@ final readonly class ComponentEntry
     /**
      * @param list<string> $variants
      * @param list<string> $states
+     * @param list<string> $sizes
      */
     public function __construct(
         public string $name,
@@ -21,6 +22,9 @@ final readonly class ComponentEntry
         public array $variants,
         public array $states,
         public bool $enforced,
+        public array $sizes = [],
+        public string $group = 'core',
+        public string $summary = '',
     ) {
     }
 }

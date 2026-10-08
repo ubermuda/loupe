@@ -1,0 +1,13 @@
+{# twig-cs-fixer-disable #}{% autoescape false %}
+Loupe's {{ entry.name|lower }}. {{ entry.summary }}
+
+```jsx
+<{{ entry.name }} variant="{{ entry.variants|first }}">Save</{{ entry.name }}>
+<{{ entry.name }} variant="ghost" href="/back">Back</{{ entry.name }}>
+<{{ entry.name }} size="{{ entry.sizes|first }}" disabled>Disabled</{{ entry.name }}>
+```
+
+Variants: {{ entry.variants|map(v => '`' ~ v ~ '`')|join(', ') }}. Sizes: {{ entry.sizes|map(v => '`' ~ v ~ '`')|join(', ') }}. States: {{ entry.states|join(', ') }}.
+
+Labels are sentence case and never end in a full stop. Combine modifiers with a space, such as `variant="ghost icon"`. The component emits the real `{{ entry.rootClass }}` classes of the app.
+{% endautoescape %}

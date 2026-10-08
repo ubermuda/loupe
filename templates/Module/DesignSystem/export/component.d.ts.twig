@@ -1,0 +1,27 @@
+{# twig-cs-fixer-disable #}{% autoescape false %}
+import type { ReactNode } from 'react';
+
+/**
+ * {{ entry.summary }} Sentence-case labels. Combine modifiers with a space, such as `ghost icon`.
+ *
+ * @startingPoint section="{{ section }}" subtitle="Every {{ entry.name }} variant and size" viewport="700x150"
+ */
+export interface {{ entry.name }}Props {
+    /** The visual weight and shape. */
+    variant?:
+{% for variant in entry.variants %}
+        | '{{ variant }}'
+{% endfor %}
+        | (string & {});
+    /** The size step. Leave it out for the default size. */
+    size?: {% for size in entry.sizes %}'{{ size }}'{% if not loop.last %} | {% endif %}{% endfor %};
+    disabled?: boolean;
+    type?: 'button' | 'submit' | 'reset';
+    /** Renders a link instead of a button. */
+    href?: string;
+    onClick?: () => void;
+    children?: ReactNode;
+}
+
+export declare function {{ entry.name }}(props: {{ entry.name }}Props): JSX.Element;
+{% endautoescape %}

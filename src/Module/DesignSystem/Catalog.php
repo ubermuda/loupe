@@ -21,6 +21,9 @@ final readonly class Catalog
                 variants: ['primary', 'inverse', 'outline', 'success', 'danger', 'ghost', 'danger-ghost', 'on-card', 'icon', 'compact', 'open'],
                 states: ['hover', 'active', 'disabled'],
                 enforced: true,
+                sizes: ['sm', 'lg'],
+                group: 'core',
+                summary: 'Any action or link that looks like a button.',
             ),
         ];
     }
