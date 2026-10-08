@@ -44,3 +44,19 @@ test('the catalog draws the button in each variant', async ({ page }) => {
         button.locator('[data-variant="danger"] .lp-btn--danger').first(),
     ).toBeVisible();
 });
+
+test('the catalog draws the feedback parts', async ({ page }) => {
+    await page.goto('/styleguide');
+    const parts: Array<[string, string]> = [
+        ['Flash', '.lp-flash--error'],
+        ['EmptyState', '.lp-empty-state'],
+        ['Badge', '.lp-badge--approved'],
+        ['Tag', '.lp-tag--amber'],
+        ['StatusChip', '.lp-status-chip--ok'],
+    ];
+    for (const [name, selector] of parts) {
+        await expect(
+            page.locator(`[data-component="${name}"] ${selector}`).first(),
+        ).toBeVisible();
+    }
+});

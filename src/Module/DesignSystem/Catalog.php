@@ -25,6 +25,46 @@ final readonly class Catalog
                 group: 'core',
                 summary: 'Any action or link that looks like a button.',
             ),
+            new ComponentEntry(
+                name: 'Flash',
+                rootClass: 'lp-flash',
+                template: 'components/Ds/Flash.html.twig',
+                variants: ['success', 'error', 'warning', 'info'],
+                states: [],
+                enforced: true,
+            ),
+            new ComponentEntry(
+                name: 'EmptyState',
+                rootClass: 'lp-empty-state',
+                template: 'components/Ds/EmptyState.html.twig',
+                variants: [],
+                states: [],
+                enforced: true,
+            ),
+            new ComponentEntry(
+                name: 'Badge',
+                rootClass: 'lp-badge',
+                template: 'components/Ds/Badge.html.twig',
+                variants: ['in-review', 'draft', 'approved', 'changes-requested'],
+                states: [],
+                enforced: true,
+            ),
+            new ComponentEntry(
+                name: 'Tag',
+                rootClass: 'lp-tag',
+                template: 'components/Ds/Tag.html.twig',
+                variants: ['neutral', 'lime', 'purple', 'green', 'amber', 'red', 'teal', 'sky', 'blue', 'indigo', 'pink', 'orange'],
+                states: [],
+                enforced: true,
+            ),
+            new ComponentEntry(
+                name: 'StatusChip',
+                rootClass: 'lp-status-chip',
+                template: 'components/Ds/StatusChip.html.twig',
+                variants: ['pending', 'addressed', 'resolved', 'ok', 'failed', 'neutral'],
+                states: ['reason'],
+                enforced: true,
+            ),
         ];
     }
 }

@@ -171,6 +171,11 @@ Spell out every word in a CSS semantic or utility class name: `.sidebar-item` no
 Use a component from `src/Module/DesignSystem/Catalog.php` before you write markup for a shared control. Write no hand-made `lp-*` root class for a block the catalog lists, because `just gamache` blocks it once the block is enforced. `/styleguide` draws each one in dev, and `docs/contributing/design-system.md` lists them.
 
 1. Button: `<twig:Ds:Button variant="primary" size="sm" href="...">`. Variants are primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open and on-card, and several may be given with a space. A Symfony form button takes `ds_button_class('primary')` in its `attr.class`. The CSS is `assets/styles/components/button.css`.
+2. Flash: `<twig:Ds:Flash severity="error" :dismissLabel="...">message</twig:Ds:Flash>`. Severities are success, error, warning and info.
+3. EmptyState: `<twig:Ds:EmptyState icon="lucide:inbox" :title="..." :body="..." linkHref linkLabel>`. The content goes after the body.
+4. Badge: `<twig:Ds:Badge :status="document.status.value">`, for in-review, draft, approved and changes-requested.
+5. Tag: `<twig:Ds:Tag tone="amber">`, with `as="li"` inside a list. Tones are neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink and orange.
+6. StatusChip: `<twig:Ds:StatusChip modifier="ok" :label="..." :reason="...">`. It takes `:dot="false"` and `as="button"`, and its content is the label when you pass no `label`.
 
 A child card that adds a component adds it to this list in the same branch.
 

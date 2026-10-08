@@ -58,7 +58,7 @@
                 {% for link in item.documents %}
                 <tr{% if reviewDocument and link.document.id == reviewDocument.id %} data-inbox-review-document{% endif %}>
                     <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong>{% if reviewDocument and link.document.id == reviewDocument.id and inbox_review_version(review) %} <span class="lp-inbox-linked-table__version">{{ 'inbox.review.version'|trans({'%version%': inbox_review_version(review)}) }}</span>{% endif %}</td>
-                    <td><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></td>
+                    <td><twig:Ds:Tag>{{ link.document.status.translationKey()|trans }}</twig:Ds:Tag></td>
                     <td><twig:Ds:Button variant="ghost open" href="{{ path('app_document_review', {projectId: item.project.id, documentId: link.document.id}) }}" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></twig:Ds:Button></td>
                 </tr>
                 {% endfor %}

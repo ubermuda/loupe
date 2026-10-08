@@ -19,7 +19,7 @@
             <p class="lp-about-hero__eyebrow">{{ 'app.name'|trans }}</p>
             <p class="lp-about-hero__lead" id="about-lead">{{ 'about.lead'|trans }}</p>
             <ul class="lp-about-hero__facts">
-                <li class="lp-tag lp-tag--lime"><twig:ux:icon name="lucide:scale" class="w-3.5 h-3.5" />{{ 'about.hero.licence'|trans }}</li>            </ul>
+                <twig:Ds:Tag tone="lime" as="li"><twig:ux:icon name="lucide:scale" class="w-3.5 h-3.5" />{{ 'about.hero.licence'|trans }}</twig:Ds:Tag>            </ul>
         </div>
         <img class="lp-about-hero__mascot" src="{{ asset('images/mascots/planner.png') }}" alt="">
     </section>

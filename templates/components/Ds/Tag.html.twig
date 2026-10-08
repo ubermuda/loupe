@@ -1,0 +1,8 @@
+{#
+  Props:  @comment-budget-ignore
+    tone   string   neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink or orange. Optional, a plain grey tag without it.
+    as     string   The element, span by default. li for an item of a list.
+  Any other attribute, class included, is passed to the element.
+#}
+{%- props tone = null, as = 'span' -%}
+<{{ as }}{{ attributes.defaults({class: 'lp-tag' ~ (tone ? ' lp-tag--' ~ tone : '')}) }}>{% block content %}{% endblock %}</{{ as }}>

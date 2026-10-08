@@ -1,7 +1,7 @@
 <article class="lp-conversation-entry" data-site-feedback="{{ link.comment.id }}">
     <span class="lp-source-avatar"><twig:ux:icon name="lucide:globe-2" class="w-4 h-4" /></span>
     <div>
-        <div class="lp-card-feedback-list__head"><span>{{ 'site_review.source.widget'|trans }}</span><span class="lp-status-chip lp-status-chip--{{ link.comment.status.value }}">{{ ('site_review.comment.status.' ~ link.comment.status.value)|trans }}</span></div>
+        <div class="lp-card-feedback-list__head"><span>{{ 'site_review.source.widget'|trans }}</span><twig:Ds:StatusChip :modifier="link.comment.status.value" :dot="false">{{ ('site_review.comment.status.' ~ link.comment.status.value)|trans }}</twig:Ds:StatusChip></div>
         <p class="lp-inbox-item__answer-text">{{ link.comment.body }}</p>
         {% if link.comment.url starts with 'https://' or link.comment.url starts with 'http://' %}
             <a href="{{ link.comment.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ 'site_review.comment.open_source'|trans }}</a>
