@@ -466,3 +466,25 @@ func TestTheSpendOfASubagentReadsWhenTheMainThreadCountedNone(t *testing.T) {
 		t.Fatalf("SessionTotal = %+v, %v", got, err)
 	}
 }
+
+// A line of another thread, such as a late review, adds no idle time.
+func TestALineOfAnotherThreadAddsNoIdleTime(t *testing.T) {
+	const main = "aaaaaaaa-0000-0000-0000-000000000005"
+	home := t.TempDir()
+	writeSession(t, home, main,
+		metaLine(main),
+		call("2026-10-08T10:00:01.000Z", "function_call", "c1", "read_file", "arguments", `{}`),
+		output("2026-10-08T10:00:02.000Z", "function_call_output", "c1", "ok"),
+		`{"timestamp":"2026-10-08T10:30:00.000Z","type":"event_msg","payload":{"type":"item_completed","thread_id":"bbbbbbbb-0000-0000-0000-000000000009","item":{"type":"AgentMessage"}}}`,
+	)
+	h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+	if err := h.remember(runID, main); err != nil {
+		t.Fatal(err)
+	}
+
+	got := h.ReadRun(t.TempDir(), harness.RunInfo{SessionID: runID})
+
+	if got.Timing.IdleGapMs == nil || *got.Timing.IdleGapMs != 0 {
+		t.Fatalf("timing = %+v", got.Timing)
+	}
+}

@@ -235,6 +235,14 @@ func readSession(path string) (session, error) {
 		if json.Unmarshal(line, &entry) != nil {
 			return
 		}
+		var owner struct {
+			ThreadID string `json:"thread_id"`
+		}
+		_ = json.Unmarshal(entry.Payload, &owner)
+		// A file can log the events of another thread, such as a review.
+		if owner.ThreadID != "" && s.id != "" && owner.ThreadID != s.id {
+			return
+		}
 		if !entry.Timestamp.IsZero() {
 			s.lines = append(s.lines, entry.Timestamp)
 		}
