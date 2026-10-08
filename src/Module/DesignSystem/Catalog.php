@@ -33,6 +33,9 @@ final readonly class Catalog
                 variants: ['mono'],
                 states: ['focus', 'disabled'],
                 enforced: true,
+                group: 'core',
+                summary: 'A one-line text field.',
+                element: 'input',
             ),
             new ComponentEntry(
                 name: 'Select',
@@ -41,6 +44,9 @@ final readonly class Catalog
                 variants: [],
                 states: ['focus', 'disabled'],
                 enforced: true,
+                group: 'core',
+                summary: 'A drop-down list of options.',
+                element: 'select',
             ),
             new ComponentEntry(
                 name: 'Textarea',
@@ -49,6 +55,9 @@ final readonly class Catalog
                 variants: [],
                 states: ['focus', 'disabled'],
                 enforced: true,
+                group: 'core',
+                summary: 'A text field of several lines.',
+                element: 'textarea',
             ),
             new ComponentEntry(
                 name: 'Label',
@@ -57,6 +66,9 @@ final readonly class Catalog
                 variants: [],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'The name of a form control.',
+                element: 'label',
             ),
             new ComponentEntry(
                 name: 'FormField',
@@ -65,6 +77,9 @@ final readonly class Catalog
                 variants: [],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'A form field with its label, control, hint and errors.',
+                element: 'div',
             ),
             new ComponentEntry(
                 name: 'FieldErrors',
@@ -73,6 +88,9 @@ final readonly class Catalog
                 variants: [],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'The list of errors of a form field.',
+                element: 'div',
             ),
             new ComponentEntry(
                 name: 'Hint',
@@ -81,6 +99,9 @@ final readonly class Catalog
                 variants: [],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'A line of help under a form control.',
+                element: 'p',
             ),
             new ComponentEntry(
                 name: 'Flash',

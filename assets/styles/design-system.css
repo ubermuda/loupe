@@ -1,6 +1,7 @@
 @import 'tailwindcss' source(none);
 @import './tokens.css';
 @import './components/button.css';
+@import './components/form.css';
 @import './components/badge.css';
 @import './components/empty-state.css';
 @import './components/flash.css';

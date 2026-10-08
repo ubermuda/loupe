@@ -7,6 +7,13 @@ Loupe's {{ name|lower }}. {{ entry.summary }}
 <{{ name }} variant="{{ entry.variants|first }}">Save</{{ name }}>
 <{{ name }} variant="ghost" href="/back">Back</{{ name }}>
 <{{ name }} size="{{ entry.sizes|first }}" disabled>Disabled</{{ name }}>
+{% elseif 'input' == entry.element %}
+<{{ name }} placeholder="Example" />
+{% for variant in entry.variants %}
+<{{ name }} variant="{{ variant }}" placeholder="Example" />
+{% endfor %}
+{% elseif 'select' == entry.element %}
+<{{ name }}><option>Example</option></{{ name }}>
 {% elseif entry.variants %}
 {% for variant in entry.variants %}
 <{{ name }} variant="{{ variant }}">Example</{{ name }}>

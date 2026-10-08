@@ -35,6 +35,9 @@ export function {{ entry.name }}({ variant, size, {% if entry.dotClass %}dot = t
             {children}
         </button>
     );
+{% elseif 'input' == entry.element %}
+
+    return <input {...rest} className={className} />;
 {% else %}
 
     return (
