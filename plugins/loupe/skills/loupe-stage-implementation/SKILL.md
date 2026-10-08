@@ -31,6 +31,7 @@ Build the approved tech design of one card into a ready, linked pull request. An
    - A Breakdown child that links none uses the tech design of its parent.
    - A standalone child uses only a tech design of its own. It ignores the design of its parent, even when the card links it (`references/breakdown.md`). When it has no approved one, record the block (step 15). Stop with `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.
    - Any other card with no approved tech design stops with `STAGE RESULT: no approved tech design`.
+   - Read the answers of the tech design, as `../loupe-stage-product-design/references/stage-contract.md` "Read the answers of a design" says. An answered decision is decided, whatever the text says. A work item that an unanswered decision blocks stops the run with `STAGE RESULT: blocked: decision <id> needs an answer`. The first sentence after it is "Answer decision <id> on the review page."
 5. Choose the mode, in this order, per `references/breakdown.md`:
    - A Breakdown child builds only the entry that its body names, from step 6 on.
    - A standalone child builds its own tech design as any other card, from step 6 on.
@@ -39,7 +40,7 @@ Build the approved tech design of one card into a ready, linked pull request. An
 6. Read each linked pull request with the forge adapter. An open one on a `card-<number>-` branch: take step 7, restore it per "Reruns", and skip to the gate. Any other open one: stop with `STAGE RESULT: open pull request exists <url>`.
 7. Read `references/commands.md` and the profile, and load its `Instruction files`.
 8. Find the base branch. Check the worker folder, and put it on a `card-<number>-<short-slug>` branch, per `references/commands.md`. A child of an epic with an epic branch takes that branch as its base.
-9. Load `loupe-documents`. Write the plan, and submit it tagged `plan`, referencing the tech design id. Link it (contract rule 5).
+9. Load `loupe-documents`. Write the plan. Open it with a list of the decisions that step 4 took from answers, with the option text and any note. Submit it tagged `plan`, referencing the tech design id. Link it (contract rule 5).
 10. Run the plan task by task. Dispatch a sub-agent for each implementer and reviewer (contract rule 6).
 11. Compare the diff with the deploy notes of the card, the linked document tagged `deploy-notes`. A Breakdown child uses the notes of its parent card. `../loupe-stage-tech-design/SKILL.md` "Deploy notes" lists the deploy items. When the diff adds, changes or removes one, revise the notes with `document_revise`. Also revise them when a noted item of this card does not ship in the diff. A Breakdown child checks only the items of its own entry. When no notes exist, create them as that section says, which makes them a draft when the instance has `document_publish`. Call `card_get` again before you link them (contract rule 5). Publish new draft notes with `document_publish` before the final reply, as `loupe-documents` rule 17 says.
 12. Run the gate in `references/commands.md`.

@@ -300,6 +300,10 @@ version, matched by option label. The status line shows an error when the
 request fails, or when the current version no longer has that decision or that
 option. The note you typed stays in the field.
 
+A stage worker reads the text of a design and its saved answers. It acts
+on an answer even when the text has no `**Decided:**` line. It never revises an
+approved document to record the answer.
+
 When live updates are on, an answer saved in one tab shows in every other open
 tab of the document. The status line in those tabs shows "Changed by" and the
 name of the person who saved it. A block keeps your own pick and note while

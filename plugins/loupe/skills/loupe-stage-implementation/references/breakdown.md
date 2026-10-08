@@ -13,7 +13,7 @@ A tech design splits a card that is too big for one worker into child cards. The
 
 3. The ID is `B` and a number. The text after the ID, without the final period, is the title of the child.
 4. `Covers` names the design sections that the child builds. The child builds those sections and nothing else.
-5. `Blocked by` names the IDs of the entries that must finish first. Write `Blocked by: none` for an entry with no blocker.
+5. `Blocked by` names the IDs of the entries that must finish first. Write `Blocked by: none` for an entry with no blocker. A blocker can also name a decision of the design, such as `D2`. That blocker is closed when the decision has an answer, as `../../loupe-stage-product-design/references/stage-contract.md` "Read the answers of a design" says. A decision blocker gets no `blocked-by` link.
 6. An ID never changes across revisions. Give a new entry the next unused number. Never reuse the ID of a removed entry.
 7. Keep the blockers free of loops. A child in a loop never starts.
 
@@ -58,7 +58,7 @@ The breakdown changes the board, and the remote branches when the profile has an
    When the push fails, stop with `STAGE RESULT: blocked: epic branch push refused: <message>`. An epic with no epic branch and a child that links a pull request started on the old flow. Push nothing for it, so its children keep the profile base branch.
 7. For each entry with no child, call `card_create` with no `status`, so the child lands in `<default>`. Send the title of the entry, the entry line and the whole entry as the body, the card id as `parentCardId`, and `<design>` in `documentIds`. The type is the type step 4 noted, or `feature` when that type was `epic`.
 8. Set the blockers in a second pass, because an entry can name a child that step 7 creates later. For each child whose entry names blockers, read the child with `card_get` just before the write. Send its `relatedCards` back, plus a `blocked-by` entry for each blocker that it does not already carry. `relatedCards` replaces every link of the card, so never send the new entries alone.
-9. Move each child that matches an entry, sits in `<default>` and has no open blocker to `<implementation>` with `card_update`. A blocker is open when its `status` is not `<terminal>`. Skip a child whose body opens with `**Parked.**`, because the owner paused it. These moves are the only moves the breakdown makes. The epic stays in its column.
+9. Move each child that matches an entry, sits in `<default>` and has no open blocker to `<implementation>` with `card_update`. A blocker is open when its `status` is not `<terminal>`. A decision blocker is open while the decision has no usable answer. Skip a child whose body opens with `**Parked.**`, because the owner paused it. These moves are the only moves the breakdown makes. The epic stays in its column.
 
 The result line is `STAGE RESULT: breakdown <n> children, <m> started`. `<n>` is the number of children the epic has after step 7, and `<m>` is the number of children step 9 moved.
 
