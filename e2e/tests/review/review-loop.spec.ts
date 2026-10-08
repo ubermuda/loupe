@@ -215,6 +215,8 @@ test('A revised draft stays a draft until Publish sends it to review', async ({
     page,
     review,
 }) => {
+    // A create, a revise and a publish, each a server round trip on top of the login.
+    test.slow();
     await page.goto(review.dashboardUrl);
     await page
         .getByRole('button', { name: 'New document', exact: true })

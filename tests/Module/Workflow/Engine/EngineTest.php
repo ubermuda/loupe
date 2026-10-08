@@ -317,11 +317,11 @@ final class EngineTest extends KernelTestCase
     public function test_a_work_limit_pause_ends_when_a_resumed_run_reports(): void
     {
         $card = $this->boundCard([self::requestRule('fix', ['card.type' => ['type' => 'bug']], limit: 1)]);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
-        $this->setType($card, CardType::Feature);
+        $this->setType($card, 'feature');
         $this->evaluate($card);
-        $this->setType($card, CardType::Bug);
+        $this->setType($card, 'bug');
         $this->evaluate($card);
         $pause = $this->activePause($card);
         self::assertSame(CardPauseKind::WorkLimit, $pause?->kind);
