@@ -60,24 +60,29 @@ class CardVerdictRepository extends ServiceEntityRepository
     }
 
     /**
-     * How many of those notes are still pending. A deleted note is not.
+     * Which of those notes are still pending. A deleted note is not.
      *
      * @param list<string> $noteIds
+     *
+     * @return list<string>
      */
-    public function countPendingNotes(array $noteIds): int
+    public function findPendingNoteIds(array $noteIds): array
     {
         if ([] === $noteIds) {
-            return 0;
+            return [];
         }
 
-        return (int) $this->getEntityManager()->createQueryBuilder()
-            ->select('COUNT(c.id)')
+        /** @var list<array{id: \Symfony\Component\Uid\Uuid}> $rows */
+        $rows = $this->getEntityManager()->createQueryBuilder()
+            ->select('c.id')
             ->from(SiteReviewComment::class, 'c')
             ->andWhere('c.id IN (:ids)')
             ->andWhere('c.status = :pending')
             ->setParameter('ids', $noteIds, ArrayParameterType::STRING)
             ->setParameter('pending', SiteReviewCommentStatus::Pending)
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getResult();
+
+        return array_map(static fn (array $row): string => (string) $row['id'], $rows);
     }
 }
