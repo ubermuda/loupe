@@ -41,25 +41,56 @@ func (t tokens) minus(o tokens) tokens {
 	return tokens{max(t.Input-o.Input, 0), max(t.Cached-o.Cached, 0), max(t.CacheWrite-o.CacheWrite, 0), max(t.Output-o.Output, 0)}
 }
 
-// model prices the tokens of a model. Codex charges no cache write, so the
-// cost counts none.
-func (t tokens) model(name string) transcript.Model {
-	input := max(t.Input-t.Cached, 0)
-
-	return transcript.Model{
-		InputTokens:      input,
-		OutputTokens:     t.Output,
-		CacheReadTokens:  t.Cached,
-		CacheWriteTokens: t.CacheWrite,
-		CostUSD:          transcript.Cost(name, input, t.Output, t.Cached, 0, 0),
-	}
+// spend is the tokens of one model with what they cost. unpriced is true when
+// any reply has no price, so the cost is unknown and not a partial sum.
+type spend struct {
+	tokens
+	cost     float64
+	unpriced bool
 }
 
-// toUsage turns the tokens of each model into a usage.
-func toUsage(byModel map[string]tokens) transcript.Usage {
+// uncached is the input that the cache did not serve. Codex charges no cache
+// write, so the cost counts none.
+func (t tokens) uncached() int64 {
+	return max(t.Input-t.Cached, 0)
+}
+
+// priceAt is the spend of the tokens of one reply whose prompt holds prompt
+// tokens.
+func (t tokens) priceAt(name string, prompt int64) spend {
+	c := transcript.CostPrompt(name, prompt, t.uncached(), t.Output, t.Cached, 0, 0)
+	if c == nil {
+		return spend{tokens: t, unpriced: true}
+	}
+
+	return spend{tokens: t, cost: *c}
+}
+
+// plus adds the spend of another reply of the same model.
+func (s spend) plus(o spend) spend {
+	return spend{tokens: s.tokens.plus(o.tokens), cost: s.cost + o.cost, unpriced: s.unpriced || o.unpriced}
+}
+
+func (s spend) model() transcript.Model {
+	m := transcript.Model{
+		InputTokens:      s.uncached(),
+		OutputTokens:     s.Output,
+		CacheReadTokens:  s.Cached,
+		CacheWriteTokens: s.CacheWrite,
+	}
+	if !s.unpriced {
+		cost := s.cost
+		m.CostUSD = &cost
+	}
+
+	return m
+}
+
+// toUsage turns the spend of each model into a usage.
+func toUsage(byModel map[string]spend) transcript.Usage {
 	usage := make(transcript.Usage, len(byModel))
-	for name, t := range byModel {
-		usage[name] = t.model(name)
+	for name, s := range byModel {
+		usage[name] = s.model()
 	}
 
 	return usage
@@ -159,6 +190,8 @@ type tokenEvent struct {
 	at    time.Time
 	model string
 	delta tokens
+	// prompt is the prompt size of the reply, which picks its price tier.
+	prompt int64
 }
 
 // session is what a Codex session file holds that the bridge reads. id is the
@@ -276,7 +309,11 @@ func (s *session) event(at time.Time, raw json.RawMessage, previous *tokens) {
 		default:
 			return
 		}
-		s.events = append(s.events, tokenEvent{at: at, model: s.model, delta: delta})
+		prompt := delta.Input
+		if p.Info.Last != nil {
+			prompt = p.Info.Last.Input
+		}
+		s.events = append(s.events, tokenEvent{at: at, model: s.model, delta: delta, prompt: prompt})
 	case p.Type != "item_completed" || p.ThreadID != s.id || s.id == "":
 		// A file can log the items of another thread, such as a review.
 	case p.Item.Type == "CommandExecution":
@@ -296,15 +333,16 @@ func (s *session) event(at time.Time, raw json.RawMessage, previous *tokens) {
 }
 
 // between sums the token counts at or after from, and before to when to is set.
-// A count from a line with no model counts for fallback.
-func (s session) between(from, to time.Time, fallback string) map[string]tokens {
-	byModel := map[string]tokens{}
+// A count from a line with no model counts for fallback. Each reply is priced
+// by its own prompt size.
+func (s session) between(from, to time.Time, fallback string) map[string]spend {
+	byModel := map[string]spend{}
 	for _, ev := range s.events {
 		if ev.at.Before(from) || (!to.IsZero() && !ev.at.Before(to)) {
 			continue
 		}
 		name := cmp.Or(ev.model, fallback)
-		byModel[name] = byModel[name].plus(ev.delta)
+		byModel[name] = byModel[name].plus(ev.delta.priceAt(name, ev.prompt))
 	}
 
 	return byModel
@@ -337,7 +375,8 @@ func (h Harness) threadFile(runID string) (string, error) {
 	return filepath.Join(h.threads, runID), nil
 }
 
-// thread is the Codex thread of the run id.
+// thread is the Codex thread of the run id. A run with no mapping is an
+// interactive one, and its thread comes from the record of its launch.
 func (h Harness) thread(runID string) (string, error) {
 	path, err := h.threadFile(runID)
 	if err != nil {
@@ -345,7 +384,7 @@ func (h Harness) thread(runID string) (string, error) {
 	}
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return "", transcript.ErrNotFound
+		return h.locate(runID)
 	}
 	if err != nil {
 		return "", err
@@ -432,7 +471,8 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 	case treeErr == nil && len(sess.events) > 0:
 		out.Usage = toUsage(t.between(time.Time{}, time.Time{}))
 	case stdout.usage != nil:
-		out.Usage = toUsage(map[string]tokens{cmp.Or(sess.model, run.Model, fallbackModel): *stdout.usage})
+		name := cmp.Or(sess.model, run.Model, fallbackModel)
+		out.Usage = toUsage(map[string]spend{name: stdout.usage.priceAt(name, 0)})
 	}
 
 	if msg := h.providerProblem(sess, sessErr == nil); msg != "" {

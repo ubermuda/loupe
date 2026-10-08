@@ -201,7 +201,7 @@ func writeSession(t *testing.T, home, thread string, lines ...string) {
 	}
 }
 
-func meta(id string) string {
+func metaLine(id string) string {
 	return `{"timestamp":"2026-10-08T10:00:00.000Z","type":"session_meta","payload":{"id":"` + id + `"}}`
 }
 
@@ -232,7 +232,7 @@ func TestEachCommandGoesToTheShellCallOpenWhenItStarted(t *testing.T) {
 	milli := func(s string) int64 { return at(t, s).UnixMilli() }
 
 	writeSession(t, home, main,
-		meta(main),
+		metaLine(main),
 		// The script yields before git diff ends, and the command still
 		// belongs to it.
 		call("2026-10-08T10:00:01.000Z", "custom_tool_call", "c1", "exec", "input", "tools.exec_command(...)"),
@@ -252,7 +252,7 @@ func TestEachCommandGoesToTheShellCallOpenWhenItStarted(t *testing.T) {
 	// The subagent names its parent as a subagent it started, and the reader
 	// still ends.
 	writeSession(t, home, child,
-		meta(child),
+		metaLine(child),
 		started("2026-10-08T10:00:09.000Z", child, "", "/root", main),
 		call("2026-10-08T10:00:09.500Z", "function_call", "d1", "read_file", "arguments", `{}`),
 		`{"timestamp":"2026-10-08T10:00:20.000Z","type":"event_msg","payload":{"type":"task_complete"}}`,
@@ -341,7 +341,7 @@ func TestEachSpawnTakesTheSubagentItStarted(t *testing.T) {
 	const main, first, second = "cccccccc-0000-0000-0000-000000000001", "cccccccc-0000-0000-0000-000000000002", "cccccccc-0000-0000-0000-000000000003"
 	home := t.TempDir()
 	writeSession(t, home, main,
-		meta(main),
+		metaLine(main),
 		call("2026-10-08T10:00:01.000Z", "function_call", "s1", "spawn_agent", "arguments", `{"task_name":"x"}`),
 		call("2026-10-08T10:00:01.100Z", "function_call", "s2", "spawn_agent", "arguments", `{"task_name":"x"}`),
 		started("2026-10-08T10:00:01.200Z", main, "s2", "/root/x", second),
@@ -355,12 +355,12 @@ func TestEachSpawnTakesTheSubagentItStarted(t *testing.T) {
 		output("2026-10-08T10:00:02.200Z", "function_call_output", "s3", `{"task_name":"/root/x"}`),
 	)
 	writeSession(t, home, first,
-		meta(first),
+		metaLine(first),
 		call("2026-10-08T10:00:03.000Z", "function_call", "f1", "first_tool", "arguments", `{}`),
 		`{"timestamp":"2026-10-08T10:00:10.000Z","type":"event_msg","payload":{"type":"task_complete"}}`,
 	)
 	writeSession(t, home, second,
-		meta(second),
+		metaLine(second),
 		call("2026-10-08T10:00:04.000Z", "function_call", "g1", "second_tool", "arguments", `{}`),
 		`{"timestamp":"2026-10-08T10:00:20.000Z","type":"event_msg","payload":{"type":"task_complete"}}`,
 	)

@@ -189,9 +189,11 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	if err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
 	}
-	claude, err := resolveClaude()
-	if err != nil {
-		return err
+	claude := ""
+	if set.NeedsClaude() {
+		if claude, err = resolveClaude(); err != nil {
+			return err
+		}
 	}
 
 	cfg, err := config.Load()
@@ -405,6 +407,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	r.ctx = ctx
+	go r.priceLoop(ctx)
 
 	// The queue closes after the workers, so it sees every report a dying worker
 	// still makes, and its grace window can send them.

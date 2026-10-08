@@ -132,6 +132,9 @@ type router struct {
 	// holds no transcript of it. A nil one asks the harness of the run.
 	startDir func(sessionID string) (string, error)
 
+	// prices is the state of the OpenRouter price refresh.
+	prices priceState
+
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
 	// slug change seen meanwhile, and reloadGone each project found gone, so

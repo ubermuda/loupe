@@ -498,6 +498,32 @@ After each run, the bridge checks that Codex used the provider that the profile
 names. A run on another provider fails with the message `codex ran on provider X
 but profile P names Y`.
 
+#### Prices from OpenRouter
+
+The bridge prices a Codex run only for a model that its price table lists. A
+model that the table lacks has an unknown cost. Add `openRouterPrices: true` at
+the top of `rules.yaml` to price the models of OpenRouter too:
+
+```yaml
+openRouterPrices: true
+```
+
+The key is off when absent. Once on, the bridge reads the public list at
+`https://openrouter.ai/api/v1/models`. It needs no key, and the host of the
+bridge needs egress to `openrouter.ai`. A fetch times out after 10 seconds.
+
+- The bridge saves the list in `openrouter-prices.json` in the config folder.
+- A saved list younger than 24 hours replaces the call, so the bridge makes at most one call a day.
+- The bridge checks the list at start, after a reload, and once an hour.
+- A failed fetch never stops the bridge. The bridge uses an older saved list when one exists. Otherwise the cost of the model stays unknown.
+- A model of the built-in table keeps its built-in price.
+- A reload that removes the key empties the fetched prices, and the cost of those models is unknown again.
+- A tier that omits the cache price keeps the cache price of the base tier.
+
+Some models charge more for a long prompt. The list gives such a model a price
+for each size of prompt. The bridge prices each reply at the price for the size
+of its own prompt. A free model costs 0, which is not the same as unknown.
+
 The bridge gives each run its own id, and Codex picks its own thread id. The
 bridge keeps the pair in the `codex-threads` folder of its config folder, so
 `resume` continues the right thread.
@@ -527,8 +553,6 @@ Limits of this release:
 
 - The cost of a Codex run is empty for a model with no list price, such as
   `openrouter/free`.
-- An [interactive entry](#interactive-action) on a `codex` account is not
-  supported yet, and the bridge refuses a rule file that has one.
 - The `effort` of a work request does not reach Codex.
 
 ### Account checks
@@ -1004,6 +1028,8 @@ runs a Homebrew binary also refuses the request of an older CLI. See
 | `update_rolled_back` | A version went on the skip list |
 | `update_recovered` | A start took over the handover of a bridge that died |
 | `auto_update_migrated` | A handover from an older CLI added `autoUpdate: true` |
+| `openrouter_prices_loaded` | The bridge loaded the OpenRouter price list. The event carries the model count |
+| `openrouter_prices_failed` | A fetch of the price list failed, once for each run of failures. Level `WARN` |
 
 [Output](../../cli/README.md#output) in `cli/README.md` lists every event with
 its fields, the failure events included.
@@ -1405,8 +1431,8 @@ and allows 60 calls per minute per token. An older server answers `404`.
 
 ## Interactive action
 
-An entry with `action: interactive` opens an interactive Claude Code session in
-a terminal window, on the bridge's machine. It is for Product design, so the
+An entry with `action: interactive` opens an interactive Claude Code or Codex
+session in a terminal window, on the bridge's machine, as its account says. It is for Product design, so the
 owner does not type `/loupe:product-design` by hand. An entry without `action`
 is a worker entry.
 
@@ -1432,6 +1458,17 @@ session that a person drives. The model follows the order of
 [Model and permissions](#model-and-permissions). The session gets the rendered
 prompt only, with no result footer and no inbox line.
 
+On a `codex` account the script runs `codex` with the profile, the model and
+the sandbox flags of the entry's `permissions` level, and the prompt. It sets
+`LOUPE_SESSION_ID` to the session id of the run, so the session can open its
+run on the card. Codex picks its own thread id. The bridge keeps the folder and
+the time of the launch, and later finds the Codex session file that started in
+that folder after the launch. It needs that file to collect the usage of the
+session. A session that has not started a thread yet has no usage to collect.
+Two launches in one folder match their sessions in launch order. A launch that
+never starts Codex can shift the match of a later launch in that folder for up
+to a day, so the later run can report the usage of the wrong session.
+
 The top-level `launch` block of `rules.yaml` names the command that opens the
 terminal. It lives in `rules.yaml` because that file belongs to one machine, so
 each machine sets its own launcher. A file with an interactive entry and no
@@ -1451,7 +1488,8 @@ For each launch, the bridge writes a script to
 itself, changes to the project's `dir`, and runs
 `claude --session-id <sessionId> -- '<prompt>'`. A terminal app can start with
 a short `PATH`. So the bridge finds `claude` on its own `PATH` at start, and
-writes the absolute path into the script. With an interactive entry and no
+writes the absolute path into the script. A launch on a `codex` account finds
+`codex` on the `PATH` of the bridge at the launch, and fails when it is missing. With an interactive entry and no
 `claude` on its `PATH`, the bridge refuses to start. At start, it also deletes
 scripts older than one day.
 

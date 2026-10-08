@@ -176,6 +176,9 @@ type File struct {
 	// Collect is on when the key is absent. Off, it also stops the host
 	// samples.
 	Collect *bool `yaml:"collect"`
+	// OpenRouterPrices is off when the key is absent. On, the bridge fetches
+	// model prices from openrouter.ai.
+	OpenRouterPrices *bool `yaml:"openRouterPrices"`
 }
 
 // WorkerPool is one named share of maxWorkers.
@@ -333,9 +336,11 @@ type Set struct {
 	autoUpdate    bool
 	autoUpdateSet bool
 	// noCollect is the inverse of collect, so a zero Set collects.
-	noCollect  bool
-	maxWorkers int
-	name       string
+	noCollect bool
+	// openRouterPrices lets the bridge fetch model prices from openrouter.ai.
+	openRouterPrices bool
+	maxWorkers       int
+	name             string
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
 	// work has the defaults of each worker entry filled.
@@ -397,7 +402,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil, noCollect: f.Collect != nil && !*f.Collect}
+	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil, noCollect: f.Collect != nil && !*f.Collect, openRouterPrices: f.OpenRouterPrices != nil && *f.OpenRouterPrices}
 	s.appPrompts, s.defaults, s.fileDefaults = f.AppPrompts != nil && *f.AppPrompts, defaults, f.Defaults
 	if keyNode(root, "accounts") == nil {
 		s.agentsOff = agentsOffNoAccounts
@@ -627,9 +632,6 @@ func (s *Set) checkWorkAccounts(kind string, w *WorkEntry, declared []string, ro
 		}
 	case ActionInteractive:
 		w.run = s.resolve(w.Account, w.Model, w.Permissions, true)
-		if w.run.Harness == HarnessCodex {
-			errs = append(errs, fmt.Errorf("%swork %q: account %q runs codex, and an interactive launch on Codex is not supported yet; use a claude-code account", at("action"), kind, w.run.Account))
-		}
 	}
 
 	return errs
@@ -694,6 +696,22 @@ func (s *Set) UsedAccounts() []string {
 	slices.Sort(out)
 
 	return out
+}
+
+// NeedsClaude reports whether the bridge must find the claude program: a run
+// takes a claude-code account, or the set names no account at all. A set whose
+// runs all take codex accounts runs on a machine with no Claude Code.
+func (s *Set) NeedsClaude() bool {
+	used := s.UsedAccounts()
+	if len(used) == 0 {
+		return true
+	}
+
+	return slices.ContainsFunc(used, func(name string) bool {
+		run, ok := s.Account(name, "")
+
+		return ok && run.Harness == HarnessClaudeCode
+	})
 }
 
 // SetAccountProblems turns off each entry that runs on an account of m, which
@@ -1103,6 +1121,12 @@ func (s *Set) AutoUpdateSet() bool {
 // each worker run, and the host samples.
 func (s *Set) Collect() bool {
 	return !s.noCollect
+}
+
+// OpenRouterPrices reports whether the bridge may fetch model prices from
+// openrouter.ai.
+func (s *Set) OpenRouterPrices() bool {
+	return s.openRouterPrices
 }
 
 // AppPrompts reports whether the bridge runs the app prompt of a kind its work

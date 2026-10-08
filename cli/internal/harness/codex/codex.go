@@ -175,11 +175,37 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// Interactive is a script that says interactive Codex sessions are not
-// supported yet. A rule file with an interactive entry on a codex account does
-// not load, so this only guards a run record from elsewhere.
-func (Harness) Interactive(program string, spec harness.Spec) string {
-	return "#!/bin/sh\nrm -f -- \"$0\"\necho " + shellQuote("Interactive Codex sessions are not supported yet.") + " >&2\nexit 1\n"
+// Interactive is the launch script body. The script deletes itself first, so
+// the prompt does not stay on the disk. It sets LOUPE_SESSION_ID, because Codex
+// names its own thread and the session calls card_run_open with the run id.
+func (h Harness) Interactive(program string, spec harness.Spec) string {
+	var b strings.Builder
+	b.WriteString("#!/bin/sh\n")
+	b.WriteString("rm -f -- \"$0\"\n")
+	for _, e := range spec.Env {
+		k, v, _ := strings.Cut(e, "=")
+		b.WriteString("export " + k + "=" + shellQuote(v) + "\n")
+	}
+	if spec.SessionID != "" {
+		b.WriteString("export LOUPE_SESSION_ID=" + shellQuote(spec.SessionID) + "\n")
+	}
+	b.WriteString("cd -- " + shellQuote(spec.Dir) + " || exit 1\n")
+	b.WriteString("exec " + shellQuote(program))
+	if h.profile != "" {
+		b.WriteString(" -p " + shellQuote(h.profile))
+	}
+	if spec.Model != "" {
+		b.WriteString(" -m " + shellQuote(spec.Model))
+	}
+	for _, arg := range sandboxArgs(spec, false) {
+		b.WriteString(" " + shellQuote(arg))
+	}
+	if spec.Prompt != "" {
+		b.WriteString(" -- " + shellQuote(spec.Prompt))
+	}
+	b.WriteString("\n")
+
+	return b.String()
 }
 
 // homeDir is the Codex home folder.

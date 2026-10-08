@@ -190,8 +190,8 @@ func (h Harness) load(s session, seen map[string]bool) (*tree, error) {
 	return t, nil
 }
 
-// between sums the token counts of the thread and of its subagents.
-func (t *tree) between(from, to time.Time) map[string]tokens {
+// between sums the spend of the thread and of its subagents.
+func (t *tree) between(from, to time.Time) map[string]spend {
 	byModel := t.session.between(from, to, cmp.Or(t.model, fallbackModel))
 	for _, c := range t.children {
 		for name, n := range c.between(from, to) {

@@ -40,6 +40,15 @@ type Harness interface {
 	Check(ctx context.Context, spec CheckSpec) []Problem
 }
 
+// LaunchRecorder is a harness that cannot name its session when an interactive
+// launch starts. The bridge records the folder and the time of the launch, and
+// the harness finds the session from them when it is asked.
+type LaunchRecorder interface {
+	RecordLaunch(runID, dir string, at time.Time) error
+	// ForgetLaunch drops the record of a launch that failed.
+	ForgetLaunch(runID string)
+}
+
 // RunInfo is what the bridge knows about a run when it reads it. SessionID is
 // the id the bridge gave the run, and Model is the model it asked for. Since
 // is a time before the run started, and zero when the bridge does not know
