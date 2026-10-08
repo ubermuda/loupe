@@ -6,9 +6,9 @@ export const {{ entry.name|upper }}_VARIANTS = [{{ entry.variants|map(v => "'" ~
 export const {{ entry.name|upper }}_SIZES = [{{ entry.sizes|map(v => "'" ~ v ~ "'")|join(', ') }}];
 
 {% if isButton %}
-export function {{ entry.name }}({ variant, size, disabled = false, type = 'button', href, onClick, children }) {
+export function {{ entry.name }}({ variant, size, disabled = false, type = 'button', href, onClick, className: extra, children, ...rest }) {
 {% else %}
-export function {{ entry.name }}({ variant, size, children, ...rest }) {
+export function {{ entry.name }}({ variant, size, className: extra, children, ...rest }) {
 {% endif %}
     const classes = ['{{ entry.rootClass }}'];
     for (const modifiers of [variant, size]) {
@@ -16,19 +16,22 @@ export function {{ entry.name }}({ variant, size, children, ...rest }) {
             classes.push('{{ entry.rootClass }}--' + modifier);
         }
     }
+    if (extra) {
+        classes.push(extra);
+    }
     const className = classes.join(' ');
 {% if isButton %}
 
     if (href) {
         return (
-            <a className={className} href={href} onClick={onClick}>
+            <a {...rest} className={className} href={href} onClick={onClick}>
                 {children}
             </a>
         );
     }
 
     return (
-        <button className={className} type={type} disabled={disabled} onClick={onClick}>
+        <button {...rest} className={className} type={type} disabled={disabled} onClick={onClick}>
             {children}
         </button>
     );

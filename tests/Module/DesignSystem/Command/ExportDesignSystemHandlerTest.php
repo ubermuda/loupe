@@ -115,6 +115,17 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         }
     }
 
+    public function test_every_wrapper_forwards_attributes_and_merges_a_caller_class(): void
+    {
+        foreach (['Button', 'Flash'] as $name) {
+            $jsx = (string) file_get_contents($this->directory.'/components/core/'.$name.'.jsx');
+
+            self::assertStringContainsString('className: extra', $jsx);
+            self::assertStringContainsString('classes.push(extra)', $jsx);
+            self::assertStringContainsString('{...rest}', $jsx);
+        }
+    }
+
     public function test_tokens_are_plain_root_blocks(): void
     {
         $css = (string) file_get_contents($this->directory.'/tokens/elevation.css');
