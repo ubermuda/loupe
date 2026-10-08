@@ -3850,6 +3850,10 @@
     .lp-review-topbar-actions--finish {
         @apply hidden lg:flex;
     }
+    /* A page with no review menu keeps the button below lg as an icon, so the title keeps its room. */
+    .lp-review-topbar-actions--compact .lp-btn > span {
+        @apply hidden lg:inline;
+    }
     .lp-verdict-chip {
         @apply inline-flex items-center gap-2 rounded-lg py-1 pl-3 pr-1.5 text-sm;
     }
