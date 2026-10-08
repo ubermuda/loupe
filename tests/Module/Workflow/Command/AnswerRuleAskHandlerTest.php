@@ -174,7 +174,11 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
         ($this->service(AnswerRuleAskHandler::class))(new AnswerRuleAskCommand($itemId->toRfc4122(), $optionIndex));
     }
 
-    /** @return array{Card, Card, Uuid} the child, its parent and the item id that the child's rule state holds */
+    /**
+     * @param array<string, mixed> $when
+     *
+     * @return array{Card, Card, Uuid} the child, its parent and the item id that the child's rule state holds
+     */
     private function askedChild(string $name, array $when = ['all' => []]): array
     {
         $project = $this->workflowProject($name);
@@ -192,6 +196,7 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
         return [$card, $parent, $itemId];
     }
 
+    /** @param array<string, mixed> $when */
     private function bind(Project $project, array $when = ['all' => []]): void
     {
         $this->em()->persist(new WorkflowBinding($project, 'test', 1, [

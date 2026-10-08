@@ -9,6 +9,7 @@ use App\Module\Bridge\Service\CardHolds;
 use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Contract\CardEvaluations;
+use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
@@ -39,6 +40,7 @@ final readonly class AnswerRuleAskHandler
         private WorkflowAutomation $automation,
         private TemplateSource $templates,
         private FactsBuilder $factsBuilder,
+        private RuleSubject $ruleSubject,
         private Actions $actions,
         private CardEvaluations $evaluations,
         private ClockInterface $clock,
@@ -108,7 +110,7 @@ final readonly class AnswerRuleAskHandler
         if (null !== $rule->slot && $facts->card->slot !== $rule->slot) {
             return $this->skip('left-slot', $itemId);
         }
-        if (null === $rule->when->unreadable($facts) && !$rule->when->evaluate($facts)) {
+        if (null === $rule->when->unreadable($facts) && !$this->ruleSubject->bind($rule, $facts)->truth) {
             return $this->skip('rule-false', $itemId);
         }
         $refusal = null;
