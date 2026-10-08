@@ -12,6 +12,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Readiness\Entity\DiscoveryProposal;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
+use App\Module\Readiness\Service\ProposalTypes;
 use App\Module\Readiness\Service\ReadinessReportWriter;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -48,12 +49,10 @@ final readonly class SubmitReadinessReportHandler
 
     public const string TAG = 'readiness-report';
 
-    /** @var list<string> */
-    public const array PROPOSAL_TYPES = ['feature', 'bug', 'security', 'tooling', 'docs', 'idea'];
-
     public function __construct(
         private DiscoveryRunRepository $discoveryRuns,
         private CardRepository $cards,
+        private ProposalTypes $proposalTypes,
         private CreateDocumentHandler $createDocument,
         private ReadinessReportWriter $writer,
         private EntityManagerInterface $em,
@@ -160,6 +159,7 @@ final readonly class SubmitReadinessReportHandler
             array_push($texts, $finding->check, $finding->evidence);
         }
 
+        $accepted = $this->proposalTypes->acceptedFor($command->project);
         $types = [];
         $keys = [];
         $titles = [];
@@ -170,7 +170,7 @@ final readonly class SubmitReadinessReportHandler
                 throw new DomainErrors(['proposals' => self::PROPOSAL_INVALID]);
             }
             $type = $proposal->type;
-            if (!\in_array($type, self::PROPOSAL_TYPES, true)) {
+            if (!\in_array($type, $accepted, true)) {
                 throw new DomainErrors(['proposals' => self::PROPOSAL_TYPE]);
             }
             if (isset($keys[$key]) || isset($titles[mb_strtolower(ReadinessReportWriter::pickLabel($title))])) {
