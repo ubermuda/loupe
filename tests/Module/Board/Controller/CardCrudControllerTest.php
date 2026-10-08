@@ -385,7 +385,7 @@ final class CardCrudControllerTest extends WebTestCase
         // The overview names its linked work and shows the card's dates, never a raw key.
         self::assertSelectorTextContains('.lp-card-docs', 'Linked work');
         self::assertStringNotContainsString('board.', $crawler->filter('.lp-card-overview')->text());
-        self::assertSame(['Status', 'Type', 'Reporter', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
+        self::assertSame(['Status', 'Type', 'Reporter', 'Source', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
         // A finished run leaves the list. The owner still gets the runs section, for its pause control.
         self::assertCount(0, $crawler->filter('[data-card-run="'.$runId.'"]'));
         self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] form[data-card-agents-pause]'));
