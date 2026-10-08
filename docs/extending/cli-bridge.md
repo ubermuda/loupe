@@ -551,8 +551,8 @@ subagents.
 
 Limits of this release:
 
-- The cost of a Codex run is empty for a model with no list price, such as
-  `openrouter/free`.
+- The cost of a Codex run is empty for a model that no price list holds, as
+  [Prices from OpenRouter](#prices-from-openrouter) says.
 - The `effort` of a work request does not reach Codex.
 
 ### Account checks
