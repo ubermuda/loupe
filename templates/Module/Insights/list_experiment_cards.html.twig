@@ -62,7 +62,7 @@
         {% endfor %}
     </twig:DataTable>
 
-    <twig:Pagination route="app_project_analytics_experiment_cards" :page="report.page" :totalPages="report.totalPages" :pageList="report.pageList" :routeParams="routeParams|merge(query.routeParams)" />
+    <twig:Ds:Pagination route="app_project_analytics_experiment_cards" :page="report.page" :totalPages="report.totalPages" :pageList="report.pageList" :routeParams="routeParams|merge(query.routeParams)" />
     {% else %}
     <div class="lp-empty-state" data-experiment-cards-empty>
         <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon w-12 h-12" />

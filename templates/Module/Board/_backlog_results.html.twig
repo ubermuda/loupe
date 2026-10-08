@@ -62,7 +62,7 @@
     </div>
 </div>
 
-<twig:Pagination route="app_project_board_backlog" :page="listQuery.page" :totalPages="view.totalPages" :pageList="view.pageList" :routeParams="{projectId: project.id}|merge(listQuery.routeParams)" />
+<twig:Ds:Pagination route="app_project_board_backlog" :page="listQuery.page" :totalPages="view.totalPages" :pageList="view.pageList" :routeParams="{projectId: project.id}|merge(listQuery.routeParams)" />
 {% elseif listQuery.isNarrowed %}
 <div class="lp-empty-state">
     <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-8 h-8" />

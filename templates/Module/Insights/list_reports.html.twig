@@ -167,7 +167,7 @@
         </li>
         {% endfor %}
     </ol>
-    <twig:Pagination route="app_project_analytics_reports" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
+    <twig:Ds:Pagination route="app_project_analytics_reports" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
     {% else %}
     <div class="lp-empty-state" data-reports-empty>
         <twig:ux:icon name="lucide:file-chart-column" class="lp-empty-state__icon w-12 h-12" />

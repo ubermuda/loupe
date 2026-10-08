@@ -12,7 +12,7 @@
         <span class="lp-status-chip__dot"></span>
         {{ label }}
         <twig:ux:icon name="lucide:circle-help" class="lp-status-chip__help" aria-hidden="true" />
-        <span class="lp-tooltip" role="tooltip" id="{{ tooltipId }}">{{ reason }}</span>
+        <twig:Ds:Tooltip id="{{ tooltipId }}">{{ reason }}</twig:Ds:Tooltip>
     </span>
 {% else %}
     <span class="lp-status-chip lp-status-chip--{{ modifier }}">

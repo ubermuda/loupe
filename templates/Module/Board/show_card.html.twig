@@ -41,11 +41,11 @@
 
     <div class="lp-card-drawer__body">
         <h1 class="lp-card-drawer__title">{{ card.title }}</h1>
-        <div class="lp-tabs" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
+        <twig:Ds:Tabs tag="div" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
             {% for tab in tabs %}
             <button type="button" class="lp-tabs__tab" role="tab" id="card-tab-{{ tab }}" aria-controls="card-panel-{{ tab }}" aria-selected="{{ tab == activeTab ? 'true' : 'false' }}" tabindex="{{ tab == activeTab ? '0' : '-1' }}" data-panel-tabs-target="tab" data-panel-tab="{{ tab }}" data-action="click->panel-tabs#select keydown->panel-tabs#keydown">{{ ('board.card.tab.' ~ tab)|trans }}</button>
             {% endfor %}
-        </div>
+        </twig:Ds:Tabs>
 
         <section class="lp-card-panel" id="card-panel-overview" role="tabpanel" aria-labelledby="card-tab-overview" data-panel-tabs-target="panel" data-panel-panel="overview"{% if activeTab != 'overview' %} hidden{% endif %}>
             <div class="lp-card-overview">
@@ -178,7 +178,7 @@
     <footer class="lp-card-drawer__footer">
         <div data-controller="modal">
             <twig:Ds:Button variant="danger" type="button" data-action="click->modal#open">{{ 'board.card.delete.action'|trans }}</twig:Ds:Button>
-            <dialog data-modal-target="dialog" class="lp-dialog"><h3 class="lp-dialog-title">{{ 'board.card.delete.confirm.title'|trans }}</h3><p class="lp-dialog-desc">{{ 'board.card.delete.confirm.body'|trans({'%title%': card.title}) }}</p><form method="post" action="{{ path('app_board_card_delete', {projectId: card.project.id, cardId: card.id}) }}" class="flex items-center justify-end gap-3 pt-2" data-turbo-frame="_top" data-card-delete><input type="hidden" name="_csrf_token" value="{{ csrf_token('board-card-delete') }}"><twig:Ds:Button type="button" data-action="click->modal#close">{{ 'board.card.delete.confirm.cancel'|trans }}</twig:Ds:Button><twig:Ds:Button variant="danger" type="submit">{{ 'board.card.delete.confirm.submit'|trans }}</twig:Ds:Button></form></dialog>
+            <twig:Ds:Dialog><h3 class="lp-dialog-title">{{ 'board.card.delete.confirm.title'|trans }}</h3><p class="lp-dialog-desc">{{ 'board.card.delete.confirm.body'|trans({'%title%': card.title}) }}</p><form method="post" action="{{ path('app_board_card_delete', {projectId: card.project.id, cardId: card.id}) }}" class="flex items-center justify-end gap-3 pt-2" data-turbo-frame="_top" data-card-delete><input type="hidden" name="_csrf_token" value="{{ csrf_token('board-card-delete') }}"><twig:Ds:Button type="button" data-action="click->modal#close">{{ 'board.card.delete.confirm.cancel'|trans }}</twig:Ds:Button><twig:Ds:Button variant="danger" type="submit">{{ 'board.card.delete.confirm.submit'|trans }}</twig:Ds:Button></form></twig:Ds:Dialog>
         </div>
     </footer>
 </div>

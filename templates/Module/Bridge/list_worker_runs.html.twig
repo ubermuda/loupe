@@ -148,7 +148,7 @@
         {% endfor %}
     </twig:DataTable>
 
-    <twig:Pagination route="app_project_worker_runs" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
+    <twig:Ds:Pagination route="app_project_worker_runs" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% else %}
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:bot" class="lp-empty-state__icon text-accent w-12 h-12" />

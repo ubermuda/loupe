@@ -44,3 +44,20 @@ test('the catalog draws the button in each variant', async ({ page }) => {
         button.locator('[data-variant="danger"] .lp-btn--danger').first(),
     ).toBeVisible();
 });
+
+test('the catalog draws the dialog, tabs, pagination and tooltip', async ({
+    page,
+}) => {
+    await page.goto('/styleguide');
+    const parts = {
+        Dialog: '.lp-dialog',
+        Tabs: '.lp-tabs',
+        Pagination: '.lp-pagination',
+        Tooltip: '.lp-tooltip',
+    };
+    for (const [name, selector] of Object.entries(parts)) {
+        const section = page.locator(`[data-component="${name}"]`);
+        await expect(section).toBeVisible();
+        await expect(section.locator(selector).first()).toBeVisible();
+    }
+});

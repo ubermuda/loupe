@@ -7,7 +7,7 @@ The design system is the set of values and building blocks that give every page 
 
 ## The styleguide
 
-Run the app in dev and open `/styleguide`. The page draws every token group and every catalog entry from the real stylesheet. A component appears there when its child card adds it. Today the catalog holds the button.
+Run the app in dev and open `/styleguide`. The page draws every token group and every catalog entry from the real stylesheet. A component appears there when its child card adds it.
 
 The route exists in dev only. In production it does not exist.
 
@@ -42,6 +42,10 @@ A building block is a Twig component under `templates/components/Ds/`. Its CSS l
 | Component | Use | Variants |
 |---|---|---|
 | Button | Any action or link that looks like a button | primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open, on-card. Sizes sm and lg |
+| Dialog | A modal that the `modal` Stimulus controller opens | document, search |
+| Tabs | A strip of links or tab buttons with an underline | none |
+| Pagination | The previous, next and page-number control of a list | none |
+| Tooltip | A text bubble under its anchor | none |
 
 Write a button like this:
 
@@ -56,7 +60,25 @@ The component passes every other attribute to the element and appends your `clas
 {{ form_widget(form.save, {attr: {class: ds_button_class('primary')}}) }}
 ```
 
-`just gamache` blocks a template that writes `lp-btn` by hand.
+Write a dialog, tabs, pagination and a tooltip like this:
+
+```twig
+<twig:Ds:Dialog size="document" aria-labelledby="edit-title" data-action="cancel->modal#close">
+    <h3 id="edit-title" class="lp-dialog-title">Edit</h3>
+</twig:Ds:Dialog>
+
+<twig:Ds:Tabs class="lp-analytics-tabs" aria-label="Sections">
+    <a class="lp-tabs__tab" href="{{ path('app_home') }}" aria-current="page">Home</a>
+</twig:Ds:Tabs>
+
+<twig:Ds:Pagination route="app_projects" :page="page" :totalPages="totalPages" :pageList="pageList" />
+
+<twig:Ds:Tooltip id="why-1">The reason.</twig:Ds:Tooltip>
+```
+
+The dialog sets `data-modal-target="dialog"` itself. The tabs take `tag="div"` for a tab list that is not a navigation. The pagination draws nothing when there is one page. The feature that owns the anchor decides when a tooltip shows.
+
+`just gamache` blocks a template that writes `lp-btn`, `lp-dialog`, `lp-tabs`, `lp-pagination` or `lp-tooltip` by hand.
 
 ## The rules
 

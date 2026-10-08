@@ -31,14 +31,14 @@
     </header>
 
     {% if not inbox.isEmpty and not inbox.isSearch %}
-    <nav class="lp-tabs" aria-label="{{ 'inbox.tabs.label'|trans }}">
+    <twig:Ds:Tabs aria-label="{{ 'inbox.tabs.label'|trans }}">
         <a class="lp-tabs__tab"
            href="{{ path('app_project_inbox', {id: inbox.project.id}) }}"
            {% if not completed %}aria-current="page"{% endif %}>{{ 'inbox.tabs.open'|trans }}</a>
         <a class="lp-tabs__tab"
            href="{{ path('app_project_inbox', {id: inbox.project.id, queue: 'completed'}) }}"
            {% if completed %}aria-current="page"{% endif %}>{{ 'inbox.tabs.completed'|trans }}</a>
-    </nav>
+    </twig:Ds:Tabs>
     {% endif %}
 
     {% if not inbox.isEmpty %}
@@ -120,7 +120,7 @@
         {# The open queue is whole, so only the completed asks and the search results page. #}
         {% if completed or inbox.isSearch %}
             {% set pageParams = {id: inbox.project.id}|merge(inbox.isSearch ? {q: inbox.query} : {queue: 'completed'}) %}
-            <twig:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="pageParams" />
+            <twig:Ds:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="pageParams" />
         {% endif %}
         {% elseif inbox.isSearch %}
         <div class="lp-empty-state" data-inbox-search-empty>

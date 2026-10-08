@@ -29,7 +29,7 @@
                 <twig:Ds:Button variant="primary" type="button" data-action="click->modal#open">
                     <twig:ux:icon name="lucide:link" />{{ 'project.connect.configure'|trans }}
                 </twig:Ds:Button>
-                <dialog class="lp-dialog lp-dialog--document lp-connect-dialog" data-modal-target="dialog" aria-labelledby="connect-agent-title">
+                <twig:Ds:Dialog size="document" class="lp-connect-dialog" aria-labelledby="connect-agent-title">
                     <header class="lp-connect-dialog__header">
                         <div>
                             <h2 class="lp-dialog-title" id="connect-agent-title">{{ 'project.connect.step.agent.heading'|trans }}</h2>
@@ -55,7 +55,7 @@
                     <div class="lp-settings-form-actions">
                         <twig:Ds:Button type="button" data-action="click->modal#close">{{ 'project.connect.dialog.close'|trans }}</twig:Ds:Button>
                     </div>
-                </dialog>
+                </twig:Ds:Dialog>
             </div>
         </section>
 
