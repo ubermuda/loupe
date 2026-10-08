@@ -39,6 +39,50 @@ final class AppRulesTest extends KernelTestCase
         self::assertSame(file_get_contents(\dirname(__DIR__, 4).'/config/workflows/app/prompts/discovery.md'), $this->shippedAppRules()->prompt('discovery'));
     }
 
+    public function test_the_shipped_file_holds_the_analysis_request(): void
+    {
+        $requests = $this->shippedAppRules()->requests();
+
+        self::assertCount(1, $requests);
+        self::assertSame(['insights.analysis', 'analysis', 'analysis'], [$requests[0]->id, $requests[0]->kind, $requests[0]->prompt]);
+        self::assertCount(2, $requests[0]->checks);
+        self::assertSame(file_get_contents(\dirname(__DIR__, 4).'/config/workflows/app/prompts/analysis.md'), $this->shippedAppRules()->prompt('analysis'));
+    }
+
+    public function test_a_request_prompt_with_no_file_is_refused(): void
+    {
+        $directory = $this->directory(<<<'YAML'
+            rules: []
+            requests:
+                - { id: app-report, kind: report, prompt: report, checks: [A skill] }
+            YAML);
+
+        try {
+            new AppRules($this->parser(), $directory)->requests();
+            self::fail('A missing prompt file must throw.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame(['requests (app-report): prompt "report" has no file prompts/report.md'], $e->errors);
+        }
+    }
+
+    public function test_a_request_that_shares_an_id_with_a_rule_is_refused(): void
+    {
+        $directory = $this->directory(<<<'YAML'
+            rules:
+                - { id: app-tidy, when: { all: [] }, then: { release: { reason: tidy } } }
+            requests:
+                - { id: app-tidy, kind: report, prompt: report, checks: [A skill] }
+            YAML);
+        new Filesystem()->dumpFile($directory.'/prompts/report.md', "Report.\n");
+
+        try {
+            new AppRules($this->parser(), $directory)->requests();
+            self::fail('A shared id must throw.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame(['requests (app-tidy): a rule has the same id'], $e->errors);
+        }
+    }
+
     public function test_the_shipped_app_rules_join_every_shipped_template(): void
     {
         $shipped = $this->service(ShippedTemplates::class);

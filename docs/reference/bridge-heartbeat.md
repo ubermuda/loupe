@@ -68,7 +68,7 @@ The path holds no project, because one bridge follows several projects.
 | `workerPools` | optional. A list of at most 50 rows, one for each worker pool of the bridge. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `accounts` | optional. A list of at most 50 rows, one for each account the bridge checked. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `paused` | optional. `true` when the bridge takes no new work now. A missing or `null` value keeps the state the server holds. See [Pause and commands](#pause-and-commands) |
-| `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. `session-usage` says that the bridge takes a command of the kind `collect-session-usage`. `work-requests` says that the bridge claims [work requests](#work-requests), and `interactive` says that it runs an interactive session. A missing or `null` value keeps the list the server holds |
+| `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. `session-usage` says that the bridge takes a command of the kind `collect-session-usage`. `work-requests` says that the bridge claims [work requests](#work-requests), and `interactive` says that it runs an interactive session. `app-prompts` says that the bridge runs the app prompt of a request. The server accepts it in place of a `subject-` capability when the request carries a prompt. A missing or `null` value keeps the list the server holds |
 | `workClaims` | optional. A list of at most 200 rows, one for each work request the bridge holds. Each row has an `id` and a `claimToken`, both uuids. The server renews the lease of each claim the bridge still holds, as [Work requests](#work-requests) says. A missing or `null` value renews nothing |
 | `hostSamples` | optional. A list of at most 720 [host samples](#host-samples), oldest first. A missing, `null` or empty value stores nothing |
 
@@ -107,6 +107,7 @@ Each row of `accounts` holds these fields:
 | `harness` | required. The agent tool of the account, such as `claude-code`, with the same rule as `name` |
 | `state` | required. `ready` when the last check of the account passed, and `failing` when it did not |
 | `reason` | optional. Why the check failed, at most 200 characters after trimming. The server keeps it for a `failing` row only, and stores a blank value as no value |
+| `used` | optional. `false` when no rule uses the account, so a failing check turns off nothing. The CLI always sends it. A missing value reads as `true` |
 
 The [agents page](../using/worker-runs.md#bridge-health) shows the accounts on
 the card of the bridge, with the time of the heartbeat that carried them. The
@@ -424,7 +425,8 @@ request can also name a capability that the bridge must report, such as
 
 The `loupe` CLI always reports `commands`, `rerun-command` and `session-usage`. It reports
 `work-requests` when the `work:` map of its rule file has an entry, and
-`interactive` when an entry has `action: interactive`. Each heartbeat sends
+`interactive` when an entry has `action: interactive`. It reports
+`app-prompts` when `appPrompts` is on. Each heartbeat sends
 `workClaims`, with a row for each claim the CLI holds. A CLI that holds no
 claim leaves the key out.
 [The work map](../../cli/README.md#the-work-map) says how the CLI runs a

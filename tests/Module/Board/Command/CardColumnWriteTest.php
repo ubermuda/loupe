@@ -14,7 +14,6 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -131,7 +130,7 @@ final class CardColumnWriteTest extends KernelTestCase
             project: $this->project,
             title: 'Ship the columns',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             column: $column,
         ));
     }

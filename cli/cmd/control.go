@@ -421,6 +421,10 @@ func printReload(w io.Writer, path string, res reloadResult) {
 	}
 	fmt.Fprintln(w, "projects: "+strings.Join(res.Projects, ", "))
 	for _, name := range slices.Sorted(maps.Keys(res.AccountsOff)) {
-		fmt.Fprintln(w, "account "+name+" failing: "+res.AccountsOff[name])
+		label := name
+		if slices.Contains(res.AccountsUnused, name) {
+			label += " (unused)"
+		}
+		fmt.Fprintln(w, "account "+label+" failing: "+res.AccountsOff[name])
 	}
 }

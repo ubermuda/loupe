@@ -8,7 +8,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -69,7 +68,7 @@ final readonly class DevCodexRunSeeder
         $column = array_find($this->boardColumns->findForProject($project), static fn (BoardColumn $column): bool => 'done' === $column->slug)
             ?? throw new \LogicException('The project has a done column.');
         $createdAt = new \DateTimeImmutable(\sprintf('-%d days', self::RUNS[0][0] + 1));
-        $card = new Card(project: $project, column: $column, title: 'Run a worker on Codex', body: '', number: $this->cards->nextNumber($project), type: CardType::Feature, createdAt: $createdAt);
+        $card = new Card(project: $project, column: $column, title: 'Run a worker on Codex', body: '', number: $this->cards->nextNumber($project), type: 'feature', createdAt: $createdAt);
         $this->em->persist($card);
         $this->em->flush();
         $this->cardEvents->record($card, CardEventKind::Created, CardReporter::Agent, null, [], $createdAt);

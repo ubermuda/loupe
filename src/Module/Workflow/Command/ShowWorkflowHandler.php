@@ -8,6 +8,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Template\AppRules;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateMissing;
@@ -19,6 +20,7 @@ final readonly class ShowWorkflowHandler
         private TemplateSource $templates,
         private WorkflowSlotLinkRepository $workflowSlotLinks,
         private BoardColumnRepository $boardColumns,
+        private AppRules $appRules,
     ) {
     }
 
@@ -46,6 +48,12 @@ final readonly class ShowWorkflowHandler
                 $kinds[$kind]['rules'][] = $rule->id;
                 $kinds[$kind]['checks'] = array_values(array_unique([...$kinds[$kind]['checks'], ...$rule->then->checks]));
             }
+        }
+
+        foreach ($this->appRules->requests() as $request) {
+            $kinds[$request->kind] ??= ['origin' => RuleOrigin::App, 'rules' => [], 'checks' => []];
+            $kinds[$request->kind]['rules'][] = $request->id;
+            $kinds[$request->kind]['checks'] = array_values(array_unique([...$kinds[$request->kind]['checks'], ...$request->checks]));
         }
 
         return new WorkflowView(

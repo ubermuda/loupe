@@ -117,7 +117,7 @@
     {% endif %}
 
     {% if home and not inbox.acceptsResponse(item) %}
-        {% if item.kind.value == 'question' %}
+        {% if item.kind.value in ['question', 'workflow'] %}
             {% include '@Inbox/_response_draft.html.twig' with {kind: 'answer', key: item.id, options: item.options, title: 'inbox.answer.unsent'} only %}
         {% endif %}
         {% set refusals = inbox_refusals(item, refusedForm) %}
@@ -137,7 +137,7 @@
         {% set declineForm = inbox_decline_form(item, refusedForm) %}
         {% set declineLabel = item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.submit' %}
         <div class="lp-inbox-item__actions">
-            {% if item.kind.value == 'question' %}
+            {% if item.kind.value in ['question', 'workflow'] %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
                 {% set selectedErrorsId = answerForm.selectedOptions.vars.id ~ '_errors' %}
                 {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': item.id, 'data-action': 'submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared', 'data-turbo-frame': responseFrame}}) }}
@@ -172,7 +172,9 @@
                     <div class="lp-field-errors">{{ form_errors(answerForm) }}</div>
                     {{ form_widget(answerForm._token) }}
                     <div class="lp-inbox-item__buttons">
-                        {% include '@Inbox/_decline_button.html.twig' with {formId: declineForm.vars.id, label: declineLabel} only %}
+                        {% if item.kind.value != 'workflow' %}
+                            {% include '@Inbox/_decline_button.html.twig' with {formId: declineForm.vars.id, label: declineLabel} only %}
+                        {% endif %}
                         <twig:Ds:Button variant="primary" size="sm" type="submit">
                             <twig:ux:icon name="lucide:send" class="w-4 h-4" />
                             {{ (open ? 'inbox.answer.submit' : 'inbox.answer.change')|trans }}

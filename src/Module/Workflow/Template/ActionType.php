@@ -12,4 +12,7 @@ enum ActionType: string
     case Pause = 'pause';
     case Release = 'release';
     case Evaluate = 'evaluate';
+    case Ask = 'ask';
+    case LinkDocument = 'link-document';
+    case Detach = 'detach';
 }

@@ -7,7 +7,6 @@ namespace App\Module\Board\Form;
 use App\Module\Board\Command\CardLinkInput;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class CreateCardRequest
@@ -20,7 +19,7 @@ class CreateCardRequest
 
         /** Nullable so a submit that omits the select fails validation rather than throwing out of the property mapper. */
         #[Assert\NotNull]
-        public ?CardType $type = CardType::Feature,
+        public ?string $type = null,
 
         /** The controller passes the board's Backlog. */
         #[Assert\NotNull]
@@ -31,7 +30,7 @@ class CreateCardRequest
         /** @var list<CardLinkRowRequest> replaced whole on every save, like the URLs */
         #[Assert\Valid]
         public array $relatedCards = [],
-        /** An epic of the project, which the choice list of the field guarantees. */
+        /** A card of the project whose type may have children, which the choice list of the field guarantees. */
         public ?Card $parent = null,
     ) {
     }

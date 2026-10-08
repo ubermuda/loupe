@@ -211,6 +211,30 @@ answer, and it holds no card. Loupe opened a notice while a bridge rule raced
 the sync of the project. Bridge rules are gone, so Loupe closed each such
 notice as **obsolete**, and opens no new one.
 
+### Workflow questions
+
+A workflow question comes from a rule of the board workflow, not from an agent.
+Loupe opens it when a rule needs a decision about a card. Today the
+`unplanned-child` rule of the Lifecycle template asks it. See
+[Asking about an unplanned child](workflows.md#asking-about-an-unplanned-child).
+
+The item has the kind **Workflow question**. It always blocks, links the card,
+and names **Loupe** as the sender. It has two or more options. You pick one
+option and send it. It takes no free text.
+
+The answer is final. You cannot change it, you cannot close the item without
+an answer, and an agent cannot withdraw it. Loupe runs the option you picked
+after you answer. The ask that holds the item closes with your answer.
+
+An open workflow question closes as **withdrawn**, with no answer, in these
+cases:
+
+- The rule stops holding. For example, the card links an approved tech design.
+- Someone puts a hold on the card.
+- Someone deletes the card.
+
+With the inbox off, the rule opens no question. The card pauses instead.
+
 ### Pull request waits
 
 Only a GitHub pull request gives a wait. Loupe reads the state of the pull

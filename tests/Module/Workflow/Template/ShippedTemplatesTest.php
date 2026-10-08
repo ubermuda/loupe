@@ -10,6 +10,7 @@ use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\ShippedTemplates;
 use App\Module\Workflow\Template\Template;
 use App\Module\Workflow\Template\TemplateParser;
@@ -48,6 +49,20 @@ final class ShippedTemplatesTest extends KernelTestCase
     {
         foreach ($this->shipped()->keys() as $key) {
             self::assertSame($key, $this->template($key)->key);
+        }
+    }
+
+    public function test_both_templates_declare_the_card_types_and_only_an_epic_has_children_and_a_lane(): void
+    {
+        foreach ($this->shipped()->keys() as $key) {
+            $template = $this->template($key);
+            self::assertSame(['feature', 'bug', 'security', 'tooling', 'docs', 'idea', 'epic'], array_map(static fn ($type) => $type->key, $template->types));
+            self::assertSame('feature', $template->defaultType);
+            foreach ($template->types as $type) {
+                self::assertSame('epic' === $type->key, $type->children);
+                self::assertSame('epic' === $type->key, $type->lane);
+                self::assertSame('board.card.type.'.$type->key, $type->label);
+            }
         }
     }
 
@@ -272,20 +287,40 @@ final class ShippedTemplatesTest extends KernelTestCase
         $toBacklog = new ActionCall(ActionType::Move, ['to' => '@backlog']);
         $closed = [FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:45:00'))];
 
-        $unblocked = FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true));
+        $unblocked = FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true, documents: [self::approved('tech-design')]));
         self::assertContainsEquals($toImplementation, $this->actions($unblocked));
 
         $inImplementation = FactsMother::facts(card: FactsMother::card(slot: 'implementation', isChild: true), pullRequests: $closed);
         self::assertNotContainsEquals($toBacklog, $this->actions($inImplementation));
 
-        $inBacklog = FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true), pullRequests: $closed);
+        $inBacklog = FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true, documents: [self::approved('tech-design')]), pullRequests: $closed);
         self::assertNotContainsEquals($toImplementation, $this->actions($inBacklog));
+    }
+
+    public function test_a_child_in_the_backlog_starts_only_with_an_approved_tech_design(): void
+    {
+        $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
+        $id = '01a10beb-ba65-736b-8626-a6e3fa59dfc5';
+
+        self::assertContainsEquals($toImplementation, $this->actions(self::backlogChild([self::approved('tech-design')])));
+        self::assertNotContainsEquals($toImplementation, $this->actions(self::backlogChild([])));
+        self::assertNotContainsEquals($toImplementation, $this->actions(self::backlogChild([new DocumentFacts(['tech-design'], 'in-review', $id)])));
+        self::assertNotContainsEquals($toImplementation, $this->actions(self::backlogChild([new DocumentFacts(['tech-design'], 'changes-requested', $id)])));
+        self::assertNotContainsEquals($toImplementation, $this->actions(self::backlogChild([new DocumentFacts(['product-design'], 'approved', $id)])));
+    }
+
+    public function test_the_lifecycle_template_lets_no_run_of_the_parent_move_a_child(): void
+    {
+        $moves = $this->template('lifecycle')->manualMoves;
+
+        self::assertCount(7, $moves);
+        self::assertSame([], array_filter($moves, static fn ($move): bool => ManualMoveActor::ParentRun === $move->by));
     }
 
     public function test_a_child_in_the_backlog_waits_while_any_run_of_its_epic_is_open(): void
     {
         $toImplementation = new ActionCall(ActionType::Move, ['to' => 'implementation']);
-        $child = FactsMother::card(slot: '@backlog', isChild: true);
+        $child = FactsMother::card(slot: '@backlog', isChild: true, documents: [self::approved('tech-design')]);
 
         self::assertNotContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['breakdown']))));
         self::assertNotContainsEquals($toImplementation, $this->actions(FactsMother::facts(card: $child, run: FactsMother::run(parentActiveKinds: ['implement']))));
@@ -528,6 +563,12 @@ final class ShippedTemplatesTest extends KernelTestCase
         }
 
         return $actions;
+    }
+
+    /** @param list<DocumentFacts> $documents */
+    private static function backlogChild(array $documents): Facts
+    {
+        return FactsMother::facts(card: FactsMother::card(slot: '@backlog', isChild: true, documents: $documents));
     }
 
     private static function approved(string $tag): DocumentFacts

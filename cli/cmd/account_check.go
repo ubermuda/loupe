@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -24,7 +25,9 @@ const maxAccountReason = 200
 // problem.
 type accountResult struct {
 	name, harness string
-	problems      []harn.Problem
+	// used is false for an account no rule runs on.
+	used     bool
+	problems []harn.Problem
 }
 
 // reason joins the reasons of the problems, and is "" for a ready account.
@@ -45,7 +48,7 @@ func (a accountResult) join(field func(harn.Problem) string) string {
 	return strings.Join(parts, "; ")
 }
 
-// checkAccounts checks each account that the set uses with its harness, in
+// checkAccounts checks each account that the set declares with its harness, in
 // every project of the set, with the environment a worker of the account gets.
 func checkAccounts(ctx context.Context, set *rules.Set) []accountResult {
 	ctx, cancel := context.WithTimeout(ctx, accountCheckTimeout)
@@ -54,13 +57,17 @@ func checkAccounts(ctx context.Context, set *rules.Set) []accountResult {
 	for _, slug := range set.Projects() {
 		projects[slug] = set.Dir(slug)
 	}
-	names := set.UsedAccounts()
+	names := set.DeclaredAccounts()
+	used := set.UsedAccounts()
 	// Each account runs in its own goroutine, so a slow one cannot use up the
 	// time of the next.
 	out := make([]accountResult, len(names))
 	var wg sync.WaitGroup
 	for i, name := range names {
-		wg.Go(func() { out[i] = checkAccount(ctx, set, name, projects) })
+		wg.Go(func() {
+			out[i] = checkAccount(ctx, set, name, projects)
+			out[i].used = slices.Contains(used, name)
+		})
 	}
 	wg.Wait()
 
@@ -93,7 +100,8 @@ func harnessNameOf(run rules.RunSettings) string {
 	return cmp.Or(run.Harness, defaultHarness().Name())
 }
 
-// accountsOff maps each failing account to its reason.
+// accountsOff maps each failing account to its reason. An account that no rule
+// runs on turns nothing off, so it is safe to list it for the heartbeat.
 func accountsOff(results []accountResult) map[string]string {
 	off := map[string]string{}
 	for _, a := range results {
@@ -109,12 +117,12 @@ func accountsOff(results []accountResult) map[string]string {
 func warnAccountsOff(log *slog.Logger, results []accountResult) {
 	for _, a := range results {
 		if len(a.problems) > 0 {
-			log.Warn("account_failed", "account", a.name, "harness", a.harness, "reason", a.reason(), "detail", a.detail())
+			log.Warn("account_failed", "account", a.name, "harness", a.harness, "unused", !a.used, "reason", a.reason(), "detail", a.detail())
 		}
 	}
 }
 
-// accountReports gives a row for each account the set uses, and nil when no
+// accountReports gives a row for each account the set declares, and nil when no
 // check ran on the set.
 func accountReports(set *rules.Set) []api.AccountReport {
 	off := set.AccountsOff()
@@ -122,9 +130,10 @@ func accountReports(set *rules.Set) []api.AccountReport {
 		return nil
 	}
 	reports := []api.AccountReport{}
-	for _, name := range set.UsedAccounts() {
+	used := set.UsedAccounts()
+	for _, name := range set.DeclaredAccounts() {
 		run, _ := set.Account(name, "")
-		row := api.AccountReport{Name: name, Harness: harnessNameOf(run), State: api.AccountReady}
+		row := api.AccountReport{Name: name, Harness: harnessNameOf(run), State: api.AccountReady, Used: slices.Contains(used, name)}
 		if reason := off[name]; reason != "" {
 			row.State, row.Reason = api.AccountFailing, cutReason(reason)
 		}
