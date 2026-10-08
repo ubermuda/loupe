@@ -110,8 +110,9 @@ design:
    section. The worker writes no code and changes no file. It sets the type
    `epic`, adds the entry line and the entry to each matched child, links the tech
    design of the epic to each child, creates each missing child in Backlog,
-   and sets the blocked-by links. It moves no child. The workflow starts a
-   child that links an approved tech design and has no open blocker. The
+   and sets the blocked-by links. It moves no child. The workflow moves each
+   new child to Next, and starts a child that links an approved tech design,
+   has no open blocker, and whose epic sits in Implementation. The
    result line is `STAGE RESULT: breakdown <n> children`, and the lines after
    it list each match with its reason.
 3. Normal: every other card. The worker builds the whole design into one pull
@@ -124,8 +125,9 @@ and stops.
 
 The workflow makes three moves on its own:
 
-1. When the last open blocker of a child in Backlog finishes, the child moves to
-   Implementation, which asks for its implementation.
+1. When the last open blocker of a child in Next finishes, and its epic sits in
+   Implementation, the child moves to Implementation, which asks for its
+   implementation.
 2. When every child of an epic is done, the epic moves to In review when it has
    a pull request, and to Done when it has none. An epic with a child merged
    into its epic branch never moves straight to Done. While a breakdown request is
