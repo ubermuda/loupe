@@ -2,7 +2,7 @@ import { expect, type Page, type Route } from '@playwright/test';
 import { createTest, suppressWidget } from '../fixtures';
 
 const test = createTest({
-    email: `e2e-activity-events-${Date.now()}@example.com`,
+    email: `e2e-activity-events-${crypto.randomUUID()}@example.com`,
     password: 'e2e_password_123',
 });
 
