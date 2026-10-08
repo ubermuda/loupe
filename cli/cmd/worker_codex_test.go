@@ -52,6 +52,9 @@ while [ $# -gt 0 ]; do
   shift
 done
 printf '%s\n' '{"status":"finished","summary":"all done"}' > "$last"
+if [ -f "$CODEX_HOME/append" ]; then
+  for f in "$CODEX_HOME"/sessions/2026/10/08/rollout-*.jsonl; do cat "$CODEX_HOME/append" >> "$f"; done
+fi
 echo '{"type":"thread.started","thread_id":"` + codexThread + `"}'
 echo '{"type":"turn.started"}'
 echo '{"type":"turn.completed","usage":` + usage + `}'
@@ -84,7 +87,7 @@ func TestRunWorkerRunsCodexAndReadsItsFiles(t *testing.T) {
 		t.Fatalf("a Codex run reads as streamed: %+v", res)
 	}
 	model, ok := res.usage.Models["openrouter/free"]
-	if res.usage.Source != api.UsageReported || !ok || model.InputTokens != 800 || model.CacheReadTokens != 200 || model.OutputTokens != 50 || model.CostUSD != nil {
+	if res.usage.Source != api.UsageReported || !ok || model.InputTokens != 100062-4352 || model.CacheReadTokens != 4352 || model.OutputTokens != 128 || model.CostUSD != nil {
 		t.Fatalf("usage = %+v", res.usage)
 	}
 	rec, err := readRunRecord(res.dir)
@@ -108,7 +111,7 @@ func TestRunWorkerRunsCodexAndReadsItsFiles(t *testing.T) {
 }
 
 // A resume continues the thread the first run mapped, and reports what the
-// resume spent: the thread total less the total before it.
+// resume spent: the session total less the total before it.
 func TestRunWorkerResumesTheCodexThread(t *testing.T) {
 	home := codexHome(t, `{"input_tokens":101062,"cached_input_tokens":4352,"cache_write_input_tokens":0,"output_tokens":178,"reasoning_output_tokens":0}`)
 	threads, _ := config.CodexThreadsDir()
@@ -116,6 +119,11 @@ func TestRunWorkerResumesTheCodexThread(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(threads, testSession), []byte(codexThread+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// The resume adds a turn to the session file.
+	turn := `{"timestamp":"2026-10-08T12:00:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":101062,"cached_input_tokens":4352,"cache_write_input_tokens":0,"output_tokens":178},"last_token_usage":{"input_tokens":1000,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":50}}}}` + "\n"
+	if err := os.WriteFile(filepath.Join(home, "append"), []byte(turn), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	spec := codexSpec(home)

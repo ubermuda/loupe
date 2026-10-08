@@ -419,3 +419,57 @@ func TestCheck(t *testing.T) {
 		}
 	})
 }
+
+func TestReadRunSubtractsTheBaselineModelByModel(t *testing.T) {
+	h := newHarness(t, "")
+	if err := h.remember(runID, thread); err != nil {
+		t.Fatal(err)
+	}
+	path, err := h.find(thread)
+	if err != nil {
+		t.Fatal(err)
+	}
+	full, err := os.ReadFile("testdata/session-two-models.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Before the resume, the thread holds its first turn alone.
+	if err := os.WriteFile(path, []byte(strings.Join(strings.Split(string(full), "\n")[:4], "\n")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	baseline, err := h.SessionTotal(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, full, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got := h.ReadRun(runDir(t, "stdout.jsonl", `{"status":"done","summary":"s"}`), harness.RunInfo{SessionID: runID})
+
+	want := transcript.Usage{"gpt-5.5": {InputTokens: 52495, OutputTokens: 59, CostUSD: transcript.Cost("gpt-5.5", 52495, 59, 0, 0, 0)}}
+	if diff := got.Usage.Minus(baseline); !reflect.DeepEqual(diff, want) {
+		t.Fatalf("reported minus baseline = %+v, want %+v", diff, want)
+	}
+}
+
+func TestEnvKeyComesFromTheSelectedProvidersTable(t *testing.T) {
+	home := t.TempDir()
+	profile := "model_provider = \"second\"\n\n[model_providers.first]\nenv_key = \"FIRST_KEY\"\n\n[model_providers.\"second\"]\nname = \"S\"\nenv_key = \"SECOND_KEY\"\n\n[model_providers.third]\nenv_key = \"THIRD_KEY\"\n"
+	if err := os.WriteFile(filepath.Join(home, "p.config.toml"), []byte(profile), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := configEnvKey(home, "p"); got != "SECOND_KEY" {
+		t.Fatalf("env key = %q, want SECOND_KEY", got)
+	}
+	// The table can sit in config.toml when the profile only selects the provider.
+	if err := os.WriteFile(filepath.Join(home, "p.config.toml"), []byte("model_provider = \"base\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "config.toml"), []byte("[model_providers.other]\nenv_key = \"OTHER\"\n[model_providers.base]\nenv_key = \"BASE_KEY\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := configEnvKey(home, "p"); got != "BASE_KEY" {
+		t.Fatalf("env key = %q, want BASE_KEY", got)
+	}
+}

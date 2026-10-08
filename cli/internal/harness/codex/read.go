@@ -336,13 +336,15 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 		out.Result = cmp.Or(stdout.errMsg, text)
 	}
 
+	// The session file gives usage per model, with the keys SessionTotal uses, so
+	// a resume subtracts its baseline model by model. The stdout total is the
+	// fallback when the file is missing or unreadable.
 	sess, sessErr := h.session(run.SessionID)
-	model := cmp.Or(sess.model, run.Model, fallbackModel)
 	switch {
-	case stdout.usage != nil:
-		out.Usage = toUsage(map[string]tokens{model: *stdout.usage})
 	case sessErr == nil && len(sess.events) > 0:
-		out.Usage = toUsage(sess.between(time.Time{}, time.Time{}, model))
+		out.Usage = toUsage(sess.between(time.Time{}, time.Time{}, cmp.Or(sess.model, fallbackModel)))
+	case stdout.usage != nil:
+		out.Usage = toUsage(map[string]tokens{cmp.Or(sess.model, run.Model, fallbackModel): *stdout.usage})
 	}
 
 	if msg := h.providerProblem(sess, sessErr == nil); msg != "" {

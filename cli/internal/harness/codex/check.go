@@ -22,7 +22,6 @@ const checkTimeout = 10 * time.Second
 
 var (
 	providerPattern = regexp.MustCompile(`(?m)^[ \t]*model_provider[ \t]*=[ \t]*"([^"]*)"`)
-	envKeyPattern   = regexp.MustCompile(`(?m)^[ \t]*env_key[ \t]*=[ \t]*"([^"]*)"`)
 )
 
 // profileFile is the file of the profile in the home folder.
@@ -64,16 +63,42 @@ func configProvider(home, profile string) string {
 	return ""
 }
 
+// tableValue is the string value of key in the named table of a TOML file, and
+// "" for the top level. A line scanner is enough for the keys the bridge reads.
+func tableValue(text, table, key string) string {
+	current := ""
+	pattern := regexp.MustCompile(`^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*"([^"]*)"`)
+	for line := range strings.SplitSeq(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			current = strings.ReplaceAll(strings.Trim(trimmed, "[] \t"), `"`, "")
+			continue
+		}
+		if current == table {
+			if m := pattern.FindStringSubmatch(line); m != nil {
+				return m[1]
+			}
+		}
+	}
+
+	return ""
+}
+
 // configEnvKey is the name of the variable that holds the API key of the
-// profile's provider, and "" when the files name none.
+// provider the profile selects. It reads env_key from that provider's table in
+// the profile file, then in config.toml, and is "" when neither names one.
 func configEnvKey(home, profile string) string {
+	provider := configProvider(home, profile)
+	if provider == "" {
+		return ""
+	}
 	for _, path := range configFiles(home, profile) {
 		b, err := os.ReadFile(path)
 		if err != nil {
 			continue
 		}
-		if m := envKeyPattern.FindStringSubmatch(string(b)); m != nil && m[1] != "" {
-			return m[1]
+		if key := tableValue(string(b), "model_providers."+provider, "env_key"); key != "" {
+			return key
 		}
 	}
 
