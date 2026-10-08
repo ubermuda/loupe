@@ -63,6 +63,16 @@ final class SaveBoardAutomationSettingsFormType extends AbstractType
             'label' => 'board.form.save_board_automation_settings_form.open_epic_pull_requests.label',
             'help' => 'board.form.save_board_automation_settings_form.open_epic_pull_requests.help',
         ]);
+        $builder->add('postWidgetReviews', CheckboxType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.post_widget_reviews.label',
+            'help' => 'board.form.save_board_automation_settings_form.post_widget_reviews.help',
+        ]);
+        $builder->add('siteReviewCheck', CheckboxType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.site_review_check.label',
+            'help' => 'board.form.save_board_automation_settings_form.site_review_check.help',
+        ]);
         $builder->add('epicBranchPattern', TextType::class, [
             'required' => false,
             'label' => 'board.form.save_board_automation_settings_form.epic_branch_pattern.label',

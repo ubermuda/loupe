@@ -2674,6 +2674,8 @@ final class EngineTest extends KernelTestCase
             $settings->syncBehind,
             $settings->mergePullRequests,
             $settings->changeBase,
+            $settings->postWidgetReviews,
+            $settings->siteReviewCheck,
         ));
     }
 

@@ -52,6 +52,25 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertTrue($this->audit->record('board.automation_settings_saved')->context['syncBehind']);
     }
 
+    public function test_both_widget_verdict_opt_ins_start_off_and_are_stored_and_audited(): void
+    {
+        self::assertFalse((new BoardAutomationSettings($this->project))->postWidgetReviews);
+        self::assertFalse((new BoardAutomationSettings($this->project))->siteReviewCheck);
+
+        $this->save(enabled: true, syncBehind: false, postWidgetReviews: true, siteReviewCheck: true);
+
+        $settings = $this->stored();
+        self::assertTrue($settings->postWidgetReviews);
+        self::assertTrue($settings->siteReviewCheck);
+        $context = $this->audit->record('board.automation_settings_saved')->context;
+        self::assertTrue($context['postWidgetReviews']);
+        self::assertTrue($context['siteReviewCheck']);
+
+        $this->save(enabled: true, syncBehind: false);
+        self::assertFalse($this->stored()->postWidgetReviews);
+        self::assertFalse($this->stored()->siteReviewCheck);
+    }
+
     public function test_it_stores_and_audits_the_stale_approval_comment_setting(): void
     {
         $this->save(enabled: true, syncBehind: false, commentOnStaleApproval: true);
@@ -213,7 +232,7 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         }
     }
 
-    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, ?string $epicBranchPattern = 'epic/{number}'): void
+    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, ?string $epicBranchPattern = 'epic/{number}', bool $postWidgetReviews = false, bool $siteReviewCheck = false): void
     {
         $handler = self::getContainer()->get(SaveBoardAutomationSettingsHandler::class);
         self::assertInstanceOf(SaveBoardAutomationSettingsHandler::class, $handler);
@@ -225,6 +244,8 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
             syncBehind: $syncBehind,
             mergePullRequests: $mergePullRequests,
             changeBase: $changeBase,
+            postWidgetReviews: $postWidgetReviews,
+            siteReviewCheck: $siteReviewCheck,
             openEpicPullRequests: $openEpicPullRequests,
             epicBranchPattern: $epicBranchPattern,
         ));
