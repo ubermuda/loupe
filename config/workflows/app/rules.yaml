@@ -21,3 +21,12 @@ rules:
     - id: sync-site-review-check
       when: { site_review.check_stale: {} }
       then: { forge-write: { write: site-review-check } }
+
+# Work the app asks a bridge for outside the engine. Each entry ships a prompt.
+requests:
+    - id: insights.analysis
+      kind: analysis
+      prompt: analysis
+      checks:
+          - The Loupe plugin skills are installed for the agent, with the loupe-analysis skill
+          - The bridge rule file maps the analysis kind, or sets appPrompts to true
