@@ -33,6 +33,7 @@ A new token appears on the styleguide with no other change.
 3. `app.css` imports both, and holds the rules of the features.
 
 The widget and the email stylesheet cannot import `tokens.css`. They hold copies of the values they need, and a test keeps each copy equal to the token.
+In `email.css`, each copied value names its token in a trailing comment, such as `/* --accent */`, and `EmailTokensMatchAppTest` compares the two.
 
 ## The rules
 
