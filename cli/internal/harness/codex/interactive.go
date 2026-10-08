@@ -21,7 +21,7 @@ const launchSuffix = ".launch"
 // terminal closed, or Codex never started in it. A launch that holds its place
 // for this long can still push the next launch in its folder onto a later
 // session.
-const pendingAge = time.Hour
+const pendingAge = 24 * time.Hour
 
 // launchSlack lets a session file start a little before the recorded launch
 // time, because the two clocks are read at different moments.

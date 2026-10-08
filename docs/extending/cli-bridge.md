@@ -1410,6 +1410,9 @@ run on the card. Codex picks its own thread id. The bridge keeps the folder and
 the time of the launch, and later finds the Codex session file that started in
 that folder after the launch. It needs that file to collect the usage of the
 session. A session that has not started a thread yet has no usage to collect.
+Two launches in one folder match their sessions in launch order. A launch that
+never starts Codex can shift the match of a later launch in that folder for up
+to a day, so the later run can report the usage of the wrong session.
 
 The top-level `launch` block of `rules.yaml` names the command that opens the
 terminal. It lives in `rules.yaml` because that file belongs to one machine, so

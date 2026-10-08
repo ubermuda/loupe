@@ -272,7 +272,7 @@ func TestAForgottenOrStaleLaunchHoldsNoSession(t *testing.T) {
 	if err := h.RecordLaunch("failed", work, at.Add(-time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.RecordLaunch("stale", work, at.Add(-2*time.Hour)); err != nil {
+	if err := h.RecordLaunch("stale", work, at.Add(-48*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if err := h.RecordLaunch("run", work, at); err != nil {

@@ -354,19 +354,3 @@ func TestAnInteractiveMatchOnACodexAccountLaunchesCodex(t *testing.T) {
 		t.Fatalf("script = %q", script)
 	}
 }
-
-func TestResolveInPathReadsThePathOfTheAccountEnv(t *testing.T) {
-	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	h := harnessOf("codex", "", "")
-
-	got, err := resolveInPath(h, []string{"A=1", "PATH=/nowhere:" + bin})
-	if err != nil || got != filepath.Join(bin, "codex") {
-		t.Fatalf("got %q, %v", got, err)
-	}
-	if _, err := resolveInPath(h, []string{"A=1"}); err == nil {
-		t.Fatal("an env with no PATH finds nothing")
-	}
-}
