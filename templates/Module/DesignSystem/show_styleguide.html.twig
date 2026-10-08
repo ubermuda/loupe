@@ -56,7 +56,7 @@
                     </p>
                     {% for variant in component.variants|length ? component.variants : [null] %}
                         <div class="lp-styleguide__specimen" data-variant="{{ variant }}">
-                            {% include component.template with { variant: variant } only %}
+                            {% include '@DesignSystem/specimen/' ~ component.name|lower ~ '.html.twig' with { variant: variant } only %}
                         </div>
                     {% endfor %}
                 </article>

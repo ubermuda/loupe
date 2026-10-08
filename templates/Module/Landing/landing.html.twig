@@ -31,7 +31,7 @@
             <a href="#pricing" class="lp-landing-nav__link">{{ 'landing.nav.pricing'|trans }}</a>
             <a href="#faq" class="lp-landing-nav__link">{{ 'landing.nav.faq'|trans }}</a>
             <a href="{{ path('app_login') }}" class="lp-landing-nav__link lp-landing-nav__link--wide">{{ 'landing.nav.login'|trans }}</a>
-            <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'landing.cta.signup'|trans }}</a>
+            <twig:Ds:Button variant="primary" size="sm" href="{{ path('app_register') }}">{{ 'landing.cta.signup'|trans }}</twig:Ds:Button>
         </nav>
     </header>
 
@@ -44,8 +44,8 @@
             </h1>
             <p class="lp-landing-hero__lead">{{ 'landing.hero.lead'|trans }}</p>
             <div class="lp-landing-hero__actions">
-                <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--lg">{{ 'landing.cta.signup'|trans }}</a>
-                <a href="#selfhost" class="lp-btn lp-btn--outline lp-btn--lg">{{ 'landing.cta.selfhost'|trans }}</a>
+                <twig:Ds:Button variant="primary" size="lg" href="{{ path('app_register') }}">{{ 'landing.cta.signup'|trans }}</twig:Ds:Button>
+                <twig:Ds:Button variant="outline" size="lg" href="#selfhost">{{ 'landing.cta.selfhost'|trans }}</twig:Ds:Button>
             </div>
             <p class="lp-landing-hero__note">{{ 'landing.hero.note'|trans }}</p>
         </div>
@@ -156,8 +156,8 @@
                     </p>
 
                     <div class="lp-landing-actions">
-                        {% include '_source_link.html.twig' with {class: 'lp-btn'} only %}
-                        <a href="{{ app_docs_url }}/operating/install/docker-compose/" class="lp-btn lp-btn--ghost">{{ 'landing.selfhost.install_action'|trans }}</a>
+                        {% include '_source_link.html.twig' with {class: ds_button_class()} only %}
+                        <twig:Ds:Button variant="ghost" href="{{ app_docs_url }}/operating/install/docker-compose/">{{ 'landing.selfhost.install_action'|trans }}</twig:Ds:Button>
                     </div>
                 </div>
 
@@ -171,8 +171,8 @@
                          data-clipboard-text-value="{{ demoCommand }}"
                          data-clipboard-copied-label-value="{{ 'landing.selfhost.copied'|trans }}">
                         <pre class="lp-code-plain__body"><code>{{ demoCommand }}</code></pre>
-                        <button type="button" class="lp-btn lp-btn--sm" data-clipboard-target="button"
-                                data-action="clipboard#copy">{{ 'landing.selfhost.copy'|trans }}</button>
+                        <twig:Ds:Button type="button" size="sm" data-clipboard-target="button"
+                                data-action="clipboard#copy">{{ 'landing.selfhost.copy'|trans }}</twig:Ds:Button>
                     </div>
 
                     <p class="lp-landing-note">
@@ -206,7 +206,7 @@
                         </li>
                         {% endfor %}
                     </ul>
-                    <a href="{{ app_docs_url }}/operating/install/" class="lp-btn lp-landing-plan__action">{{ 'landing.pricing.self_host.action'|trans }}</a>
+                    <twig:Ds:Button class="lp-landing-plan__action" href="{{ app_docs_url }}/operating/install/">{{ 'landing.pricing.self_host.action'|trans }}</twig:Ds:Button>
                 </div>
 
                 <div class="lp-landing-plan lp-landing-plan--hosted">
@@ -229,7 +229,7 @@
                         </li>
                         {% endfor %}
                     </ul>
-                    <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-landing-plan__action">{{ 'landing.cta.signup'|trans }}</a>
+                    <twig:Ds:Button variant="primary" class="lp-landing-plan__action" href="{{ path('app_register') }}">{{ 'landing.cta.signup'|trans }}</twig:Ds:Button>
                 </div>
             </div>
         </div>
@@ -240,8 +240,8 @@
             <h2 class="lp-landing-title lp-landing-title--sm">{{ 'landing.opensource.title'|trans }}</h2>
             <p class="lp-landing-lead lp-landing-lead--flush">{{ 'landing.opensource.lead'|trans }}</p>
             <div class="lp-landing-centered__actions">
-                {% include '_source_link.html.twig' with {class: 'lp-btn'} only %}
-                <a href="{{ app_docs_url }}/" class="lp-btn lp-btn--ghost">{{ 'landing.opensource.docs'|trans }}</a>
+                {% include '_source_link.html.twig' with {class: ds_button_class()} only %}
+                <twig:Ds:Button variant="ghost" href="{{ app_docs_url }}/">{{ 'landing.opensource.docs'|trans }}</twig:Ds:Button>
             </div>
         </div>
     </section>
@@ -270,7 +270,7 @@
         <div class="lp-landing-cta__inner">
             <h2 class="lp-landing-cta__title">{{ 'landing.closing.title'|trans }}</h2>
             <p class="lp-landing-lead lp-landing-lead--on-chrome lp-landing-lead--flush">{{ 'landing.closing.lead'|trans }}</p>
-            <a href="{{ path('app_register') }}" class="lp-btn lp-btn--primary lp-btn--lg">{{ 'landing.cta.signup'|trans }}</a>
+            <twig:Ds:Button variant="primary" size="lg" href="{{ path('app_register') }}">{{ 'landing.cta.signup'|trans }}</twig:Ds:Button>
             <p class="lp-landing-hero__note">{{ 'landing.closing.note'|trans({'%price%': hostedPrice}) }}</p>
         </div>
     </section>

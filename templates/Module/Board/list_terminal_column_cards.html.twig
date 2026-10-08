@@ -42,7 +42,7 @@
         <twig:ux:icon name="lucide:square-check-big" class="lp-empty-state__icon w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'board.terminal.empty.title'|trans }}</h2>
         <p class="lp-empty-state__body">{{ 'board.terminal.empty.body'|trans }}</p>
-        <a class="lp-btn" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.terminal.empty.action'|trans }}</a>
+        <twig:Ds:Button href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.terminal.empty.action'|trans }}</twig:Ds:Button>
     </div>
     {% endif %}
 </div>

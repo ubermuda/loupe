@@ -13,6 +13,15 @@ final readonly class Catalog
     /** @return list<ComponentEntry> */
     public function entries(): array
     {
-        return [];
+        return [
+            new ComponentEntry(
+                name: 'Button',
+                rootClass: 'lp-btn',
+                template: 'components/Ds/Button.html.twig',
+                variants: ['primary', 'inverse', 'outline', 'success', 'danger', 'ghost', 'danger-ghost', 'on-card', 'icon', 'compact', 'open'],
+                states: ['hover', 'active', 'disabled'],
+                enforced: true,
+            ),
+        ];
     }
 }

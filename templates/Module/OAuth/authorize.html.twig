@@ -106,8 +106,8 @@
         </div>
         {% endif %}
         <div class="lp-consent__actions">
-            {{ form_widget(form.deny, {'attr': {'class': 'lp-btn lp-btn--ghost'}}) }}
-            {{ form_widget(form.approve, {'attr': {'class': 'lp-btn lp-btn--primary', 'data-require-choice-target': 'submit'}}) }}
+            {{ form_widget(form.deny, {'attr': {'class': ds_button_class('ghost')}}) }}
+            {{ form_widget(form.approve, {'attr': {'class': ds_button_class('primary'), 'data-require-choice-target': 'submit'}}) }}
         </div>
     {{ form_end(form) }}
 

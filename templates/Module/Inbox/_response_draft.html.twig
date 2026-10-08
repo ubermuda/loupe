@@ -4,7 +4,7 @@
         <p class="lp-inbox-item__note">{{ (hint|default('inbox.answer.unsent_closed'))|trans }}</p>
         <ul class="lp-inbox-item__choices" data-form-draft-recovery-target="options"></ul>
         <p class="lp-inbox-item__answer-text" data-form-draft-recovery-target="text"></p>
-        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft-recovery#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
+        <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="form-draft-recovery#discard">{{ 'inbox.answer.discard_draft'|trans }}</twig:Ds:Button>
     </section>
     {% if fallbackNote|default('')|trim is not empty %}
         <div data-inbox-review-draft data-form-draft-recovery-target="fallback"><p class="lp-label">{{ 'inbox.review.unsent_note'|trans }}</p><p class="lp-inbox-item__answer-text">{{ fallbackNote }}</p></div>

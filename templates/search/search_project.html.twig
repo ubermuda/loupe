@@ -15,7 +15,7 @@
             {{ form_widget(form.query, {attr: {class: 'lp-input', maxlength: 200, autofocus: true}}) }}
             <div class="lp-field-errors">{{ form_errors(form.query) }}{{ form_errors(form.page) }}{{ form_errors(form) }}</div>
         </div>
-        <button type="submit" class="lp-btn lp-btn--primary">{{ 'search.submit'|trans }}</button>
+        <twig:Ds:Button variant="primary" type="submit">{{ 'search.submit'|trans }}</twig:Ds:Button>
     {{ form_end(form, {render_rest: false}) }}
     {% if view %}
     {% include 'search/_search_results.html.twig' with {project: project, view: view} only %}

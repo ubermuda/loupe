@@ -2,7 +2,7 @@
 {{ form_start(form, {action: path('app_inbox_item_review_document', actionParams), attr: {class: 'lp-form', 'data-turbo-frame': responseFrame, 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': review.item.id ~ ':review', 'data-action': 'submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared'}}) }}
     <div class="lp-inbox-item__refusal" hidden data-form-draft-target="stale" role="status">
         <p>{{ 'inbox.review.stale_draft'|trans }}</p>
-        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
+        <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="form-draft#discard">{{ 'inbox.answer.discard_draft'|trans }}</twig:Ds:Button>
     </div>
     <div class="lp-field-errors">{{ form_errors(form) }}</div>
     {{ form_widget(form.versionNumber, {type: 'hidden', attr: {'data-form-draft-target': 'guard'}}) }}
@@ -21,5 +21,5 @@
         {{ form_widget(form.note, {attr: {class: 'lp-input', rows: 3, 'data-form-draft-target': 'text', 'data-inbox-decline-target': 'note', 'data-action': 'input->form-draft#remember'}}) }}
         <div class="lp-field-errors">{{ form_errors(form.note) }}</div>
     </div>
-    <div class="lp-inbox-item__buttons">{% include '@Inbox/_decline_button.html.twig' with {formId: declineFormId, label: declineLabel} only %}<button type="submit" class="lp-btn lp-btn--primary">{{ 'inbox.review.submit'|trans }}</button></div>
+    <div class="lp-inbox-item__buttons">{% include '@Inbox/_decline_button.html.twig' with {formId: declineFormId, label: declineLabel} only %}<twig:Ds:Button variant="primary" type="submit">{{ 'inbox.review.submit'|trans }}</twig:Ds:Button></div>
 {{ form_end(form) }}

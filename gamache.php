@@ -135,7 +135,7 @@ return (new GamacheConfig())->registerChecks([
     ),
     new DesignSystemAdoptionCheck(
         components: [
-            new DesignSystemComponent('Button', 'lp-btn'),
+            new DesignSystemComponent('Button', 'lp-btn', 'templates/components/Ds/Button.html.twig', enforced: true),
             new DesignSystemComponent('Input', 'lp-input'),
             new DesignSystemComponent('Select', 'lp-select'),
             new DesignSystemComponent('FormField', 'lp-form-field'),

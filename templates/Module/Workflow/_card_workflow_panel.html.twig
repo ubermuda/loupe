@@ -9,7 +9,7 @@
         {% if panel.pause.releasable and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), card.project) %}
         <form method="post" action="{{ path('app_workflow_card_pause_release', {projectId: card.project.id, cardId: card.id, pauseId: panel.pause.id}) }}" data-turbo-frame="_top">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('workflow-pause-release') }}">
-            <button type="submit" class="lp-btn lp-btn--outline lp-btn--sm" data-workflow-retry><twig:ux:icon name="lucide:circle-play" class="size-4" />{{ 'workflow.panel.retry'|trans }}</button>
+            <twig:Ds:Button variant="outline" size="sm" type="submit" data-workflow-retry><twig:ux:icon name="lucide:circle-play" class="size-4" />{{ 'workflow.panel.retry'|trans }}</twig:Ds:Button>
         </form>
         {% endif %}
     </div>

@@ -129,7 +129,7 @@
 
     {% if is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), project) %}
         <p class="lp-experiment-note">
-            <a class="lp-btn lp-btn--outline lp-btn--sm" href="{{ path('app_project_analytics_reports', {id: project.id, topic: 'experiment', experiment: report.experiment}) }}" data-experiment-analyse>{{ 'bridge.experiments.analyse'|trans }}</a>
+            <twig:Ds:Button variant="outline" size="sm" href="{{ path('app_project_analytics_reports', {id: project.id, topic: 'experiment', experiment: report.experiment}) }}" data-experiment-analyse>{{ 'bridge.experiments.analyse'|trans }}</twig:Ds:Button>
         </p>
     {% endif %}
 </div>

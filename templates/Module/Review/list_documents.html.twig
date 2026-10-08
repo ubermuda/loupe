@@ -27,7 +27,7 @@
     {% endif %}
             <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
         </div>
-        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open"><twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />{{ 'review.create.title'|trans }}</button>
+        <twig:Ds:Button variant="primary" type="button" data-action="click->modal#open"><twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />{{ 'review.create.title'|trans }}</twig:Ds:Button>
     </header>
     {% include '@Review/_create_document.html.twig' with {form: createDocumentForm, projectId: project.id} only %}
 
@@ -238,7 +238,7 @@
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-8 h-8" />
         <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty_filtered.title'|trans }}</h2>
-        <a class="lp-btn" href="{{ path('app_project_documents', {id: project.id}) }}">{{ 'review.dashboard.filter.clear_filters'|trans }}</a>
+        <twig:Ds:Button href="{{ path('app_project_documents', {id: project.id}) }}">{{ 'review.dashboard.filter.clear_filters'|trans }}</twig:Ds:Button>
     </div>
     {% else %}
     {# A project holds no credential any more, so the page cannot tell a
@@ -249,7 +249,7 @@
         <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty.title'|trans }}</h2>
         <p class="lp-empty-state__body">{{ 'review.create.empty'|trans }}</p>
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.body'|trans }}</p>
-        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</a>
+        <twig:Ds:Button href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</twig:Ds:Button>
         <p class="lp-empty-state__body">
             {{ 'review.dashboard.empty.skills.hint'|trans }}
             <a class="lp-empty-state__link" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.skills.action'|trans }}</a>

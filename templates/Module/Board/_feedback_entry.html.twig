@@ -17,13 +17,13 @@
             {% if link.comment.status.value != 'resolved' and is_granted(constant('App\\Module\\Board\\Security\\CardFeedbackVoter::RESOLVE'), link) %}
                 <form method="POST" action="{{ path('app_card_feedback_resolve', {id: link.id, surface: surface}) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
-                    <button type="submit" class="lp-btn lp-btn--primary">{{ 'site_review.comment.action.resolve'|trans }}</button>
+                    <twig:Ds:Button variant="primary" type="submit">{{ 'site_review.comment.action.resolve'|trans }}</twig:Ds:Button>
                 </form>
             {% endif %}
             {% if link.comment.status.value != 'pending' and is_granted(constant('App\\Module\\Board\\Security\\CardFeedbackVoter::REOPEN'), link) %}
                 <form method="POST" action="{{ path('app_card_feedback_reopen', {id: link.id, surface: surface}) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
-                    <button type="submit" class="lp-btn lp-btn--ghost">{{ 'site_review.comment.action.reopen'|trans }}</button>
+                    <twig:Ds:Button variant="ghost" type="submit">{{ 'site_review.comment.action.reopen'|trans }}</twig:Ds:Button>
                 </form>
             {% endif %}
         </div>

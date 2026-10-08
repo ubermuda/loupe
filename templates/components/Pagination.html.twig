@@ -14,23 +14,21 @@
     <p class="lp-pagination__status">{{ 'pagination.status'|trans({'%page%': page, '%total%': totalPages}) }}</p>
     <div class="lp-pagination__controls">
         {% if page > 1 %}
-            <a href="{{ path(route, routeParams|merge({page: page - 1})) }}" class="lp-btn lp-btn--ghost lp-btn--sm" aria-label="{{ 'pagination.previous'|trans }}">‹</a>
+            <twig:Ds:Button variant="ghost" size="sm" href="{{ path(route, routeParams|merge({page: page - 1})) }}"  aria-label="{{ 'pagination.previous'|trans }}">‹</twig:Ds:Button>
         {% else %}
-            <span class="lp-btn lp-btn--ghost lp-btn--sm lp-pagination__disabled" aria-disabled="true">‹</span>
+            <twig:Ds:Button variant="ghost" size="sm" class="lp-pagination__disabled" disabled aria-disabled="true">‹</twig:Ds:Button>
         {% endif %}
         {% for p in pageList %}
             {% if p is null %}
                 <span class="lp-pagination__ellipsis">…</span>
             {% else %}
-                <a href="{{ path(route, routeParams|merge({page: p})) }}"
-                   class="lp-btn lp-btn--sm {{ p == page ? 'lp-btn--primary' : 'lp-btn--ghost' }}"
-                   {% if p == page %}aria-current="page"{% endif %}>{{ p }}</a>
+                <twig:Ds:Button :variant="p == page ? 'primary' : 'ghost'" size="sm" href="{{ path(route, routeParams|merge({page: p})) }}" :aria-current="p == page ? 'page' : null">{{ p }}</twig:Ds:Button>
             {% endif %}
         {% endfor %}
         {% if page < totalPages %}
-            <a href="{{ path(route, routeParams|merge({page: page + 1})) }}" class="lp-btn lp-btn--ghost lp-btn--sm" aria-label="{{ 'pagination.next'|trans }}">›</a>
+            <twig:Ds:Button variant="ghost" size="sm" href="{{ path(route, routeParams|merge({page: page + 1})) }}"  aria-label="{{ 'pagination.next'|trans }}">›</twig:Ds:Button>
         {% else %}
-            <span class="lp-btn lp-btn--ghost lp-btn--sm lp-pagination__disabled" aria-disabled="true">›</span>
+            <twig:Ds:Button variant="ghost" size="sm" class="lp-pagination__disabled" disabled aria-disabled="true">›</twig:Ds:Button>
         {% endif %}
     </div>
 </nav>

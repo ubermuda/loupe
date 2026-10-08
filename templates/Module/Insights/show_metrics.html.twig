@@ -53,7 +53,7 @@
                 <option value="{{ option.value }}"{{ option == query.bucket ? ' selected' : '' }}>{{ ('analytics.metrics.bucket.' ~ option.value)|trans }}</option>
             {% endfor %}
         </select>
-        <noscript><button type="submit" class="lp-btn">{{ 'analytics.metrics.form.apply'|trans }}</button></noscript>
+        <noscript><twig:Ds:Button type="submit">{{ 'analytics.metrics.form.apply'|trans }}</twig:Ds:Button></noscript>
     </form>
 
     {% if chart is null %}

@@ -61,23 +61,23 @@
             {%- for row in linkRows %}
                 <div class="lp-card-link-row" data-form-collection-row data-card-link-row>
                     {% include '@Board/_card_link_row_fields.html.twig' with {row: row} only %}
-                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--icon" aria-label="{{ 'board.card.form.linked_cards.remove'|trans }}" data-action="form-collection#removeRow"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></button>
+                    <twig:Ds:Button variant="ghost icon" type="button" aria-label="{{ 'board.card.form.linked_cards.remove'|trans }}" data-action="form-collection#removeRow"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></twig:Ds:Button>
                 </div>
             {% endfor -%}
         </div>
         <div class="lp-field-errors">{{ form_errors(linkRows) }}</div>
         <div>
-            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-collection#addRow"><twig:ux:icon name="lucide:plus" class="w-4 h-4" />{{ 'board.card.form.linked_cards.add'|trans }}</button>
+            <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="form-collection#addRow"><twig:ux:icon name="lucide:plus" class="w-4 h-4" />{{ 'board.card.form.linked_cards.add'|trans }}</twig:Ds:Button>
         </div>
         <template data-form-collection-target="removeButtonTemplate">
-            <button type="button" class="lp-btn lp-btn--ghost lp-btn--icon" aria-label="{{ 'board.card.form.linked_cards.remove'|trans }}"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></button>
+            <twig:Ds:Button variant="ghost icon" type="button" aria-label="{{ 'board.card.form.linked_cards.remove'|trans }}"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></twig:Ds:Button>
         </template>
     </fieldset>
     {% do linkRows.setRendered %}
 
     <div class="flex items-center justify-end gap-3 pt-2">
-        <a class="lp-btn lp-btn--ghost mr-auto" href="{{ cancelUrl }}"{% if cancelLeavesFrame %} data-turbo-frame="_top" data-action="card-drawer#close"{% endif %}>{{ 'board.card.form.cancel'|trans }}</a>
-        <button type="submit" class="lp-btn lp-btn--primary" data-turbo-submits-with="{{ busyLabel|trans }}" data-submit-feedback-target="button">{{ submitLabel|trans }}</button>
+        <twig:Ds:Button variant="ghost" class="mr-auto" href="{{ cancelUrl }}" :data-turbo-frame="cancelLeavesFrame ? '_top' : null" :data-action="cancelLeavesFrame ? 'card-drawer#close' : null">{{ 'board.card.form.cancel'|trans }}</twig:Ds:Button>
+        <twig:Ds:Button variant="primary" type="submit" data-turbo-submits-with="{{ busyLabel|trans }}" data-submit-feedback-target="button">{{ submitLabel|trans }}</twig:Ds:Button>
     </div>
     <p class="sr-only" role="status" data-submit-feedback-target="status"></p>
 
@@ -87,8 +87,8 @@
            The server shows it for a refused save, and the drawer for a change it hears of. #}
         <div class="lp-card-clash" role="alert" data-card-drawer-target="clash"{% if form.contentFingerprint.vars.errors is empty %} hidden{% endif %}>
             <span class="lp-card-clash__message">{{ 'board.card.error.changed_since_opened'|trans }}</span>
-            <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">{{ 'board.card.form.view_latest'|trans }}</a>
-            {{ form_widget(form.confirmOverwrite, {attr: {class: 'lp-btn lp-btn--sm', 'data-turbo-submits-with': busyLabel|trans}}) }}
+            <twig:Ds:Button variant="ghost" size="sm" href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">{{ 'board.card.form.view_latest'|trans }}</twig:Ds:Button>
+            {{ form_widget(form.confirmOverwrite, {attr: {class: ds_button_class(null, 'sm'), 'data-turbo-submits-with': busyLabel|trans}}) }}
         </div>
     {% endif %}
 {{ form_end(form) }}

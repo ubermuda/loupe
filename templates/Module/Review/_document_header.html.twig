@@ -33,33 +33,33 @@
     {% if showDocumentActions or canComment or returnToDocument %}
     <div class="lp-review-doc__actions">
         {% if canComment %}
-        <button type="button" class="lp-btn lp-btn--ghost" data-action="comment-anchor#startUntargeted">
+        <twig:Ds:Button variant="ghost" type="button" data-action="comment-anchor#startUntargeted">
             <twig:ux:icon name="lucide:message-square-plus" />
             {{ 'review.document.comment.untargeted'|trans }}
-        </button>
+        </twig:Ds:Button>
         {% endif %}
         {% if returnToDocument %}
-        <a class="lp-btn" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
+        <twig:Ds:Button href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
             <twig:ux:icon name="lucide:file-text" />
             {{ 'review.document.diff.return'|trans }}
-        </a>
+        </twig:Ds:Button>
         {% endif %}
         {% if showDocumentActions %}
         {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
         {% if document.status.value == 'draft' and is_granted(constant('App\\Module\\Review\\Security\\DocumentVoter::MANAGE'), document) %}
         <form method="post" action="{{ path('app_document_publish', {projectId: document.project.id, documentId: document.id}) }}" data-document-publish>
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-publish') }}">
-            <button type="submit" class="lp-btn">
+            <twig:Ds:Button type="submit">
                 <twig:ux:icon name="lucide:send" />
                 {{ 'review.publish.submit'|trans }}
-            </button>
+            </twig:Ds:Button>
         </form>
         {% endif %}
         {% if document.status.value in ['draft', 'in-review'] %}
-        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
+        <twig:Ds:Button variant="primary" type="button" data-action="click->modal#open">
             <twig:ux:icon name="lucide:check" />
             {{ 'review.document.finish.title'|trans }}
-        </button>
+        </twig:Ds:Button>
         {% endif %}
         {% endif %}
     </div>

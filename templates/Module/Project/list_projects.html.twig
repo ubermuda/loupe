@@ -15,12 +15,12 @@
             <h1 class="lp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'project.list.page.description'|trans }}</p>
         </div>
-        <button type="button" class="lp-btn lp-btn--primary" data-action="disclosure#toggle"
+        <twig:Ds:Button variant="primary" type="button" data-action="disclosure#toggle"
                 data-disclosure-target="trigger" aria-controls="new-project-panel"
                 aria-expanded="{{ form.vars.submitted and not form.vars.valid ? 'true' : 'false' }}">
             <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
             {{ 'project.list.new'|trans }}
-        </button>
+        </twig:Ds:Button>
     </header>
 
     <div class="lp-project-list lp-project-tile-grid">
@@ -93,7 +93,7 @@
                     </div>
                     {% include '@Project/_workflow_template_field.html.twig' with {field: form.workflowTemplate} only %}
                     <div class="flex items-center justify-end gap-3 pt-2">
-                        <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.list.form.submit'|trans }}</button>
+                        <twig:Ds:Button variant="primary" type="submit">{{ 'project.list.form.submit'|trans }}</twig:Ds:Button>
                     </div>
                 {{ form_end(form) }}
             </div>
