@@ -35,7 +35,12 @@ final class Version20261008001500 extends AbstractMigration
                 ELSE 'agent'
             END
             SQL);
-        $this->addSql("UPDATE board_cards SET type = 'feature' WHERE type = 'site-review'");
+        $this->addSql(<<<'SQL'
+            UPDATE board_cards SET type = COALESCE(
+                (SELECT definition->>'defaultType' FROM workflow_bindings WHERE workflow_bindings.project_id = board_cards.project_id),
+                'feature'
+            ) WHERE type = 'site-review'
+            SQL);
     }
 
     /** The retired card type is not restored. */

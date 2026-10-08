@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Entity\WorkflowBinding;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\ORM\EntityManagerInterface;
@@ -72,6 +73,27 @@ final class BoardCardsSourceMigrationTest extends KernelTestCase
         }
         self::assertSame('feature', $this->connection->fetchOne('SELECT type FROM board_cards WHERE id = :id', ['id' => (string) $ids['orphan']->id]));
         self::assertSame(3, $this->sourceColumnCount());
+    }
+
+    public function test_up_gives_a_site_review_card_the_default_type_of_its_project_template(): void
+    {
+        $owner = new User(fullName: 'Riley', email: 'board-source-'.uniqid().'@example.com', password: 'hashed');
+        $this->em->persist($owner);
+        $project = new Project($owner, 'board-source-'.uniqid());
+        $this->em->persist($project);
+        $column = new BoardColumn(project: $project, label: 'Backlog', slug: 'backlog', position: 0, terminal: false);
+        $this->em->persist($column);
+        $card = new Card(project: $project, column: $column, title: 'Old', body: '', number: 1);
+        $this->em->persist($card);
+        $this->em->persist(new WorkflowBinding($project, 'custom', 1, ['defaultType' => 'story']));
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->migrate(down: true);
+        $this->connection->executeStatement("UPDATE board_cards SET type = 'site-review' WHERE id = :id", ['id' => (string) $card->id]);
+        $this->migrate();
+
+        self::assertSame('story', $this->connection->fetchOne('SELECT type FROM board_cards WHERE id = :id', ['id' => (string) $card->id]));
     }
 
     private function sourceColumnCount(): int
