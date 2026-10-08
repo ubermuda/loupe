@@ -112,3 +112,17 @@ func TestLookPathSearchesThePathOfTheEnvironment(t *testing.T) {
 		t.Fatal("LookPath found tool on a PATH that does not hold it")
 	}
 }
+
+func TestLookPathChecksAProgramWithAPath(t *testing.T) {
+	bin := t.TempDir()
+	program := filepath.Join(bin, "tool")
+	if err := os.WriteFile(program, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := LookPath(program, nil, ""); err != nil || got != program {
+		t.Fatalf("LookPath = %q, %v, want %q", got, err, program)
+	}
+	if _, err := LookPath(filepath.Join(bin, "gone"), nil, ""); err == nil {
+		t.Fatal("LookPath found a program that does not exist")
+	}
+}

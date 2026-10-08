@@ -455,7 +455,8 @@ questions:
    project folder? The server is seen when the project or the account's
    `.claude.json` declares it as `loupe mcp`, or, when neither declares it, an
    enabled plugin serves it. A declared entry that starts another command
-   fails, because Claude Code prefers it to a plugin. The skills are seen
+   fails, because Claude Code prefers it to a plugin. A declared entry also
+   fails when `loupe` is not on the `PATH` of the account. The skills are seen
    when a `loupe-*` folder with a `SKILL.md` is in `.claude/skills` of the
    project or in `skills` of the config folder, or when an enabled `loupe@`
    plugin is installed.

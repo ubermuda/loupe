@@ -105,6 +105,11 @@ func projectProblems(ctx context.Context, binary string, env []string, configDir
 	if got.Declared() && !got.Correct() {
 		problems = append(problems, harness.Problem{Reason: "loupe MCP server is not loupe mcp for project " + slug, Detail: got.Where() + " starts " + got.Entry.Summary() + "; run `loupe init --mcp` in " + dir})
 	}
+	if got.Correct() {
+		if _, err := envfile.LookPath(got.Entry.Command, env, dir); err != nil {
+			problems = append(problems, harness.Problem{Reason: "loupe is not on PATH for project " + slug, Detail: "claude cannot start " + got.Entry.Summary() + ": " + err.Error()})
+		}
+	}
 	if got.Declared() && skills {
 		return problems
 	}

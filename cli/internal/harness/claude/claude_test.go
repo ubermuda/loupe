@@ -380,6 +380,9 @@ func checkClaude(t *testing.T, authExit, plugins string) string {
 	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte(body), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, "loupe"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	return log
@@ -620,5 +623,24 @@ func TestCheckFindsClaudeOnARelativePathFromEachProject(t *testing.T) {
 	got := New("").Check(context.Background(), spec)
 	if len(got) != 1 || got[0].Reason != "claude is not on PATH for project b" {
 		t.Fatalf("Check = %+v, want claude missing for project b alone", got)
+	}
+}
+
+func TestCheckFailsWhenTheAccountPathHasNoLoupe(t *testing.T) {
+	isolate(t)
+	fake := filepath.Dir(checkClaude(t, "0", "[]"))
+	bin, project := t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(fake, "claude"), filepath.Join(bin, "claude")); err != nil {
+		t.Fatal(err)
+	}
+	addSkill(t, filepath.Join(project, ".claude", "skills", "loupe-board"))
+	if err := os.WriteFile(filepath.Join(project, ".mcp.json"), []byte(`{"mcpServers":{"loupe":{"command":"loupe","args":["mcp"]}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := harness.CheckSpec{Account: "a", Env: []string{"PATH=" + bin + ":/bin:/usr/bin"}, Projects: map[string]string{"loupe": project}}
+
+	got := New("").Check(context.Background(), spec)
+	if len(got) != 1 || got[0].Reason != "loupe is not on PATH for project loupe" {
+		t.Fatalf("Check = %+v, want loupe is not on PATH for project loupe", got)
 	}
 }

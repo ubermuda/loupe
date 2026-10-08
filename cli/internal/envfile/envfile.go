@@ -73,6 +73,17 @@ func Overlay(environ, pairs []string) []string {
 // searches, and on the PATH of the bridge when env sets none. A relative entry
 // counts from dir, and an empty dir skips it.
 func LookPath(program string, env []string, dir string) (string, error) {
+	if strings.Contains(program, "/") {
+		path := program
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(dir, path)
+		}
+		if !isExecutable(path) {
+			return "", fmt.Errorf("%s is not an executable file", path)
+		}
+
+		return path, nil
+	}
 	path, ok := "", false
 	for _, kv := range env {
 		if v, found := strings.CutPrefix(kv, "PATH="); found {
@@ -89,11 +100,16 @@ func LookPath(program string, env []string, dir string) (string, error) {
 			}
 			entry = filepath.Join(dir, entry)
 		}
-		candidate := filepath.Join(entry, program)
-		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
+		if candidate := filepath.Join(entry, program); isExecutable(candidate) {
 			return candidate, nil
 		}
 	}
 
 	return "", fmt.Errorf("%s not found in PATH %s", program, path)
+}
+
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+
+	return err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0
 }
