@@ -252,6 +252,9 @@ func (r *router) runLaunch(l launch) {
 		if err == nil {
 			os.Remove(path)
 		}
+		if rec, ok := adapter.(harn.LaunchRecorder); ok {
+			rec.ForgetLaunch(p.spec.sessionID)
+		}
 	case err != nil:
 		reason = err.Error()
 	default:
@@ -264,6 +267,9 @@ func (r *router) runLaunch(l launch) {
 		}), l.command.Timeout, r.beginLaunch(l))
 		if reason != "" {
 			os.Remove(path)
+			if rec, ok := adapter.(harn.LaunchRecorder); ok {
+				rec.ForgetLaunch(p.spec.sessionID)
+			}
 		}
 	}
 

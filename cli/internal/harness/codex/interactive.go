@@ -17,6 +17,10 @@ import (
 // launchSuffix ends the name of a launch record in the threads folder.
 const launchSuffix = ".launch"
 
+// pendingAge is the age past which an unmatched launch counts no more. Its
+// terminal closed, or Codex never started in it.
+const pendingAge = 24 * time.Hour
+
 // launchSlack lets a session file start a little before the recorded launch
 // time, because the two clocks are read at different moments.
 const launchSlack = 2 * time.Second
@@ -34,6 +38,13 @@ func (h Harness) RecordLaunch(runID, dir string, at time.Time) error {
 	body := strconv.FormatInt(at.UnixNano(), 10) + "\n" + dir + "\n"
 
 	return os.WriteFile(path, []byte(body), 0o600)
+}
+
+// ForgetLaunch removes the record of a launch that opened no session.
+func (h Harness) ForgetLaunch(runID string) {
+	if path, err := h.threadFile(runID + launchSuffix); err == nil {
+		_ = os.Remove(path)
+	}
 }
 
 // launchRecord is what RecordLaunch kept.
@@ -123,7 +134,7 @@ func (h Harness) pendingBefore(runID, dir string, at time.Time) int {
 		if err != nil || realPath(other) != realPath(dir) {
 			continue
 		}
-		if otherAt.After(at) || (otherAt.Equal(at) && id > runID) {
+		if otherAt.After(at) || (otherAt.Equal(at) && id > runID) || at.Sub(otherAt) > pendingAge {
 			continue
 		}
 		if _, err := os.Stat(filepath.Join(h.threads, id)); errors.Is(err, os.ErrNotExist) {

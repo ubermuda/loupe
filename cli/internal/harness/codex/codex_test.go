@@ -263,6 +263,28 @@ func TestALaterLaunchWaitsForTheSessionOfAnEarlierOne(t *testing.T) {
 	}
 }
 
+func TestAForgottenOrStaleLaunchHoldsNoSession(t *testing.T) {
+	h := newHarness(t, "")
+	at := time.Now()
+	work := t.TempDir()
+	id := "aaaaaaaa-0000-4000-8000-000000000001"
+	sessionFile(t, h.home, id, work, at.Add(time.Second))
+	if err := h.RecordLaunch("failed", work, at.Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.RecordLaunch("stale", work, at.Add(-48*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.RecordLaunch("run", work, at); err != nil {
+		t.Fatal(err)
+	}
+	h.ForgetLaunch("failed")
+
+	if got, err := h.thread("run"); err != nil || got != id {
+		t.Fatalf("thread = %q, %v", got, err)
+	}
+}
+
 func TestAnInteractiveRunWithNoSessionYetHasNone(t *testing.T) {
 	h := newHarness(t, "")
 	work := t.TempDir()

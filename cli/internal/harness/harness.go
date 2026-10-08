@@ -52,6 +52,8 @@ type RunReader interface {
 // the harness finds the session from them when it is asked.
 type LaunchRecorder interface {
 	RecordLaunch(runID, dir string, at time.Time) error
+	// ForgetLaunch drops the record of a launch that failed.
+	ForgetLaunch(runID string)
 }
 
 // RunInfo is what the bridge knows about a run when it reads it. SessionID is
