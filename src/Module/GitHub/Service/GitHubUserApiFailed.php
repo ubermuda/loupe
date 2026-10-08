@@ -10,6 +10,8 @@ final class GitHubUserApiFailed extends \RuntimeException
     public function __construct(
         public readonly string $reason,
         public readonly ?int $status = null,
+        public readonly bool $rateLimited = false,
+        public readonly ?int $retryAfterSeconds = null,
     ) {
         parent::__construct($reason);
     }

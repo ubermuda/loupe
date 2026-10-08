@@ -89,6 +89,31 @@ final readonly class GitHubUserApi
     }
 
     /**
+     * Submits a review as the user. The body may be empty for an approval.
+     *
+     * @param 'APPROVE'|'REQUEST_CHANGES'|'COMMENT' $event
+     *
+     * @return ?string the URL of the review
+     *
+     * @throws GitHubUserApiFailed
+     */
+    public function postReview(#[\SensitiveParameter] string $token, string $repositoryPath, int $number, string $event, string $body): ?string
+    {
+        $payload = ['event' => $event];
+        if ('' !== $body) {
+            $payload['body'] = $body;
+        }
+
+        $answer = $this->send($this->githubApiClient, 'POST', $repositoryPath.'/pulls/'.$number.'/reviews', [
+            'headers' => ['Authorization' => 'Bearer '.$token],
+            'json' => $payload,
+        ]);
+        $url = $answer['html_url'] ?? null;
+
+        return \is_string($url) && '' !== $url ? $url : null;
+    }
+
+    /**
      * @return list<GitHubUserInstallation>
      *
      * @throws GitHubUserApiFailed
@@ -169,6 +194,26 @@ final readonly class GitHubUserApi
     }
 
     /**
+     * The seconds of `retry-after`, else the wait until the `x-ratelimit-reset` epoch.
+     *
+     * @param array<string, list<string>> $headers
+     */
+    private function retryAfter(array $headers): ?int
+    {
+        $retryAfter = $headers['retry-after'][0] ?? null;
+        if (null !== $retryAfter && ctype_digit($retryAfter)) {
+            return (int) $retryAfter;
+        }
+
+        $reset = $headers['x-ratelimit-reset'][0] ?? null;
+        if (null !== $reset && ctype_digit($reset)) {
+            return max(0, (int) $reset - $this->clock->now()->getTimestamp());
+        }
+
+        return null;
+    }
+
+    /**
      * A full last page counts as incomplete, because GitHub may hold more.
      *
      * @return array{list<array<mixed>>, bool} the entries, and whether they are all of them
@@ -215,7 +260,12 @@ final readonly class GitHubUserApi
             $response = $client->request($method, $path, $options);
             $status = $response->getStatusCode();
             if ($status < 200 || $status >= 300) {
-                throw new GitHubUserApiFailed('http_status', $status);
+                $headers = $response->getHeaders(false);
+                $retryAfter = $headers['retry-after'][0] ?? null;
+                $rateLimited = 429 === $status
+                    || (403 === $status && ('0' === ($headers['x-ratelimit-remaining'][0] ?? null) || null !== $retryAfter));
+
+                throw new GitHubUserApiFailed('http_status', $status, $rateLimited, $rateLimited ? $this->retryAfter($headers) : null);
             }
 
             return $response->toArray();
