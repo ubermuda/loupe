@@ -311,7 +311,7 @@ test('column settings preserves edits and navigation', async ({
         .getByRole('link', { name: 'Board settings', exact: true })
         .click();
     const settingsUrl = `/projects/${board.projectId}/settings/columns`;
-    await expect(page).toHaveURL(settingsUrl);
+    await expect(page).toHaveURL(settingsUrl, ROUND_TRIP);
     const settings = page.locator('[data-board-column-settings]');
     await expect(settings).toBeVisible();
     await page

@@ -167,10 +167,20 @@ type heartbeatHarness struct {
 
 func startHeartbeater(t *testing.T, client *fakeHeartbeats, interval time.Duration, setup ...func(*heartbeater)) *heartbeatHarness {
 	t.Helper()
+	hh := startHeartbeaterWith(t, client, interval, setup...)
+	hh.client = client
+
+	return hh
+}
+
+// startHeartbeaterWith starts a heartbeater on any sender. The harness then
+// has no client.
+func startHeartbeaterWith(t *testing.T, client heartbeatSender, interval time.Duration, setup ...func(*heartbeater)) *heartbeatHarness {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	log := &syncBuffer{}
 	sender := outbound.New(ctx, newBridgeLogger(log))
-	hh := &heartbeatHarness{client: client, queue: &countingQueue{inner: sender}, timers: &fakeTimers{}, log: log, cancel: cancel}
+	hh := &heartbeatHarness{queue: &countingQueue{inner: sender}, timers: &fakeTimers{}, log: log, cancel: cancel}
 	body := api.Heartbeat{Projects: []string{testProject}, CLIVersion: "b4e39aa7"}
 	hh.h = newHeartbeater(ctx, hh.queue, client, testBridgeID, body, interval, newBridgeLogger(log))
 	hh.h.after = hh.timers.after
@@ -369,7 +379,7 @@ func TestTheHeartbeatCarriesThePauseAndTheCapabilities(t *testing.T) {
 	defer client.mu.Unlock()
 	var got []bool
 	for i, hb := range client.sent {
-		if hb.Paused == nil || !slices.Equal(hb.Capabilities, []string{"commands", "rerun-command"}) {
+		if hb.Paused == nil || !slices.Equal(hb.Capabilities, []string{"commands", "rerun-command", "session-usage"}) {
 			t.Fatalf("heartbeat %d = %+v", i, hb)
 		}
 		got = append(got, *hb.Paused)

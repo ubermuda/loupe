@@ -153,6 +153,26 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The run of the project with this key, from any bridge, locked until the
+     * transaction ends. A key that two bridges share names no run.
+     */
+    public function findOneOfProjectByRunKey(Project $project, Uuid $runKey): ?WorkerRun
+    {
+        /** @var list<WorkerRun> $runs */
+        $runs = $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.runKey = :runKey')
+            ->setParameter('project', $project)
+            ->setParameter('runKey', $runKey, UuidType::NAME)
+            ->setMaxResults(2)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getResult();
+
+        return 1 === \count($runs) ? $runs[0] : null;
+    }
+
+    /**
      * The runs one bridge of the owner still holds as far as the server knows:
      * open or timed-out, with a run key, locked until the transaction ends. The
      * owner filter is a subquery, so the lock covers the runs and not the
@@ -223,6 +243,27 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setMaxResults($limit)
             ->getQuery()
             ->getSingleColumnResult();
+
+        return array_map(static fn (Uuid|string $id): Uuid => $id instanceof Uuid ? $id : Uuid::fromString($id), $ids);
+    }
+
+    /**
+     * The ids of the runs after the id given, in id order. Null starts at the first run.
+     *
+     * @return list<Uuid>
+     */
+    public function findIdsAfter(?Uuid $after, int $limit): array
+    {
+        $query = $this->createQueryBuilder('r')
+            ->select('r.id')
+            ->orderBy('r.id', 'ASC')
+            ->setMaxResults($limit);
+        if (null !== $after) {
+            $query->andWhere('r.id > :after')->setParameter('after', $after, UuidType::NAME);
+        }
+
+        /** @var list<Uuid|string> $ids */
+        $ids = $query->getQuery()->getSingleColumnResult();
 
         return array_map(static fn (Uuid|string $id): Uuid => $id instanceof Uuid ? $id : Uuid::fromString($id), $ids);
     }
@@ -348,6 +389,17 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->andWhere('r.state = :running')
             ->setParameter('runId', $runId, UuidType::NAME)
             ->setParameter('running', WorkerRunState::Running->value))
+            ->getOneOrNullResult();
+    }
+
+    /** Locked until the transaction ends. */
+    public function findInteractiveOfSessionForUpdate(Project $project, Uuid $runId, Uuid $sessionId): ?WorkerRun
+    {
+        return self::forUpdate($this->interactive($project)
+            ->andWhere('r.id = :runId')
+            ->andWhere('r.sessionId = :sessionId')
+            ->setParameter('runId', $runId, UuidType::NAME)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME))
             ->getOneOrNullResult();
     }
 
@@ -936,7 +988,8 @@ class WorkerRunRepository extends ServiceEntityRepository
 
     /**
      * How many closed worker runs of a card started and reported no usage, and
-     * whether any run of the card reported usage. An interactive run never reports it.
+     * whether any run of the card reported usage. An interactive run with no usage
+     * never counts as partial, because its bridge reports the usage only on request.
      *
      * @return array{partial: int, reported: bool}
      */
@@ -969,50 +1022,6 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
-     * Per card, the closed worker runs that started and reported no usage, by
-     * the same rule as {@see findUsageStateOfCard()}. A card with none has no key.
-     *
-     * @param list<Uuid> $cardIds
-     *
-     * @return array<string, int> card id => partial runs
-     */
-    public function countPartialRunsByCard(Project $project, array $cardIds, ?string $rule): array
-    {
-        if ([] === $cardIds) {
-            return [];
-        }
-
-        $sql = <<<'SQL'
-            SELECT subject_id, COUNT(*) AS partial
-            FROM bridge_worker_runs
-            WHERE project_id = :project AND subject_type = 'card' AND subject_id IN (:cards)
-                AND started_at IS NOT NULL AND usage_source IS NULL AND kind = :worker AND state NOT IN (:unfinished)
-            SQL;
-        $parameters = [
-            'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
-            'cards' => array_map(static fn (Uuid $id): string => (string) $id, $cardIds),
-            'worker' => WorkerRunKind::Worker->value,
-            'unfinished' => [
-                ...array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()),
-                WorkerRunState::NotStarted->value,
-            ],
-        ];
-        if (null !== $rule) {
-            $sql .= ' AND work_kind = :rule';
-            $parameters['rule'] = $rule;
-        }
-
-        /** @var array<string, int|string> $counts */
-        $counts = $this->getEntityManager()->getConnection()->executeQuery(
-            $sql.' GROUP BY subject_id',
-            $parameters,
-            ['cards' => ArrayParameterType::STRING, 'unfinished' => ArrayParameterType::STRING],
-        )->fetchAllKeyValue();
-
-        return array_map(intval(...), $counts);
-    }
-
-    /**
      * Deletes every run the server received before the given moment, and answers
      * how many rows went.
      *
@@ -1028,5 +1037,33 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setParameter('cutoff', $cutoff, Types::DATETIME_IMMUTABLE)
             ->getQuery()
             ->execute();
+    }
+
+    /**
+     * The ended runs of one bridge, in projects of its owner, whose window
+     * overlaps $from to $to.
+     *
+     * @return list<Uuid>
+     */
+    public function findEndedIdsOnBridgeBetween(Uuid $ownerId, Uuid $bridgeId, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            <<<'SQL'
+                SELECT r.id
+                FROM bridge_worker_runs r
+                JOIN projects p ON p.id = r.project_id
+                WHERE r.bridge_id = :bridge AND p.owner_id = :owner
+                    AND r.started_at <= :to AND r.ended_at >= :from
+                SQL,
+            [
+                'bridge' => $bridgeId->toRfc4122(),
+                'owner' => $ownerId->toRfc4122(),
+                'from' => $from->setTimezone(new \DateTimeZone('UTC')),
+                'to' => $to->setTimezone(new \DateTimeZone('UTC')),
+            ],
+            ['from' => Types::DATETIME_IMMUTABLE, 'to' => Types::DATETIME_IMMUTABLE],
+        );
+
+        return array_map(static fn (mixed $id): Uuid => Uuid::fromString((string) $id), $ids);
     }
 }

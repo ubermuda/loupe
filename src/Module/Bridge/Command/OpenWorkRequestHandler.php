@@ -33,6 +33,8 @@ final readonly class OpenWorkRequestHandler
     public const string INVALID_KIND = 'bridge.work_request.error.invalid_kind';
     public const string INVALID_CAPABILITY = 'bridge.work_request.error.invalid_capability';
     public const string INVALID_RULE = 'bridge.work_request.error.invalid_rule';
+    public const string INVALID_MODEL = 'bridge.work_request.error.invalid_model';
+    public const string INVALID_EFFORT = 'bridge.work_request.error.invalid_effort';
     public const string INVALID_CARD_NUMBER = 'bridge.work_request.error.invalid_card_number';
     public const string UNKNOWN_SUBJECT_TYPE = 'bridge.work_request.error.unknown_subject_type';
     public const string LIVE = 'bridge.work_request.error.live';
@@ -64,6 +66,12 @@ final readonly class OpenWorkRequestHandler
         if (1 !== preg_match(WorkRequest::RULE_ID_PATTERN, $command->ruleId)) {
             $errors['ruleId'] = self::INVALID_RULE;
         }
+        if (null !== $command->model && 1 !== preg_match(WorkRequest::MODEL_PATTERN, $command->model)) {
+            $errors['model'] = self::INVALID_MODEL;
+        }
+        if (null !== $command->effort && !\in_array($command->effort, WorkRequest::EFFORTS, true)) {
+            $errors['effort'] = self::INVALID_EFFORT;
+        }
         if (!$this->subjects->has($command->subject->type)) {
             $errors['subjectType'] = self::UNKNOWN_SUBJECT_TYPE;
         }
@@ -93,6 +101,8 @@ final readonly class OpenWorkRequestHandler
                 );
                 $request->resumeSessionId = $this->sessionToResume($command);
                 $request->context = $command->context;
+                $request->model = $command->model;
+                $request->effort = $command->effort;
                 $request->prompt = $command->prompt;
                 $this->em->persist($request);
                 // The payload names the request, so the row needs its id first.
@@ -125,6 +135,8 @@ final readonly class OpenWorkRequestHandler
                 'kind' => $request->kind,
                 'capability' => $request->capability,
                 'ruleId' => $request->ruleId,
+                'model' => $request->model,
+                'effort' => $request->effort,
             ],
             new AuditSubject('work_request', (string) $request->id),
         );

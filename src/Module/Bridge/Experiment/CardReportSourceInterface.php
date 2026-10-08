@@ -30,6 +30,16 @@ interface CardReportSourceInterface
      */
     public function outcomesFor(Project $project, array $cardIds): array;
 
+    /**
+     * The types of the project's cards with these ids. A card that is gone,
+     * or that belongs to another project, has no key.
+     *
+     * @param list<Uuid> $cardIds
+     *
+     * @return array<string, string> card id => card type value
+     */
+    public function typesFor(Project $project, array $cardIds): array;
+
     /** When the project's card history starts. Null when it holds no row. */
     public function historyStartFor(Project $project): ?\DateTimeImmutable;
 }
