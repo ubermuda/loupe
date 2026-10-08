@@ -386,7 +386,7 @@ the next reload moves the lock to the new file. That reload fails when another
 bridge already holds the lock of the new file, or when the symlink moves again
 before the bridge applies the file.
 
-The flags stay fixed for the life of the process. To change
+The command-line flags stay fixed for the life of the process. To change
 `--permission-mode`, `--model` or `--log-file`, restart the bridge. A change to
 `maxWorkers` or `workerPools` in the rule file needs only
 [`loupe bridge reload`](#loupe-bridge-reload). The bridge
@@ -1044,8 +1044,8 @@ next interval, but no sooner than 10 seconds after the last heartbeat.
 The interval comes from `bridge.heartbeat_interval_seconds` in the `flags` map,
 60 seconds by default. The bridge falls back to 60 seconds when the map has no
 such key, or when its value is not a whole number of at least 10. It reads the map
-again at each reconnect. A new interval takes effect at once, and the bridge
-logs `heartbeat_interval_changed`.
+again at each reconnect and at each `loupe bridge reload`. A new interval takes
+effect at once, and the bridge logs `heartbeat_interval_changed`.
 
 Run reports and heartbeats go through one outbound queue, in
 `internal/outbound`. Each kind in the queue has its own delivery policy, and the
@@ -1271,7 +1271,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `heartbeat_sent` | `bridge_id`, `interval_seconds`, `failed_before`: the first heartbeat that lands, and the one that ends a run of failures or of 404 answers |
 | `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
-| `heartbeat_interval_changed` | `interval_seconds`: a reconnect brought a new interval |
+| `heartbeat_interval_changed` | `interval_seconds`: a reconnect or a reload brought a new interval |
 | `bridge_paused` | `source`: `server` when a heartbeat reply paused the bridge, `cache` when the bridge started paused |
 | `bridge_unpaused` | `source`: a heartbeat reply ended the pause |
 | `pause_cache_failed` | `path`, `error`: the bridge could not write `pause.json`, and applies the pause anyway. Level `WARN` |
@@ -1391,7 +1391,8 @@ hash comes from that path as given. The bridge first moves its lock when the
 rule path now resolves to another file. It then parses the file, runs the
 [start checks](#start-checks) against the server, and confirms that
 `GET /api/events` lists each mapped project. It applies the file only when every
-step passes.
+step passes. It then applies the server flags of that `GET /api/events` answer,
+as a reconnect does.
 
 On success, the command writes to stdout and exits with status 0:
 
@@ -1413,7 +1414,7 @@ On failure, the command writes one line to stderr for each problem, as
 `<stage>: <problem>`, and exits with status 1. The stage is `lock`, `parse`,
 `hooks`, `check` or `server`. The last line is
 `error: the bridge did not apply the rule file`. A failed reload changes
-nothing, and the bridge keeps its old file and its lock.
+nothing, and the bridge keeps its old file, its lock and its flags.
 
 When no bridge reads the file, the command writes
 `error: no running bridge reads <path>` and exits with status 1. The command
@@ -1660,7 +1661,8 @@ reused one would make the hub reject each retry once it lapsed. The bridge also
 compares each fresh project list with the rule file, and logs `project_gone` for
 a mapped project that is no longer listed. It reads the `flags` map of each
 fresh answer too, so a flag change reaches a worker that starts after the next
-reconnect, and a new heartbeat interval takes effect at that reconnect.
+reconnect, and a new heartbeat interval takes effect at that reconnect. A
+[`loupe bridge reload`](#loupe-bridge-reload) applies a flag change too.
 
 A binary built before `GET /api/events` existed calls
 `GET /api/projects/{id}/stream`, which the server no longer has. Rebuild the CLI

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -335,6 +336,79 @@ func TestAReloadSendsTheNewHeartbeatBody(t *testing.T) {
 
 		return len(client.sent) == 2 && slices.Equal(client.sent[1].Projects, []string{testProject, otherProject})
 	})
+}
+
+// withFlags makes src answer with the projects of reloadEvents and flags.
+func withFlags(src reloadSource, flags map[string]any) reloadSource {
+	events := reloadEvents
+	events.Flags = flags
+	src.events = func(context.Context) (api.Events, error) { return events, nil }
+
+	return src
+}
+
+func TestAReloadAppliesTheHostSamplingFlag(t *testing.T) {
+	sh := startSamplerHarness(t, defaultRules)
+	h := &harness{router: sh.r, dir: t.TempDir()}
+
+	res := h.router.reload(context.Background(), withFlags(h.source(defaultRules), samplingFlags(true, 30).Flags))
+
+	if !res.OK {
+		t.Fatalf("reload = %+v", res)
+	}
+	if sh.running() == nil {
+		t.Fatal("the sampler does not run after a reload turned the flag on")
+	}
+}
+
+func TestAReloadAppliesTheHeartbeatInterval(t *testing.T) {
+	h := newHarness(t)
+	hh := startHeartbeater(t, &fakeHeartbeats{}, time.Minute)
+	h.router.heartbeat = hh.h
+
+	res := h.router.reload(context.Background(), withFlags(h.source(defaultRules), map[string]any{api.HeartbeatIntervalFlag: float64(15)}))
+
+	if !res.OK {
+		t.Fatalf("reload = %+v", res)
+	}
+	hh.h.mu.Lock()
+	defer hh.h.mu.Unlock()
+	if hh.h.interval != 15*time.Second {
+		t.Fatalf("interval = %s", hh.h.interval)
+	}
+}
+
+func TestAWorkerTheReloadStartsReadsTheNewFlags(t *testing.T) {
+	h := busy(t, twoRuleFile)
+	h.router.onData([]byte(cardMoved(88)))
+
+	res := h.router.reload(context.Background(), withFlags(h.source(withMaxWorkers(twoRuleFile, 2)), map[string]any{api.InboxFlag: true}))
+
+	if !res.OK {
+		t.Fatalf("reload = %+v", res)
+	}
+	spec := <-h.worker.started
+	if !strings.Contains(spec.prompt, "Pass both to inbox_ask.") {
+		t.Fatalf("prompt = %q, want the inbox line", spec.prompt)
+	}
+}
+
+func TestAFailedEventsReadKeepsTheFlags(t *testing.T) {
+	h := newHarness(t)
+	h.router.applyFlags(api.Events{Flags: map[string]any{api.InboxFlag: true, api.HostSamplingFlag: true}})
+	src := h.source(defaultRules)
+	src.events = func(context.Context) (api.Events, error) { return api.Events{}, errors.New("server down") }
+
+	res := h.router.reload(context.Background(), src)
+
+	if res.OK || res.Stage != "server" {
+		t.Fatalf("result = %+v", res)
+	}
+	h.router.mu.Lock()
+	defer h.router.mu.Unlock()
+	if !h.router.inbox || !h.router.hostSampling {
+		t.Fatal("a failed events read changed the flags")
+	}
 }
 
 // stale is an offer of the kind for the card, matched on old before a
