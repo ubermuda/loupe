@@ -14,9 +14,9 @@ use Mcp\Exception\ToolCallException;
 /**
  * Reads the tool calls of one worker run, a page at a time.
  *
- * @phpstan-type ToolCallRow array{seq: int, tool: string, startedAt: string, durationMs: ?int, isError: ?bool, inSubagent: bool, backgroundId: ?string, waitsOn: ?string, signatures: list<string>, fullText: ?string}
+ * @phpstan-type ToolCallRow array{seq: int, tool: string, kind: ?string, startedAt: string, durationMs: ?int, isError: ?bool, inSubagent: bool, backgroundId: ?string, waitsOn: ?string, signatures: list<string>, fullText: ?string}
  */
-#[McpTool(name: self::NAME, description: 'List the tool calls of one worker run, in the order the worker made them. The bridge reads the calls from the stream of the worker and sends them when the run ends, so an open run, or a run of an older bridge, can have none. Each call has seq (its place in the run, from 1), tool (such as Bash, Read or Agent), startedAt (with milliseconds), durationMs, isError, inSubagent (true when a subagent made the call), backgroundId (the id of the background task the call started), waitsOn (the background id of an earlier call that this call reads), signatures (the program and its subcommand for each shell command, such as git status, or the tool name for any other tool) and fullText. durationMs and isError are null when the stream holds no result of the call. fullText is null unless the project collects the full text of the calls. The response is paginated: pass page to walk further, and keep going while hasMore is true. perPage defaults to 20, with a maximum of 100. worker_run_get gives the timing metrics of the run.')]
+#[McpTool(name: self::NAME, description: 'List the tool calls of one worker run, in the order the worker made them. The bridge reads the calls from the stream of the worker and sends them when the run ends, so an open run, or a run of an older bridge, can have none. Each call has seq (its place in the run, from 1), tool (such as Bash, Read or Agent), kind (shell for a shell command, subagent for a call that starts a sub-agent, tool for any other call, or null from an older bridge), startedAt (with milliseconds), durationMs, isError, inSubagent (true when a subagent made the call), backgroundId (the id of the background task the call started), waitsOn (the background id of an earlier call that this call reads), signatures (the program and its subcommand for each shell command, such as git status, or the tool name for any other tool) and fullText. durationMs and isError are null when the stream holds no result of the call. fullText is null unless the project collects the full text of the calls. The response is paginated: pass page to walk further, and keep going while hasMore is true. perPage defaults to 20, with a maximum of 100. worker_run_get gives the timing metrics of the run.')]
 final readonly class WorkerRunToolCallsTool
 {
     public const string NAME = 'worker_run_tool_calls';
@@ -44,6 +44,7 @@ final readonly class WorkerRunToolCallsTool
                 'calls' => array_map(static fn (WorkerRunToolCall $call): array => [
                     'seq' => $call->seq,
                     'tool' => $call->tool,
+                    'kind' => $call->kind?->value,
                     'startedAt' => $call->startedAt->format(\DateTimeInterface::RFC3339_EXTENDED),
                     'durationMs' => $call->durationMs,
                     'isError' => $call->isError,

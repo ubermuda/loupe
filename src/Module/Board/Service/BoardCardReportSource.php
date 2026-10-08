@@ -92,7 +92,7 @@ final readonly class BoardCardReportSource implements CardReportSourceInterface
 
         $types = [];
         foreach ($this->cards->findTypesByIds($project, $cardIds) as $row) {
-            $types[(string) $row['id']] = $row['type']->value;
+            $types[(string) $row['id']] = $row['type'];
         }
 
         return $types;

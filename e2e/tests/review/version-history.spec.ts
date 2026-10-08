@@ -222,7 +222,10 @@ test('the History tab compares two distant versions', async ({
     await reviseDialog
         .getByRole('button', { name: 'Save new version', exact: true })
         .click();
-    await expect(page.locator('.lp-review-doc__version')).toHaveText('v5');
+    // The save redirects to the review page, whose render can pass 5s on a loaded runner.
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v5', {
+        timeout: 20000,
+    });
     // A visit rather than a click, which the save re-render can swallow.
     await page.goto(`${seeded.reviewUrl}/history`);
     await expect(page.locator('.lp-history__row')).toHaveCount(5);

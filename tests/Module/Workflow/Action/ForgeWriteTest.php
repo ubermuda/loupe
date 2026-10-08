@@ -8,7 +8,6 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -32,6 +31,7 @@ use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
+use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -283,7 +283,7 @@ final class ForgeWriteTest extends KernelTestCase
     public function test_an_epic_opening_on_a_card_that_is_not_an_epic_does_nothing(): void
     {
         [$epic] = $this->epicWithMergedChild($this->project(openEpicPullRequests: true));
-        $epic->type = CardType::Feature;
+        $epic->type = 'feature';
 
         self::assertEquals(ActionOutcome::done(), $this->write($epic, 'open-epic', fallback: null));
         self::assertSame([], $this->writer->calls);
@@ -374,7 +374,7 @@ final class ForgeWriteTest extends KernelTestCase
     private function epic(Project $project): Card
     {
         $epic = $this->card($project, 'in-review');
-        $epic->type = CardType::Epic;
+        $epic->type = 'epic';
         $epic->title = 'Epic';
         $this->em()->flush();
 
@@ -436,6 +436,7 @@ final class ForgeWriteTest extends KernelTestCase
             $this->opener(),
             $this->service(UpdateCardHandler::class),
             $this->service(UrlGeneratorInterface::class),
+            new ShippedCardTypes(),
             'squash',
         );
 

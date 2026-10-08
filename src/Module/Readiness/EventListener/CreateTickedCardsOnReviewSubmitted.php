@@ -11,6 +11,8 @@ use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSource;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryProposalRepository;
@@ -116,6 +118,7 @@ final readonly class CreateTickedCardsOnReviewSubmitted
                     column: $next,
                     reporter: CardReporter::Agent,
                     actor: CardReporter::System,
+                    source: new CardSource(CardSourceKind::Loupe),
                 ));
             } catch (DomainErrors $e) {
                 $this->logger->warning('readiness.proposal_card_refused', ['discoveryRunId' => (string) $run->id, 'proposalId' => (string) $proposal->id, 'errors' => $e->errors]);

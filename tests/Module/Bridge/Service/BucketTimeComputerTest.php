@@ -10,6 +10,7 @@ use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
 use App\Module\Bridge\Service\BucketRule;
 use App\Module\Bridge\Service\BucketRuleSourceInterface;
 use App\Module\Bridge\Service\BucketTimeComputer;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -181,6 +182,7 @@ final class BucketTimeComputerTest extends KernelTestCase
         $this->toolCalls()->insertNew($run, array_map(static fn (array $call, int $seq): WorkerRunToolCallReport => new WorkerRunToolCallReport(
             $seq + 1,
             'Bash',
+            WorkerRunToolCallKind::Shell,
             $call['startedAt'],
             $call['durationMs'],
             false,

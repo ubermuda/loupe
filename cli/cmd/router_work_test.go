@@ -20,6 +20,11 @@ import (
 // workRules claims two kinds of work: implement runs a worker, and check runs
 // a command.
 const workRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -664,6 +669,11 @@ func TestAHandoverKeepsTheWorkClaims(t *testing.T) {
 // interactiveWorkRules opens a session for each design request, and runs a
 // worker with a variant for each split request.
 const interactiveWorkRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -738,6 +748,23 @@ func TestAWorkEntryWithVariantsPinsItsVariant(t *testing.T) {
 	wantExperiment(t, rec.states(), runPin{Experiment: "split", Variant: "b", RequestedModel: "sonnet"})
 }
 
+// A variant that names an account and no model runs with the model of that
+// account, and its pin names that model.
+func TestAVariantWithAnAccountRunsWithTheModelOfTheAccount(t *testing.T) {
+	body := strings.Replace(interactiveWorkRules, "defaults:", "  other:\n    harness: claude-code\n    model: haiku\ndefaults:", 1)
+	body = strings.Replace(body, "{name: b, weight: 3, model: sonnet}", "{name: b, weight: 3, account: other}", 1)
+	h, rec := launchHarnessWith(t, body, `[sh, -c, 'exit 0', sh, '{script}']`)
+	f := h.withWork()
+	h.pins(func(context.Context, string) (string, string, error) { return "b", "", nil })
+
+	h.offer(f, workRequest(1, 87, "split", api.WorkRequestOpen))
+
+	if got := h.worker.recorded(); len(got) != 1 || got[0].model != "haiku" {
+		t.Fatalf("workers = %+v", got)
+	}
+	wantExperiment(t, rec.states(), runPin{Experiment: "split", Variant: "b", RequestedModel: "haiku"})
+}
+
 // analysisID is the id of the analysis that the subject tests run on.
 const analysisID = "0199d000-0000-7000-8000-000000000001"
 
@@ -753,7 +780,7 @@ func analysisRequest(n int, kind string) api.WorkRequest {
 // Work about a subject that is no card claims, runs and settles, and each of
 // its run states names the subject and no card.
 func TestAWorkOfferAboutAnotherSubjectReportsItsRun(t *testing.T) {
-	h := newHarnessWith(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectType} {subjectId}.\n", rules.Defaults{})
+	h := newHarnessWith(t, "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectType} {subjectId}.\n", rules.Defaults{})
 	rec := h.states()
 	f := h.withWork()
 	h.worker.result = workerResult{hasResult: true, status: "finished"}

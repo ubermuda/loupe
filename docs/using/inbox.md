@@ -91,12 +91,12 @@ avatar, on the project inbox and on the account inbox.
 The dot turns amber when no heartbeat arrived in the last three heartbeat
 intervals. With the default interval of 60 seconds, that is three minutes. It
 also turns amber when no heartbeat from the bridge ever reached Loupe. A
-running bridge keeps its interval until it reconnects, so the warning never
-waits less than three default intervals, even after you lower the flag. While
-the bridge stays quiet, no resume will come. The page cannot tell why the
-bridge is quiet. The machine may be asleep, the bridge may have stopped, or
-the network may be down. The warning reads only the heartbeat, and it does not
-check whether the bridge still follows this project.
+running bridge keeps its interval until it reconnects or you run
+`loupe bridge reload`, so the warning never waits less than three default
+intervals, even after you lower the flag. While the bridge stays quiet, no resume will come. The page cannot
+tell why the bridge is quiet. The machine may be asleep, the bridge may have
+stopped, or the network may be down. The warning reads only the heartbeat, and
+it does not check whether the bridge still follows this project.
 
 An ask from an interactive session names no bridge, and its dot stays grey. A
 closed ask shows no dot. The `bridge.heartbeat_interval_seconds` flag sets the
@@ -210,6 +210,30 @@ A notice states a fact of the project. It does not block an agent and takes no
 answer, and it holds no card. Loupe opened a notice while a bridge rule raced
 the sync of the project. Bridge rules are gone, so Loupe closed each such
 notice as **obsolete**, and opens no new one.
+
+### Workflow questions
+
+A workflow question comes from a rule of the board workflow, not from an agent.
+Loupe opens it when a rule needs a decision about a card. Today the
+`unplanned-child` rule of the Lifecycle template asks it. See
+[Asking about an unplanned child](workflows.md#asking-about-an-unplanned-child).
+
+The item has the kind **Workflow question**. It always blocks, links the card,
+and names **Loupe** as the sender. It has two or more options. You pick one
+option and send it. It takes no free text.
+
+The answer is final. You cannot change it, you cannot close the item without
+an answer, and an agent cannot withdraw it. Loupe runs the option you picked
+after you answer. The ask that holds the item closes with your answer.
+
+An open workflow question closes as **withdrawn**, with no answer, in these
+cases:
+
+- The rule stops holding. For example, the card links an approved tech design.
+- Someone puts a hold on the card.
+- Someone deletes the card.
+
+With the inbox off, the rule opens no question. The card pauses instead.
 
 ### Pull request waits
 

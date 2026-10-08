@@ -29,6 +29,9 @@ final readonly class WorkerRunListQuery
         public ?Uuid $bridgeId = null,
         /** Every open run, whatever its state. It shares the `outcome` word with $state, so at most one of them is set. */
         public bool $open = false,
+        public ?string $harness = null,
+        public ?string $account = null,
+        public ?string $model = null,
         /**
          * The filters below reach the list through the MCP tools alone, so the
          * page URL never carries them.
@@ -50,6 +53,9 @@ final readonly class WorkerRunListQuery
         $search = trim($query->getString('search'));
         $bridgeId = trim($query->getString('bridge'));
         $outcome = $query->getString('outcome');
+        $harness = trim($query->getString('harness'));
+        $account = trim($query->getString('account'));
+        $model = trim($query->getString('model'));
 
         return new self(
             page: max(1, $query->getInt('page', 1)),
@@ -60,6 +66,9 @@ final readonly class WorkerRunListQuery
             state: WorkerRunState::tryFrom($outcome),
             bridgeId: Uuid::isValid($bridgeId) ? Uuid::fromString($bridgeId) : null,
             open: self::OPEN === $outcome,
+            harness: '' === $harness ? null : $harness,
+            account: '' === $account ? null : $account,
+            model: '' === $model ? null : $model,
         );
     }
 
@@ -77,11 +86,12 @@ final readonly class WorkerRunListQuery
     public function isNarrowed(): bool
     {
         return null !== $this->search || null !== $this->state || $this->open || null !== $this->bridgeId
+            || null !== $this->harness || null !== $this->account || null !== $this->model
             || [] !== $this->states || null !== $this->cardNumber || null !== $this->workKind
             || null !== $this->endedAfter || null !== $this->endedBefore;
     }
 
-    /** @return array{page: int, search?: string, outcome?: string, bridge?: string} */
+    /** @return array{page: int, search?: string, outcome?: string, bridge?: string, harness?: string, account?: string, model?: string} */
     public function routeParams(): array
     {
         $params = ['page' => $this->page];
@@ -100,6 +110,18 @@ final readonly class WorkerRunListQuery
 
         if (null !== $this->bridgeId) {
             $params['bridge'] = (string) $this->bridgeId;
+        }
+
+        if (null !== $this->harness) {
+            $params['harness'] = $this->harness;
+        }
+
+        if (null !== $this->account) {
+            $params['account'] = $this->account;
+        }
+
+        if (null !== $this->model) {
+            $params['model'] = $this->model;
         }
 
         return $params;

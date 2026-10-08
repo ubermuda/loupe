@@ -22,6 +22,7 @@ use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Tests\Module\Board\Controller\BoardScenario;
+use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
 use Random\Engine;
 use Random\Randomizer;
@@ -150,6 +151,7 @@ final class BoardExtensionTest extends KernelTestCase
             $container->get(BoardColumnRepository::class),
             new BoardColumnTonePicker($firstFree),
             new CardDigest(),
+            new ShippedCardTypes(),
         );
 
         // Neutral is the Backlog's tone and the first case, so it comes first when the Backlog is left out.

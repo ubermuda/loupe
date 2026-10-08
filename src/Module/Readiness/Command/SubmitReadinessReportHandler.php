@@ -7,18 +7,19 @@ namespace App\Module\Readiness\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Readiness\Entity\DiscoveryProposal;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
+use App\Module\Readiness\Service\ProposalTypes;
 use App\Module\Readiness\Service\ReadinessReportWriter;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\Document;
-use App\Module\Workflow\Contract\CardEvaluations;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -48,18 +49,16 @@ final readonly class SubmitReadinessReportHandler
 
     public const string TAG = 'readiness-report';
 
-    /** @var list<CardType> */
-    public const array PROPOSAL_TYPES = [CardType::Feature, CardType::Bug, CardType::Security, CardType::Tooling, CardType::Docs, CardType::Idea];
-
     public function __construct(
         private DiscoveryRunRepository $discoveryRuns,
         private CardRepository $cards,
+        private ProposalTypes $proposalTypes,
         private CreateDocumentHandler $createDocument,
         private ReadinessReportWriter $writer,
-        private CardEvaluations $evaluations,
         private EntityManagerInterface $em,
         private TranslatorInterface $translator,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -138,10 +137,8 @@ final readonly class SubmitReadinessReportHandler
             ],
             new AuditSubject('discovery_run', (string) $run->id),
         );
-        // The rule reads the run state, so the engine evaluates the card again now that the run reported.
-        if ($this->evaluations->isOn()) {
-            $this->evaluations->forCards([$cardId]);
-        }
+        // Also the signal that the run reported: the rule reads the run state, so the engine evaluates the card again.
+        $this->events->dispatch(new CardDocumentsChanged($project->id ?? throw new \LogicException('A stored project has an id.'), $cardId));
 
         return $document;
     }
@@ -149,7 +146,7 @@ final readonly class SubmitReadinessReportHandler
     /**
      * Refuses a report the app cannot store or show, before anything is written.
      *
-     * @return list<CardType> the type of each proposal, in order
+     * @return list<string> the type key of each proposal, in order
      */
     private function validate(SubmitReadinessReportCommand $command): array
     {
@@ -162,6 +159,7 @@ final readonly class SubmitReadinessReportHandler
             array_push($texts, $finding->check, $finding->evidence);
         }
 
+        $accepted = $this->proposalTypes->acceptedFor($command->project);
         $types = [];
         $keys = [];
         $titles = [];
@@ -171,8 +169,8 @@ final readonly class SubmitReadinessReportHandler
             if ('' === $key || mb_strlen($key) > DiscoveryProposal::MAX_KEY_LENGTH || '' === $title || mb_strlen($title) > Card::MAX_TITLE_LENGTH) {
                 throw new DomainErrors(['proposals' => self::PROPOSAL_INVALID]);
             }
-            $type = CardType::tryFrom($proposal->type);
-            if (null === $type || !\in_array($type, self::PROPOSAL_TYPES, true)) {
+            $type = $proposal->type;
+            if (!\in_array($type, $accepted, true)) {
                 throw new DomainErrors(['proposals' => self::PROPOSAL_TYPE]);
             }
             if (isset($keys[$key]) || isset($titles[mb_strtolower(ReadinessReportWriter::pickLabel($title))])) {

@@ -11,12 +11,13 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Module\Review\Entity\Document;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 final class CardDocumentLinkTest extends KernelTestCase
 {
@@ -25,6 +26,9 @@ final class CardDocumentLinkTest extends KernelTestCase
     private EntityManagerInterface $em;
     private CreateCardHandler $createCard;
     private UpdateCardHandler $updateCard;
+
+    /** @var list<string> the card ids of the CardDocumentsChanged events, in order */
+    private array $changedCards = [];
 
     protected function setUp(): void
     {
@@ -38,6 +42,36 @@ final class CardDocumentLinkTest extends KernelTestCase
         $update = self::getContainer()->get(UpdateCardHandler::class);
         self::assertInstanceOf(UpdateCardHandler::class, $update);
         $this->updateCard = $update;
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(CardDocumentsChanged::class, function (CardDocumentsChanged $event): void {
+            $this->changedCards[] = $event->cardId->toRfc4122();
+        });
+    }
+
+    public function test_creating_a_card_with_documents_reports_the_change_and_one_without_does_not(): void
+    {
+        [$project, $doc] = $this->projectWithDocument('link-event-create');
+
+        $bare = ($this->createCard)($this->newCard($project, []));
+        self::assertSame([], $this->changedCards);
+
+        $linked = ($this->createCard)($this->newCard($project, [(string) $doc->id]));
+        self::assertSame([$linked->id?->toRfc4122()], $this->changedCards);
+        self::assertNotSame($bare->id, $linked->id);
+    }
+
+    public function test_replacing_the_documents_reports_the_change_and_an_omitted_list_does_not(): void
+    {
+        [$project, $doc] = $this->projectWithDocument('link-event-update');
+        $card = ($this->createCard)($this->newCard($project, []));
+        $this->changedCards = [];
+
+        ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Agent, title: 'Renamed'));
+        self::assertSame([], $this->changedCards);
+
+        ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Agent, documentIds: [(string) $doc->id]));
+        self::assertSame([$card->id?->toRfc4122()], $this->changedCards);
     }
 
     public function test_a_card_links_the_documents_its_work_is_written_up_in(): void
@@ -173,7 +207,7 @@ final class CardDocumentLinkTest extends KernelTestCase
             project: $project,
             title: 'Write the design up',
             body: 'body',
-            type: CardType::Feature,
+            type: 'feature',
             documentIds: $documentIds,
         );
     }

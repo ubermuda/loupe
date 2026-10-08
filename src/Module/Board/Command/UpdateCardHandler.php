@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -24,6 +25,7 @@ use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -56,6 +58,7 @@ final readonly class UpdateCardHandler
         private CardLinkSync $cardLinkSync,
         private CardParentResolver $parents,
         private CardParentPolicy $parentPolicy,
+        private CardTypeCatalog $catalog,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -147,7 +150,7 @@ final readonly class UpdateCardHandler
                 $oldParent = $card->parent;
                 $parent = null === $command->parentCardId ? $oldParent : $newParent;
                 $parentChanged = $parent?->id?->toRfc4122() !== $oldParent?->id?->toRfc4122();
-                $refusal = $this->parentPolicy->refusal($card, $command->type ?? $card->type, $parent, $parentChanged);
+                $refusal = $this->parentPolicy->refusal($card->project, $card, $command->type ?? $card->type, $parent, $parentChanged);
                 if (null !== $refusal) {
                     return $refusal;
                 }
@@ -166,7 +169,8 @@ final readonly class UpdateCardHandler
                 return new CardManaged($card->number);
             }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
-            $lanesBefore = $card->drawsLane();
+            $types = $this->catalog->forProject($card->project);
+            $lanesBefore = $card->drawsLane($types);
 
             // Only a card with children can be refused, and only an epic has
             // children. The app itself closes an epic by the same path.
@@ -240,7 +244,7 @@ final readonly class UpdateCardHandler
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
-            $lanesAfter = $card->drawsLane();
+            $lanesAfter = $card->drawsLane($types);
 
             if (null !== $trackedBefore) {
                 $this->pullRequestTracking->apply($card->project, $trackedBefore, $this->pullRequestTracking->referencesOf($card));
@@ -258,6 +262,12 @@ final readonly class UpdateCardHandler
             if (null !== $move) {
                 $cause = $command->cause ?? (null === $openedRun ? null : CardEventCause::run($openedRun->id ?? throw new \LogicException('A persisted run has an id.'), $openedRun->workKind));
                 $this->events->dispatch(new CardMoved($card, $move, $command->actor, $cause));
+            }
+            if (null !== $documents) {
+                $this->events->dispatch(new CardDocumentsChanged(
+                    $card->project->id ?? throw new \LogicException('Project has no id.'),
+                    $card->id ?? throw new \LogicException('Card has no id.'),
+                ));
             }
             if ($parentChanged) {
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));

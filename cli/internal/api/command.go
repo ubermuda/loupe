@@ -70,6 +70,11 @@ type Command struct {
 	// so a resume runs as the first run did. A null decodes as "".
 	Model  string `json:"model,omitempty"`
 	Effort string `json:"effort,omitempty"`
+	// Harness, Account and RunModel name what the run started on, so a
+	// resume runs there. An older server or bridge sends none.
+	Harness  string `json:"harness,omitempty"`
+	Account  string `json:"account,omitempty"`
+	RunModel string `json:"runModel,omitempty"`
 }
 
 // CommandSubject names the command itself.

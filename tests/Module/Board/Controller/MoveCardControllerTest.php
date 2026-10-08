@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
@@ -238,7 +237,7 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-epic-open@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'The epic', 'in-progress'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic', 'in-progress'), 'epic');
         $first = $this->card($em, $project, 'First child');
         $second = $this->card($em, $project, 'Second child', 'next');
         $first->parent = $epic;
@@ -267,8 +266,8 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-parent-set@example.com');
         $project = $this->project($em, $owner);
-        $from = $this->typed($em, $this->card($em, $project, 'From epic', 'in-progress'), CardType::Epic);
-        $to = $this->typed($em, $this->card($em, $project, 'To epic', 'in-progress', 1), CardType::Epic);
+        $from = $this->typed($em, $this->card($em, $project, 'From epic', 'in-progress'), 'epic');
+        $to = $this->typed($em, $this->card($em, $project, 'To epic', 'in-progress', 1), 'epic');
         $child = $this->childOf($em, $from, $this->card($em, $project, 'Child'));
         $childId = $child->id;
         $toId = $to->id;
@@ -292,7 +291,7 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-parent-clear@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child'));
         $childId = $child->id;
         $em->clear();
@@ -314,7 +313,7 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-parent-keep@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child'));
         $childId = $child->id;
         $epicId = $epic->id;
@@ -338,8 +337,8 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-parent-refused@example.com');
         $project = $this->project($em, $owner);
-        $lane = $this->typed($em, $this->card($em, $project, 'Lane epic', 'in-progress'), CardType::Epic);
-        $epic = $this->typed($em, $this->card($em, $project, 'Dropped epic'), CardType::Epic);
+        $lane = $this->typed($em, $this->card($em, $project, 'Lane epic', 'in-progress'), 'epic');
+        $epic = $this->typed($em, $this->card($em, $project, 'Dropped epic'), 'epic');
         $epicId = $epic->id;
         $em->clear();
 

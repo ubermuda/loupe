@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Service;
 
+use App\Mercure\LiveUpdatePublisher;
+use App\Mercure\LiveUpdates;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
@@ -20,16 +22,25 @@ use App\Tests\Support\DispatchedEvents;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
+use Symfony\Component\Mercure\MockHub;
+use Symfony\Component\Mercure\Update;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\Service\ResetInterface;
+use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class InteractiveRunsTest extends KernelTestCase
 {
     use BridgeScenario;
 
     private const string NOW = '2026-09-23 12:00:00';
+
+    /** @var list<Update> */
+    private array $runsChanged = [];
 
     public function test_open_starts_a_running_interactive_run_with_one_state(): void
     {
@@ -119,6 +130,31 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertEquals($failed->id, $late->id);
         self::assertSame(2, $this->runCount($project));
         self::assertSame(WorkerRunState::Closed, $this->reload($again)->state);
+    }
+
+    /** An open Runs page shows the harness fields, so a retry that fills one must reload it. */
+    public function test_a_launch_retry_that_names_the_harness_tells_the_runs_page(): void
+    {
+        $project = $this->scenario('interactive-launch-harness-publish', recordRunsChanged: true);
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $failedSession = Uuid::v4();
+        $bridgeId = Uuid::v4();
+        $at = new \DateTimeImmutable(self::NOW);
+
+        $this->runs()->recordLaunch($project, $cardId, 3, $sessionId, 'design', $bridgeId, harness: 'codex');
+        self::assertCount(1, $this->publishedRunsChanged());
+        $this->runs()->recordLaunchFailure($project, $cardId, 3, $failedSession, 'design', $bridgeId, 'exited 1', $at, harness: 'codex');
+        self::assertCount(1, $this->publishedRunsChanged());
+
+        $this->runs()->recordLaunch($project, $cardId, 3, $sessionId, 'design', $bridgeId, harness: 'codex');
+        $this->runs()->recordLaunchFailure($project, $cardId, 3, $failedSession, 'design', $bridgeId, 'exited 1', $at, harness: 'codex');
+        self::assertCount(0, $this->publishedRunsChanged());
+
+        $this->runs()->recordLaunch($project, $cardId, 3, $sessionId, 'design', $bridgeId, harnessSessionId: 'thread-1');
+        self::assertCount(1, $this->publishedRunsChanged());
+        $this->runs()->recordLaunchFailure($project, $cardId, 3, $failedSession, 'design', $bridgeId, 'exited 1', $at, model: 'gpt-5');
+        self::assertCount(1, $this->publishedRunsChanged());
     }
 
     public function test_a_launch_failure_records_a_run_that_never_started(): void
@@ -477,11 +513,49 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertSame($expected, $actual);
     }
 
-    private function scenario(string $name): Project
+    private function recordRunsChanged(): void
+    {
+        self::getContainer()->set('mercure.hub.default', new MockHub(
+            'http://mercure/.well-known/mercure',
+            new StaticTokenProvider('token'),
+            function (Update $update): string {
+                if (str_contains($update->getData(), WorkerRunChangedPublisher::TYPE)) {
+                    $this->runsChanged[] = $update;
+                }
+
+                return 'id';
+            },
+        ));
+
+        $flags = self::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[LiveUpdates::FLAG]->value = true;
+        $this->em()->flush();
+        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
+        self::assertInstanceOf(ResetInterface::class, $reader);
+        $reader->reset();
+    }
+
+    /** @return list<Update> */
+    private function publishedRunsChanged(): array
+    {
+        $live = self::getContainer()->get(LiveUpdatePublisher::class);
+        self::assertInstanceOf(LiveUpdatePublisher::class, $live);
+        $live->publish();
+        $published = $this->runsChanged;
+        $this->runsChanged = [];
+
+        return $published;
+    }
+
+    private function scenario(string $name, bool $recordRunsChanged = false): Project
     {
         self::bootKernel();
         self::getContainer()->set('clock', new MockClock(self::NOW));
         $this->asyncTransport()->reset();
+        if ($recordRunsChanged) {
+            $this->recordRunsChanged();
+        }
         $em = $this->em();
 
         return $this->project($em, $this->user($em, $name.'@example.com'), 'Project '.substr(md5($name), 0, 8));

@@ -10,8 +10,10 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
@@ -22,6 +24,7 @@ use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
+use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -44,6 +47,7 @@ final readonly class CreateCardHandler
         private CardLinkSync $cardLinkSync,
         private CardParentResolver $parents,
         private CardParentPolicy $parentPolicy,
+        private CardTypeCatalog $catalog,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -97,7 +101,7 @@ final readonly class CreateCardHandler
             if ($this->cardLinkSync->anyCardGone($relatedCards)) {
                 return UpdateCardHandler::LINKED_CARD_GONE;
             }
-            $refusal = $this->parentPolicy->refusal(null, $command->type, $parent, true);
+            $refusal = $this->parentPolicy->refusal($command->project, null, $command->type, $parent, true);
             if (null !== $refusal) {
                 return $refusal;
             }
@@ -116,6 +120,7 @@ final readonly class CreateCardHandler
                 // Read once, here: the card then carries its own language, so
                 // changing the project's leaves the cards already written alone.
                 searchLanguage: $command->project->searchLanguage,
+                source: $command->source ?? CardSource::fromReporter($command->reporter),
             );
             $card->parent = $parent;
             if (null !== $command->laneEnabled) {
@@ -135,6 +140,7 @@ final readonly class CreateCardHandler
             $actor = $command->actor ?? $command->reporter;
             $this->cardEvents->record($card, CardEventKind::Created, $actor, $this->eventActor->userFor($actor), [
                 'column' => CardEvent::columnDetail($column),
+                'type' => $card->type,
             ], $card->createdAt);
             $this->cardLinkSync->sync($card, $relatedCards);
             $this->em->flush();
@@ -145,6 +151,12 @@ final readonly class CreateCardHandler
             $this->searchIndexer->index($card);
             $this->pullRequestTracking->apply($command->project, [], $this->pullRequestTracking->referencesOf($card));
 
+            if ([] !== $documents) {
+                $this->events->dispatch(new CardDocumentsChanged(
+                    $command->project->id ?? throw new \LogicException('Project has no id.'),
+                    $card->id ?? throw new \LogicException('Card has no id.'),
+                ));
+            }
             if (null !== $parent) {
                 $this->events->dispatch(new CardParentChanged($card, null, $parent, $command->reporter));
             }
@@ -170,10 +182,11 @@ final readonly class CreateCardHandler
                 'cardId' => (string) $card->id,
                 'cardNumber' => $card->number,
                 'projectId' => (string) $command->project->id,
-                'type' => $card->type->value,
+                'type' => $card->type,
                 'status' => $card->column->slug,
                 'columnId' => (string) $card->column->id,
                 'reporter' => $card->reporter->value,
+                'source' => $card->source->kind->value,
                 'pullRequestCount' => \count($card->pullRequests),
                 'documentCount' => \count($card->documents),
                 'relatedCardCount' => \count($relatedCards),
@@ -187,7 +200,7 @@ final readonly class CreateCardHandler
             CardChanged::CREATED,
             true,
         ));
-        if ($card->drawsLane()) {
+        if ($card->drawsLane($this->catalog->forProject($command->project))) {
             $this->events->dispatch(new BoardColumnsChanged($command->project));
         }
 

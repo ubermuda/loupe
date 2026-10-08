@@ -17,10 +17,11 @@ const maxFullText = 20000
 
 // ToolCall is one tool call of a worker run, as PUT
 // /api/projects/{handle}/worker-runs/{runId}/tool-calls takes it. Every key
-// goes out, and a nil pointer goes out as null.
+// goes out, and a nil pointer or an empty Kind goes out as null.
 type ToolCall struct {
 	Seq          int
 	Tool         string
+	Kind         string
 	StartedAt    time.Time
 	DurationMs   *int64
 	IsError      *bool
@@ -53,10 +54,15 @@ func (c ToolCall) MarshalJSON() ([]byte, error) {
 	if signatures == nil {
 		signatures = []string{}
 	}
+	var kind *string
+	if c.Kind != "" {
+		kind = &c.Kind
+	}
 
 	return json.Marshal(struct {
 		Seq          int      `json:"seq"`
 		Tool         string   `json:"tool"`
+		Kind         *string  `json:"kind"`
 		StartedAt    string   `json:"startedAt"`
 		DurationMs   *int64   `json:"durationMs"`
 		IsError      *bool    `json:"isError"`
@@ -66,7 +72,7 @@ func (c ToolCall) MarshalJSON() ([]byte, error) {
 		Signatures   []string `json:"signatures"`
 		FullText     *string  `json:"fullText"`
 	}{
-		c.Seq, c.Tool, c.StartedAt.UTC().Format("2006-01-02T15:04:05.000Z"), c.DurationMs, c.IsError,
+		c.Seq, c.Tool, kind, c.StartedAt.UTC().Format("2006-01-02T15:04:05.000Z"), c.DurationMs, c.IsError,
 		c.InSubagent, c.BackgroundID, c.WaitsOn, signatures, c.FullText,
 	})
 }

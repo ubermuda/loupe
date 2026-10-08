@@ -165,6 +165,11 @@ func TestABadClaimAnswerSettlesRefused(t *testing.T) {
 
 // beforeWorkRules prepares the checkout of each implement request first.
 const beforeWorkRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -234,6 +239,11 @@ func TestAReloadDropsAQueuedOfferSilently(t *testing.T) {
 	h.offer(f, workRequest(1, 87, "implement", api.WorkRequestOpen))
 
 	res := h.reload(t, `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}

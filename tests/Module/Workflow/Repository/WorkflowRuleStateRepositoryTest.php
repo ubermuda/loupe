@@ -39,6 +39,35 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         self::assertSame((string) $card->id, (string) $states['start-design']->card->id);
     }
 
+    public function test_find_one_by_ask_item_id_gives_the_state_that_holds_the_item(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('rule-state-ask'));
+        $itemId = Uuid::v7();
+        $this->state($card, 'other');
+        $this->state($card, 'ask', askItemId: $itemId);
+        $this->em()->clear();
+
+        self::assertSame('ask', $this->repository()->findOneByAskItemId($itemId)?->ruleId);
+        self::assertNull($this->repository()->findOneByAskItemId(Uuid::v7()));
+    }
+
+    public function test_reset_for_cards_clears_the_ask_item_id_of_those_cards_only(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('rule-state-reset-ask');
+        $card = $this->card($project);
+        $other = $this->card($project);
+        $this->state($card, 'ask', askItemId: Uuid::v7());
+        $this->state($other, 'ask', askItemId: Uuid::v7());
+
+        $this->repository()->resetForCards([$card->id ?? throw new \LogicException('A flushed card has an id.')], new \DateTimeImmutable());
+        $this->em()->clear();
+
+        self::assertNull($this->em()->getConnection()->fetchOne('SELECT ask_item_id FROM workflow_rule_states WHERE card_id = ?', [(string) $card->id]));
+        self::assertNotNull($this->em()->getConnection()->fetchOne('SELECT ask_item_id FROM workflow_rule_states WHERE card_id = ?', [(string) $other->id]));
+    }
+
     /** The test transaction holds the lock, so a second session cannot take it. */
     public function test_lock_card_holds_an_advisory_lock_on_the_card_until_the_transaction_ends(): void
     {
@@ -149,10 +178,11 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         return $card;
     }
 
-    private function state(Card $card, string $ruleId, ?\DateTimeImmutable $dueAt = null): void
+    private function state(Card $card, string $ruleId, ?\DateTimeImmutable $dueAt = null, ?Uuid $askItemId = null): void
     {
         $state = new WorkflowRuleState($card, $card->project, $ruleId);
         $state->dueAt = $dueAt;
+        $state->askItemId = $askItemId;
         $this->em()->persist($state);
         $this->em()->flush();
     }

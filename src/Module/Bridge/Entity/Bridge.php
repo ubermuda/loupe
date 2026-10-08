@@ -24,6 +24,7 @@ use Symfony\Component\Uid\Uuid;
  *
  * @phpstan-type HookRow array{package: string, ref: string, event: string, lastRunAt: ?string, outcome: string, error: ?string}
  * @phpstan-type WorkerPoolRow array{name: string, size: int, inUse: int, queued: int}
+ * @phpstan-type AccountRow array{name: string, harness: string, state: 'ready'|'failing', reason: ?string, used?: bool}
  */
 #[ORM\Entity(repositoryClass: BridgeRepository::class)]
 #[ORM\Table(name: 'bridges')]
@@ -58,6 +59,12 @@ class Bridge
     /** The capability of a bridge that runs an interactive session. */
     public const string CAPABILITY_INTERACTIVE = 'interactive';
 
+    /** Reported by a bridge that runs the prompts the app ships, for a request that carries one. */
+    public const string CAPABILITY_APP_PROMPTS = 'app-prompts';
+
+    /** The prefix of the capability a request names for a subject that is no card. */
+    public const string SUBJECT_CAPABILITY_PREFIX = 'subject-';
+
     /** Null when the last heartbeat carried no update report. */
     #[ORM\Column(name: 'update_state', length: 20, nullable: true, enumType: CliUpdateState::class)]
     public ?CliUpdateState $updateState = null;
@@ -90,6 +97,18 @@ class Bridge
     /** The server clock at the heartbeat that carried the worker pool rows. */
     #[ORM\Column(name: 'worker_pools_reported_at', nullable: true)]
     public ?\DateTimeImmutable $workerPoolsReportedAt = null;
+
+    /**
+     * The accounts the bridge checked, as its last heartbeat reported them. Null until a bridge sends a report.
+     *
+     * @var list<AccountRow>|null
+     */
+    #[ORM\Column(name: 'accounts', type: Types::JSON, nullable: true)]
+    public ?array $accounts = null;
+
+    /** The server clock at the heartbeat that carried the account rows. */
+    #[ORM\Column(name: 'accounts_reported_at', nullable: true)]
+    public ?\DateTimeImmutable $accountsReportedAt = null;
 
     /** Whether a person asked the bridge to start no new work. It stays until a person clears it. */
     #[ORM\Column(name: 'pause_requested', options: ['default' => false])]
@@ -179,10 +198,20 @@ class Bridge
         return \in_array(self::CAPABILITY_WORK_REQUESTS, $this->capabilities ?? [], true);
     }
 
-    /** Whether the bridge can claim a work request that needs the capability. */
-    public function canRun(?string $capability): bool
+    /** Whether the bridge can claim the request: by its capability, or by app prompts for a subject request that carries a prompt. */
+    public function canRun(WorkRequest $request): bool
     {
-        return $this->takesWorkRequests() && (null === $capability || \in_array($capability, $this->capabilities ?? [], true));
+        if (!$this->takesWorkRequests()) {
+            return false;
+        }
+        $capability = $request->capability;
+        $reported = $this->capabilities ?? [];
+
+        return null === $capability
+            || \in_array($capability, $reported, true)
+            || (null !== $request->prompt
+                && str_starts_with($capability, self::SUBJECT_CAPABILITY_PREFIX)
+                && \in_array(self::CAPABILITY_APP_PROMPTS, $reported, true));
     }
 
     public function nameClashes(): bool

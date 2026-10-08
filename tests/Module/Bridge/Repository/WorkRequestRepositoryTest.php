@@ -137,6 +137,21 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         self::assertSame([], $this->repository()->findOpenOffers([], ['interactive'], 10));
     }
 
+    public function test_app_prompts_receive_the_subject_requests_that_carry_a_prompt(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'offers-prompts@example.com'), 'Offers Prompts');
+        $at = static fn (string $time): \DateTimeImmutable => new \DateTimeImmutable('2026-10-01 '.$time);
+        $withPrompt = $this->seedWorkRequest($em, $project, kind: 'analysis', capability: 'subject-analysis', createdAt: $at('12:00:00'), prompt: 'Run it.');
+        $this->seedWorkRequest($em, $project, kind: 'analysis', capability: 'subject-analysis', createdAt: $at('12:01:00'));
+        $this->seedWorkRequest($em, $project, capability: 'interactive', createdAt: $at('12:02:00'), prompt: 'Run it.');
+        $projects = [(string) $project->id];
+
+        self::assertSame([$withPrompt], $this->repository()->findOpenOffers($projects, ['work-requests', 'app-prompts'], 10));
+        self::assertSame([], $this->repository()->findOpenOffers($projects, ['work-requests'], 10));
+    }
+
     public function test_the_sweep_reopens_the_claims_whose_lease_lapsed(): void
     {
         self::bootKernel();
