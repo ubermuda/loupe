@@ -13,12 +13,11 @@ use Mcp\Exception\ToolCallException;
 
 /**
  * Submit a revised Markdown document. Unresolved comments are carried forward by fuzzy re-anchoring;
- * comments whose quoted text no longer appears are flagged orphaned. A section approval survives only
- * while its heading and its text both read as before. Returns both summaries.
+ * comments whose quoted text no longer appears are flagged orphaned. Returns the carried and orphaned counts.
  *
  * @phpstan-import-type RevisionSummary from ReviseDocumentHandler
  */
-#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Approved sections whose heading and text are unchanged carry forward; the rest are dropped. Pass title to correct the document title at the same time, and references to replace the documents this one points at. Pass series with seriesOrdinal to move the document to a place in an ordered set, or an empty series to take it out of one.')]
+#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Pass title to correct the document title at the same time, and references to replace the documents this one points at. Pass series with seriesOrdinal to move the document to a place in an ordered set, or an empty series to take it out of one.')]
 final readonly class DocumentReviseTool
 {
     public function __construct(

@@ -90,10 +90,6 @@ final readonly class DocumentOwnershipAccountPurger implements AccountDataPurger
             'DELETE FROM decision_answers WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
             ['id' => $id],
         );
-        $conn->executeStatement(
-            'DELETE FROM section_approvals WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
-            ['id' => $id],
-        );
         $conn->executeStatement('DELETE FROM documents WHERE owner_id = :id', ['id' => $id]);
     }
 }

@@ -1195,7 +1195,7 @@
             </trans-unit>
             <trans-unit id="review.revise.help">
                 <source>review.revise.help</source>
-                <target>Saving creates a new version. Unchanged sections keep their approval.</target>
+                <target>Saving creates a new version.</target>
             </trans-unit>
             <trans-unit id="review.revise.cancel">
                 <source>review.revise.cancel</source>
@@ -1323,7 +1323,6 @@
                 <source>review.document.byline_updated</source>
                 <target>updated %updated%</target>
             </trans-unit>
-            <trans-unit id="review.document.sections.progress"><source>review.document.sections.progress</source><target>%approved%/%total% sections approved</target></trans-unit>
             <trans-unit id="review.document.margin.label"><source>review.document.margin.label</source><target>Document context</target></trans-unit>
             <trans-unit id="review.document.margin.filter"><source>review.document.margin.filter</source><target>Filter comments</target></trans-unit>
             <trans-unit id="review.document.margin.comments"><source>review.document.margin.comments</source><target>Comments</target></trans-unit>
@@ -1389,7 +1388,7 @@
             </trans-unit>
             <trans-unit id="review.document.finish.context">
                 <source>review.document.finish.context</source>
-                <target>v%version% · %approved%/%total% sections approved · %open% open threads</target>
+                <target>v%version% · %open% open threads</target>
             </trans-unit>
             <trans-unit id="review.document.finish.cancel">
                 <source>review.document.finish.cancel</source>
@@ -1805,10 +1804,6 @@
                 <source>review.document.comment.error.stale_version</source>
                 <target>A newer version exists. Copy your draft, reload the document, and select the passage again before submitting.</target>
             </trans-unit>
-            <trans-unit id="review.document.sections.count_compact">
-                <source>review.document.sections.count_compact</source>
-                <target>%approved%/%total%</target>
-            </trans-unit>
             <trans-unit id="review.document.menu.label">
                 <source>review.document.menu.label</source>
                 <target>Review actions</target>
@@ -1824,42 +1819,6 @@
             <trans-unit id="review.document.menu.back">
                 <source>review.document.menu.back</source>
                 <target>Back</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.approved">
-                <source>review.document.sections.approved</source>
-                <target>Approved</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.pending">
-                <source>review.document.sections.pending</source>
-                <target>Not approved</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.approve_label">
-                <source>review.document.sections.approve_label</source>
-                <target>Approve section %section%</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.withdraw_label">
-                <source>review.document.sections.withdraw_label</source>
-                <target>Withdraw approval of section %section%</target>
-            </trans-unit>
-            <trans-unit id="review.section.flash.approved">
-                <source>review.section.flash.approved</source>
-                <target>Section approved.</target>
-            </trans-unit>
-            <trans-unit id="review.section.flash.withdrawn">
-                <source>review.section.flash.withdrawn</source>
-                <target>Section approval withdrawn.</target>
-            </trans-unit>
-            <trans-unit id="review.section.error.save_failed">
-                <source>review.section.error.save_failed</source>
-                <target>Couldn’t save that section approval. Please try again.</target>
-            </trans-unit>
-            <trans-unit id="review.section.error.unknown">
-                <source>review.section.error.unknown</source>
-                <target>That section is no longer part of this document.</target>
-            </trans-unit>
-            <trans-unit id="review.section.error.stale_version">
-                <source>review.section.error.stale_version</source>
-                <target>This document changed while you were reading it. Reload the page and approve again.</target>
             </trans-unit>
             <trans-unit id="comment.error.not_owner">
                 <source>comment.error.not_owner</source>
