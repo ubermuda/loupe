@@ -2,7 +2,7 @@ import { expect } from '@playwright/test';
 import { agentAccessToken, createTest, suppressWidget } from '../fixtures';
 
 const test = createTest({
-    email: `e2e-run-history-${Date.now()}@example.com`,
+    email: `e2e-run-history-${crypto.randomUUID()}@example.com`,
     password: 'e2e_password_123',
 });
 
