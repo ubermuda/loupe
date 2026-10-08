@@ -70,7 +70,6 @@ final class ButtonComponentTest extends KernelTestCase
     {
         $entries = new Catalog()->entries();
 
-        self::assertCount(1, $entries);
         self::assertSame('lp-btn', $entries[0]->rootClass);
         self::assertTrue($entries[0]->enforced);
         self::assertFileExists(self::getContainer()->getParameter('kernel.project_dir').'/templates/'.$entries[0]->template);

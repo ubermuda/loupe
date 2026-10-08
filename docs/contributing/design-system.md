@@ -42,6 +42,11 @@ A building block is a Twig component under `templates/components/Ds/`. Its CSS l
 | Component | Use | Variants |
 |---|---|---|
 | Button | Any action or link that looks like a button | primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open, on-card. Sizes sm and lg |
+| Flash | A message after an action, with a dismiss button | success, error, warning, info |
+| EmptyState | A panel that says a list or page has nothing yet | none. Takes an icon, a title, a body and one link |
+| Badge | The status of a document in a list | in-review, draft, approved, changes-requested |
+| Tag | A short label, such as a card type or a column | neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink, orange |
+| StatusChip | A state with a coloured dot and an optional reason tooltip | pending, addressed, resolved, ok, failed, neutral |
 
 Write a button like this:
 
@@ -56,7 +61,19 @@ The component passes every other attribute to the element and appends your `clas
 {{ form_widget(form.save, {attr: {class: ds_button_class('primary')}}) }}
 ```
 
-`just gamache` blocks a template that writes `lp-btn` by hand.
+Write the feedback parts like this:
+
+```twig
+<twig:Ds:Flash severity="error" :dismissLabel="'flash.dismiss'|trans">{{ message }}</twig:Ds:Flash>
+<twig:Ds:EmptyState icon="lucide:inbox" :title="'x.empty'|trans" :body="'x.empty.body'|trans" />
+<twig:Ds:Badge :status="document.status.value">{{ label }}</twig:Ds:Badge>
+<twig:Ds:Tag tone="amber">{{ label }}</twig:Ds:Tag>
+<twig:Ds:StatusChip modifier="ok" :label="'x.state'|trans" :reason="reason" />
+```
+
+A Tag takes `as="li"` inside a list. A StatusChip takes `:dot="false"` for no dot, and `as="button"` for a chip that toggles a panel.
+
+`just gamache` blocks a template that writes `lp-btn`, `lp-flash`, `lp-empty-state`, `lp-badge`, `lp-tag` or `lp-status-chip` by hand.
 
 ## The rules
 

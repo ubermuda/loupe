@@ -37,12 +37,7 @@
         {% endfor %}
     </twig:DataTable>
     {% else %}
-    <div class="lp-empty-state" data-experiments-empty>
-        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'bridge.experiments.empty.title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'bridge.experiments.empty.description'|trans }}</p>
-        <a class="lp-empty-state__link" href="{{ app_docs_url }}/extending/cli-bridge/#experiments" target="_blank" rel="noopener noreferrer">{{ 'bridge.experiments.empty.docs'|trans }}</a>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:chart-column" :title="'bridge.experiments.empty.title'|trans" :body="'bridge.experiments.empty.description'|trans" linkHref="{{ app_docs_url }}/extending/cli-bridge/#experiments" :linkLabel="'bridge.experiments.empty.docs'|trans" data-experiments-empty />
     {% endif %}
 </div>
 {% endblock %}

@@ -77,10 +77,7 @@
     {% endif %}
 
     {% if inbox.isEmpty %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'inbox.page.empty'|trans }}</h2>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:inbox" iconClass="text-accent w-12 h-12" :title="'inbox.page.empty'|trans" />
     {% else %}
         {# One queue at a time, as a list of requests beside the selected request. #}
         {% set entries = [] %}
@@ -123,15 +120,9 @@
             <twig:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="pageParams" />
         {% endif %}
         {% elseif inbox.isSearch %}
-        <div class="lp-empty-state" data-inbox-search-empty>
-            <twig:ux:icon name="lucide:search" class="lp-empty-state__icon text-accent w-12 h-12" />
-            <h2 class="lp-empty-state__title">{{ 'inbox.search.empty'|trans }}</h2>
-        </div>
+        <twig:Ds:EmptyState icon="lucide:search" iconClass="text-accent w-12 h-12" :title="'inbox.search.empty'|trans" data-inbox-search-empty />
         {% else %}
-        <div class="lp-empty-state" data-inbox-queue-empty="{{ section }}">
-            <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
-            <h2 class="lp-empty-state__title">{{ (completed ? 'inbox.page.completed_empty' : 'inbox.page.open_empty')|trans }}</h2>
-        </div>
+        <twig:Ds:EmptyState icon="lucide:inbox" iconClass="text-accent w-12 h-12" :title="(completed ? 'inbox.page.completed_empty' : 'inbox.page.open_empty')|trans" data-inbox-queue-empty="{{ section }}" />
         {% endif %}
     {% endif %}
 </div>

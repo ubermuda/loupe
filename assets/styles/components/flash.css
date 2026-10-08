@@ -1,0 +1,32 @@
+/* The flash message. `templates/components/Ds/Flash.html.twig` renders it. */
+@layer components {
+    /* Sits at the top of the paper panel and scrolls away with the content —
+       deliberately not sticky, so it never covers the document. */
+    .lp-flash {
+        @apply flex items-center gap-2.5 mt-3.5 mx-6 px-3.5 py-2.5 rounded-lg bg-sunken text-sm font-medium text-ink;
+        animation: lp-appear 120ms ease-out both;
+    }
+    .lp-flash__dot {
+        @apply w-2 h-2 shrink-0 rounded-full bg-accent;
+    }
+    .lp-flash__message {
+        @apply mr-auto;
+    }
+    .lp-flash__dismiss {
+        @apply shrink-0 text-xs text-fg-mute cursor-pointer transition-colors;
+    }
+    .lp-flash__dismiss:hover {
+        @apply text-ink;
+    }
+    /* Severity is carried by the dot alone: the row itself stays the neutral
+       raised fill so a success and an error read as the same kind of object. */
+    .lp-flash--error .lp-flash__dot {
+        @apply bg-status-danger;
+    }
+    .lp-flash--warning .lp-flash__dot {
+        @apply bg-status-pending;
+    }
+    .lp-flash--info .lp-flash__dot {
+        @apply bg-status-ok;
+    }
+}

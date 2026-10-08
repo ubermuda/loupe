@@ -44,7 +44,7 @@
                 <h3 class="lp-reports-analysis__title">
                     <code data-bucket-rule-pattern>{{ rule.pattern }}</code>
                     <span class="lp-reports-analysis__range">{{ 'insights.bucket_rules.goes_to'|trans }}</span>
-                    <span class="lp-tag lp-tag--sky" data-bucket-rule-bucket>{{ rule.bucket }}</span>
+                    <twig:Ds:Tag tone="sky" data-bucket-rule-bucket>{{ rule.bucket }}</twig:Ds:Tag>
                 </h3>
             </div>
             <div class="lp-reports-proposal__actions">
@@ -63,11 +63,7 @@
         {% endfor %}
     </ol>
     {% else %}
-    <div class="lp-empty-state" data-bucket-rules-empty>
-        <twig:ux:icon name="lucide:list-filter" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'insights.bucket_rules.empty.title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'insights.bucket_rules.empty.description'|trans({'%fallback%': constant('App\\Module\\Bridge\\Service\\BucketRule::FALLBACK')}) }}</p>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:list-filter" :title="'insights.bucket_rules.empty.title'|trans" :body="'insights.bucket_rules.empty.description'|trans({'%fallback%': constant('App\\Module\\Bridge\\Service\\BucketRule::FALLBACK')})" data-bucket-rules-empty />
     {% endif %}
 </div>
 {% endblock %}

@@ -170,7 +170,7 @@
                 {% if document.tags|length > 0 %}
                 <ul class="lp-document-row__tags" aria-label="{{ 'review.dashboard.tags.label'|trans }}">
                     {% for tag in document.tags %}
-                    <li class="lp-tag">{{ tag.name }}</li>
+                    <twig:Ds:Tag as="li">{{ tag.name }}</twig:Ds:Tag>
                     {% endfor %}
                 </ul>
                 {% endif %}
@@ -184,9 +184,9 @@
                 </div>
             </div>
             <div class="lp-document-row__status" role="cell">
-                <span class="lp-badge lp-badge--{{ document.status.value }}">
+                <twig:Ds:Badge :status="document.status.value">
                     {{ document.status.translationKey()|trans }}
-                </span>
+                </twig:Ds:Badge>
             </div>
             <span class="lp-document-row__author" role="cell">{{ document.owner.fullName }}</span>
             <span class="lp-document-row__linked-card" role="cell">
@@ -235,26 +235,21 @@
     {% elseif listQuery.isNarrowed %}
     {# "No documents yet" is wrong once a filter is on — the project may be full
        of documents that simply did not match. #}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-8 h-8" />
-        <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty_filtered.title'|trans }}</h2>
+    <twig:Ds:EmptyState icon="lucide:search-x" iconClass="w-8 h-8" :title="'review.dashboard.empty_filtered.title'|trans">
         <twig:Ds:Button href="{{ path('app_project_documents', {id: project.id}) }}">{{ 'review.dashboard.filter.clear_filters'|trans }}</twig:Ds:Button>
-    </div>
+    </twig:Ds:EmptyState>
     {% else %}
     {# A project holds no credential any more, so the page cannot tell a
        connected agent from an absent one. It offers the connect page either
        way, and names the skills, which only the connect page mentions. #}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:file-text" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty.title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'review.create.empty'|trans }}</p>
+    <twig:Ds:EmptyState icon="lucide:file-text" :title="'review.dashboard.empty.title'|trans" :body="'review.create.empty'|trans">
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.body'|trans }}</p>
         <twig:Ds:Button href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</twig:Ds:Button>
         <p class="lp-empty-state__body">
             {{ 'review.dashboard.empty.skills.hint'|trans }}
             <a class="lp-empty-state__link" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.skills.action'|trans }}</a>
         </p>
-    </div>
+    </twig:Ds:EmptyState>
     {% endif %}
 </div>
 {% endblock %}

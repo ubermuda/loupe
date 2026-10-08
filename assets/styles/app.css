@@ -3,6 +3,11 @@
 @import 'tailwindcss';
 @import './tokens.css';
 @import './components/button.css';
+@import './components/badge.css';
+@import './components/empty-state.css';
+@import './components/flash.css';
+@import './components/status-chip.css';
+@import './components/tag.css';
 @plugin "@tailwindcss/typography";
 
 /* Structural admin-* CSS shipped by the admin bundle, compiled in this app's
@@ -2772,25 +2777,6 @@
         @apply text-xs text-fg-dim;
     }
 
-    /* ── Badge ──────────────────────────────────────────────────────── */
-
-    /* Solid fills, no border. "In review" is deliberately the neutral one: it is
-       the resting state of every document, so colouring it would leave a list of
-       untouched documents looking like a list of alerts. */
-    .lp-badge {
-        @apply inline-flex items-center py-0.75 px-1.75 rounded-md text-xs leading-4 font-semibold whitespace-nowrap;
-    }
-    .lp-badge--in-review,
-    .lp-badge--draft {
-        @apply bg-surface-3 text-ink-soft;
-    }
-    .lp-badge--approved {
-        @apply bg-status-ok-border text-status-ok-ink;
-    }
-    .lp-badge--changes-requested {
-        @apply bg-status-danger-chip text-status-danger-deep;
-    }
-
     /* ── Comment signals ────────────────────────────────────────────────
        What a document's comment threads say about it. Sized like .lp-badge, so
        the two sit level beside each other on a list row and in the topbar. */
@@ -2855,48 +2841,6 @@
         @apply bg-tint border border-line rounded-lg px-3 py-2 text-xs font-mono text-fg-mute overflow-x-auto;
     }
 
-    /* ── Tag chip ───────────────────────────────────────────────────── */
-
-    .lp-tag {
-        @apply inline-flex items-center py-1 px-2.5 rounded-md text-xs font-semibold bg-surface-3 text-fg-mute;
-    }
-    /* Label tones for card types and board columns; LabelTone names each one. */
-    .lp-tag--neutral {
-        @apply bg-surface-3 text-fg-mute;
-    }
-    .lp-tag--lime {
-        @apply bg-accent-soft text-accent-ink;
-    }
-    .lp-tag--purple {
-        @apply bg-status-active-bg text-status-active;
-    }
-    .lp-tag--green {
-        @apply bg-status-ok-bg text-status-ok-deep;
-    }
-    .lp-tag--amber {
-        @apply bg-status-pending-bg text-status-pending-deep;
-    }
-    .lp-tag--red {
-        @apply bg-status-danger-bg text-status-danger-deep;
-    }
-    .lp-tag--teal {
-        @apply bg-tone-teal-bg text-tone-teal;
-    }
-    .lp-tag--sky {
-        @apply bg-tone-sky-bg text-tone-sky;
-    }
-    .lp-tag--blue {
-        @apply bg-tone-blue-bg text-tone-blue;
-    }
-    .lp-tag--indigo {
-        @apply bg-tone-indigo-bg text-tone-indigo;
-    }
-    .lp-tag--pink {
-        @apply bg-tone-pink-bg text-tone-pink;
-    }
-    .lp-tag--orange {
-        @apply bg-tone-orange-bg text-tone-orange;
-    }
     /* The column header's colour mark, in the same tone as its labels. */
     .lp-tone-dot {
         @apply inline-block size-2 shrink-0 rounded-full bg-fg-faint;
@@ -3311,38 +3255,6 @@
         @apply w-auto shrink-0 pl-2.5 text-fg-mute;
     }
 
-    /* ── Flash messages ─────────────────────────────────────────────── */
-
-    /* Sits at the top of the paper panel and scrolls away with the content —
-       deliberately not sticky, so it never covers the document. */
-    .lp-flash {
-        @apply flex items-center gap-2.5 mt-3.5 mx-6 px-3.5 py-2.5 rounded-lg bg-sunken text-sm font-medium text-ink;
-        animation: lp-appear 120ms ease-out both;
-    }
-    .lp-flash__dot {
-        @apply w-2 h-2 shrink-0 rounded-full bg-accent;
-    }
-    .lp-flash__message {
-        @apply mr-auto;
-    }
-    .lp-flash__dismiss {
-        @apply shrink-0 text-xs text-fg-mute cursor-pointer transition-colors;
-    }
-    .lp-flash__dismiss:hover {
-        @apply text-ink;
-    }
-    /* Severity is carried by the dot alone: the row itself stays the neutral
-       raised fill so a success and an error read as the same kind of object. */
-    .lp-flash--error .lp-flash__dot {
-        @apply bg-status-danger;
-    }
-    .lp-flash--warning .lp-flash__dot {
-        @apply bg-status-pending;
-    }
-    .lp-flash--info .lp-flash__dot {
-        @apply bg-status-ok;
-    }
-
     /* About page: a warm hero with the lead and the planner mascot, then one
        card per fact, so the AGPL offer reads as a statement of its own. */
     .lp-about-hero {
@@ -3418,26 +3330,6 @@
     .lp-empty {
         @apply text-fg-mute text-sm py-4;
     }
-    /* Full-panel empty state: an icon, a heading, a sentence explaining how the
-       thing gets created, and at most one action. */
-    .lp-empty-state {
-        @apply flex flex-col items-center text-center gap-3 rounded-xl bg-surface-2 py-16 px-8;
-    }
-    .lp-empty-state__icon {
-        @apply text-line-strong;
-    }
-    .lp-empty-state__title {
-        @apply font-display font-bold text-lg tracking-tight text-ink m-0;
-    }
-    .lp-empty-state__body {
-        @apply max-w-md text-sm text-fg-mute m-0 leading-relaxed;
-    }
-    /* Preflight strips a bare anchor's colour and underline, so a link inside the
-       body sentence would be indistinguishable from the text around it. */
-    .lp-empty-state__link {
-        @apply text-accent-ink underline underline-offset-2 hover:text-ink;
-    }
-
     /* ── Pagination (shared `<twig:Pagination>` component) ─────────────── */
 
     .lp-pagination {
@@ -4718,66 +4610,6 @@
        ring and the card has to say so itself. */
     .lp-comment-orphan-pill {
         @apply inline-flex self-start items-center rounded-full bg-status-pending-bg text-status-pending-deep uppercase text-xs font-bold py-1 px-2.5;
-    }
-
-    /* Status chip (thread header + ladder), pill with a colored dot. */
-    .lp-status-chip {
-        @apply inline-flex items-center gap-1.5 ml-auto rounded-md font-medium border text-xs py-0.5 px-2;
-    }
-    .lp-status-chip__dot {
-        @apply inline-block rounded-full shrink-0 w-1.5 h-1.5;
-    }
-    .lp-status-chip--pending {
-        @apply bg-status-pending-bg text-status-pending-deep border-status-pending-border;
-    }
-    .lp-status-chip--pending .lp-status-chip__dot {
-        @apply bg-status-pending;
-    }
-    .lp-status-chip--addressed {
-        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
-    }
-    .lp-status-chip--addressed .lp-status-chip__dot {
-        @apply bg-status-ok;
-    }
-    .lp-status-chip--resolved {
-        @apply bg-tint text-fg-dim border-line;
-    }
-    .lp-status-chip--resolved .lp-status-chip__dot {
-        @apply bg-fg-faint;
-    }
-    /* Green chip — site-review addressed/resolved comments (handoff §4 pins both
-       to the green trio, unlike the document-review grey "resolved"). */
-    .lp-status-chip--ok {
-        @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
-    }
-    .lp-status-chip--ok .lp-status-chip__dot {
-        @apply bg-status-ok;
-    }
-    /* Red chip — a worker run that ran and exited non-zero. */
-    .lp-status-chip--failed {
-        @apply bg-status-danger-bg text-status-danger-deep border-status-danger-border;
-    }
-    .lp-status-chip--failed .lp-status-chip__dot {
-        @apply bg-status-danger;
-    }
-    /* Grey chip for a state that is neither good nor bad, such as a hook that has not run. */
-    .lp-status-chip--neutral {
-        @apply bg-tint text-fg-dim border-line;
-    }
-    .lp-status-chip--neutral .lp-status-chip__dot {
-        @apply bg-fg-faint;
-    }
-    /* A chip that explains itself in a tooltip. It sits above a stretched row
-       target, or the target takes its hover. */
-    .lp-status-chip--reason {
-        @apply relative z-10 cursor-help outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
-    }
-    .lp-status-chip--reason:hover,
-    .lp-status-chip--reason:focus-visible {
-        @apply z-20;
-    }
-    .lp-status-chip__help {
-        @apply w-3 h-3 shrink-0;
     }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head

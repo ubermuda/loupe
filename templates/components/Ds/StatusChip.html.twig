@@ -1,0 +1,26 @@
+{#
+  Props:  @comment-budget-ignore
+    modifier   string   The lp-status-chip--{modifier} colour. Optional, the default chip without it.
+    label      string   Translated state name. Optional, the content is the label without it.
+    dot        bool     Draw the coloured dot. True by default.
+    as         string   The element, span by default. button for a chip that toggles.
+    reason     string   Why the state holds. Shown in a tooltip on hover and focus. Optional.
+    id         string   The tooltip id. Optional, generated when absent.
+  Any other attribute, class included, is passed to the element.
+#}
+{% props modifier = null, label = null, dot = true, as = 'span', reason = null, id = null %}
+{% set classes = 'lp-status-chip' ~ (modifier ? ' lp-status-chip--' ~ modifier : '') %}
+{% if reason %}
+    {% set tooltipId = id ?? ('status-chip-' ~ random()) %}
+    <{{ as }}{{ attributes.defaults({class: classes ~ ' lp-status-chip--reason', tabindex: '0', 'aria-describedby': tooltipId}) }}>
+        <span class="lp-status-chip__dot"></span>
+        {{ label }}
+        <twig:ux:icon name="lucide:circle-help" class="lp-status-chip__help" aria-hidden="true" />
+        <span class="lp-tooltip" role="tooltip" id="{{ tooltipId }}">{{ reason }}</span>
+    </{{ as }}>
+{% else %}
+    <{{ as }}{{ attributes.defaults({class: classes}) }}>
+        {% if dot %}<span class="lp-status-chip__dot"></span>{% endif %}
+        {{ label ?? block('content') }}
+    </{{ as }}>
+{% endif %}
