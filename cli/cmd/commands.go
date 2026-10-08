@@ -410,9 +410,8 @@ func runStartOf(c api.Command) runStart {
 	return runStart{Harness: c.Harness, Account: c.Account, Model: c.Model}
 }
 
-// settings gives r on the account the run started on, with the model it
-// started with. reason says why the run cannot resume there. With no account,
-// r stays as the rule gives it.
+// settings gives r on the account and the model the run started on, or says
+// why it cannot resume there. With no account, r stays as the rule gives it.
 func (o runStart) settings(set *rules.Set, r rules.RunSettings) (rules.RunSettings, string) {
 	if o.Account == "" {
 		return r, ""

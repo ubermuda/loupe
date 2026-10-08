@@ -175,16 +175,16 @@ type Account struct {
 }
 
 // RunSettings are what an agent run takes from its account, its entry and the
-// defaults. EnvFiles lists the global file before the account's. Permissions
-// is the level the entry names, and "" when it names none.
+// defaults. EnvFiles lists the global file before the account's.
 type RunSettings struct {
 	Account        string
 	Harness        string
 	ConfigDir      string
 	Model          string
 	PermissionMode string
-	Permissions    string
-	EnvFiles       []string
+	// Permissions is the level of the entry, and "" when it names none.
+	Permissions string
+	EnvFiles    []string
 }
 
 func (r RunSettings) clone() RunSettings {
