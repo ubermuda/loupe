@@ -169,12 +169,20 @@ Register it on GitHub under Settings, Developer settings, GitHub Apps.
 | Setting | Value |
 |---|---|
 | Callback URL | `https://<host>/github/app/callback` |
+| Second callback URL | `https://<host>/account/github/callback` |
+| Expire user authorization tokens | on |
 | Request user authorization (OAuth) during installation | off |
 | Setup URL | `https://<host>/github/app/setup` |
 | Redirect on update | off |
 | Webhook | active |
 | Webhook URL | `https://<host>/webhooks/forge/github` |
 | Webhook secret | the value of `GITHUB_APP_WEBHOOK_SECRET` |
+
+The second callback URL serves the GitHub account that a user connects on the
+*Connected apps* page. It uses the same client ID and client secret as the
+install. Loupe refuses to store a connection when the App does not expire user
+authorization tokens, because it needs the refresh token to keep the
+connection alive.
 
 Grant these repository permissions. Pull requests, Contents and Workflows are
 read and write. The others are read-only. Loupe needs write access to Pull

@@ -84,6 +84,29 @@ Loupe also removes access in these cases:
 The data export includes `connected_apps.json`. It lists each connected app and
 its access. It contains no token.
 
+## Your GitHub account
+
+The same page has a *GitHub account* section. It shows when the operator has
+registered a GitHub App. See [Forge webhooks](../extending/forge-webhooks.md).
+This connection is the other way round: Loupe acts as you on GitHub, and it
+does not act as an app that uses Loupe.
+
+- **Connect GitHub account** sends you to GitHub. Allow Loupe there. Loupe then
+  shows your GitHub login and the time of the connection.
+- Loupe keeps the tokens that GitHub gives it, encrypted. A token ends after
+  eight hours, and Loupe refreshes it by itself.
+- When GitHub refuses the refresh, the row shows that the connection expired.
+  This happens when you remove Loupe on GitHub, or when the refresh token is
+  six months old. Choose **Connect again** to fix it.
+- **Disconnect** asks GitHub to remove the access of Loupe, and then deletes the
+  tokens. If GitHub does not confirm, Loupe still deletes the tokens and says
+  so. Then remove Loupe under *Applications* in your GitHub settings.
+
+Deleting your Loupe account deletes the stored tokens. GitHub keeps its grant
+until you remove it in your GitHub settings. The data export includes
+`github_user_connection.json` with your login and the dates of the connection.
+It contains no token.
+
 ## For app developers
 
 The discovery document is at `/.well-known/oauth-authorization-server`
