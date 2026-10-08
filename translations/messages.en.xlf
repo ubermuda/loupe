@@ -7508,6 +7508,9 @@
             <trans-unit id="workflow.refusal.invalid-work-request"><source>workflow.refusal.invalid-work-request</source><target>The app refused to open the work request.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-not-found"><source>workflow.refusal.document-not-found</source><target>The card has no document with the tag that the rule names.</target></trans-unit>
             <trans-unit id="workflow.refusal.document-ambiguous"><source>workflow.refusal.document-ambiguous</source><target>The card has more than one document with the tag that the rule names.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-parent-document"><source>workflow.refusal.no-parent-document</source><target>The parent of the card has no document with the tag that the rule names.</target></trans-unit>
+            <trans-unit id="workflow.refusal.document-link-refused"><source>workflow.refusal.document-link-refused</source><target>The board refused the document link.</target></trans-unit>
+            <trans-unit id="workflow.refusal.detach-refused"><source>workflow.refusal.detach-refused</source><target>The board refused to remove the parent of the card.</target></trans-unit>
             <trans-unit id="project.edit.nav.readiness"><source>project.edit.nav.readiness</source><target>Agent readiness</target></trans-unit>
             <trans-unit id="readiness.guide.title"><source>readiness.guide.title</source><target>Ready for agents</target></trans-unit>
             <trans-unit id="readiness.guide.count"><source>readiness.guide.count</source><target>%done% of %total%</target></trans-unit>
