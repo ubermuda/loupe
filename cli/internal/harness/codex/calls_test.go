@@ -2,6 +2,7 @@ package codex
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -200,25 +201,33 @@ func writeSession(t *testing.T, home, thread string, lines ...string) {
 	}
 }
 
+func meta(id string) string {
+	return `{"timestamp":"2026-10-08T10:00:00.000Z","type":"session_meta","payload":{"id":"` + id + `"}}`
+}
+
+func call(at, typ, id, name, field, input string) string {
+	in, _ := json.Marshal(input)
+
+	return `{"timestamp":"` + at + `","type":"response_item","payload":{"type":"` + typ + `","call_id":"` + id + `","name":"` + name + `","` + field + `":` + string(in) + `}}`
+}
+
+func output(at, typ, id, text string) string {
+	out, _ := json.Marshal(text)
+
+	return `{"timestamp":"` + at + `","type":"response_item","payload":{"type":"` + typ + `","call_id":"` + id + `","output":` + string(out) + `}}`
+}
+
+// started is the line that says thread started the subagent agent. id is the
+// id of the item, which Codex sets to the call_id of the spawn_agent call.
+func started(at, thread, id, path, agent string) string {
+	return `{"timestamp":"` + at + `","type":"event_msg","payload":{"type":"item_completed","thread_id":"` + thread + `","item":{"type":"SubAgentActivity","id":"` + id + `","kind":"started","agent_thread_id":"` + agent + `","agent_path":"` + path + `"}}}`
+}
+
 func TestEachCommandGoesToTheShellCallOpenWhenItStarted(t *testing.T) {
 	const main, child = "aaaaaaaa-0000-0000-0000-000000000001", "aaaaaaaa-0000-0000-0000-000000000002"
 	home := t.TempDir()
-	meta := func(id string) string {
-		return `{"timestamp":"2026-10-08T10:00:00.000Z","type":"session_meta","payload":{"id":"` + id + `"}}`
-	}
-	call := func(at, typ, id, name, field, input string) string {
-		in, _ := json.Marshal(input)
-		return `{"timestamp":"` + at + `","type":"response_item","payload":{"type":"` + typ + `","call_id":"` + id + `","name":"` + name + `","` + field + `":` + string(in) + `}}`
-	}
-	output := func(at, typ, id, text string) string {
-		out, _ := json.Marshal(text)
-		return `{"timestamp":"` + at + `","type":"response_item","payload":{"type":"` + typ + `","call_id":"` + id + `","output":` + string(out) + `}}`
-	}
 	command := func(at, thread string, startedMs int64, script string, exit int) string {
 		return `{"timestamp":"` + at + `","type":"event_msg","payload":{"type":"item_completed","thread_id":"` + thread + `","item":{"type":"CommandExecution","command":["/bin/zsh","-lc",` + strconv.Quote(script) + `],"parsed_cmd":[{"cmd":"x"}],"exit_code":` + strconv.Itoa(exit) + `},"started_at_ms":` + strconv.FormatInt(startedMs, 10) + `}}`
-	}
-	started := func(at, thread, path, agent string) string {
-		return `{"timestamp":"` + at + `","type":"event_msg","payload":{"type":"item_completed","thread_id":"` + thread + `","item":{"type":"SubAgentActivity","kind":"started","agent_thread_id":"` + agent + `","agent_path":"` + path + `"}}}`
 	}
 	milli := func(s string) int64 { return at(t, s).UnixMilli() }
 
@@ -237,14 +246,14 @@ func TestEachCommandGoesToTheShellCallOpenWhenItStarted(t *testing.T) {
 		call("2026-10-08T10:00:06.000Z", "function_call", "c3", "exec_command", "arguments", `{"cmd":"just phpunit tests"}`),
 		output("2026-10-08T10:00:07.000Z", "function_call_output", "c3", "Chunk ID: 1\nWall time: 1 seconds\nProcess exited with code 2\nOutput:\nProcess exited with code 0\n"),
 		call("2026-10-08T10:00:08.000Z", "function_call", "c4", "spawn_agent", "arguments", `{"task_name":"x"}`),
-		started("2026-10-08T10:00:08.100Z", main, "/root/x", child),
+		started("2026-10-08T10:00:08.100Z", main, "", "/root/x", child),
 		output("2026-10-08T10:00:08.200Z", "function_call_output", "c4", `{"task_name":"/root/x"}`),
 	)
 	// The subagent names its parent as a subagent it started, and the reader
 	// still ends.
 	writeSession(t, home, child,
 		meta(child),
-		started("2026-10-08T10:00:09.000Z", child, "/root", main),
+		started("2026-10-08T10:00:09.000Z", child, "", "/root", main),
 		call("2026-10-08T10:00:09.500Z", "function_call", "d1", "read_file", "arguments", `{}`),
 		`{"timestamp":"2026-10-08T10:00:20.000Z","type":"event_msg","payload":{"type":"task_complete"}}`,
 	)
@@ -273,6 +282,109 @@ func TestEachCommandGoesToTheShellCallOpenWhenItStarted(t *testing.T) {
 		{"exec_command", stream.KindShell, flag(true), []string{"just phpunit"}, ms(1000), false},
 		{"spawn_agent", stream.KindSubagent, nil, []string{"spawn_agent"}, ms(12000), false},
 		{"read_file", stream.KindTool, nil, []string{"read_file"}, nil, true},
+	}
+	if !reflect.DeepEqual(rows, want) {
+		t.Fatalf("calls:\n%+v\nwant\n%+v", rows, want)
+	}
+}
+
+// A subagent whose session file is missing or holds nothing that parses
+// leaves the calls, the timing and the peak unknown. The usage falls back to
+// the total on stdout, and a resume reads no baseline.
+func TestARunWithAnUnreadableSubagentHasUnknownMetrics(t *testing.T) {
+	const child = "01a11b70-e76b-78f2-a305-b8269ef1b542"
+	for name, content := range map[string]*string{
+		"missing":    nil,
+		"unreadable": ptr("not json\n{\"timestamp\":\n"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			dir := filepath.Join(home, "sessions", "2026", "10", "08")
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			main := "rollout-2026-10-08T08-15-36-" + probeThread + ".jsonl"
+			copyFile(t, filepath.Join("testdata", "probe", "sessions", "2026", "10", "08", main), filepath.Join(dir, main))
+			if content != nil {
+				if err := os.WriteFile(filepath.Join(dir, "rollout-2026-10-08T08-15-46-"+child+".jsonl"), []byte(*content), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+			if err := h.remember(runID, probeThread); err != nil {
+				t.Fatal(err)
+			}
+
+			got := h.ReadRun(runDir(t, filepath.Join("probe", "stdout.jsonl"), ""), harness.RunInfo{SessionID: runID})
+
+			if got.CallsRead || got.Calls != nil || got.Timing.ToolTimeMs != nil || got.Timing.IdleGapMs != nil || got.PeakContextTokens != nil {
+				t.Fatalf("output = %+v", got)
+			}
+			if m, ok := got.Usage["gpt-6-astra"]; !ok || len(got.Usage) != 1 || m.OutputTokens != 110 {
+				t.Fatalf("usage = %+v", got.Usage)
+			}
+			if _, err := h.SessionTotal(runID); err == nil {
+				t.Fatal("SessionTotal read a baseline with no subagent")
+			}
+			if _, err := h.SessionUsage(runID, time.Time{}, time.Time{}); err == nil || errors.Is(err, transcript.ErrNotFound) {
+				t.Fatalf("SessionUsage err = %v, want a read error", err)
+			}
+		})
+	}
+}
+
+// Codex sets the id of the item that starts a subagent to the call_id of its
+// spawn_agent call, so each call takes its own subagent whatever the order of
+// the lines. A call with no such id falls back to the agent path, and takes a
+// subagent no other call took.
+func TestEachSpawnTakesTheSubagentItStarted(t *testing.T) {
+	const main, first, second = "cccccccc-0000-0000-0000-000000000001", "cccccccc-0000-0000-0000-000000000002", "cccccccc-0000-0000-0000-000000000003"
+	home := t.TempDir()
+	writeSession(t, home, main,
+		meta(main),
+		call("2026-10-08T10:00:01.000Z", "function_call", "s1", "spawn_agent", "arguments", `{"task_name":"x"}`),
+		call("2026-10-08T10:00:01.100Z", "function_call", "s2", "spawn_agent", "arguments", `{"task_name":"x"}`),
+		started("2026-10-08T10:00:01.200Z", main, "s2", "/root/x", second),
+		started("2026-10-08T10:00:01.300Z", main, "s1", "/root/x", first),
+		output("2026-10-08T10:00:01.400Z", "function_call_output", "s1", `{"task_name":"/root/x"}`),
+		output("2026-10-08T10:00:01.500Z", "function_call_output", "s2", `{"task_name":"/root/x"}`),
+		// An older line with no id names the first subagent again, and the
+		// third call takes nothing.
+		call("2026-10-08T10:00:02.000Z", "function_call", "s3", "spawn_agent", "arguments", `{"task_name":"x"}`),
+		started("2026-10-08T10:00:02.100Z", main, "", "/root/x", first),
+		output("2026-10-08T10:00:02.200Z", "function_call_output", "s3", `{"task_name":"/root/x"}`),
+	)
+	writeSession(t, home, first,
+		meta(first),
+		call("2026-10-08T10:00:03.000Z", "function_call", "f1", "first_tool", "arguments", `{}`),
+		`{"timestamp":"2026-10-08T10:00:10.000Z","type":"event_msg","payload":{"type":"task_complete"}}`,
+	)
+	writeSession(t, home, second,
+		meta(second),
+		call("2026-10-08T10:00:04.000Z", "function_call", "g1", "second_tool", "arguments", `{}`),
+		`{"timestamp":"2026-10-08T10:00:20.000Z","type":"event_msg","payload":{"type":"task_complete"}}`,
+	)
+	h := New(home, "", filepath.Join(t.TempDir(), "threads"))
+	if err := h.remember(runID, main); err != nil {
+		t.Fatal(err)
+	}
+
+	got := h.ReadRun(t.TempDir(), harness.RunInfo{SessionID: runID})
+
+	type row struct {
+		tool       string
+		durationMs *int64
+	}
+	var rows []row
+	for _, c := range got.Calls {
+		rows = append(rows, row{c.Tool, c.DurationMs})
+	}
+	want := []row{
+		{"spawn_agent", ms(9000)},
+		{"spawn_agent", ms(18900)},
+		{"spawn_agent", ms(200)},
+		{"first_tool", nil},
+		{"second_tool", nil},
 	}
 	if !reflect.DeepEqual(rows, want) {
 		t.Fatalf("calls:\n%+v\nwant\n%+v", rows, want)

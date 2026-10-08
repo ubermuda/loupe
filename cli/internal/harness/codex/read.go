@@ -244,6 +244,7 @@ func (s *session) event(at time.Time, raw json.RawMessage, previous *tokens) {
 		StartedAtMs *int64 `json:"started_at_ms"`
 		Item        struct {
 			Type          string                 `json:"type"`
+			ID            string                 `json:"id"`
 			Kind          string                 `json:"kind"`
 			Command       json.RawMessage        `json:"command"`
 			ParsedCmd     []struct{ Cmd string } `json:"parsed_cmd"`
@@ -290,7 +291,7 @@ func (s *session) event(at time.Time, raw json.RawMessage, previous *tokens) {
 		}
 		s.attach(at, shellText(argv, parsed), p.Item.ExitCode)
 	case p.Item.Type == "SubAgentActivity" && p.Item.Kind == "started" && p.Item.AgentThreadID != "":
-		s.spawns = append(s.spawns, spawn{path: p.Item.AgentPath, thread: p.Item.AgentThreadID})
+		s.spawns = append(s.spawns, spawn{id: p.Item.ID, path: p.Item.AgentPath, thread: p.Item.AgentThreadID})
 	}
 }
 
@@ -393,7 +394,7 @@ func (h Harness) tree(runID string) (*tree, error) {
 		return nil, err
 	}
 
-	return h.load(s, map[string]bool{}), nil
+	return h.load(s, map[string]bool{})
 }
 
 // ReadRun reads a finished run from the stdout of Codex and the files it wrote.
@@ -415,19 +416,20 @@ func (h Harness) ReadRun(dir string, run harness.RunInfo) harness.Output {
 
 	// The session files give usage per model, with the keys SessionTotal uses,
 	// so a resume subtracts its baseline model by model. The stdout total is
-	// the fallback when the main file is missing or unreadable. A file that
-	// does not parse leaves the calls unknown.
-	t, sessErr := h.tree(run.SessionID)
-	var sess session
+	// the fallback when a file of the run is missing or unreadable. A file
+	// that does not parse leaves the calls unknown.
+	sess, sessErr := h.session(run.SessionID)
+	var t *tree
+	treeErr := sessErr
 	if sessErr == nil {
-		sess = t.session
-		if sess.id != "" {
-			out.CallsRead = true
-			out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since)
-		}
+		t, treeErr = h.load(sess, map[string]bool{})
+	}
+	if treeErr == nil && sess.id != "" {
+		out.CallsRead = true
+		out.Calls, out.Timing, out.PeakContextTokens = t.metrics(run.Since)
 	}
 	switch {
-	case sessErr == nil && len(sess.events) > 0:
+	case treeErr == nil && len(sess.events) > 0:
 		out.Usage = toUsage(t.between(time.Time{}, time.Time{}))
 	case stdout.usage != nil:
 		out.Usage = toUsage(map[string]tokens{cmp.Or(sess.model, run.Model, fallbackModel): *stdout.usage})

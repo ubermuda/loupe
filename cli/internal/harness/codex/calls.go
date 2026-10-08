@@ -3,6 +3,7 @@ package codex
 import (
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 // rawCall is one function_call or custom_tool_call line, with its output.
 type rawCall struct {
+	id    string
 	name  string
 	input string
 	start time.Time
@@ -29,8 +31,10 @@ type rawCall struct {
 	exits []*int
 }
 
-// spawn is one subagent a thread started.
+// spawn is one subagent a thread started. id is the call_id of the
+// spawn_agent call that started it, and "" in an older file.
 type spawn struct {
+	id     string
 	path   string
 	thread string
 }
@@ -61,7 +65,7 @@ func (s *session) item(at time.Time, raw json.RawMessage) {
 		if slices.Contains(shellTools, p.Name) {
 			s.shells = append(s.shells, len(s.calls))
 		}
-		s.calls = append(s.calls, rawCall{name: p.Name, input: p.Arguments + p.Input, start: at})
+		s.calls = append(s.calls, rawCall{id: p.CallID, name: p.Name, input: p.Arguments + p.Input, start: at})
 	case "function_call_output", "custom_tool_call_output":
 		i, ok := s.byID[p.CallID]
 		if !ok || s.calls[i].answered {
@@ -157,8 +161,8 @@ type tree struct {
 
 // load reads the session files of the subagents s started, and of theirs.
 // seen holds the threads read so far, so a loop ends. A subagent whose file
-// does not read counts for nothing.
-func (h Harness) load(s session, seen map[string]bool) *tree {
+// is missing or does not parse fails the load, as its spend is unknown.
+func (h Harness) load(s session, seen map[string]bool) (*tree, error) {
 	t := &tree{session: s, byThread: map[string]*tree{}}
 	seen[s.id] = true
 	for _, sp := range s.spawns {
@@ -166,20 +170,24 @@ func (h Harness) load(s session, seen map[string]bool) *tree {
 			continue
 		}
 		seen[sp.thread] = true
+		unread := fmt.Errorf("the session file of Codex subagent %s does not read", sp.thread)
 		path, err := h.find(sp.thread)
 		if err != nil {
-			continue
+			return nil, unread
 		}
 		child, err := readSession(path)
 		if err != nil || child.id == "" {
-			continue
+			return nil, unread
 		}
-		c := h.load(child, seen)
+		c, err := h.load(child, seen)
+		if err != nil {
+			return nil, err
+		}
 		t.children = append(t.children, c)
 		t.byThread[sp.thread] = c
 	}
 
-	return t
+	return t, nil
 }
 
 // between sums the token counts of the thread and of its subagents.
@@ -210,20 +218,37 @@ func (t *tree) last() time.Time {
 }
 
 // spawned maps the index of each spawn_agent call to the subagent it
-// started, by the agent path its output names.
+// started: by its call_id first, then by the agent path its output names.
+// Each subagent goes to one call at most.
 func (t *tree) spawned() map[int]*tree {
 	out := map[int]*tree{}
 	used := make([]bool, len(t.spawns))
+	took := map[string]bool{}
+	joined := map[int]bool{}
+	take := func(i, j int) {
+		used[j], joined[i] = true, true
+		if sp := t.spawns[j]; !took[sp.thread] {
+			took[sp.thread] = true
+			if child := t.byThread[sp.thread]; child != nil {
+				out[i] = child
+			}
+		}
+	}
 	for i, c := range t.calls {
-		if c.name != "spawn_agent" || c.taskName == "" {
+		if c.name != "spawn_agent" {
+			continue
+		}
+		if j := slices.IndexFunc(t.spawns, func(sp spawn) bool { return sp.id == c.id }); j >= 0 && !used[j] {
+			take(i, j)
+		}
+	}
+	for i, c := range t.calls {
+		if c.name != "spawn_agent" || c.taskName == "" || joined[i] {
 			continue
 		}
 		for j, sp := range t.spawns {
-			if !used[j] && sp.path == c.taskName {
-				used[j] = true
-				if child := t.byThread[sp.thread]; child != nil {
-					out[i] = child
-				}
+			if !used[j] && sp.path == c.taskName && !took[sp.thread] {
+				take(i, j)
 
 				break
 			}
