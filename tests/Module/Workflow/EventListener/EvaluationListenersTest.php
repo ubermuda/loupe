@@ -154,10 +154,10 @@ final class EvaluationListenersTest extends KernelTestCase
         new EvaluateCardsOnDocumentStatusChanged($this->service(CardDocumentRepository::class), $this->service(CardRepository::class), $this->trigger())(new DocumentStatusChanged($this->projectId(), $documentId));
         $statusSent = $this->sent();
         $this->transport()->reset();
-        new EvaluateCardsOnReviewSubmitted($this->service(CardDocumentRepository::class), $this->trigger())(new ReviewSubmitted(new Review($version, Verdict::Approved, $this->project->owner)));
+        new EvaluateCardsOnReviewSubmitted($this->service(CardDocumentRepository::class), $this->service(CardRepository::class), $this->trigger())(new ReviewSubmitted(new Review($version, Verdict::Approved, $this->project->owner)));
 
         self::assertEqualsCanonicalizing($this->ids($one, $two, $child), $statusSent);
-        self::assertEqualsCanonicalizing($this->ids($one, $two), $this->sent());
+        self::assertEqualsCanonicalizing($this->ids($one, $two, $child), $this->sent());
     }
 
     public function test_a_pull_request_change_asks_for_every_card_that_links_it_on_any_known_forge(): void
