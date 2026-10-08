@@ -282,7 +282,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $plainRow = $crawler->filter('[data-worker-run-id="'.$plain.'"]');
         // The guard: the row and its drawer render, so the absent tags are not an absent row.
         self::assertStringContainsString('review', $plainRow->text());
-        self::assertCount(1, $plainRow->filter('.lp-run-drawer__metadata'));
+        self::assertCount(1, $plainRow->filter('.lp-run-drawer__metadata:not([data-worker-run-metrics])'));
         self::assertCount(0, $plainRow->filter('[data-worker-run-harness], [data-worker-run-account], [data-worker-run-model]'));
         self::assertCount(0, $plainRow->filter('[data-worker-run-harness-detail], [data-worker-run-account-detail], [data-worker-run-model-detail], [data-worker-run-harness-session]'));
     }

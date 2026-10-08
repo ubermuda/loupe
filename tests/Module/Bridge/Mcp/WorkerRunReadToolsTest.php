@@ -222,9 +222,21 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $row = $this->listTool()()['runs'][0];
 
         self::assertSame(
-            ['harness' => 'codex', 'account' => 'work', 'model' => 'gpt-5', 'harnessSessionId' => 'thread_abc123'],
+            ['harness' => 'codex', 'account' => 'work', 'harnessSessionId' => 'thread_abc123', 'model' => 'gpt-5'],
             array_intersect_key($row, array_flip(['harness', 'account', 'model', 'harnessSessionId'])),
         );
+    }
+
+    public function test_the_model_the_bridge_reported_wins_over_the_model_of_the_usage(): void
+    {
+        [$project] = $this->projects('list-reported-model');
+        $em = $this->em();
+        $run = $this->seedRun($em, $project, harness: 'codex', model: 'gpt-5');
+        $this->seedUsage($em, $run, model: 'claude-opus-5-5', costUsd: '0.500000');
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame('gpt-5', $this->listTool()()['runs'][0]['model']);
+        self::assertSame('gpt-5', $this->getTool()((string) $run->id)['runs'][0]['model']);
     }
 
     public function test_the_list_filters_by_harness_account_and_model(): void
