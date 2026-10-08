@@ -1,5 +1,5 @@
 {% set names = entries|map(e => e.name) %}
-<!-- @dsCard group="Components" viewport="700x300" subtitle="{{ names|join(', ') }}" name="{{ name }}" -->
+<!-- @dsCard group="Components" viewport="700x{{ 80 + 70 * entries|length }}" subtitle="{{ names|join(', ') }}" name="{{ name }}" -->
 <!DOCTYPE html>
 <html lang="en">
 <head>

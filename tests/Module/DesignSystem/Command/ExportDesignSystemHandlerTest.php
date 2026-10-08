@@ -162,7 +162,7 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
     {
         $card = (string) file_get_contents($this->directory.'/components/core/core.card.html');
 
-        self::assertStringStartsWith('<!-- @dsCard group="Components" viewport="700x300"', $card);
+        self::assertStringStartsWith('<!-- @dsCard group="Components" viewport="700x780"', $card);
         self::assertStringContainsString("dsFind('Button', 'Flash'", $card);
         self::assertStringContainsString('<script src="../../ds-mount.js">', $card);
     }
