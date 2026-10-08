@@ -494,3 +494,29 @@ func TestConfigReadsLiteralStringsAndComments(t *testing.T) {
 		t.Fatalf("env key = %q", got)
 	}
 }
+
+func TestConfigReadsAProviderNameWithAnApostrophe(t *testing.T) {
+	home := t.TempDir()
+	profile := "model_provider = \"it's\"\n[model_providers.\"it's\"]\nenv_key = \"APOS_KEY\"\n[model_providers.other]\nenv_key = \"OTHER\"\n"
+	if err := os.WriteFile(filepath.Join(home, "p.config.toml"), []byte(profile), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := configEnvKey(home, "p"); got != "APOS_KEY" {
+		t.Fatalf("env key = %q", got)
+	}
+}
+
+func TestAProfileThatDoesNotParseFailsTheCheckAndSetsNoProviderExpectation(t *testing.T) {
+	h := newHarness(t, "openrouter")
+	if err := os.WriteFile(filepath.Join(h.home, "openrouter.config.toml"), []byte("model_provider = \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := h.Check(context.Background(), harness.CheckSpec{ConfigDir: h.home, Env: fakeCodex(t, "0")})
+	if !reflect.DeepEqual(reasons(got), []string{"codex profile does not parse"}) || got[0].Detail == "" {
+		t.Fatalf("problems = %v", got)
+	}
+	run := h.ReadRun(runDir(t, "stdout.jsonl", `{"status":"done","summary":"s"}`), harness.RunInfo{SessionID: runID})
+	if !run.Decoded {
+		t.Fatalf("output = %+v", run)
+	}
+}

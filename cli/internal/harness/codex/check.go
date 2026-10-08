@@ -8,11 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/ubermuda/loupe/cli/internal/envfile"
 	"github.com/ubermuda/loupe/cli/internal/harness"
 )
@@ -25,64 +25,70 @@ func profileFile(home, profile string) string {
 	return filepath.Join(home, profile+".config.toml")
 }
 
-// configFiles are the files that set a profile, the profile first.
-func configFiles(home, profile string) []string {
-	return []string{profileFile(home, profile), filepath.Join(home, "config.toml")}
+// tomlConfig is the part of a Codex config file that the bridge reads.
+type tomlConfig struct {
+	ModelProvider  string                  `toml:"model_provider"`
+	ModelProviders map[string]providerConf `toml:"model_providers"`
+}
+
+type providerConf struct {
+	EnvKey string `toml:"env_key"`
+}
+
+// configFile is a parsed config file: the profile file first, then config.toml.
+type configFile struct {
+	path string
+	cfg  tomlConfig
+	err  error
+}
+
+// loadConfigs parses the profile file and the base config.toml. A missing file
+// is an empty config, and a file that does not parse keeps its error.
+func loadConfigs(home, profile string) []configFile {
+	files := []configFile{{path: profileFile(home, profile)}, {path: filepath.Join(home, "config.toml")}}
+	for i := range files {
+		_, err := toml.DecodeFile(files[i].path, &files[i].cfg)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			files[i].err = err
+		}
+	}
+
+	return files
+}
+
+// provider is the model_provider the first file that names one sets.
+func provider(files []configFile) string {
+	for _, f := range files {
+		if f.err == nil && f.cfg.ModelProvider != "" {
+			return f.cfg.ModelProvider
+		}
+	}
+
+	return ""
 }
 
 // configProvider is the model_provider a profile names, which falls back to the
-// one of the base config.toml. It is "" when neither names one.
+// one of the base config.toml. It is "" when neither names one, and when a file
+// does not parse, because the bridge then has no expectation.
 func configProvider(home, profile string) string {
-	for _, path := range configFiles(home, profile) {
-		b, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		if v := tableValue(string(b), "", "model_provider"); v != "" {
-			return v
+	files := loadConfigs(home, profile)
+	for _, f := range files {
+		if f.err != nil {
+			return ""
 		}
 	}
 
-	return ""
-}
-
-// tableValue is the string value, basic or literal and with or without a
-// trailing comment, of key in the named table of a TOML file, and
-// "" for the top level. A line scanner is enough for the keys the bridge reads.
-func tableValue(text, table, key string) string {
-	current := ""
-	pattern := regexp.MustCompile(`^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*(?:"([^"]*)"|'([^']*)')`)
-	for line := range strings.SplitSeq(text, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "[") {
-			header, _, _ := strings.Cut(strings.TrimLeft(trimmed, "["), "]")
-			current = strings.NewReplacer(`"`, "", "'", "").Replace(strings.TrimSpace(header))
-			continue
-		}
-		if current == table {
-			if m := pattern.FindStringSubmatch(line); m != nil {
-				return m[1] + m[2]
-			}
-		}
-	}
-
-	return ""
+	return provider(files)
 }
 
 // configEnvKey is the name of the variable that holds the API key of the
 // provider the profile selects. It reads env_key from that provider's table in
 // the profile file, then in config.toml, and is "" when neither names one.
 func configEnvKey(home, profile string) string {
-	provider := configProvider(home, profile)
-	if provider == "" {
-		return ""
-	}
-	for _, path := range configFiles(home, profile) {
-		b, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		if key := tableValue(string(b), "model_providers."+provider, "env_key"); key != "" {
+	files := loadConfigs(home, profile)
+	name := provider(files)
+	for _, f := range files {
+		if key := f.cfg.ModelProviders[name].EnvKey; f.err == nil && name != "" && key != "" {
 			return key
 		}
 	}
@@ -176,6 +182,17 @@ func profileProblems(home, profile string, env []string) []harness.Problem {
 	path := profileFile(home, profile)
 	if _, err := os.Stat(path); err != nil {
 		return []harness.Problem{{Reason: "codex profile not found", Detail: path + ": " + err.Error()}}
+	}
+	files := loadConfigs(home, profile)
+	for i, f := range files {
+		if f.err != nil {
+			reason := "codex profile does not parse"
+			if i == 1 {
+				reason = "codex config.toml does not parse"
+			}
+
+			return []harness.Problem{{Reason: reason, Detail: f.path + ": " + f.err.Error()}}
+		}
 	}
 	if key := configEnvKey(home, profile); key != "" && strings.TrimSpace(envValue(env, key)) == "" {
 		return []harness.Problem{{Reason: "codex API key variable " + key + " is not set", Detail: "profile " + profile + " reads its key from " + key + "; set it in the envFile of the account"}}
