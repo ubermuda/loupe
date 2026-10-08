@@ -212,6 +212,25 @@ it('shows every thread when the active filter hides the revealed one', async () 
     expect(events).toEqual(['all']);
 });
 
+it('shows a new thread that the active filter would hide', async () => {
+    const element = await mount();
+    document
+        .querySelector('[data-review-panels-filter-param="resolved"]')
+        .click();
+    const thread = document.createElement('article');
+    thread.dataset.anchorStatus = 'pending';
+    element.dispatchEvent(
+        new CustomEvent('comment-anchor:reveal', {
+            bubbles: true,
+            detail: { thread },
+        }),
+    );
+    const all = document.querySelector(
+        '[data-review-panels-filter-param="all"]',
+    );
+    expect(all.getAttribute('aria-pressed')).toBe('true');
+});
+
 it('keeps the filter when the revealed thread already shows', async () => {
     const element = await mount({ hideResolved: true });
     const events = [];

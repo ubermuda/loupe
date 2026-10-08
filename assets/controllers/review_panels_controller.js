@@ -68,7 +68,11 @@ export default class extends Controller {
             this.#remember('comments', true);
         }
         // A filter that hides the thread would open the panel on nothing.
-        if (event?.detail?.thread?.hidden && this.activeFilter !== 'all') {
+        const thread = event?.detail?.thread;
+        if (
+            thread != null &&
+            !this.#filtersOf(thread).includes(this.activeFilter)
+        ) {
             this.activeFilter = 'all';
             this.dispatch('filter', { detail: { filter: this.activeFilter } });
             this.refreshFilter();
@@ -125,14 +129,7 @@ export default class extends Controller {
         const counts = { all: 0, open: 0, resolved: 0, unanchored: 0 };
 
         for (const thread of this.threadTargets) {
-            const status = thread.dataset.anchorStatus;
-            const matches = [
-                'all',
-                status === 'resolved' ? 'resolved' : 'open',
-            ];
-            if (thread.dataset.commentOrphaned === 'true') {
-                matches.push('unanchored');
-            }
+            const matches = this.#filtersOf(thread);
             for (const match of matches) {
                 counts[match]++;
             }
@@ -177,6 +174,18 @@ export default class extends Controller {
             );
         }
         window.dispatchEvent(new Event('resize'));
+    }
+
+    #filtersOf(thread) {
+        const matches = [
+            'all',
+            thread.dataset.anchorStatus === 'resolved' ? 'resolved' : 'open',
+        ];
+        if (thread.dataset.commentOrphaned === 'true') {
+            matches.push('unanchored');
+        }
+
+        return matches;
     }
 
     #show(name, open) {
