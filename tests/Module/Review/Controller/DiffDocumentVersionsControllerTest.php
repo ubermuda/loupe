@@ -1026,7 +1026,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('1', $crawler->filter('#diff-from option[selected]')->attr('value'));
         self::assertSame('2', $crawler->filter('#diff-to option[selected]')->attr('value'));
-        $return = $crawler->filter('.lp-review-doc__actions a')->reduce(
+        $return = $crawler->filter('.lp-review-doc__byline a')->reduce(
             static fn (Crawler $link): bool => str_contains($link->text(), 'Return to document'),
         );
         self::assertSame('/projects/'.$projectId.'/documents/'.$id.'/review', $return->attr('href'));

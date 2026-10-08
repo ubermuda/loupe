@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Repository;
 
+use App\Module\Inbox\Entity\InboxCardWaitTrigger;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Document;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<InboxCardWatch> */
@@ -91,6 +94,30 @@ class InboxCardWatchRepository extends ServiceEntityRepository
             ->leftJoin('watch.waits', 'wait')
             ->andWhere('watch.item IN (:items)')
             ->setParameter('items', $items)
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * The open watches whose card waits on a review of the document.
+     *
+     * @return list<InboxCardWatch>
+     */
+    public function findOpenForDocument(Document $document): array
+    {
+        return array_values($this->createQueryBuilder('watch')
+            ->addSelect('item')
+            ->join('watch.item', 'item')
+            ->join('watch.waits', 'wait')
+            ->andWhere('watch.project = :project')
+            ->andWhere('watch.closedAt IS NULL')
+            ->andWhere('wait.trigger = :trigger')
+            ->andWhere('wait.documentId = :document')
+            ->andWhere('wait.endedAt IS NULL')
+            ->setParameter('project', $document->project)
+            ->setParameter('trigger', InboxCardWaitTrigger::DocumentInReview)
+            ->setParameter('document', $document->id, UuidType::NAME)
+            ->orderBy('watch.cardNumber', 'ASC')
             ->getQuery()
             ->getResult());
     }
