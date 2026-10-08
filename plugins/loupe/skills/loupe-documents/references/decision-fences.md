@@ -26,6 +26,8 @@ options still converts, with no question on the card. Two paragraphs are one too
 many: the block keeps all of its prose, degrades to the plain list it already
 was, and mints no controls.
 
+Each option line says what the option does, in plain words. Never write only a label such as "option B" or "the approach of D1". The decisions panel shows the question with no text around it (rule 18 of `../SKILL.md`).
+
 Keep the "**Decision needed**" lead-in and your reasoning above the fence, where
 rule 5 puts them. The fence holds only the question and the options.
 
