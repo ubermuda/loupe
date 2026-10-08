@@ -627,9 +627,6 @@ func (s *Set) checkWorkAccounts(kind string, w *WorkEntry, declared []string, ro
 		}
 	case ActionInteractive:
 		w.run = s.resolve(w.Account, w.Model, w.Permissions, true)
-		if w.run.Harness == HarnessCodex {
-			errs = append(errs, fmt.Errorf("%swork %q: account %q runs codex, and an interactive launch on Codex is not supported yet; use a claude-code account", at("action"), kind, w.run.Account))
-		}
 	}
 
 	return errs

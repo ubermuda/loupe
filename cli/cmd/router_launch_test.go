@@ -330,3 +330,27 @@ func TestALaunchReportToAnOldServerCountsAsDelivered(t *testing.T) {
 		t.Fatal("a failed send was delivered")
 	}
 }
+
+// A launch on a codex account runs the Codex program, not the path of Claude
+// Code, and records the launch so the session is found later.
+func TestAnInteractiveMatchOnACodexAccountLaunchesCodex(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	original := lookPath
+	lookPath = func(name string) (string, error) { return "/opt/bin/" + name, nil }
+	t.Cleanup(func() { lookPath = original })
+	body := strings.Replace(launchRules, "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude",
+		"accounts:\n  cdx:\n    harness: codex\n    codexHome: "+t.TempDir()+"\ndefaults:\n  account: cdx", 1)
+	body = strings.Replace(body, "    model: opus\n", "    model: gpt-5\n", 1)
+	h, rec := launchHarnessWith(t, body, `[sh, -c, 'exit 0', sh, '{script}']`)
+
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+
+	if sent := rec.launches(); len(sent) != 1 || sent[0].report.State != api.RunRunning || sent[0].report.Harness != "codex" {
+		t.Fatalf("launches = %+v", sent)
+	}
+	script, _ := os.ReadFile(filepath.Join(h.router.scriptDir, testSession+".sh"))
+	if !strings.Contains(string(script), "exec '/opt/bin/codex' -m 'gpt-5'") || !strings.Contains(string(script), "export LOUPE_SESSION_ID='"+testSession+"'") {
+		t.Fatalf("script = %q", script)
+	}
+}

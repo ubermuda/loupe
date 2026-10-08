@@ -507,8 +507,6 @@ Limits of this release:
 - The run page shows the tokens and the cost of a Codex run. The cost is empty
   for a model with no list price, such as `openrouter/free`. The tool call and
   timing metrics of a Codex run come in a later release.
-- An [interactive entry](#interactive-action) on a `codex` account is not
-  supported yet, and the bridge refuses a rule file that has one.
 - The `effort` of a work request does not reach Codex.
 
 ### Account checks
@@ -1378,8 +1376,8 @@ and allows 60 calls per minute per token. An older server answers `404`.
 
 ## Interactive action
 
-An entry with `action: interactive` opens an interactive Claude Code session in
-a terminal window, on the bridge's machine. It is for Product design, so the
+An entry with `action: interactive` opens an interactive Claude Code or Codex
+session in a terminal window, on the bridge's machine, as its account says. It is for Product design, so the
 owner does not type `/loupe:product-design` by hand. An entry without `action`
 is a worker entry.
 
@@ -1405,6 +1403,14 @@ session that a person drives. The model follows the order of
 [Model and permissions](#model-and-permissions). The session gets the rendered
 prompt only, with no result footer and no inbox line.
 
+On a `codex` account the script runs `codex` with the profile, the model and
+the sandbox flags of the entry's `permissions` level, and the prompt. It sets
+`LOUPE_SESSION_ID` to the session id of the run, so the session can open its
+run on the card. Codex picks its own thread id. The bridge keeps the folder and
+the time of the launch, and later finds the Codex session file that started in
+that folder after the launch. It needs that file to collect the usage of the
+session. A session that has not started a thread yet has no usage to collect.
+
 The top-level `launch` block of `rules.yaml` names the command that opens the
 terminal. It lives in `rules.yaml` because that file belongs to one machine, so
 each machine sets its own launcher. A file with an interactive entry and no
@@ -1424,7 +1430,8 @@ For each launch, the bridge writes a script to
 itself, changes to the project's `dir`, and runs
 `claude --session-id <sessionId> -- '<prompt>'`. A terminal app can start with
 a short `PATH`. So the bridge finds `claude` on its own `PATH` at start, and
-writes the absolute path into the script. With an interactive entry and no
+writes the absolute path into the script. A launch on a `codex` account finds
+`codex` on the `PATH` of the bridge at the launch, and fails when it is missing. With an interactive entry and no
 `claude` on its `PATH`, the bridge refuses to start. At start, it also deletes
 scripts older than one day.
 

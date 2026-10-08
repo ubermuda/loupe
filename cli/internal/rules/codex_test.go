@@ -71,6 +71,21 @@ func TestACodexAccountPermissionModeIsASandboxMode(t *testing.T) {
 	}
 }
 
+// An interactive entry on a codex account loads, and runs with the sandbox mode
+// of its own level alone.
+func TestParseAcceptsAnInteractiveEntryOnACodexAccount(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	body := codexAccount + codexDefaults + "projects:\n  loupe:\n    dir: {dir}\nlaunch:\n  command: ['{script}']\nwork:\n  pair:\n    action: interactive\n    prompt: x\n"
+	text, _ := file(t, body)
+	s, err := Parse([]byte(text), Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := entry(t, s, "pair").run; got.Harness != HarnessCodex || got.Account != "cdx" {
+		t.Fatalf("pair run = %+v", got)
+	}
+}
+
 func TestParseRefusesAnInvalidCodexAccount(t *testing.T) {
 	codex := func(fields string) string {
 		return "accounts:\n  cdx:\n    harness: codex\n" + fields + codexDefaults + oneWork
@@ -78,7 +93,6 @@ func TestParseRefusesAnInvalidCodexAccount(t *testing.T) {
 	claude := func(fields string) string {
 		return "accounts:\n  claude:\n    harness: claude-code\n" + fields + claudeDefaults + oneWork
 	}
-	interactive := codexAccount + codexDefaults + "projects:\n  loupe:\n    dir: {dir}\nlaunch:\n  command: ['{script}']\nwork:\n  pair:\n    action: interactive\n    prompt: x\n"
 	for name, tc := range map[string]struct {
 		body string
 		want string
@@ -90,7 +104,6 @@ func TestParseRefusesAnInvalidCodexAccount(t *testing.T) {
 		"a path as profile":        {codex("    profile: ../x\n"), `line 4: accounts.cdx.profile "../x" is not 1 to 64 letters`},
 		"a profile with a space":   {codex("    profile: 'a b'\n"), `accounts.cdx.profile "a b" is not 1 to 64 letters`},
 		"a claude mode":            {codex("    permissionMode: plan\n"), `line 4: accounts.cdx.permissionMode "plan" is not read-only, workspace-write, danger-full-access`},
-		"an interactive entry":     {interactive, `work "pair": account "cdx" runs codex, and an interactive launch on Codex is not supported yet`},
 		"an unknown harness named": {"accounts:\n  a:\n    harness: gemini\n" + codexDefaults + oneWork, "this CLI accepts claude-code and codex"},
 	} {
 		t.Run(name, func(t *testing.T) {

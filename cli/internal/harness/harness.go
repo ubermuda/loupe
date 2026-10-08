@@ -47,6 +47,13 @@ type RunReader interface {
 	ReadRun(dir string, run RunInfo) Output
 }
 
+// LaunchRecorder is a harness that cannot name its session when an interactive
+// launch starts. The bridge records the folder and the time of the launch, and
+// the harness finds the session from them when it is asked.
+type LaunchRecorder interface {
+	RecordLaunch(runID, dir string, at time.Time) error
+}
+
 // RunInfo is what the bridge knows about a run when it reads it. SessionID is
 // the id the bridge gave the run, and Model is the model it asked for.
 type RunInfo struct {

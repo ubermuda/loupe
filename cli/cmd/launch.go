@@ -231,8 +231,20 @@ func (r *router) runLaunch(l launch) {
 	reason := ""
 	env, err := p.spec.accountEnv()
 	path := ""
+	adapter := p.spec.adapter()
+	program := l.claude
+	if err == nil && adapter.Program() != defaultHarness().Program() {
+		// The bridge resolved the path of the default harness at start alone.
+		program, err = resolveProgram(adapter)
+	}
 	if err == nil {
-		path, err = writeLaunchScript(l.dir, p.spec.sessionID, p.spec.adapter().Interactive(l.claude, p.spec.harnessSpec(env)))
+		path, err = writeLaunchScript(l.dir, p.spec.sessionID, adapter.Interactive(program, p.spec.harnessSpec(env)))
+	}
+	if rec, ok := adapter.(harn.LaunchRecorder); ok && err == nil {
+		// A failed record only costs the usage of the session, so the launch goes on.
+		if rerr := rec.RecordLaunch(p.spec.sessionID, p.spec.dir, time.Now()); rerr != nil {
+			r.log.Warn("launch_not_recorded", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "error", rerr.Error())...)
+		}
 	}
 	switch {
 	case l.ctx.Err() != nil:
