@@ -1203,15 +1203,16 @@ The file needs `work:`, or `appPrompts: true`. The bridge reports the
 and `interactive` too when an entry opens an interactive session. It also
 reports `subject-<type>` for each subject type other than `card` that an entry
 names, such as `subject-analysis`. With `appPrompts: true`, it reports
-`app-prompts` too, unless the account of `defaults.account` is off. A request that needs a capability reaches only a bridge that
-reports it. A request that names a `subject-` capability and carries an app
+`app-prompts` too, unless the account of `defaults.account` is off. A request
+that needs a capability reaches only a bridge that reports it. A request that names a `subject-` capability and carries an app
 prompt also reaches a bridge that reports `app-prompts`.
 
 A rule that Loupe ships can send a prompt with its request. Set
 `appPrompts: true` at the top of `rules.yaml` to run that prompt for a kind that
 `work:` does not map. The prompt runs as a worker in the `default` pool, with
 the `defaults` of the file. A model or an effort in the request replaces the
-default model and sets the effort. An entry under `work:` always wins. A bridge without
+default model and sets the effort. An entry under `work:` always wins, unless
+it names another subject type than the request. A bridge without
 the key skips such a request, and the request expires after the work timeout.
 
 The bridge finds the project of a request in `projects` through the project

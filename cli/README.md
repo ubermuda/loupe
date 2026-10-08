@@ -677,7 +677,8 @@ and a request about another subject type than the entry names.
 A request can carry an app prompt, which ships with Loupe and which no
 project can change. Set
 `appPrompts: true` at the top of the file to run it for a kind that the map
-does not hold. An entry of the kind always wins over the app prompt. The app
+does not hold, or whose entry names another subject type. An entry of the kind
+about the same subject always wins over the app prompt. The app
 prompt takes the placeholders below and gets the
 [prompt footer](#prompt-footer). It runs as a worker in the `default` pool,
 on the account of `defaults.account`. It takes the mode of that account, then

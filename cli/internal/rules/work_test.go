@@ -610,3 +610,17 @@ func TestMatchKindAppPromptTakesRequestModelAndEffort(t *testing.T) {
 		t.Fatalf("entry: match = %+v", m)
 	}
 }
+
+// With appPrompts, an entry of the kind about another subject type leaves the
+// request to its app prompt.
+func TestAppPromptRunsWhenTheEntryNamesAnotherSubject(t *testing.T) {
+	w := workRequest("review")
+	w.SubjectType, w.CardNumber = "analysis", 0
+	w.Prompt = "Analyse {subjectId}."
+	if m := checked(t, "appPrompts: true\n"+workFile).MatchWork(w); m.Skip != Run || !strings.Contains(m.Prompt, "Analyse "+w.SubjectID+".") {
+		t.Fatalf("app prompt: match = %+v", m)
+	}
+	if m := checked(t, workFile).MatchWork(w); m.Skip != NoRule {
+		t.Fatalf("no opt-in: match = %+v", m)
+	}
+}
