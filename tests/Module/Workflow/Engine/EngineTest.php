@@ -46,6 +46,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\Ask;
 use App\Module\Workflow\Action\EvaluateChildren;
 use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Action\MoveCard;
@@ -81,6 +82,7 @@ use App\Module\Workflow\Template\ProjectTemplateCopy;
 use App\Module\Workflow\Template\TemplateParser;
 use App\Outbox\OutboxWriter;
 use App\Tests\Module\Workflow\Action\ActionScenario;
+use App\Tests\Module\Workflow\Action\FakeRuleAsks;
 use App\Tests\Module\Workflow\Fact\ProvidedFacts;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsProvider;
 use App\Tests\Module\Workflow\Fact\ProvidedFactsReady;
@@ -95,6 +97,7 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\AuditBundle\Auditor;
 
 final class EngineTest extends KernelTestCase
@@ -116,10 +119,13 @@ final class EngineTest extends KernelTestCase
 
     private RecordingLogger $logger;
 
+    private FakeRuleAsks $asks;
+
     #[\Override]
     protected function setUp(): void
     {
         $this->logger = new RecordingLogger();
+        $this->asks = new FakeRuleAsks();
     }
 
     public function test_a_rule_fires_on_its_rising_edge_once(): void
@@ -2472,6 +2478,132 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->errors());
     }
 
+    public function test_an_ask_opens_once_on_the_rising_edge_and_keeps_its_item_id(): void
+    {
+        $card = $this->boundCard([self::askRule('ask', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+
+        $this->evaluate($card);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertCount(1, $this->asks->opened);
+        self::assertSame($this->asks->opened[0]['itemId'], $this->ruleState($card, 'ask')->askItemId);
+        self::assertSame([], $this->asks->withdrawn);
+    }
+
+    public function test_an_ask_withdraws_on_the_falling_edge_and_opens_again_on_the_next_rising_edge(): void
+    {
+        $card = $this->boundCard([self::askRule('ask', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->evaluate($card);
+        $first = $this->asks->opened[0]['itemId'];
+
+        $this->provider()->facts = new ProvidedFacts(ready: false);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertEquals([['itemId' => $first, 'reason' => 'no-longer-holds']], $this->asks->withdrawn);
+        self::assertNull($this->ruleState($card, 'ask')->askItemId);
+
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->evaluate($card, '2026-10-02 12:10:00');
+
+        self::assertCount(2, $this->asks->opened);
+        self::assertSame($this->asks->opened[1]['itemId'], $this->ruleState($card, 'ask')->askItemId);
+        self::assertCount(1, $this->asks->withdrawn);
+    }
+
+    public function test_an_ask_withdraws_when_the_card_leaves_the_slot_of_the_rule(): void
+    {
+        $card = $this->boundCard([self::askRule('ask', self::ALWAYS)]);
+        $this->evaluate($card);
+        $item = $this->asks->opened[0]['itemId'];
+
+        $this->moveTo($card, 'in-progress');
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertEquals([['itemId' => $item, 'reason' => 'left-slot']], $this->asks->withdrawn);
+        self::assertNull($this->ruleState($card, 'ask')->askItemId);
+    }
+
+    public function test_an_ask_withdraws_when_the_template_no_longer_has_the_rule(): void
+    {
+        $card = $this->boundCard([self::askRule('ask', self::ALWAYS), self::requestRule('work', self::ALWAYS)]);
+        $this->evaluate($card);
+        $item = $this->asks->opened[0]['itemId'];
+        $binding = $this->service(WorkflowBindingRepository::class)->findOneByProjectId($card->project->id ?? throw new \LogicException('A stored project has an id.'));
+        self::assertNotNull($binding);
+        $binding->definition = [...$binding->definition, 'rules' => [self::requestRule('work', self::ALWAYS)]];
+        $this->em()->flush();
+
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertEquals([['itemId' => $item, 'reason' => 'rule-removed']], $this->asks->withdrawn);
+        self::assertNull($this->ruleState($card, 'ask')->askItemId);
+    }
+
+    public function test_a_baseline_withdraws_an_ask_whose_rule_is_false_and_keeps_one_whose_rule_holds(): void
+    {
+        $card = $this->boundCard([self::askRule('ask', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->evaluate($card);
+        $item = $this->asks->opened[0]['itemId'];
+        $cardId = $card->id ?? throw new \LogicException('A flushed card has an id.');
+        $projectId = $card->project->id ?? throw new \LogicException('A stored project has an id.');
+
+        $this->service(WorkflowPendingBaselineRepository::class)->markCards($projectId, [$cardId]);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        self::assertSame([], $this->asks->withdrawn);
+        self::assertEquals($item, $this->ruleState($card, 'ask')->askItemId);
+
+        $this->service(WorkflowPendingBaselineRepository::class)->markCards($projectId, [$cardId]);
+        $this->provider()->facts = new ProvidedFacts(ready: false);
+        $this->evaluate($card, '2026-10-02 12:10:00');
+        self::assertEquals([['itemId' => $item, 'reason' => 'no-longer-holds']], $this->asks->withdrawn);
+        self::assertNull($this->ruleState($card, 'ask')->askItemId);
+    }
+
+    public function test_with_the_inbox_off_an_ask_pauses_the_card_until_the_inbox_is_on_and_then_asks(): void
+    {
+        $card = $this->boundCard([self::askRule('ask', self::ALWAYS)]);
+        $this->asks->on = false;
+
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+
+        self::assertNotNull($pause);
+        self::assertSame(CardPauseKind::Rule, $pause->kind);
+        self::assertSame('inbox-off', $pause->reason);
+        self::assertSame([], $this->asks->opened);
+
+        $this->evaluate($card, '2026-10-02 12:05:00');
+        self::assertNull($pause->releasedAt);
+        self::assertSame([], $this->asks->opened);
+
+        $this->asks->on = true;
+        $this->evaluate($card, '2026-10-02 12:10:00');
+
+        self::assertSame('inbox-on', $pause->releaseReason);
+        self::assertNull($this->activePause($card));
+        self::assertCount(1, $this->asks->opened);
+        self::assertSame($this->asks->opened[0]['itemId'], $this->ruleState($card, 'ask')->askItemId);
+    }
+
+    public function test_an_ask_pause_ends_when_the_rule_stops_holding_even_with_the_inbox_off(): void
+    {
+        $card = $this->boundCard([self::askRule('ask', self::PROVIDED_READY)]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->asks->on = false;
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+
+        $this->provider()->facts = new ProvidedFacts(ready: false);
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame('facts-changed', $pause->releaseReason);
+        self::assertSame([], $this->asks->opened);
+    }
+
     /**
      * Binds a template whose slot "one" is the column "next", "two" is "in-progress" and "three" has no column.
      *
@@ -2526,6 +2658,19 @@ final class EngineTest extends KernelTestCase
         }
 
         return ['id' => $id, 'slot' => 'one', 'when' => $when, 'then' => ['request' => $request]];
+    }
+
+    /**
+     * @param array<string, mixed> $when
+     *
+     * @return array<string, mixed>
+     */
+    private static function askRule(string $id, array $when): array
+    {
+        return ['id' => $id, 'slot' => 'one', 'when' => $when, 'then' => ['ask' => [
+            'question' => 'Question',
+            'options' => [['label' => 'Detach', 'then' => [['detach' => []]]]],
+        ]]];
     }
 
     /**
@@ -2632,10 +2777,12 @@ final class EngineTest extends KernelTestCase
                 new PauseCard(),
                 new ReleasePause($cardPauses, $releaseCardPause),
                 $this->service(ForgeWrite::class),
+                new Ask($this->asks, $this->service(TranslatorInterface::class), 'en'),
                 new EvaluateChildren($this->service(CardRepository::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
             ]),
             $opener,
             new RuleSubject(),
+            $this->asks,
             $engineEvents,
             $this->logger,
         );
