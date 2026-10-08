@@ -102,7 +102,8 @@ final readonly class WorkerRunFactWriter
                 COUNT(*) AS tool_calls,
                 COUNT(*) FILTER (WHERE is_error) AS failed_calls,
                 MAX(duration_ms) AS longest_call_ms,
-                COALESCE(SUM(duration_ms) FILTER (WHERE tool IN ('Agent', 'Task') AND NOT in_subagent), 0)::bigint AS subagent_ms
+                CASE WHEN BOOL_OR(kind IS NULL AND NOT in_subagent) THEN NULL
+                    ELSE COALESCE(SUM(duration_ms) FILTER (WHERE kind = 'subagent' AND NOT in_subagent), 0)::bigint END AS subagent_ms
             FROM bridge_worker_run_tool_calls
             WHERE run_id IN (:ids)
             GROUP BY run_id

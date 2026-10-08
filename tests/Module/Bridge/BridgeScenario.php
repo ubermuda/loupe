@@ -18,6 +18,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\ValueObject\WorkRequestState;
@@ -137,13 +138,15 @@ trait BridgeScenario
         return $usage;
     }
 
-    private function seedToolCall(WorkerRun $run, int $seq = 1, string $tool = 'Bash'): void
+    /** A call with no kind given takes the kind of a Claude Code tool name. */
+    private function seedToolCall(WorkerRun $run, int $seq = 1, string $tool = 'Bash', ?WorkerRunToolCallKind $kind = null): void
     {
         $repository = static::getContainer()->get(WorkerRunToolCallRepository::class);
         self::assertInstanceOf(WorkerRunToolCallRepository::class, $repository);
         $repository->insertNew($run, [new WorkerRunToolCallReport(
             seq: $seq,
             tool: $tool,
+            kind: $kind ?? ('Bash' === $tool ? WorkerRunToolCallKind::Shell : WorkerRunToolCallKind::Tool),
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:01'),
             durationMs: 1500,
             isError: false,

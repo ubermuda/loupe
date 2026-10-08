@@ -121,7 +121,7 @@ class WorkerRunFact
         #[ORM\Column(name: 'idle_gap_ms', type: Types::BIGINT, nullable: true)]
         public readonly ?int $idleGapMs,
 
-        /** The time of the Agent and Task calls of the main session. */
+        /** The time of the sub-agent calls of the main session. Null when a call of the main session has no kind. */
         #[ORM\Column(name: 'subagent_ms', type: Types::BIGINT, nullable: true)]
         public readonly ?int $subagentMs,
 

@@ -14,6 +14,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -116,7 +117,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $em = $this->em();
         $run = $this->seedRun($em, $project);
         $this->seedToolCall($run, 1, 'Bash');
-        $this->seedToolCall($run, 2, 'Agent');
+        $this->seedToolCall($run, 2, 'Agent', WorkerRunToolCallKind::Subagent);
         $run->toolTimeMs = 4000;
         $run->idleGapMs = 6000;
         $run->peakContextTokens = 150_000;
