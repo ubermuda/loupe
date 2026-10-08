@@ -6453,6 +6453,10 @@
             <trans-unit id="board.card.history.run_not_started_no_kind"><source>board.card.history.run_not_started_no_kind</source><target>A worker did not run.</target></trans-unit>
             <trans-unit id="board.card.history.paused"><source>board.card.history.paused</source><target>%actor% paused the card because %kind%.</target></trans-unit>
             <trans-unit id="board.card.history.pause_released"><source>board.card.history.pause_released</source><target>%actor% released a pause set because %kind%.</target></trans-unit>
+            <trans-unit id="board.card.history.verdict"><source>board.card.history.verdict</source><target>%actor% sent a verdict from the site-review widget: %verdict%.</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.approve"><source>board.card.history.verdict_kind.approve</source><target>approve</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.request_changes"><source>board.card.history.verdict_kind.request_changes</source><target>request changes</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.comment"><source>board.card.history.verdict_kind.comment</source><target>comment</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.rule"><source>board.card.history.pause_kind.rule</source><target>a workflow rule asked for it</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.retries"><source>board.card.history.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.work_limit"><source>board.card.history.pause_kind.work_limit</source><target>a rule reached its work limit</target></trans-unit>
