@@ -37,6 +37,20 @@ When no linked document matches, page `document_list` for the title the stage sk
 3. When two rows match equally, link neither. Stop with `STAGE RESULT: blocked: ambiguous document match`.
 4. Link a single match (rule 5), and treat it as found.
 
+## Read the answers of a design
+
+The owner can answer a decision after a worker writes the text of a design. `document_get` returns only the text, so read the answers too.
+
+1. After `document_get`, call `document_get_review` on the same document. Read its `decisions` list. A design with no `decisions` field has no answers.
+   A design names a decision by the ID of its section, such as `D2`. The fence inside that section holds the `id` that `decisions` uses.
+2. A decision is answered when `selected` is set, when `selections` is not empty, or when rule 5 accepts its note.
+3. The answer wins over the text, also over a `**Decided:**` line that names another option.
+4. A note beside a picked option is part of the answer.
+5. A note with no pick is an answer when it names one option, or one clear way to go.
+6. An answer whose option a later version removed does not count. Its `selected_index`, or the `index` of a selection, is null.
+7. When your work needs a decision that rules 2 to 6 leave with no usable answer, stop with `STAGE RESULT: blocked: decision <id> needs an answer`. The first sentence after it is "Answer decision <id> on the review page, then resume this run." Then quote the note, when there is one.
+8. Never revise an approved document to record an answer. A revision sets the document back to In review.
+
 ## Final reply
 
 Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. A `breakdown` result then lists its matches, as `../../loupe-stage-implementation/references/breakdown.md` says.

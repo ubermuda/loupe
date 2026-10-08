@@ -40,6 +40,10 @@ branch behind `main` asks for an update. With the merge and sync writes on,
 Loupe does both itself, and no worker runs.
 [Workflows](../using/workflows.md#the-lifecycle-template) lists every rule.
 
+The implementation worker reads the saved decision answers of the tech design.
+An answer wins over the text of the design. The worker lists those decisions at
+the top of its plan.
+
 The owner can run `/loupe:product-design` by hand in Claude Code, from a card or
 from a one-line idea. The session creates the card in Product design, or moves
 an existing card there from an earlier column, such as Backlog or Next. Then it
