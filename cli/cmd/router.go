@@ -66,6 +66,8 @@ type router struct {
 	// hostSampling and hostInterval are the host sampling flags, under mu.
 	hostSampling bool
 	hostInterval time.Duration
+	// beatInterval is the heartbeat interval flag, under mu.
+	beatInterval time.Duration
 	// sampler is the running host sampler, or nil. samplerMu guards it, and
 	// is taken before mu.
 	samplerMu sync.Mutex
@@ -564,7 +566,7 @@ func (r *router) applyFlags(events api.Events) {
 	r.mu.Lock()
 	r.keepFlagsLocked(events)
 	r.mu.Unlock()
-	r.useFlags(events)
+	r.useFlags()
 }
 
 // keepFlagsLocked keeps the flags that workers and the sampler read. The
@@ -573,13 +575,17 @@ func (r *router) keepFlagsLocked(events api.Events) {
 	r.inbox = events.Enabled(api.InboxFlag)
 	r.stopWaits = stopWaitsOf(events)
 	r.hostSampling, r.hostInterval = events.Enabled(api.HostSamplingFlag), hostSampleInterval(events)
+	r.beatInterval = heartbeatInterval(events)
 }
 
-// useFlags gives the heartbeat its interval and starts or stops the host
+// useFlags gives the heartbeat the kept interval and starts or stops the host
 // sampler. The caller does not hold mu.
-func (r *router) useFlags(events api.Events) {
+func (r *router) useFlags() {
 	if r.heartbeat != nil {
-		r.heartbeat.setInterval(heartbeatInterval(events))
+		r.mu.Lock()
+		interval := r.beatInterval
+		r.mu.Unlock()
+		r.heartbeat.setInterval(interval)
 	}
 	r.syncHostSampler()
 }
