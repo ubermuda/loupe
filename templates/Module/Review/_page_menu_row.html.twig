@@ -1,0 +1,13 @@
+{# One row of the document's page menu. Params: kind (card, outgoing, incoming,
+   history or compare), href, label, line. #}
+<a class="lp-page-menu__row" href="{{ href }}">
+    {% if kind == 'card' %}<twig:ux:icon name="lucide:square-kanban" />{% endif %}
+    {% if kind == 'outgoing' %}<twig:ux:icon name="lucide:arrow-up-right" />{% endif %}
+    {% if kind == 'incoming' %}<twig:ux:icon name="lucide:link" />{% endif %}
+    {% if kind == 'history' %}<twig:ux:icon name="lucide:history" />{% endif %}
+    {% if kind == 'compare' %}<twig:ux:icon name="lucide:git-compare" />{% endif %}
+    <span class="lp-page-menu__text">
+        <span class="lp-page-menu__label">{{ label }}</span>
+        <span class="lp-page-menu__line">{{ line }}</span>
+    </span>
+</a>

@@ -253,7 +253,9 @@ async function readLayout(page: Page) {
             threadLeft: threadRect?.left ?? null,
             threadRight: threadRect?.right ?? null,
             threadTop: threadRect?.top ?? null,
-            proseBottom: prose.getBoundingClientRect().bottom,
+            threadBottom: threadRect?.bottom ?? null,
+            proseTop: prose.getBoundingClientRect().top,
+            proseRight: prose.getBoundingClientRect().right,
             cardType:
                 commentBody === null
                     ? null
@@ -358,21 +360,20 @@ test('the reading column fills the screen instead of being clipped', async ({
     );
 });
 
-test('phone readers can open document details from the margin tabs', async ({
-    page,
-}) => {
-    const detailsTab = page.getByRole('tab', { name: 'Details', exact: true });
-    await expect(detailsTab).toBeVisible();
-    await detailsTab.click();
-    const details = page.locator('#review-margin-panel-details');
-    await expect(details).toBeVisible();
-    // The panel lists only what the document has, and this one has nothing.
-    await expect(details).toContainText(
-        'Nothing is linked to this document yet.',
-    );
+test('phone readers can open the page menu', async ({ page }) => {
+    const trigger = page.getByRole('button', {
+        name: 'More about this document',
+        exact: true,
+    });
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    const menu = page.locator('#review-page-menu');
+    await expect(menu).toBeVisible();
+    // This document links to nothing, so the menu holds its versions alone.
     await expect(
-        page.getByLabel('Filter comments', { exact: true }),
-    ).toBeHidden();
+        menu.getByRole('link', { name: /Version history/ }),
+    ).toBeVisible();
+    await expect(menu.locator('[data-page-menu-group]')).toHaveCount(0);
     expect(await contentEscapingItsBox(page)).toEqual([]);
 });
 
@@ -458,26 +459,26 @@ test('a tap on a highlighted passage rings its card', async ({ page }) => {
     });
 });
 
-test('a comment card stacks below the document on phones and returns to the margin', async ({
+test('a comment card sits beside the document on desktop and above it on phones', async ({
     page,
 }) => {
     await page.setViewportSize(DESKTOP);
     await postComment(page);
 
     const desktop = await readLayout(page);
-    expect(desktop.marginPosition).toBe('absolute');
-    expect(desktop.threadPosition).toBe('absolute');
+    expect(desktop.marginPosition).toBe('static');
+    expect(desktop.threadPosition).toBe('static');
     expect(desktop.threadParentClass).toContain('lp-review-margin');
-    // The card sits in the gutter, clear of the reading column.
-    expect(desktop.threadLeft!).toBeGreaterThan(desktop.docRight - 1);
+    // The card sits in the panel column, clear of the reading column.
+    expect(desktop.threadLeft!).toBeGreaterThan(desktop.proseRight - 1);
 
     await givePhoneWidthReadingArea(page);
 
     const phone = await readLayout(page);
-    expect(phone.marginPosition).toBe('static');
     expect(phone.threadPosition).toBe('static');
     expect(phone.threadParentClass).toContain('lp-review-margin');
-    expect(phone.threadTop!).toBeGreaterThanOrEqual(phone.proseBottom);
+    // Below the panel breakpoint the open panels stack above the document.
+    expect(phone.threadBottom!).toBeLessThanOrEqual(phone.proseTop);
     expect(phone.threadRight!).toBeLessThanOrEqual(phone.mainRight + 1);
     expect(phone.mainScrollWidth).toBeLessThanOrEqual(phone.mainClientWidth);
     expect(phone.cardType).toBe(desktop.cardType);
@@ -487,8 +488,8 @@ test('a comment card stacks below the document on phones and returns to the marg
 
     const back = await readLayout(page);
     expect(back.threadParentClass).toContain('lp-review-margin');
-    expect(back.threadPosition).toBe('absolute');
-    // Nothing is left behind in the prose when the margin comes back.
+    expect(back.threadLeft!).toBeGreaterThan(back.proseRight - 1);
+    // Nothing is left behind in the prose when the column comes back.
     await expect(page.locator(DOC).locator(THREAD)).toHaveCount(0);
     await expect(page.locator(THREAD)).toHaveCount(1);
 });
@@ -512,7 +513,7 @@ test('phone cards follow passage order and retain a reply draft across resizing'
     );
     await expect(page.locator(DOC)).toHaveText(proseBefore!);
     const phone = await readLayout(page);
-    expect(phone.threadTop!).toBeGreaterThanOrEqual(phone.proseBottom);
+    expect(phone.threadBottom!).toBeLessThanOrEqual(phone.proseTop);
 
     await page.setViewportSize(DESKTOP);
     await expect(earlier.locator('textarea')).toHaveValue(
@@ -619,7 +620,7 @@ test('hiding resolved cards leaves the document text unchanged', async ({
     await expect(page.locator(DOC).locator(THREAD)).toHaveCount(0);
 });
 
-test('the margin filter still hides resolved threads above lg', async ({
+test('the comment filter still hides resolved threads above lg', async ({
     page,
 }) => {
     await page.setViewportSize(DESKTOP);
@@ -634,7 +635,7 @@ test('the margin filter still hides resolved threads above lg', async ({
     // already out of the column.
     await expect(page.locator(MENU_TRIGGER)).toBeHidden();
     await expect(resolved).toBeHidden();
-    const filter = page.locator('[data-review-margin-target="filter"]');
+    const filter = page.locator('[data-review-panels-target="filter"]');
     await filter.locator('summary').click();
     await filter.getByRole('button', { name: /^All/ }).click();
     await expect(resolved).toBeVisible();

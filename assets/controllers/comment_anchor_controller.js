@@ -243,6 +243,16 @@ export default class extends Controller {
 
     threadTargetConnected(thread) {
         this.resizeObserver?.observe(thread);
+        // The stream replaces the whole list, so the new card is the one whose
+        // id the list did not hold when the submit began.
+        if (
+            this.threadsBeforeSubmit != null &&
+            thread.id !== '' &&
+            !this.threadsBeforeSubmit.has(thread.id)
+        ) {
+            this.threadsBeforeSubmit = null;
+            this.#revealThread(thread);
+        }
     }
 
     threadTargetDisconnected(thread) {
@@ -327,13 +337,9 @@ export default class extends Controller {
     }
 
     /**
-     * A tap has no hover to give, so it stands in for one: tapping a highlighted
-     * passage rings its card and tints the passage. A tap on bare prose drops the
-     * pairing, which is how a reader lets one go.
-     *
-     * It does not scroll to the card. The card is already beside the passage in
-     * the margin, or directly under it in the prose, and a scroll would move the
-     * passage out from under the finger that named it.
+     * A click or a tap on a highlighted passage rings its card, tints the
+     * passage, and opens the Comments panel on that card. A click on bare prose
+     * drops the pairing, which is how a reader lets one go.
      */
     onDocClick(event) {
         if (
@@ -352,6 +358,16 @@ export default class extends Controller {
         } catch {
             this.#clearAnchorHover();
         }
+        if (this.hoveredThread !== null) {
+            this.#revealThread(this.hoveredThread);
+        }
+    }
+
+    /** Asks review-panels to show Comments, then scrolls to the card after the next layout. */
+    #revealThread(thread) {
+        this.dispatch('reveal', { detail: { thread } });
+        this.threadToReveal = thread;
+        this.#scheduleLayout();
     }
 
     /** Captures the anchor for a settled selection. False when it yields none. */
@@ -717,6 +733,7 @@ export default class extends Controller {
         this.strikeInFlight = false;
 
         if (!event.detail?.success) {
+            this.threadsBeforeSubmit = null;
             return;
         }
 
@@ -725,6 +742,13 @@ export default class extends Controller {
         this.#clearActiveHighlight();
         this.#hideComposer();
         this.#scheduleLayout();
+    }
+
+    /** Composer and strike form action: note the cards that exist before the new one. */
+    onSubmitStart() {
+        this.threadsBeforeSubmit = new Set(
+            this.threadTargets.map((thread) => thread.id),
+        );
     }
 
     #resetComposers() {
@@ -1416,6 +1440,15 @@ export default class extends Controller {
         // resolves or deletes a thread reaches the controller only through this
         // path.
         this.#syncResolvedToggle();
+
+        // After the stacking pass, which can move the card.
+        if (this.threadToReveal?.isConnected) {
+            this.threadToReveal.scrollIntoView({
+                block: 'nearest',
+                behavior: 'auto',
+            });
+        }
+        this.threadToReveal = null;
     }
 
     /**

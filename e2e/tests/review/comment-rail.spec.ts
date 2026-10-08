@@ -1,6 +1,7 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 import { coverageScaled } from '../timeouts';
+import { PANELS_KEY, panelButton, showPanel } from './panels';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eCommentRail1!';
@@ -132,7 +133,65 @@ async function commentOn(
     });
 }
 
-test('margin tabs support keyboard navigation and preserve a reply draft', async ({
+test('posting a comment opens the Comments panel on the new thread', async ({
+    page,
+}) => {
+    const comments = panelButton(page, 'Comments');
+    await expect(comments).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#review-panel-comments')).toBeHidden();
+
+    await commentOn(page, FIRST, 'Opened by the post.');
+    await expect(comments).toHaveAttribute('aria-pressed', 'true');
+    const thread = page
+        .locator(THREAD)
+        .filter({ hasText: 'Opened by the post.' });
+    await expect(thread).toBeInViewport();
+    expect(
+        await page.evaluate(
+            (key: string) => window.localStorage.getItem(key),
+            PANELS_KEY,
+        ),
+    ).toBe(JSON.stringify(['decisions', 'comments']));
+});
+
+test('clicking a highlighted passage opens the Comments panel on its thread', async ({
+    page,
+}) => {
+    await commentOn(page, SECOND, 'Found from the passage.');
+    const comments = panelButton(page, 'Comments');
+    await comments.click();
+    await expect(comments).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#review-panel-comments')).toBeHidden();
+
+    const point = await page.evaluate((wanted: string) => {
+        const docEl = document.querySelector(
+            '[data-comment-anchor-target="doc"]',
+        )!;
+        const walker = document.createTreeWalker(docEl, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const index = node.textContent?.indexOf(wanted) ?? -1;
+            if (index !== -1) {
+                const range = document.createRange();
+                range.setStart(node, index);
+                range.setEnd(node, index + wanted.length);
+                const rect = range.getClientRects()[0];
+
+                return { x: rect.left + 4, y: rect.top + rect.height / 2 };
+            }
+        }
+        throw new Error(`phrase "${wanted}" not found in the prose`);
+    }, SECOND);
+    await page.mouse.click(point.x, point.y);
+
+    await expect(comments).toHaveAttribute('aria-pressed', 'true');
+    const thread = page
+        .locator(THREAD)
+        .filter({ hasText: 'Found from the passage.' });
+    await expect(thread).toHaveClass(/lp-comment-thread--active/);
+    await expect(thread).toBeInViewport();
+});
+
+test('toolbar buttons switch panels in a fixed order and keep a reply draft', async ({
     page,
 }) => {
     await commentOn(page, FIRST, 'Keep this discussion mounted.');
@@ -143,122 +202,59 @@ test('margin tabs support keyboard navigation and preserve a reply draft', async
     const reply = thread.getByRole('textbox');
     await reply.fill('An unfinished reply');
 
-    const comments = page.getByRole('tab', { name: 'Comments', exact: true });
-    const outline = page.getByRole('tab', { name: 'Outline', exact: true });
-    const details = page.getByRole('tab', { name: 'Details', exact: true });
-    const filter = page.locator('[data-review-margin-target="filter"]');
-    await filter.locator('summary').click();
-    await comments.focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(outline).toBeFocused();
-    await expect(outline).toHaveAttribute('aria-selected', 'true');
-    await expect(comments).toHaveAttribute('tabindex', '-1');
+    const comments = panelButton(page, 'Comments');
+    const outline = panelButton(page, 'Outline');
+    await outline.click();
+    await expect(outline).toHaveAttribute('aria-pressed', 'true');
     await expect(
-        page.getByRole('tabpanel', { name: 'Outline', exact: true }),
-    ).toBeVisible();
-    await expect(filter).toBeHidden();
+        page
+            .locator('.lp-review-panel:visible')
+            .evaluateAll((panels) => panels.map((panel) => panel.id)),
+    ).resolves.toEqual(['review-panel-comments', 'review-panel-outline']);
 
-    await page.keyboard.press('End');
-    await expect(details).toBeFocused();
-    await page.keyboard.press('ArrowRight');
-    await expect(comments).toBeFocused();
+    await comments.click();
+    await expect(comments).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#review-panel-comments')).toBeHidden();
+    await expect(page.locator('#review-panel-outline')).toBeVisible();
+
+    await comments.click();
+    await expect(thread).toBeVisible();
     await expect(reply).toHaveValue('An unfinished reply');
-    await expect(filter).toBeVisible();
-    await expect(filter).not.toHaveAttribute('open');
-
-    await page.keyboard.press('ArrowLeft');
-    await expect(details).toBeFocused();
-    await page.keyboard.press('Home');
-    await expect(comments).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(outline).not.toBeFocused();
-    await expect(details).not.toBeFocused();
 });
 
-test('margin filter stays outside the tablist and within narrow viewports', async ({
-    page,
-}) => {
-    const filter = page.locator('[data-review-margin-target="filter"]');
+test('the comment filter stays within narrow viewports', async ({ page }) => {
+    await showPanel(page, 'Comments');
+    const filter = page.locator('[data-review-panels-target="filter"]');
     for (const width of [1440, 1150, 950, 780, 390]) {
         await page.setViewportSize({ width, height: 900 });
         await filter.locator('summary').click();
-        const menu = filter.locator('.lp-review-margin-filter__menu');
+        const menu = filter.locator('.lp-review-filter__menu');
         await expect(menu).toBeVisible();
         const bounds = await menu.boundingBox();
         expect(bounds).not.toBeNull();
         expect(bounds!.x).toBeGreaterThanOrEqual(0);
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-        const triggerBounds = (await filter.locator('summary').boundingBox())!;
-        const commentsBounds = (await page
-            .getByRole('tab', { name: 'Comments', exact: true })
-            .boundingBox())!;
-        expect(commentsBounds.x - triggerBounds.x - triggerBounds.width).toBe(
-            6,
-        );
         await page.keyboard.press('Escape');
         await expect(filter.locator('summary')).toBeFocused();
     }
-    await expect(page.getByRole('tablist').locator('details')).toHaveCount(0);
-    await expect(page.getByRole('tablist').getByRole('tab')).toHaveCount(4);
     await page.addStyleTag({ content: 'html { font-size: 200%; }' });
     await filter.locator('summary').click();
     const enlargedBounds = (await filter
-        .locator('.lp-review-margin-filter__menu')
+        .locator('.lp-review-filter__menu')
         .boundingBox())!;
     expect(enlargedBounds.x).toBeGreaterThanOrEqual(0);
     expect(enlargedBounds.x + enlargedBounds.width).toBeLessThanOrEqual(390);
 });
 
-test('enlarged margin tabs scroll within the document controls', async ({
+test('the enlarged toolbar stays within a narrow viewport', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 390, height: 900 });
     await page.addStyleTag({ content: 'html { font-size: 200%; }' });
-    const tablist = page.getByRole('tablist');
-    const bounds = (await tablist.boundingBox())!;
-    expect(bounds.x).toBeGreaterThanOrEqual(0);
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
-    const controls = page.locator('.lp-review-margin-tabs');
-    const controlsLeft = (await controls.boundingBox())!.x;
-    const expectSelectedVisible = async () => {
-        const selected = tablist.locator('[aria-selected="true"]');
-        await expect(selected).toBeFocused();
-        const selectedBounds = (await selected.boundingBox())!;
-        expect(selectedBounds.y).toBeGreaterThanOrEqual(0);
-        const visibleBounds = (await tablist.boundingBox())!;
-        expect((await controls.boundingBox())!.x).toBe(controlsLeft);
-        expect(selectedBounds.x).toBeGreaterThanOrEqual(visibleBounds.x);
-        expect(selectedBounds.x + selectedBounds.width).toBeLessThanOrEqual(
-            visibleBounds.x + visibleBounds.width,
-        );
-        const labelBounds = (await selected
-            .locator('span:not(.lp-review-margin-tabs__count)')
-            .boundingBox())!;
-        expect(labelBounds.x).toBeGreaterThanOrEqual(selectedBounds.x);
-        expect(labelBounds.x + labelBounds.width).toBeLessThanOrEqual(
-            selectedBounds.x + selectedBounds.width,
-        );
-        const launcherBounds = (await page
-            .locator('.lp-review-menu__trigger')
-            .boundingBox())!;
-        expect(selectedBounds.y + selectedBounds.height).toBeLessThanOrEqual(
-            launcherBounds.y,
-        );
-    };
-    await page.getByRole('tab', { name: 'Comments', exact: true }).focus();
-    for (const key of [
-        'End',
-        'Home',
-        'ArrowRight',
-        'ArrowRight',
-        'ArrowRight',
-    ]) {
-        await page.keyboard.press(key);
-        await expectSelectedVisible();
-    }
-    for (const name of ['Comments', 'Details', 'Comments']) {
-        await page.getByRole('tab', { name, exact: true }).click();
-        await expectSelectedVisible();
+    for (const name of ['Decisions', 'Comments', 'Outline'] as const) {
+        const bounds = (await panelButton(page, name).boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
     }
 });
 
@@ -294,7 +290,7 @@ test('margin filters keep counts and visibility after thread updates', async ({
     const thread = page
         .locator(THREAD)
         .filter({ hasText: 'A discussion to filter.' });
-    const filter = page.locator('[data-review-margin-target="filter"]');
+    const filter = page.locator('[data-review-panels-target="filter"]');
     const trigger = filter.locator('summary');
     const empty = page.getByText('No comments match this filter.', {
         exact: true,
@@ -343,15 +339,21 @@ test('margin filters keep counts and visibility after thread updates', async ({
     await expect(trigger).toBeFocused();
 });
 
-/** Every visible thread's `top`, in DOM order. */
+/**
+ * Every visible thread's `top` inside the thread list, in DOM order. A new
+ * comment scrolls the panel to its card, so a viewport `top` moves with that.
+ */
 async function threadTops(page: Page): Promise<number[]> {
-    return page.evaluate(() =>
-        [...document.querySelectorAll('.lp-comment-thread')]
+    return page.evaluate(() => {
+        const list = document.querySelector('.lp-comment-threads')!;
+        const origin = list.getBoundingClientRect().top - list.scrollTop;
+
+        return [...list.querySelectorAll('.lp-comment-thread')]
             .filter((thread) => (thread as HTMLElement).offsetParent !== null)
             .map((thread) =>
-                Math.round((thread as HTMLElement).getBoundingClientRect().top),
-            ),
-    );
+                Math.round(thread.getBoundingClientRect().top - origin),
+            );
+    });
 }
 
 async function seedThreeThreads(page: Page): Promise<void> {
@@ -361,14 +363,9 @@ async function seedThreeThreads(page: Page): Promise<void> {
     await expect(page.locator(THREAD)).toHaveCount(3, {
         timeout: coverageScaled(10000),
     });
-    // Each post streams in fresh cards with no inline `top`, stacked at the
-    // margin's top until the rail's next animation frame places them.
-    await expect(page.locator(`${THREAD}[style*="top"]`)).toHaveCount(3, {
-        timeout: coverageScaled(10000),
-    });
 }
 
-test('thread placement follows text order and reflows around reply drafts', async ({
+test('threads follow text order and reflow around reply drafts', async ({
     page,
 }) => {
     await commentOn(page, THIRD, 'Last passage');
@@ -482,7 +479,7 @@ test('hiding resolved threads closes the gap the cards left', async ({
     await expect(page.locator('.lp-comment-thread--resolved')).toBeHidden();
 
     // All brings it back, and Open hides it again.
-    const filter = page.locator('[data-review-margin-target="filter"]');
+    const filter = page.locator('[data-review-panels-target="filter"]');
     await filter.locator('summary').click();
     await filter.getByRole('button', { name: /^All/ }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible();
@@ -588,107 +585,4 @@ test('expanding the orphan group pushes the anchored cards below it', async ({
             timeout: coverageScaled(5000),
         })
         .toBeGreaterThanOrEqual(0);
-});
-
-test('the selected margin tab carries its highlight in one frame', async ({
-    page,
-}) => {
-    const comments = page.getByRole('tab', { name: 'Comments', exact: true });
-    const outline = page.getByRole('tab', { name: 'Outline', exact: true });
-    await comments.click();
-    await expect(comments).toHaveAttribute('aria-selected', 'true');
-
-    // The tab widths and the labels swap with no transition, so a colour fade
-    // would leave the accent on the tab the reader just left, at the new icon
-    // width. Sampling every frame is what tells a fade from a clean swap.
-    const frames = await page.evaluate(async () => {
-        const tabs = [
-            ...document.querySelectorAll('[data-review-margin-target="tab"]'),
-        ];
-        const shot = () =>
-            tabs
-                .map(
-                    (tab) =>
-                        `${Math.round(tab.getBoundingClientRect().width)}:${getComputedStyle(tab).backgroundColor}`,
-                )
-                .join(' ');
-        const target = tabs.find(
-            (tab) =>
-                (tab as HTMLElement).dataset.reviewMarginNameParam ===
-                'outline',
-        ) as HTMLElement;
-        target.click();
-        const seen: string[] = [];
-        for (let frame = 0; frame < 10; frame++) {
-            await new Promise((resolve) => requestAnimationFrame(resolve));
-            const current = shot();
-            if (seen[seen.length - 1] !== current) {
-                seen.push(current);
-            }
-        }
-        return seen;
-    });
-
-    await expect(outline).toHaveAttribute('aria-selected', 'true');
-    expect(frames).toHaveLength(1);
-});
-
-test('a comment card is never painted before it is placed', async ({
-    page,
-}) => {
-    await commentOn(page, FIRST, 'Anchored before the view switch.');
-    const thread = page.locator(THREAD).first();
-    await expect(thread).toBeVisible();
-
-    await page.getByRole('link', { name: 'History', exact: true }).click();
-    await expect(
-        page.getByRole('heading', { name: 'Version history' }),
-    ).toBeVisible();
-    // The probe rides `document`, which survives a Turbo Drive render, and
-    // reads the card on the render event itself. That is the one frame the
-    // reader used to see, before the controller measures a top for it.
-    await page.evaluate(() => {
-        (window as unknown as { __placing?: unknown }).__placing = null;
-        const onRender = () => {
-            document.removeEventListener('turbo:render', onRender);
-            const card = document.querySelector('.lp-comment-thread');
-            const tabs = document.querySelector('.lp-review-workspace-nav');
-            (window as unknown as { __placing?: unknown }).__placing = {
-                visibility: card ? getComputedStyle(card).visibility : null,
-                placedYet: card
-                    ? Boolean((card as HTMLElement).style.top)
-                    : null,
-                overTheTabRow:
-                    card && tabs
-                        ? card.getBoundingClientRect().top <
-                          tabs.getBoundingClientRect().bottom
-                        : null,
-            };
-        };
-        document.addEventListener('turbo:render', onRender);
-    });
-
-    await page.getByRole('link', { name: 'Document', exact: true }).click();
-    await expect(page.locator(THREAD).first()).toBeVisible();
-
-    const placing = await page.evaluate(
-        () =>
-            (window as unknown as { __placing?: Record<string, unknown> })
-                .__placing,
-    );
-
-    // It has no measured top yet, and it sits where it would cover the tabs.
-    // Both are why it has to be invisible for that frame.
-    expect(placing?.placedYet).toBe(false);
-    expect(placing?.overTheTabRow).toBe(true);
-    expect(placing?.visibility).toBe('hidden');
-
-    // And it is placed and readable once the pass has run.
-    const settled = page.locator(THREAD).first();
-    await expect(settled).toBeVisible();
-    const cardBox = (await settled.boundingBox())!;
-    const tabsBox = (await page
-        .locator('.lp-review-workspace-nav')
-        .boundingBox())!;
-    expect(cardBox.y).toBeGreaterThan(tabsBox.y + tabsBox.height);
 });

@@ -48,6 +48,9 @@
                 </form>
                 {% endif %}
                 {% endif %}
+                {% if showPageMenu %}
+                {% include '@Review/_page_menu.html.twig' with {document: document, version: version, versionCount: versionCount} only %}
+                {% endif %}
             </div>
             {% if showWaitLine|default(false) %}{{ inbox_document_wait_line(document) }}{% endif %}
         </div>
@@ -67,49 +70,5 @@
         {% endif %}
         <a class="lp-tabs__tab" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}" {% if activeView == 'history' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:history" />{{ 'review.document.navigation.history'|trans }}</a>
     </nav>
-    {% if showMarginControls %}
-    <div class="lp-review-margin-tabs">
-        {% if 'comments' in marginTabs %}
-        <details class="lp-review-margin-filter" data-review-margin-target="filter" data-action="keydown.esc->review-margin#closeFilter">
-            <summary class="lp-review-margin-tabs__item lp-review-margin-tabs__item--icon"
-                     aria-label="{{ 'review.document.margin.filter'|trans }}"
-                     title="{{ 'review.document.margin.filter'|trans }}">
-                <twig:ux:icon name="lucide:list-filter" />
-            </summary>
-            <div class="lp-review-margin-filter__menu">
-                {% for filterName in ['open', 'resolved', 'unanchored', 'all'] %}
-                <button type="button" data-review-margin-target="option" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter" aria-pressed="{{ filterName == 'open' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
-                {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-        <div class="lp-review-margin-tablist" role="tablist" aria-label="{{ 'review.document.margin.label'|trans }}">
-        {% for marginTab in marginTabs %}
-        {# A tab with nothing behind it stays in the row and says why, so the
-           row keeps its shape between the document and a comparison. #}
-        {% set tabReason = marginTabReasons[marginTab]|default(null) %}
-        <button type="button" role="tab"
-                id="review-margin-tab-{{ marginTab }}"
-                aria-controls="review-margin-panel-{{ marginTab }}"
-                tabindex="{{ loop.first ? '0' : '-1' }}"
-                class="lp-review-margin-tabs__item{{ loop.first ? ' lp-review-margin-tabs__item--active' }}{{ tabReason ? ' lp-review-margin-tabs__item--disabled' }}"
-                aria-selected="{{ loop.first ? 'true' : 'false' }}"
-                {% if tabReason %}aria-disabled="true"{% endif %}
-                aria-label="{{ ('review.document.margin.' ~ marginTab)|trans }}"
-                title="{{ tabReason ? tabReason|trans : ('review.document.margin.' ~ marginTab)|trans }}"
-                data-review-margin-target="tab"
-                data-review-margin-name-param="{{ marginTab }}"
-                data-action="click->review-margin#select keydown->review-margin#navigate">
-            {% if marginTab == 'comments' %}<twig:ux:icon name="lucide:message-square" />{% endif %}
-            {% if marginTab == 'outline' %}<twig:ux:icon name="lucide:list" />{% endif %}
-            {% if marginTab == 'decisions' %}<twig:ux:icon name="lucide:clipboard-check" />{% endif %}
-            {% if marginTab == 'details' %}<twig:ux:icon name="lucide:file-text" />{% endif %}
-            <span>{{ ('review.document.margin.' ~ marginTab)|trans }}</span>
-            {% if marginTab == 'comments' and commentCount is not null %}<span class="lp-review-margin-tabs__count" data-review-margin-target="count">{{ commentCount }}</span>{% endif %}
-        </button>
-        {% endfor %}
-        </div>
-    </div>
-    {% endif %}
     </div>
 </div>

@@ -59,6 +59,11 @@ final readonly class DecisionSummaryReader
             }
         }
 
-        return new DecisionSummary($decisions, $selectedIndexesByDecisionId, $notesByDecisionId);
+        return new DecisionSummary(
+            $decisions,
+            $selectedIndexesByDecisionId,
+            $notesByDecisionId,
+            $this->decisionBlocks->headingsAbove($version->renderedHtml),
+        );
     }
 }

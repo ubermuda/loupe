@@ -4,14 +4,10 @@
   (add / delete / resolve all replace #comment-threads), so everything that must
   refresh on a mutation lives inside this element.
 
-  General comments — no anchor — lead the reading column, because there is no
-  passage for them to be level with. Anchored comments go in the margin, where
-  comment_anchor_controller measures each one's passage and sets its `top`. Below
-  the margin's breakpoint the cards stack below the document in passage order.
-
-  There is deliberately no status grouping any more: a card's position now says
-  which passage it belongs to, and sorting the column by status would break that
-  the moment a thread was resolved.
+  General comments, which have no anchor, lead the list. The Comments panel
+  holds the margin static, so comment_anchor_controller stacks the anchored
+  cards in passage order. There is no status grouping, so resolving a thread
+  never moves it.
 
   Vars:  @comment-budget-ignore
     comments  list<Comment>   All comments for the version (roots and replies).
@@ -52,7 +48,7 @@
     {% endif %}
 
     <div class="lp-review-margin lp-comment-rail" data-comment-anchor-target="margin">
-        <div class="lp-review-margin-empty" data-review-margin-target="empty" role="status" hidden>
+        <div class="lp-review-margin-empty" data-review-panels-target="empty" role="status" hidden>
             <p data-empty-filter="all">{{ 'review.document.margin.empty_all'|trans }}</p>
             <p data-empty-filter="filtered">{{ 'review.document.margin.filter_empty'|trans }}</p>
         </div>

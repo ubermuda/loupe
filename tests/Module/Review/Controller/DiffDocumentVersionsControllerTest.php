@@ -526,6 +526,14 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(0, $diff->filter('.lp-comment-composer'));
         self::assertCount(0, $diff->filter('.lp-anchor-toolbar'));
         self::assertStringNotContainsString('data-diff-offset', (string) $client->getResponse()->getContent());
+        // The toolbar offers Outline and a disabled Decisions, and no Comments.
+        self::assertSame(
+            ['decisions', 'outline'],
+            $diff->filter('.lp-review-toolbar__button')->each(static fn (Crawler $button): string => (string) $button->attr('data-review-panels-name-param')),
+        );
+        self::assertSame('true', $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]')->attr('aria-disabled'));
+        self::assertStringContainsString('cannot answer decisions', (string) $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]')->attr('title'));
+        self::assertCount(1, $diff->filter('.lp-review-doc__byline [aria-controls="review-page-menu"]'));
 
         // The review page on the current version, so the assertions above cannot
         // pass merely because the selectors never match anything.
@@ -577,6 +585,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(1, $diff->filter('#comment-threads'));
         self::assertCount(1, $diff->filter('.lp-anchor-toolbar'));
         self::assertGreaterThan(0, $diff->filter('.lp-comment-composer')->count());
+        self::assertCount(1, $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="comments"]'));
 
         // Still a comparison: nothing that reports on a single version is offered.
         self::assertCount(0, $diff->filter('input[name="submit_review_form[verdict]"]'));
@@ -776,15 +785,15 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $diff = $client->request(Request::METHOD_GET, $base);
 
         self::assertResponseIsSuccessful();
-        // The margin's Outline view lists the diff's headings, the way it does
-        // on the review page.
-        self::assertCount(1, $diff->filter('[data-margin-panel="outline"]'));
+        // The Outline panel lists the diff's headings, the way it does on the
+        // review page.
+        self::assertCount(1, $diff->filter('[data-review-panel="outline"]'));
 
         // Removed headings are listed too: they are on the page the reader has,
         // in the order the merged render holds them.
         self::assertSame(
             ['First', 'Gone', 'Renamed', 'Arrived', 'Second!'],
-            $diff->filter('[data-margin-panel="outline"] .lp-review-contents__link')->each(
+            $diff->filter('[data-review-panel="outline"] .lp-review-contents__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
         );
@@ -799,7 +808,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // The Markdown view lists headings too. Its ids are minted from the
         // source lines, because it renders no heading element to read one from.
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
-        self::assertCount(1, $source->filter('[data-margin-panel="outline"]'));
+        self::assertCount(1, $source->filter('[data-review-panel="outline"]'));
         $this->assertContentsRowsResolve($source);
 
         // The columns take the margin's width, so the review menu lists their
@@ -834,8 +843,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // The review page for the same document lists its headings, so the
         // assertions above cannot pass by the panel having lost them outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
-        self::assertCount(1, $latest->filter('[data-margin-panel="outline"]'));
-        self::assertCount(3, $latest->filter('[data-margin-panel="outline"] .lp-review-contents__link'));
+        self::assertCount(1, $latest->filter('[data-review-panel="outline"]'));
+        self::assertCount(3, $latest->filter('[data-review-panel="outline"] .lp-review-contents__link'));
     }
 
     /**
@@ -921,9 +930,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         );
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $source->filter('[data-margin-panel="outline"]'));
+        self::assertCount(1, $source->filter('[data-review-panel="outline"]'));
 
-        $rows = $source->filter('[data-margin-panel="outline"] .lp-review-contents__link');
+        $rows = $source->filter('[data-review-panel="outline"] .lp-review-contents__link');
         self::assertSame(
             ['Guide', 'Removed', 'Added', 'Stable'],
             $rows->each(static fn (Crawler $link): string => $link->text()),
@@ -946,7 +955,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         }
 
         self::assertCount(0, $source->filter('.lp-review-contents__tick'));
-        self::assertSame('4', trim($source->filter('[data-margin-panel="outline"] h2 span')->text()));
+        self::assertSame('4', trim($source->filter('#review-panel-outline .lp-review-panel__count')->text()));
     }
 
     /**
@@ -1129,6 +1138,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // The columns take the width the comment column would, so this view
         // carries none and accepts no comment.
         self::assertCount(0, $columns->filter('.lp-review-margin'));
+        self::assertCount(0, $columns->filter('.lp-review-toolbar'));
         self::assertCount(0, $columns->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(0, $columns->filter('[data-diff-side="old"] [data-diff-offset]'));
         self::assertCount(1, $columns->filter('#diff-columns-notice'));

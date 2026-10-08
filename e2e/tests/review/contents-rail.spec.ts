@@ -12,6 +12,7 @@
 
 import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { showPanel } from './panels';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eContentsRail1!';
@@ -38,7 +39,7 @@ Gamma is short too.
 
 Delta is short as well, and it is what the bottom of the pane holds.`;
 
-const RAIL = '#review-margin-panel-outline';
+const RAIL = '#review-panel-outline';
 const RAIL_LINK = `${RAIL} .lp-review-contents__link`;
 const CURRENT = `${RAIL} .lp-review-contents__link--current`;
 
@@ -80,9 +81,7 @@ const test = base.extend<{ reviewUrl: string }>({
             const url = `/projects/${body.projectId}/documents/${body.documentId}/review`;
 
             await page.goto(url);
-            await page
-                .getByRole('tab', { name: 'Outline', exact: true })
-                .click();
+            await showPanel(page, 'Outline');
             await use(url);
         },
         { auto: true },

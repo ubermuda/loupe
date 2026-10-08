@@ -2,7 +2,7 @@
    drops the stream on any other page. `answers` comes from the summary route
    alone; decision_controller.js reads it from the response, not the DOM. #}
 <turbo-stream data-decision-page="{{ page }}" action="update" target="decision-summary-count"{% if answers is defined %} data-decision-answers="{{ answers|json_encode }}"{% endif %}>
-    <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
+    <template>{{ 'review.document.panels.decisions_count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
 </turbo-stream>
 <turbo-stream data-decision-page="{{ page }}" action="update" target="decision-summary-list">
     <template>{% include '@Review/_decision_summary_rows.html.twig' with {rows: rows} only %}</template>

@@ -1121,7 +1121,13 @@ for (const width of [1440, 390]) {
         await page.goto(review.reviewUrl);
         await expect(page.locator(DOC)).toBeVisible();
         await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
-        await page.getByRole('tab', { name: 'Details', exact: true }).click();
+        await page
+            .getByRole('button', {
+                name: 'More about this document',
+                exact: true,
+            })
+            .click();
+        await expect(page.locator('#review-page-menu')).toBeVisible();
         await expect(
             page.getByRole('link', { name: 'Deleted threads' }),
         ).toHaveCount(0);
@@ -1213,8 +1219,9 @@ test('hovering an anchored passage activates its comment card', async ({
         timeout: coverageScaled(5000),
     });
 
-    // Moving off it releases the pairing again.
-    await page.mouse.move(box.x, box.y - 200);
+    // Moving off it releases the pairing again. The heading is bare prose, and
+    // a fixed offset can land on the card in the panels stacked above.
+    await page.locator('[data-comment-anchor-target="doc"] h1').first().hover();
     await expect(thread).not.toHaveClass(/lp-comment-thread--active/, {
         timeout: coverageScaled(5000),
     });

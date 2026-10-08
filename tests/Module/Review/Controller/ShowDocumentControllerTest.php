@@ -18,7 +18,6 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Review;
-use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -78,17 +77,16 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'My Review Doc');
-        // The two columns the page is built from: the document being read, and the
-        // margin the comment cards are positioned in beside it.
+        // The document being read, and the Comments panel that lists its threads.
         self::assertSelectorExists('.lp-review-doc');
-        self::assertSelectorExists('.lp-review-margin');
+        self::assertSelectorExists('#review-panel-comments .lp-review-margin');
         self::assertSelectorExists('.lp-review-doc__back[aria-label="Back to documents"]');
         self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs', 'Document');
         self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs', 'History');
         self::assertSelectorExists('.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]');
     }
 
-    public function test_details_show_the_card_linked_to_the_document(): void
+    public function test_the_page_menu_lists_the_card_linked_to_the_document(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -113,13 +111,45 @@ final class ShowDocumentControllerTest extends WebTestCase
         );
 
         self::assertResponseIsSuccessful();
-        $card = $crawler->filter('[data-margin-panel="details"] .lp-board-card--static');
-        self::assertCount(1, $card);
-        self::assertStringContainsString('#1', $card->text());
-        self::assertStringContainsString('Ready', $card->filter('.lp-board-card__status')->text());
-        self::assertCount(0, $card->filter('[data-board-drag-target], form'), 'the card does not drag outside the board');
-        self::assertSame('card-drawer-frame', $card->filter('.lp-board-card__title')->attr('data-turbo-frame'));
-        self::assertStringContainsString('Implement the document', $card->filter('.lp-board-card__title')->text());
+        $row = $crawler->filter('#review-page-menu [data-page-menu-group="card"] .lp-page-menu__row');
+        self::assertCount(1, $row);
+        self::assertSame('#1 Implement the document', trim($row->filter('.lp-page-menu__label')->text()));
+        self::assertSame('Linked card · Feature · Ready', trim($row->filter('.lp-page-menu__line')->text()));
+        self::assertStringEndsWith('/cards/'.$card->id, (string) $row->attr('href'));
+        self::assertCount(0, $crawler->filter('#review-page-menu .lp-page-menu__heading'), 'one link needs no heading');
+    }
+
+    public function test_the_page_menu_heads_a_kind_with_several_links_and_holds_back_all_but_three(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'many-links-owner', 'many-links-owner@example.com');
+        $project = $this->project($em, $owner);
+        $document = new Document(owner: $owner, project: $project, title: 'Hub document');
+        $document->addVersion('# Hub', '<h1>Hub</h1>');
+        $em->persist($document);
+        foreach (range(1, 5) as $number) {
+            $target = new Document(owner: $owner, project: $project, title: 'Target '.$number);
+            $target->addVersion('# T', '<h1>T</h1>');
+            $em->persist($target);
+            $document->references->add($target);
+        }
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/documents/'.$document->id.'/review',
+        );
+
+        self::assertResponseIsSuccessful();
+        $group = $crawler->filter('#review-page-menu [data-page-menu-group="outgoing"]');
+        self::assertSame('Links to (5)', trim($group->filter('.lp-page-menu__heading')->text()));
+        self::assertCount(3, $group->children('.lp-page-menu__row'));
+        self::assertSame('Show 2 more', trim($group->filter('.lp-page-menu__more-toggle')->text()));
+        self::assertCount(2, $group->filter('.lp-page-menu__more .lp-page-menu__row'));
+        self::assertSame('Links to · In review', trim($group->filter('.lp-page-menu__line')->first()->text()));
     }
 
     public function test_the_linked_card_shows_its_title_and_not_its_body(): void
@@ -147,12 +177,12 @@ final class ShowDocumentControllerTest extends WebTestCase
         );
 
         self::assertResponseIsSuccessful();
-        $panel = $crawler->filter('[data-margin-panel="details"]');
-        self::assertStringContainsString('Implement the document', $panel->filter('.lp-board-card--static .lp-board-card__title')->text());
-        self::assertStringNotContainsString('Linked body marker text', $panel->text());
+        $menu = $crawler->filter('#review-page-menu');
+        self::assertStringContainsString('Implement the document', $menu->filter('.lp-page-menu__label')->text());
+        self::assertStringNotContainsString('Linked body marker text', $menu->text());
     }
 
-    public function test_review_page_renders_the_document_tags(): void
+    public function test_the_page_menu_leaves_out_the_tags(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -176,35 +206,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-tag', 'architecture');
-    }
-
-    public function test_review_page_renders_the_place_the_document_holds_in_a_series(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->createUser($em, 'seriesowner', 'seriesowner@example.com');
-        $project = $this->project($em, $owner);
-
-        $doc = new Document(owner: $owner, project: $project, title: 'Post five');
-        $doc->addVersion('# Hello', '<h1>Hello</h1>');
-        $series = new Series($project, 'Blog Series');
-        $em->persist($series);
-        $doc->series = $series;
-        $doc->seriesOrdinal = 5;
-        $em->persist($doc);
-        $em->flush();
-
-        $projectId = (string) $project->id;
-        $id = (string) $doc->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
-
-        self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-series', 'Series Blog Series, item 5');
+        self::assertSelectorExists('#review-page-menu');
+        self::assertSelectorTextNotContains('#review-page-menu', 'architecture');
     }
 
     public function test_review_page_renders_byline_and_verdict_actions(): void
@@ -230,9 +233,12 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.lp-review-doc__byline', 'Ribbonowner');
         self::assertSelectorTextNotContains('.lp-review-doc__byline', 'sections approved');
-        self::assertSelectorCount(4, '.lp-review-margin-tabs [role="tab"]');
-        self::assertSelectorTextContains('.lp-review-margin-tabs', 'Comments');
-        self::assertSelectorExists('[data-margin-panel="details"]');
+        self::assertSelectorCount(3, '.lp-review-toolbar__button[aria-pressed]');
+        self::assertSelectorTextContains('.lp-review-toolbar', 'Comments');
+        // Nothing to answer, so Decisions stays in the toolbar, off and disabled.
+        self::assertSelectorExists('.lp-review-toolbar__button[data-review-panels-name-param="decisions"][aria-disabled="true"][aria-pressed="false"]');
+        self::assertSelectorExists('#review-panel-decisions[hidden]');
+        self::assertSelectorExists('.lp-review-doc__byline [aria-controls="review-page-menu"]');
         self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="approved"]');
         self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="changes-requested"]');
         self::assertSelectorNotExists('.lp-verdict-chip');
@@ -768,11 +774,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    /**
-     * The panel carries the current version's note, and the history page carries
-     * every note. Between them nothing a revision said is lost.
-     */
-    public function test_the_panel_shows_the_current_version_note_and_the_history_shows_them_all(): void
+    /** The review page carries no version note, and the history page carries every note. */
+    public function test_the_history_shows_every_version_note(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -795,11 +798,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $panelNotes = $crawler->filter('[data-version-note]')->each(
-            static fn (\Symfony\Component\DomCrawler\Crawler $node): string => trim($node->text()),
-        );
-
-        self::assertSame(['Replaced the rollout section with a phased plan.'], $panelNotes);
+        self::assertSelectorTextNotContains('#review-page-menu', 'Replaced the rollout section');
 
         $history = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/history');
 
@@ -814,8 +813,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
     /**
      * A document with one version has no switching to do, but its description is
-     * the only account of what that version is — hiding the list would store text
-     * nothing ever shows.
+     * the only account of what that version is. The history page shows it.
      */
     public function test_a_single_version_document_still_shows_its_description(): void
     {
@@ -835,10 +833,10 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/history');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('[data-version-note]', 'The original brief.');
+        self::assertSelectorTextContains('.lp-history__note', 'The original brief.');
     }
 
     /**
@@ -894,7 +892,9 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-review-workspace-nav .lp-tabs a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
-        self::assertCount(0, $crawler->filter('[data-version-note]'));
+        self::assertCount(1, $crawler->filter('#review-page-menu a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
+        self::assertSame('2 versions', trim($crawler->filter('#review-page-menu [href$="/review/history"] .lp-page-menu__line')->text()));
+        self::assertCount(1, $crawler->filter('#review-page-menu a[href="/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2"]'));
     }
 
     public function test_the_table_of_contents_links_to_headings_from_outside_the_anchoring_target(): void
@@ -990,9 +990,9 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         // One section is enough for the panel to list.
-        self::assertCount(1, $crawler->filter('#review-margin-panel-outline'));
+        self::assertCount(1, $crawler->filter('#review-panel-outline'));
         self::assertCount(1, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
-        self::assertSame('1', trim($crawler->filter('#review-margin-panel-outline h2 span')->text()));
+        self::assertSame('1', trim($crawler->filter('#review-panel-outline .lp-review-panel__count')->text()));
     }
 
     public function test_both_ends_of_a_reference_render_it_and_an_archived_target_is_marked(): void
@@ -1026,57 +1026,17 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$sourceId.'/review');
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-doc-references', 'The Retired Spec');
-        self::assertCount(1, $crawler->filter('.lp-doc-references__archived'));
-        self::assertSelectorTextContains('.lp-doc-references__archive-reason', 'superseded by the v2 plan');
-        self::assertCount(
-            1,
-            $crawler->filter('.lp-doc-references__link[href="/projects/'.$projectId.'/documents/'.$targetId.'/review"]'),
-        );
+        $row = $crawler->filter('#review-page-menu [data-page-menu-group="outgoing"] .lp-page-menu__row');
+        self::assertSame('The Retired Spec', trim($row->filter('.lp-page-menu__label')->text()));
+        self::assertSame('Links to · Archived', trim($row->filter('.lp-page-menu__line')->text()));
+        self::assertSame('/projects/'.$projectId.'/documents/'.$targetId.'/review', $row->attr('href'));
 
         // The same row, read from the other end.
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$targetId.'/review');
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-doc-references', 'The Companion Thread');
-        self::assertCount(0, $crawler->filter('.lp-doc-references__archived'));
-    }
-
-    /**
-     * A reference archived from the app carries no reason, which is the ordinary
-     * case: the Archived chip still shows, and nothing stands in for the reason
-     * that was never asked for.
-     */
-    public function test_an_archived_reference_with_no_reason_renders_the_chip_alone(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->createUser($em, 'owner-ref-noreason', 'owner-ref-noreason@example.com');
-        $project = $this->project($em, $owner);
-
-        $target = new Document(owner: $owner, project: $project, title: 'Quietly Retired');
-        $target->addVersion('# Spec', '<h1>Spec</h1>');
-        $target->archivedAt = new \DateTimeImmutable();
-        $em->persist($target);
-
-        $source = new Document(owner: $owner, project: $project, title: 'The Companion Thread');
-        $source->addVersion('# Thread', '<h1>Thread</h1>');
-        $source->references->add($target);
-        $em->persist($source);
-        $em->flush();
-
-        $projectId = (string) $project->id;
-        $sourceId = (string) $source->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$sourceId.'/review');
-        self::assertResponseIsSuccessful();
-        // The chip proves the reference rendered, so the missing reason below is
-        // the template's choice rather than an empty page.
-        self::assertCount(1, $crawler->filter('.lp-doc-references__archived'));
-        self::assertCount(0, $crawler->filter('.lp-doc-references__archive-reason'));
+        $row = $crawler->filter('#review-page-menu [data-page-menu-group="incoming"] .lp-page-menu__row');
+        self::assertSame('The Companion Thread', trim($row->filter('.lp-page-menu__label')->text()));
+        self::assertSame('Links to this document · In review', trim($row->filter('.lp-page-menu__line')->text()));
     }
 
     /**
@@ -1111,7 +1071,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(2, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
-        self::assertSelectorTextContains('.lp-doc-references', 'The Spec');
+        self::assertSelectorTextContains('#review-page-menu [data-page-menu-group="outgoing"]', 'The Spec');
     }
 
     public function test_a_document_with_no_references_renders_no_reference_block(): void
@@ -1135,7 +1095,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('.lp-doc-references'));
+        self::assertCount(0, $crawler->filter('#review-page-menu [data-page-menu-group]'));
+        self::assertCount(1, $crawler->filter('#review-page-menu [href$="/review/history"]'));
     }
 
     public function test_the_diff_tab_links_to_the_current_version_s_diff(): void

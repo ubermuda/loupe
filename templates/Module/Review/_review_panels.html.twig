@@ -1,0 +1,80 @@
+{# The toolbar and the panels it switches, in a fixed order. Decisions is on by
+   default; review_panels_controller.js applies the reader's stored choice.
+   Params: showComments, decisionsReason (translation key or null), decisionRows,
+   answeredDecisions, sectionRows, comments, readOnlyThreads, commentCount. #}
+{% set panelNames = ['decisions']|merge(showComments ? ['comments'] : [])|merge(['outline']) %}
+<aside class="lp-review-panels" aria-label="{{ 'review.document.panels.label'|trans }}">
+    <div class="lp-review-panels__inner">
+        <div class="lp-review-toolbar">
+            {% for name in panelNames %}
+            {% set reason = name == 'decisions' ? decisionsReason : null %}
+            {% set open = name == 'decisions' and reason is null %}
+            <button type="button" class="lp-review-toolbar__button"
+                    aria-controls="review-panel-{{ name }}"
+                    aria-pressed="{{ open ? 'true' : 'false' }}"
+                    {% if reason %}aria-disabled="true"{% endif %}
+                    title="{{ reason ? reason|trans : ('review.document.panels.' ~ name)|trans }}"
+                    data-review-panels-target="button"
+                    data-review-panels-name-param="{{ name }}"
+                    data-action="review-panels#toggle">
+                {% if name == 'decisions' %}<twig:ux:icon name="lucide:clipboard-check" />{% endif %}
+                {% if name == 'comments' %}<twig:ux:icon name="lucide:message-square" />{% endif %}
+                {% if name == 'outline' %}<twig:ux:icon name="lucide:list" />{% endif %}
+                <span>{{ ('review.document.panels.' ~ name)|trans }}</span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <section class="lp-review-panel" id="review-panel-decisions" data-review-panels-target="panel" data-review-panel="decisions"
+                 data-controller="contents-rail" aria-labelledby="review-panel-decisions-title"{{ decisionsReason is not null ? ' hidden' }}>
+            <div class="lp-review-panel__head">
+                <h2 id="review-panel-decisions-title">{{ 'review.document.panels.decisions'|trans }}</h2>
+                <span class="lp-review-panel__count" id="decision-summary-count">{{ 'review.document.panels.decisions_count'|trans({'%answered%': answeredDecisions, '%total%': decisionRows|length}) }}</span>
+            </div>
+            {% if decisionRows|length > 0 %}
+            <ul class="lp-decision-summary__list" id="decision-summary-list">
+                {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
+            </ul>
+            <p class="lp-review-panel__hint">{{ 'review.document.margin.decisions_save_hint'|trans }}</p>
+            {% elseif decisionsReason is not null %}<p class="lp-review-panel__hint">{{ decisionsReason|trans }}</p>
+            {% else %}<p class="lp-review-panel__hint">{{ 'review.document.margin.decisions_empty'|trans }}</p>{% endif %}
+        </section>
+
+        {% if showComments %}
+        <section class="lp-review-panel" id="review-panel-comments" data-review-panels-target="panel" data-review-panel="comments"
+                 aria-labelledby="review-panel-comments-title" hidden>
+            <div class="lp-review-panel__head">
+                <h2 id="review-panel-comments-title">{{ 'review.document.panels.comments'|trans }}</h2>
+                <span class="lp-review-panel__count" data-review-panels-target="count">{{ commentCount }}</span>
+                <details class="lp-review-filter" data-review-panels-target="filter" data-action="keydown.esc->review-panels#closeFilter">
+                    <summary class="lp-review-filter__toggle"
+                             aria-label="{{ 'review.document.margin.filter'|trans }}"
+                             title="{{ 'review.document.margin.filter'|trans }}">
+                        <twig:ux:icon name="lucide:list-filter" />
+                    </summary>
+                    <div class="lp-review-filter__menu">
+                        {% for filterName in ['open', 'resolved', 'unanchored', 'all'] %}
+                        <button type="button" data-review-panels-target="option" data-review-panels-filter-param="{{ filterName }}" data-action="review-panels#filter" aria-pressed="{{ filterName == 'open' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
+                        {% endfor %}
+                    </div>
+                </details>
+            </div>
+            <div id="comment-recovery" aria-live="polite"></div>
+            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnlyThreads} only %}
+        </section>
+        {% endif %}
+
+        <section class="lp-review-panel" id="review-panel-outline" data-review-panels-target="panel" data-review-panel="outline"
+                 data-panel="contents" data-controller="contents-rail" aria-labelledby="review-panel-outline-title" hidden>
+            <div class="lp-review-panel__head">
+                <h2 id="review-panel-outline-title">{{ 'review.document.panels.outline'|trans }}</h2>
+                <span class="lp-review-panel__count">{{ sectionRows|length }}</span>
+            </div>
+            {% if sectionRows|length > 0 %}
+            <ul class="lp-review-contents__list" id="section-summary-list">
+                {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
+            </ul>
+            {% else %}<p class="lp-review-panel__hint">{{ 'review.document.margin.outline_empty'|trans }}</p>{% endif %}
+        </section>
+    </div>
+</aside>

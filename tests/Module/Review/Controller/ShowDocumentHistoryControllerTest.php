@@ -67,7 +67,8 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-review-doc__title', 'Historied Doc');
         self::assertSelectorTextContains('.lp-review-doc__version', 'v3');
         self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]', 'History');
-        self::assertSelectorCount(0, '.lp-review-margin-tabs');
+        self::assertSelectorCount(0, '.lp-review-toolbar');
+        self::assertSelectorCount(0, '#review-page-menu');
         self::assertSelectorExists('#revise-document-title');
         self::assertSelectorExists('#finish-review-title');
         self::assertSelectorExists('.lp-review-topbar-actions button[data-action="click->review-finish#open"]');

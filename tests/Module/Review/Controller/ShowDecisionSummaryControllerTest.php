@@ -45,7 +45,8 @@ final class ShowDecisionSummaryControllerTest extends WebTestCase
             array_fill(0, 5, $document->id.'/1'),
             $streams->each(static fn (Crawler $stream): ?string => $stream->attr('data-decision-page')),
         );
-        self::assertStringContainsString('1/2', $streams->eq(0)->html());
+        self::assertStringContainsString('1 of 2 answered', $streams->eq(0)->html());
+        self::assertStringContainsString('1/2', $streams->eq(2)->html());
     }
 
     public function test_the_summary_carries_the_stored_answer_of_every_block(): void

@@ -1241,10 +1241,6 @@
                 <source>review.dashboard.series.item</source>
                 <target>%series%, item %ordinal%</target>
             </trans-unit>
-            <trans-unit id="review.document.series.item">
-                <source>review.document.series.item</source>
-                <target>Series %series%, item %ordinal%</target>
-            </trans-unit>
             <trans-unit id="review.series.error.name_required">
                 <source>review.series.error.name_required</source>
                 <target>Give the series a name beside its item number.</target>
@@ -1331,16 +1327,25 @@
                 <source>review.document.byline_updated</source>
                 <target>updated %updated%</target>
             </trans-unit>
-            <trans-unit id="review.document.margin.label"><source>review.document.margin.label</source><target>Document context</target></trans-unit>
+            <trans-unit id="review.document.panels.label"><source>review.document.panels.label</source><target>Review panels</target></trans-unit>
+            <trans-unit id="review.document.panels.decisions"><source>review.document.panels.decisions</source><target>Decisions</target></trans-unit>
+            <trans-unit id="review.document.panels.comments"><source>review.document.panels.comments</source><target>Comments</target></trans-unit>
+            <trans-unit id="review.document.panels.outline"><source>review.document.panels.outline</source><target>Outline</target></trans-unit>
+            <trans-unit id="review.document.panels.decisions_count"><source>review.document.panels.decisions_count</source><target>%answered% of %total% answered</target></trans-unit>
+            <trans-unit id="review.document.decisions.note"><source>review.document.decisions.note</source><target>Note: %note%</target></trans-unit>
+            <trans-unit id="review.document.page_menu.label"><source>review.document.page_menu.label</source><target>More about this document</target></trans-unit>
+            <trans-unit id="review.document.page_menu.heading.card"><source>review.document.page_menu.heading.card</source><target>Linked cards (%count%)</target></trans-unit>
+            <trans-unit id="review.document.page_menu.heading.outgoing"><source>review.document.page_menu.heading.outgoing</source><target>Links to (%count%)</target></trans-unit>
+            <trans-unit id="review.document.page_menu.heading.incoming"><source>review.document.page_menu.heading.incoming</source><target>Links to this document (%count%)</target></trans-unit>
+            <trans-unit id="review.document.page_menu.show_more"><source>review.document.page_menu.show_more</source><target>Show %count% more</target></trans-unit>
+            <trans-unit id="review.document.page_menu.card_line"><source>review.document.page_menu.card_line</source><target>Linked card · %type% · %column%</target></trans-unit>
+            <trans-unit id="review.document.page_menu.outgoing_line"><source>review.document.page_menu.outgoing_line</source><target>Links to · %status%</target></trans-unit>
+            <trans-unit id="review.document.page_menu.incoming_line"><source>review.document.page_menu.incoming_line</source><target>Links to this document · %status%</target></trans-unit>
+            <trans-unit id="review.document.page_menu.history"><source>review.document.page_menu.history</source><target>Version history</target></trans-unit>
+            <trans-unit id="review.document.page_menu.history_line"><source>review.document.page_menu.history_line</source><target>{0} No versions|{1} One version|]1,Inf[ %count% versions</target></trans-unit>
+            <trans-unit id="review.document.page_menu.compare"><source>review.document.page_menu.compare</source><target>Compare versions</target></trans-unit>
+            <trans-unit id="review.document.page_menu.compare_line"><source>review.document.page_menu.compare_line</source><target>v%from% to v%to%</target></trans-unit>
             <trans-unit id="review.document.margin.filter"><source>review.document.margin.filter</source><target>Filter comments</target></trans-unit>
-            <trans-unit id="review.document.margin.comments"><source>review.document.margin.comments</source><target>Comments</target></trans-unit>
-            <trans-unit id="review.document.margin.outline"><source>review.document.margin.outline</source><target>Outline</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions"><source>review.document.margin.decisions</source><target>Decisions</target></trans-unit>
-            <trans-unit id="review.document.margin.details"><source>review.document.margin.details</source><target>Details</target></trans-unit>
-            <trans-unit id="review.document.margin.details_empty">
-                <source>review.document.margin.details_empty</source>
-                <target>Nothing is linked to this document yet.</target>
-            </trans-unit>
             <trans-unit id="review.document.margin.filter_open"><source>review.document.margin.filter_open</source><target>Open</target></trans-unit>
             <trans-unit id="review.document.margin.filter_resolved"><source>review.document.margin.filter_resolved</source><target>Resolved</target></trans-unit>
             <trans-unit id="review.document.margin.filter_unanchored"><source>review.document.margin.filter_unanchored</source><target>Unanchored</target></trans-unit>
@@ -1357,11 +1362,6 @@
             <trans-unit id="review.decision.recommended.high"><source>review.decision.recommended.high</source><target>Recommended, high confidence</target></trans-unit>
             <trans-unit id="review.decision.recommended.moderate"><source>review.decision.recommended.moderate</source><target>Recommended, moderate confidence</target></trans-unit>
             <trans-unit id="review.decision.recommended.low"><source>review.decision.recommended.low</source><target>Recommended, low confidence</target></trans-unit>
-            <trans-unit id="review.document.margin.references_empty"><source>review.document.margin.references_empty</source><target>None</target></trans-unit>
-            <trans-unit id="review.document.margin.series"><source>review.document.margin.series</source><target>Series</target></trans-unit>
-            <trans-unit id="review.document.margin.version_note"><source>review.document.margin.version_note</source><target>Version note</target></trans-unit>
-            <trans-unit id="review.document.margin.linked_card"><source>review.document.margin.linked_card</source><target>Linked card</target></trans-unit>
-            <trans-unit id="review.document.margin.linked_card_unavailable"><source>review.document.margin.linked_card_unavailable</source><target>No linked board card is available for this document.</target></trans-unit>
             <trans-unit id="review.document.verdict.approve">
                 <source>review.document.verdict.approve</source>
                 <target>Approve</target>
@@ -1486,10 +1486,6 @@
                 <source>review.document.meta.references</source>
                 <target>References</target>
             </trans-unit>
-            <trans-unit id="review.document.meta.tags">
-                <source>review.document.meta.tags</source>
-                <target>Tags</target>
-            </trans-unit>
             <trans-unit id="review.document.meta.decisions">
                 <source>review.document.meta.decisions</source>
                 <target>Decisions</target>
@@ -1501,10 +1497,6 @@
             <trans-unit id="review.document.decisions.pending">
                 <source>review.document.decisions.pending</source>
                 <target>Not chosen yet</target>
-            </trans-unit>
-            <trans-unit id="review.document.decisions.note_only">
-                <source>review.document.decisions.note_only</source>
-                <target>Answered with a note</target>
             </trans-unit>
             <trans-unit id="review.document.status.pending">
                 <source>review.document.status.pending</source>
@@ -1685,10 +1677,6 @@
             <trans-unit id="review.document.references.archived">
                 <source>review.document.references.archived</source>
                 <target>Archived</target>
-            </trans-unit>
-            <trans-unit id="review.document.references.archive_reason">
-                <source>review.document.references.archive_reason</source>
-                <target>Reason: %reason%</target>
             </trans-unit>
 
             <!-- Document review comment composer -->
