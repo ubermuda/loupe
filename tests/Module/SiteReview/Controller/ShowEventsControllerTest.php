@@ -41,6 +41,10 @@ final class ShowEventsControllerTest extends WebTestCase
 
     private const string SIGKILL_FLAG = 'bridge.stop_sigkill_after_ms';
 
+    private const string HOST_SAMPLING_FLAG = 'bridge.host_sampling_enabled';
+
+    private const string HOST_SAMPLE_INTERVAL_FLAG = 'bridge.host_sample_interval_seconds';
+
     /** @var array<string, Bridge> */
     private array $bridges = [];
 
@@ -190,7 +194,7 @@ final class ShowEventsControllerTest extends WebTestCase
 
         $flags = $this->flags($client, $raw);
 
-        self::assertSame([self::INBOX_FLAG, self::HEARTBEAT_FLAG, self::SIGTERM_FLAG, self::SIGKILL_FLAG], array_keys($flags));
+        self::assertSame([self::INBOX_FLAG, self::HEARTBEAT_FLAG, self::SIGTERM_FLAG, self::SIGKILL_FLAG, self::HOST_SAMPLING_FLAG, self::HOST_SAMPLE_INTERVAL_FLAG], array_keys($flags));
         self::assertArrayNotHasKey(AgentPush::FLAG, $flags);
     }
 
@@ -269,6 +273,43 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertSame(3000, $flags[self::SIGTERM_FLAG]);
         // Below the 100 ms floor, so the bridge gets the default.
         self::assertSame(2500, $flags[self::SIGKILL_FLAG]);
+    }
+
+    /** An instance upgraded past the seed migrations still has no rows until they run, so the bridge reads the coded defaults. */
+    public function test_host_sampling_reads_as_off_every_sixty_seconds_when_it_has_no_row(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        $em->getConnection()->executeStatement(
+            'DELETE FROM feature_flag WHERE name IN (?, ?)',
+            [self::HOST_SAMPLING_FLAG, self::HOST_SAMPLE_INTERVAL_FLAG],
+        );
+        [$raw] = $this->issue($client, 'events-host-sampling-none@example.com');
+
+        $flags = $this->flags($client, $raw);
+
+        self::assertSame(false, $flags[self::HOST_SAMPLING_FLAG]);
+        self::assertSame(60, $flags[self::HOST_SAMPLE_INTERVAL_FLAG]);
+    }
+
+    public function test_host_sampling_carries_the_stored_values(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::HOST_SAMPLING_FLAG]);
+        $em->getConnection()->executeStatement(
+            "INSERT INTO feature_flag (name, type, value, tags, options) VALUES (?, 'bool', 'true', '[]', NULL)",
+            [self::HOST_SAMPLING_FLAG],
+        );
+        $this->storeIntFlag($em, self::HOST_SAMPLE_INTERVAL_FLAG, '15');
+        [$raw] = $this->issue($client, 'events-host-sampling-stored@example.com');
+
+        $flags = $this->flags($client, $raw);
+
+        self::assertSame(true, $flags[self::HOST_SAMPLING_FLAG]);
+        self::assertSame(15, $flags[self::HOST_SAMPLE_INTERVAL_FLAG]);
     }
 
     public function test_head_is_zero_when_the_callers_projects_hold_no_event(): void

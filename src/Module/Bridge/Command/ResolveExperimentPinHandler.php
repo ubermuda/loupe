@@ -19,7 +19,7 @@ use Symfony\Component\Uid\Uuid;
  * Pins the candidate on the first call for a card, keeps a pin the rule still
  * offers, and moves a pin the rule dropped to the candidate. Every call
  * refreshes the pin, so the retention sweep keeps the pins of active cards.
- * Valid weights replace the stored weights of the experiment.
+ * Valid weights replace the stored weights and metrics of the experiment.
  */
 final readonly class ResolveExperimentPinHandler
 {
@@ -82,7 +82,7 @@ final readonly class ResolveExperimentPinHandler
             $this->em->flush();
 
             if (null !== $command->weights) {
-                $this->experimentDefinitions->upsert($project, $command->experiment, $command->weights, $now);
+                $this->experimentDefinitions->upsert($project, $command->experiment, $command->weights, $command->metrics, $now);
             }
 
             return new ResolveExperimentPinResult($pin->variant, $switchedFrom);

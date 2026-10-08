@@ -17,7 +17,8 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 /**
  * Records the usage of every worker process of one claude session against one
- * of the caller's projects. The firewall admits agent-scoped tokens alone.
+ * of the caller's projects, or of one ended interactive run of the session.
+ * The firewall admits agent-scoped tokens alone.
  *
  * The bridge reads a 404 with no error code as a server with no such endpoint,
  * so every refusal the controller makes carries a code.
@@ -47,11 +48,16 @@ final class ReportSessionUsageController extends AppController
             return $this->json(['error' => 'invalid_session_id'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        if (null !== $payload->runId && !Uuid::isValid($payload->runId)) {
+            return $this->json(['error' => 'invalid_run_id'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $result = ($this->reportSessionUsage)(new ReportSessionUsageCommand(
             owner: $user,
             handle: $handle,
             sessionId: Uuid::fromString($sessionId),
             processes: $payload->processes(),
+            runId: null === $payload->runId ? null : Uuid::fromString($payload->runId),
         ));
 
         if (null === $result->runs) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\Entity;
 
+use App\Doctrine\Type\MicrosecondDateTimeImmutableType;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
@@ -39,6 +40,8 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_bridge_worker_runs_state', columns: ['state'])]
 // The board and the workflow engine read the runs of one card.
 #[ORM\Index(name: 'idx_bridge_worker_runs_subject', columns: ['project_id', 'subject_type', 'subject_id'])]
+// The host metrics of a run count the runs of its bridge that overlap it.
+#[ORM\Index(name: 'idx_bridge_worker_runs_bridge_started', columns: ['bridge_id', 'started_at'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
 // Guards the worker runs with no run key, which only the removed finished-run report wrote.
 // The predicate is written the way Postgres stores it, so migrate-diff stays quiet.
@@ -149,6 +152,18 @@ class WorkerRun implements ProjectScopedSubject
     #[ORM\Column(name: 'switched_from', length: self::MAX_EXPERIMENT_NAME_LENGTH, nullable: true)]
     public ?string $switchedFrom = null;
 
+    /** The union of the main-session tool call intervals, as the bridge measured it. Null when unknown. */
+    #[ORM\Column(name: 'tool_time_ms', type: Types::BIGINT, nullable: true)]
+    public ?int $toolTimeMs = null;
+
+    /** The sum of the gaps of more than five minutes between two timed lines of the stream. Null when unknown. */
+    #[ORM\Column(name: 'idle_gap_ms', type: Types::BIGINT, nullable: true)]
+    public ?int $idleGapMs = null;
+
+    /** The largest context of the main session in one turn, in tokens. Null when unknown. */
+    #[ORM\Column(name: 'peak_context_tokens', type: Types::BIGINT, nullable: true)]
+    public ?int $peakContextTokens = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]
@@ -185,10 +200,10 @@ class WorkerRun implements ProjectScopedSubject
         #[ORM\Column(name: 'session_id', type: UuidType::NAME, nullable: true)]
         public ?Uuid $sessionId = null,
 
-        #[ORM\Column(name: 'started_at', nullable: true)]
+        #[ORM\Column(name: 'started_at', type: MicrosecondDateTimeImmutableType::NAME, nullable: true, columnDefinition: 'TIMESTAMP(6) WITHOUT TIME ZONE DEFAULT NULL')]
         public ?\DateTimeImmutable $startedAt = null,
 
-        #[ORM\Column(name: 'ended_at', nullable: true)]
+        #[ORM\Column(name: 'ended_at', type: MicrosecondDateTimeImmutableType::NAME, nullable: true, columnDefinition: 'TIMESTAMP(6) WITHOUT TIME ZONE DEFAULT NULL')]
         public ?\DateTimeImmutable $endedAt = null,
 
         /** Null means the process never ran, and $failureReason then says why. */

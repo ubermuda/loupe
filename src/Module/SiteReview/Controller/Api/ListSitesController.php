@@ -6,7 +6,7 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Command\ListedSite;
 use App\Module\SiteReview\Command\ListSitesCommand;
 use App\Module\SiteReview\Command\ListSitesHandler;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -14,7 +14,8 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Lists the caller's projects for the loupe CLI, which checks a token with it
- * and names the valid slugs when a rule file names an unknown project.
+ * and names the valid slugs when a rule file names an unknown project. Each
+ * project says what the bridge collects from the tool calls of its runs.
  *
  * Agent-scoped tokens only. The firewall grants this path to
  * ROLE_API_AGENT alone, so a project-bound widget token gets 403
@@ -45,7 +46,13 @@ final class ListSitesController extends AppController
         $view = ($this->listSites)(new ListSitesCommand($user));
 
         return $this->json(['sites' => array_values(array_map(
-            static fn (Project $project): array => ['id' => (string) $project->id, 'slug' => $project->slug, 'name' => $project->name],
+            static fn (ListedSite $site): array => [
+                'id' => (string) $site->project->id,
+                'slug' => $site->project->slug,
+                'name' => $site->project->name,
+                'collectFullText' => $site->collectFullText,
+                'subcommandPrograms' => $site->subcommandPrograms,
+            ],
             $view->sites,
         ))]);
     }

@@ -30,7 +30,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 4. Run PHPUnit on the tests for what changed: `just phpunit tests/<path>` or `just phpunit --filter <name>`. A hook refuses `just ci` and a full PHPUnit run.
 5. Run `just js-test` when JavaScript changed, and `just cli-test` when `cli/` or `hooks/` changed.
 6. CI's required checks are the full gate. After the Codex review, push, then read them on the pull request. The board `checks-failed` fix round covers a failed one.
-7. Never run the full e2e suite on this machine, and a hook refuses it. The CI checks `e2e-chromium`, `e2e-chromium-2` and `e2e-rest` gate it. One named spec is still fine while you debug it.
+7. Never run the full e2e suite on this machine, and a hook refuses it. The eight `e2e-*` CI checks gate it: `e2e-chromium`, `e2e-chromium-2` to `e2e-chromium-6`, `e2e-rest` and `e2e-global-flags`. One named spec is still fine while you debug it.
 8. Fix every failure, including one that pre-dates the branch.
 9. The required checks come from the ruleset command in `working-with-prs` "What the ruleset actually requires".
 
@@ -54,7 +54,8 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 3. Keep the body and the `## Preview` section to the rules of `working-with-prs` "Keep the body brief" and "Make the branch testable, not just reviewable".
 4. A branch that changes a page seeds one state per preview link, before the pull request is ready. "The tests cover it", "the seed holds no X" and "it shows after a bridge reports data" are excuses, and no substitute for the seed.
 5. Prove each link with `working-with-prs` "Prove each preview link shows its state". Write the marker you found on the line of each link. When you cannot seed a state, or a marker is missing, stop with `STAGE RESULT: blocked: preview not seeded`. Do not move the card.
-6. Only the merge stage merges it, as the `Merge` section says. Never use `--admin` or `--no-verify`.
+6. A child of an epic also writes a `State:` text on each Preview line, as `working-with-prs` "A child of an epic targets the epic branch" says. The merge stage seeds the epic preview from that text alone. A line with no `State:` text is not ready, so stop with `STAGE RESULT: blocked: preview not seeded`.
+7. Only the merge stage merges it, as the `Merge` section says. Never use `--admin` or `--no-verify`.
 
 ## Board
 

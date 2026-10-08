@@ -89,6 +89,42 @@ func TestParseWorkRequestRejectsEachMalformedField(t *testing.T) {
 	}
 }
 
+func TestParseWorkRequestReadsTheModelAndTheEffort(t *testing.T) {
+	for _, tc := range []struct{ extra, model, effort string }{
+		{`,"model":null,"effort":null`, "", ""},
+		{`,"model":"claude-opus-4-1[1m]","effort":"xhigh"`, "claude-opus-4-1[1m]", "xhigh"},
+		{`,"model":"` + strings.Repeat("é", 64) + `"`, strings.Repeat("é", 64), ""},
+		{`,"effort":"low"`, "", "low"},
+		{`,"effort":"medium"`, "", "medium"},
+		{`,"effort":"high"`, "", "high"},
+		{`,"effort":"max"`, "", "max"},
+	} {
+		payload := strings.Replace(workRequestPayload, `"resumeSessionId":null`, `"resumeSessionId":null`+tc.extra, 1)
+		w, err := ParseWorkRequest([]byte(payload))
+		if err != nil || w.Model != tc.model || w.Effort != tc.effort {
+			t.Fatalf("%s: work request = %+v, err = %v", tc.extra, w, err)
+		}
+	}
+}
+
+func TestParseWorkRequestRejectsAMalformedModelOrEffort(t *testing.T) {
+	for _, extra := range []string{
+		`,"model":"claude opus"`,
+		`,"model":"opus\n"`,
+		`,"model":"opus\u00a0x"`,
+		`,"model":"opus\u0000"`,
+		`,"model":"--dangerously-skip-permissions"`,
+		`,"model":"` + strings.Repeat("a", 65) + `"`,
+		`,"effort":"extreme"`,
+		`,"effort":"High"`,
+	} {
+		payload := strings.Replace(workRequestPayload, `"resumeSessionId":null`, `"resumeSessionId":null`+extra, 1)
+		if _, err := ParseWorkRequest([]byte(payload)); err == nil {
+			t.Fatalf("expected %s to be rejected", extra)
+		}
+	}
+}
+
 // CheckWorkRequest checks an offer of the heartbeat reply, which arrives
 // decoded, and folds its ids in place.
 func TestCheckWorkRequestFoldsTheIDs(t *testing.T) {
