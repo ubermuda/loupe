@@ -91,4 +91,18 @@ return static function (Config $config): void {
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Insights']))
             ->because('Insights reads worker runs and metrics from Bridge to show the Analytics pages, so an import back closes a cycle'),
     );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\DesignSystem'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module'], ['App\Module\DesignSystem']))
+            ->because('The design system is a leaf: the catalog and the tokens describe the UI and read no feature'),
+    );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new NotResideInTheseNamespaces('App\Module\DesignSystem'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\DesignSystem']))
+            ->because('Nothing depends on the design system classes: templates and tools read the catalog, and no feature code does'),
+    );
 };

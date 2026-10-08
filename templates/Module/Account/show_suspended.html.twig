@@ -21,7 +21,7 @@
 
     <form method="post" action="{{ path('app_logout') }}" class="mt-1.5 w-full">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
-        <button type="submit" class="btn primary sm w-full justify-center">{{ 'account.suspended.logout'|trans }}</button>
+        <twig:Ds:Button type="submit" variant="primary" size="sm" class="w-full justify-center">{{ 'account.suspended.logout'|trans }}</twig:Ds:Button>
     </form>
 </div>
 {% endblock %}

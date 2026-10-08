@@ -1,0 +1,36 @@
+@import 'tailwindcss' source(none);
+@import './tokens.css';
+@import './components/button.css';
+@import './components/form.css';
+@import './components/badge.css';
+@import './components/empty-state.css';
+@import './components/flash.css';
+@import './components/status-chip.css';
+@import './components/tag.css';
+@import './components/dialog.css';
+@import './components/pagination.css';
+@import './components/tabs.css';
+@import './components/tooltip.css';
+
+@source "../../templates/components/Ds";
+
+/* The flash and dialog animations. app.css defines the same keyframes for the app. */
+@keyframes lp-appear {
+    from {
+        opacity: 0;
+        transform: translateY(calc(var(--spacing) * 1));
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes lp-dialog-backdrop-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}

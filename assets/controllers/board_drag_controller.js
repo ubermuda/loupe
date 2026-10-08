@@ -792,7 +792,7 @@ export default class extends Controller {
         return (
             group.dataset.lane === undefined ||
             'other' === group.dataset.lane ||
-            'epic' !== this.pressedCard?.dataset.cardType
+            'true' !== this.pressedCard?.dataset.cardLane
         );
     }
 

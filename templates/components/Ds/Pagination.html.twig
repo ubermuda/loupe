@@ -1,0 +1,35 @@
+{#
+  Props:  @comment-budget-ignore
+    route         string           Route name to link to for each page.
+    page          int              Current page number (1-based).
+    totalPages    int              Total number of pages.
+    pageList      list<int|null>   Elided page numbers from PageList::build(); null = ellipsis.
+    routeParams   array            Extra route params merged into every link (e.g. project id). Optional.
+
+  Prev/next + elided page-number control. Renders nothing when totalPages <= 1.
+#}
+{% set routeParams = routeParams|default({}) %}
+{% if totalPages > 1 %}
+<nav class="lp-pagination" aria-label="{{ 'pagination.nav_label'|trans }}">
+    <p class="lp-pagination__status">{{ 'pagination.status'|trans({'%page%': page, '%total%': totalPages}) }}</p>
+    <div class="lp-pagination__controls">
+        {% if page > 1 %}
+            <twig:Ds:Button variant="ghost" size="sm" href="{{ path(route, routeParams|merge({page: page - 1})) }}"  aria-label="{{ 'pagination.previous'|trans }}">‹</twig:Ds:Button>
+        {% else %}
+            <twig:Ds:Button variant="ghost" size="sm" class="lp-pagination__disabled" disabled aria-disabled="true" aria-label="{{ 'pagination.previous'|trans }}">‹</twig:Ds:Button>
+        {% endif %}
+        {% for p in pageList %}
+            {% if p is null %}
+                <span class="lp-pagination__ellipsis">…</span>
+            {% else %}
+                <twig:Ds:Button :variant="p == page ? 'primary' : 'ghost'" size="sm" href="{{ path(route, routeParams|merge({page: p})) }}" :aria-current="p == page ? 'page' : null">{{ p }}</twig:Ds:Button>
+            {% endif %}
+        {% endfor %}
+        {% if page < totalPages %}
+            <twig:Ds:Button variant="ghost" size="sm" href="{{ path(route, routeParams|merge({page: page + 1})) }}"  aria-label="{{ 'pagination.next'|trans }}">›</twig:Ds:Button>
+        {% else %}
+            <twig:Ds:Button variant="ghost" size="sm" class="lp-pagination__disabled" disabled aria-disabled="true" aria-label="{{ 'pagination.next'|trans }}">›</twig:Ds:Button>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}

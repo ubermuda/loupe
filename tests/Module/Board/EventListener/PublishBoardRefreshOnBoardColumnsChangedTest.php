@@ -20,7 +20,6 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\BoardColumnRenamed;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\EventListener\PublishBoardRefreshOnBoardColumnsChanged;
@@ -113,7 +112,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
     public function test_a_lane_turned_on_or_off_refreshes_the_board_and_other_card_edits_do_not(): void
     {
         $epic = new Card($this->project, $this->column($this->project, 'backlog'), 'Epic', '', 1);
-        $epic->type = CardType::Epic;
+        $epic->type = 'epic';
         $this->em->persist($epic);
         $this->em->flush();
         $update = $this->handler(UpdateCardHandler::class);

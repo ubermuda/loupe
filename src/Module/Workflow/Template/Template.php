@@ -12,10 +12,11 @@ use App\Module\Workflow\Contract\ParameterValue;
 final readonly class Template
 {
     /**
-     * @param list<Slot>       $slots
-     * @param list<Rule>       $rules
-     * @param list<ManualMove> $manualMoves
-     * @param list<int>        $backoffMinutes
+     * @param list<TemplateCardType> $types
+     * @param list<Slot>             $slots
+     * @param list<Rule>             $rules
+     * @param list<ManualMove>       $manualMoves
+     * @param list<int>              $backoffMinutes
      */
     public function __construct(
         public string $key,
@@ -25,8 +26,21 @@ final readonly class Template
         public array $manualMoves,
         public array $backoffMinutes,
         public int $workTimeoutMinutes,
+        public array $types,
+        public string $defaultType,
         public ?WorkFailurePolicy $onWorkFailed = null,
     ) {
+    }
+
+    public function type(string $key): ?TemplateCardType
+    {
+        foreach ($this->types as $type) {
+            if ($type->key === $key) {
+                return $type;
+            }
+        }
+
+        return null;
     }
 
     public function slot(string $key): ?Slot

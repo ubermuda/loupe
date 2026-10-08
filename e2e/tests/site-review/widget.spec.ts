@@ -503,6 +503,47 @@ test('epic mode files each note as a card under the epic', async ({ page }) => {
     );
 });
 
+test('epic mode shows a type selector when the template has two grouping types', async ({
+    page,
+}) => {
+    // Both shipped templates declare one grouping type, so the start request
+    // is rewritten to name two. The server still holds the real template.
+    await page.route('**/api/site-review/review*', async (route) => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        payload.parentTypes = [
+            { key: 'initiative', label: 'Initiative' },
+            { key: 'epic', label: 'Epic' },
+        ];
+        await route.fulfill({ response, json: payload });
+    });
+    await openHarness(page, null);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await startNote(page, 'The pricing table overflows');
+    const picker = page.locator('#lp-picker');
+    await picker
+        .getByRole('button', { name: 'A card for each note, under an epic' })
+        .click();
+
+    const selector = picker.getByLabel('New card type');
+    await expect(selector.locator('option')).toHaveText(['Initiative', 'Epic']);
+    await selector.selectOption('epic');
+    const [created] = await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().endsWith('/api/board/cards') &&
+                response.request().method() === 'POST',
+        ),
+        picker.getByRole('button', { name: 'Create', exact: true }).click(),
+    ]);
+
+    expect(created.status()).toBe(201);
+    expect(created.request().postDataJSON()).toMatchObject({
+        parent: true,
+        type: 'epic',
+    });
+});
+
 test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     page,
 }) => {
@@ -2807,17 +2848,19 @@ test('a stroke on an anchored comment moves with its element', async ({
     const narrowBox = (await page.locator('#target-wide').boundingBox())!;
     expect(narrowBox.width).toBeLessThan(wideBox.width - 200);
 
-    await expect
-        .poll(async () => (await inkBounds(page)).right, inkTimeout)
-        .toBeLessThan(narrowBox.x + narrowBox.width + 8);
-    const narrowInk = await inkBounds(page);
-    // Still spanning the element, and still inside it. Page coordinates would
-    // put the drawing well above the block, because the whole page scales.
-    expect(narrowInk.right - narrowInk.left).toBeGreaterThan(
-        narrowBox.width * 0.8,
-    );
-    expect(narrowInk.top).toBeGreaterThan(narrowBox.y - 8);
-    expect(narrowInk.bottom).toBeLessThan(narrowBox.y + narrowBox.height + 8);
+    // An empty canvas between the resize and its repaint also has a small right
+    // edge, so read the box and the ink together until the repaint settles.
+    await expect(async () => {
+        const box = (await page.locator('#target-wide').boundingBox())!;
+        const ink = await inkBounds(page);
+        expect(ink.count).toBeGreaterThan(0);
+        expect(ink.right).toBeLessThan(box.x + box.width + 8);
+        // Still spanning the element, and still inside it. Page coordinates
+        // would put the drawing well above the block, because the page scales.
+        expect(ink.right - ink.left).toBeGreaterThan(box.width * 0.8);
+        expect(ink.top).toBeGreaterThan(box.y - 8);
+        expect(ink.bottom).toBeLessThan(box.y + box.height + 8);
+    }).toPass(inkTimeout);
 });
 
 /**

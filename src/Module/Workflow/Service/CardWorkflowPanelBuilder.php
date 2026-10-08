@@ -164,6 +164,9 @@ final readonly class CardWorkflowPanelBuilder
             ActionType::Pause => $this->translator->trans('workflow.panel.action.pause'),
             ActionType::Release => $this->translator->trans('workflow.panel.action.release'),
             ActionType::Evaluate => $this->translator->trans('workflow.panel.action.evaluate'),
+            ActionType::Ask => $this->translator->trans('workflow.panel.action.ask'),
+            ActionType::LinkDocument => $this->translator->trans('workflow.panel.action.link_document'),
+            ActionType::Detach => $this->translator->trans('workflow.panel.action.detach'),
         };
     }
 

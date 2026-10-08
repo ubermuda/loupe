@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Command\ListBacklogCardsHandler;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -24,7 +23,7 @@ final class ListBacklogCardsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'backlog-page@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Big epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Big epic', 'next'), 'epic');
         $this->card($em, $project, 'Older', 'backlog', 0);
         $this->childOf($em, $epic, $this->card($em, $project, 'Newer', 'backlog', 1));
         $this->card($em, $project, 'On the board', 'next', 1);
@@ -50,7 +49,7 @@ final class ListBacklogCardsControllerTest extends WebTestCase
         $owner = $this->user($em, 'backlog-headers@example.com');
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'Otter feature');
-        $this->typed($em, $this->card($em, $project, 'Otter bug'), CardType::Bug);
+        $this->typed($em, $this->card($em, $project, 'Otter bug'), 'bug');
         $url = $this->backlogUrl($project);
         $em->clear();
 
@@ -155,9 +154,9 @@ final class ListBacklogCardsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'backlog-filters@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Big epic', 'next'), CardType::Epic);
-        $this->typed($em, $this->childOf($em, $epic, $this->card($em, $project, 'Child bug', 'backlog', 0)), CardType::Bug);
-        $this->typed($em, $this->card($em, $project, 'Loose bug', 'backlog', 1), CardType::Bug);
+        $epic = $this->typed($em, $this->card($em, $project, 'Big epic', 'next'), 'epic');
+        $this->typed($em, $this->childOf($em, $epic, $this->card($em, $project, 'Child bug', 'backlog', 0)), 'bug');
+        $this->typed($em, $this->card($em, $project, 'Loose bug', 'backlog', 1), 'bug');
         $this->card($em, $project, 'Loose feature', 'backlog', 2);
         $url = $this->backlogUrl($project);
         $epicId = (string) $epic->id;

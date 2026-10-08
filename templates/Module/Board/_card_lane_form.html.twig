@@ -10,8 +10,8 @@
             <twig:ux:icon name="{{ icon }}" class="w-4 h-4" />
         </button>
     {% else %}
-        <button type="submit" class="lp-btn lp-btn--ghost">
+        <twig:Ds:Button variant="ghost" type="submit">
             <twig:ux:icon name="{{ icon }}" class="w-4 h-4" />{{ label }}
-        </button>
+        </twig:Ds:Button>
     {% endif %}
 {{ form_end(laneForm) }}

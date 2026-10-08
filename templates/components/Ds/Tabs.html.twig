@@ -1,0 +1,7 @@
+{#
+  Props:
+    tag   string   The element: nav (default) or div.
+  Any other attribute, class included, is passed to the element. Each tab keeps its own lp-tabs__tab class.
+#}
+{%- props tag = 'nav' -%}
+<{{ tag }}{{ attributes.defaults({class: 'lp-tabs'}) }}>{% block content %}{% endblock %}</{{ tag }}>

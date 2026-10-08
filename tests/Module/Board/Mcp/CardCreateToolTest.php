@@ -6,14 +6,22 @@ namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Mcp\AgentRunCause;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Repository\CardLinkRepository;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Tests\Support\McpRefusalMessages;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Uid\Uuid;
 
 final class CardCreateToolTest extends KernelTestCase
 {
@@ -51,6 +59,36 @@ final class CardCreateToolTest extends KernelTestCase
         self::assertSame(CardReporter::Agent->value, $card['reporter']);
         self::assertNull($card['completedAt']);
         self::assertSame([], $card['pullRequests']);
+    }
+
+    public function test_a_call_outside_any_worker_run_has_the_agent_source(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-agent-source'));
+
+        $card = ($this->tool)('Interactive', 'Body', 'idea');
+
+        self::assertSame('agent', $this->storedSource($card['cardId']));
+    }
+
+    public function test_a_call_from_a_worker_run_session_has_the_run_source(): void
+    {
+        $project = $this->makeProject('card-create-run-source');
+        $this->actAsMcpTokenBoundTo($project);
+        $sessionId = Uuid::v4();
+        $runCardId = Uuid::v4();
+        $run = new WorkerRun($project, Uuid::v4(), WorkSubject::CARD, $runCardId, 7, 'implement', WorkerRunState::Running, sessionId: $sessionId);
+        $this->em->persist($run);
+        $this->em->flush();
+        $request = Request::create('/mcp', Request::METHOD_POST);
+        $request->headers->set(AgentRunCause::SESSION_HEADER, (string) $sessionId);
+        $requests = self::getContainer()->get(RequestStack::class);
+        self::assertInstanceOf(RequestStack::class, $requests);
+        $requests->push($request);
+
+        $card = ($this->tool)('From a run', 'Body', 'idea');
+
+        $row = $this->em->getConnection()->fetchAssociative('SELECT source, source_run_id, source_run_card_id FROM board_cards WHERE id = :id', ['id' => $card['cardId']]);
+        self::assertSame(['source' => CardSourceKind::Run->value, 'source_run_id' => (string) $run->id, 'source_run_card_id' => (string) $runCardId], $row);
     }
 
     public function test_a_caller_may_say_a_person_raised_the_card(): void
@@ -229,5 +267,10 @@ final class CardCreateToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage(McpRefusalMessages::NO_PROJECT_REACHED);
         ($this->tool)('Ship it', 'Body', 'feature');
+    }
+
+    private function storedSource(string $cardId): mixed
+    {
+        return $this->em->getConnection()->fetchOne('SELECT source FROM board_cards WHERE id = :id', ['id' => $cardId]);
     }
 }

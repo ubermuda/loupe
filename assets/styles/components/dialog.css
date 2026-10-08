@@ -1,0 +1,30 @@
+/* The modal dialog. `templates/components/Ds/Dialog.html.twig` renders it, and
+   the `modal` Stimulus controller animates it with WAAPI. Only ::backdrop gets
+   a CSS animation, because WAAPI cannot target it. The height cap keeps a tall
+   modal on screen. */
+@layer components {
+    .lp-dialog {
+        width: calc(100% - calc(var(--spacing) * 7));
+        margin: auto;
+        max-height: 90vh;
+        @apply max-w-xl overflow-y-auto rounded-xl border-0 bg-surface-1 p-6 shadow-composer;
+    }
+    /** Wide dialog for editing document Markdown. */
+    .lp-dialog--document {
+        @apply max-w-3xl;
+    }
+    .lp-dialog::backdrop {
+        @apply bg-ink/40 backdrop-blur-xs;
+        animation: lp-dialog-backdrop-in 220ms ease-out;
+    }
+    .lp-dialog-title {
+        @apply font-display font-extrabold text-2xl tracking-tight text-ink m-0;
+    }
+    .lp-dialog-desc {
+        @apply text-sm text-fg-mute mt-2 mb-4 leading-relaxed;
+    }
+    /** Action row for a confirmation dialog. */
+    .lp-dialog-actions {
+        @apply flex items-center justify-end gap-3 pt-2;
+    }
+}

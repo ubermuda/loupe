@@ -9,23 +9,30 @@ use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Service\InboxItemCloser;
+use App\Module\Workflow\Messenger\RunRuleAskAnswer;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
-/** Answers a question with options, free text or both, as the question allows. */
+/**
+ * Answers a question with options, free text or both, as the question allows.
+ * The answer to a workflow question is final, and the same transaction queues
+ * the message that runs the option.
+ */
 final readonly class AnswerInboxItemHandler
 {
     public function __construct(
         private InboxItemCloser $closer,
         private Auditor $auditor,
+        private MessageBusInterface $bus,
     ) {
     }
 
     public function __invoke(AnswerInboxItemCommand $command): InboxItem
     {
         $item = $command->item;
-        if (InboxItemKind::Question !== $item->kind) {
+        if (!\in_array($item->kind, [InboxItemKind::Question, InboxItemKind::Workflow], true)) {
             throw new DomainErrors(['selectedOptions' => 'inbox.answer.error.not_a_question']);
         }
 
@@ -33,7 +40,7 @@ final readonly class AnswerInboxItemHandler
 
         // Checked inside the lock, against the options as stored: an agent may
         // change the question after the page loaded it.
-        $this->closer->respond($item, InboxItemState::Answered, 'selectedOptions', static function (InboxItem $item) use ($command, $text): ?array {
+        $this->closer->respond($item, InboxItemState::Answered, 'selectedOptions', function (InboxItem $item) use ($command, $text): ?array {
             $selected = self::parseIndexes($command->selectedOptions, \count($item->options));
             if (null === $selected) {
                 return ['selectedOptions' => 'inbox.answer.error.unknown_option'];
@@ -51,6 +58,9 @@ final readonly class AnswerInboxItemHandler
             $item->selectedOptions = $selected;
             $item->answerText = '' === $text ? null : $text;
             $item->closeNote = null;
+            if (InboxItemKind::Workflow === $item->kind) {
+                $this->bus->dispatch(new RunRuleAskAnswer((string) $item->id, $selected[0]));
+            }
 
             return null;
         });

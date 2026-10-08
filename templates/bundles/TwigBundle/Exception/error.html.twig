@@ -20,7 +20,7 @@
             <p class="lp-error__code">{{ status_code }}</p>
             <h1 class="lp-error__title">{{ ('error.' ~ key ~ '.title')|trans }}</h1>
             <p class="lp-error__body">{{ ('error.' ~ key ~ '.body')|trans }}</p>
-            <a href="{{ path('app_home') }}" class="lp-btn lp-btn--primary">{{ 'error.home'|trans }}</a>
+            <twig:Ds:Button variant="primary" href="{{ path('app_home') }}">{{ 'error.home'|trans }}</twig:Ds:Button>
         </div>
     </body>
 </html>
