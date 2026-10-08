@@ -21,6 +21,10 @@ final readonly class Catalog
                 variants: ['primary', 'inverse', 'outline', 'success', 'danger', 'ghost', 'danger-ghost', 'on-card', 'icon', 'compact', 'open'],
                 states: ['hover', 'active', 'disabled'],
                 enforced: true,
+                sizes: ['sm', 'lg'],
+                group: 'core',
+                summary: 'Any action or link that looks like a button.',
+                element: 'button',
             ),
             new ComponentEntry(
                 name: 'Input',
@@ -85,6 +89,11 @@ final readonly class Catalog
                 variants: ['success', 'error', 'warning', 'info'],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'A short message about the result of an action.',
+                element: 'div',
+                dotClass: 'lp-flash__dot',
+                contentClass: 'lp-flash__message',
             ),
             new ComponentEntry(
                 name: 'EmptyState',
@@ -93,6 +102,9 @@ final readonly class Catalog
                 variants: [],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'The block that tells a user a list or page has no content yet.',
+                element: 'div',
             ),
             new ComponentEntry(
                 name: 'Badge',
@@ -101,6 +113,9 @@ final readonly class Catalog
                 variants: ['in-review', 'draft', 'approved', 'changes-requested'],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'A small label for the review status of a document.',
+                element: 'span',
             ),
             new ComponentEntry(
                 name: 'Tag',
@@ -109,6 +124,9 @@ final readonly class Catalog
                 variants: ['neutral', 'lime', 'purple', 'green', 'amber', 'red', 'teal', 'sky', 'blue', 'indigo', 'pink', 'orange'],
                 states: [],
                 enforced: true,
+                group: 'core',
+                summary: 'A small coloured label for a category or a tone.',
+                element: 'span',
             ),
             new ComponentEntry(
                 name: 'StatusChip',
@@ -117,6 +135,10 @@ final readonly class Catalog
                 variants: ['pending', 'addressed', 'resolved', 'ok', 'failed', 'neutral'],
                 states: ['reason'],
                 enforced: true,
+                group: 'core',
+                summary: 'A chip that names a state, with an optional reason in a tooltip.',
+                element: 'span',
+                dotClass: 'lp-status-chip__dot',
             ),
             new ComponentEntry(
                 name: 'Dialog',
@@ -125,6 +147,9 @@ final readonly class Catalog
                 variants: ['document', 'search'],
                 states: ['open'],
                 enforced: true,
+                group: 'core',
+                summary: 'A modal window over the page, opened by the modal controller.',
+                element: 'dialog',
             ),
             new ComponentEntry(
                 name: 'Tabs',
@@ -133,6 +158,9 @@ final readonly class Catalog
                 variants: [],
                 states: ['hover', 'selected'],
                 enforced: true,
+                group: 'core',
+                summary: 'A row of tabs that switches between views of one page.',
+                element: 'nav',
             ),
             new ComponentEntry(
                 name: 'Pagination',
@@ -141,6 +169,9 @@ final readonly class Catalog
                 variants: [],
                 states: ['current', 'disabled'],
                 enforced: true,
+                group: 'core',
+                summary: 'The previous, next and page-number links of a long list.',
+                element: 'nav',
             ),
             new ComponentEntry(
                 name: 'Tooltip',
@@ -149,6 +180,9 @@ final readonly class Catalog
                 variants: [],
                 states: ['visible'],
                 enforced: true,
+                group: 'core',
+                summary: 'A short label that shows over an element on hover or focus.',
+                element: 'span',
             ),
         ];
     }

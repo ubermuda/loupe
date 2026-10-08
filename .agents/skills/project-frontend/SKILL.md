@@ -185,6 +185,8 @@ Use a component from `src/Module/DesignSystem/Catalog.php` before you write mark
 
 A child card that adds a component adds it to this list in the same branch.
 
+The Claude Design project "Loupe Design System" is a copy of these files. `bin/console app:design-system:export` builds it, and the `loupe-design-rebuild` skill writes it to the project. A change to `tokens.css`, a component or the catalog needs the rebuild step of `working-with-prs` "The Claude Design rebuild".
+
 ### Icons
 
 Use the Symfony UX Icons bundle with Lucide for every icon, and never embed inline SVG. Prefer the Twig component form. `ux_icon()` is an acceptable alternative.

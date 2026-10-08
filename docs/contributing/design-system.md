@@ -102,7 +102,6 @@ Write a dialog, tabs, pagination and a tooltip like this:
 
 The dialog sets `data-modal-target="dialog"` itself. The tabs take `tag="div"` for a tab list that is not a navigation. The pagination draws nothing when there is one page. The feature that owns the anchor decides when a tooltip shows.
 
-
 ### The form parts
 
 `FormField` draws a Symfony form field with its label, widget, hint and errors. Pass `kind` for a select or a textarea, and `attr` for the attributes of the widget:
@@ -123,6 +122,33 @@ A plain field uses `Input`, `Select` or `Textarea`. A Symfony widget in a custom
 ```
 
 `just gamache` blocks a template that writes `lp-input`, `lp-select`, `lp-textarea`, `lp-label`, `lp-form-field`, `lp-field-errors` or `lp-form-hint` by hand.
+
+## The Claude Design copy
+
+A Claude Design project holds a copy of the design system. The app repository is the source of the copy.
+
+Run this command to write the copy into a directory:
+
+```bash
+bin/console app:design-system:export <dir>
+```
+
+The command prints each path it wrote, relative to the directory, one per line.
+
+| Path | What it holds |
+|---|---|
+| `tokens/*.css` | The tokens, split by group from `tokens.css`, and the fonts and base resets |
+| `styles.css` | The Tailwind build of `assets/styles/design-system.css`, with the real `lp-` rules |
+| `components/<group>/` | A React wrapper, a type file and a prompt file for each catalog entry, and one card for the group |
+| `guidelines/` | One card for each token group |
+| `readme.md` and `SKILL.md` | This page, and the skill that points at it |
+| `assets/fonts/` | The font files and their licence |
+
+The wrappers write the same class names as the Twig components. A wrapper adds no style of its own.
+
+The command never writes `_ds_bundle.js`, `_ds_manifest.json`, `_adherence.oxlintrc.json`, `.thumbnail` or `ds-mount.js`. The platform makes those files.
+
+The command does not copy icons. A catalog entry that needs icons must add them to the command.
 
 ## The rules
 
