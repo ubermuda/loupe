@@ -21,8 +21,6 @@ final class ActivityPageShellTest extends WebTestCase
     {
         yield 'runs' => ['/worker-runs', 'Runs'];
         yield 'events' => ['/activity', 'Events'];
-        yield 'cost' => ['/worker-runs/cost', 'Cost'];
-        yield 'experiments' => ['/worker-runs/experiments', 'Experiments'];
     }
 
     #[DataProvider('tabs')]
@@ -47,9 +45,9 @@ final class ActivityPageShellTest extends WebTestCase
         );
 
         $tabs = $crawler->filter('nav.lp-activity-tabs .lp-tabs__tab');
-        self::assertSame(['Runs', 'Events', 'Cost', 'Experiments'], $tabs->each(static fn ($tab): string => trim($tab->text())));
+        self::assertSame(['Runs', 'Events'], $tabs->each(static fn ($tab): string => trim($tab->text())));
         self::assertSame(
-            [$base.'/worker-runs', $base.'/activity', $base.'/worker-runs/cost', $base.'/worker-runs/experiments'],
+            [$base.'/worker-runs', $base.'/activity'],
             $tabs->each(static fn ($tab): ?string => $tab->attr('href')),
         );
         self::assertSame([$activeTab], $crawler->filter('nav.lp-activity-tabs [aria-current="page"]')->each(static fn ($tab): string => trim($tab->text())));

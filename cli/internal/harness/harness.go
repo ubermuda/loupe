@@ -21,8 +21,9 @@ type Harness interface {
 	// Interactive is the body of the launch script that runs program in a
 	// terminal.
 	Interactive(program string, spec Spec) string
-	// Output decodes the stdout of a worker. An overflow holds no result.
-	Output(stdout []byte, overflow bool) Output
+	// Output decodes the result document a worker printed, which is nil when
+	// its stdout held none.
+	Output(result []byte) Output
 	// SessionUsage is what the session spent at or after from, and before to
 	// when to is set.
 	SessionUsage(sessionID string, from, to time.Time) (transcript.Usage, error)
@@ -35,11 +36,13 @@ type Harness interface {
 	HasSession(sessionID string) error
 }
 
-// Spec is one run. An empty Model, PermissionMode or Schema passes no flag.
+// Spec is one run. An empty Model, Effort, PermissionMode or Schema passes no
+// flag.
 // Env is the environment of a worker, and the variables a launch script sets.
 type Spec struct {
 	Dir            string
 	Model          string
+	Effort         string
 	PermissionMode string
 	Schema         string
 	SessionID      string

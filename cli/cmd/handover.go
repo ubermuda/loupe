@@ -137,6 +137,7 @@ type handoverRun struct {
 	// the before phase, and writes no account, which reads as account "".
 	PermissionMode string   `json:"permissionMode,omitempty"`
 	Model          string   `json:"model,omitempty"`
+	Effort         string   `json:"effort,omitempty"`
 	Harness        string   `json:"harness,omitempty"`
 	Account        string   `json:"account,omitempty"`
 	ConfigDir      string   `json:"configDir,omitempty"`
@@ -365,7 +366,7 @@ func (r *router) freeze() handoverState {
 		}
 		if !run.p.isCommand() {
 			s := run.p.spec
-			h.PermissionMode, h.Model, h.Harness, h.Account, h.ConfigDir, h.EnvFiles = s.permissionMode, s.model, s.harnessName, s.account, s.configDir, s.envFiles
+			h.PermissionMode, h.Model, h.Effort, h.Harness, h.Account, h.ConfigDir, h.EnvFiles = s.permissionMode, s.model, s.effort, s.harnessName, s.account, s.configDir, s.envFiles
 		}
 		st.Live = append(st.Live, h)
 	}
@@ -476,6 +477,7 @@ func (r *router) adoptLocked(run handoverRun) {
 		Account: run.Account, Harness: run.Harness, ConfigDir: run.ConfigDir, EnvFiles: run.EnvFiles,
 		Model: run.Model, PermissionMode: run.PermissionMode,
 	})
+	p.spec.effort = run.Effort
 	// A command run takes no slot.
 	if run.Phase == phaseCommand {
 		p.action = rules.ActionCommand

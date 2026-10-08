@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/envfile"
 	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/rules"
+	"github.com/ubermuda/loupe/cli/internal/stream"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -31,7 +33,7 @@ const waitDelay = 5 * time.Second
 // maxOutput caps the worker output a failure report carries.
 const maxOutput = 4000
 
-// maxStdout bounds the JSON document the bridge reads from the worker's stdout.
+// maxStdout bounds the stdout the bridge reads from a before command.
 const maxStdout = 1 << 20
 
 // sessionEnv gives `loupe mcp` the claude session of a worker, so the server
@@ -68,6 +70,14 @@ type workerResult struct {
 	// usage is what this process spent, and nil when unknown.
 	reported transcript.Usage
 	usage    *api.Usage
+	// streamed says the bridge read claude's stdout, and calls and timing are
+	// what it held.
+	streamed bool
+	calls    []stream.Call
+	timing   stream.Timing
+	// peakContextTokens is the largest input context of the main session,
+	// and nil when unknown.
+	peakContextTokens *int64
 }
 
 // workerProc is a started worker: its shell's pid, which leads its process
@@ -84,6 +94,7 @@ type workerSpec struct {
 	dir            string
 	permissionMode string
 	model          string
+	effort         string
 	schema         string
 	sessionID      string
 	resume         bool
@@ -220,6 +231,7 @@ type runRecord struct {
 	Dir            string `json:"dir"`
 	PermissionMode string `json:"permissionMode,omitempty"`
 	Model          string `json:"model,omitempty"`
+	Effort         string `json:"effort,omitempty"`
 	SessionID      string `json:"sessionId"`
 	Resume         bool   `json:"resume,omitempty"`
 	Prompt         string `json:"prompt"`
@@ -364,7 +376,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	rec := runRecord{
 		PID: cmd.Process.Pid, StartedAt: time.Now(), LaunchedAt: launched, StartTime: processStart(cmd.Process.Pid),
 		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
-		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
+		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model, Effort: spec.effort,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
 		Harness: h.Name(), Account: spec.account, ConfigDir: spec.configDir, Baseline: baseline,
 	}
@@ -391,11 +403,15 @@ func createOutput(dir, name string) (*os.File, error) {
 // workerOutcome reads how the worker in dir ended. waitErr is a fault of the
 // wait itself, and not the exit of a process that ran.
 func workerOutcome(dir string, killed bool, waitErr error) workerResult {
-	stdout, stdoutErr := readCapped(filepath.Join(dir, "stdout"), maxStdout)
+	out, stdoutErr := stream.ReadFile(filepath.Join(dir, "stdout"))
+	head, headErr := readCapped(filepath.Join(dir, "stdout"), maxOutput)
 	stderr, stderrErr := readCapped(filepath.Join(dir, "stderr"), maxOutput)
 	rec, recErr := readRunRecord(dir)
-	res := decodeWorkerOutput(recordHarness(rec), stdout.buf.Bytes(), stdout.dropped, stderr.text())
-	if readErr := errors.Join(stdoutErr, stderrErr); readErr != nil {
+	res := decodeWorkerOutput(recordHarness(rec), out.Result, head.buf.Bytes(), head.dropped, stderr.text())
+	if stdoutErr == nil {
+		res.streamed, res.calls, res.timing, res.peakContextTokens = true, out.Calls, out.Timing, out.PeakContextTokens
+	}
+	if readErr := errors.Join(cmp.Or(stdoutErr, headErr), stderrErr); readErr != nil {
 		res.output = strings.TrimLeft(res.output+"\n"+readErr.Error(), "\n")
 	}
 	res.killed, res.dir = killed, dir
@@ -481,16 +497,17 @@ func (w *capWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// decodeWorkerOutput reads the worker's stdout through its harness. A cut-off
-// or undecodable stdout holds no result. The output is the first non-empty of
-// the summary, the harness's result text, stderr and the raw stdout that did
-// not decode.
-func decodeWorkerOutput(h harn.Harness, stdout []byte, overflow bool, stderr string) workerResult {
-	doc := h.Output(stdout, overflow)
+// decodeWorkerOutput reads the result line of the worker's stdout through its
+// harness. result is nil when there is none. raw is the start of stdout, and
+// cut says stdout goes on past it. The output is the first non-empty of the
+// summary, the harness's result text, stderr and the plain lines of raw when
+// no result line decodes.
+func decodeWorkerOutput(h harn.Harness, result, raw []byte, cut bool, stderr string) workerResult {
+	doc := h.Output(result)
 	var res workerResult
-	var summary, raw string
+	var summary, rawText string
 	if !doc.Decoded {
-		raw = string(stdout)
+		rawText = plainLines(raw)
 	}
 	if doc.Decoded {
 		res.reported = doc.Usage
@@ -508,10 +525,10 @@ func decodeWorkerOutput(h harn.Harness, stdout []byte, overflow bool, stderr str
 	}
 
 	out := &capWriter{limit: maxOutput}
-	for _, text := range []string{summary, doc.Result, stderr, raw} {
+	for _, text := range []string{summary, doc.Result, stderr, rawText} {
 		if text != "" {
 			_, _ = out.Write([]byte(text))
-			out.dropped = out.dropped || (text == raw && overflow)
+			out.dropped = out.dropped || (text == rawText && cut)
 
 			break
 		}
@@ -519,6 +536,19 @@ func decodeWorkerOutput(h harn.Harness, stdout []byte, overflow bool, stderr str
 	res.output = out.text()
 
 	return res
+}
+
+// plainLines drops each line of raw that starts with "{". A stream line can
+// hold tool input, and a cut last line no longer parses, so the shape decides.
+func plainLines(raw []byte) string {
+	var kept []string
+	for line := range strings.SplitSeq(string(raw), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "{") {
+			kept = append(kept, line)
+		}
+	}
+
+	return strings.TrimSpace(strings.Join(kept, "\n"))
 }
 
 func (w *capWriter) text() string {

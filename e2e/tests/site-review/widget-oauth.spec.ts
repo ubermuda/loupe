@@ -20,6 +20,9 @@ const EMAIL = 'e2e-site-review-oauth@example.com';
 
 const test = createTest({ email: EMAIL, password: 'E2eSiteReviewOauth1!' });
 
+// Both tests share one account, and each harness load clears its comments.
+test.describe.configure({ mode: 'default' });
+
 test('a reviewer signs in through the popup and saves a comment', async ({
     page,
 }) => {

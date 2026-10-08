@@ -20,7 +20,7 @@ import (
 // A stand-in claude prints its result with the ceiling it got on stdout, and
 // noise on stderr, so the test sees the environment and the split streams.
 func TestRunWorkerLiftsTheCeilingAndDecodesStdout(t *testing.T) {
-	fakeClaude(t, "echo '{\"structured_output\":{\"status\":\"finished\",\"summary\":\"ceiling='\"$"+ceilingEnv+"\"'\"}}'\necho 'a warning' >&2\n")
+	fakeClaude(t, "echo '{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"ceiling='\"$"+ceilingEnv+"\"'\"}}'\necho 'a warning' >&2\n")
 	shortConfigHome(t)
 	t.Setenv(ceilingEnv, "")
 	if err := os.Unsetenv(ceilingEnv); err != nil {
@@ -47,8 +47,8 @@ func TestRunWorkerFallsBackToStderr(t *testing.T) {
 	}
 }
 
-// Stdout past the bound reads as no result, and the worker still runs to its
-// end rather than failing on a short write.
+// A long stdout that holds no result line reads as no result, and the worker
+// still runs to its end rather than failing on a short write.
 func TestRunWorkerBoundsStdout(t *testing.T) {
 	fakeClaude(t, "head -c 1100000 /dev/zero\necho 'late' >&2\n")
 	shortConfigHome(t)
@@ -93,7 +93,7 @@ func workerClaude(t *testing.T, script string) {
 // bridge decodes stdout alone and reads the exit code the shell recorded. The run directory stays for the router,
 // which removes it once it reported the run.
 func TestRunWorkerReadsTheExitCodeAndTheOutputFromItsRunDirectory(t *testing.T) {
-	workerClaude(t, "echo working >&2\necho '{\"structured_output\":{\"status\":\"unfinished\",\"summary\":\"ok\"}}'\nexit 3\n")
+	workerClaude(t, "echo working >&2\necho '{\"type\":\"result\",\"structured_output\":{\"status\":\"unfinished\",\"summary\":\"ok\"}}'\nexit 3\n")
 
 	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, runID: "run-1", prompt: "go"}, nil)
 	if res.err != nil || res.killed || res.exitCode != 3 || !res.hasResult || res.status != "unfinished" {
@@ -117,7 +117,7 @@ func TestRunWorkerReadsTheExitCodeAndTheOutputFromItsRunDirectory(t *testing.T) 
 
 // The router removes the run directory once it reported the run.
 func TestTheRouterRemovesTheRunDirectoryOfAFinishedRun(t *testing.T) {
-	workerClaude(t, "echo '{\"structured_output\":{\"status\":\"finished\",\"summary\":\"ok\"}}'\n")
+	workerClaude(t, "echo '{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"ok\"}}'\n")
 	h := newHarness(t)
 	h.router.worker = defaultWorkerOps()
 
@@ -200,7 +200,7 @@ func TestRunWorkerPassesThePromptUnchanged(t *testing.T) {
 // A shell that ends without an exit status, and that the bridge did not kill,
 // reads as a failure with a reason.
 func TestRunWorkerReportsAMissingExitStatus(t *testing.T) {
-	workerClaude(t, "echo '{\"structured_output\":{\"status\":\"finished\",\"summary\":\"ok\"}}'\nkill -9 $PPID\n")
+	workerClaude(t, "echo '{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"ok\"}}'\nkill -9 $PPID\n")
 
 	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil)
 	if res.err != nil || res.killed || res.exitCode == 0 {
@@ -284,5 +284,80 @@ func TestCancelErrTranslatesAVanishedGroup(t *testing.T) {
 	}
 	if got := cancelErr(syscall.EPERM); !errors.Is(got, syscall.EPERM) {
 		t.Fatalf("cancelErr(EPERM) = %v, want the real error", got)
+	}
+}
+
+// endedRunDir is the run directory of a worker that already exited, with the
+// stdout and the exit code it left.
+func endedRunDir(t *testing.T, stdout []byte) string {
+	t.Helper()
+	dir := t.TempDir()
+	cmd := exec.Command("true")
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeRunRecord(dir, runRecord{PID: cmd.Process.Pid, StartTime: "gone", RunID: "run-9"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "stdout"), stdout, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "stderr"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "status.exit"), []byte("0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	return dir
+}
+
+// A run an older bridge started prints the old single JSON document, which
+// holds the result and no tool call.
+func TestAdoptReadsTheOldJSONDocument(t *testing.T) {
+	doc, err := os.ReadFile(filepath.Join("..", "internal", "stream", "testdata", "old_json.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res := adoptWorker(context.Background(), endedRunDir(t, doc))
+	if res.err != nil || res.exitCode != 0 || !res.hasResult || res.status != "finished" {
+		t.Fatalf("adoptWorker = %+v", res)
+	}
+	if !res.streamed || res.calls != nil || res.timing.ToolTimeMs != nil || res.timing.IdleGapMs != nil || res.peakContextTokens != nil {
+		t.Fatalf("calls = %+v, timing = %+v, peak = %v, streamed = %v", res.calls, res.timing, show(res.peakContextTokens), res.streamed)
+	}
+}
+
+// The outcome of a worker carries the peak context of its main session.
+func TestAdoptReadsThePeakContext(t *testing.T) {
+	stdout, err := os.ReadFile(filepath.Join("..", "internal", "stream", "testdata", "peak_context.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res := adoptWorker(context.Background(), endedRunDir(t, stdout))
+	if res.peakContextTokens == nil || *res.peakContextTokens != 10+31333+429 {
+		t.Fatalf("peakContextTokens = %v", show(res.peakContextTokens))
+	}
+}
+
+// The stream has no size cap, so a result line after more than 1 MiB of tool
+// output still decodes, and the calls before it count.
+func TestAdoptFindsTheResultLinePastOneMiB(t *testing.T) {
+	big := strings.Repeat("x", 1<<20+1024)
+	stdout := `{"type":"assistant","timestamp":"2026-10-06T10:00:00.000Z","parent_tool_use_id":null,"message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}]}}` + "\n" +
+		`{"type":"user","timestamp":"2026-10-06T10:00:02.000Z","parent_tool_use_id":null,"message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"` + big + `","is_error":false}]}}` + "\n" +
+		`{"type":"result","is_error":false,"result":"r","structured_output":{"status":"finished","summary":"done"}}` + "\n"
+
+	res := adoptWorker(context.Background(), endedRunDir(t, []byte(stdout)))
+	if res.err != nil || !res.hasResult || res.status != "finished" || res.output != "done" {
+		t.Fatalf("adoptWorker = %+v", res)
+	}
+	if len(res.calls) != 1 || res.calls[0].Tool != "Bash" || res.calls[0].DurationMs == nil || *res.calls[0].DurationMs != 2000 {
+		t.Fatalf("calls = %+v", res.calls)
+	}
+	if res.timing.ToolTimeMs == nil || *res.timing.ToolTimeMs != 2000 {
+		t.Fatalf("timing = %+v", res.timing)
 	}
 }

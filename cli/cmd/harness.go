@@ -48,7 +48,7 @@ func (s workerSpec) adapter() harn.Harness {
 
 func (s workerSpec) harnessSpec(env []string) harn.Spec {
 	return harn.Spec{
-		Dir: s.dir, Model: s.model, PermissionMode: s.permissionMode, Schema: s.schema,
+		Dir: s.dir, Model: s.model, Effort: s.effort, PermissionMode: s.permissionMode, Schema: s.schema,
 		SessionID: s.sessionID, Prompt: s.prompt, Env: env,
 	}
 }

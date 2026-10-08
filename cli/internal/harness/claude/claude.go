@@ -40,14 +40,17 @@ func (Harness) Resume(spec harness.Spec) harness.Command {
 // it. It follows --, because claude reads a prompt that starts with - as an
 // option.
 func args(spec harness.Spec, session string) []string {
-	args := make([]string, 0, 13)
+	args := make([]string, 0, 16)
 	if spec.PermissionMode != "" {
 		args = append(args, "--permission-mode", spec.PermissionMode)
 	}
 	if spec.Model != "" {
 		args = append(args, "--model", spec.Model)
 	}
-	args = append(args, "--output-format", "json")
+	if spec.Effort != "" {
+		args = append(args, "--effort", spec.Effort)
+	}
+	args = append(args, "--verbose", "--output-format", "stream-json")
 	if spec.Schema != "" {
 		args = append(args, "--json-schema", spec.Schema)
 	}
@@ -93,6 +96,9 @@ func (Harness) Interactive(program string, spec harness.Spec) string {
 	if spec.Model != "" {
 		b.WriteString(" --model " + shellQuote(spec.Model))
 	}
+	if spec.Effort != "" {
+		b.WriteString(" --effort " + shellQuote(spec.Effort))
+	}
 	if spec.PermissionMode != "" {
 		b.WriteString(" --permission-mode " + shellQuote(spec.PermissionMode))
 	}
@@ -101,10 +107,10 @@ func (Harness) Interactive(program string, spec harness.Spec) string {
 	return b.String()
 }
 
-// Output reads the one JSON document claude --output-format json prints. A
-// document with a field of the wrong type does not decode, and keeps the
-// result it held.
-func (Harness) Output(stdout []byte, overflow bool) harness.Output {
+// Output reads the result line of claude --output-format stream-json. A line
+// with a field of the wrong type does not decode, and keeps the result it
+// held.
+func (Harness) Output(result []byte) harness.Output {
 	var doc struct {
 		StructuredOutput json.RawMessage `json:"structured_output"`
 		Result           string          `json:"result"`
@@ -113,7 +119,7 @@ func (Harness) Output(stdout []byte, overflow bool) harness.Output {
 		IsError    bool            `json:"is_error"`
 		ModelUsage json.RawMessage `json:"modelUsage"`
 	}
-	decoded := !overflow && json.Unmarshal(stdout, &doc) == nil
+	decoded := result != nil && json.Unmarshal(result, &doc) == nil
 	out := harness.Output{Decoded: decoded, Result: doc.Result}
 	if !decoded {
 		return out

@@ -35,6 +35,17 @@ The path holds no project, because one bridge follows several projects.
   "workerPools": [
     {"name": "default", "size": 3, "inUse": 2, "queued": 0},
     {"name": "quick", "size": 1, "inUse": 1, "queued": 4}
+  ],
+  "hostSamples": [
+    {
+      "sampledAt": "2026-10-07T09:15:00Z",
+      "cpuPct": [42.5, 18.0, 77.1, 9.3],
+      "memUsed": 12884901888,
+      "memTotal": 17179869184,
+      "swapUsed": 0,
+      "batteryPct": 81,
+      "onAc": false
+    }
   ]
 }
 ```
@@ -52,8 +63,9 @@ The path holds no project, because one bridge follows several projects.
 | `hooks` | optional. A list of at most 100 rows, one for each event of each [hook package](../extending/bridge-hooks.md) the bridge runs. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `workerPools` | optional. A list of at most 50 rows, one for each worker pool of the bridge. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `paused` | optional. `true` when the bridge takes no new work now. A missing or `null` value keeps the state the server holds. See [Pause and commands](#pause-and-commands) |
-| `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. `work-requests` says that the bridge claims [work requests](#work-requests), and `interactive` says that it runs an interactive session. A missing or `null` value keeps the list the server holds |
+| `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. `session-usage` says that the bridge takes a command of the kind `collect-session-usage`. `work-requests` says that the bridge claims [work requests](#work-requests), and `interactive` says that it runs an interactive session. A missing or `null` value keeps the list the server holds |
 | `workClaims` | optional. A list of at most 200 rows, one for each work request the bridge holds. Each row has an `id` and a `claimToken`, both uuids. The server renews the lease of each claim the bridge still holds, as [Work requests](#work-requests) says. A missing or `null` value renews nothing |
+| `hostSamples` | optional. A list of at most 720 [host samples](#host-samples), oldest first. A missing, `null` or empty value stores nothing |
 
 Each row of `hooks` holds these fields:
 
@@ -81,6 +93,42 @@ the bridge, with the time of the heartbeat that carried them. The server
 stamps that time from its own clock when a heartbeat carries a `workerPools`
 list, an empty list included. A heartbeat with no list keeps the rows and their
 time. A bridge that never sent a `workerPools` list shows no pools.
+
+### Host samples
+
+A host sample is one reading of the machine the bridge runs on. The bridge
+takes samples only while the `bridge.host_sampling_enabled` flag is on, as
+[Host samples](../extending/cli-bridge.md#host-samples) describes. Each row of
+`hostSamples` holds these fields:
+
+| Field | Rule |
+|---|---|
+| `sampledAt` | required. The time of the sample, as an RFC 3339 date. The server stores it in UTC, to the second |
+| `cpuPct` | required. A list of at most 1024 numbers from 0 to 100, the use of each core in percent |
+| `memUsed` | required. The memory in use, in bytes, an integer of 0 or more |
+| `memTotal` | required. The total memory, in bytes, an integer of 0 or more |
+| `swapUsed` | required. The swap in use, in bytes, an integer of 0 or more |
+| `batteryPct` | optional. The charge of the battery, a number from 0 to 100. `null` on a machine with no battery, or when the bridge cannot read it |
+| `onAc` | optional. `true` when the machine runs on mains power, and `false` when it runs on battery. `null` when the bridge cannot tell |
+
+The bridge keeps each sample until a heartbeat that carries it is accepted. A
+failed or replaced heartbeat loses no sample, because the next one carries it
+again. The bridge keeps at most 720 samples, and drops the oldest past that
+limit. A heartbeat carries at most 60 samples, oldest first, so a backlog
+goes out over several heartbeats. A sample waits for the next heartbeat, so
+the samples arrive at the heartbeat interval.
+
+The server stores the samples only while `bridge.host_sampling_enabled` is on.
+While the flag is off, it drops them and answers the heartbeat as usual. A
+bridge keeps the flag value it read at its last connect, so it can still send
+samples for a short time after the flag goes off. The server keeps one sample
+for each account, bridge and second, and skips a sample it already holds.
+It also drops a sample older than the `bridge.run_retention_days` window, or
+more than five minutes ahead of the server clock.
+
+A sample can arrive after the run it covers has ended. The server then updates
+the [host metrics](worker-runs.md#run-metrics) of each ended run of that bridge
+whose time holds the sample.
 
 ### The bridge name
 
@@ -195,6 +243,11 @@ The project inbox page reads the interval too. It warns on an open ask when its
 bridge sent no heartbeat in the last three intervals. See
 [When a bridge goes quiet](../using/inbox.md#when-a-bridge-goes-quiet).
 
+The [host samples](#host-samples) have a timer of their own. The
+`bridge.host_sample_interval_seconds` flag sets it, and its default is 60
+seconds. A value below 5 reads as the default. A shorter sample interval sends
+more samples in each heartbeat, and no more heartbeats.
+
 ## Open runs of a quiet bridge
 
 A bridge that stops sending its heartbeat can no longer report how its runs
@@ -212,14 +265,15 @@ run of that bridge that the list does not name. See
 
 The server can ask a bridge to take no new work, to stop or resume one worker
 run, and to run the command of a failed command run again. The project owner sends these requests from the web UI, as
-[Controls in the web UI](worker-runs.md#controls-in-the-web-ui) says.
+[Controls in the web UI](worker-runs.md#controls-in-the-web-ui) says. The
+server also asks for the usage of an interactive run when the run closes.
 
 A pause is a state of the bridge row. `paused` in the heartbeat reply says
 whether the server asks the bridge to pause. `paused` in the heartbeat body says
 what the bridge does now. A pause never expires, so a bridge that was off
 applies it when it comes back.
 
-A stop, a resume or a rerun is a command. The server stores it as pending and sends a
+A stop, a resume, a rerun or a usage request is a command. The server stores it as pending and sends a
 `bridge.command` event on the topic of the project. The heartbeat reply lists
 the pending commands of the bridge again in `commands`, so a bridge that missed
 the event gets it at its next heartbeat. The bridge ignores a command it already
@@ -231,16 +285,19 @@ holds, by `commandId`. Each command carries these fields:
 | `projectId` | the project of the run |
 | `subject` | `{"type":"bridge-command","id":<commandId>}` |
 | `commandId` | the id of the command |
-| `kind` | `stop-run`, `resume-run` or `rerun-command` |
+| `kind` | `stop-run`, `resume-run`, `rerun-command` or `collect-session-usage` |
 | `bridgeId` | the bridge that must act. Another bridge drops the event |
+| `runId` | the id the server gave the run |
 | `runKey`, `sessionId` | the run and its session, or `null` when the run has none |
 | `subjectType`, `subjectId` | the subject of the run, such as `card` and the card id |
 | `cardNumber` | the number of the card of a `card` subject, as a label for a person, or `null` for any other subject |
 | `workRequestId`, `workKind`, `ruleId` | the work request of the run, or `null` for a run from before the work map |
+| `startedAt`, `endedAt` | the start and the end of the run, as RFC 3339 dates to the second, or `null` when the run has none |
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
 | `cause` | `person` when a person asked, or `ask-closed` when Loupe resumes a session whose ask the owner closed. The bridge words the resume prompt from it |
 | `context` | the context of the work request of the run, taken when the command was stored, with the five keys of the [work request context](#work-requests). Each key is `null` for a run with no work request. A server from before the context sends no `context` key |
-| `harness`, `account`, `model` | what the run started on, as its reports recorded them, or `null` when a report named none. A resume runs on that account. A server from before these keys sends none of them |
+| `model`, `effort` | the [model and the effort](#work-requests) of the work request of the run, taken when the command was stored, or `null`. A resume runs with them, as the first run did. A server from before these keys sends none |
+| `harness`, `account`, `runModel` | what the run started on, as its reports recorded them, or `null` when a report named none. A resume runs on that account, with that model. A server from before these keys sends none of them |
 
 The `bridge.command_ttl_minutes` feature flag sets how long a command waits,
 and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from
@@ -254,6 +311,23 @@ A `rerun-command` command names a command run that ended as `failed`,
 a new run that continues that run. The server sends a rerun only to a bridge
 that reports both the `commands` and the `rerun-command` capabilities. A rerun
 holds no card, because the bridge starts a new run.
+
+A `collect-session-usage` command names an interactive run that closed,
+while the run has no usage. Each close asks: a `card_run_close` call, a person
+on the worker run page, a card move and a card delete. The server sends it to
+each bridge that reports both the `commands` and the `session-usage`
+capabilities. A run that a bridge launched goes to that bridge alone. Any
+other run goes to each such bridge of the owner that follows the project,
+because the server does not know which machine ran the session. A command of
+this kind has the cause `person`, and a person can never cancel it.
+
+The bridge that holds the transcript of the session reads the usage of the
+window from `startedAt` to `endedAt`. It sends that usage to
+[the session usage endpoint](worker-runs.md#reporting-the-usage-of-a-session)
+with the `runId` of the command, then answers `done`. A bridge that holds no
+transcript answers `refused`. So does a bridge whose report the server refused,
+such as with a 409. A `card_run_close` call on a closed run that has no usage
+sends the commands again, when no such command waits.
 
 ### Stop timings
 
@@ -327,7 +401,7 @@ request can also name a capability that the bridge must report, such as
 `interactive`. A request with no capability goes to each bridge that reports
 `work-requests`.
 
-The `loupe` CLI always reports `commands` and `rerun-command`. It reports
+The `loupe` CLI always reports `commands`, `rerun-command` and `session-usage`. It reports
 `work-requests` when the `work:` map of its rule file has an entry, and
 `interactive` when an entry has `action: interactive`. Each heartbeat sends
 `workClaims`, with a row for each claim the CLI holds. A CLI that holds no
@@ -358,6 +432,8 @@ another bridge claimed. Each request carries these fields:
 | `createdAt` | the time the request opened, as an RFC 3339 date |
 | `resumeSessionId` | the session of an unfinished run of the card and kind that the run resumes, or `null` for a fresh start |
 | `context` | what the card held when the request opened. See the table below |
+| `model` | the model the run uses over the model of the work entry, or `null`. A run with a request model joins no experiment |
+| `effort` | the effort level the run passes to `claude --effort`: `low`, `medium`, `high`, `xhigh` or `max`, or `null` |
 | `prompt` | the text of the app prompt that the rule names, or `null`. Only a rule that Loupe ships can name one. A bridge with `appPrompts: true` runs it for a kind that its `work:` map does not hold |
 
 The `context` object always holds five keys. Each one is `null` when the card
@@ -478,7 +554,12 @@ data export holds the bridges in `bridges.json`, with the stored update state,
 version and install method, the hook rows, the worker pool rows with their
 report time, the pause state, the capabilities, the name the bridge holds,
 the name it asked for and the push login. It holds the commands in
-`bridge_commands.json`.
+`bridge_commands.json`. Deleting an account also deletes the host samples of
+its bridges. The data export holds them in `bridge_host_samples.json`, with the
+bridge id and the fields of [Host samples](#host-samples).
+
+The [retention](worker-runs.md#retention) sweep deletes each host sample older
+than the `bridge.run_retention_days` window.
 
 Deleting a project deletes its work requests. The data export holds the work
 requests of the projects the account owns in `bridge_work_requests.json`. Each

@@ -397,7 +397,7 @@ func TestAnEnvFileCannotSetTheConfigFolder(t *testing.T) {
 // while the plan entry now runs on account a.
 func resumeOnB() api.Command {
 	c := resumeOf(endedRunKey)
-	c.Account, c.Harness, c.Model = "b", rules.HarnessClaudeCode, "opus"
+	c.Account, c.Harness, c.RunModel = "b", rules.HarnessClaudeCode, "opus"
 
 	return c
 }
@@ -604,7 +604,7 @@ func TestAResumeReportsTheVariantOnlyWhenItRunsWithItsSettings(t *testing.T) {
 			h.transcripts(true)
 			h.pins(func(context.Context, string) (string, string, error) { return "on-a", "", nil })
 			c := resumeOf(endedRunKey)
-			c.Account, c.Harness, c.Model = tc.account, rules.HarnessClaudeCode, tc.model
+			c.Account, c.Harness, c.RunModel = tc.account, rules.HarnessClaudeCode, tc.model
 
 			if state, reason := h.resume(c); state != api.CommandDone {
 				t.Fatalf("resume = %s %q", state, reason)

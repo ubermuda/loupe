@@ -253,6 +253,26 @@ func TestTheResumeOfAClosedAskSaysTheOwnerAnswered(t *testing.T) {
 	}
 }
 
+// A resume runs with the model and the effort the work request of the run
+// asked for, as the first run did.
+func TestAPersonsResumeKeepsTheModelAndTheEffortOfTheRun(t *testing.T) {
+	h := newWorkHarness(t)
+	h.withWork()
+	h.states()
+	h.worker.result = finishedRun
+	c := workResumeOf(endedRunKey)
+	c.Model, c.Effort = "opus", "high"
+
+	if state, reason := h.resume(c); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+
+	calls := h.worker.recorded()
+	if len(calls) != 1 || calls[0].model != "opus" || calls[0].effort != "high" {
+		t.Fatalf("workers = %+v", calls)
+	}
+}
+
 // The server decides each resume, so a resumed run that ends unfinished ends
 // there.
 func TestAPersonsResumeNeverResumesOnItsOwn(t *testing.T) {

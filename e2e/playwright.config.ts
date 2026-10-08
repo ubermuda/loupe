@@ -28,39 +28,48 @@ if (!baseURL) {
 // four times the measured cost. The per-pull-request gate keeps 5s.
 const collectingCoverage = !!process.env.COVERAGE;
 
-// CI runs the suite as two jobs on two runners, each with its own stack, and
-// E2E_SHARD names the half this process runs. Unset runs every project, which
+// CI splits the suite over several jobs, each with its own stack, and
+// E2E_SHARD names the part this process runs. Unset runs every project, which
 // is what `just e2e` does on a workstation.
 //
-// Playwright's own `--shard` cannot do this. It filters top-level projects
-// only, and it re-adds the dependency projects afterwards. Every project here
-// except `install-reset` is a dependency, so its one test is all there is to
-// split: `--shard=1/2 --list` reports all 226 tests and `--shard=2/2` none.
+// Playwright's own `--shard` cannot split the whole suite. It filters top-level
+// projects only, and it re-adds the dependency projects afterwards. It does
+// split `chromium` per test when that project runs alone.
 const shard = process.env.E2E_SHARD;
+const shards = ['chromium', 'rest', 'global-flags'];
 
-if (shard !== undefined && shard !== 'chromium' && shard !== 'rest') {
-    throw new Error(`E2E_SHARD must be 'chromium' or 'rest', not '${shard}'.`);
+if (shard !== undefined && !shards.includes(shard)) {
+    throw new Error(
+        `E2E_SHARD must be 'chromium', 'rest' or 'global-flags', not '${shard}'.`,
+    );
 }
 
 type Projects = NonNullable<PlaywrightTestConfig['projects']>;
 
-// The `rest` shard also drops chromium from the dependency chain. The chain
-// orders the destructive projects within one run, and it never reads anything
-// chromium leaves behind, so each shard's own order is what has to hold.
+// The chain orders the destructive projects within one run, and it never reads
+// anything chromium or global-flags leaves behind. So a shard drops the projects
+// it does not run from the chain, and waitlist still waits for admin.
 function forShard(projects: Projects): Projects {
-    if (shard === 'chromium') {
-        return projects.filter((p) => p.name === 'chromium');
+    if (shard === 'chromium' || shard === 'global-flags') {
+        return projects
+            .filter((p) => p.name === shard)
+            .map((p) => ({ ...p, dependencies: undefined }));
     }
 
     if (shard !== 'rest') {
         return projects;
     }
 
+    const elsewhere = ['chromium', 'global-flags'];
+
     return projects
-        .filter((p) => p.name !== 'chromium')
+        .filter((p) => !elsewhere.includes(p.name ?? ''))
         .map((p) => ({
             ...p,
-            dependencies: p.dependencies?.filter((d) => d !== 'chromium'),
+            dependencies:
+                p.name === 'waitlist'
+                    ? ['admin']
+                    : p.dependencies?.filter((d) => !elsewhere.includes(d)),
         }));
 }
 
@@ -70,8 +79,8 @@ export default defineConfig({
     fullyParallel: false,
     timeout: collectingCoverage ? 120_000 : 30_000,
     expect: { timeout: collectingCoverage ? 20_000 : 5_000 },
-    // Files run in parallel. A spec that flips a global flag or shares a fixed
-    // account goes in a `workers: 1` project below, never in `chromium`.
+    // A spec that flips a global flag, or shares a fixed account with another
+    // file, goes in a `workers: 1` project below, never in `chromium`.
     workers: 4,
     forbidOnly: !!process.env.CI,
     retries: 0,
@@ -100,6 +109,10 @@ export default defineConfig({
     projects: forShard([
         {
             name: 'chromium',
+            // Each test is its own unit, for workers and for `--shard`. A file
+            // that relies on its test order opts out with
+            // `test.describe.configure({ mode: 'default' })`.
+            fullyParallel: true,
             // Specs that mutate state other files read run in the projects
             // below. Adding a spec here asserts that it is safe beside all of them.
             testIgnore: [

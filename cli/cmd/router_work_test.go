@@ -510,7 +510,7 @@ func TestTheHeartbeatRenewsTheHeldClaims(t *testing.T) {
 	if got := client.sent[1].WorkClaims; len(got) != 0 {
 		t.Fatalf("claims after the result = %v", got)
 	}
-	if got := client.sent[0].Capabilities; !slices.Equal(got, []string{"commands", "rerun-command", "work-requests"}) {
+	if got := client.sent[0].Capabilities; !slices.Equal(got, []string{"commands", "rerun-command", "session-usage", "work-requests"}) {
 		t.Fatalf("capabilities = %v", got)
 	}
 }
@@ -688,6 +688,7 @@ work:
     variants:
       - {name: a, weight: 1, model: opus}
       - {name: b, weight: 3, model: sonnet}
+    metrics: [cost, merge-rate]
 `
 
 // An interactive entry launches only once the claim holds. A launch that
@@ -728,7 +729,7 @@ func TestAnInteractiveWorkEntryLaunchesAfterItsClaim(t *testing.T) {
 }
 
 // An entry with variants pins its variant per card, as an experiment named
-// after the kind.
+// after the kind, and sends the metrics it declares.
 func TestAWorkEntryWithVariantsPinsItsVariant(t *testing.T) {
 	h, rec := launchHarnessWith(t, interactiveWorkRules, `[sh, -c, 'exit 0', sh, '{script}']`)
 	f := h.withWork()
@@ -737,7 +738,8 @@ func TestAWorkEntryWithVariantsPinsItsVariant(t *testing.T) {
 	h.offer(f, workRequest(1, 87, "split", api.WorkRequestOpen))
 
 	calls := pins.recorded()
-	if len(calls) != 1 || calls[0].experiment != "split" || calls[0].cardID != cardUUID(87) || calls[0].handle != testProject {
+	if len(calls) != 1 || calls[0].experiment != "split" || calls[0].cardID != cardUUID(87) || calls[0].handle != testProject ||
+		!slices.Equal(calls[0].metrics, []string{"cost", "merge-rate"}) {
 		t.Fatalf("pin calls = %+v", calls)
 	}
 	if got := h.worker.recorded(); len(got) != 1 || got[0].model != "sonnet" {
@@ -862,6 +864,18 @@ func TestCheckClaimComparesTheSubject(t *testing.T) {
 	} {
 		if err := checkClaim(api.Claim{WorkRequest: w}, offer); err == nil {
 			t.Fatalf("%s: the claim was taken", name)
+		}
+	}
+}
+
+// A person's resume or rerun takes its settings from the match as well, so
+// both paths carry the effort.
+func TestApplyCarriesTheEffortOfTheMatch(t *testing.T) {
+	for _, continues := range []string{"", "run-1"} {
+		p := pending{continues: continues}
+		p.apply(rules.Match{Model: "opus", Effort: "high"})
+		if p.spec.model != "opus" || p.spec.effort != "high" {
+			t.Fatalf("continues %q: spec = %+v", continues, p.spec)
 		}
 	}
 }

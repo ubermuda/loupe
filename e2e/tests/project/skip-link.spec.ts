@@ -6,6 +6,9 @@ const test = createTest({
     password: 'E2eSkipLink1!',
 });
 
+// Split over workers, this file would register one fixed account twice at once.
+test.describe.configure({ mode: 'default' });
+
 test('skip link targets the new content after Turbo navigation', async ({
     page,
 }) => {

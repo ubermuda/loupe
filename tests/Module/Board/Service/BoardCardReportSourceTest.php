@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Service\BoardCardReportSource;
@@ -116,6 +117,24 @@ final class BoardCardReportSourceTest extends KernelTestCase
         self::assertNull($outcomes[(string) $handMoved]->hoursToMerge());
     }
 
+    public function test_it_returns_the_types_of_the_projects_cards_only(): void
+    {
+        $project = $this->makeProject('card-types');
+        $other = $this->makeProject('card-types-other');
+        $feature = $this->card($project, 1, 'done');
+        $bug = $this->card($project, 2, 'done', CardType::Bug);
+        $foreign = $this->card($other, 1, 'done', CardType::Docs);
+        $this->em->clear();
+
+        $types = $this->source->typesFor($project, [$feature, $bug, $foreign, Uuid::v7()]);
+
+        ksort($types);
+        $expected = [(string) $feature => 'feature', (string) $bug => 'bug'];
+        ksort($expected);
+        self::assertSame($expected, $types);
+        self::assertSame([], $this->source->typesFor($project, []));
+    }
+
     public function test_the_history_starts_at_the_first_event_of_the_project(): void
     {
         $project = $this->makeProject('history-start');
@@ -152,9 +171,9 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function card(Project $project, int $number, string $column): Uuid
+    private function card(Project $project, int $number, string $column, CardType $type = CardType::Feature): Uuid
     {
-        $card = new Card(project: $project, column: $this->column($project, $column), title: 'Card '.$number, body: '', number: $number);
+        $card = new Card(project: $project, column: $this->column($project, $column), title: 'Card '.$number, body: '', number: $number, type: $type);
         $this->em->persist($card);
         $this->em->flush();
 

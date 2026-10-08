@@ -381,6 +381,43 @@ final class WorkerRunStatesApiTest extends WebTestCase
         ));
     }
 
+    public function test_an_outcome_stores_its_peak_context(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-peak@example.com');
+        $project = $this->project($em, $owner, 'Run States Peak');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(array_merge(self::outcome(), [
+            'peakContextTokens' => 187_654,
+        ])));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(187_654, $this->onlyRun()->peakContextTokens);
+    }
+
+    public function test_an_outcome_with_no_peak_context_leaves_it_unknown(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-peak-absent@example.com');
+        $project = $this->project($em, $owner, 'Run States Peak Absent');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(array_merge(self::outcome(), [
+            'peakContextTokens' => null,
+        ])));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(self::outcome()));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame([null, null], array_map(
+            static fn (WorkerRun $run): ?int => $run->peakContextTokens,
+            $this->allRuns(),
+        ));
+    }
+
     /** The bridge sends usage with an outcome alone, so the server checks it on any state and stores it from an outcome. */
     public function test_an_open_state_ignores_its_usage(): void
     {
@@ -489,6 +526,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
             'endedAt' => '2026-09-23T10:02:30+00:00',
             'output' => 'stopped halfway',
             'usage' => ['source' => 'reported', 'models' => []],
+            'peakContextTokens' => 42_000,
             ...$start,
         ]));
         self::assertResponseStatusCodeSame(201);
@@ -499,6 +537,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame('stopped halfway', $run->output);
         self::assertNull($run->exitCode);
         self::assertSame(WorkerRunUsageSource::Reported, $run->usageSource);
+        self::assertSame(42_000, $run->peakContextTokens);
         self::assertSame(['running', 'stopping', 'stopped'], array_map(
             static fn (WorkerRunStateChange $change): string => $change->state->value,
             $this->historyOf($run),
@@ -993,6 +1032,8 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a drop reason the bridge does not send' => [['state' => 'dropped', 'reason' => 'bored']];
         yield 'a replacement that is not a uuid' => [['state' => 'replaced', 'replacedBy' => 'nope']];
         yield 'a chain cap of zero' => [['state' => 'waiting-for-person', 'maxChain' => 0]];
+        yield 'a negative peak context' => [array_merge($result, ['state' => 'succeeded', 'peakContextTokens' => -1])];
+        yield 'a peak context as text' => [array_merge($result, ['state' => 'succeeded', 'peakContextTokens' => 'many'])];
         foreach (self::invalidUsage() as $name => $usage) {
             yield $name => [array_merge($result, ['state' => 'succeeded', 'usage' => $usage])];
         }

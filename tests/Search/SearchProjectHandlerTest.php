@@ -72,6 +72,10 @@ final class SearchProjectHandlerTest extends KernelTestCase
         self::assertSame(['page', 'page'], array_map(static fn (SearchResult $result): string => $result->kind, $pages->results->items));
         self::assertStringEndsWith('/worker-runs', $pages->results->items[0]->url);
         self::assertStringEndsWith('/activity', $pages->results->items[1]->url);
+        $analytics = $search(new SearchProjectCommand($project, 'analytics'));
+        self::assertSame(['Analytics · Metrics', 'Analytics · Experiments'], array_map(static fn (SearchResult $result): string => $result->title, $analytics->results->items));
+        self::assertStringEndsWith('/analytics/metrics', $analytics->results->items[0]->url);
+        self::assertStringEndsWith('/analytics/experiments', $analytics->results->items[1]->url);
         self::assertSame([], $search(new SearchProjectCommand($project, 'Run history'))->results->items);
         self::assertSame([], $search(new SearchProjectCommand($project, 'unfindablequartz'))->results->items);
         $board = $search(new SearchProjectCommand($project, 'Board'));

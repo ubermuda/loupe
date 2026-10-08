@@ -113,6 +113,9 @@ type RunStateReport struct {
 	Continues string `json:"continues,omitempty"`
 	// Usage goes on an outcome alone. A nil usage is unknown.
 	Usage *Usage `json:"usage,omitempty"`
+	// PeakContextTokens goes on an outcome and on a stopped report. A nil
+	// value is unknown.
+	PeakContextTokens *int64 `json:"peakContextTokens,omitempty"`
 	// The experiment fields go on running and on the outcome of a run whose
 	// rule joins an experiment.
 	Experiment     string `json:"experiment,omitempty"`

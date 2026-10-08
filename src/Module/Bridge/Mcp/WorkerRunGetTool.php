@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\Mcp;
 
+use App\Module\Bridge\Command\ListWorkerRunReadingsCommand;
+use App\Module\Bridge\Command\ListWorkerRunReadingsHandler;
 use App\Module\Bridge\Command\ShowWorkerRunSeriesCommand;
 use App\Module\Bridge\Command\ShowWorkerRunSeriesHandler;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -18,7 +20,7 @@ use Mcp\Exception\ToolCallException;
  * @phpstan-import-type WorkerRunDetail from WorkerRunPayload
  * @phpstan-import-type BridgeCommandRow from WorkerRunPayload
  */
-#[McpTool(name: self::NAME, description: 'Read one worker run in full, with every run of its series. A series starts with one run, and each resume of a run starts a new run that continues it. runs lists the whole series, oldest first. When an older run was deleted, its continuations lose their link to it. runs then lists only the branch of the oldest run that remains, and the runs on other branches of the deleted run are not in it. Each run has the fields of a worker_run_list row. It also has continuesRunId (the run it resumes, or null), receivedAt (when its first report arrived), failureReason, output (the whole output the bridge reported), and stateChanges (each state the run reached, with the time, oldest first). commands lists every command a person or an agent sent to the bridge for a run of the series, oldest first. Each command has commandId, runId, kind (resume-run, stop-run or rerun-command), state (pending, done, refused, expired or cancelled), reason, requestedAt, expiresAt and settledAt. reason is the reason the requester gave, until the bridge settles the command with a reason of its own.')]
+#[McpTool(name: self::NAME, description: 'Read one worker run in full, with every run of its series. A series starts with one run, and each resume of a run starts a new run that continues it. runs lists the whole series, oldest first. When an older run was deleted, its continuations lose their link to it. runs then lists only the branch of the oldest run that remains, and the runs on other branches of the deleted run are not in it. Each run has the fields of a worker_run_list row, usage, model, experiment, variant and metrics included. It also has continuesRunId (the run it resumes, or null), receivedAt (when its first report arrived), failureReason, output (the whole output the bridge reported), and stateChanges (each state the run reached, with the time, oldest first). commands lists every command a person or an agent sent to the bridge for a run of the series, oldest first. Each command has commandId, runId, kind (resume-run, stop-run, rerun-command or collect-session-usage), state (pending, done, refused, expired or cancelled), reason, requestedAt, expiresAt and settledAt. reason is the reason the requester gave, until the bridge settles the command with a reason of its own.')]
 final readonly class WorkerRunGetTool
 {
     public const string NAME = 'worker_run_get';
@@ -26,6 +28,7 @@ final readonly class WorkerRunGetTool
     public function __construct(
         private BridgeSubjectResolver $subjects,
         private ShowWorkerRunSeriesHandler $showSeries,
+        private ListWorkerRunReadingsHandler $listReadings,
         private WorkerRunPayload $payload,
     ) {
     }
@@ -38,7 +41,9 @@ final readonly class WorkerRunGetTool
     public function __invoke(string $runId): array
     {
         try {
-            $view = ($this->showSeries)(new ShowWorkerRunSeriesCommand($this->subjects->requireRun($runId, McpBoundProjectVoter::WORKER_RUN_READ)));
+            $run = $this->subjects->requireRun($runId, McpBoundProjectVoter::WORKER_RUN_READ);
+            $view = ($this->showSeries)(new ShowWorkerRunSeriesCommand($run));
+            $readings = ($this->listReadings)(new ListWorkerRunReadingsCommand($run->project, $view->runs));
 
             $pending = [];
             foreach ($view->commands as $command) {
@@ -49,7 +54,7 @@ final readonly class WorkerRunGetTool
 
             return [
                 'runs' => array_map(
-                    fn (WorkerRun $run): array => $this->payload->forDetail($run, $pending[(string) $run->id] ?? null, $view->stateChanges[(string) $run->id] ?? []),
+                    fn (WorkerRun $run): array => $this->payload->forDetail($run, $pending[(string) $run->id] ?? null, $view->stateChanges[(string) $run->id] ?? [], $readings),
                     $view->runs,
                 ),
                 'commands' => array_map(

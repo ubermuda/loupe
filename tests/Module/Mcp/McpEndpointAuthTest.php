@@ -89,9 +89,14 @@ final class McpEndpointAuthTest extends WebTestCase
         $raw = $this->persistValidToken($client);
 
         self::assertSame([
+            'analysis_get',
+            'analysis_report',
+            'analytics_settings_get',
+            'analytics_settings_update',
             'automation_settings_update',
             'board_columns',
             'bridge_command_cancel',
+            'bridge_host_samples',
             'bridge_list',
             'card_create',
             'card_get',
@@ -123,8 +128,11 @@ final class McpEndpointAuthTest extends WebTestCase
             'document_set_series',
             'document_set_tags',
             'document_unarchive',
+            'experiment_get',
             'feedback_list',
             'feedback_mark_addressed',
+            'metric_list',
+            'metric_query',
             'project_current',
             'project_origins_set',
             'project_update',
@@ -138,6 +146,7 @@ final class McpEndpointAuthTest extends WebTestCase
             'worker_run_list',
             'worker_run_resume',
             'worker_run_stop',
+            'worker_run_tool_calls',
             'workflow_get',
         ], $this->listToolNames($client, $raw));
     }

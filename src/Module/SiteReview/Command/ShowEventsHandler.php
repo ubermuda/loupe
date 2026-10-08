@@ -8,6 +8,7 @@ use App\Mercure\UserTopicBuilder;
 use App\Module\Bridge\Service\BridgeUpgradeRequired;
 use App\Module\Bridge\Service\EventStreamGate;
 use App\Module\Bridge\Service\HeartbeatInterval;
+use App\Module\Bridge\Service\HostSampling;
 use App\Module\Bridge\Service\StopLadder;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Outbox\Repository\OutboxEventRepository;
@@ -33,6 +34,7 @@ final readonly class ShowEventsHandler
         private FeatureFlagService $featureFlags,
         private HeartbeatInterval $heartbeatInterval,
         private StopLadder $stopLadder,
+        private HostSampling $hostSampling,
         private EventStreamGate $gate,
 
         /**
@@ -85,6 +87,8 @@ final readonly class ShowEventsHandler
             HeartbeatInterval::FLAG => $this->heartbeatInterval->seconds(),
             StopLadder::SIGTERM_FLAG => $this->stopLadder->sigtermAfterMs(),
             StopLadder::SIGKILL_FLAG => $this->stopLadder->sigkillAfterMs(),
+            HostSampling::ENABLED_FLAG => $this->hostSampling->enabled(),
+            HostSampling::INTERVAL_FLAG => $this->hostSampling->intervalSeconds(),
         ];
     }
 }

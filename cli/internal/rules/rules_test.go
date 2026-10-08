@@ -105,6 +105,24 @@ func TestAutoUpdateIsOffUnlessTheFileTurnsItOn(t *testing.T) {
 	}
 }
 
+func TestCollectIsOnUnlessTheFileTurnsItOff(t *testing.T) {
+	for _, tc := range []struct {
+		line string
+		want bool
+	}{
+		{line: "", want: true},
+		{line: "collect: true\n", want: true},
+		{line: "collect: false\n", want: false},
+	} {
+		if got := parse(t, tc.line+oneRule).Collect(); got != tc.want {
+			t.Fatalf("%q: Collect = %v, want %v", tc.line, got, tc.want)
+		}
+	}
+	if !(&Set{}).Collect() {
+		t.Fatal("a set that no file filled collects nothing")
+	}
+}
+
 // The model of a run comes from the entry, then the account, then the flag.
 func TestParseResolvesTheModelOfARun(t *testing.T) {
 	for name, tc := range map[string]struct{ entry, account, flag, want string }{

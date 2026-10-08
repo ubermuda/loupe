@@ -84,6 +84,21 @@ final readonly class BoardCardReportSource implements CardReportSourceInterface
     }
 
     #[\Override]
+    public function typesFor(Project $project, array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        $types = [];
+        foreach ($this->cards->findTypesByIds($project, $cardIds) as $row) {
+            $types[(string) $row['id']] = $row['type']->value;
+        }
+
+        return $types;
+    }
+
+    #[\Override]
     public function historyStartFor(Project $project): ?\DateTimeImmutable
     {
         return $this->cardEvents->findFirstOccurredAt($project);

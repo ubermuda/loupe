@@ -146,6 +146,9 @@ type File struct {
 	AppPrompts *bool `yaml:"appPrompts"`
 	// Name is the host name when absent, and a blank value opts out.
 	Name *string `yaml:"name"`
+	// Collect is on when the key is absent. Off, it also stops the host
+	// samples.
+	Collect *bool `yaml:"collect"`
 }
 
 // WorkerPool is one named share of maxWorkers.
@@ -294,8 +297,10 @@ type Set struct {
 
 	autoUpdate    bool
 	autoUpdateSet bool
-	maxWorkers    int
-	name          string
+	// noCollect is the inverse of collect, so a zero Set collects.
+	noCollect  bool
+	maxWorkers int
+	name       string
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
 	// work has the defaults of each worker entry filled.
@@ -354,7 +359,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
+	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil, noCollect: f.Collect != nil && !*f.Collect}
 	s.appPrompts, s.defaults, s.fileDefaults = f.AppPrompts != nil && *f.AppPrompts, defaults, f.Defaults
 	if keyNode(root, "accounts") == nil {
 		s.agentsOff = agentsOffNoAccounts
@@ -972,6 +977,12 @@ func (s *Set) AutoUpdateSet() bool {
 	return s.autoUpdateSet
 }
 
+// Collect reports whether the bridge sends the tool calls and the timing of
+// each worker run, and the host samples.
+func (s *Set) Collect() bool {
+	return !s.noCollect
+}
+
 // AppPrompts reports whether the bridge runs the app prompt of a kind its work
 // map does not hold.
 func (s *Set) AppPrompts() bool {
@@ -1192,6 +1203,8 @@ type Match struct {
 	// Permissions is the level of the entry, and "" when it names none.
 	Permissions string
 	Model       string
+	// Effort is the claude --effort level the request asks for, or "".
+	Effort string
 	// Account, Harness, ConfigDir and EnvFiles come from the account the run
 	// takes. They are empty for a command entry.
 	Account   string

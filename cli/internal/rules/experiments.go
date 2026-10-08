@@ -16,11 +16,16 @@ const (
 	MaxVariants    = 32
 	MaxModelLength = 100
 	MaxWeight      = 1_000_000
+	MaxMetrics     = 16
 )
 
 // experimentNamePattern is the shape the server takes for an experiment or a
 // variant name.
 var experimentNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
+
+// metricKeyPattern is the shape the server takes for a metric key. The bridge
+// does not know the server's metrics, so it checks the shape only.
+var metricKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9:-]{0,63}$`)
 
 // modelPattern refuses the control characters the server refuses in a model.
 var modelPattern = regexp.MustCompile(`^[^\p{C}]+$`)
@@ -29,6 +34,7 @@ var modelPattern = regexp.MustCompile(`^[^\p{C}]+$`)
 type Experiment struct {
 	Name     string    `yaml:"name"`
 	Variants []Variant `yaml:"variants"`
+	Metrics  []string  `yaml:"metrics"`
 
 	// settings holds the run settings of each variant, in variant order.
 	settings []RunSettings
@@ -79,9 +85,11 @@ func (e Experiment) Pick(cardKey string) Variant {
 	return Variant{}
 }
 
-// clone copies the variants, so a caller cannot change the set's experiment.
+// clone copies the variants and the metrics, so a caller cannot change the
+// set's experiment.
 func (e Experiment) clone() *Experiment {
 	e.Variants = slices.Clone(e.Variants)
+	e.Metrics = slices.Clone(e.Metrics)
 	e.settings = slices.Clone(e.settings)
 	for i := range e.settings {
 		e.settings[i] = e.settings[i].clone()
@@ -114,7 +122,28 @@ func checkExperiment(e Experiment) error {
 		}
 	}
 
+	errs = append(errs, checkMetrics(e.Metrics)...)
+
 	return errors.Join(errs...)
+}
+
+func checkMetrics(metrics []string) []error {
+	var errs []error
+	if len(metrics) > MaxMetrics {
+		errs = append(errs, fmt.Errorf("it has %d metrics, and the server takes at most %d", len(metrics), MaxMetrics))
+	}
+	seen := map[string]bool{}
+	for _, key := range metrics {
+		switch {
+		case seen[key]:
+			errs = append(errs, fmt.Errorf("metric %q is listed twice", key))
+		case !metricKeyPattern.MatchString(key):
+			errs = append(errs, fmt.Errorf("metric %q: a metric key is 1 to 64 lowercase letters, digits, colons and hyphens, and starts with a letter, such as merge-rate", key))
+		}
+		seen[key] = true
+	}
+
+	return errs
 }
 
 func checkVariant(v Variant) error {

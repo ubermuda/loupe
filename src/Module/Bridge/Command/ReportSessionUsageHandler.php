@@ -8,6 +8,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunUsageRecorder;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
@@ -16,7 +17,8 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Gives each started worker run of a session the usage of the process at the
- * same place in the start order. A count that differs, or two runs that start
+ * same place in the start order. With a run id, it gives the one process to
+ * the ended interactive run of that id instead. A count that differs, or two runs that start
  * in the same second, write nothing, because no run can then be matched to its
  * process with certainty. The start column holds whole seconds.
  */
@@ -42,7 +44,9 @@ final readonly class ReportSessionUsageHandler
                 return [new ReportSessionUsageResult(null, \count($command->processes), 0), null];
             }
 
-            $runs = $this->workerRuns->findStartedOfSessionForUpdate($project, $command->sessionId);
+            $runs = null === $command->runId
+                ? $this->workerRuns->findStartedOfSessionForUpdate($project, $command->sessionId)
+                : $this->endedInteractiveRun($project, $command);
             if (\count($runs) !== \count($command->processes)) {
                 return [new ReportSessionUsageResult(\count($runs), \count($command->processes), 0), $project];
             }
@@ -71,6 +75,7 @@ final readonly class ReportSessionUsageHandler
         $context = [
             'projectId' => (string) $project->id,
             'sessionId' => (string) $command->sessionId,
+            'runId' => $command->runId?->toRfc4122(),
             'runs' => $result->runs,
             'processes' => $result->processes,
             'updated' => $result->updated,
@@ -93,6 +98,14 @@ final readonly class ReportSessionUsageHandler
         }
 
         return $result;
+    }
+
+    /** @return list<WorkerRun> the run of the id, or none while it runs, never started or belongs to another session */
+    private function endedInteractiveRun(Project $project, ReportSessionUsageCommand $command): array
+    {
+        $run = $this->workerRuns->findInteractiveOfSessionForUpdate($project, $command->runId ?? throw new \LogicException('A run id is set.'), $command->sessionId);
+
+        return null === $run || WorkerRunState::Running === $run->state || null === $run->startedAt || null === $run->endedAt ? [] : [$run];
     }
 
     private function lockedProject(ReportSessionUsageCommand $command): ?Project
