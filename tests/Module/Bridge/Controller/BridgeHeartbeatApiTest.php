@@ -339,9 +339,9 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(200);
         $bridge = $this->bridge($owner, $bridgeId);
         self::assertSame([
-            ['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null],
-            ['name' => 'personal', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'claude is not logged in'],
-            ['name' => 'spare', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => null],
+            ['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null, 'used' => true],
+            ['name' => 'personal', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'claude is not logged in', 'used' => true],
+            ['name' => 'spare', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => null, 'used' => true],
         ], $bridge->accounts);
         self::assertNotNull($bridge->accountsReportedAt);
     }
@@ -358,7 +358,38 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'accounts' => [self::account(['reason' => 'stale text'])]]);
 
         self::assertResponseStatusCodeSame(200);
-        self::assertSame([['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null]], $this->bridge($owner, $bridgeId)->accounts);
+        self::assertSame([['name' => 'work', 'harness' => 'claude-code', 'state' => 'ready', 'reason' => null, 'used' => true]], $this->bridge($owner, $bridgeId)->accounts);
+    }
+
+    /** The CLI sends used on every account. A false value is stored, and a missing value reads as true. */
+    public function test_the_used_flag_is_stored_and_defaults_to_true(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-used@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'accounts' => [
+            self::account(['name' => 'idle', 'used' => false]),
+            self::account(['name' => 'busy', 'used' => true]),
+            self::account(['name' => 'legacy']),
+        ]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([false, true, true], array_column($this->bridge($owner, $bridgeId)->accounts ?? [], 'used'));
+    }
+
+    public function test_a_used_flag_that_is_not_a_boolean_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-accounts-used-bad@example.com');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, (string) Uuid::v4(), $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'accounts' => [self::account(['used' => 'maybe'])]]);
+
+        self::assertResponseStatusCodeSame(422);
     }
 
     /** A bridge from before accounts sends none, so its heartbeat leaves the stored rows alone. */

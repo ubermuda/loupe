@@ -217,6 +217,7 @@ final class RecordBridgeHeartbeatRequest
                 'harness' => $account->harness ?? '',
                 'state' => $failing ? BridgeAccountInput::STATE_FAILING : BridgeAccountInput::STATE_READY,
                 'reason' => $failing && '' !== $reason ? $reason : null,
+                'used' => $account->used ?? true,
             ];
         }, array_values($this->accounts));
     }

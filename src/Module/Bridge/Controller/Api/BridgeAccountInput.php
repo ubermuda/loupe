@@ -6,7 +6,7 @@ namespace App\Module\Bridge\Controller\Api;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-/** One account a bridge runs its workers under, and whether its last check passed. */
+/** One account a bridge runs its workers under, and whether its last check passed. A missing `used` reads as true. */
 final class BridgeAccountInput
 {
     public const string NAME_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
@@ -34,6 +34,7 @@ final class BridgeAccountInput
 
         #[Assert\Length(max: self::MAX_REASON_LENGTH, normalizer: 'trim')]
         public ?string $reason = null,
+        public ?bool $used = null,
     ) {
     }
 }
