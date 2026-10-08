@@ -165,7 +165,7 @@
         </li>
         {% endfor %}
     </ol>
-    <twig:Pagination route="app_project_analytics_reports" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
+    <twig:Ds:Pagination route="app_project_analytics_reports" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
     {% else %}
     <twig:Ds:EmptyState icon="lucide:file-chart-column" :title="'insights.reports.empty.title'|trans" :body="'insights.reports.empty.description'|trans" linkHref="{{ app_docs_url }}/extending/cli-bridge/#work-requests" :linkLabel="'insights.reports.empty.docs'|trans" data-reports-empty />
     {% endif %}

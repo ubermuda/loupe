@@ -71,7 +71,7 @@
                 {{ 'project.delete.button'|trans }}
             </twig:Ds:Button>
 
-            <dialog data-modal-target="dialog" class="lp-dialog">
+            <twig:Ds:Dialog>
                 <div data-controller="confirm-input" data-confirm-input-expected-value="{{ project.name }}">
                     {{ form_start(deleteForm, {'action': path('app_project_delete', {id: project.id}), 'attr': {'class': 'lp-form'}}) }}
                         <h3 class="lp-dialog-title">{{ 'project.delete.modal.title'|trans({'%name%': project.name}) }}</h3>
@@ -93,7 +93,7 @@
                         </div>
                     {{ form_end(deleteForm) }}
                 </div>
-            </dialog>
+            </twig:Ds:Dialog>
         </section>
         </div>
     </div>

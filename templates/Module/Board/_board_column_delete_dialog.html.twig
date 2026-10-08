@@ -5,7 +5,7 @@
 {# A terminal column shows a recent slice, so its count on the page is not every card it holds. #}
 {% set cardCount = view.terminalTotal ?? view.count %}
 {% set deleteForm = board_column_delete_form(column, board.columns) %}
-<dialog data-modal-target="dialog" class="lp-dialog">
+<twig:Ds:Dialog>
     <h3 class="lp-dialog-title">{{ 'board.column.delete.title'|trans({'%label%': column.label|trans}) }}</h3>
     <p class="lp-dialog-desc">{{ 'board.column.delete.cards'|trans({'%count%': cardCount}) }}</p>
     {{ form_start(deleteForm, {action: path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}), attr: {class: 'lp-form'}}) }}
@@ -21,4 +21,4 @@
             <twig:Ds:Button variant="danger" type="submit">{{ (cardCount > 0 ? 'board.column.delete.submit' : 'board.column.delete.submit_empty')|trans }}</twig:Ds:Button>
         </div>
     {{ form_end(deleteForm, {render_rest: false}) }}
-</dialog>
+</twig:Ds:Dialog>

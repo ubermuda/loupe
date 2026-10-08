@@ -1,0 +1,4 @@
+{#
+  Any attribute, class included, is passed to the element. The anchor's own rules decide when it shows.
+#}
+<span{{ attributes.defaults({class: 'lp-tooltip', role: 'tooltip'}) }}>{% block content %}{% endblock %}</span>

@@ -1,4 +1,4 @@
-<dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="finish-review-title" data-action="cancel->modal#close">
+<twig:Ds:Dialog aria-labelledby="finish-review-title" data-action="cancel->modal#close">
     <h2 class="lp-dialog-title" id="finish-review-title">{{ 'review.document.finish.title'|trans }}</h2>
     <p class="lp-dialog-desc">{{ 'review.document.finish.context'|trans({
         '%version%': submitReviewForm.versionNumber.vars.value,
@@ -41,4 +41,4 @@
             <twig:Ds:Button variant="primary" type="submit">{{ 'review.document.finish.submit'|trans }}</twig:Ds:Button>
         </div>
     {{ form_end(submitReviewForm) }}
-</dialog>
+</twig:Ds:Dialog>

@@ -84,6 +84,38 @@ final readonly class Catalog
                 element: 'span',
                 dotClass: 'lp-status-chip__dot',
             ),
+            new ComponentEntry(
+                name: 'Dialog',
+                rootClass: 'lp-dialog',
+                template: 'components/Ds/Dialog.html.twig',
+                variants: ['document', 'search'],
+                states: ['open'],
+                enforced: true,
+            ),
+            new ComponentEntry(
+                name: 'Tabs',
+                rootClass: 'lp-tabs',
+                template: 'components/Ds/Tabs.html.twig',
+                variants: [],
+                states: ['hover', 'selected'],
+                enforced: true,
+            ),
+            new ComponentEntry(
+                name: 'Pagination',
+                rootClass: 'lp-pagination',
+                template: 'components/Ds/Pagination.html.twig',
+                variants: [],
+                states: ['current', 'disabled'],
+                enforced: true,
+            ),
+            new ComponentEntry(
+                name: 'Tooltip',
+                rootClass: 'lp-tooltip',
+                template: 'components/Ds/Tooltip.html.twig',
+                variants: [],
+                states: ['visible'],
+                enforced: true,
+            ),
         ];
     }
 }
