@@ -39,7 +39,11 @@ final class Version20261008001500 extends AbstractMigration
             UPDATE board_cards SET type = COALESCE(
                 (SELECT definition->>'defaultType' FROM workflow_bindings WHERE workflow_bindings.project_id = board_cards.project_id),
                 'feature'
-            ) WHERE type = 'site-review'
+            ) WHERE type = 'site-review' AND NOT EXISTS (
+                SELECT 1 FROM workflow_bindings
+                WHERE workflow_bindings.project_id = board_cards.project_id
+                AND definition->'types' @> '[{"key": "site-review"}]'::jsonb
+            )
             SQL);
     }
 

@@ -96,6 +96,27 @@ final class BoardCardsSourceMigrationTest extends KernelTestCase
         self::assertSame('story', $this->connection->fetchOne('SELECT type FROM board_cards WHERE id = :id', ['id' => (string) $card->id]));
     }
 
+    public function test_up_keeps_the_site_review_type_when_the_project_template_declares_it(): void
+    {
+        $owner = new User(fullName: 'Riley', email: 'board-source-'.uniqid().'@example.com', password: 'hashed');
+        $this->em->persist($owner);
+        $project = new Project($owner, 'board-source-'.uniqid());
+        $this->em->persist($project);
+        $column = new BoardColumn(project: $project, label: 'Backlog', slug: 'backlog', position: 0, terminal: false);
+        $this->em->persist($column);
+        $card = new Card(project: $project, column: $column, title: 'Custom', body: '', number: 1);
+        $this->em->persist($card);
+        $this->em->persist(new WorkflowBinding($project, 'custom', 1, ['defaultType' => 'story', 'types' => [['key' => 'story'], ['key' => 'site-review']]]));
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->migrate(down: true);
+        $this->connection->executeStatement("UPDATE board_cards SET type = 'site-review' WHERE id = :id", ['id' => (string) $card->id]);
+        $this->migrate();
+
+        self::assertSame('site-review', $this->connection->fetchOne('SELECT type FROM board_cards WHERE id = :id', ['id' => (string) $card->id]));
+    }
+
     private function sourceColumnCount(): int
     {
         return (int) $this->connection->fetchOne("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'board_cards' AND column_name IN ('source', 'source_run_id', 'source_run_card_id')");
