@@ -19,16 +19,3 @@ export async function showPanel(page: Page, name: PanelName): Promise<void> {
     }
     await expect(button).toHaveAttribute('aria-pressed', 'true');
 }
-
-/**
- * Stores Comments as on before every page load, so a spec that reads threads
- * finds them without a click. Decisions stays on, as by default.
- */
-export async function startWithComments(page: Page): Promise<void> {
-    await page.addInitScript((key: string) => {
-        window.localStorage.setItem(
-            key,
-            JSON.stringify(['decisions', 'comments']),
-        );
-    }, PANELS_KEY);
-}

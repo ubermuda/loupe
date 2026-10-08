@@ -255,6 +255,7 @@ async function readLayout(page: Page) {
             threadTop: threadRect?.top ?? null,
             threadBottom: threadRect?.bottom ?? null,
             proseTop: prose.getBoundingClientRect().top,
+            proseRight: prose.getBoundingClientRect().right,
             cardType:
                 commentBody === null
                     ? null
@@ -469,7 +470,7 @@ test('a comment card sits beside the document on desktop and above it on phones'
     expect(desktop.threadPosition).toBe('static');
     expect(desktop.threadParentClass).toContain('lp-review-margin');
     // The card sits in the panel column, clear of the reading column.
-    expect(desktop.threadLeft!).toBeGreaterThan(desktop.docRight - 1);
+    expect(desktop.threadLeft!).toBeGreaterThan(desktop.proseRight - 1);
 
     await givePhoneWidthReadingArea(page);
 
@@ -487,7 +488,7 @@ test('a comment card sits beside the document on desktop and above it on phones'
 
     const back = await readLayout(page);
     expect(back.threadParentClass).toContain('lp-review-margin');
-    expect(back.threadLeft!).toBeGreaterThan(back.docRight - 1);
+    expect(back.threadLeft!).toBeGreaterThan(back.proseRight - 1);
     // Nothing is left behind in the prose when the column comes back.
     await expect(page.locator(DOC).locator(THREAD)).toHaveCount(0);
     await expect(page.locator(THREAD)).toHaveCount(1);
