@@ -124,6 +124,24 @@ const registerUser = async (
 };
 
 /**
+ * Load a harness page and wait until the widget has handled its boot review
+ * answer. A click before that lands on a widget that is still settling, and
+ * the late answer repaints over its effect.
+ */
+const gotoHarness = async (page: Page, url: string): Promise<void> => {
+    const booted = page.waitForResponse(
+        (response) =>
+            response.url().includes('/api/site-review/review') &&
+            response.request().method() === 'GET',
+    );
+    await page.goto(url);
+    await (await booted).finished();
+    await page.evaluate(
+        () => new Promise<void>((resolve) => setTimeout(resolve)),
+    );
+};
+
+/**
  * Seed the user, sign the widget in and load the harness. Every load clears
  * the site's comments.
  */
@@ -132,7 +150,7 @@ const openHarness = async (
     mode: NoteMode | null = PER_NOTE,
 ): Promise<string> => {
     const projectId = await registerUser(page, mode);
-    await page.goto(harnessUrl());
+    await gotoHarness(page, harnessUrl());
 
     return projectId;
 };
@@ -418,7 +436,7 @@ test('one card per review is chosen once and remembered after a reload', async (
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 
     // The choice outlives the page, and the boot load names the card again.
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await page.getByRole('button', { name: 'Review' }).click();
     await startNote(page, 'A second note, after the reload');
     await expect(picker).toBeHidden();
@@ -511,7 +529,7 @@ test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     // matches location.href, so the save and the reload must share the URL.
     await openHarness(page);
     const keepUrl = keepHarnessUrl();
-    await page.goto(keepUrl);
+    await gotoHarness(page, keepUrl);
 
     // Seed one anchored comment + one general note through the UI.
     await page.getByRole('button', { name: 'Review' }).click();
@@ -528,7 +546,7 @@ test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     // Reload the harness with keep=1: the comments survive, because they belong
     // to the site rather than to the grant, and the widget boots by rehydrating
     // from GET /api/site-review/review.
-    await page.goto(keepUrl);
+    await gotoHarness(page, keepUrl);
 
     // The launcher badge shows the rehydrated count without any interaction.
     await expect(page.locator('#lp-launch-count')).toHaveText('2');
@@ -1119,12 +1137,22 @@ test('the launcher exposes icon-only quick actions for note and pick', async ({
         launcher.getByRole('button', { name: 'Pick element' }),
     ).toBeHidden();
 
-    // Closing the panel brings the quick actions back.
+    // Closing the panel brings the quick actions back. They expand over a
+    // transition, so the click waits until the button has stopped moving.
     await page.getByRole('button', { name: 'Review' }).click();
     await expect(page.locator('#lp-panel')).toBeHidden();
-    await expect(
-        launcher.getByRole('button', { name: 'Pick element' }),
-    ).toBeVisible();
+    const pick = launcher.getByRole('button', { name: 'Pick element' });
+    await expect(pick).toBeVisible();
+    let previous = '';
+    await expect
+        .poll(async () => {
+            const box = JSON.stringify(await pick.boundingBox());
+            const settled = box === previous;
+            previous = box;
+
+            return settled;
+        })
+        .toBe(true);
 
     // "Pick element" on the launcher enters pick mode directly: the widget chrome hides
     // and the pick toast shows.
@@ -1243,7 +1271,7 @@ test('a comment can be anchored to several elements at once', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     // Capture what the widget actually posts, not just what comes back.
     let saved: {
@@ -1353,7 +1381,7 @@ test('an element can be dropped from the composer before saving', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     await page.getByRole('button', { name: 'Review' }).click();
     await page
@@ -1594,7 +1622,7 @@ test('an anchor can be dropped from its own box on the page', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     const modifier = await addAnchorKey(page);
 
     await page.getByRole('button', { name: 'Review' }).click();
@@ -1694,7 +1722,7 @@ test('dropping the last anchor leaves a page note with the draft intact', async 
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     await page.getByRole('button', { name: 'Review' }).click();
     await page
@@ -1752,7 +1780,7 @@ test('the composer keeps Save reachable at the anchor cap', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     // Eleven targets whose labels are long enough to wrap the chip header. The
     // eleventh is the one the cap refuses.
@@ -1842,7 +1870,7 @@ test('a multi-anchor comment renders as degraded when an element is gone', async
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await addTwoElementComment(page, 'Align these two headings');
     await expect(page.locator('.pin')).toHaveCount(2);
 
@@ -1885,7 +1913,7 @@ test('the add-anchor modifier can be held before the very first pick', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     const modifier = await addAnchorKey(page);
 
     await page.getByRole('button', { name: 'Review' }).click();
@@ -2025,7 +2053,7 @@ test('hovering one anchor outlines every anchor of the same comment', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await addTwoElementComment(page, 'These two must agree');
     await expect(page.locator('.pin')).toHaveCount(2);
 
@@ -2227,7 +2255,7 @@ test('a comment can quote a run of text inside an element', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     let saved: {
         anchors: Array<{
@@ -2290,7 +2318,7 @@ test('a comment can mix a quoted passage and a whole element', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     const modifier = await addAnchorKey(page);
 
     await page.getByRole('button', { name: 'Review' }).click();
@@ -2334,7 +2362,7 @@ test('a quote that no longer reads falls back to its element', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     await page.getByRole('button', { name: 'Review' }).click();
     await selectText(page, PROSE_QUOTE);
@@ -2438,7 +2466,7 @@ test('a quote whose context no longer separates its twins degrades', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     const second = await occurrenceAt(page, 1);
     await page.getByRole('button', { name: 'Review' }).click();
@@ -2471,7 +2499,7 @@ test('editing a comment withdraws the offer to quote a selection', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     await page.getByRole('button', { name: 'Review' }).click();
     await selectText(page, PROSE_QUOTE);
@@ -2502,7 +2530,7 @@ test('a second selection adds another quote to the same comment', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     const first = await occurrenceAt(page, 0);
     const second = await occurrenceAt(page, 1);
 
@@ -2536,7 +2564,7 @@ test('a repeated quote re-anchors to the occurrence it was taken from', async ({
     page,
 }) => {
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     const start = await occurrenceAt(page, 1);
     await page.getByRole('button', { name: 'Review' }).click();
@@ -2777,7 +2805,7 @@ test('a stroke on an anchored comment moves with its element', async ({
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await composeDrawingOnWideBlock(page);
 
     const wideBox = (await page.locator('#target-wide').boundingBox())!;
@@ -2804,20 +2832,31 @@ test('a stroke on an anchored comment moves with its element', async ({
     // Narrow the window. #target-wide is a percentage width, so it genuinely
     // reflows, and the drawing has to reflow with it.
     await page.setViewportSize({ width: 760, height: 800 });
-    const narrowBox = (await page.locator('#target-wide').boundingBox())!;
-    expect(narrowBox.width).toBeLessThan(wideBox.width - 200);
-
     await expect
-        .poll(async () => (await inkBounds(page)).right, inkTimeout)
-        .toBeLessThan(narrowBox.x + narrowBox.width + 8);
-    const narrowInk = await inkBounds(page);
-    // Still spanning the element, and still inside it. Page coordinates would
-    // put the drawing well above the block, because the whole page scales.
-    expect(narrowInk.right - narrowInk.left).toBeGreaterThan(
-        narrowBox.width * 0.8,
-    );
-    expect(narrowInk.top).toBeGreaterThan(narrowBox.y - 8);
-    expect(narrowInk.bottom).toBeLessThan(narrowBox.y + narrowBox.height + 8);
+        .poll(
+            async () =>
+                (await page.locator('#target-wide').boundingBox())!.width,
+        )
+        .toBeLessThan(wideBox.width - 200);
+
+    // The element and the drawing both move after the resize. Read them
+    // together on every poll, because a box read once can be stale by the time
+    // the drawing arrives. Still spanning the element and still inside it:
+    // page coordinates would put the drawing well above the block, because the
+    // whole page scales.
+    await expect
+        .poll(async () => {
+            const box = (await page.locator('#target-wide').boundingBox())!;
+            const ink = await inkBounds(page);
+
+            return (
+                ink.right < box.x + box.width + 8 &&
+                ink.right - ink.left > box.width * 0.8 &&
+                ink.top > box.y - 8 &&
+                ink.bottom < box.y + box.height + 8
+            );
+        }, inkTimeout)
+        .toBe(true);
 });
 
 /**
@@ -2834,7 +2873,7 @@ test('a stroke that reaches far past its element falls back to page space', asyn
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
@@ -2878,7 +2917,7 @@ test('a stroke on a page note keeps its place as the page scrolls', async ({
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
@@ -2919,7 +2958,7 @@ test('drawing never picks the element under the stroke', async ({ page }) => {
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await composeDrawingOnWideBlock(page);
 
     const modifier = await addAnchorKey(page);
@@ -2955,7 +2994,7 @@ test("a saved comment's drawing comes back on reload", async ({ page }) => {
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await composeDrawingOnWideBlock(page);
 
     const wideBox = (await page.locator('#target-wide').boundingBox())!;
@@ -2967,7 +3006,7 @@ test("a saved comment's drawing comes back on reload", async ({ page }) => {
     await saveComposer(page, 'Still here after a reload');
     const before = await waitForInk(page);
 
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     const after = await waitForInk(page);
     expect(Math.abs(after.left - before.left)).toBeLessThan(4);
     expect(Math.abs(after.top - before.top)).toBeLessThan(4);
@@ -2986,7 +3025,7 @@ test('an instance with drawing off offers no Draw, and still renders saved strok
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await composeDrawingOnWideBlock(page);
 
     const wideBox = (await page.locator('#target-wide').boundingBox())!;
@@ -3007,7 +3046,7 @@ test('an instance with drawing off offers no Draw, and still renders saved strok
             json: { ...payload, drawingEnabled: false },
         });
     });
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     const kept = await waitForInk(page);
     expect(Math.abs(kept.left - drawn.left)).toBeLessThan(4);
@@ -3034,7 +3073,7 @@ test('the saved notice gives way to the drawing toast', async ({ page }) => {
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
@@ -3083,7 +3122,7 @@ test('the offer to quote a selection stands down while drawing', async ({
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await page.getByRole('button', { name: 'Review' }).click();
 
     const offer = page.locator('#lp-quote-btn');
@@ -3406,7 +3445,7 @@ test('the launcher drops its quick draw when drawing is off', async ({
             json: { ...payload, drawingEnabled: false },
         });
     });
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
 
     const launcher = page.locator('#lp-launcher');
     // The two that do not depend on the flag prove the launcher rendered.
@@ -3436,7 +3475,7 @@ test('a stroke can be undone, and the whole drawing cleared', async ({
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.goto(keepHarnessUrl());
+    await gotoHarness(page, keepHarnessUrl());
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
