@@ -3,8 +3,11 @@
 package envfile
 
 import (
+	"cmp"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -65,4 +68,26 @@ func Overlay(environ, pairs []string) []string {
 	})
 
 	return append(out, pairs...)
+}
+
+// LookPath finds program on the PATH of env, which a worker shell searches,
+// and on the PATH of the bridge when env sets none.
+func LookPath(program string, env []string) (string, error) {
+	path, ok := "", false
+	for _, kv := range env {
+		if v, found := strings.CutPrefix(kv, "PATH="); found {
+			path, ok = v, true
+		}
+	}
+	if !ok {
+		return exec.LookPath(program)
+	}
+	for _, dir := range filepath.SplitList(path) {
+		candidate := filepath.Join(cmp.Or(dir, "."), program)
+		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s not found in PATH %s", program, path)
 }

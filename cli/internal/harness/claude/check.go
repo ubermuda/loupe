@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/ubermuda/loupe/cli/internal/envfile"
 	"maps"
 	"os"
@@ -38,7 +37,7 @@ type plugin struct {
 // no field of auth status, because those name the person.
 func (h Harness) Check(ctx context.Context, spec harness.CheckSpec) []harness.Problem {
 	env := envfile.Overlay(os.Environ(), spec.Env)
-	binary, err := lookPathIn(h.Program(), env)
+	binary, err := envfile.LookPath(h.Program(), env)
 	if err != nil {
 		return []harness.Problem{{Reason: "claude is not on PATH", Detail: err.Error()}}
 	}
@@ -153,28 +152,6 @@ func hasSkills(dir string) bool {
 	}
 
 	return false
-}
-
-// lookPathIn finds program on the PATH of env, which the worker shell
-// searches, rather than on the PATH of the bridge.
-func lookPathIn(program string, env []string) (string, error) {
-	path, ok := "", false
-	for _, kv := range env {
-		if v, found := strings.CutPrefix(kv, "PATH="); found {
-			path, ok = v, true
-		}
-	}
-	if !ok {
-		return exec.LookPath(program)
-	}
-	for _, dir := range filepath.SplitList(path) {
-		candidate := filepath.Join(cmp.Or(dir, "."), program)
-		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
-			return candidate, nil
-		}
-	}
-
-	return "", fmt.Errorf("%s not found in PATH %s", program, path)
 }
 
 // userSkills is the skills folder of the config folder claude reads.

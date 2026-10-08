@@ -315,7 +315,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	// The shell always starts, so a program it cannot run must fail here to
 	// read as a run that never started.
 	h := spec.adapter()
-	if _, err := exec.LookPath(h.Program()); err != nil {
+	if _, err := envfile.LookPath(h.Program(), envfile.Overlay(os.Environ(), spec.env)); err != nil {
 		return nil, "", nil, err
 	}
 	if spec.runID == "" {

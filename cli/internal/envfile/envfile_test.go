@@ -91,3 +91,17 @@ func TestReadKeepsTheLastValueOfARepeatedKey(t *testing.T) {
 		t.Fatalf("Read = %q, %v; want %q", got, err, want)
 	}
 }
+
+func TestLookPathSearchesThePathOfTheEnvironment(t *testing.T) {
+	bin := t.TempDir()
+	program := filepath.Join(bin, "tool")
+	if err := os.WriteFile(program, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := LookPath("tool", []string{"PATH=" + t.TempDir() + string(os.PathListSeparator) + bin}); err != nil || got != program {
+		t.Fatalf("LookPath = %q, %v, want %q", got, err, program)
+	}
+	if _, err := LookPath("tool", []string{"PATH=" + t.TempDir()}); err == nil {
+		t.Fatal("LookPath found tool on a PATH that does not hold it")
+	}
+}
