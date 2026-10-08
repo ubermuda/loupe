@@ -1,0 +1,4 @@
+{#- The site review badge. Other sources show no badge. Props: card (Card). -#}
+{% if card.source.kind.value == 'widget' %}
+    {% include '_tone_tag.html.twig' with {label: ('board.card.source.widget'|trans), tone: 'purple'} only %}
+{% endif %}
