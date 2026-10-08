@@ -224,10 +224,30 @@ func TestRunWorkerWithNoClaudeNeverStarts(t *testing.T) {
 	}
 }
 
+// The account's variables beat the inherited ones, the bridge's own session id
+// beats both, and the run record names the account and its config folder.
+func TestRunWorkerTakesTheEnvironmentOfItsAccount(t *testing.T) {
+	workerClaude(t, `echo "{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"$SHARED $LOUPE_SESSION_ID\"}}"`)
+	t.Setenv("SHARED", "inherited")
+	spec := workerSpec{
+		dir: t.TempDir(), sessionID: testSession, prompt: "go", runID: "account-run", account: "a", configDir: "/c",
+		env: []string{"SHARED=account", sessionEnv + "=from-file"},
+	}
+
+	res := runWorker(context.Background(), spec, nil)
+	if res.err != nil || res.output != "account "+testSession {
+		t.Fatalf("runWorker = %+v", res)
+	}
+	rec, err := readRunRecord(res.dir)
+	if err != nil || rec.Account != "a" || rec.ConfigDir != "/c" || rec.Harness != "claude-code" {
+		t.Fatalf("run record = %+v, %v", rec, err)
+	}
+}
+
 // The run record round-trips, so a later bridge can read what this one wrote.
 func TestRunRecordRoundTrips(t *testing.T) {
 	dir := t.TempDir()
-	want := runRecord{PID: 42, StartedAt: time.Now().UTC().Truncate(time.Second), RunID: "r", Dir: "/w", PermissionMode: "plan", Model: "opus", SessionID: testSession, Resume: true, Prompt: "go"}
+	want := runRecord{PID: 42, StartedAt: time.Now().UTC().Truncate(time.Second), RunID: "r", Dir: "/w", PermissionMode: "plan", Model: "opus", SessionID: testSession, Resume: true, Prompt: "go", Account: "a", ConfigDir: "/c"}
 	if err := writeRunRecord(dir, want); err != nil {
 		t.Fatal(err)
 	}

@@ -48,11 +48,11 @@ the same action, and the bridge drops and logs the others.
 One rule file serves one bridge, so a second `loupe bridge run` on the same file
 refuses to start. Its error names the socket of the first bridge.
 
-The optional `defaults:` block of `rules.yaml` sets `permissionMode` and `model`
-for every worker entry. A value on the entry wins, then the block, then the
-`--permission-mode` and `--model` flags. A reload reads the block again. The
-flags and the instance URL in `config.json` stay fixed until the bridge
-restarts. The `--max-workers` flag is deprecated and does nothing. Set
+The `accounts` block of `rules.yaml` names the agent accounts that run the
+workers, and `defaults.account` names the one an entry uses when it names none.
+[Accounts](#accounts) gives the format, the model order and the permission
+levels. A reload reads both again. The `--permission-mode` and `--model` flags
+and the instance URL in `config.json` stay fixed until the bridge restarts. The `--max-workers` flag is deprecated and does nothing. Set
 `maxWorkers` in `rules.yaml` instead. The bridge logs `max_workers_flag_ignored`
 when it starts with the flag.
 
@@ -73,9 +73,8 @@ Set `collect: false`, and the bridge sends no tool call and no timing of any
 run. It also takes and sends no [host sample](#host-samples). A reload applies
 a change to the key.
 
-A worker entry can also split its runs between models with variants, as
-[Experiments](#experiments) describes. Such an entry takes no model from the
-`defaults:` block.
+A worker entry can also split its runs between models or accounts with
+variants, as [Experiments](#experiments) describes.
 
 The bridge authenticates with a token that carries the agent scope. `loupe
 login` gets one through the OAuth device flow: it prints a link and a code, and
@@ -322,6 +321,163 @@ across runs.
 
 The bridge needs a Mercure hub to have anything to subscribe to.
 
+## Accounts
+
+An account is one login of an agent tool that runs workers. The `accounts`
+block of `rules.yaml` names each account, and `defaults.account` names the
+account of an entry that names none. A work entry and a variant of an
+[experiment](#experiments) can set `account` to use another one. This account
+is the agent login, and [Agent account](#agent-account) is the GitHub user
+that pushes.
+
+```yaml
+envFile: ~/loupe/common.env
+
+accounts:
+  claude:
+    harness: claude-code
+    model: opus
+  work:
+    harness: claude-code
+    configDir: ~/.claude-work
+    model: claude-sonnet-5-5
+    permissionMode: auto
+    envFile: ~/loupe/work.env
+
+defaults:
+  account: claude
+  permissions: workspace
+
+work:
+  tech-design:
+    prompt: Use the loupe-stage-tech-design skill for card {cardNumber}.
+  implement:
+    account: work
+    permissions: full
+    prompt: Use the loupe-stage-implementation skill for card {cardNumber}.
+```
+
+| Field | Required | Purpose |
+|---|---|---|
+| `harness` | yes | The agent tool of the account. This release loads `claude-code` only |
+| `configDir` | no | The Claude Code config folder of the account. The bridge sets `CLAUDE_CONFIG_DIR` to it for each run |
+| `model` | no | The model of the account's runs, when the entry or the variant names none |
+| `permissionMode` | no | A Claude Code permission mode, when the entry or the variant names no level |
+| `envFile` | no | An [environment file](#environment-files) that each run of the account reads |
+
+An account name is 1 to 40 lowercase letters, digits and hyphens, and starts
+with a letter. `configDir` and `envFile` are absolute paths or start with `~/`.
+Neither path has to exist when the file loads. `defaults.account` is required,
+and it names an account of the block. The bridge refuses the file at start, and
+a reload fails, when an entry names an account that the block does not declare.
+The keys `defaults.model` and `defaults.permissionMode` and the `permissionMode`
+of an entry are gone, and a file with `accounts` refuses them.
+
+### Model and permissions
+
+A run takes the first model that this list sets:
+
+1. the `model` of the variant or the entry
+2. the `model` of the account
+3. the `--model` flag of `loupe bridge run`
+4. the default of the harness, because the bridge passes no `--model`
+
+`permissions` sets a permission level, on an entry, on a variant or in
+`defaults.permissions`. The harness maps each level to a mode of its own:
+
+| Level | Claude Code mode |
+|---|---|
+| `read-only` | `plan` |
+| `workspace` | `auto` |
+| `full` | `bypassPermissions` |
+
+A worker run takes the first mode that this list sets:
+
+1. the level of the variant or the entry
+2. the `permissionMode` of the account, which is a native Claude Code mode
+3. the level in `defaults.permissions`
+4. the `--permission-mode` flag of `loupe bridge run`
+
+A variant with no `account` or no `permissions` takes the value of its entry.
+An [interactive entry](#interactive-action) takes its mode from its own
+`permissions` only. The model order is the same for it. The bridge log names
+the mode that ran in the `permission_mode` field. The `worker_started` line
+holds it for an entry with no variants, and `worker_variant` holds it for an
+experiment. The `run.json` file of the run holds it as `permissionMode`. The run page in
+Loupe does not show it.
+
+Each run records its harness, its account and its model in Loupe. That holds
+for worker runs and for interactive runs.
+
+### Environment files
+
+The top-level `envFile` and the `envFile` of an account name files of
+environment variables for each agent run. A file holds one `KEY=VALUE` pair on
+each line. A line can start with `export `, and a line that starts with `#` is
+a comment. The bridge removes one pair of matching quotes around a value, and it
+expands nothing.
+
+The bridge reads the files at the start of each run, so a change needs no
+reload and no restart. It reads the global file first, then the file of the
+account, so the account value wins. A missing file or a bad line fails the run
+before it starts. The reason names the file and the line, and never a value.
+
+An environment file cannot set `CLAUDE_CONFIG_DIR`, and the run fails when one
+does. Set `configDir` on the account instead. An interactive launch writes the
+variables into its launch script, because the terminal does not take the
+bridge's environment. The script is readable by its owner only, and it deletes
+itself when it runs.
+
+### A second Claude Code account
+
+Claude Code keeps a separate Keychain login for each config folder. So each
+account with its own `configDir` logs in once. Run
+`CLAUDE_CONFIG_DIR=~/.claude-work claude` with the folder of the account. Then
+type `/login` in that session.
+
+Claude Code also reads its MCP servers and its skills from the config folder.
+Add the `loupe` MCP server to each config folder. Install the Loupe skills in
+each config folder too. Otherwise a worker of that account cannot reach Loupe.
+
+### Migration and rollback
+
+At each start, the bridge gives an account to a `rules.yaml` with no `accounts`
+block. It adds the account `claude` with `harness: claude-code`, and sets
+`defaults.account: claude`. The old `defaults.model` and
+`defaults.permissionMode` move into that account. The `permissionMode` of each
+entry becomes `permissions`:
+
+| Old entry mode | Level |
+|---|---|
+| `plan` | `read-only` |
+| `acceptEdits` | `workspace` |
+| `auto` | `workspace` |
+| `bypassPermissions` | `full` |
+
+Any other entry mode stops the migration. The migration changes only those
+lines, so comments and blank lines stay. The bridge logs
+`accounts_migration_done` when it writes the file.
+
+When the migration stops or cannot write the file, the bridge logs
+`accounts_migration_failed`. The `block` field of that line holds the block to
+paste. The bridge then runs with its worker entries, its interactive entries
+and its app prompts off. It logs `agents_off` with the reason. Command entries
+and hooks still run. Paste the block into the file. Change each entry
+`permissionMode` to `permissions`. Then run `loupe bridge reload`.
+
+An older CLI refuses a file with an `accounts` block. To roll back, keep a copy
+of the file from before the upgrade. You can also remove the `accounts` block
+and `defaults.account`, and put back the old lines by hand.
+
+### Resume
+
+A resume that a person or a closed inbox ask sends uses the account that the
+run started on. It also keeps the model of that run. The bridge refuses the
+resume when `rules.yaml` no longer holds that account. It also refuses it when
+the account now names another harness. The reason names the account. An
+automatic continuation of an unfinished run uses the account that the rule
+names now.
+
 ## Tool calls
 
 The bridge reads each tool call of a worker from the stream on claude's stdout.
@@ -406,6 +562,7 @@ To turn the samples on:
 The bridge reads both flags from the [events endpoint](#events-endpoint) at
 start and at each reconnect. A bridge with `collect: false` in its `rules.yaml`
 takes no sample, whatever the flags say.
+
 ## Agent account
 
 `loupe agent-account set` stores the token of a separate GitHub user for
@@ -444,10 +601,11 @@ action keep the bridge's own environment, so they push as you.
 
 ## Experiments
 
-An experiment splits the cards of a kind of work between models. A worker entry
-of the [work map](#work-requests) lists its `variants`, and its kind names the
-experiment. Each variant has a `name`, a `weight` and a `model`. The entry sets
-no `model`:
+An experiment splits the cards of a kind of work between models or accounts.
+A worker entry of the [work map](#work-requests) lists its `variants`, and its
+kind names the experiment. Each variant has a `name`, a `weight`, and a `model`
+or an `account`. A variant can also set `permissions`. The entry sets no
+`model`:
 
 ```yaml
 work:
@@ -462,9 +620,11 @@ work:
         model: claude-sonnet-5-5
 ```
 
-The `model` of the `defaults:` block does not fill an entry with variants. A
-variant's weight sets its share of the cards, so weights of 3 and 1 give the
-first variant three cards in four.
+A variant with no `model` takes the model of its account, as
+[Model and permissions](#model-and-permissions) says. A variant with no
+`account` or no `permissions` takes the value of its entry. A variant's weight
+sets its share of the cards, so weights of 3 and 1 give the first variant three
+cards in four.
 
 An entry with variants can also list its `metrics`. Each key is a metric key
 that the `metric_list` MCP tool names, such as `cost` or `merge-rate`:
@@ -494,8 +654,10 @@ The bridge refuses the file, at start and on a reload, when:
 - a metric key does not match `^[a-z][a-z0-9:-]{0,63}$`
 - an entry has no variants, or more than 32
 - a variant has a weight below 1 or above 1,000,000
-- a variant has no model, or a model longer than 100 characters, with
-  whitespace or with a control character
+- a variant sets neither `model` nor `account`
+- a variant has a model longer than 100 characters, with whitespace or with a
+  control character
+- a variant names an account that the `accounts` block does not declare
 - two variants of one entry share a name
 - a variant name does not match `^[a-z0-9][a-z0-9_-]{0,63}$`
 
@@ -732,7 +894,8 @@ Docker container.
 A resume continues the session of a run that ended, with a fixed prompt. The
 bridge refuses it when it cannot read the card, when this machine holds no
 transcript of the session, or when the work map no longer runs workers of the
-kind of the run. Loupe also sends a resume on its own when an
+kind of the run. [Resume](#resume) says which account a resume uses. Loupe
+also sends a resume on its own when an
 [inbox](../using/inbox.md) ask of the session closes. That resume names the
 cause `ask-closed`, and its prompt tells the agent to read the answers.
 
@@ -789,8 +952,9 @@ work:
 `run` is an argv list, and no shell reads it. Each element takes the
 placeholders that a prompt takes. The command runs in the project's `dir`, with
 the bridge's environment. `timeout` defaults to `10m`, and the check refuses
-more than `60m`. The check refuses `prompt`, `model`, `permissionMode`,
-`variants`, `metrics`, `workerPool` and `before` on a command entry.
+more than `60m`. The check refuses `prompt`, `account`, `model`,
+`permissions`, `variants`, `metrics`, `workerPool` and `before` on a command
+entry.
 
 A command takes no worker slot. It holds its card, so it waits for a worker of
 the card that runs, and a worker that arrives later waits for it. Commands on
@@ -828,8 +992,8 @@ work:
     run: ["bin/teardown.sh", "{cardNumber}"]
 ```
 
-The key is the kind of work. A worker entry takes `prompt`, `model`,
-`permissionMode`, `before`, `workerPool`, `variants` and `metrics`. A command entry takes
+The key is the kind of work. A worker entry takes `prompt`, `account`,
+`model`, `permissions`, `before`, `workerPool`, `variants` and `metrics`. A command entry takes
 `run` and `timeout`. The rule check
 refuses a field that the action does not use.
 
@@ -1114,16 +1278,17 @@ work:
     prompt: /loupe:product-design {cardNumber}
 ```
 
-An interactive entry takes `prompt`, `model` and `permissionMode`. The check
+An interactive entry takes `prompt`, `account`, `model` and `permissions`. The check
 refuses `before`, `variants`, `metrics` and `workerPool` on it. It also refuses the action
 on Windows, because the launch script is a POSIX shell script. The action works
 on macOS and Linux.
 
-The session gets `--model` and `--permission-mode` only when the entry sets
-them. The `defaults:` block and the bridge flags do not fill them. So a worker
-default such as `bypassPermissions` never reaches a session that a person
-drives. The session gets the rendered prompt only, with no result footer and no
-inbox line.
+The session gets `--permission-mode` only when the entry sets `permissions`.
+The account's `permissionMode`, `defaults.permissions` and the bridge flag do
+not fill it. So a worker default such as the `full` level never reaches a
+session that a person drives. The model follows the order of
+[Model and permissions](#model-and-permissions). The session gets the rendered
+prompt only, with no result footer and no inbox line.
 
 The top-level `launch` block of `rules.yaml` names the command that opens the
 terminal. It lives in `rules.yaml` because that file belongs to one machine, so

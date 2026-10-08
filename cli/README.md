@@ -353,14 +353,14 @@ one connection, and runs each work request that the workflow offers and the
 
 ```bash
 loupe bridge run
-loupe bridge run --rules ~/loupe/other-project.yaml --permission-mode acceptEdits
+loupe bridge run --rules ~/loupe/other-project.yaml --permission-mode auto
 ```
 
 | Flag | Default | Purpose |
 |---|---|---|
 | `--rules` | `rules.yaml` in your config dir | Read the rule file from this path |
-| `--permission-mode` | — | Pass `--permission-mode` to every `claude` when neither its work entry nor the `defaults:` block sets `permissionMode`. Omitted, no flag is passed and a worker can approve nothing |
-| `--model` | — | Pass `--model` to every `claude` when neither its work entry nor the `defaults:` block sets `model`. Omitted, no flag is passed |
+| `--permission-mode` | — | Pass `--permission-mode` to a worker's `claude` when no level of its entry, no `permissionMode` of its account and no `defaults.permissions` sets a mode. Omitted, no flag is passed and a worker can approve nothing |
+| `--model` | — | Pass `--model` to `claude` when neither the entry nor its account sets `model`. Omitted, no flag is passed |
 | `--max-workers` | — | Deprecated, and does nothing. Set `maxWorkers` in the [rule file](#the-rule-file) instead. The bridge still starts with the flag, and logs `max_workers_flag_ignored` |
 | `--log-file` | `bridge.log` in your config dir | Append the JSON log to this path |
 
@@ -400,6 +400,13 @@ a rule file. Write `rules.yaml` beside `config.json` before you upgrade. The
 `projects` map replaces both flags. The file below runs one kind of work:
 
 ```yaml
+accounts:
+  claude:
+    harness: claude-code
+
+defaults:
+  account: claude
+
 projects:
   my-app:
     dir: ~/Code/my-app
@@ -440,18 +447,42 @@ each rule to a `work:` entry for the kind of work it did, and drop `on`, `to`,
 `resultFields` and `allowUntrusted`. Give the variants of an experiment to the
 work entry that ran it.
 
-The optional `defaults:` block sets `permissionMode` and `model` for every
-worker entry of the file:
+The file needs an `accounts` block, and `defaults.account` names the account
+of an entry that names none:
 
 ```yaml
+envFile: ~/loupe/common.env
+
+accounts:
+  claude:
+    harness: claude-code
+    model: opus
+  work:
+    harness: claude-code
+    configDir: ~/.claude-work
+    permissionMode: auto
+    envFile: ~/loupe/work.env
+
 defaults:
-  permissionMode: acceptEdits
-  model: opus
+  account: claude
+  permissions: workspace
 ```
 
-A value on the entry wins. The `defaults:` block comes next, and the
-`--permission-mode` and `--model` flags come last. A reload reads the block
-again, and the flags stay fixed for the process.
+An account takes `harness`, which is required and is `claude-code` in this
+release. It also takes `configDir`, `model`, `permissionMode` and `envFile`. An
+entry and a variant pick another account with `account`, and a level with
+`permissions`. The level is `read-only`, `workspace` or `full`, and Claude Code
+runs it as `plan`, `auto` or `bypassPermissions`.
+
+A worker takes the first mode of this list: the level of its variant or entry,
+the `permissionMode` of its account, `defaults.permissions`, then
+`--permission-mode`. It takes the first model of this list: the variant or the
+entry, the account, then `--model`. A reload reads the blocks again, and the
+flags stay fixed for the process. `defaults.model`, `defaults.permissionMode`
+and the `permissionMode` of an entry are gone.
+[Accounts](../docs/extending/cli-bridge.md#accounts) gives the environment
+files, the login of a second Claude Code account, and the migration of an
+older file.
 
 `autoUpdate` at the top of the file turns [updates](#updates) on or off. It is
 off when the key is absent. With updates off, the bridge installs no release,
@@ -506,8 +537,9 @@ A reload applies a change to both keys. [The queue](#the-queue) says how the
 pools share the work.
 
 A field the format does not define stops the bridge at start, and fails a
-reload, so a misspelt key never passes in silence. So does a `permissionMode`
-or a `model` that holds whitespace, from the file or from a flag. `claude` owns
+reload, so a misspelt key never passes in silence. So does the
+`permissionMode` of an account or a `model` that holds whitespace, from the
+file or from a flag. `claude` owns
 both lists, and a later version can add to them. The bridge therefore starts
 with a mode outside the known list, and logs a `permission_mode_unknown` line
 for it. The file holds one YAML document with content. An empty document before
@@ -548,8 +580,9 @@ recent session. `{script}` is a shell script that runs
 be a directory that Claude Code already trusts. Otherwise the session stops at
 the trust prompt.
 
-An interactive entry works on macOS and Linux only. The session gets `model`
-and `permissionMode` only from the entry, never from `defaults` or the flags.
+An interactive entry works on macOS and Linux only. The session gets a
+permission mode only from the `permissions` of the entry, never from the
+account, `defaults` or the flags. Its model follows the order of a worker.
 The session gets the prompt with no footer and no inbox line. A launch uses no
 worker slot. The request needs the `interactive` capability, so only a bridge
 whose `rules.yaml` holds the entry takes it. Put the entry on one machine.
@@ -637,7 +670,8 @@ project can change. Set
 does not hold. An entry of the kind always wins over the app prompt. The app
 prompt takes the placeholders below and gets the
 [prompt footer](#prompt-footer). It runs as a worker in the `default` pool,
-with `defaults.permissionMode` and `defaults.model`, then the flags. The bridge
+on the account of `defaults.account`. It takes the model and the mode of that
+account, then `defaults.permissions` and the flags. The bridge
 skips a request whose app prompt is blank or names an unknown placeholder. The
 key is off when it is absent.
 
@@ -652,8 +686,9 @@ Each entry takes these fields:
 | `subject` | no | The subject type the entry runs, such as `analysis`. Omitted, it is `card`. A type is 1 to 32 lowercase letters, digits and hyphens, and starts with a letter. An entry about a subject that is no card cannot use `{cardId}` or `{cardNumber}`, and cannot set `action: interactive` |
 | `action` | no | Omitted, the entry runs a worker. `interactive` opens an interactive session, as [Opening an interactive session](#opening-an-interactive-session) says. `command` runs a command with no agent, as [The command action](#the-command-action) says |
 | `prompt` | yes, except on a command entry | The prompt, with placeholders. A command entry cannot set it |
-| `model` | no | An alias such as `opus` or a full model name, with no whitespace. A worker entry defaults to `defaults.model`, then to `--model`. An interactive entry takes no default. A command entry cannot set it |
-| `permissionMode` | no | A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan`, with the same defaults as `model`. A command entry cannot set it |
+| `account` | no | The account in `accounts` that runs the entry. Omitted, it is `defaults.account`. A command entry cannot set it |
+| `model` | no | An alias such as `opus` or a full model name, with no whitespace. Omitted, it is the `model` of the account, then `--model`. A command entry cannot set it |
+| `permissions` | no | The level `read-only`, `workspace` or `full`. Omitted, a worker takes the `permissionMode` of its account, then `defaults.permissions`, then `--permission-mode`. An interactive entry takes no default. A command entry cannot set it |
 | `before` | no | A command that runs ahead of the worker, as [The before command](#the-before-command) says. Only a worker entry can set it |
 | `workerPool` | no | The worker pool the run takes a slot from. Omitted, the entry uses `default`. Only a worker entry can set it |
 | `variants` | no | The variants of an experiment that the kind names. Only a worker entry can set it. See below |
@@ -693,9 +728,10 @@ the command carries, which is the context of the run's work request. A command
 from an older server carries none, and the values fill as empty.
 
 A worker entry with `variants` runs an experiment that the kind names. Each
-variant has a `name`, a `weight` and a `model`, and the variants pick the model.
-The entry therefore sets no `model`. The server pins the variant of each card,
-so a card keeps its model on every later run of the kind.
+variant has a `name`, a `weight`, and a `model` or an `account`. It can also
+set `permissions`. A variant with no `model` takes the model of its account. The
+entry sets no `model`. The server pins the variant of each card, so a card keeps
+its model and its account on every later run of the kind.
 [Experiments](../docs/extending/cli-bridge.md#experiments) gives the checks, the
 pin and the fallback.
 
@@ -753,7 +789,7 @@ that project dead, and the bridge logs `work_dead`. Fix the file and run
 A claimed work request starts one worker. The bridge runs
 `claude --verbose --output-format stream-json --json-schema <schema> -p --session-id <uuid> -- <prompt>`
 in the project's `dir`, with `--permission-mode` and `--model` in front when
-the work entry has them. [The structured result](#the-structured-result) describes
+the run resolves them. [The structured result](#the-structured-result) describes
 the schema. The bridge
 generates a new session id for each worker. It logs the id on `worker_started`,
 and sends it as `sessionId` in the worker run report. The prompt is rendered when the request arrives, and it is an argv
@@ -884,8 +920,9 @@ placeholders of the work map, and the bridge fills each element on its own. A
 value therefore never splits into two arguments. The command runs in the
 project's `dir`, with the bridge's own environment. `timeout` defaults to `10m`,
 and the bridge refuses more than `60m`. The check refuses `prompt`, `model`,
-`permissionMode`, `variants`, `workerPool` and `before` on a command entry. The
-`defaults:` block and the bridge flags do not reach it.
+`account`, `permissions`, `variants`, `workerPool` and `before` on a command
+entry. The accounts, the `defaults:` block and the bridge flags do not reach
+it.
 
 A command takes no worker slot, so it starts while every pool is full. It still
 holds its card. A command that arrives while a worker of the card runs waits for
@@ -997,7 +1034,12 @@ reaches the bridge in two ways:
    command.
 
 The bridge runs `claude -p --resume <sessionId> -- <prompt>` with
-`--permission-mode` and `--model` in front when the work entry has them.
+`--permission-mode` and `--model` in front when the run resolves them.
+
+A `resume-run` command runs on the account that the run started on, with the
+model of that run. The bridge refuses it when `accounts` no longer holds that
+account, or when the account now names another harness. A work request that
+resumes an `unfinished` run uses the account that the entry names now.
 
 Every resume starts in the folder where its conversation began, because
 `claude --resume` finds a conversation only from that folder. The bridge reads
@@ -1244,6 +1286,9 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `stream_error` | `error` |
 | `event_malformed` | `error` |
 | `permission_mode_unknown` | `mode`, `known`: logged at start for a mode outside the list this build knows |
+| `accounts_migration_done` | `rules`: the bridge gave the rule file an `accounts` block at start |
+| `accounts_migration_failed` | `rules`, `error`, `block`: the bridge could not add the `accounts` block. `block` holds the lines to paste. Level `WARN` |
+| `agents_off` | `reason`, `message`: the rule file has no `accounts` block, so no worker, interactive session or app prompt runs. Command entries still run. Level `WARN` |
 | `project_unmapped` | `project`: logged once per project the file does not map |
 | `project_gone` | `project`, `message`: a refresh no longer lists a mapped project, logged once per project |
 | `worker_queued` | `card`, `project`, `rule`, `worker_pool`, `queue_depth`, `pool_depth` |
@@ -1255,7 +1300,8 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `command_failed` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the command of a command entry exited with another code, ran past its timeout, was killed or never started. Level `ERROR` |
 | `resume_dir_gone` | `card`, `project`, `rule`, `session_id`, `new_session_id`, `dir`, `message`: the folder of the resumed session is gone, so the bridge starts a new session. Level `WARN` |
 | `resume_failed` | `card`, `project`, `rule`, `session_id`, `output`: a person's resume found the session's folder gone, so no worker started. Level `ERROR` |
-| `worker_started` | `card`, `project`, `rule`, `worker_pool`, `session_id`, and `work_request` for a run of a work request |
+| `worker_started` | `card`, `project`, `rule`, `worker_pool`, `session_id`, and `work_request` for a run of a work request. An entry with no variants adds `account` and `permission_mode` |
+| `worker_variant` | `card`, `project`, `rule`, `session_id`, `experiment`, `variant`, `account`, `permission_mode`, `model`: the variant that an experiment run takes |
 | `experiment_pin_failed` | `card`, `project`, `rule`, `experiment`, `variant`, `error`, `message`: the pin request for the card failed, so the worker runs `variant`, the variant the bridge drew. Level `WARN` |
 | `result_fields_dropped` | `card`, `project`, `rule`, `bytes`, `message`: the result fields took more than 4000 bytes as JSON, so the report carries none. Level `WARN` |
 | `usage_dropped` | `card`, `project`, `rule`, `message`: Loupe would refuse the token usage of the run, so the report carries none. Level `WARN` |
@@ -1359,15 +1405,16 @@ loupe bridge run | jq -c 'select(.event | startswith("worker"))'
 
 ### `--permission-mode`
 
-This is the flag that makes an unattended run possible. A worker runs with no
+This flag is the last default of the permission mode, after the level of the
+entry, the `permissionMode` of the account and `defaults.permissions`. A worker runs with no
 terminal, so it cannot answer a permission prompt. Without a mode, `claude`
 denies every tool call that needs approval, and the worker reports what it could
 not do. A prompt that tells the worker to call `card_update` then usually leaves
 the card where it was.
 
 It is empty by default, and an empty value passes no flag at all. Switching it on
-is your decision, and it is a real one: a mode such as `bypassPermissions` lets
-an agent edit files and run commands in the project's `dir` with nobody
+is your decision, and it is a real one: a mode such as `bypassPermissions`, which
+the `full` level also gives, lets an agent edit files and run commands in the project's `dir` with nobody
 watching. The cards it acts on come from your board, and the bridge never puts
 card text into a prompt, but the agent reads that text itself once it starts.
 Point `dir` at a directory you are willing to have changed.
@@ -1435,8 +1482,9 @@ A reload does these things to the running bridge:
 - The bridge runs the hooks of the new `hooks:` list from the next event on. A
   reload runs no hook itself.
 
-A new project in the `projects` map needs no restart. The `defaults:` block
-reloads too. The flags of `loupe bridge run` and the instance URL in
+A new project in the `projects` map needs no restart. The `accounts` and
+`defaults:` blocks reload too. The bridge reads the environment files at each
+run start, so a change to one needs no reload. The flags of `loupe bridge run` and the instance URL in
 `config.json` do not reload, so a change to them still needs a restart.
 
 ## `loupe bridge hooks`

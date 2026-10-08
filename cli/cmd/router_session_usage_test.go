@@ -86,6 +86,24 @@ func TestASessionUsageRequestSendsTheUsageOfTheRun(t *testing.T) {
 	}
 }
 
+// The transcript of a run on an account with its own config folder is in that
+// folder, not in the default one.
+func TestASessionUsageRequestReadsTheConfigFolderOfTheAccount(t *testing.T) {
+	claudeHome(t, testSession)
+	h, _, f := withAccounts(t, nil)
+	writeTranscript(t, f.configB, testSession, early, streamed1, streamed2, second)
+	usage := withRunUsage(h)
+	c := sessionUsageCommand()
+	c.Account = "b"
+
+	if state, reason := h.router.handleCommand(c); state != api.CommandDone {
+		t.Fatalf("answer = %s %q", state, reason)
+	}
+	if calls := usage.recorded(); len(calls) != 1 || calls[0].usage.Models["claude-opus-5-5"].OutputTokens != 100 {
+		t.Fatalf("usage calls = %+v", calls)
+	}
+}
+
 func TestASessionUsageRequestIsRefusedWithNoTranscript(t *testing.T) {
 	claudeHome(t, testSession)
 	h := newHarness(t)

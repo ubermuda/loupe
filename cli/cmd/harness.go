@@ -2,30 +2,33 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
+	"github.com/ubermuda/loupe/cli/internal/envfile"
 	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/harness/claude"
 )
 
-// harnessByName is the harness a name gives. "" is Claude Code, so a run
-// record of an older image names it.
-func harnessByName(name string) (harn.Harness, error) {
+// harnessByName is the harness a name gives, reading the sessions in
+// configDir. "" is Claude Code, so a run record of an older image names it.
+func harnessByName(name, configDir string) (harn.Harness, error) {
 	switch name {
 	case "", "claude-code":
-		return claude.New(), nil
+		return claude.New(configDir), nil
 	}
 
 	return nil, fmt.Errorf("unknown harness %q", name)
 }
 
 func defaultHarness() harn.Harness {
-	return claude.New()
+	return claude.New("")
 }
 
-// recordHarness is the harness of a run record, and the default one when the
-// record names one this image does not know.
-func recordHarness(rec runRecord) harn.Harness {
-	h, err := harnessByName(rec.Harness)
+// harnessOf is the harness of a name and a config folder, and the default one
+// when this image does not know the name.
+func harnessOf(name, configDir string) harn.Harness {
+	h, err := harnessByName(name, configDir)
 	if err != nil {
 		return defaultHarness()
 	}
@@ -33,13 +36,14 @@ func recordHarness(rec runRecord) harn.Harness {
 	return h
 }
 
-// adapter is the harness of the spec, and the default one when it has none.
-func (s workerSpec) adapter() harn.Harness {
-	if s.harness == nil {
-		return defaultHarness()
-	}
+// recordHarness is the harness of a run record.
+func recordHarness(rec runRecord) harn.Harness {
+	return harnessOf(rec.Harness, rec.ConfigDir)
+}
 
-	return s.harness
+// adapter is the harness of the spec's account.
+func (s workerSpec) adapter() harn.Harness {
+	return harnessOf(s.harnessName, s.configDir)
 }
 
 func (s workerSpec) harnessSpec(env []string) harn.Spec {
@@ -57,4 +61,29 @@ func (s workerSpec) harnessCommand(env []string) harn.Command {
 	}
 
 	return s.adapter().Worker(s.harnessSpec(env))
+}
+
+// configDirEnv names Claude Code's config folder. Only an account's configDir
+// sets it, so the bridge reads the sessions where claude writes them.
+const configDirEnv = "CLAUDE_CONFIG_DIR"
+
+// accountEnv is what the run's account adds to the environment: the env
+// files in order, then CLAUDE_CONFIG_DIR when the account has a config folder.
+func (s workerSpec) accountEnv() ([]string, error) {
+	var env []string
+	for _, path := range s.envFiles {
+		pairs, err := envfile.Read(path)
+		if err != nil {
+			return nil, err
+		}
+		if slices.ContainsFunc(pairs, func(p string) bool { return strings.HasPrefix(p, configDirEnv+"=") }) {
+			return nil, fmt.Errorf("%s: %s is not allowed in an env file; set the configDir of the account", path, configDirEnv)
+		}
+		env = envfile.Overlay(env, pairs)
+	}
+	if s.configDir != "" {
+		env = envfile.Overlay(env, []string{configDirEnv + "=" + s.configDir})
+	}
+
+	return env, nil
 }

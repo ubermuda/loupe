@@ -241,6 +241,7 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	}
 	r.log.Info("reload_applied", attrs...)
 	warnUnknownModes(r.log, set)
+	warnAgentsOff(r.log, set)
 
 	return res
 }

@@ -41,14 +41,17 @@ var contextPlaceholders = []string{"pullRequestNumber", "pullRequestUrl", "headS
 // WorkEntry runs one kind of work request. Action is empty for a worker,
 // ActionInteractive or ActionCommand, as for a rule.
 type WorkEntry struct {
-	Action         string        `yaml:"action"`
-	Prompt         string        `yaml:"prompt"`
-	Model          string        `yaml:"model"`
+	Action      string `yaml:"action"`
+	Prompt      string `yaml:"prompt"`
+	Account     string `yaml:"account"`
+	Permissions string `yaml:"permissions"`
+	Model       string `yaml:"model"`
+	// PermissionMode is an old key. A file with accounts refuses it.
 	PermissionMode string        `yaml:"permissionMode"`
 	Before         *BeforeConfig `yaml:"before"`
 	WorkerPool     string        `yaml:"workerPool"`
-	// Variants pick the model, as the variants of an experiment named after
-	// the kind. An entry that sets them sets no model.
+	// Variants pick the model or the account, as the variants of an
+	// experiment named after the kind. An entry that sets them sets no model.
 	Variants []Variant `yaml:"variants"`
 	// Metrics are the metric keys the Comparison tab of the experiment shows,
 	// in this order. Only an entry with variants sets them.
@@ -59,7 +62,10 @@ type WorkEntry struct {
 	// it is empty.
 	Subject string `yaml:"subject"`
 
-	schema         string
+	schema string
+	// run holds the settings of an agent run, and an experiment holds those
+	// of each variant.
+	run            RunSettings
 	experiment     *Experiment
 	beforeTimeout  time.Duration
 	commandTimeout time.Duration
@@ -75,7 +81,7 @@ var workRefusals = map[string][]refusal{
 		{[]string{"run", "timeout"}, "%s belongs to action command, and this entry launches an interactive session"},
 	},
 	ActionCommand: {
-		{[]string{"before", "metrics", "model", "permissionMode", "prompt", "variants", "workerPool"}, "%s names agent behaviour, and action command starts no agent"},
+		{[]string{"account", "before", "metrics", "model", "permissionMode", "permissions", "prompt", "variants", "workerPool"}, "%s names agent behaviour, and action command starts no agent"},
 	},
 }
 
@@ -89,6 +95,8 @@ func checkWork(kind string, w *WorkEntry) error {
 	}
 	if table, ok := workRefusals[w.Action]; ok {
 		errs = append(errs, refuse(table, map[string]bool{
+			"account":        w.Account != "",
+			"permissions":    w.Permissions != "",
 			"before":         w.Before != nil,
 			"metrics":        w.Metrics != nil,
 			"model":          w.Model != "",
@@ -105,10 +113,8 @@ func checkWork(kind string, w *WorkEntry) error {
 	if w.Action == ActionInteractive && goos == "windows" {
 		errs = append(errs, fmt.Errorf("action %s needs a POSIX shell on macOS or Linux", ActionInteractive))
 	}
-	for _, err := range []error{checkWord("permissionMode", w.PermissionMode), checkWord("model", w.Model)} {
-		if err != nil {
-			errs = append(errs, err)
-		}
+	if err := checkWord("model", w.Model); err != nil {
+		errs = append(errs, err)
 	}
 
 	if w.Action == ActionCommand {
@@ -221,7 +227,8 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 	s.mu.RLock()
 	dead := s.deadWork[slug] != ""
 	s.mu.RUnlock()
-	if (!ok && !s.appPrompts) || dead || (ok && entry.Subject != w.SubjectType) {
+	off := s.agentsOff != "" && (!ok || entry.Action != ActionCommand)
+	if (!ok && !s.appPrompts) || dead || off || (ok && entry.Subject != w.SubjectType) {
 		return Match{Skip: NoRule, Project: slug}
 	}
 
@@ -231,27 +238,26 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 		schema, _ := resultSchema(nil)
 
 		return Match{
-			Skip:           Run,
-			Rule:           WorkRulePrefix + w.Kind,
-			Project:        slug,
-			Dir:            s.dirs[slug],
-			PermissionMode: s.defaults.PermissionMode,
-			Model:          s.defaults.Model,
-			Schema:         schema,
-			Prompt:         directive.Render(w.Prompt, v),
-			Pool:           DefaultPool,
-		}
+			Skip:    Run,
+			Rule:    WorkRulePrefix + w.Kind,
+			Project: slug,
+			Dir:     s.dirs[slug],
+			Schema:  schema,
+			Prompt:  directive.Render(w.Prompt, v),
+			Pool:    DefaultPool,
+		}.withRun(s.appRun)
 	}
 	m := Match{
-		Skip:           Run,
-		Rule:           WorkRulePrefix + w.Kind,
-		Action:         entry.Action,
-		Project:        slug,
-		Dir:            s.dirs[slug],
-		PermissionMode: entry.PermissionMode,
-		Model:          cmp.Or(w.Model, entry.Model),
-		Effort:         w.Effort,
-		Schema:         entry.schema,
+		Skip:    Run,
+		Rule:    WorkRulePrefix + w.Kind,
+		Action:  entry.Action,
+		Project: slug,
+		Dir:     s.dirs[slug],
+		Schema:  entry.schema,
+	}
+	if entry.Action != ActionCommand {
+		m = m.withRun(entry.run)
+		m.Model, m.Effort = cmp.Or(w.Model, m.Model), w.Effort
 	}
 	switch entry.Action {
 	case "":
@@ -259,7 +265,7 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 		m.Pool = cmp.Or(entry.WorkerPool, DefaultPool)
 		// A model the request names is no draw, so the run joins no experiment.
 		if entry.experiment != nil && w.Model == "" {
-			m.Experiment = entry.experiment.clone()
+			m.Experiment, m.Model = entry.experiment.clone(), ""
 		}
 		if entry.Before != nil {
 			m.Before = &Before{Argv: renderArgv(entry.Before.Run, v), Timeout: entry.beforeTimeout}
@@ -356,7 +362,7 @@ func (s *Set) WorkDead(slug string) string {
 // Capabilities lists what the work map lets the bridge claim: work-requests
 // for any entry or for app prompts, interactive too for an interactive entry,
 // and subject- with the subject type for each entry whose subject is no card.
-// It is nil for a set with no work.
+// An entry whose agent is off adds neither. It is nil for a set with no work.
 func (s *Set) Capabilities() []string {
 	if !s.HasWork() {
 		return nil
@@ -365,6 +371,9 @@ func (s *Set) Capabilities() []string {
 	interactive := false
 	var subjects []string
 	for _, entry := range s.work {
+		if s.agentsOff != "" && entry.Action != ActionCommand {
+			continue
+		}
 		interactive = interactive || entry.Action == ActionInteractive
 		if entry.Subject != api.SubjectCard && !slices.Contains(subjects, entry.Subject) {
 			subjects = append(subjects, entry.Subject)

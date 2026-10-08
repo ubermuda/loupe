@@ -195,6 +195,52 @@ func TestReportRunStateSendsTheExperimentFields(t *testing.T) {
 	}
 }
 
+// A run sends the harness, the account and the model it ran with, and leaves
+// out an empty one so the server keeps what it holds.
+func TestReportRunStateSendsTheRunSettings(t *testing.T) {
+	running := stateReport(RunRunning)
+	running.Harness, running.Account, running.Model = "claude-code", "work", "opus"
+	_, body, _, err := putState(t, running, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body["harness"] != "claude-code" || body["account"] != "work" || body["model"] != "opus" {
+		t.Fatalf("running = %v", body)
+	}
+
+	running.Model = ""
+	_, body, _, err = putState(t, running, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["model"]; ok || body["account"] != "work" {
+		t.Fatalf("running with no model = %v", body)
+	}
+	if _, ok := body["harnessSessionId"]; ok {
+		t.Fatalf("running = %v", body)
+	}
+}
+
+// A model the server would refuse is left out, so the rest of the report lands.
+func TestReportRunStateLeavesOutAModelTheServerRefuses(t *testing.T) {
+	for _, model := range []string{strings.Repeat("m", maxModel+1), "opus\n", "op\u200bus"} {
+		running := stateReport(RunRunning)
+		running.Account, running.Model = "work", model
+		_, body, _, err := putState(t, running, http.StatusCreated)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := body["model"]; ok || body["account"] != "work" {
+			t.Fatalf("model %q: body = %v", model, body)
+		}
+	}
+	launch := launchReport(RunRunning)
+	launch.Model = "opus\n"
+	if _, body, _, err := putLaunch(t, launch, http.StatusCreated); err != nil || body["model"] != nil {
+		t.Fatalf("launch body = %v, %v", body, err)
+	}
+}
+
 // A closed outcome sends an exit code, or a failure reason, with the other one
 // sent as null.
 func TestReportRunStateSendsAnOutcomeWithItsPairing(t *testing.T) {

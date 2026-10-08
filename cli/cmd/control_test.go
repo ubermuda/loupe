@@ -476,7 +476,7 @@ func TestTheBridgeAnswersAReloadOnItsSocket(t *testing.T) {
 	t.Cleanup(server.Close)
 	cfg := testLogin(server.URL)
 	path := filepath.Join(t.TempDir(), "rules.yaml")
-	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" +
+	body := "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + t.TempDir() + "\nwork:\n" +
 		"  plan:\n    prompt: go\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)

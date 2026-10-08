@@ -35,13 +35,30 @@ type Experiment struct {
 	Name     string    `yaml:"name"`
 	Variants []Variant `yaml:"variants"`
 	Metrics  []string  `yaml:"metrics"`
+
+	// settings holds the run settings of each variant, in variant order.
+	settings []RunSettings
 }
 
-// Variant is one model of an experiment, and its share of the cards.
+// Variant is one model or account of an experiment, and its share of the
+// cards.
 type Variant struct {
-	Name   string `yaml:"name"`
-	Weight int    `yaml:"weight"`
-	Model  string `yaml:"model"`
+	Name        string `yaml:"name"`
+	Weight      int    `yaml:"weight"`
+	Model       string `yaml:"model"`
+	Account     string `yaml:"account"`
+	Permissions string `yaml:"permissions"`
+}
+
+// Settings are the run settings of a variant. A variant the experiment does
+// not hold runs with its own model alone.
+func (e Experiment) Settings(v Variant) RunSettings {
+	i := slices.IndexFunc(e.Variants, func(o Variant) bool { return o.Name == v.Name })
+	if i < 0 || i >= len(e.settings) {
+		return RunSettings{Model: v.Model}
+	}
+
+	return e.settings[i].clone()
 }
 
 // Pick is the variant the bridge proposes for a card. The same experiment and
@@ -73,6 +90,10 @@ func (e Experiment) Pick(cardKey string) Variant {
 func (e Experiment) clone() *Experiment {
 	e.Variants = slices.Clone(e.Variants)
 	e.Metrics = slices.Clone(e.Metrics)
+	e.settings = slices.Clone(e.settings)
+	for i := range e.settings {
+		e.settings[i] = e.settings[i].clone()
+	}
 
 	return &e
 }
@@ -137,8 +158,9 @@ func checkVariant(v Variant) error {
 		errs = append(errs, fmt.Errorf("weight must be at most %d, got %d", MaxWeight, v.Weight))
 	}
 	switch n := utf8.RuneCountInString(v.Model); {
+	case v.Model == "" && v.Account == "":
+		errs = append(errs, errors.New("model or account is required"))
 	case v.Model == "":
-		errs = append(errs, errors.New("model is required"))
 	case n > MaxModelLength:
 		errs = append(errs, fmt.Errorf("model is %d characters, and the server takes at most %d", n, MaxModelLength))
 	case !modelPattern.MatchString(v.Model):

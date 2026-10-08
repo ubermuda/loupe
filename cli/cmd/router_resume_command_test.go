@@ -105,6 +105,11 @@ func TestDrainWaitsForACommandHandler(t *testing.T) {
 // planWorkRules runs the plan kind as a worker and the teardown kind as a
 // command.
 const planWorkRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -419,7 +424,7 @@ func TestAPersonsResumeWaitsForTheWorkerOfItsCard(t *testing.T) {
 // A resume of a run about a subject that is no card reads no card, and the
 // run it queues names the subject.
 func TestAResumeOfAnotherSubjectReadsNoCard(t *testing.T) {
-	h := newHarnessWith(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectId}.\n", rules.Defaults{})
+	h := newHarnessWith(t, "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectId}.\n", rules.Defaults{})
 	rec := h.states()
 	h.transcripts(true)
 	reads := &cardReads{err: errors.New("card read failed (HTTP 404)")}

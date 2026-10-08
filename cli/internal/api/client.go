@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -746,4 +747,22 @@ func clip(s string, limit int) string {
 	}
 
 	return string([]rune(s)[:limit])
+}
+
+// maxModel is the longest model name the server stores.
+const maxModel = 100
+
+// sendableModel is model, or "" when the server would refuse it for its
+// length or for a control or format character.
+func sendableModel(model string) string {
+	if utf8.RuneCountInString(model) > maxModel || !utf8.ValidString(model) {
+		return ""
+	}
+	for _, r := range model {
+		if unicode.In(r, unicode.C) {
+			return ""
+		}
+	}
+
+	return model
 }
