@@ -65,6 +65,14 @@ final class EmailTokensMatchAppTest extends TestCase
         );
     }
 
+    public function test_an_unannotated_radius_fails_except_the_pill(): void
+    {
+        self::assertSame(
+            ['line 1: a radius names no token'],
+            self::driftIn("border-radius: 15px;\nborder-radius: 999px;", self::TOKENS),
+        );
+    }
+
     public function test_an_unknown_token_fails(): void
     {
         self::assertSame(
@@ -87,6 +95,8 @@ final class EmailTokensMatchAppTest extends TestCase
             if (!$annotated) {
                 if (1 === preg_match('/#[0-9a-f]{3,8}\b/i', $line)) {
                     $errors[] = sprintf('line %d: a hex colour names no token', $number);
+                } elseif (1 === preg_match('/^\s*border-radius\s*:(?!\s*999px\s*;)/', $line)) {
+                    $errors[] = sprintf('line %d: a radius names no token', $number);
                 }
 
                 continue;
