@@ -987,10 +987,16 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 }
 
 // resumeDir starts a resume in the folder its conversation started in, because
-// claude --resume finds the conversation only from there. When that folder is
-// gone, the run starts a new session in the folder it has, with the rule's
-// prompt. reason says why the run cannot start at all.
+// claude --resume finds the conversation only from there. When that folder or
+// the session is gone, a run that no command started takes a new session with
+// the rule's prompt. reason says why the run cannot start at all.
 func (r *router) resumeDir(p pending) (pending, string) {
+	// The variant of an experiment resolves at start, and its account may not
+	// hold the session that the work request names.
+	run := rules.RunSettings{Harness: p.spec.harnessName, ConfigDir: p.spec.configDir}
+	if p.event.Type != event.CommandType && !r.hasTranscript(p.spec.sessionID, run) {
+		return r.freshSession(p, "resume_session_missing", "the session is not in the config folder of account "+p.spec.account)
+	}
 	lookup := r.startDir
 	if lookup == nil {
 		lookup = p.spec.adapter().StartDir
@@ -1019,12 +1025,19 @@ func (r *router) resumeDir(p pending) (pending, string) {
 	if p.event.Type == event.CommandType {
 		return p, gone + ", so the bridge cannot resume it"
 	}
+
+	return r.freshSession(p, "resume_dir_gone", gone)
+}
+
+// freshSession replaces a resume that cannot run with a new session and the
+// prompt of the rule. why says what is missing, and msg names the log line.
+func (r *router) freshSession(p pending, msg, why string) (pending, string) {
 	r.mu.Lock()
 	m, ok := matchPending(r.rules(), p)
 	if !ok {
 		r.mu.Unlock()
 
-		return p, gone + ", and the rule no longer runs the event"
+		return p, why + ", and the rule no longer runs the event"
 	}
 	old := p.spec.sessionID
 	p.fresh, p.spec.resume, p.spec.sessionID, p.spec.prompt = true, false, r.worker.sessionID(), m.Prompt
@@ -1035,9 +1048,9 @@ func (r *router) resumeDir(p pending) (pending, string) {
 		r.sessions[p.spec.sessionID] = s
 	}
 	r.mu.Unlock()
-	r.log.Warn("resume_dir_gone", append(about(p.event, p.rule),
+	r.log.Warn(msg, append(about(p.event, p.rule),
 		"session_id", old, "new_session_id", p.spec.sessionID, "dir", p.spec.dir,
-		"message", gone+", so the bridge starts a new session",
+		"message", why+", so the bridge starts a new session",
 	)...)
 
 	return p, ""

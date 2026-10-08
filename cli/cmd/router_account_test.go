@@ -537,3 +537,24 @@ func TestAWorkRequestResumesASessionInTheFolderOfItsVariant(t *testing.T) {
 		t.Fatalf("workers = %+v", calls)
 	}
 }
+
+// The server can pin the card to a variant whose account cannot find the
+// session. The run then starts a new session on that account.
+func TestAResumeStartsFreshWhenThePinnedVariantCannotFindTheSession(t *testing.T) {
+	h, _, f := withAccounts(t, func(body string) string {
+		return strings.Replace(body, "  plan:\n    prompt: Card {cardNumber}.\n",
+			"  plan:\n    prompt: Card {cardNumber}.\n    variants:\n      - {name: on-a, weight: 1, account: a}\n      - {name: on-b, weight: 1, account: b}\n", 1)
+	})
+	writeTranscript(t, f.configA, unfinishedSession, "{}")
+	h.pins(func(context.Context, string) (string, string, error) { return "on-b", "", nil })
+	work := h.withWork()
+	w := workRequest(1, 87, "plan", api.WorkRequestOpen)
+	w.ResumeSessionID = unfinishedSession
+
+	h.offer(work, w)
+
+	calls := h.worker.recorded()
+	if len(calls) != 1 || calls[0].resume || calls[0].sessionID == unfinishedSession || calls[0].account != "b" || !strings.HasPrefix(calls[0].prompt, "Card 87.") {
+		t.Fatalf("workers = %+v", calls)
+	}
+}
