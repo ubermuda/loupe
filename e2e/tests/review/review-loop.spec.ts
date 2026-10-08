@@ -1113,7 +1113,13 @@ for (const width of [1440, 390]) {
         await page.goto(review.reviewUrl);
         await expect(page.locator(DOC)).toBeVisible();
         await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
-        await page.getByRole('tab', { name: 'Details', exact: true }).click();
+        await page
+            .getByRole('button', {
+                name: 'More about this document',
+                exact: true,
+            })
+            .click();
+        await expect(page.locator('#review-page-menu')).toBeVisible();
         await expect(
             page.getByRole('link', { name: 'Deleted threads' }),
         ).toHaveCount(0);

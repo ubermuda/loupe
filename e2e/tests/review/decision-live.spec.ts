@@ -99,7 +99,9 @@ test('an answer saved in one tab shows in another tab of the document', async ({
     const watcher = await author.context().newPage();
     await openReview(author, reviewUrl);
     await openReview(watcher, reviewUrl);
-    await expect(watcher.locator('#decision-summary-count')).toHaveText('0/1');
+    await expect(watcher.locator('#decision-summary-count')).toHaveText(
+        '0 of 1 answered',
+    );
 
     await saving(author, () => options(author).nth(1).check());
 
@@ -107,7 +109,9 @@ test('an answer saved in one tab shows in another tab of the document', async ({
         timeout: coverageScaled(15000),
     });
     await expect(options(watcher).nth(0)).not.toBeChecked();
-    await expect(watcher.locator('#decision-summary-count')).toHaveText('1/1');
+    await expect(watcher.locator('#decision-summary-count')).toHaveText(
+        '1 of 1 answered',
+    );
     await expect(watcher.locator('#decision-status')).toHaveText(
         `Changed by ${FULL_NAME}.`,
     );

@@ -62,7 +62,7 @@ test('the History tab records a verdict and its withdrawal', async ({
         page.getByRole('heading', { name: TITLE, exact: true }),
     ).toBeVisible();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v4');
-    await expect(page.locator('.lp-review-margin-tabs')).toHaveCount(0);
+    await expect(page.locator('.lp-review-toolbar')).toHaveCount(0);
 
     await page
         .getByRole('button', { name: 'Finish review', exact: true })

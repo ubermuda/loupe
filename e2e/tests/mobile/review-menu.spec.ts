@@ -11,6 +11,7 @@
 
 import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { panelButton, showPanel } from '../review/panels';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eReviewMenu1!';
@@ -409,24 +410,25 @@ test('scrolling the paper closes the menu', async ({ page, seeded }) => {
     await expect(page.locator(PANEL)).toBeHidden();
 });
 
-test('the comment margin follows the paper on a narrow screen', async ({
+test('the Comments panel stacks above the paper on a narrow screen', async ({
     page,
     seeded,
 }) => {
     await page.goto(reviewPath(seeded));
+    await showPanel(page, 'Comments');
 
     const positions = await page.evaluate(() => ({
-        paperBottom:
+        paperTop:
             document
                 .querySelector('.lp-review-doc__prose')
-                ?.getBoundingClientRect().bottom ?? 0,
-        commentsTop:
-            document
-                .querySelector('.lp-comment-threads')
                 ?.getBoundingClientRect().top ?? 0,
+        commentsBottom:
+            document
+                .querySelector('#review-panel-comments')
+                ?.getBoundingClientRect().bottom ?? Infinity,
     }));
 
-    expect(positions.commentsTop).toBeGreaterThanOrEqual(positions.paperBottom);
+    expect(positions.commentsBottom).toBeLessThanOrEqual(positions.paperTop);
 });
 
 test('the desktop review actions sit beside the document title', async ({
@@ -445,9 +447,7 @@ test('the desktop review actions sit beside the document title', async ({
             .getByRole('button', { name: 'Finish review' }),
     ).toBeVisible();
     await expect(page.locator(MENU)).toBeHidden();
-    await expect(
-        page.getByRole('tab', { name: 'Comments', exact: true }),
-    ).toBeVisible();
+    await expect(panelButton(page, 'Comments')).toBeVisible();
 
     // The context has a coarse pointer, and the touch-target rules are the last
     // word on `display` unless they leave it alone.

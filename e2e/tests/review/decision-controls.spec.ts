@@ -224,7 +224,7 @@ ${PROMPT}
 ${'Filler paragraph.\n\n'.repeat(40)}
 This is ${BELOW_BLOCK_PHRASE} in the document.`;
 
-test('the Decisions margin reports the saved answer', async ({ page }) => {
+test('the Decisions panel reports the saved answer', async ({ page }) => {
     await signedInReviewer(page, 'summary');
     const response = await page.request.post('/dev/seed/document', {
         form: { title: 'Decision — summary', markdown: PROMPTED_MARKDOWN },
@@ -238,10 +238,9 @@ test('the Decisions margin reports the saved answer', async ({ page }) => {
         `/projects/${body.projectId}/documents/${body.documentId}/review`,
     );
 
-    const tab = page.getByRole('tab', { name: 'Decisions', exact: true });
-    await expect(page.locator('#decision-summary-count')).toHaveText('0/1');
-
-    await tab.click();
+    await expect(page.locator('#decision-summary-count')).toHaveText(
+        '0 of 1 answered',
+    );
     const row = page.locator('#decision-summary-list li');
     await expect(row).toHaveCount(1);
     // The block declared a question, so the row is titled with it rather than
@@ -258,12 +257,97 @@ test('the Decisions margin reports the saved answer', async ({ page }) => {
     );
     await expect(page.locator('#decision-status')).toHaveText('Saved.');
     // Streamed with `update`, so the panel the reviewer opened is still open.
-    await expect(page.locator('#decision-summary-count')).toHaveText('1/1');
+    await expect(page.locator('#decision-summary-count')).toHaveText(
+        '1 of 1 answered',
+    );
     await expect(row).toContainText(OPTION_TWO);
     await expect(page.locator('#decision-summary-list')).toBeVisible();
 });
 
-test('the Decisions margin scrolls to its question without navigating', async ({
+const SECOND_ID = 'backfill-window';
+const SECOND_PROMPT = 'When does the backfill run?';
+
+test('the Decisions panel is open by default and lists each answer', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'panel-rows');
+    const { reviewUrl } = await seedDocument(
+        page,
+        'Decision — panel rows',
+        `# Rollout
+
+<!-- decision: ${DECISION_ID} -->
+
+${PROMPT}
+
+1. ${OPTION_ONE}
+2. ${OPTION_TWO}
+
+<!-- /decision -->
+
+<!-- decision: ${SECOND_ID} -->
+
+${SECOND_PROMPT}
+
+1. Overnight
+2. At the weekend
+
+<!-- /decision -->`,
+    );
+    await page.goto(reviewUrl);
+
+    await expect(
+        page.getByRole('button', { name: 'Decisions', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#review-panel-decisions')).toBeVisible();
+    await expect(page.locator('#review-panel-comments')).toBeHidden();
+    await expect(page.locator('#review-panel-outline')).toBeHidden();
+    await expect(page.locator('#decision-summary-count')).toHaveText(
+        '0 of 2 answered',
+    );
+
+    await saving(page, () =>
+        page.getByRole('radio', { name: OPTION_ONE, exact: true }).check(),
+    );
+    await saving(page, () =>
+        page
+            .locator(`[data-decision-id="${SECOND_ID}"]`)
+            .getByRole('textbox', { name: 'Note', exact: true })
+            .fill(NOTE),
+    );
+
+    // Read after a reload, so the rows are the server's and not the stream's.
+    await page.reload();
+    await expect(page.locator('#decision-summary-count')).toHaveText(
+        '2 of 2 answered',
+    );
+    const rows = page.locator('#decision-summary-list li');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('.lp-decision-summary__tag')).toHaveText(
+        'D1',
+    );
+    await expect(rows.nth(0).locator('.lp-decision-summary__link')).toHaveText(
+        PROMPT,
+    );
+    await expect(
+        rows.nth(0).locator('.lp-decision-summary__answer'),
+    ).toHaveText(OPTION_ONE);
+    await expect(rows.nth(1).locator('.lp-decision-summary__tag')).toHaveText(
+        'D2',
+    );
+    await expect(rows.nth(1).locator('.lp-decision-summary__link')).toHaveText(
+        SECOND_PROMPT,
+    );
+    await expect(rows.nth(1).locator('.lp-decision-summary__note')).toHaveText(
+        `Note: ${NOTE}`,
+    );
+    await expect(
+        rows.nth(1).locator('.lp-decision-summary__answer'),
+    ).toHaveCount(0);
+    await expect(rows.nth(1)).not.toContainText('Not chosen yet');
+});
+
+test('the Decisions panel scrolls to its question without navigating', async ({
     page,
 }) => {
     await signedInReviewer(page, 'sticky');
@@ -280,7 +364,6 @@ test('the Decisions margin scrolls to its question without navigating', async ({
     );
 
     const reviewUrl = page.url();
-    await page.getByRole('tab', { name: 'Decisions', exact: true }).click();
     await page.locator('#decision-summary-list a').click();
     await expect(
         page.locator('[data-decision-id="' + DECISION_ID + '"]'),
@@ -589,7 +672,7 @@ test('a multi-choice block records several answers and clears one', async ({
     await expect(afterReload.nth(1)).toBeChecked();
 });
 
-test('the Decisions tab stays in the row when it cannot be opened', async ({
+test('the Decisions button stays in the toolbar when it cannot be opened', async ({
     page,
 }) => {
     await signedInReviewer(page, 'disabled-tab');
@@ -605,59 +688,34 @@ test('the Decisions tab stays in the row when it cannot be opened', async ({
     expect(plain.status()).toBe(201);
     const { projectId, documentId } = await plain.json();
     const reviewUrl = `/projects/${projectId}/documents/${documentId}/review`;
-    const tab = page.getByRole('tab', { name: 'Decisions', exact: true });
-    const names = async () =>
-        page
-            .getByRole('tablist')
-            .getByRole('tab')
-            .evaluateAll((tabs) =>
-                tabs.map(
-                    (each) =>
-                        (each as HTMLElement).dataset.reviewMarginNameParam,
-                ),
-            );
+    const button = page.getByRole('button', {
+        name: 'Decisions',
+        exact: true,
+    });
+    const panel = page.locator('#review-panel-decisions');
 
-    // A document that asks nothing still shows the tab, and says why it is shut.
+    // A document that asks nothing still shows the button, and says why it is shut.
     await page.goto(reviewUrl);
-    expect(await names()).toEqual([
-        'comments',
-        'outline',
-        'decisions',
-        'details',
-    ]);
-    await expect(tab).toHaveAttribute('aria-disabled', 'true');
-    await expect(tab).toHaveAttribute(
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    await expect(button).toHaveAttribute(
         'title',
         'This document has no decisions to answer.',
     );
+    await expect(panel).toBeHidden();
 
     // Forced, because Playwright reads aria-disabled as not enabled and would
-    // otherwise wait for it. A real pointer is not stopped that way, so the
-    // controller still has to refuse the click.
-    await tab.click({ force: true });
-    await expect(
-        page.locator('.lp-review-margin-tabs__item--active'),
-    ).toHaveAttribute('data-review-margin-name-param', 'comments');
+    // otherwise wait for it. The controller still has to refuse the click.
+    await button.click({ force: true });
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    await expect(panel).toBeHidden();
 
-    // A comparison cannot answer a decision, so the tab is shut there too and
-    // the row keeps the same four tabs as the document behind it.
+    // A comparison cannot answer a decision, so the button is shut there too.
     await page.goto(`${reviewUrl}/diff/1/2?view=rendered`);
-    expect(await names()).toEqual([
-        'comments',
-        'outline',
-        'decisions',
-        'details',
-    ]);
-    await expect(tab).toHaveAttribute('aria-disabled', 'true');
-    await expect(tab).toHaveAttribute(
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
+    await expect(button).toHaveAttribute(
         'title',
         'A comparison cannot answer decisions. Open the Document view to answer them.',
     );
-
-    // The arrows step over it rather than landing on a panel that cannot open.
-    await page.getByRole('tab', { name: 'Outline', exact: true }).focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(
-        page.getByRole('tab', { name: 'Details', exact: true }),
-    ).toBeFocused();
+    await expect(panel).toBeHidden();
 });
