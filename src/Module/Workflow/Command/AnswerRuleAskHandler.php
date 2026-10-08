@@ -104,6 +104,9 @@ final readonly class AnswerRuleAskHandler
         $this->cards->refreshColumn($card);
         $this->cards->refreshTypeAndParent($card);
         $now = $this->clock->now();
+        if (null !== $rule->slot && $this->factsBuilder->build($card, $now)->card->slot !== $rule->slot) {
+            return $this->skip('left-slot', $itemId);
+        }
         $refusal = null;
         foreach ($option->actions as $call) {
             // Facts again for each action: the one before may have changed the card.

@@ -141,6 +141,19 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
         self::assertSame([], $this->queuedEvaluations());
     }
 
+    public function test_a_card_that_left_the_slot_of_the_rule_changes_nothing(): void
+    {
+        [$card, , $itemId] = $this->askedChild('answer-left-slot');
+        $card->column = $this->column($card->project, 'in-progress');
+        $this->em()->flush();
+
+        $this->answer($itemId, 1);
+
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(Card::class, $card->id)?->parent);
+        self::assertSame([], $this->queuedEvaluations());
+    }
+
     private function answer(Uuid $itemId, int $optionIndex): void
     {
         $this->em()->clear();
