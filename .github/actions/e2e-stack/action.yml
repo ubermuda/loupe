@@ -43,6 +43,7 @@ runs:
     # No --with-deps: the runner image already has every library Chromium
     # needs, and apt only added fallback fonts from a mirror that can stall.
     # A missing library fails the first launch with Playwright's own list.
-    - run: npx playwright install chromium
+    # A composite step takes no timeout-minutes, so `timeout` bounds a stalled download.
+    - run: timeout 300 npx playwright install chromium
       shell: bash
       working-directory: e2e
