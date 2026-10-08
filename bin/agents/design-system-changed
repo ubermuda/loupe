@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Lists the design system files that a branch changed.
+#
+# Usage:
+#   bin/agents/design-system-changed [<base>]
+#
+# The base defaults to origin/main. Pass origin/<parent-branch> for a stacked branch.
+# Output: one path per line, from "git diff --name-only <base>...HEAD".
+# Empty output means the branch changed no design system file. The exit code is 0 either way.
+# Requires: git
+
+set -euo pipefail
+
+if [[ $# -gt 1 ]]; then
+  echo "Usage: $(basename "$0") [<base>]" >&2
+  exit 1
+fi
+
+BASE="${1:-origin/main}"
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
+git diff --name-only "$BASE...HEAD" | grep -E '^(assets/styles/tokens\.css|assets/styles/components/.+|templates/components/Ds/.+|src/Module/DesignSystem/Catalog\.php)$' || true

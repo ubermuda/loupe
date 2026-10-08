@@ -107,6 +107,18 @@ typically at MCP startup. Kill it and fall back to:
 codex exec -c model="gpt-6-sol" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
 ```
 
+### The Claude Design rebuild
+
+After the Codex review, run `bin/agents/design-system-changed origin/<base>`. Use the base of the Codex review. The script prints the changed design system paths, and prints nothing when none changed.
+
+When it prints a path, try the rebuild with the `loupe-design-rebuild` skill. Do not skip this step.
+
+When the rebuild cannot write, hand it to the owner:
+
+1. Write the line `Claude Design rebuild: pending` in the pull request body. A rebuild cannot write when the write grant is missing or the Claude Design tools are missing.
+2. Call `inbox_ask` with one `todo` item, linked to the card with `cardIds`. Set `blocking` to `false`, so the ask closes at once and does not end your turn. The `loupe-inbox` skill gives the full parameters.
+3. Name the pull request in the item `title`, because an item has no pull request link.
+
 ## A check is a fault until you have seen it fail
 
 A check that comes back clean is a fault in the check, until it has failed on a
