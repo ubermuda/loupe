@@ -54,7 +54,8 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 3. Keep the body and the `## Preview` section to the rules of `working-with-prs` "Keep the body brief" and "Make the branch testable, not just reviewable".
 4. A branch that changes a page seeds one state per preview link, before the pull request is ready. "The tests cover it", "the seed holds no X" and "it shows after a bridge reports data" are excuses, and no substitute for the seed.
 5. Prove each link with `working-with-prs` "Prove each preview link shows its state". Write the marker you found on the line of each link. When you cannot seed a state, or a marker is missing, stop with `STAGE RESULT: blocked: preview not seeded`. Do not move the card.
-6. Only the merge stage merges it, as the `Merge` section says. Never use `--admin` or `--no-verify`.
+6. A child of an epic also writes a `State:` text on each Preview line, as `working-with-prs` "A child of an epic targets the epic branch" says. The merge stage seeds the epic preview from that text alone. A line with no `State:` text is not ready, so stop with `STAGE RESULT: blocked: preview not seeded`.
+7. Only the merge stage merges it, as the `Merge` section says. Never use `--admin` or `--no-verify`.
 
 ## Board
 

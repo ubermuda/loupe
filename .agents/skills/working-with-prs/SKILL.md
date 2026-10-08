@@ -289,7 +289,9 @@ called "Try it", "Click it" or "Verification", sitting two thirds of the way
 down next to the gate results, makes the reviewer hunt for the one thing they
 opened the page to find. Lead with the links, then explain the change.
 
-Give each link a one-line label saying what state it shows. When a change has
+Give each link a one-line label saying what state it shows. A child of an epic
+also writes a `State:` text on each line, as "A child of an epic targets the
+epic branch" says. When a change has
 several states, seed one document per state and link each: a reviewer who can
 see all of them side by side reviews what the code does, rather than the one
 case you happened to seed.
