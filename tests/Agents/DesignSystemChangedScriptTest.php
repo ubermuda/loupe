@@ -95,6 +95,25 @@ final class DesignSystemChangedScriptTest extends TestCase
         self::assertSame('', $this->script('main')->getOutput());
     }
 
+    public function test_it_reports_app_css_only_when_a_font_face_rule_changes(): void
+    {
+        $this->git('checkout', '-q', 'main');
+        mkdir($this->repo.'/assets/styles', 0o777, true);
+        file_put_contents($this->repo.'/assets/styles/app.css', "@font-face {\n    src: url('a.woff2');\n}\n.x { color: red; }\n");
+        $this->git('add', '.');
+        $this->git('commit', '-q', '-m', 'app css');
+        $this->git('checkout', '-q', 'feature');
+        $this->git('merge', '-q', 'main');
+
+        file_put_contents($this->repo.'/assets/styles/app.css', "@font-face {\n    src: url('a.woff2');\n}\n.x { color: blue; }\n");
+        $this->git('commit', '-q', '-am', 'other rule');
+        self::assertSame('', $this->script('main')->getOutput());
+
+        file_put_contents($this->repo.'/assets/styles/app.css', "@font-face {\n    src: url('b.woff2');\n}\n.x { color: blue; }\n");
+        $this->git('commit', '-q', '-am', 'font rule');
+        self::assertSame(['assets/styles/app.css'], $this->lines($this->script('main')->getOutput()));
+    }
+
     public function test_it_fails_when_the_base_does_not_exist(): void
     {
         $result = $this->script('no-such-ref');
