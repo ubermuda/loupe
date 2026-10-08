@@ -86,6 +86,9 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'context' => ['pullRequestNumber' => null, 'pullRequestUrl' => null, 'headSha' => null, 'reason' => null, 'documentId' => null],
             'model' => null,
             'effort' => null,
+            'harness' => null,
+            'account' => null,
+            'runModel' => null,
         ]], $this->outboxPayloads());
 
         $record = $audit->record('bridge.command_requested');
@@ -114,6 +117,21 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         self::assertNull($payload['workRequestId']);
         self::assertNull($payload['ruleId']);
         self::assertSame('stop-run', $payload['kind']);
+    }
+
+    public function test_the_payload_names_what_the_run_started_on(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('command-account', state: WorkerRunState::Unfinished, cardColumn: 'implementation');
+        $run->recordHarness('claude-code', 'claude-b', 'opus', null);
+        $this->em()->flush();
+
+        $this->request($run, BridgeCommandKind::ResumeRun, $owner);
+
+        $payload = $this->outboxPayloads()[0];
+        self::assertSame('claude-code', $payload['harness']);
+        self::assertSame('claude-b', $payload['account']);
+        self::assertSame('opus', $payload['runModel']);
     }
 
     public function test_the_payload_names_a_subject_that_is_no_card_with_no_card_number(): void

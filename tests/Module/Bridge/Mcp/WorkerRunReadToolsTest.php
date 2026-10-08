@@ -14,6 +14,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -116,7 +117,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $em = $this->em();
         $run = $this->seedRun($em, $project);
         $this->seedToolCall($run, 1, 'Bash');
-        $this->seedToolCall($run, 2, 'Agent');
+        $this->seedToolCall($run, 2, 'Agent', WorkerRunToolCallKind::Subagent);
         $run->toolTimeMs = 4000;
         $run->idleGapMs = 6000;
         $run->peakContextTokens = 150_000;
@@ -211,6 +212,63 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $result = $this->listTool()(bridgeId: (string) $run->bridgeId, search: 'deploy');
 
         self::assertSame([(string) $run->id], array_column($result['runs'], 'runId'));
+    }
+
+    public function test_each_row_carries_the_harness_account_model_and_harness_session(): void
+    {
+        [$project] = $this->projects('list-harness-fields');
+        $this->seedRun($this->em(), $project, harness: 'codex', account: 'work', model: 'gpt-5', harnessSessionId: 'thread_abc123');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $row = $this->listTool()()['runs'][0];
+
+        self::assertSame(
+            ['harness' => 'codex', 'account' => 'work', 'harnessSessionId' => 'thread_abc123', 'model' => 'gpt-5'],
+            array_intersect_key($row, array_flip(['harness', 'account', 'model', 'harnessSessionId'])),
+        );
+    }
+
+    public function test_the_model_the_bridge_reported_wins_over_the_model_of_the_usage(): void
+    {
+        [$project] = $this->projects('list-reported-model');
+        $em = $this->em();
+        $run = $this->seedRun($em, $project, harness: 'codex', model: 'gpt-5');
+        $this->seedUsage($em, $run, model: 'claude-opus-5-5', costUsd: '0.500000');
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame('gpt-5', $this->listTool()()['runs'][0]['model']);
+        self::assertSame('gpt-5', $this->getTool()((string) $run->id)['runs'][0]['model']);
+        self::assertSame(0, $this->listTool()(model: 'claude-opus-5-5')['total']);
+    }
+
+    public function test_the_model_filter_finds_a_run_by_the_model_its_row_shows(): void
+    {
+        [$project] = $this->projects('list-fact-model');
+        $em = $this->em();
+        $older = $this->seedRun($em, $project);
+        $this->seedUsage($em, $older, model: 'claude-opus-5-5', costUsd: '0.500000');
+        $this->seedRun($em, $project, model: 'gpt-5');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $runs = $this->listTool()(model: 'claude-opus-5-5')['runs'];
+
+        self::assertSame([(string) $older->id], array_column($runs, 'runId'));
+        self::assertSame('claude-opus-5-5', $runs[0]['model']);
+    }
+
+    public function test_the_list_filters_by_harness_account_and_model(): void
+    {
+        [$project] = $this->projects('list-harness');
+        $em = $this->em();
+        $codex = $this->seedRun($em, $project, harness: 'codex', account: 'work', model: 'gpt-5');
+        $claude = $this->seedRun($em, $project, harness: 'claude-code', account: 'home', model: 'opus');
+        $this->seedRun($em, $project);
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame([(string) $codex->id], array_column($this->listTool()(harness: ' codex ')['runs'], 'runId'));
+        self::assertSame([(string) $claude->id], array_column($this->listTool()(account: 'home')['runs'], 'runId'));
+        self::assertSame([(string) $codex->id], array_column($this->listTool()(model: 'gpt-5')['runs'], 'runId'));
+        self::assertSame(3, $this->listTool()(harness: ' ', account: '', model: '')['total']);
     }
 
     public function test_an_unknown_state_is_refused_with_the_valid_states(): void
@@ -386,6 +444,8 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $live->name = 'laptop';
         $live->requestedName = 'laptop';
         $live->pushLogin = 'acme-agent';
+        $live->accounts = [['name' => 'work', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'not logged in']];
+        $live->accountsReportedAt = new \DateTimeImmutable('2026-09-30 10:59:00');
         $quiet = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('-1 day'));
         $quiet->requestedName = 'laptop';
         $this->seedBridge($em, $project->owner, projects: [(string) $other->id]);
@@ -413,6 +473,10 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertTrue($row['takesReruns']);
         self::assertSame([['name' => 'default', 'size' => 2, 'inUse' => 1, 'queued' => 0]], $row['workerPools']);
         self::assertSame('2026-09-30T11:00:00+00:00', $row['workerPoolsReportedAt']);
+        self::assertSame([['name' => 'work', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'not logged in']], $row['accounts']);
+        self::assertSame('2026-09-30T10:59:00+00:00', $row['accountsReportedAt']);
+        self::assertNull($bridges[$quiet->id->toRfc4122()]['accounts']);
+        self::assertNull($bridges[$quiet->id->toRfc4122()]['accountsReportedAt']);
         self::assertSame([['runId' => (string) $open->id, 'subjectType' => 'card', 'subjectId' => (string) $open->subjectId, 'cardNumber' => 3, 'workKind' => 'plan', 'state' => 'running']], $row['openRuns']);
         self::assertSame('quiet', $bridges[$quiet->id->toRfc4122()]['liveness']);
         self::assertNull($bridges[$quiet->id->toRfc4122()]['name']);

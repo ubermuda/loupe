@@ -12,15 +12,16 @@ use Symfony\Component\Uid\Uuid;
  * Writes the fact row of each run from the run, its usage rows, its tool call
  * rows and the host samples of its bridge. The four tool call columns stay
  * null for a run with no rows. The migration that made the table holds a
- * frozen copy of this select, from before the host columns. A run with no end
- * counts as concurrent only while it runs, so a lost run does not count forever.
+ * frozen copy of this select, from before the host, harness and account
+ * columns and the kind of a tool call. A run with no end counts as concurrent
+ * only while it runs, so a lost run does not count forever.
  */
 final readonly class WorkerRunFactWriter
 {
     private const string UPSERT_SQL = <<<'SQL'
         INSERT INTO bridge_worker_run_facts (
             run_id, project_id, subject_type, subject_id, card_number, kind, work_kind, rule_id,
-            experiment, variant, model, bridge_id, outcome, started_at, ended_at, received_at,
+            experiment, variant, model, harness, account, bridge_id, outcome, started_at, ended_at, received_at,
             duration_ms, cost_micro_usd, tokens_in, tokens_out, tokens_cache_read, tokens_cache_write,
             usage_source, tool_time_ms, model_time_ms, tool_calls, failed_calls, longest_call_ms,
             idle_gap_ms, subagent_ms, peak_context_tokens, mean_cpu_pct, peak_mem_bytes, peak_swap_bytes,
@@ -38,6 +39,8 @@ final readonly class WorkerRunFactWriter
             r.experiment,
             r.variant,
             top.model,
+            r.harness,
+            r.account,
             r.bridge_id,
             r.state,
             r.started_at,
@@ -102,7 +105,8 @@ final readonly class WorkerRunFactWriter
                 COUNT(*) AS tool_calls,
                 COUNT(*) FILTER (WHERE is_error) AS failed_calls,
                 MAX(duration_ms) AS longest_call_ms,
-                COALESCE(SUM(duration_ms) FILTER (WHERE tool IN ('Agent', 'Task') AND NOT in_subagent), 0)::bigint AS subagent_ms
+                CASE WHEN BOOL_OR(kind IS NULL AND NOT in_subagent) THEN NULL
+                    ELSE COALESCE(SUM(duration_ms) FILTER (WHERE kind = 'subagent' AND NOT in_subagent), 0)::bigint END AS subagent_ms
             FROM bridge_worker_run_tool_calls
             WHERE run_id IN (:ids)
             GROUP BY run_id
@@ -130,6 +134,8 @@ final readonly class WorkerRunFactWriter
             experiment = EXCLUDED.experiment,
             variant = EXCLUDED.variant,
             model = EXCLUDED.model,
+            harness = EXCLUDED.harness,
+            account = EXCLUDED.account,
             bridge_id = EXCLUDED.bridge_id,
             outcome = EXCLUDED.outcome,
             started_at = EXCLUDED.started_at,

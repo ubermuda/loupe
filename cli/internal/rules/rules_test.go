@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -41,9 +42,14 @@ func parse(t *testing.T, body string) *Set {
 	return s
 }
 
-// oneRule is the smallest file the bridge runs: one project and one kind of
-// work.
-const oneRule = `
+// claudeAccount declares one account, and claudeDefaults makes it the default.
+const (
+	claudeAccount  = "accounts:\n  claude:\n    harness: claude-code\n"
+	claudeDefaults = "defaults:\n  account: claude\n"
+)
+
+// oneWork maps one project and one kind of work.
+const oneWork = `
 projects:
   loupe:
     dir: {dir}
@@ -51,6 +57,10 @@ work:
   implement:
     prompt: Implement card {cardNumber}.
 `
+
+// oneRule is the smallest file the bridge runs: one account, one project and
+// one kind of work.
+const oneRule = claudeAccount + claudeDefaults + oneWork
 
 func entry(t *testing.T, s *Set, kind string) WorkEntry {
 	t.Helper()
@@ -69,8 +79,8 @@ func TestParseFillsDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if w := entry(t, s, "implement"); w.PermissionMode != "acceptEdits" || w.Model != "sonnet" {
-		t.Fatalf("entry = %+v", w)
+	if r := entry(t, s, "implement").run; r.PermissionMode != "acceptEdits" || r.Model != "sonnet" || r.Account != "claude" || r.Harness != HarnessClaudeCode {
+		t.Fatalf("run = %+v", r)
 	}
 	if got := s.Projects(); len(got) != 1 || got[0] != "loupe" || s.dirs["loupe"] != dir {
 		t.Fatalf("projects = %v, dirs = %v", got, s.dirs)
@@ -113,56 +123,169 @@ func TestCollectIsOnUnlessTheFileTurnsItOff(t *testing.T) {
 	}
 }
 
-// An entry's own value wins, then the file's defaults, then the bridge flags.
-func TestParseFillsAnEntryFromTheFileBeforeTheFlags(t *testing.T) {
-	for name, tc := range map[string]struct{ file, entry, flag, want string }{
-		"the file fills an empty entry":  {file: "plan", want: "plan"},
-		"the entry beats the file":       {file: "plan", entry: "dontAsk", want: "dontAsk"},
-		"the file beats the flag":        {file: "plan", flag: "acceptEdits", want: "plan"},
-		"the flag fills when both empty": {flag: "acceptEdits", want: "acceptEdits"},
-		"nothing sets a value":           {},
+func TestOpenRouterPricesIsOffUnlessTheFileTurnsItOn(t *testing.T) {
+	for _, tc := range []struct {
+		line string
+		want bool
+	}{
+		{line: "", want: false},
+		{line: "openRouterPrices: true\n", want: true},
+		{line: "openRouterPrices: false\n", want: false},
+	} {
+		if got := parse(t, tc.line+oneRule).OpenRouterPrices(); got != tc.want {
+			t.Fatalf("%q: OpenRouterPrices = %v, want %v", tc.line, got, tc.want)
+		}
+	}
+}
+
+// The model of a run comes from the entry, then the account, then the flag.
+func TestParseResolvesTheModelOfARun(t *testing.T) {
+	for name, tc := range map[string]struct{ entry, account, flag, want string }{
+		"the entry beats the account": {entry: "sonnet", account: "opus", flag: "haiku", want: "sonnet"},
+		"the account beats the flag":  {account: "opus", flag: "haiku", want: "opus"},
+		"the flag fills the rest":     {flag: "haiku", want: "haiku"},
+		"nothing sets a model":        {},
 	} {
 		t.Run(name, func(t *testing.T) {
-			body := oneRule
-			if tc.entry != "" {
-				body = strings.Replace(body, "  implement:\n", "  implement:\n    permissionMode: "+tc.entry+"\n    model: "+tc.entry+"-model\n", 1)
-			}
-			if tc.file != "" {
-				body = "defaults:\n  permissionMode: " + tc.file + "\n  model: " + tc.file + "-model\n" + body
-			}
-			flags := Defaults{}
-			if tc.flag != "" {
-				flags = Defaults{PermissionMode: tc.flag, Model: tc.flag + "-model"}
-			}
+			body := "accounts:\n  claude:\n    harness: claude-code\n    model: '" + tc.account + "'\n" + claudeDefaults +
+				strings.Replace(oneWork, "  implement:\n", "  implement:\n    model: '"+tc.entry+"'\n", 1)
 			text, _ := file(t, body)
-			s, err := Parse([]byte(text), flags)
+			s, err := Parse([]byte(text), Defaults{Model: tc.flag})
 			if err != nil {
 				t.Fatal(err)
 			}
-			wantModel := ""
-			if tc.want != "" {
-				wantModel = tc.want + "-model"
-			}
-			if w := entry(t, s, "implement"); w.PermissionMode != tc.want || w.Model != wantModel {
-				t.Fatalf("permissionMode = %q, model = %q, want %q and %q", w.PermissionMode, w.Model, tc.want, wantModel)
+			if got := entry(t, s, "implement").run.Model; got != tc.want {
+				t.Fatalf("model = %q, want %q", got, tc.want)
 			}
 		})
 	}
 }
 
-// A mode outside the known list loads, and the set names it once for the
-// bridge to warn about. A default fills an entry, so it counts too.
+// The mode of a worker comes from the entry's level, then the account's mode,
+// then the level of the defaults, then the flag.
+func TestParseResolvesThePermissionModeOfAWorker(t *testing.T) {
+	for name, tc := range map[string]struct{ entry, account, defaults, flag, want string }{
+		"the entry level beats the account mode": {entry: "read-only", account: "bypassPermissions", defaults: "full", flag: "dontAsk", want: "plan"},
+		"the account beats the defaults":         {account: "acceptEdits", defaults: "full", flag: "dontAsk", want: "acceptEdits"},
+		"the defaults beat the flag":             {defaults: "workspace", flag: "dontAsk", want: "auto"},
+		"the flag fills the rest":                {flag: "dontAsk", want: "dontAsk"},
+		"full maps to bypassPermissions":         {entry: "full", want: "bypassPermissions"},
+		"nothing sets a mode":                    {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := "accounts:\n  claude:\n    harness: claude-code\n    permissionMode: '" + tc.account + "'\n" +
+				"defaults:\n  account: claude\n  permissions: '" + tc.defaults + "'\n" +
+				strings.Replace(oneWork, "  implement:\n", "  implement:\n    permissions: '"+tc.entry+"'\n", 1)
+			text, _ := file(t, body)
+			s, err := Parse([]byte(text), Defaults{PermissionMode: tc.flag})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := entry(t, s, "implement").run.PermissionMode; got != tc.want {
+				t.Fatalf("mode = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// An interactive session runs with the level its own entry names, and with
+// no mode when it names none. Its model falls back as a worker's does.
+func TestAnInteractiveEntryTakesItsModeFromItsOwnLevelAlone(t *testing.T) {
+	body := "accounts:\n  claude:\n    harness: claude-code\n    permissionMode: bypassPermissions\n    model: opus\n" +
+		"defaults:\n  account: claude\n  permissions: full\n" +
+		"projects:\n  loupe:\n    dir: {dir}\nlaunch:\n  command: ['{script}']\n" +
+		"work:\n  pair:\n    action: interactive\n    prompt: x\n  plan:\n    action: interactive\n    prompt: x\n    permissions: read-only\n"
+	text, _ := file(t, body)
+	s, err := Parse([]byte(text), Defaults{PermissionMode: "dontAsk", Model: "haiku"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := entry(t, s, "pair").run; r.PermissionMode != "" || r.Model != "opus" || r.Account != "claude" {
+		t.Fatalf("pair run = %+v", r)
+	}
+	if r := entry(t, s, "plan").run; r.PermissionMode != "plan" {
+		t.Fatalf("plan run = %+v", r)
+	}
+}
+
+// An entry or a variant can name another account, and a run takes the
+// harness, the config dir and the env files of the account it runs on.
+func TestParseResolvesTheAccountOfARun(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	body := "envFile: ~/global.env\n" +
+		"accounts:\n  claude:\n    harness: claude-code\n    model: opus\n" +
+		"  other:\n    harness: claude-code\n    model: sonnet\n    configDir: ~/.claude-b\n    envFile: /etc/b.env\n" +
+		claudeDefaults + oneWork +
+		"  review:\n    prompt: x\n    account: other\n" +
+		"  split:\n    prompt: x\n    variants:\n      - {name: a, weight: 1, model: haiku}\n      - {name: b, weight: 1, account: other, permissions: full}\n"
+	text, _ := file(t, body)
+	s, err := Parse([]byte(text), Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	global := filepath.Join(home, "global.env")
+
+	if r := entry(t, s, "implement").run; r.Account != "claude" || r.Model != "opus" || r.ConfigDir != "" || !slices.Equal(r.EnvFiles, []string{global}) {
+		t.Fatalf("implement run = %+v", r)
+	}
+	want := RunSettings{Account: "other", Harness: HarnessClaudeCode, ConfigDir: filepath.Join(home, ".claude-b"), Model: "sonnet", EnvFiles: []string{global, "/etc/b.env"}}
+	if r := entry(t, s, "review").run; !reflect.DeepEqual(r, want) {
+		t.Fatalf("review run = %+v, want %+v", r, want)
+	}
+	exp := entry(t, s, "split").experiment
+	if r := exp.Settings(exp.Variants[0]); r.Account != "claude" || r.Model != "haiku" {
+		t.Fatalf("variant a = %+v", r)
+	}
+	want.PermissionMode, want.Permissions = "bypassPermissions", PermissionsFull
+	if r := exp.Settings(exp.Variants[1]); !reflect.DeepEqual(r, want) {
+		t.Fatalf("variant b = %+v, want %+v", r, want)
+	}
+}
+
+// Account gives the settings of a run on a named account, with the level a
+// rule names. It finds no account the set does not hold.
+func TestAccountGivesTheSettingsOfANamedAccount(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	body := "envFile: ~/global.env\n" +
+		"accounts:\n  claude:\n    harness: claude-code\n    model: opus\n" +
+		"  other:\n    harness: claude-code\n    model: sonnet\n    permissionMode: acceptEdits\n    configDir: ~/.claude-b\n    envFile: /etc/b.env\n" +
+		claudeDefaults + oneWork
+	text, _ := file(t, body)
+	s, err := Parse([]byte(text), Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := RunSettings{
+		Account: "other", Harness: HarnessClaudeCode, ConfigDir: filepath.Join(home, ".claude-b"), Model: "sonnet",
+		PermissionMode: "acceptEdits", EnvFiles: []string{filepath.Join(home, "global.env"), "/etc/b.env"},
+	}
+	if r, ok := s.Account("other", ""); !ok || !reflect.DeepEqual(r, want) {
+		t.Fatalf("other = %+v, %v; want %+v", r, ok, want)
+	}
+	want.PermissionMode, want.Permissions = "plan", PermissionsReadOnly
+	if r, ok := s.Account("other", PermissionsReadOnly); !ok || !reflect.DeepEqual(r, want) {
+		t.Fatalf("other read-only = %+v, %v; want %+v", r, ok, want)
+	}
+	if r, ok := s.Account("gone", ""); ok {
+		t.Fatalf("gone = %+v, want no account", r)
+	}
+}
+
+// The modes the accounts pass that are outside the known list load, and the
+// set names each once for the bridge to warn about. The flag counts too.
 func TestUnknownPermissionModesAreListedNotRefused(t *testing.T) {
 	text, _ := file(t, `
-projects:
-  loupe:
-    dir: {dir}
-work:
-  a: {prompt: x, permissionMode: acceptedits}
-  b: {prompt: x, permissionMode: acceptedits}
-  c: {prompt: x, permissionMode: plan}
-  d: {prompt: x}
-`)
+accounts:
+  a: {harness: claude-code, permissionMode: acceptedits}
+  b: {harness: claude-code, permissionMode: acceptedits}
+  c: {harness: claude-code, permissionMode: plan}
+  d: {harness: claude-code}
+defaults:
+  account: a
+`+oneWork)
 	s, err := Parse([]byte(text), Defaults{PermissionMode: "newMode"})
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +295,7 @@ work:
 	}
 
 	for _, mode := range PermissionModes {
-		text, _ := file(t, strings.Replace(oneRule, "  implement:\n", "  implement:\n    permissionMode: "+mode+"\n", 1))
+		text, _ := file(t, "accounts:\n  claude: {harness: claude-code, permissionMode: "+mode+"}\n"+claudeDefaults+oneWork)
 		if s, err := Parse([]byte(text), Defaults{}); err != nil || len(s.UnknownPermissionModes()) != 0 {
 			t.Fatalf("%s: err = %v", mode, err)
 		}
@@ -216,9 +339,7 @@ func TestParseRefusesAnInvalidFile(t *testing.T) {
 		"missing dir":             {strings.ReplaceAll(oneRule, "{dir}", "/nonexistent/loupe-rules-test"), "no such file"},
 		"dir is a file":           {strings.ReplaceAll(oneRule, "{dir}", regular), "is not a directory"},
 		"second document":         {oneRule + "---\n" + oneRule, "second YAML document"},
-		"default mode spaced":     {"defaults:\n  permissionMode: accept edits\n" + oneRule, `defaults.permissionMode "accept edits" holds whitespace`},
-		"default model spaced":    {"defaults:\n  model: 'claude opus'\n" + oneRule, `defaults.model "claude opus" holds whitespace`},
-		"unknown defaults field":  {"defaults:\n  maxChain: 2\n" + oneRule, "field maxChain not found"},
+		"unknown defaults field":  {claudeAccount + "defaults:\n  account: claude\n  maxChain: 2\n" + oneWork, "field maxChain not found"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			text, _ := file(t, tc.body)
@@ -227,6 +348,183 @@ func TestParseRefusesAnInvalidFile(t *testing.T) {
 				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
 			}
 		})
+	}
+}
+
+// An error on an account field, a level or an account reference names its
+// line.
+func TestParseRefusesAnInvalidAccount(t *testing.T) {
+	account := func(fields string) string {
+		return "accounts:\n  claude:\n    harness: claude-code\n" + fields + claudeDefaults + oneWork
+	}
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"no harness":                {"accounts:\n  claude:\n    model: opus\n" + claudeDefaults + oneWork, "line 2: accounts.claude: harness is required, such as claude-code"},
+		"an unknown harness":        {"accounts:\n  claude:\n    harness: gemini\n" + claudeDefaults + oneWork, `line 3: accounts.claude.harness "gemini" is not a harness; this CLI accepts claude-code and codex`},
+		"a bad account name":        {"accounts:\n  Claude:\n    harness: claude-code\ndefaults:\n  account: Claude\n" + oneWork, "line 2: accounts.Claude: an account name is 1 to 40"},
+		"a relative configDir":      {account("    configDir: claude-a\n"), "line 4: accounts.claude.configDir claude-a is not an absolute path"},
+		"a relative envFile":        {account("    envFile: a.env\n"), "line 4: accounts.claude.envFile a.env is not an absolute path"},
+		"a spaced model":            {account("    model: 'claude opus'\n"), `line 4: accounts.claude.model "claude opus" holds whitespace`},
+		"a spaced mode":             {account("    permissionMode: 'accept edits'\n"), `line 4: accounts.claude.permissionMode "accept edits" holds whitespace`},
+		"an unknown account field":  {account("    bogus: x\n"), "field bogus not found"},
+		"a relative global envFile": {"envFile: g.env\n" + oneRule, "line 1: envFile g.env is not an absolute path"},
+		"no defaults.account":       {claudeAccount + oneWork, "line 1: defaults.account is required, and names one of accounts: claude"},
+		"an empty accounts block":   {"accounts: {}\n" + oneWork, "defaults.account is required, and names one of accounts: none"},
+		"an unknown default":        {claudeAccount + "defaults:\n  account: other\n" + oneWork, `line 5: defaults.account "other" is not in accounts, which declares claude`},
+		"an unknown default level":  {claudeAccount + claudeDefaults + "  permissions: admin\n" + oneWork, `line 6: defaults.permissions "admin" is not read-only, workspace or full`},
+		"an unknown entry account":  {oneRule + "    account: other\n", `line 13: work "implement": account "other" is not in accounts, which declares claude`},
+		"an unknown entry level":    {oneRule + "    permissions: yolo\n", `line 13: work "implement": permissions "yolo" is not read-only, workspace or full`},
+		"an unknown variant account": {oneRule + "    variants:\n      - {name: a, weight: 1, model: opus}\n      - {name: b, weight: 1, account: other}\n",
+			`line 15: work "implement": variant "b": account "other" is not in accounts, which declares claude`},
+		"an unknown variant level": {oneRule + "    variants:\n      - {name: a, weight: 1, model: opus, permissions: root}\n",
+			`line 14: work "implement": variant "a": permissions "root" is not read-only, workspace or full`},
+		"too many accounts":           {"accounts:\n  claude:\n    harness: claude-code\n" + manyAccounts(MaxAccounts) + claudeDefaults + oneWork, "line 1: accounts: at most 50 accounts, got 51"},
+		"an account without accounts": {strings.Replace(oneWork, "  implement:\n", "  implement:\n    account: claude\n", 1), `work "implement": account "claude" is not in accounts, which declares none`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, _ := file(t, tc.body)
+			_, err := Parse([]byte(text), Defaults{})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// A file with accounts names where each value of an old key goes now.
+func TestParseRefusesTheOldKeysOfAFileWithAccounts(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"defaults.model":          {claudeAccount + claudeDefaults + "  model: opus\n" + oneWork, "defaults.model is gone; move its value into the model of the account that defaults.account names"},
+		"defaults.permissionMode": {claudeAccount + claudeDefaults + "  permissionMode: plan\n" + oneWork, "defaults.permissionMode is gone; move its value into the permissionMode of the account"},
+		"an entry permissionMode": {oneRule + "    permissionMode: plan\n", `work "implement": permissionMode is gone; use permissions: read-only, workspace or full instead`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, _ := file(t, tc.body)
+			_, err := Parse([]byte(text), Defaults{})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// A file of the old shape still loads, old keys and all, so the bridge keeps
+// running commands. It runs no agent until the file has accounts.
+func TestAFileWithNoAccountsLoadsWithItsAgentsOff(t *testing.T) {
+	s := checked(t, "appPrompts: true\ndefaults:\n  model: opus\n  permissionMode: plan\n"+
+		"projects:\n  loupe:\n    dir: {dir}\nlaunch:\n  command: ['{script}']\nwork:\n"+
+		"  implement:\n    prompt: x\n    permissionMode: plan\n"+
+		"  pair:\n    action: interactive\n    prompt: x\n"+
+		"  test:\n    action: command\n    run: [make, test]\n")
+	if got := s.AgentsOff(); got != "rules.yaml has no accounts block" {
+		t.Fatalf("AgentsOff = %q", got)
+	}
+	app := workRequest("review")
+	app.Prompt = "Review {cardNumber}."
+	for _, w := range []api.WorkRequest{workRequest("implement"), workRequest("pair"), app} {
+		if m := s.MatchWork(w); m.Skip != NoRule || m.Project != "loupe" {
+			t.Fatalf("%s: match = %+v", w.Kind, m)
+		}
+	}
+	if m := s.MatchWork(workRequest("test")); m.Skip != Run || m.Command == nil {
+		t.Fatalf("test: match = %+v", m)
+	}
+	if got := s.Capabilities(); !slices.Equal(got, []string{CapabilityWorkRequests}) {
+		t.Fatalf("Capabilities = %v", got)
+	}
+	if parse(t, oneRule).AgentsOff() != "" {
+		t.Fatal("a file with accounts has its agents off")
+	}
+}
+
+// accountsBody gives each kind of agent run its own account: implement and
+// app prompts take the default, review names other, pair names third, and
+// split has a variant on fourth. spare runs nothing.
+const accountsBody = "appPrompts: true\naccounts:\n  claude:\n    harness: claude-code\n  other:\n    harness: claude-code\n" +
+	"  third:\n    harness: claude-code\n  fourth:\n    harness: claude-code\n  spare:\n    harness: claude-code\n" +
+	claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nlaunch:\n  command: ['{script}']\nwork:\n" +
+	"  implement:\n    prompt: x\n" +
+	"  review:\n    prompt: x\n    account: other\n" +
+	"  pair:\n    action: interactive\n    prompt: x\n    account: third\n" +
+	"  split:\n    prompt: x\n    variants:\n      - {name: a, weight: 1, model: haiku}\n      - {name: b, weight: 1, account: fourth}\n" +
+	"  test:\n    action: command\n    run: [make, test]\n"
+
+func TestUsedAccountsNamesTheAccountOfEachAgentRun(t *testing.T) {
+	if got := parse(t, accountsBody).UsedAccounts(); !slices.Equal(got, []string{"claude", "fourth", "other", "third"}) {
+		t.Fatalf("UsedAccounts = %v", got)
+	}
+	if got := parse(t, oneRule).UsedAccounts(); !slices.Equal(got, []string{"claude"}) {
+		t.Fatalf("UsedAccounts of one rule = %v", got)
+	}
+	commands := claudeAccount + claudeDefaults + "projects:\n  loupe:\n    dir: {dir}\nwork:\n  test:\n    action: command\n    run: [make, test]\n"
+	if got := parse(t, commands).UsedAccounts(); len(got) != 0 {
+		t.Fatalf("UsedAccounts of command entries = %v", got)
+	}
+}
+
+// An account that fails its check turns off each entry that runs on it, a
+// variant's account included. The other entries and command entries run.
+func TestAFailingAccountTurnsOffItsEntries(t *testing.T) {
+	app := workRequest("triage")
+	app.Prompt = "Triage {cardNumber}."
+	requests := map[string]api.WorkRequest{"implement": workRequest("implement"), "review": workRequest("review"), "pair": workRequest("pair"), "split": workRequest("split"), "test": workRequest("test"), "app": app}
+	for name, tc := range map[string]struct {
+		off         string
+		skipped     []string
+		interactive bool
+	}{
+		"none":   {interactive: true},
+		"claude": {off: "claude", skipped: []string{"app", "implement", "split"}, interactive: true},
+		"other":  {off: "other", skipped: []string{"review"}, interactive: true},
+		"third":  {off: "third", skipped: []string{"pair"}},
+		"fourth": {off: "fourth", skipped: []string{"split"}, interactive: true},
+		"spare":  {off: "spare", interactive: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := checked(t, accountsBody)
+			problems := map[string]string{}
+			if tc.off != "" {
+				problems[tc.off] = "not logged in"
+			}
+			s.SetAccountProblems(problems)
+			for kind, w := range requests {
+				m := s.MatchWork(w)
+				if slices.Contains(tc.skipped, kind) != (m.Skip == NoRule) || m.Project != "loupe" {
+					t.Fatalf("%s: match = %+v", kind, m)
+				}
+			}
+			want := []string{CapabilityWorkRequests}
+			if tc.interactive {
+				want = append(want, CapabilityInteractive)
+			}
+			if got := s.Capabilities(); !slices.Equal(got, want) {
+				t.Fatalf("Capabilities = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestAccountsOffIsACopy(t *testing.T) {
+	s := parse(t, oneRule)
+	if s.AccountsOff() != nil {
+		t.Fatal("an unchecked set has accounts off")
+	}
+	in := map[string]string{"claude": "not logged in"}
+	s.SetAccountProblems(in)
+	in["claude"] = "changed"
+	got := s.AccountsOff()
+	got["other"] = "added"
+	if again := s.AccountsOff(); len(again) != 1 || again["claude"] != "not logged in" {
+		t.Fatalf("AccountsOff = %v", again)
+	}
+	s.SetAccountProblems(nil)
+	if got := s.AccountsOff(); got == nil || len(got) != 0 {
+		t.Fatalf("AccountsOff after a clean check = %v, want an empty map", got)
 	}
 }
 
@@ -560,7 +858,7 @@ func TestParseGivesTheDefaultPoolTheWholeBudget(t *testing.T) {
 	}
 }
 
-const pooledRules = `
+const pooledRules = claudeAccount + claudeDefaults + `
 maxWorkers: 4
 workerPools:
   quick:
@@ -628,7 +926,7 @@ func TestParseRefusesAnInvalidPool(t *testing.T) {
 }
 
 // before is a worker entry whose before block holds FIELDS.
-const beforeRule = `
+const beforeRule = claudeAccount + claudeDefaults + `
 projects:
   loupe:
     dir: {dir}
@@ -727,4 +1025,14 @@ func TestParseRefusesAppPromptsWithNoDefaultSlot(t *testing.T) {
 	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), "appPrompts: the default pool has no slot") {
 		t.Fatalf("err = %v", err)
 	}
+}
+
+// manyAccounts declares n Claude Code accounts a0 to a<n-1>.
+func manyAccounts(n int) string {
+	var b strings.Builder
+	for i := range n {
+		fmt.Fprintf(&b, "  a%d:\n    harness: claude-code\n", i)
+	}
+
+	return b.String()
 }

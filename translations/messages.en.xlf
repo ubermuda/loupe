@@ -4437,6 +4437,14 @@
                 <source>landing.feature.site_review.text</source>
                 <target>An embeddable widget that brings the same select-and-comment flow to a live page. Each note lands on your board as a card. Quote a passage of text, or point one note at several elements to say how they relate.</target>
             </trans-unit>
+            <trans-unit id="landing.feature.harnesses.title">
+                <source>landing.feature.harnesses.title</source>
+                <target>Claude Code and Codex workers</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.harnesses.text">
+                <source>landing.feature.harnesses.text</source>
+                <target>Your bridge runs each stage worker on Claude Code or Codex, on your own subscriptions or on an API key such as OpenRouter. An experiment compares them on cost, speed and outcome.</target>
+            </trans-unit>
             <trans-unit id="landing.feature.cost_analysis.title">
                 <source>landing.feature.cost_analysis.title</source>
                 <target>Cost and experiment analysis</target>
@@ -4740,6 +4748,14 @@
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
                 <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Each board follows a workflow template, so Loupe moves a card through its stages and asks your bridge for the next piece of work. When you connect a repository through the GitHub App, Loupe follows the pull request of each card, shows its checks, conflicts and review on the board, and can carry it through to the merge.</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.harnesses.question">
+                <source>landing.faq.harnesses.question</source>
+                <target>Which agents does it run?</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.harnesses.answer">
+                <source>landing.faq.harnesses.answer</source>
+                <target>The bridge on your machine runs each stage worker on Claude Code or Codex. Each rule picks a named account, so one board can use a Claude subscription, a ChatGPT subscription and an OpenRouter key together. The keys stay on your machine. An experiment compares the accounts on the same stage.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>
@@ -6139,6 +6155,10 @@
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.continues"><source>bridge.worker_runs.details.continues</source><target>Resumes run</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.worker_pool"><source>bridge.worker_runs.details.worker_pool</source><target>Worker pool</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.harness"><source>bridge.worker_runs.details.harness</source><target>Harness</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.account"><source>bridge.worker_runs.details.account</source><target>Account</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.model"><source>bridge.worker_runs.details.model</source><target>Model</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.harness_session"><source>bridge.worker_runs.details.harness_session</source><target>Harness session</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.experiment"><source>bridge.worker_runs.details.experiment</source><target>Experiment</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.switched_from"><source>bridge.worker_runs.details.switched_from</source><target>switched from %variant%</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.result_status"><source>bridge.worker_runs.details.result_status</source><target>Result status</target></trans-unit>
@@ -6208,6 +6228,30 @@
             <trans-unit id="bridge.worker_runs.filter.all_bridges">
                 <source>bridge.worker_runs.filter.all_bridges</source>
                 <target>All bridges</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.harness_label">
+                <source>bridge.worker_runs.filter.harness_label</source>
+                <target>Harness</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.all_harnesses">
+                <source>bridge.worker_runs.filter.all_harnesses</source>
+                <target>All harnesses</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.account_label">
+                <source>bridge.worker_runs.filter.account_label</source>
+                <target>Account</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.all_accounts">
+                <source>bridge.worker_runs.filter.all_accounts</source>
+                <target>All accounts</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.model_label">
+                <source>bridge.worker_runs.filter.model_label</source>
+                <target>Model</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.all_models">
+                <source>bridge.worker_runs.filter.all_models</source>
+                <target>All models</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.filter.clear">
                 <source>bridge.worker_runs.filter.clear</source>
@@ -7078,6 +7122,11 @@
             <trans-unit id="bridge.agents.worker_pools.as_of"><source>bridge.agents.worker_pools.as_of</source><target>As of %time%</target></trans-unit>
             <trans-unit id="bridge.agents.worker_pools.in_use"><source>bridge.agents.worker_pools.in_use</source><target>%inUse% in use of %size%</target></trans-unit>
             <trans-unit id="bridge.agents.worker_pools.queued"><source>bridge.agents.worker_pools.queued</source><target>%queued% queued</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.heading"><source>bridge.agents.accounts.heading</source><target>Accounts</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.as_of"><source>bridge.agents.accounts.as_of</source><target>As of %time%</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.state.ready"><source>bridge.agents.accounts.state.ready</source><target>Ready</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.state.failing"><source>bridge.agents.accounts.state.failing</source><target>Failing</target></trans-unit>
+            <trans-unit id="bridge.agents.accounts.failing_hint"><source>bridge.agents.accounts.failing_hint</source><target>The rules that use this account stay off until the account passes its check and the bridge reloads.</target></trans-unit>
             <trans-unit id="bridge.agents.never"><source>bridge.agents.never</source><target>Not reported</target></trans-unit>
             <trans-unit id="bridge.agents.empty.title"><source>bridge.agents.empty.title</source><target>No crew connection yet</target></trans-unit>
             <trans-unit id="bridge.agents.empty.description"><source>bridge.agents.empty.description</source><target>Connect the bridge to make this project available to your local crew.</target></trans-unit>
@@ -7180,6 +7229,8 @@
             <trans-unit id="analytics.metrics.group.variant"><source>analytics.metrics.group.variant</source><target>By variant</target></trans-unit>
             <trans-unit id="analytics.metrics.group.card-type"><source>analytics.metrics.group.card-type</source><target>By card type</target></trans-unit>
             <trans-unit id="analytics.metrics.group.bridge"><source>analytics.metrics.group.bridge</source><target>By bridge</target></trans-unit>
+            <trans-unit id="analytics.metrics.group.harness"><source>analytics.metrics.group.harness</source><target>By harness</target></trans-unit>
+            <trans-unit id="analytics.metrics.group.account"><source>analytics.metrics.group.account</source><target>By account</target></trans-unit>
             <trans-unit id="analytics.metrics.range.thirty-days"><source>analytics.metrics.range.thirty-days</source><target>30 days</target></trans-unit>
             <trans-unit id="analytics.metrics.range.ninety-days"><source>analytics.metrics.range.ninety-days</source><target>90 days</target></trans-unit>
             <trans-unit id="analytics.metrics.range.all"><source>analytics.metrics.range.all</source><target>All time</target></trans-unit>

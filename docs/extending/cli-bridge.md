@@ -1,13 +1,15 @@
 ---
 title: "Command-line bridge"
-description: "A Go binary that claims the work requests of the workflow and runs a Claude Code worker for each one. Preview."
+description: "A Go binary that claims the work requests of the workflow and runs a Claude Code or Codex worker for each one. Preview."
 ---
 
 `cli/` holds a small Go binary that closes the loop. The
 [workflow](../using/workflows.md) of a board decides when work runs, and it
 opens a work request for each piece of work. The bridge claims a request and
-runs it. A worker is `claude -p --session-id <uuid> -- <prompt>`, with a new
-session id for each worker. It reads the card through the MCP, prints its
+runs it. A worker runs on the harness of its account. On a Claude Code account
+it is `claude -p --session-id <uuid> -- <prompt>`, with a new session id for
+each worker. On a Codex account it is `codex exec`, as
+[A Codex account](#a-codex-account) describes. It reads the card through the MCP, prints its
 answer and exits. The bridge reports the exit code and the worker's structured
 result, and posts the result of the request. An entry with
 `action: interactive` opens an interactive session in a terminal instead, as
@@ -48,11 +50,11 @@ the same action, and the bridge drops and logs the others.
 One rule file serves one bridge, so a second `loupe bridge run` on the same file
 refuses to start. Its error names the socket of the first bridge.
 
-The optional `defaults:` block of `rules.yaml` sets `permissionMode` and `model`
-for every worker entry. A value on the entry wins, then the block, then the
-`--permission-mode` and `--model` flags. A reload reads the block again. The
-flags and the instance URL in `config.json` stay fixed until the bridge
-restarts. The `--max-workers` flag is deprecated and does nothing. Set
+The `accounts` block of `rules.yaml` names the agent accounts that run the
+workers, and `defaults.account` names the one an entry uses when it names none.
+[Accounts](#accounts) gives the format, the model order and the permission
+levels. A reload reads both again. The `--permission-mode` and `--model` flags
+and the instance URL in `config.json` stay fixed until the bridge restarts. The `--max-workers` flag is deprecated and does nothing. Set
 `maxWorkers` in `rules.yaml` instead. The bridge logs `max_workers_flag_ignored`
 when it starts with the flag.
 
@@ -73,9 +75,8 @@ Set `collect: false`, and the bridge sends no tool call and no timing of any
 run. It also takes and sends no [host sample](#host-samples). A reload applies
 a change to the key.
 
-A worker entry can also split its runs between models with variants, as
-[Experiments](#experiments) describes. Such an entry takes no model from the
-`defaults:` block.
+A worker entry can also split its runs between models or accounts with
+variants, as [Experiments](#experiments) describes.
 
 The bridge authenticates with a token that carries the agent scope. `loupe
 login` gets one through the OAuth device flow: it prints a link and a code, and
@@ -165,9 +166,9 @@ The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
 what each state means. The server adds `timed-out` and `lost` on its own. It
 also sets `closed` on an interactive run, which no bridge holds.
 
-A clean exit does not prove that the work finished. The bridge runs each
-worker with `--verbose --output-format stream-json` and `--json-schema`, and
-every prompt asks for a structured result. claude prints one JSON line for each
+A clean exit does not prove that the work finished. Every prompt asks for a
+structured result. The bridge runs a Claude Code worker with
+`--verbose --output-format stream-json` and `--json-schema`. claude prints one JSON line for each
 step, and the bridge reads the first line of type `result`. A later `result`
 line comes from a turn that a background task notification starts, and the
 bridge ignores it. The bridge also reads the single JSON document of
@@ -203,8 +204,9 @@ subagent still runs, and exits 0. An operator who sets the variable, even to an
 empty value, keeps that value.
 
 Each outcome carries the tokens the worker process spent, per model, as the
-`usage` field of the [Worker run API](../reference/worker-runs.md#usage). A
-worker that ends on its own prints `modelUsage` in its result line. The bridge
+`usage` field of the [Worker run API](../reference/worker-runs.md#usage). The
+rest of this section covers a Claude Code worker.
+[Codex metrics](#codex-metrics) covers a Codex worker. A worker that ends on its own prints `modelUsage` in its result line. The bridge
 sends those counts with the source `reported`, and the cost claude computed.
 
 claude's counts cover the whole session, so a resume would count the earlier
@@ -322,10 +324,328 @@ across runs.
 
 The bridge needs a Mercure hub to have anything to subscribe to.
 
+## Accounts
+
+An account is one login of an agent tool that runs workers. The `accounts`
+block of `rules.yaml` names each account, and `defaults.account` names the
+account of an entry that names none. A work entry and a variant of an
+[experiment](#experiments) can set `account` to use another one. This account
+is the agent login, and [Agent account](#agent-account) is the GitHub user
+that pushes.
+
+```yaml
+envFile: ~/loupe/common.env
+
+accounts:
+  claude:
+    harness: claude-code
+    model: opus
+  work:
+    harness: claude-code
+    configDir: ~/.claude-work
+    model: claude-sonnet-5-5
+    permissionMode: auto
+    envFile: ~/loupe/work.env
+
+defaults:
+  account: claude
+  permissions: workspace
+
+work:
+  tech-design:
+    prompt: Use the loupe-stage-tech-design skill for card {cardNumber}.
+  implement:
+    account: work
+    permissions: full
+    prompt: Use the loupe-stage-implementation skill for card {cardNumber}.
+```
+
+| Field | Required | Purpose |
+|---|---|---|
+| `harness` | yes | The agent tool of the account, `claude-code` or `codex` |
+| `configDir` | no | The Claude Code config folder of the account. The bridge sets `CLAUDE_CONFIG_DIR` to it for each run. A `codex` account refuses it |
+| `codexHome` | no | The Codex home folder of a `codex` account. The bridge sets `CODEX_HOME` to it for each run. A `claude-code` account refuses it |
+| `profile` | no | The Codex profile of a `codex` account, which names the file `<profile>.config.toml` in the Codex home folder. A `claude-code` account refuses it |
+| `model` | no | The model of the account's runs, when the entry or the variant names none |
+| `permissionMode` | no | A permission mode of the harness, when the entry or the variant names no level. For `codex` it is `read-only`, `workspace-write` or `danger-full-access` |
+| `envFile` | no | An [environment file](#environment-files) that each run of the account reads |
+
+An account name is 1 to 40 lowercase letters, digits and hyphens, and starts
+with a letter. A file declares at most 50 accounts. `configDir`, `codexHome` and `envFile` are absolute paths or start with `~/`. A `profile` is 1 to 64 letters, digits, dots, underscores and hyphens, and starts with a letter or a digit.
+Neither path has to exist when the file loads. `defaults.account` is required,
+and it names an account of the block. The bridge refuses the file at start, and
+a reload fails, when an entry names an account that the block does not declare.
+The keys `defaults.model` and `defaults.permissionMode` and the `permissionMode`
+of an entry are gone, and a file with `accounts` refuses them.
+
+### Model and permissions
+
+A run takes the first model that this list sets:
+
+1. the `model` of the variant or the entry
+2. the `model` of the account
+3. the `--model` flag of `loupe bridge run`
+4. the default of the harness, because the bridge passes no `--model`
+
+`permissions` sets a permission level, on an entry, on a variant or in
+`defaults.permissions`. The harness maps each level to a mode of its own:
+
+| Level | Claude Code mode | Codex sandbox |
+|---|---|---|
+| `read-only` | `plan` | `read-only` |
+| `workspace` | `auto` | `workspace-write` |
+| `full` | `bypassPermissions` | `danger-full-access` |
+
+A worker run takes the first mode that this list sets:
+
+1. the level of the variant or the entry
+2. the `permissionMode` of the account, which is a native mode of its harness
+3. the level in `defaults.permissions`
+4. the `--permission-mode` flag of `loupe bridge run`
+
+The `--model` and `--permission-mode` flags name Claude Code values. A run on a
+`codex` account ignores both.
+
+A variant with no `account` or no `permissions` takes the value of its entry.
+An [interactive entry](#interactive-action) takes its mode from its own
+`permissions` only. The model order is the same for it. The bridge log names
+the mode that ran in the `permission_mode` field. The `worker_started` line
+holds it for an entry with no variants, and `worker_variant` holds it for an
+experiment. The `run.json` file of the run holds it as `permissionMode`. The run page in
+Loupe does not show it.
+
+Each run records its harness, its account and its model in Loupe. That holds
+for worker runs and for interactive runs.
+
+### Environment files
+
+The top-level `envFile` and the `envFile` of an account name files of
+environment variables for each agent run. A file holds one `KEY=VALUE` pair on
+each line. A line can start with `export `, and a line that starts with `#` is
+a comment. The bridge removes one pair of matching quotes around a value, and it
+expands nothing.
+
+The bridge reads the files at the start of each run, so a change needs no
+reload and no restart. It reads the global file first, then the file of the
+account, so the account value wins. A missing file or a bad line fails the run
+before it starts. The reason names the file and the line, and never a value.
+
+An environment file cannot set the config folder variable of its harness, which
+is `CLAUDE_CONFIG_DIR` for `claude-code` and `CODEX_HOME` for `codex`. The run
+fails when one does. Set `configDir`, or `codexHome`, on the account instead. An interactive launch writes the
+variables into its launch script, because the terminal does not take the
+bridge's environment. The script is readable by its owner only, and it deletes
+itself when it runs.
+
+### A second Claude Code account
+
+Claude Code keeps a separate Keychain login for each config folder. So each
+account with its own `configDir` logs in once. Run
+`CLAUDE_CONFIG_DIR=~/.claude-work claude` with the folder of the account. Then
+type `/login` in that session.
+
+Claude Code also reads its MCP servers and its skills from the config folder.
+Add the `loupe` MCP server to each config folder. Install the Loupe skills in
+each config folder too. Otherwise a worker of that account cannot reach Loupe.
+
+### A Codex account
+
+An account with `harness: codex` runs its workers with `codex exec`. The bridge
+is tested with Codex 0.155.1, and needs `codex` on the `PATH` of the account.
+
+```yaml
+accounts:
+  openrouter:
+    harness: codex
+    codexHome: ~/.codex
+    profile: openrouter
+    model: openrouter/free
+    envFile: ~/loupe/openrouter.env
+```
+
+The profile `openrouter` is the file `~/.codex/openrouter.config.toml`:
+
+```toml
+model = "openrouter/free"
+model_provider = "openrouter"
+
+[model_providers.openrouter]
+name = "OpenRouter"
+base_url = "https://openrouter.ai/api/v1"
+env_key = "OPENROUTER_API_KEY"
+wire_api = "responses"
+```
+
+The profile names the variable in `env_key`. Put that variable in the
+`envFile` of the account, such as `OPENROUTER_API_KEY=...`. An account with no
+`profile` uses the login of the Codex home folder, which `codex login` makes.
+
+Each permission level maps to a sandbox of Codex. The `workspace` level
+turns the network on. It also adds the git folder of the main repository as a
+writable folder, because a worker in a git worktree keeps its index and refs
+there. The `read-only` level turns the network off. The `full` level starts
+Codex with `--dangerously-bypass-approvals-and-sandbox`, so Codex runs no
+sandbox.
+
+Codex does not read the Loupe tools until you add the MCP server to the Codex
+home folder. Run this once for each Codex home folder:
+
+```sh
+CODEX_HOME=~/.codex codex mcp add loupe -- loupe mcp
+```
+
+The bridge does not check this. A worker without the Loupe tools cannot read its
+card, so the run fails.
+
+After each run, the bridge checks that Codex used the provider that the profile
+names. A run on another provider fails with the message `codex ran on provider X
+but profile P names Y`.
+
+#### Prices from OpenRouter
+
+The bridge prices a Codex run only for a model that its price table lists. A
+model that the table lacks has an unknown cost. Add `openRouterPrices: true` at
+the top of `rules.yaml` to price the models of OpenRouter too:
+
+```yaml
+openRouterPrices: true
+```
+
+The key is off when absent. Once on, the bridge reads the public list at
+`https://openrouter.ai/api/v1/models`. It needs no key, and the host of the
+bridge needs egress to `openrouter.ai`. A fetch times out after 10 seconds.
+
+- The bridge saves the list in `openrouter-prices.json` in the config folder.
+- A saved list younger than 24 hours replaces the call, so the bridge makes at most one call a day.
+- The bridge checks the list at start, after a reload, and once an hour.
+- A failed fetch never stops the bridge. The bridge uses an older saved list when one exists. Otherwise the cost of the model stays unknown.
+- A model of the built-in table keeps its built-in price.
+- A reload that removes the key empties the fetched prices, and the cost of those models is unknown again.
+- A tier that omits the cache price keeps the cache price of the base tier.
+
+Some models charge more for a long prompt. The list gives such a model a price
+for each size of prompt. The bridge prices each reply at the price for the size
+of its own prompt. A free model costs 0, which is not the same as unknown.
+
+The bridge gives each run its own id, and Codex picks its own thread id. The
+bridge keeps the pair in the `codex-threads` folder of its config folder, so
+`resume` continues the right thread.
+
+#### Codex metrics
+
+A Codex run reports the same metrics as a Claude Code run. The bridge reads
+them from the session file of the run in `<codexHome>/sessions/`, and from the
+session file of each subagent, which Codex writes beside it:
+
+1. The tool calls are the function calls and the custom tool calls of the
+   files. A call of a subagent counts as made by a subagent.
+2. The signatures of a shell call come from the commands that Codex ran inside
+   it.
+3. A `spawn_agent` call lasts until the last line of the session file of its
+   subagent.
+4. The peak context is the largest input of one reply of the main thread.
+5. The tokens and the cost add the tokens of each subagent.
+
+Codex does not document the session file, so a new Codex release can change
+it. When the bridge cannot read the file of the run or of one subagent, the
+tool calls, the timing and the peak context of the run are unknown, never zero.
+The tokens then come from the total that Codex prints, which leaves out the
+subagents.
+
+Limits of this release:
+
+- The cost of a Codex run is empty for a model that no price list holds, as
+  [Prices from OpenRouter](#prices-from-openrouter) says.
+- The `effort` of a work request does not reach Codex.
+
+### Account checks
+
+The bridge checks each account that `rules.yaml` uses, when it starts and on
+each `loupe bridge reload`. A check of a Claude Code account asks three
+questions:
+
+1. Is `claude` on the `PATH` of the account, which an env file can set? A
+   relative `PATH` entry counts from each project folder, as it does for a
+   worker.
+2. Does `claude auth status` pass with the environment of the account? That
+   environment is the env files of the account and its `CLAUDE_CONFIG_DIR`. A
+   key such as `ANTHROPIC_API_KEY` in an env file also passes.
+3. Does Claude Code see the `loupe` MCP server and the Loupe skills in each
+   project folder? The server is seen when the project or the account's
+   `.claude.json` declares it as `loupe mcp`, or, when neither declares it, an
+   enabled plugin serves it. A declared entry that starts another command
+   fails, because Claude Code prefers it to a plugin. A declared entry also
+   fails when `loupe` is not on the `PATH` of the account. The skills are seen
+   when a `loupe-*` folder with a `SKILL.md` is in `.claude/skills` of the
+   project or in `skills` of the config folder, or when an enabled `loupe@`
+   plugin is installed.
+
+A check of a Codex account asks these questions:
+
+1. Is `codex` on the `PATH` of the account?
+2. Does the `codexHome` folder exist, when the account sets one?
+3. Does the profile file exist, when the account sets a `profile`? If it does,
+   the variable named by `env_key` in the profile must hold a value in the
+   environment of the account.
+4. Does `codex login status` pass, when the account sets no `profile`?
+
+The check reads no MCP config.
+
+A failing account turns off its own entries only. An entry is off when its
+account, or the account of one of its variants, fails. Every other entry keeps
+running, and a request for an entry that is off waits, as it does when no
+bridge takes it. The log line `account_failed` names the account, the reason
+and the detail. The heartbeat sends each account with its harness, its state
+and a short reason, and the Agents page in Loupe shows them. A path, an email
+or a key never leaves the machine. The bridge checks again only on a reload,
+so run `loupe bridge reload` after you fix an account. `loupe status` runs the
+same checks.
+
+### Migration and rollback
+
+At each start, the bridge gives an account to a `rules.yaml` with no `accounts`
+block. It adds the account `claude` with `harness: claude-code`, and sets
+`defaults.account: claude`. The old `defaults.model` and
+`defaults.permissionMode` move into that account. The `permissionMode` of each
+entry becomes `permissions`:
+
+| Old entry mode | Level |
+|---|---|
+| `plan` | `read-only` |
+| `acceptEdits` | `workspace` |
+| `auto` | `workspace` |
+| `bypassPermissions` | `full` |
+
+Any other entry mode stops the migration. The migration changes only those
+lines, so comments and blank lines stay. The bridge logs
+`accounts_migration_done` when it writes the file.
+
+When the migration stops or cannot write the file, the bridge logs
+`accounts_migration_failed`. The `block` field of that line holds the block to
+paste. The bridge then runs with its worker entries, its interactive entries
+and its app prompts off. It logs `agents_off` with the reason. Command entries
+and hooks still run. Paste the block into the file. Change each entry
+`permissionMode` to `permissions`. Then run `loupe bridge reload`.
+
+An older CLI refuses a file with an `accounts` block. To roll back, keep a copy
+of the file from before the upgrade. You can also remove the `accounts` block
+and `defaults.account`, and put back the old lines by hand.
+
+### Resume
+
+A resume that a person or a closed inbox ask sends uses the account that the
+run started on. It also keeps the model of that run. The bridge refuses the
+resume when `rules.yaml` no longer holds that account. It also refuses it when
+the account now names another harness. The reason names the account. An
+automatic continuation of an unfinished run uses the account that the rule
+names now.
+
 ## Tool calls
 
-The bridge reads each tool call of a worker from the stream on claude's stdout.
-When the worker ends, the bridge sends the calls after the final state of the
+The harness adapter of the bridge reads each tool call of a worker. For Claude
+Code, it reads the stream on claude's stdout. For Codex, it reads the session
+file of the run and the session file of each subagent, as
+[Codex metrics](#codex-metrics) says. When the worker ends, the bridge sends the calls after the final state of the
 run, to `PUT /api/projects/{handle}/worker-runs/{runId}/tool-calls`. One
 request holds at most 500 calls. The last request also holds the tool time and
 the idle time of the run, so a run with no call still sends one request.
@@ -335,10 +655,15 @@ gives the fields.
 A call holds its tool, its start, its duration, its error flag, and whether a
 subagent made it. A call with no timestamp in the stream stays out. A call that
 starts a background task holds the id of that task, and a later call whose
-input names that id waits on it. An `Agent` or `Task` call lasts until the last
-line of its subagent, so a background subagent counts in full.
+input names that id waits on it. A call that starts a subagent lasts until the
+last line of its subagent, so a background subagent counts in full.
 
-A call also holds signatures, which name what it ran. A Bash call gets one
+The adapter gives each call a kind. A call that runs shell commands is `shell`,
+such as a Claude Code `Bash` call. A call that starts a subagent is `subagent`,
+such as a Claude Code `Agent` or `Task` call or a Codex `spawn_agent` call. Any
+other call is `tool`. The server reads the kind and never the tool name.
+
+A call also holds signatures, which name what it ran. A `shell` call gets one
 signature for each program its command runs, such as `grep` or `git status`.
 A signature keeps the base name of the program and no argument. A program on
 the subcommand list also keeps its second word, when that word is a lowercase
@@ -401,15 +726,16 @@ To turn the samples on:
 1. Open **`/admin/feature-flags`** as an admin.
 2. Switch on `bridge.host_sampling_enabled`.
 3. Optionally, set `bridge.host_sample_interval_seconds`.
-4. Wait for each bridge to reconnect, or restart it.
+4. Wait for each bridge to reconnect, or run `loupe bridge reload` for it.
 
 The bridge reads both flags from the [events endpoint](#events-endpoint) at
-start and at each reconnect. A bridge with `collect: false` in its `rules.yaml`
-takes no sample, whatever the flags say.
+start, at each reconnect and at each `loupe bridge reload`. A bridge with
+`collect: false` in its `rules.yaml` takes no sample, whatever the flags say.
+
 ## Agent account
 
 `loupe agent-account set` stores the token of a separate GitHub user for
-agents in `config.json`. Each claude worker then pushes as that user. The token
+agents in `config.json`. Each worker then pushes as that user. The token
 stays on the machine, and Loupe never receives it. `show` prints the login and
 the id, and `clear` removes the account.
 
@@ -419,7 +745,7 @@ With no account, the bridge sends `""`. When the call fails, the bridge logs
 `agent_account_check_failed` and sends `""`, so a revoked token never shows as
 set up. The bridge does not check again until it restarts.
 
-Each claude worker gets these variables when an account is stored. The bridge
+Each worker gets these variables when an account is stored. The bridge
 first removes the inherited `GH_TOKEN`, `GITHUB_TOKEN`, `GIT_AUTHOR_NAME`,
 `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL`.
 
@@ -444,10 +770,11 @@ action keep the bridge's own environment, so they push as you.
 
 ## Experiments
 
-An experiment splits the cards of a kind of work between models. A worker entry
-of the [work map](#work-requests) lists its `variants`, and its kind names the
-experiment. Each variant has a `name`, a `weight` and a `model`. The entry sets
-no `model`:
+An experiment splits the cards of a kind of work between models or accounts.
+A worker entry of the [work map](#work-requests) lists its `variants`, and its
+kind names the experiment. Each variant has a `name`, a `weight`, and a `model`
+or an `account`. A variant can also set `permissions`. The entry sets no
+`model`:
 
 ```yaml
 work:
@@ -462,9 +789,11 @@ work:
         model: claude-sonnet-5-5
 ```
 
-The `model` of the `defaults:` block does not fill an entry with variants. A
-variant's weight sets its share of the cards, so weights of 3 and 1 give the
-first variant three cards in four.
+A variant with no `model` takes the model of its account, as
+[Model and permissions](#model-and-permissions) says. A variant with no
+`account` or no `permissions` takes the value of its entry. A variant's weight
+sets its share of the cards, so weights of 3 and 1 give the first variant three
+cards in four.
 
 An entry with variants can also list its `metrics`. Each key is a metric key
 that the `metric_list` MCP tool names, such as `cost` or `merge-rate`:
@@ -494,8 +823,10 @@ The bridge refuses the file, at start and on a reload, when:
 - a metric key does not match `^[a-z][a-z0-9:-]{0,63}$`
 - an entry has no variants, or more than 32
 - a variant has a weight below 1 or above 1,000,000
-- a variant has no model, or a model longer than 100 characters, with
-  whitespace or with a control character
+- a variant sets neither `model` nor `account`
+- a variant has a model longer than 100 characters, with whitespace or with a
+  control character
+- a variant names an account that the `accounts` block does not declare
 - two variants of one entry share a name
 - a variant name does not match `^[a-z0-9][a-z0-9_-]{0,63}$`
 
@@ -700,6 +1031,8 @@ runs a Homebrew binary also refuses the request of an older CLI. See
 | `update_rolled_back` | A version went on the skip list |
 | `update_recovered` | A start took over the handover of a bridge that died |
 | `auto_update_migrated` | A handover from an older CLI added `autoUpdate: true` |
+| `openrouter_prices_loaded` | The bridge loaded the OpenRouter price list. The event carries the model count |
+| `openrouter_prices_failed` | A fetch of the price list failed, once for each run of failures. Level `WARN` |
 
 [Output](../../cli/README.md#output) in `cli/README.md` lists every event with
 its fields, the failure events included.
@@ -732,7 +1065,8 @@ Docker container.
 A resume continues the session of a run that ended, with a fixed prompt. The
 bridge refuses it when it cannot read the card, when this machine holds no
 transcript of the session, or when the work map no longer runs workers of the
-kind of the run. Loupe also sends a resume on its own when an
+kind of the run. [Resume](#resume) says which account a resume uses. Loupe
+also sends a resume on its own when an
 [inbox](../using/inbox.md) ask of the session closes. That resume names the
 cause `ask-closed`, and its prompt tells the agent to read the answers.
 
@@ -747,9 +1081,9 @@ context of the run's work request, so the command and the `before` command fill
 the pull request and the document that the first run had. A bridge that does not report the
 `rerun-command` capability gets no rerun, and the web UI disables the control.
 
-A usage request asks for the token usage of one interactive Claude Code run,
-which has no worker process. The bridge reads the usage of the run's window
-from the transcript of the session on this machine, subagents included, and
+A usage request asks for the token usage of one interactive run, which has no
+worker process. The bridge reads the usage of the run's window from the
+transcript of the session on this machine, subagents included, and
 sends it as an estimate. It refuses the request when this machine holds no
 transcript of the session. Only a bridge that reports the `session-usage`
 capability gets a usage request.
@@ -764,7 +1098,7 @@ folder as the last line of its output. The run reports the state `preparing`
 while the command runs. It holds the run's worker slot and its card, so no
 other run of the card starts first.
 
-The run fails, and claude does not start, when the command exits with a code
+The run fails, and the worker does not start, when the command exits with a code
 that is not 0, runs past its timeout, or prints a path that is not an existing
 directory. It also fails when the bridge cannot read the command's output. The command runs again before each resume. A resumed conversation
 starts in the folder its transcript records. It starts in the printed folder
@@ -789,8 +1123,9 @@ work:
 `run` is an argv list, and no shell reads it. Each element takes the
 placeholders that a prompt takes. The command runs in the project's `dir`, with
 the bridge's environment. `timeout` defaults to `10m`, and the check refuses
-more than `60m`. The check refuses `prompt`, `model`, `permissionMode`,
-`variants`, `metrics`, `workerPool` and `before` on a command entry.
+more than `60m`. The check refuses `prompt`, `account`, `model`,
+`permissions`, `variants`, `metrics`, `workerPool` and `before` on a command
+entry.
 
 A command takes no worker slot. It holds its card, so it waits for a worker of
 the card that runs, and a worker that arrives later waits for it. Commands on
@@ -828,8 +1163,8 @@ work:
     run: ["bin/teardown.sh", "{cardNumber}"]
 ```
 
-The key is the kind of work. A worker entry takes `prompt`, `model`,
-`permissionMode`, `before`, `workerPool`, `variants` and `metrics`. A command entry takes
+The key is the kind of work. A worker entry takes `prompt`, `account`,
+`model`, `permissions`, `before`, `workerPool`, `variants` and `metrics`. A command entry takes
 `run` and `timeout`. The rule check
 refuses a field that the action does not use.
 
@@ -966,8 +1301,9 @@ six flags:
 | `bridge.host_sampling_enabled` | boolean | whether the bridge takes [host samples](#host-samples), `false` on an instance that holds no row for it |
 | `bridge.host_sample_interval_seconds` | integer | the seconds between two host samples, 60 on an instance that holds no row for it. A stored value below 5 reads as 60 |
 
-The bridge reads the map at start and again at each reconnect. A flag change
-therefore reaches a running bridge at its next reconnect.
+The bridge reads the map at start, at each reconnect and at each
+`loupe bridge reload`. A flag change therefore reaches a running bridge at its
+next reconnect or reload.
 
 `topic` is the user's own topic. The server publishes each event of a project on
 the project's topic and on its owner's topic. The JWT expires after an hour, and
@@ -1099,8 +1435,8 @@ and allows 60 calls per minute per token. An older server answers `404`.
 
 ## Interactive action
 
-An entry with `action: interactive` opens an interactive Claude Code session in
-a terminal window, on the bridge's machine. It is for Product design, so the
+An entry with `action: interactive` opens an interactive Claude Code or Codex
+session in a terminal window, on the bridge's machine, as its account says. It is for Product design, so the
 owner does not type `/loupe:product-design` by hand. An entry without `action`
 is a worker entry.
 
@@ -1114,16 +1450,28 @@ work:
     prompt: /loupe:product-design {cardNumber}
 ```
 
-An interactive entry takes `prompt`, `model` and `permissionMode`. The check
+An interactive entry takes `prompt`, `account`, `model` and `permissions`. The check
 refuses `before`, `variants`, `metrics` and `workerPool` on it. It also refuses the action
 on Windows, because the launch script is a POSIX shell script. The action works
 on macOS and Linux.
 
-The session gets `--model` and `--permission-mode` only when the entry sets
-them. The `defaults:` block and the bridge flags do not fill them. So a worker
-default such as `bypassPermissions` never reaches a session that a person
-drives. The session gets the rendered prompt only, with no result footer and no
-inbox line.
+The session gets `--permission-mode` only when the entry sets `permissions`.
+The account's `permissionMode`, `defaults.permissions` and the bridge flag do
+not fill it. So a worker default such as the `full` level never reaches a
+session that a person drives. The model follows the order of
+[Model and permissions](#model-and-permissions). The session gets the rendered
+prompt only, with no result footer and no inbox line.
+
+On a `codex` account the script runs `codex` with the profile, the model and
+the sandbox flags of the entry's `permissions` level, and the prompt. It sets
+`LOUPE_SESSION_ID` to the session id of the run, so the session can open its
+run on the card. Codex picks its own thread id. The bridge keeps the folder and
+the time of the launch, and later finds the Codex session file that started in
+that folder after the launch. It needs that file to collect the usage of the
+session. A session that has not started a thread yet has no usage to collect.
+Two launches in one folder match their sessions in launch order. A launch that
+never starts Codex can shift the match of a later launch in that folder for up
+to a day, so the later run can report the usage of the wrong session.
 
 The top-level `launch` block of `rules.yaml` names the command that opens the
 terminal. It lives in `rules.yaml` because that file belongs to one machine, so
@@ -1141,11 +1489,14 @@ each machine sets its own launcher. A file with an interactive entry and no
 
 For each launch, the bridge writes a script to
 `<temp dir>/loupe-sessions/<sessionId>.sh`, with mode `0700`. The script deletes
-itself, changes to the project's `dir`, and runs
-`claude --session-id <sessionId> -- '<prompt>'`. A terminal app can start with
-a short `PATH`. So the bridge finds `claude` on its own `PATH` at start, and
-writes the absolute path into the script. With an interactive entry and no
-`claude` on its `PATH`, the bridge refuses to start. At start, it also deletes
+itself, changes to the project's `dir`, and runs the harness. On a
+`claude-code` account it runs `claude --session-id <sessionId> -- '<prompt>'`.
+A terminal app can start with a short `PATH`. So the bridge finds `claude` on
+its own `PATH` at start, and writes the absolute path into the script. A launch
+on a `codex` account finds `codex` at the launch, on the `PATH` of the account,
+and fails when it is missing. The bridge refuses to start with no `claude` on
+its `PATH` when a rule runs on a `claude-code` account, or when `rules.yaml`
+names no account. At start, it also deletes
 scripts older than one day.
 
 The bridge runs the launcher with no shell, and never kills it. An exit with
@@ -1162,7 +1513,10 @@ The bridge reports each launch to
 card as the subject, with `subjectType` `card`, `subjectId` and `cardNumber`. An
 interactive run is about a card, so the server answers 422 to any other subject
 type. A good launch opens an interactive run in the state `running`, with the
-work kind and the bridge id.
+work kind and the bridge id. The report can also carry `harness`, `account`,
+`model` and `harnessSessionId`, with the rules of the
+[run state report](../reference/worker-runs.md#reporting-a-run-state). A retry
+of the launch report fills these fields on the run it finds.
 The session's `/loupe:product-design` skill calls `card_run_open` with the same
 session id, and takes over that run. So the
 [Runs tab](../using/worker-runs.md#interactive-sessions) of the Activity page

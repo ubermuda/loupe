@@ -31,16 +31,18 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
         $raw = $this->agentToken($client, $owner);
 
         $this->put($client, $project, $run, $raw, ['calls' => [
-            self::call(1, 'Bash', durationMs: 1200, signatures: ['git status']),
+            self::call(1, 'Bash', durationMs: 1200, signatures: ['git status'], kind: 'shell'),
             self::call(2, 'Read', durationMs: null, isError: null, backgroundId: 'bg-1', waitsOn: 'bg-0', fullText: 'cat README.md'),
+            array_diff_key(self::call(3, 'Edit'), ['kind' => true]),
         ], 'timing' => null]);
 
         self::assertResponseStatusCodeSame(200);
-        self::assertJsonStringEqualsJsonString('{"stored":2}', (string) $client->getResponse()->getContent());
+        self::assertJsonStringEqualsJsonString('{"stored":3}', (string) $client->getResponse()->getContent());
         $stored = $this->rows($run);
         self::assertSame([
-            ['seq' => 1, 'tool' => 'Bash', 'started_at' => '2026-01-01 10:00:01.25', 'duration_ms' => 1200, 'is_error' => false, 'in_subagent' => false, 'background_id' => null, 'waits_on' => null, 'signatures' => '["git status"]', 'full_text' => null],
-            ['seq' => 2, 'tool' => 'Read', 'started_at' => '2026-01-01 10:00:02.25', 'duration_ms' => null, 'is_error' => null, 'in_subagent' => false, 'background_id' => 'bg-1', 'waits_on' => 'bg-0', 'signatures' => '["Read"]', 'full_text' => null],
+            ['seq' => 1, 'tool' => 'Bash', 'kind' => 'shell', 'started_at' => '2026-01-01 10:00:01.25', 'duration_ms' => 1200, 'is_error' => false, 'in_subagent' => false, 'background_id' => null, 'waits_on' => null, 'signatures' => '["git status"]', 'full_text' => null],
+            ['seq' => 2, 'tool' => 'Read', 'kind' => 'tool', 'started_at' => '2026-01-01 10:00:02.25', 'duration_ms' => null, 'is_error' => null, 'in_subagent' => false, 'background_id' => 'bg-1', 'waits_on' => 'bg-0', 'signatures' => '["Read"]', 'full_text' => null],
+            ['seq' => 3, 'tool' => 'Edit', 'kind' => null, 'started_at' => '2026-01-01 10:00:03.25', 'duration_ms' => 100, 'is_error' => false, 'in_subagent' => false, 'background_id' => null, 'waits_on' => null, 'signatures' => '["Edit"]', 'full_text' => null],
         ], $stored);
 
         $this->put($client, $project, $run, $raw, ['calls' => [
@@ -98,12 +100,13 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
         $run = $this->keyedRun($project);
 
         $this->put($client, $project, $run, $this->agentToken($client, $owner), ['calls' => [
-            self::call(1, 'Bash', durationMs: 1000, isError: false),
+            self::call(1, 'Bash', durationMs: 1000, isError: false, kind: 'shell'),
             self::call(2, 'Read', durationMs: 3000, isError: true),
-            self::call(3, 'Agent', durationMs: 50000),
-            self::call(4, 'Task', durationMs: 7000, inSubagent: true),
-            self::call(5, 'Task', durationMs: 2000),
-            self::call(6, 'Agent', durationMs: null, isError: null),
+            self::call(3, 'spawn_agent', durationMs: 50000, kind: 'subagent'),
+            self::call(4, 'Task', durationMs: 7000, inSubagent: true, kind: 'subagent'),
+            self::call(5, 'Task', durationMs: 2000, kind: 'subagent'),
+            self::call(6, 'Agent', durationMs: null, isError: null, kind: 'subagent'),
+            self::call(7, 'Agent', durationMs: 4000, kind: 'tool'),
         ], 'timing' => ['toolTimeMs' => 60000, 'idleGapMs' => 40000]]);
 
         self::assertResponseStatusCodeSame(200);
@@ -113,7 +116,7 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
         self::assertSame([
             'tool_time_ms' => 60000,
             'model_time_ms' => 200000,
-            'tool_calls' => 6,
+            'tool_calls' => 7,
             'failed_calls' => 1,
             'longest_call_ms' => 50000,
             'idle_gap_ms' => 40000,
@@ -164,6 +167,43 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
             'idle_gap_ms' => null,
             'subagent_ms' => 0,
         ], $this->facts($run));
+    }
+
+    /** An older bridge sends no kind, so the server cannot tell a sub-agent call of the main session. */
+    public function test_a_main_session_call_with_no_kind_makes_the_subagent_time_unknown(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'tool-calls-no-kind@example.com');
+        $project = $this->project($em, $owner, 'Tool Calls No Kind');
+        $run = $this->keyedRun($project);
+
+        $this->put($client, $project, $run, $this->agentToken($client, $owner), ['calls' => [
+            self::call(1, 'Agent', durationMs: 50000, kind: 'subagent'),
+            self::call(2, 'Agent', durationMs: 3000, kind: null),
+        ], 'timing' => null]);
+
+        self::assertResponseStatusCodeSame(200);
+        $facts = $this->facts($run);
+        self::assertSame([2, 50000], [$facts['tool_calls'], $facts['longest_call_ms']]);
+        self::assertNull($facts['subagent_ms']);
+    }
+
+    public function test_a_call_with_no_kind_inside_a_subagent_keeps_the_subagent_time_known(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'tool-calls-no-kind-inside@example.com');
+        $project = $this->project($em, $owner, 'Tool Calls No Kind Inside');
+        $run = $this->keyedRun($project);
+
+        $this->put($client, $project, $run, $this->agentToken($client, $owner), ['calls' => [
+            self::call(1, 'Agent', durationMs: 50000, kind: 'subagent'),
+            self::call(2, 'Bash', durationMs: 3000, inSubagent: true, kind: null),
+        ], 'timing' => null]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(50000, $this->facts($run)['subagent_ms']);
     }
 
     public function test_the_model_time_never_falls_below_zero(): void
@@ -295,6 +335,7 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
         yield 'too many signatures' => [['calls' => [self::call(1, 'Bash', signatures: array_fill(0, 21, 'git'))], 'timing' => null]];
         yield 'a long signature' => [['calls' => [self::call(1, 'Bash', signatures: [str_repeat('s', 121)])], 'timing' => null]];
         yield 'signatures as an object' => [['calls' => [self::call(1, 'Bash', signatures: ['a' => 'git'])], 'timing' => null]];
+        yield 'an unknown kind' => [['calls' => [self::call(1, 'Bash', kind: 'command')], 'timing' => null]];
         yield 'a long full text' => [['calls' => [self::call(1, 'Bash', fullText: str_repeat('x', 20001))], 'timing' => null]];
         yield 'a negative tool time' => [['calls' => [], 'timing' => ['toolTimeMs' => -1, 'idleGapMs' => 0]]];
     }
@@ -386,6 +427,7 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
         ?string $waitsOn = null,
         ?array $signatures = null,
         ?string $fullText = null,
+        ?string $kind = 'tool',
     ): array {
         return [
             'seq' => $seq,
@@ -398,6 +440,7 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
             'waitsOn' => $waitsOn,
             'signatures' => $signatures ?? [$tool],
             'fullText' => $fullText,
+            'kind' => $kind,
         ];
     }
 
@@ -432,7 +475,7 @@ final class WorkerRunToolCallsApiTest extends WebTestCase
     {
         /** @var list<array<string, mixed>> $rows */
         $rows = $this->em()->getConnection()->fetchAllAssociative(
-            'SELECT seq, tool, started_at, duration_ms, is_error, in_subagent, background_id, waits_on, signatures::text AS signatures, full_text
+            'SELECT seq, tool, kind, started_at, duration_ms, is_error, in_subagent, background_id, waits_on, signatures::text AS signatures, full_text
             FROM bridge_worker_run_tool_calls WHERE run_id = ? ORDER BY seq',
             [(string) $run->id],
         );
