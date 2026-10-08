@@ -54,6 +54,10 @@ final class WorkerRunExporterTest extends TestCase
         $run->variant = 'opus';
         $run->requestedModel = 'claude-opus-4';
         $run->switchedFrom = 'sonnet';
+        $run->harness = 'codex';
+        $run->account = 'work';
+        $run->model = 'gpt-5';
+        $run->harnessSessionId = 'thread-1';
         $run->toolTimeMs = 4000;
         $run->idleGapMs = 500;
         $run->peakContextTokens = 64_000;
@@ -96,6 +100,10 @@ final class WorkerRunExporterTest extends TestCase
             'variant' => 'opus',
             'requestedModel' => 'claude-opus-4',
             'switchedFrom' => 'sonnet',
+            'harness' => 'codex',
+            'account' => 'work',
+            'model' => 'gpt-5',
+            'harnessSessionId' => 'thread-1',
             'toolTimeMs' => 4000,
             'idleGapMs' => 500,
             'peakContextTokens' => 64_000,

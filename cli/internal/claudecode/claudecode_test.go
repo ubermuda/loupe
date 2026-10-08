@@ -54,12 +54,33 @@ func fakeClaude(t *testing.T, body string) string {
 
 func effective(t *testing.T, dir string) Resolution {
 	t.Helper()
-	got, err := Effective(dir, "loupe")
+	got, err := Effective(dir, "loupe", "")
 	if err != nil {
 		t.Fatalf("Effective: %v", err)
 	}
 
 	return got
+}
+
+// An account's config folder beats CLAUDE_CONFIG_DIR, so the check reads the
+// file the account's claude reads.
+func TestAConfigFolderBeatsTheEnvironment(t *testing.T) {
+	configure(t, `{}`)
+	folder := t.TempDir()
+	if err := os.WriteFile(filepath.Join(folder, configName), []byte(correct), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	got, err := Effective(t.TempDir(), "loupe", folder)
+	if err != nil {
+		t.Fatalf("Effective: %v", err)
+	}
+	if got.Scope != ScopeUser {
+		t.Fatalf("Effective = %+v, want the user entry of the folder", got)
+	}
+	if effective(t, t.TempDir()).Declared() {
+		t.Fatal("an empty folder keeps CLAUDE_CONFIG_DIR, which declares nothing")
+	}
 }
 
 func TestNothingDeclaresTheServer(t *testing.T) {
@@ -208,7 +229,7 @@ func TestBrokenConfigurationIsAnErrorRatherThanNothingToDo(t *testing.T) {
 	dir, _ := project(t)
 	configure(t, "{not json")
 
-	if _, err := Effective(dir, "loupe"); err == nil {
+	if _, err := Effective(dir, "loupe", ""); err == nil {
 		t.Fatal("Effective over broken JSON: got no error")
 	}
 }

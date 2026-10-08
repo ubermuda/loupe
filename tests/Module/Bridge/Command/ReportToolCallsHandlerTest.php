@@ -6,6 +6,7 @@ namespace App\Tests\Module\Bridge\Command;
 
 use App\Module\Bridge\Command\ReportToolCallsCommand;
 use App\Module\Bridge\Command\ReportToolCallsHandler;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -67,6 +68,7 @@ final class ReportToolCallsHandlerTest extends KernelTestCase
         return new WorkerRunToolCallReport(
             $seq,
             'Bash',
+            WorkerRunToolCallKind::Shell,
             new \DateTimeImmutable('2026-01-01 10:00:00', new \DateTimeZone('UTC'))->modify(\sprintf('+%d milliseconds', $offsetMs)),
             $durationMs,
             false,

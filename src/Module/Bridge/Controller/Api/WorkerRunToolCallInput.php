@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\WorkerRunToolCall;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -49,7 +50,17 @@ final class WorkerRunToolCallInput
 
         #[Assert\Length(max: WorkerRunToolCall::MAX_FULL_TEXT_LENGTH)]
         public ?string $fullText = null,
+
+        /** Null from an older bridge, which sends no kind. */
+        #[Assert\Choice(callback: 'kinds')]
+        public ?string $kind = null,
     ) {
+    }
+
+    /** @return list<string> */
+    public static function kinds(): array
+    {
+        return array_map(static fn (WorkerRunToolCallKind $kind): string => $kind->value, WorkerRunToolCallKind::cases());
     }
 
     #[Assert\Callback]
@@ -67,6 +78,7 @@ final class WorkerRunToolCallInput
         return new WorkerRunToolCallReport(
             seq: $this->seq ?? throw new \LogicException('seq is required after validation.'),
             tool: $this->tool ?? throw new \LogicException('tool is required after validation.'),
+            kind: null === $this->kind ? null : WorkerRunToolCallKind::from($this->kind),
             startedAt: $startedAt->setTimezone(new \DateTimeZone('UTC')),
             durationMs: $this->durationMs,
             isError: $this->isError,

@@ -61,6 +61,18 @@ The board is as public as the instance that holds it. Write every card as public
 
 Finish a card by moving it to a terminal column, which is `done` on a board with the seeded columns. There is no delete tool, and only a person deletes a card from its own page.
 
+## The bridge
+
+The bridge is the `loupe bridge` process from `cli/`. It runs on the owner's machine, watches the board, and starts a Claude Code worker for each work request. The workflow rules in the app decide which work a card needs. The bridge decides how to run it.
+
+The bridge rule file is local and not in git. On macOS it is `~/Library/Application Support/loupe/rules.yaml`, next to `config.json` and the `runs/` directory of each worker run. Its `work:` map has one entry per kind of work, such as `tech-design`, `implement`, `fix` or `merge`. Each entry sets the prompt, and optionally the `model`, `workerPool`, `before` command and `variants`. An entry with no `model` uses `defaults.model`.
+
+Run `loupe bridge reload` after you edit the file. It applies the change without a restart and lists the entries that changed.
+
+Run `loupe update` to install a new CLI release. It asks each running bridge to check for a release and hand over to it, and replaces the binary in place when no bridge runs. Automatic updates are off unless the rule file sets `autoUpdate: true`. A binary from Homebrew updates through `brew upgrade` instead.
+
+`docs/extending/cli-bridge.md` describes the full format, and the `loupe-workers` skill covers the runs.
+
 ## Git worktrees
 
 Worktrees live in `.worktrees/`, which is gitignored. Every worktree is a full application of its own. Run `just worktree-up` and it gets its own URL at `https://<name>.loupe.dev.localhost`, its own migrated and seeded database, and its own compiled CSS. Log in with `dev@loupe.test` and `password`, or `admin@loupe.test` and `password` for the admin area.

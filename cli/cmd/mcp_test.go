@@ -327,3 +327,22 @@ func TestMcpRefusesAProjectFileWhoseProjectIsNotAnIdentifier(t *testing.T) {
 		t.Fatalf("error must quote the value, got %v", err)
 	}
 }
+
+// A session id comes from the bridge's run id first, then from the harness.
+func TestMcpSessionReadsTheFirstSetVariable(t *testing.T) {
+	for _, tc := range []struct {
+		loupe, claude, codex, want string
+	}{
+		{"run", "claude", "codex", "run"},
+		{"", "claude", "codex", "claude"},
+		{"", "", "codex", "codex"},
+		{"", "", "", ""},
+	} {
+		t.Setenv(sessionEnv, tc.loupe)
+		t.Setenv("CLAUDE_CODE_SESSION_ID", tc.claude)
+		t.Setenv("CODEX_THREAD_ID", tc.codex)
+		if got := mcpSession(); got != tc.want {
+			t.Fatalf("mcpSession(%q, %q, %q) = %q, want %q", tc.loupe, tc.claude, tc.codex, got, tc.want)
+		}
+	}
+}

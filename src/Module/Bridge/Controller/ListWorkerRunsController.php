@@ -62,6 +62,9 @@ class ListWorkerRunsController extends AppController
             'states' => WorkerRunState::cases(),
             'bridgeIds' => $view->bridgeIds,
             'bridgeLabels' => $view->bridgeLabels,
+            'harnesses' => $view->harnesses,
+            'accounts' => $view->accounts,
+            'models' => $view->models,
         ]);
     }
 }
