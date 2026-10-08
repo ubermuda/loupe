@@ -44,9 +44,9 @@
                                     {{ form_widget(moveForm._token, {id: moveId ~ '-token'}) }}
                                     {{ form_widget(moveForm.expectedOrder, {id: moveId ~ '-expected-order'}) }}
                                     {{ form_widget(moveForm.order, {id: moveId ~ '-order'}) }}
-                                    <button class="lp-btn lp-btn--ghost lp-btn--icon" type="submit" aria-label="{{ move.key|trans }}">
+                                    <twig:Ds:Button variant="ghost icon" type="submit" aria-label="{{ move.key|trans }}">
                                         {% if move.offset < 0 %}<twig:ux:icon name="lucide:arrow-up" />{% else %}<twig:ux:icon name="lucide:arrow-down" />{% endif %}
-                                    </button>
+                                    </twig:Ds:Button>
                                 </form>
                             {% else %}
                                 <span class="lp-settings-column__slot" aria-hidden="true"></span>
@@ -54,9 +54,9 @@
                         {% endfor %}
                         {% set configureForm = board_column_configure_form(column, configureColumnForm) %}
                         <div data-controller="modal"{% if configureForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
-                            <button class="lp-btn lp-btn--ghost lp-btn--icon" type="button" aria-label="{{ 'board.column.configure.action'|trans({'%label%': label}) }}" data-action="click->modal#open">
+                            <twig:Ds:Button variant="ghost icon" type="button" aria-label="{{ 'board.column.configure.action'|trans({'%label%': label}) }}" data-action="click->modal#open">
                                 <twig:ux:icon name="lucide:settings" />
-                            </button>
+                            </twig:Ds:Button>
                             <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="configure-column-title-{{ column.id }}">
                                 <h3 class="lp-dialog-title" id="configure-column-title-{{ column.id }}">{{ 'board.column.configure.title'|trans({'%label%': label}) }}</h3>
                                 <p class="lp-dialog-desc">{{ 'board.column.rename.description'|trans }}</p>
@@ -87,17 +87,17 @@
                                     </div>
                                     {% endfor %}
                                     <div class="lp-settings-form-actions">
-                                        <button class="lp-btn" type="button" data-action="click->modal#close">{{ 'board.column.rename.cancel'|trans }}</button>
-                                        <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.column.configure.submit'|trans }}</button>
+                                        <twig:Ds:Button type="button" data-action="click->modal#close">{{ 'board.column.rename.cancel'|trans }}</twig:Ds:Button>
+                                        <twig:Ds:Button variant="primary" type="submit">{{ 'board.column.configure.submit'|trans }}</twig:Ds:Button>
                                     </div>
                                 {{ form_end(configureForm) }}
                             </dialog>
                         </div>
                         {% if not (column.terminal and terminalCount == 1) %}
                         <div data-controller="modal">
-                            <button class="lp-btn lp-btn--ghost lp-btn--icon" type="button" aria-label="{{ 'board.column.delete.named'|trans({'%label%': label}) }}" data-action="click->modal#open">
+                            <twig:Ds:Button variant="ghost icon" type="button" aria-label="{{ 'board.column.delete.named'|trans({'%label%': label}) }}" data-action="click->modal#open">
                                 <twig:ux:icon name="lucide:trash-2" />
-                            </button>
+                            </twig:Ds:Button>
                             {% include '@Board/_board_column_delete_dialog.html.twig' with {board: board, view: view} only %}
                         </div>
                         {% else %}
@@ -110,9 +110,9 @@
             {% if canManage %}
                 {% set addForm = board_column_add_form(board.project, addColumnForm) %}
                 <div data-controller="modal"{% if addForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
-                    <button class="lp-btn lp-btn--primary" type="button" data-action="click->modal#open">
+                    <twig:Ds:Button variant="primary" type="button" data-action="click->modal#open">
                         <twig:ux:icon name="lucide:plus" />{{ 'board.column.add.title'|trans }}
-                    </button>
+                    </twig:Ds:Button>
                     <dialog class="lp-dialog" data-modal-target="dialog">
                         <h3 class="lp-dialog-title">{{ 'board.column.add.title'|trans }}</h3>
                         {{ form_start(addForm, {action: path('app_board_column_add', {id: board.project.id}), attr: {class: 'lp-form'}}) }}
@@ -123,8 +123,8 @@
                             </div>
                             {% include '@Board/_board_column_tone_field.html.twig' with {field: addForm.tone} only %}
                             <div class="lp-settings-form-actions">
-                                <button class="lp-btn" type="button" data-action="click->modal#close">{{ 'board.column.rename.cancel'|trans }}</button>
-                                <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.column.add.submit'|trans }}</button>
+                                <twig:Ds:Button type="button" data-action="click->modal#close">{{ 'board.column.rename.cancel'|trans }}</twig:Ds:Button>
+                                <twig:Ds:Button variant="primary" type="submit">{{ 'board.column.add.submit'|trans }}</twig:Ds:Button>
                             </div>
                         {{ form_end(addForm) }}
                     </dialog>
@@ -139,7 +139,7 @@
                         <div class="lp-field-errors">{{ form_errors(windowForm.terminalWindowDays) }}</div>
                     </div>
                     <div class="lp-settings-form-actions">
-                        <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.terminal_window.submit'|trans }}</button>
+                        <twig:Ds:Button variant="primary" type="submit">{{ 'board.terminal_window.submit'|trans }}</twig:Ds:Button>
                     </div>
                 {{ form_end(windowForm) }}
             {% endif %}

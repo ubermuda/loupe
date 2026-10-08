@@ -17,15 +17,15 @@
             <p class="lp-workspace-desc">{{ 'inbox.page.description'|trans }}</p>
         </div>
         <div class="lp-needs-you__header-actions">
-            <a class="lp-btn" href="{{ path('app_project_activity', {id: inbox.project.id}) }}">
+            <twig:Ds:Button href="{{ path('app_project_activity', {id: inbox.project.id}) }}">
                 <twig:ux:icon name="lucide:activity" class="w-4 h-4" />
                 {{ 'inbox.activity'|trans }}
-            </a>
+            </twig:Ds:Button>
             {% if is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), inbox.project) %}
-            <a class="lp-btn" href="{{ path('app_inbox_settings', {id: inbox.project.id}) }}">
+            <twig:Ds:Button href="{{ path('app_inbox_settings', {id: inbox.project.id}) }}">
                 <twig:ux:icon name="lucide:settings" class="w-4 h-4" />
                 {{ 'inbox.settings_link'|trans }}
-            </a>
+            </twig:Ds:Button>
             {% endif %}
         </div>
     </header>

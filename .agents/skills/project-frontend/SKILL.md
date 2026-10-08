@@ -166,6 +166,14 @@ Do not add new element style rules to `@layer base`. Tailwind's preflight handle
 
 Spell out every word in a CSS semantic or utility class name: `.sidebar-item` not `.sb-item`, and `.sidebar-footer` not `.sb-foot`. This applies to the `app.css` definitions and to the usages in templates.
 
+### Building blocks
+
+Use a component from `src/Module/DesignSystem/Catalog.php` before you write markup for a shared control. Write no hand-made `lp-*` root class for a block the catalog lists, because `just gamache` blocks it once the block is enforced. `/styleguide` draws each one in dev, and `docs/contributing/design-system.md` lists them.
+
+1. Button: `<twig:Ds:Button variant="primary" size="sm" href="...">`. Variants are primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open and on-card, and several may be given with a space. A Symfony form button takes `ds_button_class('primary')` in its `attr.class`. The CSS is `assets/styles/components/button.css`.
+
+A child card that adds a component adds it to this list in the same branch.
+
 ### Icons
 
 Use the Symfony UX Icons bundle with Lucide for every icon, and never embed inline SVG. Prefer the Twig component form. `ux_icon()` is an acceptable alternative.

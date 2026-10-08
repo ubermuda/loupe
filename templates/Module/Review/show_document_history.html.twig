@@ -58,7 +58,7 @@
                     <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == latestVersion ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
                     {% endfor %}
                 </select>
-                <button type="submit" class="lp-btn">{{ 'review.document.diff.picker.submit'|trans }}</button>
+                <twig:Ds:Button type="submit">{{ 'review.document.diff.picker.submit'|trans }}</twig:Ds:Button>
             </form>
         </section>
         {% endif %}

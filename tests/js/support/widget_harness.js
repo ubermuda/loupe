@@ -93,9 +93,50 @@ export function bootWidget({
     const fetchMock = vi.fn(async (...request) => respond(...request));
     globalThis.fetch = fetchMock;
 
+    trackTimers();
     new Function(SOURCE)();
 
     return fetchMock;
+}
+
+const realTimers = {
+    setTimeout: globalThis.setTimeout,
+    requestAnimationFrame: globalThis.requestAnimationFrame,
+};
+const pendingTimeouts = new Set();
+const pendingFrames = new Set();
+
+// A widget timer that fires after its file's jsdom is torn down throws
+// "location is not defined", which fails the whole run.
+function trackTimers() {
+    globalThis.setTimeout = (callback, ...rest) => {
+        const id = realTimers.setTimeout(
+            (...args) => {
+                pendingTimeouts.delete(id);
+                callback(...args);
+            },
+            ...rest,
+        );
+        pendingTimeouts.add(id);
+        return id;
+    };
+    globalThis.requestAnimationFrame = (callback) => {
+        const id = realTimers.requestAnimationFrame((time) => {
+            pendingFrames.delete(id);
+            callback(time);
+        });
+        pendingFrames.add(id);
+        return id;
+    };
+}
+
+function cancelTimers() {
+    pendingTimeouts.forEach((id) => clearTimeout(id));
+    pendingFrames.forEach((id) => cancelAnimationFrame(id));
+    pendingTimeouts.clear();
+    pendingFrames.clear();
+    globalThis.setTimeout = realTimers.setTimeout;
+    globalThis.requestAnimationFrame = realTimers.requestAnimationFrame;
 }
 
 /** Lets the boot load, its error handling and the follow-up render all settle. */
@@ -153,6 +194,7 @@ export function openPanel() {
  * would refuse a second run outright.
  */
 export function resetWidget(history) {
+    cancelTimers();
     delete window.__loupeSiteReviewLoaded;
     window.localStorage.clear();
     // jsdom keeps the URL between tests in a file, and the widget only reacts

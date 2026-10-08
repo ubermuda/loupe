@@ -17,8 +17,8 @@
         {% endif %}
         {{ form_widget(deleteForm._token) }}
         <div class="flex items-center justify-end gap-3 pt-2">
-            <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'board.column.delete.cancel'|trans }}</button>
-            <button type="submit" class="lp-btn lp-btn--danger">{{ (cardCount > 0 ? 'board.column.delete.submit' : 'board.column.delete.submit_empty')|trans }}</button>
+            <twig:Ds:Button type="button" data-action="click->modal#close">{{ 'board.column.delete.cancel'|trans }}</twig:Ds:Button>
+            <twig:Ds:Button variant="danger" type="submit">{{ (cardCount > 0 ? 'board.column.delete.submit' : 'board.column.delete.submit_empty')|trans }}</twig:Ds:Button>
         </div>
     {{ form_end(deleteForm, {render_rest: false}) }}
 </dialog>

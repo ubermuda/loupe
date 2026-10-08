@@ -11,5 +11,5 @@
         {% endif %}
     </td>
     <td>{% if state and state.refreshedAt %}{% include '@Board/_pull_request_state.html.twig' with {state: state} only %}{% else %}<span class="lp-tag">{{ (href ? 'board.card.link.status_not_reported' : 'board.card.link.status_unavailable')|trans }}</span>{% endif %}</td>
-    <td>{% if href %}<a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ href }}" rel="noopener noreferrer" target="_blank" aria-label="{{ 'board.card.link.open_pull_request'|trans }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a>{% endif %}</td>
+    <td>{% if href %}<twig:Ds:Button variant="ghost open" href="{{ href }}" rel="noopener noreferrer" target="_blank" aria-label="{{ 'board.card.link.open_pull_request'|trans }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></twig:Ds:Button>{% endif %}</td>
 </tr>

@@ -32,7 +32,15 @@ test('a colour swatch paints the accent token', async ({ page }) => {
     await expect(swatch).toHaveCSS('background-color', 'rgb(212, 233, 76)');
 });
 
-test('the catalog says it has no entry yet', async ({ page }) => {
+test('the catalog draws the button in each variant', async ({ page }) => {
     await page.goto('/styleguide');
-    await expect(page.locator('[data-catalog-empty]')).toBeVisible();
+    const button = page.locator('[data-component="Button"]');
+    await expect(button).toBeVisible();
+    await expect(page.locator('[data-catalog-empty]')).toHaveCount(0);
+    await expect(
+        button.locator('[data-variant="primary"] .lp-btn--primary').first(),
+    ).toBeVisible();
+    await expect(
+        button.locator('[data-variant="danger"] .lp-btn--danger').first(),
+    ).toBeVisible();
 });

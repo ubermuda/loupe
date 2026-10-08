@@ -35,8 +35,8 @@
         <div class="flex items-center justify-end gap-3 pt-2">
             {# Submits the skip form below via `form=`: the action row sits inside
                the project form, and a nested <form> is invalid HTML. #}
-            <button type="submit" form="wizard-skip-form" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.welcome.submit'|trans }}</button>
+            <twig:Ds:Button variant="ghost" type="submit" form="wizard-skip-form">{{ 'project.wizard.skip'|trans }}</twig:Ds:Button>
+            <twig:Ds:Button variant="primary" type="submit">{{ 'project.wizard.welcome.submit'|trans }}</twig:Ds:Button>
         </div>
     {{ form_end(form) }}
 

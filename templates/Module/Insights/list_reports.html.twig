@@ -37,7 +37,7 @@
             </div>
             <p class="lp-form-hint">{{ 'insights.reports.start.defaults'|trans({'%model%': settings.model, '%effort%': ('insights.reports.effort.' ~ settings.effort)|trans}) }}</p>
             <div class="lp-settings-form-actions">
-                <button class="lp-btn lp-btn--primary" type="submit">{{ 'insights.reports.start.submit'|trans }}</button>
+                <twig:Ds:Button variant="primary" type="submit">{{ 'insights.reports.start.submit'|trans }}</twig:Ds:Button>
             </div>
         {{ form_end(startForm) }}
     </section>
@@ -72,7 +72,7 @@
                 <div class="lp-field-errors" data-field-errors="collectFullText">{{ form_errors(settingsForm.collectFullText) }}</div>
             </div>
             <div class="lp-settings-form-actions">
-                <button class="lp-btn lp-btn--primary" type="submit">{{ 'insights.reports.settings.submit'|trans }}</button>
+                <twig:Ds:Button variant="primary" type="submit">{{ 'insights.reports.settings.submit'|trans }}</twig:Ds:Button>
             </div>
         {{ form_end(settingsForm) }}
     </details>
@@ -150,12 +150,12 @@
                     <div class="lp-reports-proposal__actions">
                         <form method="post" action="{{ path('app_project_analytics_proposal_accept', {id: project.id, proposalId: proposal.id}|merge(page > 1 ? {page: page} : {})) }}">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token('insights-proposal-accept') }}">
-                            <button class="lp-btn lp-btn--primary lp-btn--sm" type="submit">{{ (proposal.kind.value == 'bucket-rule' ? 'insights.reports.proposal.accept_rule' : 'insights.reports.proposal.accept')|trans }}</button>
+                            <twig:Ds:Button variant="primary" size="sm" type="submit">{{ (proposal.kind.value == 'bucket-rule' ? 'insights.reports.proposal.accept_rule' : 'insights.reports.proposal.accept')|trans }}</twig:Ds:Button>
                         </form>
                         {{ form_start(dismissForm, {action: path('app_project_analytics_proposal_dismiss', {id: project.id, proposalId: proposal.id}|merge(page > 1 ? {page: page} : {})), attr: {class: 'lp-reports-proposal__dismiss'}}) }}
                             {{ form_label(dismissForm.reason, null, {label_attr: {class: 'sr-only'}}) }}
                             {{ form_widget(dismissForm.reason, {attr: {class: 'lp-input', placeholder: 'insights.reports.proposal.reason_placeholder'|trans}}) }}
-                            <button class="lp-btn lp-btn--outline lp-btn--sm" type="submit" id="dismiss-{{ proposal.id }}">{{ 'insights.reports.proposal.dismiss'|trans }}</button>
+                            <twig:Ds:Button variant="outline" size="sm" type="submit" id="dismiss-{{ proposal.id }}">{{ 'insights.reports.proposal.dismiss'|trans }}</twig:Ds:Button>
                             <div class="lp-field-errors" data-field-errors="reason">{{ form_errors(dismissForm.reason) }}</div>
                         {{ form_end(dismissForm) }}
                     </div>

@@ -20,15 +20,15 @@
             {% endfor %}
         </span>
         <div data-controller="modal">
-            <button type="button" class="lp-btn lp-btn--danger-ghost lp-btn--sm" data-action="click->modal#open">{{ 'oauth.connected_apps.action.revoke'|trans }}</button>
+            <twig:Ds:Button variant="danger-ghost" size="sm" type="button" data-action="click->modal#open">{{ 'oauth.connected_apps.action.revoke'|trans }}</twig:Ds:Button>
             <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="revoke-app-title-{{ loop.index }}" data-action="cancel->modal#close">
                 <h2 class="lp-dialog-title" id="revoke-app-title-{{ loop.index }}">{{ 'oauth.connected_apps.revoke.title'|trans }}</h2>
                 <p class="lp-dialog-desc">{{ 'oauth.connected_apps.revoke.description'|trans({'%client%': app.clientName}) }}</p>
                 <form method="post" action="{{ path('app_account_connected_app_revoke', {clientId: app.clientId}) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-connected-app') }}">
                     <div class="lp-dialog-actions">
-                        <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'oauth.connected_apps.revoke.cancel'|trans }}</button>
-                        <button type="submit" class="lp-btn lp-btn--danger">{{ 'oauth.connected_apps.revoke.confirm'|trans }}</button>
+                        <twig:Ds:Button variant="ghost" type="button" data-action="click->modal#close">{{ 'oauth.connected_apps.revoke.cancel'|trans }}</twig:Ds:Button>
+                        <twig:Ds:Button variant="danger" type="submit">{{ 'oauth.connected_apps.revoke.confirm'|trans }}</twig:Ds:Button>
                     </div>
                 </form>
             </dialog>

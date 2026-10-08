@@ -21,6 +21,6 @@
         {% endfor %}
     </div>
     {% if inMotion.more > 0 %}
-    <a class="lp-btn lp-btn--sm lp-workshop-work-more" href="{{ path('app_project_worker_runs', {id: project.id, outcome: 'open'}) }}" data-workshop-more>{{ 'project.workshop.in_motion.more'|trans({'%count%': inMotion.more}) }} <twig:ux:icon name="lucide:arrow-right" /></a>
+    <twig:Ds:Button size="sm" class="lp-workshop-work-more" href="{{ path('app_project_worker_runs', {id: project.id, outcome: 'open'}) }}" data-workshop-more>{{ 'project.workshop.in_motion.more'|trans({'%count%': inMotion.more}) }} <twig:ux:icon name="lucide:arrow-right" /></twig:Ds:Button>
     {% endif %}
 </turbo-frame>

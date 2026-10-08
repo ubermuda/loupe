@@ -21,7 +21,7 @@
     {% if canManage %}
     <form method="post" action="{{ path(held ? 'app_project_card_agents_release' : 'app_project_card_agents_pause', {id: project.id, cardId: cardId}) }}" data-turbo-frame="card-worker-runs" {{ held ? 'data-card-agents-release' : 'data-card-agents-pause' }}>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('card-agents') }}">
-        <button type="submit" class="lp-btn lp-btn--outline lp-btn--sm">{% if held %}<twig:ux:icon name="lucide:circle-play" class="size-4" />{% else %}<twig:ux:icon name="lucide:circle-pause" class="size-4" />{% endif %}{{ (held ? 'board.card.runs.release' : 'board.card.runs.pause')|trans }}</button>
+        <twig:Ds:Button variant="outline" size="sm" type="submit">{% if held %}<twig:ux:icon name="lucide:circle-play" class="size-4" />{% else %}<twig:ux:icon name="lucide:circle-pause" class="size-4" />{% endif %}{{ (held ? 'board.card.runs.release' : 'board.card.runs.pause')|trans }}</twig:Ds:Button>
     </form>
     {% endif %}
     {% for item in runs %}
@@ -41,7 +41,7 @@
             {% elseif canManage and item.closable %}
             <form method="post" action="{{ path('app_project_worker_run_close', {id: project.id, runId: item.run.id}) }}" class="lp-card-run__action" data-turbo-frame="card-worker-runs" data-card-run-close>
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('worker-run-close') }}">
-                <button type="submit" class="lp-btn lp-btn--icon lp-btn--compact" title="{{ 'bridge.worker_runs.close_session'|trans }}" aria-label="{{ 'bridge.worker_runs.close_session'|trans }}"><twig:ux:icon name="lucide:x" class="size-3.5" /></button>
+                <twig:Ds:Button variant="icon compact" type="submit"  title="{{ 'bridge.worker_runs.close_session'|trans }}" aria-label="{{ 'bridge.worker_runs.close_session'|trans }}"><twig:ux:icon name="lucide:x" class="size-3.5" /></twig:Ds:Button>
             </form>
             {% endif %}
         </div>

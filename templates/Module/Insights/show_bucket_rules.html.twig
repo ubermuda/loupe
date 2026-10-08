@@ -28,7 +28,7 @@
                 {% endfor %}
             </div>
             <div class="lp-settings-form-actions">
-                <button class="lp-btn lp-btn--primary" type="submit"{% if atLimit %} disabled{% endif %}>{{ 'insights.bucket_rules.add.submit'|trans }}</button>
+                <twig:Ds:Button variant="primary" type="submit" :disabled="atLimit">{{ 'insights.bucket_rules.add.submit'|trans }}</twig:Ds:Button>
             </div>
             {% if atLimit %}
             <p class="lp-form-hint" data-bucket-rule-limit>{{ 'insights.bucket_rules.limit'|trans({'%max%': constant('App\\Module\\Insights\\Entity\\InsightsBucketRule::MAX_PER_PROJECT')}) }}</p>
@@ -51,12 +51,12 @@
                 {% for direction in ['up', 'down'] %}
                 <form method="post" action="{{ path('app_project_analytics_bucket_rule_move', {id: project.id, ruleId: rule.id, direction: direction}) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('insights-bucket-rule-move') }}">
-                    <button class="lp-btn lp-btn--outline lp-btn--sm" type="submit"{% if (direction == 'up' and loop.parent.loop.first) or (direction == 'down' and loop.parent.loop.last) %} disabled{% endif %} data-bucket-rule-move="{{ direction }}">{{ ('insights.bucket_rules.move.' ~ direction)|trans }}</button>
+                    <twig:Ds:Button variant="outline" size="sm" type="submit" :disabled="(direction == 'up' and loop.parent.loop.first) or (direction == 'down' and loop.parent.loop.last)" data-bucket-rule-move="{{ direction }}">{{ ('insights.bucket_rules.move.' ~ direction)|trans }}</twig:Ds:Button>
                 </form>
                 {% endfor %}
                 <form method="post" action="{{ path('app_project_analytics_bucket_rule_delete', {id: project.id, ruleId: rule.id}) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('insights-bucket-rule-delete') }}">
-                    <button class="lp-btn lp-btn--outline lp-btn--sm" type="submit" data-bucket-rule-delete>{{ 'insights.bucket_rules.delete'|trans }}</button>
+                    <twig:Ds:Button variant="outline" size="sm" type="submit" data-bucket-rule-delete>{{ 'insights.bucket_rules.delete'|trans }}</twig:Ds:Button>
                 </form>
             </div>
         </li>

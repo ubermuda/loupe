@@ -25,8 +25,8 @@
                 <div class="lp-field-errors">{{ form_errors(form.title) }}</div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <a href="{{ backPath }}" class="lp-btn lp-btn--ghost mr-auto">{{ 'review.rename.cancel'|trans }}</a>
-                <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.rename.submit'|trans }}</button>
+                <twig:Ds:Button variant="ghost" href="{{ backPath }}" class="mr-auto">{{ 'review.rename.cancel'|trans }}</twig:Ds:Button>
+                <twig:Ds:Button variant="primary" type="submit">{{ 'review.rename.submit'|trans }}</twig:Ds:Button>
             </div>
         {{ form_end(form) }}
     </div>

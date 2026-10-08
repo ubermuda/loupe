@@ -34,11 +34,11 @@
             <div class="lp-field-errors">{{ form_errors(submitReviewForm.note) }}</div>
         </div>
         {% if not submitReviewForm.versionNumber.vars.valid or not submitReviewForm.expectedReviewId.vars.valid %}
-        <a class="lp-btn" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
+        <twig:Ds:Button href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</twig:Ds:Button>
         {% endif %}
         <div class="lp-review-verdict-actions">
-            <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.document.finish.cancel'|trans }}</button>
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.document.finish.submit'|trans }}</button>
+            <twig:Ds:Button variant="ghost" type="button" data-action="click->modal#close">{{ 'review.document.finish.cancel'|trans }}</twig:Ds:Button>
+            <twig:Ds:Button variant="primary" type="submit">{{ 'review.document.finish.submit'|trans }}</twig:Ds:Button>
         </div>
     {{ form_end(submitReviewForm) }}
 </dialog>

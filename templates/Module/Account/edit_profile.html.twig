@@ -18,7 +18,7 @@
             <p class="lp-form-hint">{{ 'account.settings.profile.email_hint'|trans }}</p>
         </div>
         <div class="flex items-center justify-end gap-3 pt-2">
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.profile.save_button'|trans }}</button>
+            <twig:Ds:Button variant="primary" type="submit">{{ 'account.profile.save_button'|trans }}</twig:Ds:Button>
         </div>
     {{ form_end(form) }}
 </section>

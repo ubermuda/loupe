@@ -35,7 +35,7 @@
                 <div class="lp-input-with-action" data-controller="clipboard" data-clipboard-text-value="{{ project.slug }}"
                      data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
                     <input type="text" id="project-slug" class="lp-input" value="{{ project.slug }}" disabled data-project-slug>
-                    <button type="button" class="lp-btn" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                    <twig:Ds:Button type="button" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</twig:Ds:Button>
                 </div>
                 <p class="lp-form-hint">{{ 'project.edit.slug.hint'|trans }}</p>
             </div>
@@ -58,8 +58,8 @@
                 <p class="lp-form-hint">{{ 'project.form.create_project_form.search_language.hint'|trans }}</p>
             </div>
             <div class="lp-settings-form-actions">
-                <a href="{{ path('app_projects') }}" class="lp-btn">{{ 'project.edit.form.cancel'|trans }}</a>
-                <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.edit.form.submit'|trans }}</button>
+                <twig:Ds:Button href="{{ path('app_projects') }}">{{ 'project.edit.form.cancel'|trans }}</twig:Ds:Button>
+                <twig:Ds:Button variant="primary" type="submit">{{ 'project.edit.form.submit'|trans }}</twig:Ds:Button>
             </div>
         {{ form_end(form) }}
         </section>
@@ -67,9 +67,9 @@
         <section class="lp-danger-zone lp-settings-panel-card" data-controller="modal"{% if deleteForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
             <h2 class="lp-danger-zone-title">{{ 'project.delete.title'|trans }}</h2>
             <p class="lp-danger-zone-desc">{{ 'project.delete.warning'|trans }}</p>
-            <button type="button" class="lp-btn lp-btn--danger" data-action="click->modal#open">
+            <twig:Ds:Button variant="danger" type="button" data-action="click->modal#open">
                 {{ 'project.delete.button'|trans }}
-            </button>
+            </twig:Ds:Button>
 
             <dialog data-modal-target="dialog" class="lp-dialog">
                 <div data-controller="confirm-input" data-confirm-input-expected-value="{{ project.name }}">
@@ -86,10 +86,10 @@
                             <div class="lp-field-errors">{{ form_errors(deleteForm.confirmName) }}</div>
                         </div>
                         <div class="flex items-center justify-end gap-3 pt-2">
-                            <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'project.delete.modal.cancel'|trans }}</button>
-                            <button type="submit" class="lp-btn lp-btn--danger" data-confirm-input-target="submit" disabled>
+                            <twig:Ds:Button type="button" data-action="click->modal#close">{{ 'project.delete.modal.cancel'|trans }}</twig:Ds:Button>
+                            <twig:Ds:Button variant="danger" type="submit" data-confirm-input-target="submit" disabled>
                                 {{ 'project.delete.modal.confirm'|trans }}
-                            </button>
+                            </twig:Ds:Button>
                         </div>
                     {{ form_end(deleteForm) }}
                 </div>

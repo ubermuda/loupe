@@ -13,8 +13,8 @@
         {% endfor %}
         {% include '@Review/_document_work_links.html.twig' with {form: form} only %}
         <div class="lp-review-verdict-actions">
-            <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.create.cancel'|trans }}</button>
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.create.submit'|trans }}</button>
+            <twig:Ds:Button variant="ghost" type="button" data-action="click->modal#close">{{ 'review.create.cancel'|trans }}</twig:Ds:Button>
+            <twig:Ds:Button variant="primary" type="submit">{{ 'review.create.submit'|trans }}</twig:Ds:Button>
         </div>
     {{ form_end(form) }}
 </dialog>

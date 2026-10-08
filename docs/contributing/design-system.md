@@ -7,7 +7,7 @@ The design system is the set of values and building blocks that give every page 
 
 ## The styleguide
 
-Run the app in dev and open `/styleguide`. The page draws every token group and every catalog entry from the real stylesheet. The catalog has no entry yet, and the page says so. A component appears there when its child card adds it.
+Run the app in dev and open `/styleguide`. The page draws every token group and every catalog entry from the real stylesheet. A component appears there when its child card adds it. Today the catalog holds the button.
 
 The route exists in dev only. In production it does not exist.
 
@@ -34,6 +34,29 @@ A new token appears on the styleguide with no other change.
 
 The widget and the email stylesheet cannot import `tokens.css`. They hold copies of the values they need, and a test keeps each copy equal to the token.
 In `email.css`, each copied value names its token in a trailing comment, such as `/* --accent */`, and `EmailTokensMatchAppTest` compares the two.
+
+## The components
+
+A building block is a Twig component under `templates/components/Ds/`. Its CSS lives in `assets/styles/components/<name>.css`, and its entry in `src/Module/DesignSystem/Catalog.php` lists its root class, variants and states.
+
+| Component | Use | Variants |
+|---|---|---|
+| Button | Any action or link that looks like a button | primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open, on-card. Sizes sm and lg |
+
+Write a button like this:
+
+```twig
+<twig:Ds:Button variant="primary" size="sm" type="submit">Save</twig:Ds:Button>
+<twig:Ds:Button variant="ghost" href="{{ path('app_home') }}">Back</twig:Ds:Button>
+```
+
+The component passes every other attribute to the element and appends your `class`. An `href` renders a link. A Symfony form button draws its own tag, so give it the classes with `ds_button_class('primary')`:
+
+```twig
+{{ form_widget(form.save, {attr: {class: ds_button_class('primary')}}) }}
+```
+
+`just gamache` blocks a template that writes `lp-btn` by hand.
 
 ## The rules
 

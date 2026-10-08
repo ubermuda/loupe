@@ -33,7 +33,7 @@ defines:
         {{ form_widget(form.title, {'attr': {'class': 'lp-input'}}) }}
         <div class="lp-field-errors">{{ form_errors(form.title) }}</div>
     </div>
-    <button type="submit" class="lp-btn lp-btn--primary">{{ 'x.submit'|trans }}</button>
+    <twig:Ds:Button variant="primary" type="submit">{{ 'x.submit'|trans }}</twig:Ds:Button>
 {{ form_end(form) }}
 ```
 
