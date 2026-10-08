@@ -380,7 +380,7 @@ func TestAReloadAppliesTheHeartbeatInterval(t *testing.T) {
 
 func TestAFailedEventsReadKeepsTheFlags(t *testing.T) {
 	h := newHarness(t)
-	h.router.applyFlags(api.Events{Flags: map[string]any{api.InboxFlag: true}})
+	h.router.applyFlags(api.Events{Flags: map[string]any{api.InboxFlag: true, api.HostSamplingFlag: true}})
 	src := h.source(defaultRules)
 	src.events = func(context.Context) (api.Events, error) { return api.Events{}, errors.New("server down") }
 
@@ -391,7 +391,7 @@ func TestAFailedEventsReadKeepsTheFlags(t *testing.T) {
 	}
 	h.router.mu.Lock()
 	defer h.router.mu.Unlock()
-	if !h.router.inbox {
+	if !h.router.inbox || !h.router.hostSampling {
 		t.Fatal("a failed events read changed the flags")
 	}
 }

@@ -404,8 +404,8 @@ To turn the samples on:
 4. Wait for each bridge to reconnect, or run `loupe bridge reload` for it.
 
 The bridge reads both flags from the [events endpoint](#events-endpoint) at
-start, at each reconnect and at each `loupe bridge reload`. A bridge with `collect: false` in its `rules.yaml`
-takes no sample, whatever the flags say.
+start, at each reconnect and at each `loupe bridge reload`. A bridge with
+`collect: false` in its `rules.yaml` takes no sample, whatever the flags say.
 ## Agent account
 
 `loupe agent-account set` stores the token of a separate GitHub user for

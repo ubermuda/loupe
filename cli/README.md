@@ -386,7 +386,7 @@ the next reload moves the lock to the new file. That reload fails when another
 bridge already holds the lock of the new file, or when the symlink moves again
 before the bridge applies the file.
 
-The flags stay fixed for the life of the process. To change
+The command-line flags stay fixed for the life of the process. To change
 `--permission-mode`, `--model` or `--log-file`, restart the bridge. A change to
 `maxWorkers` or `workerPools` in the rule file needs only
 [`loupe bridge reload`](#loupe-bridge-reload). The bridge

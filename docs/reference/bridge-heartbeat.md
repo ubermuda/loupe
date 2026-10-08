@@ -236,8 +236,8 @@ value it receives.
 
 `GET /api/events` shares the value with each bridge in its `flags` map. A bridge
 reads the map at start, at each reconnect and at each `loupe bridge reload`, so
-a change reaches a running bridge at its next reconnect or reload. A lower interval makes the bridges of one token
-reach the limit sooner.
+a change reaches a running bridge at its next reconnect or reload. A lower
+interval makes the bridges of one token reach the limit sooner.
 
 The project inbox page reads the interval too. It warns on an open ask when its
 bridge sent no heartbeat in the last three intervals. See

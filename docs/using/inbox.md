@@ -91,9 +91,9 @@ avatar, on the project inbox and on the account inbox.
 The dot turns amber when no heartbeat arrived in the last three heartbeat
 intervals. With the default interval of 60 seconds, that is three minutes. It
 also turns amber when no heartbeat from the bridge ever reached Loupe. A
-running bridge keeps its interval until it reconnects or reloads, so the
-warning never waits less than three default intervals, even after you lower
-the flag. While the bridge stays quiet, no resume will come. The page cannot
+running bridge keeps its interval until it reconnects or you run
+`loupe bridge reload`, so the warning never waits less than three default
+intervals, even after you lower the flag. While the bridge stays quiet, no resume will come. The page cannot
 tell why the bridge is quiet. The machine may be asleep, the bridge may have
 stopped, or the network may be down. The warning reads only the heartbeat, and
 it does not check whether the bridge still follows this project.
