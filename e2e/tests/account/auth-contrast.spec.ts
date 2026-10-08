@@ -1,4 +1,5 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 import { registerFreshUser, submitRedirectingForm } from '../helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
