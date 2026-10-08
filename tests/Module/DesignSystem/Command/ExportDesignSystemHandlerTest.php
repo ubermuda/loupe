@@ -167,12 +167,13 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         self::assertStringContainsString('<script src="../../ds-mount.js">', $card);
     }
 
-    public function test_the_card_opens_each_dialog_example(): void
+    public function test_the_card_shows_each_dialog_and_tooltip_example(): void
     {
         $card = (string) file_get_contents($this->directory.'/components/core/core.card.html');
 
         self::assertStringContainsString('<Dialog variant="document" open>document</Dialog>', $card);
         self::assertStringContainsString('.row > dialog[open] { position: static; margin: 0; }', $card);
+        self::assertStringContainsString('.row > .lp-tooltip { position: static; margin: 0; visibility: visible; opacity: 1; }', $card);
         self::assertStringContainsString('<Tabs>Example</Tabs>', $card);
     }
 
