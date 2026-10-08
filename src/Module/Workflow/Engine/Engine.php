@@ -291,7 +291,7 @@ final readonly class Engine
         if (null === $rule || null === $state || null !== $state->lastRefusal || null === $state->lastRefusalAt || !$run->applies($rule) || $this->waits($run, $rule)) {
             return;
         }
-        $resumed = $this->workerRuns->findLatestContinuationOfCard($cardId, ruleId: $rule->id);
+        $resumed = $this->workerRuns->findLatestContinuationOfCard($cardId, $pause->createdAt, $rule->id);
         $bound = $this->ruleSubject->bind($rule, $run->facts);
         if (null === $resumed || !$resumed->state->isStop() || !$bound->truth) {
             return;
