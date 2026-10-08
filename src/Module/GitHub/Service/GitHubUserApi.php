@@ -194,6 +194,26 @@ final readonly class GitHubUserApi
     }
 
     /**
+     * The seconds of `retry-after`, else the wait until the `x-ratelimit-reset` epoch.
+     *
+     * @param array<string, list<string>> $headers
+     */
+    private function retryAfter(array $headers): ?int
+    {
+        $retryAfter = $headers['retry-after'][0] ?? null;
+        if (null !== $retryAfter && ctype_digit($retryAfter)) {
+            return (int) $retryAfter;
+        }
+
+        $reset = $headers['x-ratelimit-reset'][0] ?? null;
+        if (null !== $reset && ctype_digit($reset)) {
+            return max(0, (int) $reset - $this->clock->now()->getTimestamp());
+        }
+
+        return null;
+    }
+
+    /**
      * A full last page counts as incomplete, because GitHub may hold more.
      *
      * @return array{list<array<mixed>>, bool} the entries, and whether they are all of them
@@ -245,7 +265,7 @@ final readonly class GitHubUserApi
                 $rateLimited = 429 === $status
                     || (403 === $status && ('0' === ($headers['x-ratelimit-remaining'][0] ?? null) || null !== $retryAfter));
 
-                throw new GitHubUserApiFailed('http_status', $status, $rateLimited, $rateLimited && null !== $retryAfter && ctype_digit($retryAfter) ? (int) $retryAfter : null);
+                throw new GitHubUserApiFailed('http_status', $status, $rateLimited, $rateLimited ? $this->retryAfter($headers) : null);
             }
 
             return $response->toArray();

@@ -165,6 +165,18 @@ final class GitHubPullRequestReviewPosterTest extends KernelTestCase
         self::assertSame(60, $failure->retryAfterSeconds);
     }
 
+    public function test_a_primary_rate_limit_carries_the_wait_until_the_reset(): void
+    {
+        $user = $this->connectedUser('review-reset');
+        $reset = new \DateTimeImmutable(self::NOW)->getTimestamp() + 120;
+        $this->responses = [new MockResponse('{}', ['http_code' => 403, 'response_headers' => ['x-ratelimit-remaining' => '0', 'x-ratelimit-reset' => (string) $reset]])];
+
+        $failure = $this->failure((string) $user->id);
+
+        self::assertSame('api_failed_rate_limited', $failure->cause);
+        self::assertSame(120, $failure->retryAfterSeconds);
+    }
+
     /** @return iterable<string, array{PullRequestReviewKind}> */
     public static function kindsNeedingABody(): iterable
     {
