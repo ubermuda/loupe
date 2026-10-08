@@ -356,7 +356,7 @@ final class GitHubUserConnectionFlowTest extends WebTestCase
         self::assertResponseRedirects('/account/connected-apps');
         self::assertNull($this->connectionOf($user));
         self::assertSame([], $this->apiRequests);
-        self::assertStringContainsString('Your GitHub account is disconnected.', $this->followedText());
+        self::assertStringContainsString('GitHub did not confirm the removal', $this->followedText());
     }
 
     public function test_the_page_offers_a_reconnect_when_the_refresh_token_has_ended(): void

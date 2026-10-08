@@ -54,7 +54,6 @@ final readonly class DisconnectGitHubHandler
         } catch (\RuntimeException $e) {
             // An unreadable token, such as one made under another APP_ENCRYPTION_KEY, cannot be revoked.
             $this->logger->warning('github.user_token_unreadable', ['userId' => $userId, 'exception' => $e::class]);
-            $revoked = true;
         } finally {
             $this->gitHubUserConnections->deleteForUser(Uuid::fromString($userId));
         }
