@@ -222,6 +222,10 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         self::assertStringContainsString('<Input variant="mono" placeholder="mono" />', $card);
         self::assertStringNotContainsString('</Input>', $card);
         self::assertStringContainsString('<Select><option>Example</option></Select>', $card);
+        self::assertStringContainsString('children?: never;', (string) file_get_contents($this->directory.'/components/core/Input.d.ts'));
+        self::assertStringContainsString("const classes = ['lp-input', 'lp-select'];", (string) file_get_contents($this->directory.'/components/core/Select.jsx'));
+        self::assertStringContainsString("const classes = ['lp-input', 'lp-textarea'];", (string) file_get_contents($this->directory.'/components/core/Textarea.jsx'));
+        self::assertStringContainsString("const classes = ['lp-label'];", (string) file_get_contents($this->directory.'/components/core/Label.jsx'));
         self::assertStringContainsString('<label {...rest} className={className}>', (string) file_get_contents($this->directory.'/components/core/Label.jsx'));
     }
 }
