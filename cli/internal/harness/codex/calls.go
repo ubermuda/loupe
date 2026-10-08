@@ -23,6 +23,8 @@ type rawCall struct {
 	answered bool
 	// failed is what the output says of an error, and nil when it says nothing.
 	failed *bool
+	// finished says the output reports that the script ended.
+	finished bool
 	// taskName is the agent path the output of spawn_agent names.
 	taskName string
 	// shell holds the shell text of each command the call ran, and exits
@@ -76,6 +78,7 @@ func (s *session) item(at time.Time, raw json.RawMessage) {
 		c.answered, c.end = true, at
 		text := outputText(p.Output)
 		c.failed = outputError(text)
+		c.finished = strings.HasPrefix(text, "Script completed") || strings.HasPrefix(text, "Script failed") || strings.HasPrefix(text, "Script error")
 		if c.name == "spawn_agent" {
 			var out struct {
 				TaskName string `json:"task_name"`
@@ -90,7 +93,7 @@ func (s *session) item(at time.Time, raw json.RawMessage) {
 // open then. A command can end after the script that started it answered, so
 // its start and not its end picks the call. A script that yields answers
 // before it runs its next command, so with no open call the latest shell call
-// that started before the command takes it.
+// that started before the command and did not report its end takes it.
 func (s *session) attach(at time.Time, text string, exit *int) {
 	latest := -1
 	for j := len(s.shells) - 1; j >= 0; j-- {
@@ -98,7 +101,7 @@ func (s *session) attach(at time.Time, text string, exit *int) {
 		if c.start.After(at) {
 			continue
 		}
-		if latest < 0 {
+		if latest < 0 && !c.finished {
 			latest = s.shells[j]
 		}
 		if c.answered && c.end.Before(at) {

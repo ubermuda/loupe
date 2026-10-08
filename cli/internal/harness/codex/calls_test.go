@@ -238,7 +238,10 @@ func TestEachCommandGoesToTheShellCallOpenWhenItStarted(t *testing.T) {
 		call("2026-10-08T10:00:01.000Z", "custom_tool_call", "c1", "exec", "input", "tools.exec_command(...)"),
 		output("2026-10-08T10:00:02.000Z", "custom_tool_call_output", "c1", "Script running with cell ID 1"),
 		command("2026-10-08T10:00:03.000Z", main, milli("2026-10-08T10:00:01.500Z"), "git diff | head", 1),
-		// The yielded script runs its next command after it answered.
+		// The yielded script runs its next command after it answered, and
+		// after a later script ended.
+		call("2026-10-08T10:00:02.100Z", "custom_tool_call", "c0", "exec", "input", "tools.exec_command(...)"),
+		output("2026-10-08T10:00:02.200Z", "custom_tool_call_output", "c0", "Script completed\nWall time 0.1 seconds\nOutput:\n"),
 		command("2026-10-08T10:00:03.500Z", main, milli("2026-10-08T10:00:02.500Z"), "git status", 0),
 		// A command of another thread, such as a review, goes nowhere.
 		call("2026-10-08T10:00:04.000Z", "custom_tool_call", "c2", "exec", "input", "tools.exec_command(...)"),
@@ -280,6 +283,7 @@ func TestEachCommandGoesToTheShellCallOpenWhenItStarted(t *testing.T) {
 	}
 	want := []row{
 		{"exec", stream.KindShell, flag(true), []string{"git diff", "head", "git status"}, ms(1000), false},
+		{"exec", stream.KindTool, nil, []string{"exec"}, ms(100), false},
 		{"exec", stream.KindTool, flag(true), []string{"exec"}, ms(1000), false},
 		{"exec_command", stream.KindShell, flag(true), []string{"just phpunit"}, ms(1000), false},
 		{"spawn_agent", stream.KindSubagent, nil, []string{"spawn_agent"}, ms(12000), false},
