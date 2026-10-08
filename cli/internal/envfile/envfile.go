@@ -3,7 +3,6 @@
 package envfile
 
 import (
-	"cmp"
 	"fmt"
 	"os"
 	"os/exec"
@@ -71,7 +70,8 @@ func Overlay(environ, pairs []string) []string {
 }
 
 // LookPath finds program on the PATH of env, which a worker shell searches,
-// and on the PATH of the bridge when env sets none.
+// and on the PATH of the bridge when env sets none. It skips a relative entry,
+// as exec.LookPath does, because the shell reads it from another folder.
 func LookPath(program string, env []string) (string, error) {
 	path, ok := "", false
 	for _, kv := range env {
@@ -83,7 +83,10 @@ func LookPath(program string, env []string) (string, error) {
 		return exec.LookPath(program)
 	}
 	for _, dir := range filepath.SplitList(path) {
-		candidate := filepath.Join(cmp.Or(dir, "."), program)
+		if !filepath.IsAbs(dir) {
+			continue
+		}
+		candidate := filepath.Join(dir, program)
 		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
 			return candidate, nil
 		}

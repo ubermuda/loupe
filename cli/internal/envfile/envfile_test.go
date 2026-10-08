@@ -101,6 +101,10 @@ func TestLookPathSearchesThePathOfTheEnvironment(t *testing.T) {
 	if got, err := LookPath("tool", []string{"PATH=" + t.TempDir() + string(os.PathListSeparator) + bin}); err != nil || got != program {
 		t.Fatalf("LookPath = %q, %v, want %q", got, err, program)
 	}
+	t.Chdir(filepath.Dir(bin))
+	if _, err := LookPath("tool", []string{"PATH=" + filepath.Base(bin)}); err == nil {
+		t.Fatal("LookPath found tool through a relative PATH entry")
+	}
 	if _, err := LookPath("tool", []string{"PATH=" + t.TempDir()}); err == nil {
 		t.Fatal("LookPath found tool on a PATH that does not hold it")
 	}
