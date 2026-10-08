@@ -339,15 +339,21 @@ test('margin filters keep counts and visibility after thread updates', async ({
     await expect(trigger).toBeFocused();
 });
 
-/** Every visible thread's `top`, in DOM order. */
+/**
+ * Every visible thread's `top` inside the thread list, in DOM order. A new
+ * comment scrolls the panel to its card, so a viewport `top` moves with that.
+ */
 async function threadTops(page: Page): Promise<number[]> {
-    return page.evaluate(() =>
-        [...document.querySelectorAll('.lp-comment-thread')]
+    return page.evaluate(() => {
+        const list = document.querySelector('.lp-comment-threads')!;
+        const origin = list.getBoundingClientRect().top - list.scrollTop;
+
+        return [...list.querySelectorAll('.lp-comment-thread')]
             .filter((thread) => (thread as HTMLElement).offsetParent !== null)
             .map((thread) =>
-                Math.round((thread as HTMLElement).getBoundingClientRect().top),
-            ),
-    );
+                Math.round(thread.getBoundingClientRect().top - origin),
+            );
+    });
 }
 
 async function seedThreeThreads(page: Page): Promise<void> {
