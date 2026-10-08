@@ -26,7 +26,7 @@ final readonly class TemplateParser
     private const array COLUMN_FLAGS = ['@backlog', '@terminal'];
     private const string ANY_COLUMN = '*';
     private const array RULE_KEYS = ['id', 'slot', 'when', 'then'];
-    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic'];
+    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check'];
     private const array ON_TIMEOUT = ['pause', 'expire'];
     private const array EVALUATED_CARDS = ['children'];
 

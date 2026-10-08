@@ -7637,6 +7637,10 @@
             <trans-unit id="workflow.waiting.not.card_is_child"><source>workflow.waiting.not.card_is_child</source><target>Waiting: the card is a child of an epic.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_discovery_requested"><source>workflow.waiting.card_discovery_requested</source><target>Waiting: the card has no requested discovery.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_discovery_requested"><source>workflow.waiting.not.card_discovery_requested</source><target>Waiting: the card has a requested discovery.</target></trans-unit>
+            <trans-unit id="workflow.waiting.site_review_verdict_unsent"><source>workflow.waiting.site_review_verdict_unsent</source><target>Waiting: no verdict of the card waits to be sent.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.site_review_verdict_unsent"><source>workflow.waiting.not.site_review_verdict_unsent</source><target>Waiting: a verdict of the card waits to be sent.</target></trans-unit>
+            <trans-unit id="workflow.waiting.site_review_check_stale"><source>workflow.waiting.site_review_check_stale</source><target>Waiting: the site review check of each open pull request is up to date.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.site_review_check_stale"><source>workflow.waiting.not.site_review_check_stale</source><target>Waiting: the site review check of an open pull request is out of date.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_child_merged_into_epic_branch"><source>workflow.waiting.card_child_merged_into_epic_branch</source><target>Waiting: no child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_child_merged_into_epic_branch"><source>workflow.waiting.not.card_child_merged_into_epic_branch</source><target>Waiting: a child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_has_children"><source>workflow.waiting.card_has_children</source><target>Waiting: the card has no child cards.</target></trans-unit>
@@ -7873,6 +7877,11 @@
             <trans-unit id="readiness.form.update_agent_account_form.login.help"><source>readiness.form.update_agent_account_form.login.help</source><target>Leave it empty to clear the recorded login.</target></trans-unit>
             <trans-unit id="readiness.discovery.reason.no_taker"><source>readiness.discovery.reason.no_taker</source><target>No bridge took the work.</target></trans-unit>
             <trans-unit id="readiness.discovery.reason.card_moved"><source>readiness.discovery.reason.card_moved</source><target>The discovery card left Backlog before the work ended.</target></trans-unit>
+            <trans-unit id="board.verdict.action.post_review"><source>board.verdict.action.post_review</source><target>Posts your verdict as a review on the pull requests you pick.</target></trans-unit>
+            <trans-unit id="board.verdict.review.fallback_body"><source>board.verdict.review.fallback_body</source><target>Reviewed in the Loupe site review.</target></trans-unit>
+            <trans-unit id="board.site_review_check.title"><source>board.site_review_check.title</source><target>{0} No open site review notes|{1} One site review note is open|]1,Inf[ %count% site review notes are open</target></trans-unit>
+            <trans-unit id="board.site_review_check.summary_clear"><source>board.site_review_check.summary_clear</source><target>Every site review note of this card is closed.</target></trans-unit>
+            <trans-unit id="board.site_review_check.summary_more"><source>board.site_review_check.summary_more</source><target>{0} No more notes.|{1} And one more note.|]1,Inf[ And %count% more notes.</target></trans-unit>
         </body>
     </file>
 </xliff>

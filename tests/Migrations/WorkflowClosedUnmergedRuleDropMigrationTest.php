@@ -7,6 +7,8 @@ namespace App\Tests\Migrations;
 use App\Module\Board\Entity\Card;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowRuleState;
+use App\Module\Workflow\Template\Rule;
+use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateSource;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Doctrine\DBAL\Schema\Schema;
@@ -39,7 +41,8 @@ final class WorkflowClosedUnmergedRuleDropMigrationTest extends KernelTestCase
         self::assertEquals([self::MERGED], $this->rulesOf($stale));
         self::assertEquals([self::MERGED], $this->rulesOf($current));
         $template = self::getContainer()->get(TemplateSource::class)->forProject($stale->project->id ?? throw new \LogicException('The project is flushed.'));
-        self::assertSame(['merged'], array_map(static fn ($rule) => $rule->id, $template->rulesFor(null)));
+        $templateRules = array_filter($template->rulesFor(null), static fn (Rule $rule): bool => RuleOrigin::Template === $rule->origin);
+        self::assertSame(['merged'], array_values(array_map(static fn (Rule $rule): string => $rule->id, $templateRules)));
     }
 
     public function test_the_rule_memory_of_a_dropped_rule_goes_so_its_retry_never_comes_due(): void

@@ -7,7 +7,10 @@ namespace App\Module\Board\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardVerdict;
+use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /** @extends ServiceEntityRepository<CardVerdict> */
@@ -42,5 +45,44 @@ class CardVerdictRepository extends ServiceEntityRepository
             ->addOrderBy('v.id', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    /** @return list<CardVerdict> */
+    public function findForCard(Card $card): array
+    {
+        return array_values($this->createQueryBuilder('v')
+            ->andWhere('v.card = :card')
+            ->setParameter('card', $card)
+            ->orderBy('v.createdAt', 'ASC')
+            ->addOrderBy('v.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * Which of those notes are still pending. A deleted note is not.
+     *
+     * @param list<string> $noteIds
+     *
+     * @return list<string>
+     */
+    public function findPendingNoteIds(array $noteIds): array
+    {
+        if ([] === $noteIds) {
+            return [];
+        }
+
+        /** @var list<array{id: \Symfony\Component\Uid\Uuid}> $rows */
+        $rows = $this->getEntityManager()->createQueryBuilder()
+            ->select('c.id')
+            ->from(SiteReviewComment::class, 'c')
+            ->andWhere('c.id IN (:ids)')
+            ->andWhere('c.status = :pending')
+            ->setParameter('ids', $noteIds, ArrayParameterType::STRING)
+            ->setParameter('pending', SiteReviewCommentStatus::Pending)
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (array $row): string => (string) $row['id'], $rows);
     }
 }

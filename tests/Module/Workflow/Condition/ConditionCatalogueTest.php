@@ -47,6 +47,8 @@ final class ConditionCatalogueTest extends KernelTestCase
             'run.last_refusal',
             'run.work_active',
             'run.worker_active',
+            'site_review.check_stale',
+            'site_review.verdict_unsent',
         ], $keys);
     }
 
@@ -71,7 +73,7 @@ final class ConditionCatalogueTest extends KernelTestCase
         $translator = static::getContainer()->get('translator');
         self::assertInstanceOf(TranslatorBagInterface::class, $translator);
         $catalogue = $translator->getCatalogue('en');
-        $sources = ['card' => 'workflow.source.board', 'pr' => 'workflow.source.forge', 'run' => 'workflow.source.bridge', 'parent' => 'workflow.source.bridge'];
+        $sources = ['card' => 'workflow.source.board', 'pr' => 'workflow.source.forge', 'run' => 'workflow.source.bridge', 'site_review' => 'workflow.source.board', 'parent' => 'workflow.source.bridge'];
         $sourceOfKey = ['card.discovery_requested' => 'workflow.source.readiness'];
 
         foreach (self::catalogueKeys($conditions) as $key) {

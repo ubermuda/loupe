@@ -13,6 +13,8 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardEventCause;
+use App\Module\Board\Service\SiteReviewCheckPublisher;
+use App\Module\Board\Service\VerdictReviewSettler;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -22,6 +24,7 @@ use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
+use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Service\CardPullRequests;
@@ -52,6 +55,9 @@ final readonly class ForgeWrite implements Action
         private WorkRequestOpener $opener,
         private UpdateCardHandler $updateCard,
         private UrlGeneratorInterface $urlGenerator,
+        private VerdictReviewSettler $reviewSettler,
+        private SiteReviewCheckPublisher $checkPublisher,
+        private CardEvaluations $evaluations,
 
         #[Autowire(param: 'app.workflow.merge_method')]
         private string $mergeMethod,
@@ -75,6 +81,15 @@ final readonly class ForgeWrite implements Action
         $pullRequests = $this->cardPullRequests->forCard($card);
         if (ForgeWriteKind::OpenEpic === $write) {
             return $this->openEpic($rule, $card, $pullRequests);
+        }
+        if (ForgeWriteKind::PostReview === $write || ForgeWriteKind::SiteReviewCheck === $write) {
+            $result = ForgeWriteKind::PostReview === $write ? $this->reviewSettler->settle($card) : $this->checkPublisher->publish($card);
+            // The engine keeps the truth of the facts it built before the write, so only a new evaluation resets it.
+            if ($result->changed && $this->evaluations->isOn()) {
+                $this->evaluations->forCards([$card->id ?? throw new \LogicException('A stored card has an id.')]);
+            }
+
+            return null === $result->failure ? ActionOutcome::done() : ActionOutcome::refused($result->failure);
         }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
             if ([] === $pullRequests) {
@@ -117,6 +132,8 @@ final readonly class ForgeWrite implements Action
             ForgeWriteKind::Draft, ForgeWriteKind::Ready => $settings->epicDraftSwitch,
             ForgeWriteKind::Close => $settings->closeEpicPullRequests,
             ForgeWriteKind::OpenEpic => $settings->openEpicPullRequests,
+            ForgeWriteKind::PostReview => $settings->postWidgetReviews,
+            ForgeWriteKind::SiteReviewCheck => $settings->siteReviewCheck,
             ForgeWriteKind::Comment => false,
         };
     }
