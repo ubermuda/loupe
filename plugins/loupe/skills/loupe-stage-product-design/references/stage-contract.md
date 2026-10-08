@@ -42,7 +42,7 @@ When no linked document matches, page `document_list` for the title the stage sk
 The owner can answer a decision after a worker writes the text of a design. `document_get` returns only the text, so read the answers too.
 
 1. After `document_get`, call `document_get_review` on the same document. Read its `decisions` list. A design with no `decisions` field has no answers.
-2. A decision is answered when `selected` is set, or `selections` is not empty.
+2. A decision is answered when `selected` is set, when `selections` is not empty, or when rule 5 accepts its note.
 3. The answer wins over the text, also over a `**Decided:**` line that names another option.
 4. A note beside a picked option is part of the answer.
 5. A note with no pick is an answer when it names one option, or one clear way to go.

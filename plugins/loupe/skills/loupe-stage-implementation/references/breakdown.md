@@ -57,18 +57,19 @@ The breakdown changes the board, and the remote branches when the profile has an
 
    When the push fails, stop with `STAGE RESULT: blocked: epic branch push refused: <message>`. An epic with no epic branch and a child that links a pull request started on the old flow. Push nothing for it, so its children keep the profile base branch.
 7. For each entry with no child, call `card_create` with no `status`, so the child lands in `<default>`. Send the title of the entry, the entry line and the whole entry as the body, the card id as `parentCardId`, and `<design>` in `documentIds`. The type is the type step 4 noted, or `feature` when that type was `epic`.
-8. Set the blockers in a second pass, because an entry can name a child that step 7 creates later. For each child whose entry names blockers, read the child with `card_get` just before the write. Send its `relatedCards` back, plus a `blocked-by` entry for each blocker that it does not already carry. `relatedCards` replaces every link of the card, so never send the new entries alone.
-9. Move each child that matches an entry, sits in `<default>` and has no open blocker to `<implementation>` with `card_update`. A blocker is open when its `status` is not `<terminal>`. A decision blocker is open while the decision has no usable answer. Skip a child whose body opens with `**Parked.**`, because the owner paused it. These moves are the only moves the breakdown makes. The epic stays in its column.
+8. Set the blockers in a second pass, because an entry can name a child that step 7 creates later. For each child whose entry names blockers, read the child with `card_get` just before the write. Send its `relatedCards` back, plus a `blocked-by` entry for each entry blocker that it does not already carry. Skip a decision blocker. `relatedCards` replaces every link of the card, so never send the new entries alone.
+9. Move each child that matches an entry, sits in `<default>` and has no open blocker to `<implementation>` with `card_update`. A blocker is open when its `status` is not `<terminal>`. A decision blocker is open while the decision has no usable answer. No event starts a child when that answer arrives, so list each such child after the result line, as `Waits: #<child> on <decision id>`. A person answers the decision, then moves the child to `<implementation>`. Skip a child whose body opens with `**Parked.**`, because the owner paused it. These moves are the only moves the breakdown makes. The epic stays in its column.
 
 The result line is `STAGE RESULT: breakdown <n> children, <m> started`. `<n>` is the number of children the epic has after step 7, and `<m>` is the number of children step 9 moved.
 
-After the result line, list each match on its own short line: the entry ID, the child number, and the reason. The reason is `entry line`, `judgement` or `owner`. Then list each child that step 7 created. The bridge keeps only the first 4 KB of the reply, so write nothing else on a line:
+After the result line, list each match on its own short line: the entry ID, the child number, and the reason. The reason is `entry line`, `judgement` or `owner`. Then list each child that step 7 created, and each child that waits on a decision. The bridge keeps only the first 4 KB of the reply, so write nothing else on a line:
 
 ```text
 B1: #231 (entry line)
 B2: #232 (judgement)
 B3: #240 (owner)
 Created: B4 #245, B5 #246
+Waits: #246 on D2
 ```
 
 A design with no Breakdown section gives the epic no entries. The run then creates nothing and moves nothing.
