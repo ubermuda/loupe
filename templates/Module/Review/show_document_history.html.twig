@@ -16,7 +16,7 @@
 
 {% block topbar_actions %}
 {% if document.status.value in ['draft', 'in-review'] %}
-{% include '@Review/_finish_review_button.html.twig' only %}
+{% include '@Review/_finish_review_button.html.twig' with {inReviewMenu: false} only %}
 {% endif %}
 {% endblock %}
 

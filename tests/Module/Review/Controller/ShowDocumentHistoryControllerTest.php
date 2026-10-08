@@ -72,6 +72,7 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
         self::assertSelectorExists('#finish-review-title');
         self::assertSelectorExists('.lp-review-topbar-actions button[data-action="click->review-finish#open"]');
         self::assertSelectorExists('.lp-review[data-action="review:finish@window->modal#open"]');
+        self::assertSelectorNotExists('.lp-review-topbar-actions--finish');
         self::assertSelectorExists('input[name="submit_review_form[versionNumber]"][value="3"]');
 
         self::assertSame(

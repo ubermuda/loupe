@@ -23,7 +23,7 @@
 {% block topbar_actions %}
 {% if not diffMode and not readOnly %}
 {% if document.status.value in ['draft', 'in-review'] %}
-{% include '@Review/_finish_review_button.html.twig' only %}
+{% include '@Review/_finish_review_button.html.twig' with {inReviewMenu: true} only %}
 {% elseif document.status.value in ['approved', 'changes-requested'] %}
 <div class="lp-review-topbar-actions">
     <span class="lp-verdict-chip lp-verdict-chip--{{ document.status.value }}" title="{{ ('review.document.verdict.' ~ document.status.value ~ '_detail')|trans }}">
