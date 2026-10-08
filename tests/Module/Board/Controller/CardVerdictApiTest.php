@@ -77,8 +77,10 @@ final class CardVerdictApiTest extends WebTestCase
         self::assertCount(1, $deliveries);
         self::assertSame(CardVerdictDeliveryState::Pending, $deliveries[0]->state);
 
-        $deliveries[0]->state = CardVerdictDeliveryState::Refused;
-        $deliveries[0]->reason = CardVerdictDelivery::REASON_CONNECTION_EXPIRED;
+        $delivery = $this->em->find(CardVerdictDelivery::class, $deliveries[0]->id);
+        self::assertInstanceOf(CardVerdictDelivery::class, $delivery);
+        $delivery->state = CardVerdictDeliveryState::Refused;
+        $delivery->reason = CardVerdictDelivery::REASON_CONNECTION_EXPIRED;
         $this->em->flush();
 
         $panel = $this->call($client, Request::METHOD_GET, $this->panelPath($card), $raw);
