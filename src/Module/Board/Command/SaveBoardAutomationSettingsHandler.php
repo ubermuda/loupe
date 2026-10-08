@@ -50,6 +50,8 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->epicDraftSwitch = $command->epicDraftSwitch;
         $settings->closeEpicPullRequests = $command->closeEpicPullRequests;
         $settings->openEpicPullRequests = $command->openEpicPullRequests;
+        $settings->postWidgetReviews = $command->postWidgetReviews;
+        $settings->siteReviewCheck = $command->siteReviewCheck;
         $settings->epicBranchPattern = '' === $epicBranchPattern ? null : $epicBranchPattern;
         $this->em->flush();
         $this->events->dispatch(new BoardAutomationSettingsSaved(
@@ -74,6 +76,8 @@ final readonly class SaveBoardAutomationSettingsHandler
             'epicDraftSwitch' => $command->epicDraftSwitch,
             'closeEpicPullRequests' => $command->closeEpicPullRequests,
             'openEpicPullRequests' => $command->openEpicPullRequests,
+            'postWidgetReviews' => $command->postWidgetReviews,
+            'siteReviewCheck' => $command->siteReviewCheck,
             'epicBranchPattern' => $settings->epicBranchPattern,
         ]);
     }

@@ -367,15 +367,17 @@ timeline. A row says who created the card and in which column, and who moved
 it from one column to another. When Loupe moved the card on its own, a line
 under the row says why, for example after a pull request merged. An agent's
 move inside a worker run names that run on the same line. The tab also
-records when the automation asked for a fix or stopped, with the reason, and
-when a pull request was ready to merge. A finished agent run shows its
+records when the automation asked for a fix or stopped, with the reason, when
+a pull request was ready to merge, and when a verdict was sent from the
+site-review widget. A finished agent run shows its
 rule, its duration and its result, and it links to the run while the run is
 kept.
 
 A row names a person by their full name. An agent's change reads **Agent for**
 and the name of the person the agent works for. A change by the app reads
 **Loupe**. A change from the site-review widget reads **A reviewer**, because
-the widget does not name its visitor. A deleted account reads **A deleted
+the widget does not name its visitor. A verdict is the exception, because the
+reviewer signs in to send it, so its row names the reviewer. A deleted account reads **A deleted
 user**. The tab shows 50 rows, and **Show older** loads the next 50 in
 place. Loupe records history from the version that added this tab, so an
 older card starts with an empty tab.
@@ -782,6 +784,8 @@ as its template says.
 | **Switch an epic pull request between draft and ready when the workflow asks** | off | When on, Loupe marks the pull request of an epic as a draft in implementation, and as ready in review. The GitHub App needs "Pull requests: read and write" |
 | **Close the pull requests of an epic when the workflow asks** | off | When on, Loupe closes the pull requests of an epic that moves back to the Backlog. The GitHub App needs "Pull requests: read and write" |
 | **Open the epic pull request** | off | When on, Loupe opens a draft pull request from the epic branch to the default branch after the first child merges into the epic branch, and links it to the epic. The GitHub App needs "Pull requests: read and write" |
+| **Post a widget verdict as a review on GitHub** | off | When on, a verdict that a reviewer sends from the site-review widget becomes a review on the pull requests of the card, under the reviewer's own GitHub account. Loupe stores the verdict and its notes with this setting off or on |
+| **Keep a "Loupe site review" check on pull requests** | off | When on, Loupe posts a check named "Loupe site review" on each open pull request of a managed card. The check fails while open site-review notes remain. The GitHub App needs "Checks: read and write" |
 | **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
 
 The draft and ready switch and the close write were on for each board whose automation was on before the

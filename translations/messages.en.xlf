@@ -6453,6 +6453,10 @@
             <trans-unit id="board.card.history.run_not_started_no_kind"><source>board.card.history.run_not_started_no_kind</source><target>A worker did not run.</target></trans-unit>
             <trans-unit id="board.card.history.paused"><source>board.card.history.paused</source><target>%actor% paused the card because %kind%.</target></trans-unit>
             <trans-unit id="board.card.history.pause_released"><source>board.card.history.pause_released</source><target>%actor% released a pause set because %kind%.</target></trans-unit>
+            <trans-unit id="board.card.history.verdict"><source>board.card.history.verdict</source><target>%actor% sent a verdict from the site-review widget: %verdict%.</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.approve"><source>board.card.history.verdict_kind.approve</source><target>approve</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.request_changes"><source>board.card.history.verdict_kind.request_changes</source><target>request changes</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.comment"><source>board.card.history.verdict_kind.comment</source><target>comment</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.rule"><source>board.card.history.pause_kind.rule</source><target>a workflow rule asked for it</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.retries"><source>board.card.history.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.work_limit"><source>board.card.history.pause_kind.work_limit</source><target>a rule reached its work limit</target></trans-unit>
@@ -6965,6 +6969,22 @@
             <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.help">
                 <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.help</source>
                 <target>Loupe opens a draft pull request from the epic branch to the default branch after the first child merges, and links it to the epic. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.label">
+                <source>board.form.save_board_automation_settings_form.post_widget_reviews.label</source>
+                <target>Post a widget verdict as a review on GitHub</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.help">
+                <source>board.form.save_board_automation_settings_form.post_widget_reviews.help</source>
+                <target>When a reviewer sends a verdict from the site-review widget, Loupe posts it as a review on the pull requests of the card, under the reviewer's own GitHub account. The reviewer connects that account once.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.label">
+                <source>board.form.save_board_automation_settings_form.site_review_check.label</source>
+                <target>Keep a "Loupe site review" check on pull requests</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
+                <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
+                <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
                 <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>

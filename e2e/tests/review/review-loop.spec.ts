@@ -738,6 +738,8 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     context,
     review,
 }) => {
+    // Two tabs, a submit and three page loads, each a server round trip.
+    test.slow();
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();

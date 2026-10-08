@@ -53,7 +53,7 @@
                         </div>
                     {% endif %}
                 </div>
-                {% for field in [form.commentOnStaleApproval, form.syncBehind, form.mergePullRequests, form.changeBase, form.epicDraftSwitch, form.closeEpicPullRequests, form.openEpicPullRequests] %}
+                {% for field in [form.commentOnStaleApproval, form.syncBehind, form.mergePullRequests, form.changeBase, form.epicDraftSwitch, form.closeEpicPullRequests, form.openEpicPullRequests, form.postWidgetReviews, form.siteReviewCheck] %}
                 <div class="lp-form-field">
                     <label class="lp-choice">
                         {{ form_widget(field) }}
