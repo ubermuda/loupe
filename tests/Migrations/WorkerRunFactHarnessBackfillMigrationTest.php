@@ -17,7 +17,7 @@ final class WorkerRunFactHarnessBackfillMigrationTest extends KernelTestCase
 {
     use BridgeScenario;
 
-    public function test_a_fact_takes_the_harness_of_its_run_and_an_agent_fact_with_none_ran_claude_code(): void
+    public function test_a_fact_takes_the_harness_of_its_run_and_an_agent_fact_whose_run_is_gone_ran_claude_code(): void
     {
         self::bootKernel();
         $em = $this->em();
@@ -26,8 +26,9 @@ final class WorkerRunFactHarnessBackfillMigrationTest extends KernelTestCase
         $unnamed = $this->seedRun($em, $project, cardNumber: 2);
         $swept = $this->seedRun($em, $project, cardNumber: 3);
         $command = $this->seedRun($em, $project, cardNumber: 4, kind: WorkerRunKind::Command);
+        $sweptCommand = $this->seedRun($em, $project, cardNumber: 5, kind: WorkerRunKind::Command);
         $connection = $em->getConnection();
-        $connection->executeStatement('DELETE FROM bridge_worker_runs WHERE id = ?', [(string) $swept->id]);
+        $connection->executeStatement('DELETE FROM bridge_worker_runs WHERE id IN (?, ?)', [(string) $swept->id, (string) $sweptCommand->id]);
         $em->clear();
 
         foreach (['down', 'up'] as $direction) {
@@ -40,9 +41,10 @@ final class WorkerRunFactHarnessBackfillMigrationTest extends KernelTestCase
 
         self::assertSame([
             (string) $codex->id => ['codex', 'work'],
-            (string) $unnamed->id => ['claude-code', null],
+            (string) $unnamed->id => [null, null],
             (string) $swept->id => ['claude-code', null],
             (string) $command->id => [null, null],
+            (string) $sweptCommand->id => [null, null],
         ], array_map(
             static fn (array $row): array => [$row['harness'], $row['account']],
             $connection->fetchAllAssociativeIndexed('SELECT run_id, harness, account FROM bridge_worker_run_facts WHERE project_id = ? ORDER BY run_id', [(string) $project->id]),
