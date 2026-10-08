@@ -127,21 +127,24 @@ final class DocumentWorkLinksControllerTest extends WebTestCase
         $owner = $this->user($em, 'document-flushing-listener@example.test');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Linked card');
-        $flushes = 0;
+        $cardDocuments = static::getContainer()->get(CardDocumentRepository::class);
+        $seen = [];
         static::getContainer()->get(EventDispatcherInterface::class)->addListener(
             CardDocumentsChanged::class,
-            static function () use ($em, &$flushes): void {
+            static function () use ($em, $cardDocuments, $card, &$seen): void {
                 $em->flush();
-                ++$flushes;
+                $seen[] = $cardDocuments->findStatusesAndTagsForCard($card);
             },
         );
 
         $document = (static::getContainer()->get(CreateDocumentHandler::class))(new CreateDocumentCommand(
             $project, 'Flushed document', '# Flushed',
+            tagNames: ['tech-design'],
             workLinkIds: [(string) $card->id],
         ));
 
-        self::assertSame(1, $flushes);
+        self::assertCount(1, $seen);
+        self::assertSame([['tech-design']], array_column($seen[0], 'tags'));
         self::assertSame(1, static::getContainer()->get(CardDocumentRepository::class)->count(['document' => $document->id]));
     }
 
