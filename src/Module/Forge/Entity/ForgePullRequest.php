@@ -49,6 +49,13 @@ class ForgePullRequest
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $headBranch = null;
 
+    /** The forge's id of the account that opened the pull request. */
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $authorId = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    public ?string $authorLogin = null;
+
     #[ORM\Column(length: 20, enumType: PullRequestChecks::class)]
     public PullRequestChecks $checks = PullRequestChecks::Pending;
 
@@ -212,6 +219,8 @@ class ForgePullRequest
         $this->draft = $snapshot->draft;
         $this->headSha = $snapshot->headSha;
         $this->headBranch = $snapshot->headBranch;
+        $this->authorId = $snapshot->authorId;
+        $this->authorLogin = $snapshot->authorLogin;
         $this->baseBranch = $snapshot->baseBranch;
         $this->checks = $snapshot->checks;
         $this->checksSha = $snapshot->checksSha;
@@ -272,6 +281,8 @@ class ForgePullRequest
             $this->approvalId,
             $this->coveredSha,
             $this->headBranch,
+            $this->authorId,
+            $this->authorLogin,
         );
     }
 }

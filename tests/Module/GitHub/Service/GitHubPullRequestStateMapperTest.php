@@ -375,6 +375,28 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->headBranch);
     }
 
+    /** @return iterable<string, array{mixed, ?string, ?string}> */
+    public static function authors(): iterable
+    {
+        yield 'a user' => [['login' => 'ubermuda', 'databaseId' => 1234], '1234', 'ubermuda'];
+        yield 'a bot has a login and no id' => [['login' => 'dependabot'], null, 'dependabot'];
+        yield 'a deleted account' => [null, null, null];
+        yield 'an empty login' => [['login' => '', 'databaseId' => 0], null, null];
+        yield 'values of the wrong type' => [['login' => 7, 'databaseId' => '12'], null, null];
+    }
+
+    #[DataProvider('authors')]
+    public function test_the_author(mixed $author, ?string $expectedId, ?string $expectedLogin): void
+    {
+        $node = self::pullRequest604();
+        $node['author'] = $author;
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
+
+        self::assertSame($expectedId, $snapshot->authorId);
+        self::assertSame($expectedLogin, $snapshot->authorLogin);
+    }
+
     /** @return iterable<string, array{mixed, list<string>}> */
     public static function headParents(): iterable
     {
