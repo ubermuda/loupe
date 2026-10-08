@@ -10,53 +10,41 @@
 {% set formAttributes = formAttributes|merge(card ? {'data-card-drawer-card-id': card.id} : {'data-card-drawer-creates-card': ''}) %}
 {% if saved %}{% set formAttributes = formAttributes|merge({'data-submit-feedback-saved-value': 'true'}) %}{% endif %}
 {{ form_start(form, {action: action, attr: formAttributes}) }}
-    <div class="lp-field-errors">{{ form_errors(form) }}</div>
+    <twig:Ds:FieldErrors :fieldView="form" />
 
-    <div class="lp-form-field">
-        {{ form_label(form.title, null, {label_attr: {class: 'lp-label'}}) }}
-        {{ form_widget(form.title, {attr: {class: 'lp-input'}}) }}
-        <div class="lp-field-errors">{{ form_errors(form.title) }}</div>
-    </div>
+    <twig:Ds:FormField :fieldView="form.title" />
 
     <div class="lp-card-form-row">
-        <div class="lp-form-field">
-            {{ form_label(form.type, null, {label_attr: {class: 'lp-label'}}) }}
-            {{ form_widget(form.type, {attr: {class: 'lp-input lp-select'}}) }}
-            <div class="lp-field-errors">{{ form_errors(form.type) }}</div>
-        </div>
-        <div class="lp-form-field">
-            {{ form_label(form.column, null, {label_attr: {class: 'lp-label'}}) }}
-            {{ form_widget(form.column, {attr: {class: 'lp-input lp-select'}}) }}
-            <div class="lp-field-errors">{{ form_errors(form.column) }}</div>
-        </div>
+        <twig:Ds:FormField :fieldView="form.type" widgetKind="select" />
+        <twig:Ds:FormField :fieldView="form.column" widgetKind="select" />
     </div>
 
-    <div class="lp-form-field" data-card-parent>
-        {{ form_label(form.parent, null, {label_attr: {class: 'lp-label'}}) }}
-        {{ form_widget(form.parent, {attr: {class: 'lp-input'}}) }}
+    <twig:Ds:FormField data-card-parent>
+        {{ form_label(form.parent, null, {label_attr: {class: ds_label_class()}}) }}
+        {{ form_widget(form.parent, {attr: {class: ds_input_class()}}) }}
         {{ form_help(form.parent) }}
-        <div class="lp-field-errors">{{ form_errors(form.parent) }}</div>
-    </div>
+        <twig:Ds:FieldErrors :fieldView="form.parent" />
+    </twig:Ds:FormField>
 
-    <div class="lp-form-field">
-        {{ form_label(form.body, null, {label_attr: {class: 'lp-label'}}) }}
-        {{ form_widget(form.body, {attr: {class: 'lp-input lp-card-form-textarea'}}) }}
+    <twig:Ds:FormField>
+        {{ form_label(form.body, null, {label_attr: {class: ds_label_class()}}) }}
+        {{ form_widget(form.body, {attr: {class: ds_input_class('textarea') ~ ' lp-card-form-textarea'}}) }}
         {{ form_help(form.body) }}
-        <div class="lp-field-errors">{{ form_errors(form.body) }}</div>
-    </div>
+        <twig:Ds:FieldErrors :fieldView="form.body" />
+    </twig:Ds:FormField>
 
-    <div class="lp-form-field">
-        {{ form_label(form.pullRequestUrls, null, {label_attr: {class: 'lp-label'}}) }}
-        {{ form_widget(form.pullRequestUrls, {attr: {class: 'lp-input lp-card-form-textarea'}}) }}
+    <twig:Ds:FormField>
+        {{ form_label(form.pullRequestUrls, null, {label_attr: {class: ds_label_class()}}) }}
+        {{ form_widget(form.pullRequestUrls, {attr: {class: ds_input_class('textarea') ~ ' lp-card-form-textarea'}}) }}
         {{ form_help(form.pullRequestUrls) }}
-        <div class="lp-field-errors">{{ form_errors(form.pullRequestUrls) }}</div>
-    </div>
+        <twig:Ds:FieldErrors :fieldView="form.pullRequestUrls" />
+    </twig:Ds:FormField>
 
     {% set linkRows = form.relatedCards %}
     {% set linkPrototype %}{% include '@Board/_card_link_row_fields.html.twig' with {row: linkRows.vars.prototype} only %}{% endset %}
-    <fieldset class="lp-form-field" data-card-links data-controller="form-collection" data-form-collection-collection-holder-id-value="{{ linkRows.vars.id }}_rows">
-        <legend class="lp-label">{{ linkRows.vars.label|trans }}</legend>
-        <p id="{{ linkRows.vars.id }}_help" class="lp-form-hint">{{ linkRows.vars.help|trans }}</p>
+    <twig:Ds:FormField as="fieldset" data-card-links data-controller="form-collection" data-form-collection-collection-holder-id-value="{{ linkRows.vars.id }}_rows">
+        <twig:Ds:Label as="legend">{{ linkRows.vars.label|trans }}</twig:Ds:Label>
+        <twig:Ds:Hint id="{{ linkRows.vars.id }}_help">{{ linkRows.vars.help|trans }}</twig:Ds:Hint>
         <div id="{{ linkRows.vars.id }}_rows" class="lp-card-link-rows" data-prototype="{{ linkPrototype|e('html_attr') }}" data-index="{{ linkRows|length > 0 ? max(linkRows|keys) + 1 : 0 }}">
             {%- for row in linkRows %}
                 <div class="lp-card-link-row" data-form-collection-row data-card-link-row>
@@ -65,14 +53,14 @@
                 </div>
             {% endfor -%}
         </div>
-        <div class="lp-field-errors">{{ form_errors(linkRows) }}</div>
+        <twig:Ds:FieldErrors :fieldView="linkRows" />
         <div>
             <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="form-collection#addRow"><twig:ux:icon name="lucide:plus" class="w-4 h-4" />{{ 'board.card.form.linked_cards.add'|trans }}</twig:Ds:Button>
         </div>
         <template data-form-collection-target="removeButtonTemplate">
             <twig:Ds:Button variant="ghost icon" type="button" aria-label="{{ 'board.card.form.linked_cards.remove'|trans }}"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></twig:Ds:Button>
         </template>
-    </fieldset>
+    </twig:Ds:FormField>
     {% do linkRows.setRendered %}
 
     <div class="flex items-center justify-end gap-3 pt-2">

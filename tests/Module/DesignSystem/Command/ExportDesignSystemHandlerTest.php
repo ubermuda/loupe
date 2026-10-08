@@ -162,8 +162,10 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
     {
         $card = (string) file_get_contents($this->directory.'/components/core/core.card.html');
 
-        self::assertStringStartsWith('<!-- @dsCard group="Components" viewport="700x780"', $card);
-        self::assertStringContainsString("dsFind('Button', 'Flash'", $card);
+        $count = \count(array_filter(new Catalog()->entries(), static fn ($entry) => 'core' === $entry->group));
+
+        self::assertStringStartsWith('<!-- @dsCard group="Components" viewport="700x'.(80 + 70 * $count).'"', $card);
+        self::assertStringContainsString("dsFind('Button', 'Input'", $card);
         self::assertStringContainsString('<script src="../../ds-mount.js">', $card);
     }
 
@@ -206,5 +208,24 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         self::assertStringContainsString('dot?: boolean;', (string) file_get_contents($this->directory.'/components/core/StatusChip.d.ts'));
         self::assertStringNotContainsString('__dot', $badge);
         self::assertStringNotContainsString('dot', (string) file_get_contents($this->directory.'/components/core/Badge.d.ts'));
+    }
+
+    public function test_the_input_wrapper_is_a_void_element(): void
+    {
+        $jsx = (string) file_get_contents($this->directory.'/components/core/Input.jsx');
+        $prompt = (string) file_get_contents($this->directory.'/components/core/Input.prompt.md');
+        $card = (string) file_get_contents($this->directory.'/components/core/core.card.html');
+
+        self::assertStringContainsString('return <input {...rest} className={className} />;', $jsx);
+        self::assertStringNotContainsString('</input>', $jsx);
+        self::assertStringContainsString('<Input placeholder="Example" />', $prompt);
+        self::assertStringContainsString('<Input variant="mono" placeholder="mono" />', $card);
+        self::assertStringNotContainsString('</Input>', $card);
+        self::assertStringContainsString('<Select><option>Example</option></Select>', $card);
+        self::assertStringContainsString('children?: never;', (string) file_get_contents($this->directory.'/components/core/Input.d.ts'));
+        self::assertStringContainsString("const classes = ['lp-input', 'lp-select'];", (string) file_get_contents($this->directory.'/components/core/Select.jsx'));
+        self::assertStringContainsString("const classes = ['lp-input', 'lp-textarea'];", (string) file_get_contents($this->directory.'/components/core/Textarea.jsx'));
+        self::assertStringContainsString("const classes = ['lp-label'];", (string) file_get_contents($this->directory.'/components/core/Label.jsx'));
+        self::assertStringContainsString('<label {...rest} className={className}>', (string) file_get_contents($this->directory.'/components/core/Label.jsx'));
     }
 }

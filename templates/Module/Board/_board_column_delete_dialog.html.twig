@@ -10,10 +10,10 @@
     <p class="lp-dialog-desc">{{ 'board.column.delete.cards'|trans({'%count%': cardCount}) }}</p>
     {{ form_start(deleteForm, {action: path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}), attr: {class: 'lp-form'}}) }}
         {% if cardCount > 0 %}
-        <div class="lp-form-field">
-            {{ form_label(deleteForm.target, null, {label_attr: {class: 'lp-label'}}) }}
-            {{ form_widget(deleteForm.target, {attr: {class: 'lp-input lp-select', required: 'required'}}) }}
-        </div>
+        <twig:Ds:FormField>
+            {{ form_label(deleteForm.target, null, {label_attr: {class: ds_label_class()}}) }}
+            {{ form_widget(deleteForm.target, {attr: {class: ds_input_class('select'), required: 'required'}}) }}
+        </twig:Ds:FormField>
         {% endif %}
         {{ form_widget(deleteForm._token) }}
         <div class="flex items-center justify-end gap-3 pt-2">

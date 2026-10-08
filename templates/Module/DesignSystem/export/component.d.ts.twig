@@ -33,7 +33,12 @@ export interface {{ entry.name }}Props {
     dot?: boolean;
 {% endif %}
     className?: string;
+{% if 'input' == entry.element %}
+    /** An input is a void element, so it takes no children. */
+    children?: never;
+{% else %}
     children?: ReactNode;
+{% endif %}
     [attribute: string]: unknown;
 }
 

@@ -41,12 +41,14 @@
 
             <h3 class="lp-workshop-section__title">{{ 'readiness.agent_account.login.title'|trans }}</h3>
             {{ form_start(form, {attr: {class: 'lp-form'}}) }}
-                <div class="lp-form-field">
-                    {{ form_label(form.login, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(form.login, {attr: {class: 'lp-input', autocomplete: 'off', spellcheck: 'false'}}) }}
-                    {{ form_help(form.login, {help_attr: {class: 'lp-form-hint'}}) }}
-                    <div class="lp-field-errors">{{ form_errors(form.login) }}</div>
-                </div>
+                <twig:Ds:FormField>
+                    {{ form_label(form.login, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(form.login, {attr: {class: ds_input_class(), autocomplete: 'off', spellcheck: 'false'}}) }}
+                    {% if form.login.vars.help is not empty %}
+                        <twig:Ds:Hint id="{{ form.login.vars.id }}_help">{{ form.login.vars.translation_domain is same as(false) ? form.login.vars.help : form.login.vars.help|trans(form.login.vars.help_translation_parameters, form.login.vars.translation_domain) }}</twig:Ds:Hint>
+                    {% endif %}
+                    <twig:Ds:FieldErrors :fieldView="form.login" />
+                </twig:Ds:FormField>
                 <div class="lp-settings-form-actions">
                     <twig:Ds:Button variant="primary" type="submit">{{ 'readiness.agent_account.submit'|trans }}</twig:Ds:Button>
                 </div>

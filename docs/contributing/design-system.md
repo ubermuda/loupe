@@ -42,6 +42,13 @@ A building block is a Twig component under `templates/components/Ds/`. Its CSS l
 | Component | Use | Variants |
 |---|---|---|
 | Button | Any action or link that looks like a button | primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open, on-card. Sizes sm and lg |
+| Input | A one-line text field | mono |
+| Select | A native select | none |
+| Textarea | A multi-line text field | none |
+| Label | The text that names a field. It can be a label, legend, p, span or div | none |
+| FormField | One field of a form: its label, widget, hint and errors, or a wrapper for your own body | none |
+| FieldErrors | The list of errors of one field | none |
+| Hint | A line of help under a field | none |
 | Flash | A message after an action, with a dismiss button | success, error, warning, info |
 | EmptyState | A panel that says a list or page has nothing yet | none. Takes an icon, a title, a body and one link |
 | Badge | The status of a document in a list | in-review, draft, approved, changes-requested |
@@ -95,6 +102,26 @@ Write a dialog, tabs, pagination and a tooltip like this:
 
 The dialog sets `data-modal-target="dialog"` itself. The tabs take `tag="div"` for a tab list that is not a navigation. The pagination draws nothing when there is one page. The feature that owns the anchor decides when a tooltip shows.
 
+### The form parts
+
+`FormField` draws a Symfony form field with its label, widget, hint and errors. Pass `kind` for a select or a textarea, and `attr` for the attributes of the widget:
+
+```twig
+<twig:Ds:FormField :fieldView="form.title" :widgetAttr="{placeholder: 'Title'}" hintText="Shown on the board" />
+<twig:Ds:FormField :fieldView="form.color" widgetKind="select" />
+```
+
+Give `FormField` no `field` and it wraps your own body. `as="fieldset"` draws a fieldset.
+
+A plain field uses `Input`, `Select` or `Textarea`. A Symfony widget in a custom layout takes the classes from functions, because it draws its own tag:
+
+```twig
+{{ form_label(form.name, null, {label_attr: {class: ds_label_class()}}) }}
+{{ form_widget(form.kind, {attr: {class: ds_input_class('select')}}) }}
+<twig:Ds:FieldErrors :fieldView="form.kind" data-field-errors="kind" />
+```
+
+`just gamache` blocks a template that writes `lp-input`, `lp-select`, `lp-textarea`, `lp-label`, `lp-form-field`, `lp-field-errors` or `lp-form-hint` by hand.
 
 ## The Claude Design copy
 

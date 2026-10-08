@@ -10,7 +10,7 @@ export function {{ entry.name }}({ variant, size, disabled = false, type = 'butt
 {% else %}
 export function {{ entry.name }}({ variant, size, {% if entry.dotClass %}dot = true, {% endif %}className: extra, children, ...rest }) {
 {% endif %}
-    const classes = ['{{ entry.rootClass }}'];
+    const classes = [{% if entry.element in ['select', 'textarea'] %}'lp-input', {% endif %}'{{ entry.rootClass }}'];
     for (const modifiers of [variant, size]) {
         for (const modifier of (modifiers || '').split(/\s+/).filter(Boolean)) {
             classes.push('{{ entry.rootClass }}--' + modifier);
@@ -35,6 +35,9 @@ export function {{ entry.name }}({ variant, size, {% if entry.dotClass %}dot = t
             {children}
         </button>
     );
+{% elseif 'input' == entry.element %}
+
+    return <input {...rest} className={className} />;
 {% else %}
 
     return (

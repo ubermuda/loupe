@@ -77,3 +77,21 @@ test('the catalog draws the dialog, tabs, pagination and tooltip', async ({
         await expect(section.locator(selector).first()).toBeVisible();
     }
 });
+
+test('the catalog draws each form part', async ({ page }) => {
+    await page.goto('/styleguide');
+    const parts: Record<string, string> = {
+        Input: '.lp-input',
+        Select: '.lp-select',
+        Textarea: '.lp-textarea',
+        Label: '.lp-label',
+        FormField: '.lp-form-field',
+        FieldErrors: '.lp-field-errors',
+        Hint: '.lp-form-hint',
+    };
+    for (const [name, selector] of Object.entries(parts)) {
+        await expect(
+            page.locator(`[data-component="${name}"] ${selector}`).first(),
+        ).toBeVisible();
+    }
+});

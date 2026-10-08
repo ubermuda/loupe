@@ -139,7 +139,7 @@
                         <form method="post" data-turbo="false" action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}" class="lp-card-move__form" data-controller="submit-on-change">
                             {{ form_widget(moveForm._token) }}
                             {{ form_label(moveForm.column, null, {label_attr: {class: 'sr-only'}}) }}
-                            {{ form_widget(moveForm.column, {attr: {class: 'lp-input lp-select lp-card-move__select', 'data-action': 'change->submit-on-change#submit'}}) }}
+                            {{ form_widget(moveForm.column, {attr: {class: ds_input_class('select') ~ ' lp-card-move__select', 'data-action': 'change->submit-on-change#submit'}}) }}
                             {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
                             <noscript><twig:Ds:Button type="submit">{{ 'board.card.move.submit'|trans }}</twig:Ds:Button></noscript>
                         </form>

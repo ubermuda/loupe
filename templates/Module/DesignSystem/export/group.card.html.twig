@@ -29,13 +29,21 @@ function Demo() {
     <div className="col">
 {% for entry in entries %}
 {% set open = 'dialog' == entry.element ? ' open' : '' %}
+{% set void = 'input' == entry.element %}
+{% set select = 'select' == entry.element %}
       <div className="row">
 {% if entry.variants %}
 {% for variant in entry.variants %}
-        <{{ entry.name }} variant="{{ variant }}"{{ open }}>{{ variant }}</{{ entry.name }}>
-{% endfor %}
+{% if void %}
+        <{{ entry.name }} variant="{{ variant }}" placeholder="{{ variant }}" />
 {% else %}
-        <{{ entry.name }}{{ open }}>Example</{{ entry.name }}>
+        <{{ entry.name }} variant="{{ variant }}"{{ open }}>{% if select %}<option>{{ variant }}</option>{% else %}{{ variant }}{% endif %}</{{ entry.name }}>
+{% endif %}
+{% endfor %}
+{% elseif void %}
+        <{{ entry.name }} placeholder="Example" />
+{% else %}
+        <{{ entry.name }}{{ open }}>{% if select %}<option>Example</option>{% else %}Example{% endif %}</{{ entry.name }}>
 {% endif %}
       </div>
 {% if entry.sizes or 'button' == entry.element %}

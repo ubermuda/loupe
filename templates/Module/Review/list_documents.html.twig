@@ -52,48 +52,48 @@
                        after a debounced submit: this is a full Turbo visit, so the
                        field being typed into is replaced mid-word. A full visit rather
                        than a frame, so the query lands in the address bar. #}
-                    <input type="search"
+                    <twig:Ds:Input type="search"
                            id="document-search"
                            name="search"
-                           class="lp-input lp-filter-input"
+                           class="lp-filter-input"
                            value="{{ listQuery.search }}"
                            placeholder="{{ 'review.dashboard.filter.search_placeholder'|trans }}"
                            data-autosearch-target="field"
-                           data-action="input->autosearch#search">
+                           data-action="input->autosearch#search" />
                 </div>
 
                 <label class="sr-only" for="document-status">{{ 'review.dashboard.filter.status_label'|trans }}</label>
-                <select id="document-status"
+                <twig:Ds:Select id="document-status"
                         name="status"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'review.dashboard.filter.all_statuses'|trans }}</option>
                     {% for status in statuses %}
                         <option value="{{ status.value }}"{{ listQuery.status == status ? ' selected' : '' }}>{{ status.translationKey()|trans }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             </div>
 
             {% if projectTags|length > 0 %}
                 <label class="sr-only" for="document-tag">{{ 'review.dashboard.filter.tag_label'|trans }}</label>
-                <select id="document-tag"
+                <twig:Ds:Select id="document-tag"
                         name="tag"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'review.dashboard.filter.all_tags'|trans }}</option>
                     {% for tag in projectTags %}
                         <option value="{{ tag.name }}"{{ listQuery.tagName == tag.name ? ' selected' : '' }}>{{ tag.name }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             {% endif %}
 
             {# Filtering by series is also what puts the list in the series's own
                order, so the control stays out of the way until a series exists. #}
             {% if projectSeries|length > 0 %}
                 <label class="sr-only" for="document-series">{{ 'review.dashboard.filter.series_label'|trans }}</label>
-                <select id="document-series"
+                <twig:Ds:Select id="document-series"
                         name="series"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'review.dashboard.filter.all_series'|trans }}</option>
                     {# The option carries the spelling and the comparison uses the
@@ -101,7 +101,7 @@
                     {% for series in projectSeries %}
                         <option value="{{ series.name }}"{{ listQuery.seriesName == series.normalizedName ? ' selected' : '' }}>{{ series.name }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             {% endif %}
 
             <label class="lp-filter-switch">

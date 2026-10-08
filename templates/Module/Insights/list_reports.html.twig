@@ -15,27 +15,27 @@
     <section class="lp-reports-panel" data-start-analysis-form>
         <h2 class="lp-section-title">{{ 'insights.reports.start.title'|trans }}</h2>
         {{ form_start(startForm, {action: path('app_project_analytics_analysis_start', {id: project.id}), attr: {class: 'lp-form lp-reports-form'}}) }}
-            <div class="lp-field-errors">{{ form_errors(startForm) }}</div>
+            <twig:Ds:FieldErrors :fieldView="startForm" />
             <div class="lp-reports-form__fields">
-                {% for field in [startForm.topic, startForm.experiment, startForm.range] %}
-                <div class="lp-form-field">
-                    {{ form_label(field, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(field, {attr: {class: 'lp-input lp-select'}}) }}
-                    <div class="lp-field-errors" data-field-errors="{{ field.vars.name }}">{{ form_errors(field) }}</div>
-                </div>
+                {% for formItem in [startForm.topic, startForm.experiment, startForm.range] %}
+                <twig:Ds:FormField>
+                    {{ form_label(formItem, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(formItem, {attr: {class: ds_input_class('select')}}) }}
+                    <twig:Ds:FieldErrors :fieldView="formItem" data-field-errors="{{ formItem.vars.name }}" />
+                </twig:Ds:FormField>
                 {% endfor %}
-                <div class="lp-form-field">
-                    {{ form_label(startForm.model, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(startForm.model, {attr: {class: 'lp-input', placeholder: settings.model}}) }}
-                    <div class="lp-field-errors" data-field-errors="model">{{ form_errors(startForm.model) }}</div>
-                </div>
-                <div class="lp-form-field">
-                    {{ form_label(startForm.effort, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(startForm.effort, {attr: {class: 'lp-input lp-select'}}) }}
-                    <div class="lp-field-errors" data-field-errors="effort">{{ form_errors(startForm.effort) }}</div>
-                </div>
+                <twig:Ds:FormField>
+                    {{ form_label(startForm.model, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(startForm.model, {attr: {class: ds_input_class(null), placeholder: settings.model}}) }}
+                    <twig:Ds:FieldErrors :fieldView="startForm.model" data-field-errors="model" />
+                </twig:Ds:FormField>
+                <twig:Ds:FormField>
+                    {{ form_label(startForm.effort, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(startForm.effort, {attr: {class: ds_input_class('select')}}) }}
+                    <twig:Ds:FieldErrors :fieldView="startForm.effort" data-field-errors="effort" />
+                </twig:Ds:FormField>
             </div>
-            <p class="lp-form-hint">{{ 'insights.reports.start.defaults'|trans({'%model%': settings.model, '%effort%': ('insights.reports.effort.' ~ settings.effort)|trans}) }}</p>
+            <twig:Ds:Hint>{{ 'insights.reports.start.defaults'|trans({'%model%': settings.model, '%effort%': ('insights.reports.effort.' ~ settings.effort)|trans}) }}</twig:Ds:Hint>
             <div class="lp-settings-form-actions">
                 <twig:Ds:Button variant="primary" type="submit">{{ 'insights.reports.start.submit'|trans }}</twig:Ds:Button>
             </div>
@@ -46,31 +46,31 @@
         <summary class="lp-reports-settings__summary">{{ 'insights.reports.settings.title'|trans }}</summary>
         {{ form_start(settingsForm, {action: path('app_project_analytics_settings_update', {id: project.id}), attr: {class: 'lp-form'}}) }}
             <div class="lp-reports-form__fields">
-                <div class="lp-form-field">
-                    {{ form_label(settingsForm.model, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(settingsForm.model, {attr: {class: 'lp-input', placeholder: 'insights.reports.settings.instance_default'|trans}}) }}
-                    <div class="lp-field-errors" data-field-errors="model">{{ form_errors(settingsForm.model) }}</div>
-                </div>
-                <div class="lp-form-field">
-                    {{ form_label(settingsForm.effort, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(settingsForm.effort, {attr: {class: 'lp-input lp-select'}}) }}
-                    <div class="lp-field-errors" data-field-errors="effort">{{ form_errors(settingsForm.effort) }}</div>
-                </div>
+                <twig:Ds:FormField>
+                    {{ form_label(settingsForm.model, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(settingsForm.model, {attr: {class: ds_input_class(null), placeholder: 'insights.reports.settings.instance_default'|trans}}) }}
+                    <twig:Ds:FieldErrors :fieldView="settingsForm.model" data-field-errors="model" />
+                </twig:Ds:FormField>
+                <twig:Ds:FormField>
+                    {{ form_label(settingsForm.effort, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(settingsForm.effort, {attr: {class: ds_input_class('select')}}) }}
+                    <twig:Ds:FieldErrors :fieldView="settingsForm.effort" data-field-errors="effort" />
+                </twig:Ds:FormField>
             </div>
-            <div class="lp-form-field">
-                {{ form_label(settingsForm.subcommandPrograms, null, {label_attr: {class: 'lp-label'}}) }}
-                {{ form_widget(settingsForm.subcommandPrograms, {attr: {class: 'lp-input', placeholder: 'insights.reports.settings.instance_default'|trans}}) }}
-                {{ form_help(settingsForm.subcommandPrograms, {help_attr: {class: 'lp-form-hint'}}) }}
-                <div class="lp-field-errors" data-field-errors="subcommandPrograms">{{ form_errors(settingsForm.subcommandPrograms) }}</div>
-            </div>
-            <div class="lp-form-field">
+            <twig:Ds:FormField>
+                {{ form_label(settingsForm.subcommandPrograms, null, {label_attr: {class: ds_label_class()}}) }}
+                {{ form_widget(settingsForm.subcommandPrograms, {attr: {class: ds_input_class(null), placeholder: 'insights.reports.settings.instance_default'|trans}}) }}
+                {% if settingsForm.subcommandPrograms.vars.help %}<twig:Ds:Hint as="div" id="{{ settingsForm.subcommandPrograms.vars.id }}_help">{{ settingsForm.subcommandPrograms.vars.help|trans(settingsForm.subcommandPrograms.vars.help_translation_parameters, settingsForm.subcommandPrograms.vars.translation_domain) }}</twig:Ds:Hint>{% endif %}
+                <twig:Ds:FieldErrors :fieldView="settingsForm.subcommandPrograms" data-field-errors="subcommandPrograms" />
+            </twig:Ds:FormField>
+            <twig:Ds:FormField>
                 <label class="lp-choice">
                     {{ form_widget(settingsForm.collectFullText) }}
                     {{ settingsForm.collectFullText.vars.label|trans }}
                 </label>
-                {{ form_help(settingsForm.collectFullText, {help_attr: {class: 'lp-form-hint'}}) }}
-                <div class="lp-field-errors" data-field-errors="collectFullText">{{ form_errors(settingsForm.collectFullText) }}</div>
-            </div>
+                {% if settingsForm.collectFullText.vars.help %}<twig:Ds:Hint as="div" id="{{ settingsForm.collectFullText.vars.id }}_help">{{ settingsForm.collectFullText.vars.help|trans(settingsForm.collectFullText.vars.help_translation_parameters, settingsForm.collectFullText.vars.translation_domain) }}</twig:Ds:Hint>{% endif %}
+                <twig:Ds:FieldErrors :fieldView="settingsForm.collectFullText" data-field-errors="collectFullText" />
+            </twig:Ds:FormField>
             <div class="lp-settings-form-actions">
                 <twig:Ds:Button variant="primary" type="submit">{{ 'insights.reports.settings.submit'|trans }}</twig:Ds:Button>
             </div>
@@ -131,14 +131,14 @@
                     {% if proposal.kind.value == 'bucket-rule' %}
                     {% set rulePattern = proposal.payload['pattern'] ?? null %}
                     {% set ruleBucket = proposal.payload['bucket'] ?? null %}
-                    <p class="lp-form-hint" data-proposal-rule>{{ 'insights.reports.proposal.rule'|trans }}
+                    <twig:Ds:Hint data-proposal-rule>{{ 'insights.reports.proposal.rule'|trans }}
                         <code data-proposal-pattern>{{ rulePattern is iterable ? '' : rulePattern }}</code>
                         {{ 'insights.reports.proposal.rule_bucket'|trans }}
                         <code data-proposal-bucket>{{ ruleBucket is iterable ? '' : ruleBucket }}</code>
-                    </p>
+                    </twig:Ds:Hint>
                     {% endif %}
                     {% if proposal.estimatedSaving is not null %}
-                    <p class="lp-form-hint">{{ 'insights.reports.proposal.saving'|trans }} <span data-proposal-saving>{{ proposal.estimatedSaving }}</span></p>
+                    <twig:Ds:Hint>{{ 'insights.reports.proposal.saving'|trans }} <span data-proposal-saving>{{ proposal.estimatedSaving }}</span></twig:Ds:Hint>
                     {% endif %}
                     {% if proposal.cardId is not null %}
                     <a href="{{ path('app_board_card', {projectId: project.id, cardId: proposal.cardId}) }}" data-proposal-card>{{ 'insights.reports.proposal.open_card'|trans }}</a>
@@ -152,9 +152,9 @@
                         </form>
                         {{ form_start(dismissForm, {action: path('app_project_analytics_proposal_dismiss', {id: project.id, proposalId: proposal.id}|merge(page > 1 ? {page: page} : {})), attr: {class: 'lp-reports-proposal__dismiss'}}) }}
                             {{ form_label(dismissForm.reason, null, {label_attr: {class: 'sr-only'}}) }}
-                            {{ form_widget(dismissForm.reason, {attr: {class: 'lp-input', placeholder: 'insights.reports.proposal.reason_placeholder'|trans}}) }}
+                            {{ form_widget(dismissForm.reason, {attr: {class: ds_input_class(), placeholder: 'insights.reports.proposal.reason_placeholder'|trans}}) }}
                             <twig:Ds:Button variant="outline" size="sm" type="submit" id="dismiss-{{ proposal.id }}">{{ 'insights.reports.proposal.dismiss'|trans }}</twig:Ds:Button>
-                            <div class="lp-field-errors" data-field-errors="reason">{{ form_errors(dismissForm.reason) }}</div>
+                            <twig:Ds:FieldErrors :fieldView="dismissForm.reason" data-field-errors="reason" />
                         {{ form_end(dismissForm) }}
                     </div>
                     {% endif %}

@@ -1,0 +1,10 @@
+{#
+  Any attribute, class included, is passed to the element. A null attribute is left out.
+  The body holds the <option> elements.
+#}
+{%- for name, value in attributes.all -%}
+    {%- if value is null -%}
+        {%- set attributes = attributes.remove(name) -%}
+    {%- endif -%}
+{%- endfor -%}
+<select{{ attributes.defaults({class: ds_input_class('select')}) }}>{% block content %}{% endblock %}</select>

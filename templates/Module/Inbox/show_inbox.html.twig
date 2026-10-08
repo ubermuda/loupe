@@ -51,14 +51,14 @@
             <div class="lp-filter-search">
                 <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                 <label class="sr-only" for="inbox-search">{{ 'inbox.search.label'|trans }}</label>
-                <input type="search"
+                <twig:Ds:Input type="search"
                        id="inbox-search"
                        name="q"
-                       class="lp-input lp-filter-input"
+                       class="lp-filter-input"
                        value="{{ inbox.query }}"
                        placeholder="{{ 'inbox.search.placeholder'|trans }}"
                        data-autosearch-target="field"
-                       data-action="input->autosearch#search">
+                       data-action="input->autosearch#search" />
             </div>
             <a href="{{ path('app_project_inbox', {id: inbox.project.id}) }}"
                data-autosearch-target="clearButton"

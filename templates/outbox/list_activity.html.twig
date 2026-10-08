@@ -26,26 +26,26 @@
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     <label class="sr-only" for="activity-search">{{ 'activity.filter.search_label'|trans }}</label>
-                    <input type="search"
+                    <twig:Ds:Input type="search"
                            id="activity-search"
                            name="search"
-                           class="lp-input lp-filter-input"
+                           class="lp-filter-input"
                            value="{{ listQuery.search }}"
                            placeholder="{{ 'activity.filter.search_placeholder'|trans }}"
                            data-autosearch-target="field"
-                           data-action="input->autosearch#search">
+                           data-action="input->autosearch#search" />
                 </div>
 
                 <label class="sr-only" for="activity-family">{{ 'activity.filter.family_label'|trans }}</label>
-                <select id="activity-family"
+                <twig:Ds:Select id="activity-family"
                         name="family"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'activity.filter.all_families'|trans }}</option>
                     {% for family in families %}
                         <option value="{{ family.value }}"{{ listQuery.family == family ? ' selected' : '' }}>{{ family.translationKey()|trans }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             </div>
 
             <a href="{{ path('app_project_activity', {id: project.id}) }}"

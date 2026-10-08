@@ -3,6 +3,7 @@
 @import 'tailwindcss';
 @import './tokens.css';
 @import './components/button.css';
+@import './components/form.css';
 @import './components/badge.css';
 @import './components/empty-state.css';
 @import './components/flash.css';
@@ -2662,29 +2663,8 @@
 
     /* ── Form controls (lp- namespace) ──────────────────────────────── */
 
-    /* The one form layout: labelled fields in a column, 20px apart, each label
-       6px above its control. Every app form uses these classes. */
-    .lp-form {
-        @apply flex flex-col gap-5;
-    }
-    .lp-form-field {
-        @apply flex flex-col gap-1.5;
-    }
-    .lp-label {
-        @apply text-xs font-medium text-label;
-    }
     .admin-field-label {
         @apply text-xs font-bold text-fg-mute;
-    }
-    .lp-input {
-        @apply w-full min-h-10 font-sans text-sm leading-5 text-ink bg-field border border-line-field px-3 py-2.5 outline-hidden transition-colors placeholder:text-fg-dim focus:ring-2 focus:ring-accent-ink;
-        border-radius: var(--radius-lg);
-    }
-    .lp-input--mono {
-        @apply font-mono;
-    }
-    textarea.lp-input {
-        @apply min-h-22;
     }
     /* An autocomplete field, dressed as an .lp-input. Its dropdown reads as a menu. */
     .ts-control {
@@ -2725,9 +2705,6 @@
     .lp-choice:has(input:focus-visible) {
         @apply outline-2 outline-offset-1 outline-accent-ink;
     }
-    .lp-input:disabled {
-        @apply bg-surface-3 text-fg-mute cursor-not-allowed;
-    }
     /* A field with one action beside it, such as a read-only value and its Copy button. */
     .lp-input-with-action {
         @apply flex items-center gap-2;
@@ -2735,26 +2712,12 @@
     .admin-field-input {
         @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong focus:ring-2 focus:ring-accent-ink;
     }
-    /* Native <select>: hide the OS arrow and draw a design-system chevron.
-       Defined after .lp-input so it can layer the chevron on top. */
-    .lp-select,
+    /* Admin select: hide the OS arrow and draw a design-system chevron. */
     .admin-field-select {
         @apply appearance-none bg-no-repeat pr-9 cursor-pointer;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236f6f66' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
         background-position: right calc(var(--spacing) * 3.5) center;
         background-size: calc(var(--spacing) * 4);
-    }
-    .lp-field-errors {
-        @apply empty:hidden;
-    }
-    .lp-field-errors ul {
-        @apply list-none p-0 m-0;
-    }
-    .lp-field-errors li {
-        @apply text-xs font-semibold mt-1 text-danger;
-    }
-    .lp-form-hint {
-        @apply text-xs text-fg-dim;
     }
 
     /* ── Comment signals ────────────────────────────────────────────────

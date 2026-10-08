@@ -31,42 +31,42 @@
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     <label class="sr-only" for="worker-run-search">{{ 'bridge.worker_runs.filter.search_label'|trans }}</label>
-                    <input type="search"
+                    <twig:Ds:Input type="search"
                            id="worker-run-search"
                            name="search"
-                           class="lp-input lp-filter-input"
+                           class="lp-filter-input"
                            value="{{ listQuery.search }}"
                            placeholder="{{ 'bridge.worker_runs.filter.search_placeholder'|trans }}"
                            data-autosearch-target="field"
-                           data-action="input->autosearch#search">
+                           data-action="input->autosearch#search" />
                 </div>
 
                 <label class="sr-only" for="worker-run-outcome">{{ 'bridge.worker_runs.filter.outcome_label'|trans }}</label>
-                <select id="worker-run-outcome"
+                <twig:Ds:Select id="worker-run-outcome"
                         name="outcome"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
                     <option value="open"{{ listQuery.open ? ' selected' : '' }}>{{ 'bridge.worker_runs.filter.open_runs'|trans }}</option>
                     {% for state in states %}
                         <option value="{{ state.value }}"{{ listQuery.state == state ? ' selected' : '' }}>{{ state.translationKey()|trans }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             </div>
 
             {# One bridge reports many runs, so the control waits until a second
                bridge makes it a choice rather than a label. #}
             {% if bridgeIds|length > 1 %}
                 <label class="sr-only" for="worker-run-bridge">{{ 'bridge.worker_runs.filter.bridge_label'|trans }}</label>
-                <select id="worker-run-bridge"
+                <twig:Ds:Select id="worker-run-bridge"
                         name="bridge"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'bridge.worker_runs.filter.all_bridges'|trans }}</option>
                     {% for bridgeId in bridgeIds %}
                         <option value="{{ bridgeId }}"{{ listQuery.bridgeId == bridgeId ? ' selected' : '' }}>{{ bridgeLabels[bridgeId.toRfc4122()] }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             {% endif %}
 
             {# Each select waits for a second value, as the bridge select does. A set filter keeps its select, so the reader can clear it. #}
@@ -78,15 +78,15 @@
                 {% if filter.values|length > 1 or filter.current is not null %}
                     {% set values = filter.current is null or filter.current in filter.values ? filter.values : filter.values|merge([filter.current]) %}
                     <label class="sr-only" for="worker-run-{{ filter.name }}">{{ filter.label|trans }}</label>
-                    <select id="worker-run-{{ filter.name }}"
+                    <twig:Ds:Select id="worker-run-{{ filter.name }}"
                             name="{{ filter.name }}"
-                            class="lp-input lp-select lp-filter-select"
+                            class="lp-filter-select"
                             data-action="change->autosearch#search">
                         <option value="">{{ filter.all|trans }}</option>
                         {% for value in values %}
                             <option value="{{ value }}"{{ filter.current == value ? ' selected' : '' }}>{{ value }}</option>
                         {% endfor %}
-                    </select>
+                    </twig:Ds:Select>
                 {% endif %}
             {% endfor %}
 

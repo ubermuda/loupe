@@ -18,41 +18,41 @@
     {# A GET form, so the controls land in the URL. A control lists only the values its metric allows. #}
     <form method="get" action="{{ path('app_project_analytics_metrics', {id: project.id}) }}" data-controller="autosearch" class="lp-list-filters lp-filter-form" data-metrics-form>
         <label class="sr-only" for="metrics-metric">{{ 'analytics.metrics.form.metric'|trans }}</label>
-        <select id="metrics-metric" name="metric" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+        <twig:Ds:Select id="metrics-metric" name="metric" class="lp-filter-select" data-action="change->autosearch#search">
             {% for option in metrics %}
                 <option value="{{ option.value }}"{{ option == metric ? ' selected' : '' }}>{{ ('analytics.metrics.metric.' ~ option.value)|trans }}</option>
             {% endfor %}
-        </select>
+        </twig:Ds:Select>
         <label class="sr-only" for="metrics-unit">{{ 'analytics.metrics.form.unit'|trans }}</label>
-        <select id="metrics-unit" name="unit" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+        <twig:Ds:Select id="metrics-unit" name="unit" class="lp-filter-select" data-action="change->autosearch#search">
             {% for option in metric.units() %}
                 <option value="{{ option.value }}"{{ option == query.unit ? ' selected' : '' }}>{{ ('analytics.metrics.unit.' ~ option.value)|trans }}</option>
             {% endfor %}
-        </select>
+        </twig:Ds:Select>
         <label class="sr-only" for="metrics-statistic">{{ 'analytics.metrics.form.statistic'|trans }}</label>
-        <select id="metrics-statistic" name="statistic" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+        <twig:Ds:Select id="metrics-statistic" name="statistic" class="lp-filter-select" data-action="change->autosearch#search">
             {% for option in metric.statistics() %}
                 <option value="{{ option.value }}"{{ option == query.statistic ? ' selected' : '' }}>{{ ('analytics.metrics.statistic.' ~ option.value)|trans }}</option>
             {% endfor %}
-        </select>
+        </twig:Ds:Select>
         <label class="sr-only" for="metrics-group">{{ 'analytics.metrics.form.group'|trans }}</label>
-        <select id="metrics-group" name="group" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+        <twig:Ds:Select id="metrics-group" name="group" class="lp-filter-select" data-action="change->autosearch#search">
             {% for option in metric.groups() %}
                 <option value="{{ option.value }}"{{ option == query.group ? ' selected' : '' }}>{{ ('analytics.metrics.group.' ~ option.value)|trans }}</option>
             {% endfor %}
-        </select>
+        </twig:Ds:Select>
         <label class="sr-only" for="metrics-range">{{ 'analytics.metrics.form.range'|trans }}</label>
-        <select id="metrics-range" name="range" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+        <twig:Ds:Select id="metrics-range" name="range" class="lp-filter-select" data-action="change->autosearch#search">
             {% for option in ranges %}
                 <option value="{{ option.value }}"{{ option == query.range ? ' selected' : '' }}>{{ ('analytics.metrics.range.' ~ option.value)|trans }}</option>
             {% endfor %}
-        </select>
+        </twig:Ds:Select>
         <label class="sr-only" for="metrics-bucket">{{ 'analytics.metrics.form.bucket'|trans }}</label>
-        <select id="metrics-bucket" name="bucket" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+        <twig:Ds:Select id="metrics-bucket" name="bucket" class="lp-filter-select" data-action="change->autosearch#search">
             {% for option in buckets %}
                 <option value="{{ option.value }}"{{ option == query.bucket ? ' selected' : '' }}>{{ ('analytics.metrics.bucket.' ~ option.value)|trans }}</option>
             {% endfor %}
-        </select>
+        </twig:Ds:Select>
         <noscript><twig:Ds:Button type="submit">{{ 'analytics.metrics.form.apply'|trans }}</twig:Ds:Button></noscript>
     </form>
 

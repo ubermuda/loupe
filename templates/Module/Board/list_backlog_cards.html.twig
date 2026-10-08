@@ -35,32 +35,32 @@
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     <label class="sr-only" for="backlog-search">{{ 'board.backlog.filter.search_label'|trans }}</label>
-                    <input type="search"
+                    <twig:Ds:Input type="search"
                            id="backlog-search"
                            name="search"
-                           class="lp-input lp-filter-input"
+                           class="lp-filter-input"
                            value="{{ listQuery.search }}"
                            placeholder="{{ 'board.backlog.filter.search_placeholder'|trans }}"
                            data-autosearch-target="field"
-                           data-action="input->autosearch#search">
+                           data-action="input->autosearch#search" />
                 </div>
 
                 <label class="sr-only" for="backlog-type">{{ 'board.backlog.filter.type_label'|trans }}</label>
-                <select id="backlog-type" name="type" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+                <twig:Ds:Select id="backlog-type" name="type" class="lp-filter-select" data-action="change->autosearch#search">
                     <option value="">{{ 'board.backlog.filter.all_types'|trans }}</option>
                     {% for type in types %}
                     <option value="{{ type.key }}"{{ listQuery.type == type.key ? ' selected' : '' }}>{{ type.label|trans }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
 
                 <label class="sr-only" for="backlog-epic">{{ 'board.backlog.filter.epic_label'|trans }}</label>
-                <select id="backlog-epic" name="epic" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+                <twig:Ds:Select id="backlog-epic" name="epic" class="lp-filter-select" data-action="change->autosearch#search">
                     <option value="">{{ 'board.backlog.filter.any_epic'|trans }}</option>
                     <option value="{{ constant('App\\Module\\Board\\View\\BacklogListQuery::NO_EPIC') }}"{{ listQuery.epic == constant('App\\Module\\Board\\View\\BacklogListQuery::NO_EPIC') ? ' selected' : '' }}>{{ 'board.backlog.filter.no_epic'|trans }}</option>
                     {% for epic in view.epics %}
                     <option value="{{ epic.id }}"{{ listQuery.epic == epic.id ~ '' ? ' selected' : '' }}>#{{ epic.number }} {{ epic.title }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             </div>
 
             <a href="{{ backlogPath }}" data-autosearch-target="clearButton" class="lp-filter-clear">{{ 'board.backlog.filter.clear'|trans }}</a>

@@ -136,10 +136,13 @@ return (new GamacheConfig())->registerChecks([
     new DesignSystemAdoptionCheck(
         components: [
             new DesignSystemComponent('Button', 'lp-btn', 'templates/components/Ds/Button.html.twig', enforced: true),
-            new DesignSystemComponent('Input', 'lp-input'),
-            new DesignSystemComponent('Select', 'lp-select'),
-            new DesignSystemComponent('FormField', 'lp-form-field'),
-            new DesignSystemComponent('Label', 'lp-label'),
+            new DesignSystemComponent('Input', 'lp-input', 'templates/components/Ds/Input.html.twig', enforced: true),
+            new DesignSystemComponent('Select', 'lp-select', 'templates/components/Ds/Select.html.twig', enforced: true),
+            new DesignSystemComponent('Textarea', 'lp-textarea', 'templates/components/Ds/Textarea.html.twig', enforced: true),
+            new DesignSystemComponent('FormField', 'lp-form-field', 'templates/components/Ds/FormField.html.twig', enforced: true),
+            new DesignSystemComponent('Label', 'lp-label', 'templates/components/Ds/Label.html.twig', enforced: true),
+            new DesignSystemComponent('FieldErrors', 'lp-field-errors', 'templates/components/Ds/FieldErrors.html.twig', enforced: true),
+            new DesignSystemComponent('Hint', 'lp-form-hint', 'templates/components/Ds/Hint.html.twig', enforced: true),
             new DesignSystemComponent('Tag', 'lp-tag', 'templates/components/Ds/Tag.html.twig', enforced: true),
             new DesignSystemComponent('Badge', 'lp-badge', 'templates/components/Ds/Badge.html.twig', enforced: true),
             new DesignSystemComponent('StatusChip', 'lp-status-chip', 'templates/components/Ds/StatusChip.html.twig', enforced: true),

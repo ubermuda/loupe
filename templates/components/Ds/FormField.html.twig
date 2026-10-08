@@ -1,0 +1,28 @@
+{#
+  Props:  @comment-budget-ignore
+    fieldView    FormView   Renders its label, widget, hint and errors. Without it, the body is the content.
+    labelText    string     Replaces the label text. Optional.
+    widgetKind   string     select or textarea, for the widget classes. Optional.
+    widgetMono   bool       Draws the widget in the mono font. Optional.
+    widgetAttr   object     Attributes of the widget. A class is added to the widget classes.
+    hintText     string     A line of help under the widget. Optional.
+    as           string     div or fieldset. Defaults to div.
+  The props have long names because a prop is also a variable in the body, and a short one such as field would hide a variable of the caller.
+  Any other attribute, class included, is passed to the wrapper. A null attribute is left out.
+#}
+{%- props fieldView = null, labelText = null, widgetKind = null, widgetMono = false, widgetAttr = {}, hintText = null, as = 'div' -%}
+{%- for name, value in attributes.all -%}
+    {%- if value is null -%}
+        {%- set attributes = attributes.remove(name) -%}
+    {%- endif -%}
+{%- endfor -%}
+<{{ as }}{{ attributes.defaults({class: 'lp-form-field'}) }}>
+    {%- if fieldView -%}
+        {{ form_label(fieldView, labelText, {label_attr: {class: ds_label_class()}}) }}
+        {{ form_widget(fieldView, {attr: widgetAttr|merge({class: (ds_input_class(widgetKind, widgetMono) ~ ' ' ~ (widgetAttr.class ?? ''))|trim})}) }}
+        {%- if hintText %}<twig:Ds:Hint>{{ hintText }}</twig:Ds:Hint>{% endif -%}
+        <twig:Ds:FieldErrors :fieldView="fieldView" />
+    {%- else -%}
+        {% block content %}{% endblock %}
+    {%- endif -%}
+</{{ as }}>
