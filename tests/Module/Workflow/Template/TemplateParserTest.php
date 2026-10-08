@@ -19,7 +19,9 @@ use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
+use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Template\AskOption;
 use App\Module\Workflow\Template\InvalidTemplate;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\RuleOrigin;
@@ -752,6 +754,113 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[3] (wait) then.pause: a pause must carry an "until" expression'];
+
+        $ask = static fn (callable $mutate): \Closure => static function (array $t) use ($mutate): array {
+            $t['rules'][] = self::askRule();
+            $mutate($t['rules'][5]['then']['ask']);
+
+            return $t;
+        };
+        yield 'ask nesting an ask' => [$ask(static function (array &$ask): void {
+            $ask['options'][0]['then'] = [['ask' => ['question' => 'q', 'options' => [['label' => 'l', 'then' => [['detach' => []]]]]]]];
+        }), 'rules[5] (unplanned) then.ask.options[0].then[0]: the action "ask" is not allowed inside an ask option'];
+        yield 'ask nesting a request' => [$ask(static function (array &$ask): void {
+            $ask['options'][1]['then'] = [['request' => ['kind' => 'implement']]];
+        }), 'rules[5] (unplanned) then.ask.options[1].then[0]: the action "request" is not allowed inside an ask option'];
+        yield 'ask nesting an unknown action' => [$ask(static function (array &$ask): void {
+            $ask['options'][1]['then'] = [['jump' => []]];
+        }), 'rules[5] (unplanned) then.ask.options[1].then[0]: unknown action "jump"'];
+        yield 'ask nesting a move to an unknown slot' => [$ask(static function (array &$ask): void {
+            $ask['options'][1]['then'] = [['move' => ['to' => 'nowhere']]];
+        }), 'rules[5] (unplanned) then.ask.options[1].then[0].move.to: unknown slot "nowhere"'];
+        yield 'ask with no question' => [$ask(static function (array &$ask): void {
+            unset($ask['question']);
+        }), 'rules[5] (unplanned) then.ask: missing parameter "question"'];
+        yield 'ask with no options' => [$ask(static function (array &$ask): void {
+            unset($ask['options']);
+        }), 'rules[5] (unplanned) then.ask: missing parameter "options"'];
+        yield 'ask with an empty options list' => [$ask(static function (array &$ask): void {
+            $ask['options'] = [];
+        }), 'rules[5] (unplanned) then.ask: parameter "options" must be a non-empty list of maps with a "label" and a "then" list'];
+        yield 'ask option with no label' => [$ask(static function (array &$ask): void {
+            unset($ask['options'][0]['label']);
+        }), 'rules[5] (unplanned) then.ask.options[0]: must be a map with a non-empty string "label" and a non-empty "then" list'];
+        yield 'ask option with an empty then' => [$ask(static function (array &$ask): void {
+            $ask['options'][0]['then'] = [];
+        }), 'rules[5] (unplanned) then.ask.options[0]: must be a map with a non-empty string "label" and a non-empty "then" list'];
+        yield 'ask option with a then that is a map' => [$ask(static function (array &$ask): void {
+            $ask['options'][0]['then'] = ['detach' => []];
+        }), 'rules[5] (unplanned) then.ask.options[0]: must be a map with a non-empty string "label" and a non-empty "then" list'];
+        yield 'ask option with an unknown key' => [$ask(static function (array &$ask): void {
+            $ask['options'][0]['when'] = [];
+        }), 'rules[5] (unplanned) then.ask.options[0]: unknown key "when"'];
+        yield 'ask with an unknown parameter' => [$ask(static function (array &$ask): void {
+            $ask['title'] = 'x';
+        }), 'rules[5] (unplanned) then.ask: unknown parameter "title"'];
+        yield 'link-document from the card' => [static function (array $t): array {
+            $t['rules'][] = ['id' => 'link', 'when' => ['pr.open' => []], 'then' => ['link-document' => ['from' => 'card', 'tag' => 'tech-design']]];
+
+            return $t;
+        }, 'rules[5] (link) then.link-document: parameter "from" must be parent'];
+        yield 'link-document with no tag' => [static function (array $t): array {
+            $t['rules'][] = ['id' => 'link', 'when' => ['pr.open' => []], 'then' => ['link-document' => ['from' => 'parent']]];
+
+            return $t;
+        }, 'rules[5] (link) then.link-document: missing parameter "tag"'];
+        yield 'detach with a parameter' => [static function (array $t): array {
+            $t['rules'][] = ['id' => 'detach', 'when' => ['pr.open' => []], 'then' => ['detach' => ['from' => 'parent']]];
+
+            return $t;
+        }, 'rules[5] (detach) then.detach: unknown parameter "from"'];
+    }
+
+    /** @return array<string, mixed> */
+    private static function askRule(): array
+    {
+        return [
+            'id' => 'unplanned',
+            'slot' => '@backlog',
+            'when' => ['pr.open' => []],
+            'then' => ['ask' => [
+                'question' => 'workflow.ask.unplanned_child',
+                'options' => [
+                    ['label' => 'workflow.ask.unplanned_child.link', 'then' => [['link-document' => ['from' => 'parent', 'tag' => 'tech-design']]]],
+                    ['label' => 'workflow.ask.unplanned_child.design', 'then' => [['move' => ['to' => 'build']]]],
+                    ['label' => 'workflow.ask.unplanned_child.detach', 'then' => [['detach' => []], ['move' => ['to' => '@backlog']]]],
+                ],
+            ]],
+        ];
+    }
+
+    public function test_an_ask_reads_its_question_and_its_options_with_their_nested_actions(): void
+    {
+        $template = self::valid();
+        $template['rules'][] = self::askRule();
+
+        $then = $this->parser->parse($template)->rules[5]->then;
+
+        self::assertSame(ActionType::Ask, $then->type);
+        self::assertSame(['question' => 'workflow.ask.unplanned_child'], $then->params);
+        self::assertEquals([
+            new AskOption('workflow.ask.unplanned_child.link', [new ActionCall(ActionType::LinkDocument, ['from' => 'parent', 'tag' => 'tech-design'])]),
+            new AskOption('workflow.ask.unplanned_child.design', [new ActionCall(ActionType::Move, ['to' => 'build'])]),
+            new AskOption('workflow.ask.unplanned_child.detach', [new ActionCall(ActionType::Detach, []), new ActionCall(ActionType::Move, ['to' => '@backlog'])]),
+        ], $then->options);
+    }
+
+    public function test_an_ask_template_round_trips_through_json(): void
+    {
+        $template = self::valid();
+        $template['rules'][] = self::askRule();
+        $decoded = json_decode(json_encode($template, \JSON_THROW_ON_ERROR), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        self::assertEquals($this->parser->parse($template), $this->parser->parseStored($decoded));
+    }
+
+    public function test_an_action_other_than_an_ask_has_no_options(): void
+    {
+        self::assertSame([], $this->parser->parse(self::valid())->rules[0]->then->options);
     }
 
     /** @param \Closure(array<string, mixed>): array<string, mixed> $mutate */

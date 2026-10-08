@@ -33,6 +33,8 @@ final readonly class TemplateParser
     private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic'];
     private const array ON_TIMEOUT = ['pause', 'expire'];
     private const array EVALUATED_CARDS = ['children'];
+    private const array OPTION_ACTIONS = [ActionType::LinkDocument, ActionType::Detach, ActionType::Move];
+    private const string LINK_SOURCE = 'parent';
     private const array TYPE_KEYS = ['key', 'label', 'tone', 'capabilities'];
     private const int TYPE_KEY_MAX_LENGTH = 20;
     private const array TYPE_CAPABILITIES = ['children', 'lane'];
@@ -576,6 +578,7 @@ final readonly class TemplateParser
         $until = null;
         $checks = [];
         $refill = null;
+        $options = [];
         $declared = self::actionParameters($type);
         if ($app && ActionType::Request === $type) {
             $declared[self::PROMPT] = false;
@@ -599,6 +602,18 @@ final readonly class TemplateParser
                     $errors[] = $where.': parameter "refill" needs a "limit"';
                 } else {
                     $refill = $this->expression($given, $where.'.refill', $slotKeys, $types, $errors, $lenient);
+                }
+                continue;
+            }
+            if ('options' === $param) {
+                $options = $this->askOptions($given, $where, $slotKeys, $types, $errors, $lenient);
+                continue;
+            }
+            if (ActionType::LinkDocument === $type && 'from' === $param) {
+                if (self::LINK_SOURCE !== $given) {
+                    $errors[] = \sprintf('%s: parameter "from" must be %s', $where, self::LINK_SOURCE);
+                } else {
+                    $params['from'] = $given;
                 }
                 continue;
             }
@@ -635,7 +650,57 @@ final readonly class TemplateParser
             }
         }
 
-        return \count($errors) === $errorCount ? new ActionCall($type, $params, $until, checks: $checks, refill: $refill) : null;
+        return \count($errors) === $errorCount ? new ActionCall($type, $params, $until, checks: $checks, refill: $refill, options: $options) : null;
+    }
+
+    /**
+     * @param list<string>                     $slotKeys
+     * @param ?array<string, TemplateCardType> $types
+     * @param list<string>                     $errors
+     *
+     * @return list<AskOption>
+     */
+    private function askOptions(mixed $given, string $where, array $slotKeys, ?array $types, array &$errors, bool $lenient): array
+    {
+        if (!\is_array($given) || [] === $given || !array_is_list($given)) {
+            $errors[] = $where.': parameter "options" must be a non-empty list of maps with a "label" and a "then" list';
+
+            return [];
+        }
+        $options = [];
+        foreach ($given as $index => $entry) {
+            $optionWhere = \sprintf('%s.options[%d]', $where, $index);
+            $label = self::isMap($entry) ? ($entry['label'] ?? null) : null;
+            $then = self::isMap($entry) ? ($entry['then'] ?? null) : null;
+            if (!\is_string($label) || '' === $label || !\is_array($then) || [] === $then || !array_is_list($then)) {
+                $errors[] = $optionWhere.': must be a map with a non-empty string "label" and a non-empty "then" list';
+                continue;
+            }
+            $unknownKeys = array_diff(array_keys($entry), ['label', 'then']);
+            foreach ($unknownKeys as $name) {
+                $errors[] = \sprintf('%s: unknown key "%s"', $optionWhere, $name);
+            }
+            $actions = [];
+            foreach ($then as $position => $node) {
+                $actionWhere = \sprintf('%s.then[%d]', $optionWhere, $position);
+                $name = \is_array($node) && 1 === \count($node) ? array_key_first($node) : null;
+                $type = \is_string($name) ? ActionType::tryFrom($name) : null;
+                if (null !== $type && !\in_array($type, self::OPTION_ACTIONS, true)) {
+                    $errors[] = \sprintf('%s: the action "%s" is not allowed inside an ask option', $actionWhere, $name);
+                    continue;
+                }
+                $action = $this->action($node, $actionWhere, $slotKeys, $types, $errors, $lenient, app: false);
+                if (null !== $action) {
+                    $actions[] = $action;
+                }
+            }
+            if ([] !== $unknownKeys || \count($actions) !== \count($then)) {
+                continue;
+            }
+            $options[] = new AskOption($label, $actions);
+        }
+
+        return $options;
     }
 
     /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write and the epic opening need no fallback. */
@@ -648,6 +713,9 @@ final readonly class TemplateParser
             ActionType::Pause => ['reason' => true, 'until' => true],
             ActionType::Release => ['reason' => true],
             ActionType::Evaluate => ['cards' => true],
+            ActionType::Ask => ['question' => true, 'options' => true],
+            ActionType::LinkDocument => ['from' => true, 'tag' => true],
+            ActionType::Detach => [],
         };
     }
 

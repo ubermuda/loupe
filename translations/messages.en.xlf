@@ -7429,6 +7429,9 @@
             <trans-unit id="workflow.settings.action.pause"><source>workflow.settings.action.pause</source><target>Pause the card</target></trans-unit>
             <trans-unit id="workflow.settings.action.release"><source>workflow.settings.action.release</source><target>Release the pause</target></trans-unit>
             <trans-unit id="workflow.settings.action.evaluate"><source>workflow.settings.action.evaluate</source><target>Evaluate the children again</target></trans-unit>
+            <trans-unit id="workflow.settings.action.ask"><source>workflow.settings.action.ask</source><target>Ask the owner</target></trans-unit>
+            <trans-unit id="workflow.settings.action.link_document"><source>workflow.settings.action.link_document</source><target>Link a document of the parent</target></trans-unit>
+            <trans-unit id="workflow.settings.action.detach"><source>workflow.settings.action.detach</source><target>Remove the parent of the card</target></trans-unit>
             <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
             <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A managed card may move along these paths outside the rules.</target></trans-unit>
             <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
@@ -7484,6 +7487,9 @@
             <trans-unit id="workflow.panel.action.pause"><source>workflow.panel.action.pause</source><target>Pause the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.release"><source>workflow.panel.action.release</source><target>End the pause of the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.evaluate"><source>workflow.panel.action.evaluate</source><target>Evaluate the children of the card again</target></trans-unit>
+            <trans-unit id="workflow.panel.action.ask"><source>workflow.panel.action.ask</source><target>Ask the owner what to do with the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.link_document"><source>workflow.panel.action.link_document</source><target>Link a document of the parent to the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.detach"><source>workflow.panel.action.detach</source><target>Remove the parent of the card</target></trans-unit>
             <trans-unit id="workflow.pause.no-bridge-took-work"><source>workflow.pause.no-bridge-took-work</source><target>No bridge took the requested work in time.</target></trans-unit>
             <trans-unit id="workflow.pause.repair-failed"><source>workflow.pause.repair-failed</source><target>The repair worker could not fix the failure.</target></trans-unit>
             <trans-unit id="workflow.pause.work-limit-reached"><source>workflow.pause.work-limit-reached</source><target>The rule requested the most work that it may request for this card.</target></trans-unit>
