@@ -1022,6 +1022,8 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,
 }) => {
+    // A comment, a resolve, a verdict and three page loads, each a server round trip.
+    test.slow();
     // A verdict is reached on a document that has been commented on, so the
     // thread is part of the state under test, not incidental setup.
     await postComment(page);
