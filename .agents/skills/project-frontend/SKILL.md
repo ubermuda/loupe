@@ -11,7 +11,7 @@ Define every component style in the semantic class layer in `app.css`, with `@ap
 
 Search `app.css` for an existing class before you add one. Put new component classes in `@layer components` with a doc comment that says what the class is and when to use it. Use raw CSS only where `@apply` has no equivalent: multi-layer backgrounds with CSS variables, pseudo-elements, `-webkit-appearance`, and SVG data URIs.
 
-Keep design tokens (colors, gradients, backgrounds) as custom properties in `:root` and reference them inside class definitions. Do not hardcode them in templates.
+Keep design tokens (colors, gradients, backgrounds) as custom properties in `assets/styles/tokens.css` and reference them inside class definitions. Do not hardcode them in templates.
 
 ## Tailwind v4 quirks and constraints
 
@@ -148,7 +148,7 @@ Use no arbitrary values in `app.css` either. Every size, colour and spacing valu
 
 Some conversions are exact and some are not, and the difference matters when you report the change. `w-[45rem]` gives `w-180` and `-top-[12.5rem]` gives `-top-50`, both exact, because the spacing scale is `0.25rem × n`. `blur-[1.25rem]` gives `blur-xl`, which is not exact: the blur scale has no 1.25rem step, so 20px becomes 24px. Accepting that change is correct. Presenting it as equivalent is not.
 
-Treat a custom value as a mistake to fix, not a token to add. Do not invent a `@theme` token to preserve an off-scale value, and do not fall back to an arbitrary value. Snap to the nearest existing token and accept the pixel change. A custom token is the same problem as a bracket value wearing a different hat. `app.css` currently has zero custom `@theme` size entries, zero custom `@utility` blocks and zero literal `px`/`rem` outside the design-token blocks. Keep it that way.
+Treat a custom value as a mistake to fix, not a token to add. Do not invent a `@theme` token to preserve an off-scale value, and do not fall back to an arbitrary value. Snap to the nearest existing token and accept the pixel change. A custom token is the same problem as a bracket value wearing a different hat. The one place a value is set is `assets/styles/tokens.css`, where the radius, spacing and motion groups sit beside the colour, type and shadow groups. `/styleguide` draws every token, in dev. Add a literal `px` or `rem` to `app.css` only inside a token block. `docs/contributing/design-system.md` covers the system.
 
 Several installed user-level design skills hand you literal arbitrary utilities: `beautiful-shadows` gives three `shadow-[0px_2px_3px_-1px_rgba(...)…]` strings, and `glass-dark-ui` one more. Pasting those into a template fails `NoArbitraryValuesCheck`. They are still worth using, because a six-layer box-shadow is genuinely non-expressible as a single utility, like the multi-layer `background:` gradients carved out above. Land the value as a `--shadow-*` entry in the `@theme` design-token block and reference it from a semantic class in `@layer components`. Never write it as a bracket utility in Twig, and never as a one-off literal inside the class body. Snapping such a shadow to `shadow-md` instead is also legitimate.
 
@@ -165,6 +165,27 @@ A semantic color token in `@theme` that maps to a Tailwind palette color uses `v
 Do not add new element style rules to `@layer base`. Tailwind's preflight handles the HTML reset for every element, `dialog` included, and component-specific styles belong in `@layer components` or as utilities in templates. An existing `@layer base` rule may have its raw CSS values converted to `@apply` during a normalisation pass, because converting is not the same as adding a new rule.
 
 Spell out every word in a CSS semantic or utility class name: `.sidebar-item` not `.sb-item`, and `.sidebar-footer` not `.sb-foot`. This applies to the `app.css` definitions and to the usages in templates.
+
+### Building blocks
+
+Use a component from `src/Module/DesignSystem/Catalog.php` before you write markup for a shared control. Write no hand-made `lp-*` root class for a block the catalog lists, because `just gamache` blocks it once the block is enforced. `/styleguide` draws each one in dev, and `docs/contributing/design-system.md` lists them.
+
+1. Button: `<twig:Ds:Button variant="primary" size="sm" href="...">`. Variants are primary, inverse, outline, success, danger, ghost, danger-ghost, icon, compact, open and on-card, and several may be given with a space. A Symfony form button takes `ds_button_class('primary')` in its `attr.class`. The CSS is `assets/styles/components/button.css`.
+2. Flash: `<twig:Ds:Flash severity="error" :dismissLabel="...">message</twig:Ds:Flash>`. Severities are success, error, warning and info.
+3. EmptyState: `<twig:Ds:EmptyState icon="lucide:inbox" :title="..." :body="..." linkHref linkLabel>`. The content goes after the body.
+4. Badge: `<twig:Ds:Badge :status="document.status.value">`, for in-review, draft, approved and changes-requested.
+5. Tag: `<twig:Ds:Tag tone="amber">`, with `as="li"` inside a list. Tones are neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink and orange.
+6. StatusChip: `<twig:Ds:StatusChip modifier="ok" :label="..." :reason="...">`. It takes `:dot="false"` and `as="button"`, and its content is the label when you pass no `label`.
+7. Dialog: `<twig:Ds:Dialog size="document" aria-labelledby="..." data-action="cancel->modal#close">`. The size is document or search, and optional. The component sets `data-modal-target="dialog"`. Keep `lp-dialog-title`, `lp-dialog-desc` and `lp-dialog-actions` as plain classes inside. The CSS is `assets/styles/components/dialog.css`.
+8. Tabs: `<twig:Ds:Tabs aria-label="...">` with `lp-tabs__tab` links or buttons inside. Pass `tag="div"` and `role="tablist"` for a tab list. The CSS is `assets/styles/components/tabs.css`.
+9. Pagination: `<twig:Ds:Pagination route="..." :page="page" :totalPages="totalPages" :pageList="pageList" />`. The CSS is `assets/styles/components/pagination.css`.
+10. Tooltip: `<twig:Ds:Tooltip id="...">text</twig:Ds:Tooltip>`. The anchor's own rule shows it on hover and focus. The CSS is `assets/styles/components/tooltip.css`.
+
+2. Form parts: `<twig:Ds:FormField :fieldView="form.title" />` draws the label, widget, hint and errors of a Symfony field, and `widgetKind="select"` or `widgetKind="textarea"` picks the widget classes. `Ds:Input`, `Ds:Select`, `Ds:Textarea`, `Ds:Label`, `Ds:Hint` and `Ds:FieldErrors` draw one part each. A Symfony widget in a custom layout takes `ds_input_class('select')` and `ds_label_class()`. The CSS is `assets/styles/components/form.css`.
+
+A child card that adds a component adds it to this list in the same branch.
+
+The Claude Design project "Loupe Design System" is a copy of these files. `bin/console app:design-system:export` builds it, and the `loupe-design-rebuild` skill writes it to the project. A change to `tokens.css`, a component or the catalog needs the rebuild step of `working-with-prs` "The Claude Design rebuild".
 
 ### Icons
 

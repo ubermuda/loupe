@@ -1,0 +1,18 @@
+/* The page control. `templates/components/Ds/Pagination.html.twig` renders it. */
+@layer components {
+    .lp-pagination {
+        @apply flex items-center justify-between gap-3 pt-8;
+    }
+    .lp-pagination__status {
+        @apply font-mono text-fg-dim m-0 text-xs;
+    }
+    .lp-pagination__controls {
+        @apply flex items-center gap-1.5;
+    }
+    .lp-pagination__ellipsis {
+        @apply inline-flex items-center justify-center w-9 h-9 text-fg-dim text-sm;
+    }
+    .lp-pagination__disabled {
+        @apply opacity-40 pointer-events-none;
+    }
+}

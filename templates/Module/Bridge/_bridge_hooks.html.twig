@@ -2,7 +2,7 @@
 <section class="lp-hook-section" data-hooks-section>
     <h2 class="lp-section-title">{{ 'bridge.hooks.heading'|trans }}</h2>
     <p class="lp-workspace-desc">{{ 'bridge.hooks.description'|trans }}</p>
-    {% set outcomeChips = {ok: 'lp-status-chip--ok', failed: 'lp-status-chip--failed', timeout: 'lp-status-chip--failed'} %}
+    {% set outcomeChips = {ok: 'ok', failed: 'failed', timeout: 'failed'} %}
     {% for bridge in bridge_hooks(project) %}
     <div class="lp-rule-list" data-bridge-hooks="{{ bridge.id }}">
         <p class="lp-hook-bridge">
@@ -22,10 +22,9 @@
                 <twig:ux:icon name="lucide:chevron-right" class="lp-rule-flow__arrow" />
                 <span title="{{ bridge.id }}"><twig:ux:icon name="lucide:cable" />{{ bridge.label }}</span>
             </div>
-            <span class="lp-status-chip lp-rule-row__state {{ outcomeChips[hook.outcome] ?? 'lp-status-chip--neutral' }}">
-                <span class="lp-status-chip__dot"></span>
+            <twig:Ds:StatusChip :modifier="outcomeChips[hook.outcome] ?? 'neutral'" class="lp-rule-row__state">
                 {{ ('bridge.hooks.outcome.' ~ hook.outcome)|trans }}
-            </span>
+            </twig:Ds:StatusChip>
             {% if hook.lastRunAt %}<time class="lp-rule-row__report" datetime="{{ hook.lastRunAt }}">{{ 'bridge.hooks.last_run'|trans({'%time%': hook.lastRunAt|date('M j, H:i')}) }}</time>{% endif %}
             {% if hook.error %}<p class="lp-rule-row__reason">{{ hook.error }}</p>{% endif %}
         </article>

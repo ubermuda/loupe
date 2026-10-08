@@ -175,10 +175,8 @@ test('columns added, reordered and deleted in one browser update another in plac
     browser,
     request,
 }) => {
-    // Two cards go through the create form, and two browsers sign in. Beside
-    // three other workers that took the whole 90 s of test.slow().
+    // Three edits and two card creations take about 89 of the 90 slow seconds on CI.
     test.setTimeout(test.info().timeout * 2);
-
     const email = `e2e+refresh+columns+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Refresh User', email, password: PASSWORD },

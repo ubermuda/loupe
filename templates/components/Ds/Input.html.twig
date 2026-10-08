@@ -1,0 +1,13 @@
+{#
+  Props:  @comment-budget-ignore
+    mono   bool   Draws the value in the mono font. Optional.
+  Any other attribute, class included, is passed to the element. A null attribute is left out.
+  A select takes Ds:Select and a multi-line field takes Ds:Textarea.
+#}
+{%- props mono = false -%}
+{%- for name, value in attributes.all -%}
+    {%- if value is null -%}
+        {%- set attributes = attributes.remove(name) -%}
+    {%- endif -%}
+{%- endfor -%}
+<input{{ attributes.defaults({class: ds_input_class(null, mono)}) }}>

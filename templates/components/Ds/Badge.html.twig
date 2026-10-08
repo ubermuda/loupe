@@ -1,0 +1,7 @@
+{#
+  Props:  @comment-budget-ignore
+    status   string   in-review, draft, approved or changes-requested.
+  Any other attribute, class included, is passed to the element.
+#}
+{%- props status -%}
+<span{{ attributes.defaults({class: 'lp-badge lp-badge--' ~ status}) }}>{% block content %}{% endblock %}</span>

@@ -15,10 +15,10 @@
             <h1 class="lp-workspace-title">{{ 'bridge.agents.page_heading'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'bridge.agents.description'|trans }}</p>
         </div>
-        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">
+        <twig:Ds:Button href="{{ path('app_project_connect', {id: project.id}) }}">
             <twig:ux:icon name="lucide:cable" />
             {{ 'bridge.agents.connection'|trans }}
-        </a>
+        </twig:Ds:Button>
     </header>
 
     {% set pauseFlashes = app.flashes('bridge-pause') %}
@@ -38,10 +38,7 @@
         {% set bridge = connection.bridge %}
         <article class="lp-agent-card" id="agent-connection-{{ bridge.id }}" data-agent-connection-id="{{ bridge.id }}" tabindex="-1">
             <div class="lp-agent-card__art">
-                <span data-agent-health data-agent-health-state="{{ connection.healthChip.state }}" class="lp-status-chip lp-status-chip--{{ connection.healthChip.tone }}">
-                    <span class="lp-status-chip__dot"></span>
-                    {{ connection.healthChip.label|trans }}
-                </span>
+                <twig:Ds:StatusChip :modifier="connection.healthChip.tone" data-agent-health data-agent-health-state="{{ connection.healthChip.state }}">{{ connection.healthChip.label|trans }}</twig:Ds:StatusChip>
                 <twig:ux:icon name="lucide:bot" />
             </div>
             <div class="lp-agent-card__body"{% if connection.updateChip and connection.updateChip.command %} data-controller="disclosure"{% endif %}>
@@ -52,15 +49,14 @@
                     </div>
                     {% if canManage %}
                     <div class="lp-agent-card__menu" data-agent-menu data-controller="popover">
-                        <button type="button"
-                                class="lp-btn lp-btn--icon"
+                        <twig:Ds:Button type="button" variant="icon"
                                 aria-label="{{ 'bridge.agents.menu'|trans }}"
                                 aria-expanded="false"
                                 aria-controls="agent-menu-{{ bridge.id }}"
                                 data-popover-target="trigger"
                                 data-action="click->popover#toggle">
                             <twig:ux:icon name="lucide:ellipsis" class="size-4" />
-                        </button>
+                        </twig:Ds:Button>
                         <div id="agent-menu-{{ bridge.id }}" class="lp-backlog-menu" data-popover-target="panel" hidden>
                             {% if bridge.pauseRequested or bridge.takesCommands() %}
                             {% set action = bridge.pauseRequested ? 'unpause' : 'pause' %}
@@ -139,17 +135,13 @@
                 <footer>
                     <span>{{ connection.bridge.cliVersion|short_sha }}</span>
                     {% if connection.updateChip and connection.updateChip.command %}
-                    <button type="button" data-agent-update class="lp-status-chip lp-status-chip--{{ connection.updateChip.tone }} lp-agent-update-toggle"
+                    <twig:Ds:StatusChip as="button" type="button" :modifier="connection.updateChip.tone" class="lp-agent-update-toggle" data-agent-update
                             data-action="disclosure#toggle" data-disclosure-target="trigger" aria-controls="agent-update-{{ connection.bridge.id }}">
-                        <span class="lp-status-chip__dot"></span>
                         {{ connection.updateChip.label|trans(connection.updateChip.parameters) }}
                         <twig:ux:icon name="lucide:chevron-down" class="lp-agent-update-toggle__caret" />
-                    </button>
+                    </twig:Ds:StatusChip>
                     {% elseif connection.updateChip %}
-                    <span data-agent-update class="lp-status-chip lp-status-chip--{{ connection.updateChip.tone }}">
-                        <span class="lp-status-chip__dot"></span>
-                        {{ connection.updateChip.label|trans(connection.updateChip.parameters) }}
-                    </span>
+                    <twig:Ds:StatusChip :modifier="connection.updateChip.tone" data-agent-update>{{ connection.updateChip.label|trans(connection.updateChip.parameters) }}</twig:Ds:StatusChip>
                     {% endif %}
                     <span>{{ 'bridge.agents.runtime'|trans }}</span>
                 </footer>
@@ -158,7 +150,7 @@
                      data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
                     <twig:ux:icon name="lucide:terminal" class="lp-connect-field__glyph w-4 h-4" />
                     <code class="lp-connect-field__value" data-agent-update-command>{{ connection.updateChip.command }}</code>
-                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                    <twig:Ds:Button variant="ghost" size="sm" type="button"  data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</twig:Ds:Button>
                 </div>
                 {% endif %}
             </div>
@@ -166,12 +158,10 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="lp-empty-state" data-agent-empty>
-        <twig:ux:icon name="lucide:unplug" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'bridge.agents.empty.title'|trans }}</h2>
+    <twig:Ds:EmptyState icon="lucide:unplug" :title="'bridge.agents.empty.title'|trans" data-agent-empty>
         <p>{{ 'bridge.agents.empty.description'|trans }}</p>
-        <a class="lp-btn lp-btn--primary" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'bridge.agents.empty.action'|trans }}</a>
-    </div>
+        <twig:Ds:Button variant="primary" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'bridge.agents.empty.action'|trans }}</twig:Ds:Button>
+    </twig:Ds:EmptyState>
     {% endif %}
     </turbo-frame>
     {% include '@Bridge/_bridge_hooks.html.twig' with {project: project} only %}

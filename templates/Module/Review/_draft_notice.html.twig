@@ -1,5 +1,5 @@
-<div class="lp-form-hint" hidden data-form-draft-target="notice">
+<twig:Ds:Hint as="div" hidden data-form-draft-target="notice">
     <p>{{ 'review.draft.retained'|trans }}</p>
-    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft#discard">{{ 'review.draft.discard'|trans }}</button>
-</div>
-<p class="lp-field-errors" hidden data-form-draft-target="stale" role="status">{{ 'review.draft.stale'|trans }}</p>
+    <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="form-draft#discard">{{ 'review.draft.discard'|trans }}</twig:Ds:Button>
+</twig:Ds:Hint>
+<twig:Ds:FieldErrors as="p" hidden data-form-draft-target="stale" role="status">{{ 'review.draft.stale'|trans }}</twig:Ds:FieldErrors>

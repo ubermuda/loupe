@@ -35,32 +35,32 @@
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     <label class="sr-only" for="backlog-search">{{ 'board.backlog.filter.search_label'|trans }}</label>
-                    <input type="search"
+                    <twig:Ds:Input type="search"
                            id="backlog-search"
                            name="search"
-                           class="lp-input lp-filter-input"
+                           class="lp-filter-input"
                            value="{{ listQuery.search }}"
                            placeholder="{{ 'board.backlog.filter.search_placeholder'|trans }}"
                            data-autosearch-target="field"
-                           data-action="input->autosearch#search">
+                           data-action="input->autosearch#search" />
                 </div>
 
                 <label class="sr-only" for="backlog-type">{{ 'board.backlog.filter.type_label'|trans }}</label>
-                <select id="backlog-type" name="type" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+                <twig:Ds:Select id="backlog-type" name="type" class="lp-filter-select" data-action="change->autosearch#search">
                     <option value="">{{ 'board.backlog.filter.all_types'|trans }}</option>
                     {% for type in types %}
                     <option value="{{ type.key }}"{{ listQuery.type == type.key ? ' selected' : '' }}>{{ type.label|trans }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
 
                 <label class="sr-only" for="backlog-epic">{{ 'board.backlog.filter.epic_label'|trans }}</label>
-                <select id="backlog-epic" name="epic" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+                <twig:Ds:Select id="backlog-epic" name="epic" class="lp-filter-select" data-action="change->autosearch#search">
                     <option value="">{{ 'board.backlog.filter.any_epic'|trans }}</option>
                     <option value="{{ constant('App\\Module\\Board\\View\\BacklogListQuery::NO_EPIC') }}"{{ listQuery.epic == constant('App\\Module\\Board\\View\\BacklogListQuery::NO_EPIC') ? ' selected' : '' }}>{{ 'board.backlog.filter.no_epic'|trans }}</option>
                     {% for epic in view.epics %}
                     <option value="{{ epic.id }}"{{ listQuery.epic == epic.id ~ '' ? ' selected' : '' }}>#{{ epic.number }} {{ epic.title }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             </div>
 
             <a href="{{ backlogPath }}" data-autosearch-target="clearButton" class="lp-filter-clear">{{ 'board.backlog.filter.clear'|trans }}</a>
@@ -90,18 +90,17 @@
         <input type="hidden" name="{{ bulkName }}[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
         <span><span class="lp-backlog-bulk__count" data-backlog-select-target="count">0</span> {{ 'board.backlog.bulk.selected'|trans }}</span>
         {% if view.nextColumn %}
-        <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm" name="{{ bulkName }}[column]" value="{{ view.nextColumn.id }}">{{ 'board.backlog.bulk.move_to_next'|trans({'%column%': view.nextColumn.label|trans}) }}</button>
+        <twig:Ds:Button variant="primary" size="sm" type="submit" name="{{ bulkName }}[column]" value="{{ view.nextColumn.id }}">{{ 'board.backlog.bulk.move_to_next'|trans({'%column%': view.nextColumn.label|trans}) }}</twig:Ds:Button>
         {% endif %}
         <div class="lp-backlog-move" data-controller="popover">
-            <button type="button"
-                    class="lp-btn lp-btn--ghost lp-btn--sm"
+            <twig:Ds:Button variant="ghost" size="sm" type="button"
                     aria-expanded="false"
                     aria-controls="backlog-bulk-menu"
                     data-popover-target="trigger"
                     data-action="click->popover#toggle">
                 {{ 'board.backlog.bulk.move_to'|trans }}
                 <twig:ux:icon name="lucide:chevron-up" class="w-4 h-4 shrink-0" />
-            </button>
+            </twig:Ds:Button>
             <div id="backlog-bulk-menu" class="lp-backlog-menu lp-backlog-menu--up" data-popover-target="panel" hidden>
                 {% for column in view.boardColumns %}
                 <button type="submit" class="lp-backlog-menu__item" name="{{ bulkName }}[column]" value="{{ column.id }}" data-action="popover#close">
@@ -110,7 +109,7 @@
                 {% endfor %}
             </div>
         </div>
-        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="backlog-select#clear">{{ 'board.backlog.bulk.clear'|trans }}</button>
+        <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="backlog-select#clear">{{ 'board.backlog.bulk.clear'|trans }}</twig:Ds:Button>
     </form>
 </div>
 {% endblock %}
