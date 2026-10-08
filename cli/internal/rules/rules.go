@@ -176,6 +176,9 @@ type File struct {
 	// Collect is on when the key is absent. Off, it also stops the host
 	// samples.
 	Collect *bool `yaml:"collect"`
+	// OpenRouterPrices is off when the key is absent. On, the bridge fetches
+	// model prices from openrouter.ai.
+	OpenRouterPrices *bool `yaml:"openRouterPrices"`
 }
 
 // WorkerPool is one named share of maxWorkers.
@@ -333,9 +336,11 @@ type Set struct {
 	autoUpdate    bool
 	autoUpdateSet bool
 	// noCollect is the inverse of collect, so a zero Set collects.
-	noCollect  bool
-	maxWorkers int
-	name       string
+	noCollect bool
+	// openRouterPrices lets the bridge fetch model prices from openrouter.ai.
+	openRouterPrices bool
+	maxWorkers       int
+	name             string
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
 	// work has the defaults of each worker entry filled.
@@ -397,7 +402,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil, noCollect: f.Collect != nil && !*f.Collect}
+	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil, noCollect: f.Collect != nil && !*f.Collect, openRouterPrices: f.OpenRouterPrices != nil && *f.OpenRouterPrices}
 	s.appPrompts, s.defaults, s.fileDefaults = f.AppPrompts != nil && *f.AppPrompts, defaults, f.Defaults
 	if keyNode(root, "accounts") == nil {
 		s.agentsOff = agentsOffNoAccounts
@@ -1103,6 +1108,12 @@ func (s *Set) AutoUpdateSet() bool {
 // each worker run, and the host samples.
 func (s *Set) Collect() bool {
 	return !s.noCollect
+}
+
+// OpenRouterPrices reports whether the bridge may fetch model prices from
+// openrouter.ai.
+func (s *Set) OpenRouterPrices() bool {
+	return s.openRouterPrices
 }
 
 // AppPrompts reports whether the bridge runs the app prompt of a kind its work

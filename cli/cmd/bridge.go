@@ -405,6 +405,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	r.ctx = ctx
+	go r.priceLoop(ctx)
 
 	// The queue closes after the workers, so it sees every report a dying worker
 	// still makes, and its grace window can send them.

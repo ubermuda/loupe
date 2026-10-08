@@ -123,6 +123,21 @@ func TestCollectIsOnUnlessTheFileTurnsItOff(t *testing.T) {
 	}
 }
 
+func TestOpenRouterPricesIsOffUnlessTheFileTurnsItOn(t *testing.T) {
+	for _, tc := range []struct {
+		line string
+		want bool
+	}{
+		{line: "", want: false},
+		{line: "openRouterPrices: true\n", want: true},
+		{line: "openRouterPrices: false\n", want: false},
+	} {
+		if got := parse(t, tc.line+oneRule).OpenRouterPrices(); got != tc.want {
+			t.Fatalf("%q: OpenRouterPrices = %v, want %v", tc.line, got, tc.want)
+		}
+	}
+}
+
 // The model of a run comes from the entry, then the account, then the flag.
 func TestParseResolvesTheModelOfARun(t *testing.T) {
 	for name, tc := range map[string]struct{ entry, account, flag, want string }{
