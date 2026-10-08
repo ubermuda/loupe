@@ -24,7 +24,7 @@ ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
 
 CHANGED=$(git diff --name-only "$BASE...HEAD")
-printf '%s\n' "$CHANGED" | grep -E '^(assets/styles/tokens\.css|assets/styles/design-system\.css|assets/fonts/.+|docs/contributing/design-system\.md|assets/styles/components/.+|templates/components/Ds/.+|templates/Module/DesignSystem/export/.+|src/Module/DesignSystem/(Catalog|ComponentEntry)\.php|src/Module/DesignSystem/(Command|Service)/.+)$' || true
+printf '%s\n' "$CHANGED" | grep -E '^(assets/styles/tokens\.css|assets/styles/design-system\.css|assets/fonts/.+|docs/contributing/design-system\.md|assets/styles/components/.+|templates/components/Ds/.+|templates/Module/DesignSystem/export/.+|src/Module/DesignSystem/(Catalog|ComponentEntry)\.php|src/Module/DesignSystem/(Command|Service|Token)/.+)$' || true
 
 font_faces() {
   { git show "$1:assets/styles/app.css" 2>/dev/null || true; } | awk '/^[[:space:]]*@font-face/,/^[[:space:]]*}/'

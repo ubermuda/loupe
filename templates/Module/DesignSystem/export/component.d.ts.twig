@@ -1,12 +1,12 @@
 {# twig-cs-fixer-disable #}{% autoescape false %}
-import type { ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 /**
  * {{ entry.summary }} Sentence-case labels. Combine modifiers with a space, such as `ghost icon`.
  *
  * @startingPoint section="{{ section }}" subtitle="Every {{ entry.name }} variant and size" viewport="700x150"
  */
-export interface {{ entry.name }}Props {
+export interface {{ entry.name }}Props extends Omit<HTMLAttributes<HTMLElement>, 'children' | 'onClick'> {
     /** The visual weight and shape. */
     variant?:
 {% for variant in entry.variants %}
