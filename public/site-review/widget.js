@@ -602,6 +602,7 @@
             // save already carries the new one. Every other caller of this
             // renders afterwards; a navigation refresh has nobody to do it.
             sync();
+            followLockForVerdict();
         } catch (error) {
             // A superseded failure says nothing about the state a newer answer
             // has already established. Its firstLoad branch would blank a list
@@ -1362,6 +1363,25 @@
       .lp-context-label[data-wrap]{white-space:normal;overflow:visible}
       .lp-picker-foot .lp-picker-search{flex:1 1 auto}
       .lp-last-card{margin:6px 0 0}
+      .lp-verdict{flex:0 1 auto;min-height:0;overflow:auto;margin:0 14px 12px;font-size:12px;line-height:1.45;color:var(--text)}
+      .lp-verdict-row{display:flex;gap:6px}
+      .lp-verdict-btn{flex:1;min-width:0;height:32px;padding:0 6px;border:0;border-radius:999px;background:var(--chip-bg);color:var(--text);font-family:inherit;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .15s ease}
+      .lp-verdict-btn[data-kind="request-changes"]{flex:1.5}
+      .lp-verdict-btn:hover{background:var(--accent-fill)}
+      .lp-verdict-btn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+      .lp-verdict-form{border:1px solid var(--hairline);border-radius:10px;padding:10px;background:var(--panel-elev)}
+      .lp-verdict-title{font-size:13px;font-weight:700;overflow-wrap:anywhere}
+      .lp-verdict-form .lp-textarea{min-height:56px;margin-top:8px}
+      .lp-verdict-line{margin-top:6px;color:var(--muted)}
+      .lp-verdict-pr{display:flex;align-items:center;gap:6px;margin-top:6px;overflow-wrap:anywhere}
+      .lp-verdict-notes{margin:4px 0 0;padding-left:16px;color:var(--muted)}
+      .lp-verdict-notes li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-verdict-warn{margin-top:6px;color:var(--accent-ink)}
+      .lp-verdict-error{margin-top:6px;color:var(--danger)}
+      .lp-verdict-foot{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:10px}
+      .lp-verdict-result{margin-top:8px;color:var(--muted)}
+      .lp-verdict-result a{color:var(--accent-ink)}
+      .lp-verdict-ok{margin-bottom:6px;color:var(--success);font-weight:600}
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
       /* The composer's height is fixed and it clips, so the chips scroll rather
@@ -1546,6 +1566,7 @@
           <button class="lp-action" id="draw" aria-pressed="false" aria-label="Draw">${ICON.pen(15)}<span>Draw</span></button>
         </div>
         <div class="lp-context lp-last-card" id="lp-last-card" style="display:none"></div>
+        <div class="lp-verdict lp-scroll" id="lp-verdict" style="display:none"></div>
         <div class="lp-error" id="lp-error" style="display:none"></div>
         <div id="lp-body">
           <div class="lp-list-wrap" id="lp-list-wrap" style="display:none">
@@ -1718,6 +1739,7 @@
     const pickerListNode = $('lp-picker-list');
     const pickerTitleNode = $('lp-picker-title');
     const lastCardNode = $('lp-last-card');
+    const verdictNode = $('lp-verdict');
     const composeHead = $('lp-compose-head');
     let composeHeadHtml = null;
     const textareaNode = $('lp-textarea');
@@ -2657,6 +2679,7 @@
             }
             lastCardNode.appendChild(link);
         }
+        renderVerdict();
         if (newNote) {
             // The icon carries "which board thing", so the words that said it
             // are gone: two rows of muted prose under the textarea read as
@@ -3147,6 +3170,418 @@
         sync();
     };
     if (OAUTH) window.addEventListener('message', receiveSignIn);
+
+    // ---- verdict ----
+    // A preview page locks a card, and a reviewer may then send a verdict on it
+    // to the card's open GitHub pull requests. The server decides what a send
+    // does; the widget records nothing until Send.
+    const VERDICT_KINDS = {
+        approve: 'Approve',
+        'request-changes': 'Request changes',
+        comment: 'Comment',
+    };
+    const VERDICT_CONNECT_WRITE = 'post-review';
+    const GITHUB_MESSAGE_TYPE = 'loupe-github-connect';
+    const DELIVERY_STATES = {
+        pending: 'Waiting to post',
+        posted: 'Review posted',
+        commented: 'Posted as a comment',
+        skipped: 'Not posted',
+        refused: 'Not posted',
+    };
+    const DELIVERY_REASONS = {
+        'connection-expired': 'Your GitHub connection ended.',
+        'not-open': 'The pull request is no longer open.',
+        'no-poster': 'This pull request’s host takes no reviews yet.',
+        permission: 'GitHub does not let you review this pull request.',
+        empty_body: 'The review had no text.',
+    };
+    const VERDICT_ERRORS = {
+        message_required: 'Write a message before you send.',
+        card_closed: 'This card is closed, so it takes no verdict.',
+        card_not_found: 'This card is gone.',
+        pull_request_not_on_card:
+            'A pull request you picked is no longer on this card. The list is up to date now.',
+    };
+
+    const verdict = {
+        cardId: null,
+        data: null,
+        open: null,
+        ticked: [],
+        message: '',
+        sending: false,
+        connecting: false,
+        error: null,
+        notice: null,
+    };
+    let verdictGeneration = 0;
+    let verdictDrawn = null;
+    const resetVerdict = () => {
+        verdictGeneration++;
+        Object.assign(verdict, {
+            cardId: null,
+            data: null,
+            open: null,
+            ticked: [],
+            message: '',
+            sending: false,
+            connecting: false,
+            error: null,
+            notice: null,
+        });
+    };
+
+    const verdictActions = (data, kind) =>
+        ((data.preview || {})[kind] || {}).actions || [];
+    // The review write needs the reviewer's own GitHub account.
+    const verdictNeedsConnect = (data, kind) =>
+        data.connection.state !== 'connected' &&
+        verdictActions(data, kind).some(
+            (action) => action.code === VERDICT_CONNECT_WRITE,
+        );
+    const verdictCanSend = ({ kind, message, ticked, sending }) =>
+        !sending && ticked > 0 && (kind === 'approve' || message.trim() !== '');
+    const notesOpenText = (kind, count) => {
+        const one = count === 1;
+        if (kind === 'approve') {
+            return `${count} ${one ? 'note is' : 'notes are'} still open`;
+        }
+        return `${count} ${one ? 'note goes' : 'notes go'} with this review`;
+    };
+    const deliveryText = (delivery) => {
+        const head = DELIVERY_STATES[delivery.state] || delivery.state;
+        let reason = DELIVERY_REASONS[delivery.reason] || '';
+        if (!reason && delivery.state === 'refused') {
+            reason = 'GitHub did not take the review.';
+        }
+        if (!reason && delivery.state === 'skipped' && !delivery.reason) {
+            reason = 'Posting reviews is off for this project.';
+        }
+        return reason ? `${head}. ${reason}` : head;
+    };
+
+    // Whether the card the lock names is the one the loaded answer describes.
+    const verdictCurrent = () =>
+        !DEMO &&
+        !!lock &&
+        lock.state === 'ok' &&
+        verdict.cardId === lock.cardId &&
+        !!verdict.data;
+
+    const tidyTicks = () => {
+        const ids = verdict.data.pullRequests.map((pr) => pr.id);
+        verdict.ticked = verdict.ticked.filter((id) => ids.includes(id));
+        if (ids.length === 1) verdict.ticked = ids;
+    };
+
+    const loadVerdict = async () => {
+        if (DEMO || !lock || lock.state !== 'ok') {
+            if (verdict.cardId !== null) {
+                resetVerdict();
+                sync();
+            }
+            return;
+        }
+        const cardId = lock.cardId;
+        if (verdict.cardId !== cardId) resetVerdict();
+        verdict.cardId = cardId;
+        const generation = ++verdictGeneration;
+        try {
+            const data = await api(
+                'GET',
+                `/api/board/cards/${encodeURIComponent(cardId)}/verdict`,
+            );
+            if (generation !== verdictGeneration) return;
+            verdict.data = {
+                connection: data.connection || { state: 'none' },
+                pullRequests: data.pullRequests || [],
+                notes: data.notes || [],
+                preview: data.preview || {},
+                latestVerdict: data.latestVerdict || null,
+            };
+            tidyTicks();
+        } catch {
+            // The card still works without a verdict panel, so a failed read
+            // hides the panel rather than breaking the widget.
+            if (generation !== verdictGeneration) return;
+            verdict.data = null;
+            verdict.cardId = null;
+        }
+        sync();
+    };
+    // Load once per locked card. A send or a connect reloads on its own.
+    const followLockForVerdict = () => {
+        if (!lock || lock.state !== 'ok') {
+            if (verdict.cardId !== null) loadVerdict();
+        } else if (verdict.cardId !== lock.cardId) loadVerdict();
+    };
+
+    const openVerdict = (kind) => {
+        verdict.open = kind;
+        verdict.error = null;
+        verdict.notice = null;
+        tidyTicks();
+        sync();
+        // The notes may have changed since the page loaded.
+        loadVerdict();
+    };
+    const closeVerdict = () => {
+        verdict.open = null;
+        verdict.message = '';
+        verdict.ticked = [];
+        verdict.error = null;
+        sync();
+    };
+    const verdictSendable = () =>
+        verdictCanSend({
+            kind: verdict.open,
+            noteCount: verdict.data.notes.length,
+            message: verdict.message,
+            ticked: verdict.ticked.length,
+            sending: verdict.sending,
+        });
+
+    const sendVerdict = async () => {
+        if (!verdict.open || !verdictCurrent() || !verdictSendable()) return;
+        const cardId = verdict.cardId;
+        const kind = verdict.open;
+        verdict.sending = true;
+        verdict.error = null;
+        sync();
+        try {
+            await api(
+                'POST',
+                `/api/board/cards/${encodeURIComponent(cardId)}/verdicts`,
+                {
+                    kind,
+                    pullRequestIds: verdict.ticked,
+                    message: verdict.message.trim(),
+                },
+            );
+        } catch (error) {
+            if (verdict.cardId !== cardId) return;
+            verdict.sending = false;
+            if (authFailed(error)) enterFatal(error);
+            else {
+                verdict.error =
+                    VERDICT_ERRORS[error.code] ||
+                    'The verdict was not sent. Try again.';
+            }
+            sync();
+            if (error.code === 'pull_request_not_on_card') loadVerdict();
+            return;
+        }
+        if (verdict.cardId !== cardId) return;
+        verdict.sending = false;
+        verdict.open = null;
+        verdict.message = '';
+        verdict.ticked = [];
+        verdict.notice = 'Sent to the workflow';
+        sync();
+        await loadVerdict();
+    };
+
+    // The popup opens inside the click, or a pop-up blocker eats it. Neither
+    // the message nor the close is trusted: both only trigger a fresh read.
+    let githubPopup = null;
+    let githubWatch = 0;
+    const finishConnect = () => {
+        clearInterval(githubWatch);
+        githubPopup = null;
+        verdict.connecting = false;
+        sync();
+        loadVerdict();
+    };
+    const connectGitHub = () => {
+        const popup = window.open(
+            `${BACKEND}/account/github/connect?${new URLSearchParams({
+                project: PROJECT,
+                origin: window.location.origin,
+            }).toString()}`,
+            'loupe-site-review-github',
+            'popup,width=520,height=720',
+        );
+        if (!popup) {
+            verdict.error =
+                'Your browser blocked the GitHub window. Allow pop-ups for this site, then try again.';
+            sync();
+            return;
+        }
+        githubPopup = popup;
+        verdict.connecting = true;
+        verdict.error = null;
+        clearInterval(githubWatch);
+        githubWatch = setInterval(() => {
+            if (githubPopup && githubPopup.closed) finishConnect();
+        }, 500);
+        sync();
+    };
+    if (OAUTH) {
+        window.addEventListener('message', (event) => {
+            if (
+                !githubPopup ||
+                event.origin !== BACKEND ||
+                !event.data ||
+                event.data.type !== GITHUB_MESSAGE_TYPE
+            )
+                return;
+            finishConnect();
+        });
+    }
+
+    const renderVerdictForm = (data) => {
+        const kind = verdict.open;
+        const label = lock && lock.label ? lock.label : 'this card';
+        const single = data.pullRequests.length === 1;
+        const prs = data.pullRequests
+            .map((pr) =>
+                single
+                    ? `<div class="lp-verdict-pr">${escapeHtml(pr.label)}</div>`
+                    : `<label class="lp-verdict-pr"><input type="checkbox" data-pr="${escapeHtml(pr.id)}"${
+                          verdict.ticked.includes(pr.id) ? ' checked' : ''
+                      }>${escapeHtml(pr.label)}</label>`,
+            )
+            .join('');
+        const own = data.pullRequests.some(
+            (pr) => pr.ownPullRequest && verdict.ticked.includes(pr.id),
+        );
+        const notes = data.notes.length
+            ? `<div class="lp-verdict-line">${notesOpenText(kind, data.notes.length)}</div><ul class="lp-verdict-notes">${data.notes
+                  .map((note) => `<li>${escapeHtml(note.body)}</li>`)
+                  .join('')}</ul>`
+            : '';
+        const actions = verdictActions(data, kind);
+        const does = actions.length
+            ? actions
+                  .map(
+                      (action) =>
+                          `<div class="lp-verdict-line">${escapeHtml(action.label)}</div>`,
+                  )
+                  .join('')
+            : '<div class="lp-verdict-line">Recorded in Loupe only</div>';
+        const connect = verdictNeedsConnect(data, kind);
+        const send = connect
+            ? `<button class="lp-primary" id="lp-verdict-connect" type="button"${
+                  verdict.connecting ? ' disabled' : ''
+              }>${verdict.connecting ? 'Waiting for GitHub…' : 'Connect GitHub to send this review'}</button>`
+            : `<button class="lp-primary" id="lp-verdict-send" type="button"${
+                  verdictSendable() ? '' : ' disabled'
+              }>${verdict.sending ? '<span class="lp-spin"></span>Sending…' : 'Send'}</button>`;
+        return `<div class="lp-verdict-form" id="lp-verdict-form" role="group" aria-label="${escapeHtml(VERDICT_KINDS[kind])}">
+          <div class="lp-verdict-title">${escapeHtml(VERDICT_KINDS[kind])} for ${escapeHtml(label)}</div>
+          ${prs}
+          ${own ? '<div class="lp-verdict-warn">You opened this pull request, so GitHub accepts no verdict from you. The review goes as a comment.</div>' : ''}
+          ${notes}
+          <textarea class="lp-textarea" id="lp-verdict-message" aria-label="Message" placeholder="${
+              kind === 'approve' ? 'Message (optional)' : 'Message'
+          }"></textarea>
+          ${does}
+          ${verdict.error ? `<div class="lp-verdict-error" role="alert">${escapeHtml(verdict.error)}</div>` : ''}
+          <div class="lp-verdict-foot">
+            <button class="lp-ghost" id="lp-verdict-cancel" type="button">Cancel</button>
+            ${send}
+          </div>
+        </div>`;
+    };
+
+    const renderVerdictResult = (data) => {
+        const latest = data.latestVerdict;
+        if (!latest) return '';
+        const when = new Date(latest.createdAt);
+        const time = Number.isNaN(when.getTime())
+            ? ''
+            : `, ${when.toLocaleString()}`;
+        let expired = false;
+        const deliveries = (latest.deliveries || [])
+            .map((delivery) => {
+                expired = expired || delivery.reason === 'connection-expired';
+                const link =
+                    typeof delivery.reviewUrl === 'string' &&
+                    /^https:\/\//.test(delivery.reviewUrl)
+                        ? ` <a href="${escapeHtml(delivery.reviewUrl)}" target="_blank" rel="noopener">View review</a>`
+                        : '';
+                return `<div>${escapeHtml(delivery.label)}: ${escapeHtml(deliveryText(delivery))}${link}</div>`;
+            })
+            .join('');
+        const again = expired
+            ? ' <button class="lp-ghost-sm" id="lp-verdict-again" type="button">Connect again</button>'
+            : '';
+        return `<div class="lp-verdict-result" id="lp-verdict-result">Last verdict: ${escapeHtml(VERDICT_KINDS[latest.kind] || latest.kind)}${escapeHtml(time)}${deliveries}${again}</div>`;
+    };
+
+    const renderVerdict = () => {
+        const data = verdictCurrent() ? verdict.data : null;
+        if (!data) {
+            verdictNode.style.display = 'none';
+            verdictDrawn = null;
+            return;
+        }
+        verdictNode.style.display = 'block';
+        const html = [
+            verdict.notice
+                ? `<div class="lp-verdict-ok" role="status">${escapeHtml(verdict.notice)}</div>`
+                : '',
+            verdict.open
+                ? renderVerdictForm(data)
+                : (data.pullRequests.length
+                      ? `<div class="lp-verdict-row" role="group" aria-label="Verdict">${Object.entries(
+                            VERDICT_KINDS,
+                        )
+                            .map(
+                                ([kind, text]) =>
+                                    `<button class="lp-verdict-btn" type="button" data-kind="${kind}">${text}</button>`,
+                            )
+                            .join('')}</div>`
+                      : '') + renderVerdictResult(data),
+        ].join('');
+        // The typed message is not part of the markup, so typing never repaints.
+        if (html === verdictDrawn) return;
+        verdictDrawn = html;
+        const focused = root.activeElement;
+        const typing = focused?.id === 'lp-verdict-message';
+        const tickedBox = focused?.dataset?.pr;
+        verdictNode.innerHTML = html;
+        verdictNode
+            .querySelectorAll('[data-kind]')
+            .forEach((button) =>
+                button.addEventListener('click', () =>
+                    openVerdict(button.dataset.kind),
+                ),
+            );
+        verdictNode.querySelectorAll('[data-pr]').forEach((box) =>
+            box.addEventListener('change', () => {
+                verdict.ticked = box.checked
+                    ? [...verdict.ticked, box.dataset.pr]
+                    : verdict.ticked.filter((id) => id !== box.dataset.pr);
+                sync();
+            }),
+        );
+        const message = $('lp-verdict-message');
+        if (message) {
+            message.value = verdict.message;
+            message.addEventListener('input', () => {
+                verdict.message = message.value;
+                const sendButton = $('lp-verdict-send');
+                if (sendButton) sendButton.disabled = !verdictSendable();
+            });
+            if (typing) message.focus();
+        }
+        if (tickedBox) {
+            const box = verdictNode.querySelector(
+                `[data-pr="${CSS.escape(tickedBox)}"]`,
+            );
+            if (box) box.focus();
+        }
+        const on = (id, handler) => {
+            const node = $(id);
+            if (node) node.addEventListener('click', handler);
+        };
+        on('lp-verdict-cancel', closeVerdict);
+        on('lp-verdict-send', sendVerdict);
+        on('lp-verdict-connect', connectGitHub);
+        on('lp-verdict-again', connectGitHub);
+    };
 
     const sync = () => {
         updatePanel();

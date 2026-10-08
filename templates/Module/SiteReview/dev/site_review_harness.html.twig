@@ -29,6 +29,6 @@
     <p id="prose-repeat">First run: the same phrase here. Second run: the same phrase here.</p>
     {# Room to scroll, and last so it pushes no target below the fold. #}
     <div id="spacer" style="height: 1600px"></div>
-    <script src="/site-review/widget.js" data-project="{{ projectId }}"></script>
+    <script src="/site-review/widget.js" data-project="{{ projectId }}"{% if context %} data-context="{{ context }}"{% endif %}></script>
 </body>
 </html>
