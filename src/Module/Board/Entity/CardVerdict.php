@@ -19,6 +19,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: CardVerdictRepository::class)]
 #[ORM\Index(name: 'idx_board_card_verdicts_card_created', columns: ['card_id', 'created_at'])]
 #[ORM\Table(name: 'board_card_verdicts')]
+#[ORM\UniqueConstraint(name: 'uniq_board_card_verdicts_card_submission', columns: ['card_id', 'submission_id'])]
 class CardVerdict
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -51,6 +52,10 @@ class CardVerdict
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+
+        /** The id the widget made for one Send, so a retry finds this verdict. Older rows have none. */
+        #[ORM\Column(type: UuidType::NAME, nullable: true)]
+        public readonly ?Uuid $submissionId = null,
     ) {
     }
 }

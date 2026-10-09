@@ -87,6 +87,7 @@ final class CardVerdictApiTest extends WebTestCase
             'kind' => 'request-changes',
             'pullRequestIds' => [(string) $pullRequest->id],
             'message' => 'Please fix the footer.',
+            'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa',
         ]);
 
         self::assertResponseStatusCodeSame(201);
@@ -164,7 +165,7 @@ final class CardVerdictApiTest extends WebTestCase
         $this->em->flush();
 
         foreach (['request-changes', 'comment'] as $kind) {
-            $data = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => $kind, 'message' => '  ']);
+            $data = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => $kind, 'message' => '  ', 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa']);
             self::assertResponseStatusCodeSame(422);
             self::assertSame('message_required', $data['error']);
         }
@@ -180,11 +181,34 @@ final class CardVerdictApiTest extends WebTestCase
         $foreign = $this->linkedPullRequest($other, 9);
         $this->em->flush();
 
-        $data = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => 'approve', 'pullRequestIds' => [(string) $foreign->id]]);
+        $data = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => 'approve', 'pullRequestIds' => [(string) $foreign->id], 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa']);
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame('pull_request_not_on_card', $data['error']);
         self::assertSame([], $this->service(CardVerdictRepository::class)->findAll());
+    }
+
+    public function test_a_retried_send_returns_the_saved_verdict_and_a_changed_one_is_refused(): void
+    {
+        $client = static::createClient();
+        [$raw, $project] = $this->projectWithToken($client, 'verdict-api-retry@example.com');
+        $card = $this->card($project);
+        $pullRequest = $this->linkedPullRequest($card, 7);
+        $this->em->flush();
+        $body = ['kind' => 'comment', 'pullRequestIds' => [(string) $pullRequest->id], 'message' => 'Looks odd.', 'submissionId' => '0198a2c0-0000-7000-8000-0000000000bb'];
+
+        $first = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, $body);
+        self::assertResponseStatusCodeSame(201);
+        $again = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, $body);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame($first['verdictId'], $again['verdictId']);
+
+        $changed = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, [...$body, 'message' => 'Another thought.']);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('submission_reused', $changed['error']);
+
+        $this->em->clear();
+        self::assertCount(1, $this->service(CardVerdictRepository::class)->findAll());
     }
 
     public function test_an_unreadable_body_is_refused_before_the_handler_runs(): void
@@ -194,7 +218,7 @@ final class CardVerdictApiTest extends WebTestCase
         $card = $this->card($project);
         $this->em->flush();
 
-        foreach ([[], ['kind' => 'shrug'], ['kind' => 'approve', 'pullRequestIds' => ['nope']], ['kind' => 'comment', 'message' => str_repeat('x', 10001)]] as $body) {
+        foreach ([[], ['kind' => 'shrug', 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'approve', 'pullRequestIds' => ['nope'], 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'comment', 'message' => str_repeat('x', 10001), 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'approve'], ['kind' => 'approve', 'submissionId' => 'nope']] as $body) {
             $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, $body);
             self::assertResponseStatusCodeSame(422);
         }
@@ -212,7 +236,7 @@ final class CardVerdictApiTest extends WebTestCase
         $this->call($client, Request::METHOD_GET, $this->panelPath($foreign), $raw);
         self::assertResponseStatusCodeSame(404);
 
-        $this->call($client, Request::METHOD_POST, $this->sendPath($foreign), $raw, ['kind' => 'approve']);
+        $this->call($client, Request::METHOD_POST, $this->sendPath($foreign), $raw, ['kind' => 'approve', 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa']);
         self::assertResponseStatusCodeSame(404);
         self::assertSame([], $this->service(CardVerdictRepository::class)->findAll());
     }
@@ -224,7 +248,7 @@ final class CardVerdictApiTest extends WebTestCase
         $card = $this->card($project, 'done');
         $this->em->flush();
 
-        $data = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => 'approve']);
+        $data = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => 'approve', 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa']);
 
         self::assertResponseStatusCodeSame(409);
         self::assertSame('card_closed', $data['error']);
@@ -245,7 +269,7 @@ final class CardVerdictApiTest extends WebTestCase
 
         $this->call($client, Request::METHOD_GET, $this->panelPath($card), $raw);
         self::assertResponseStatusCodeSame(403);
-        $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => 'approve']);
+        $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => 'approve', 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa']);
         self::assertResponseStatusCodeSame(403);
     }
 

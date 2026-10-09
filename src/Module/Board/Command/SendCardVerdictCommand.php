@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\CardVerdictKind;
 use App\Module\Project\Entity\Project;
+use Symfony\Component\Uid\Uuid;
 
 final readonly class SendCardVerdictCommand
 {
@@ -18,6 +19,7 @@ final readonly class SendCardVerdictCommand
         public CardVerdictKind $kind,
         public array $pullRequestIds,
         public string $message,
+        public Uuid $submissionId,
     ) {
     }
 }

@@ -13,6 +13,7 @@ use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Records a verdict from the site-review widget. The firewall grants
@@ -31,6 +32,7 @@ final class SendCardVerdictController extends AppController
         SendCardVerdictHandler::CARD_CLOSED => ['card_closed', JsonResponse::HTTP_CONFLICT],
         SendCardVerdictHandler::MESSAGE_REQUIRED => ['message_required', JsonResponse::HTTP_UNPROCESSABLE_ENTITY],
         SendCardVerdictHandler::PULL_REQUEST_NOT_ON_CARD => ['pull_request_not_on_card', JsonResponse::HTTP_UNPROCESSABLE_ENTITY],
+        SendCardVerdictHandler::SUBMISSION_REUSED => ['submission_reused', JsonResponse::HTTP_CONFLICT],
     ];
 
     public function __construct(
@@ -59,6 +61,7 @@ final class SendCardVerdictController extends AppController
                 kind: $payload->kind ?? throw new \LogicException('kind required after validation'),
                 pullRequestIds: $payload->pullRequestIds,
                 message: $payload->message,
+                submissionId: Uuid::fromString($payload->submissionId ?? throw new \LogicException('submissionId required after validation')),
             ));
         } catch (DomainErrors $error) {
             [$code, $status] = self::REFUSALS[array_first($error->errors)] ?? ['verdict_refused', JsonResponse::HTTP_UNPROCESSABLE_ENTITY];

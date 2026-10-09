@@ -13,6 +13,8 @@ use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardVerdictDeliveryRepository;
+use App\Module\Board\Repository\CardVerdictRepository;
 use App\Module\Board\Service\CardNoteSnapshot;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Workflow\Contract\CardEvaluations;
@@ -37,9 +39,13 @@ final readonly class SendCardVerdictHandler
 
     public const string PULL_REQUEST_NOT_ON_CARD = 'board.verdict.error.pull_request_not_on_card';
 
+    public const string SUBMISSION_REUSED = 'board.verdict.error.submission_reused';
+
     public function __construct(
         private CardRepository $cards,
         private CardPullRequestRepository $cardPullRequests,
+        private CardVerdictRepository $cardVerdicts,
+        private CardVerdictDeliveryRepository $cardVerdictDeliveries,
         private CardNoteSnapshot $notes,
         private CardEventRepository $cardEvents,
         private EntityManagerInterface $em,
@@ -63,11 +69,20 @@ final readonly class SendCardVerdictHandler
             throw new DomainErrors(['message' => self::MESSAGE_REQUIRED]);
         }
 
+        $saved = $this->cardVerdicts->findBySubmission($card, $command->submissionId);
+        if ($saved instanceof CardVerdict) {
+            if (!$this->sameContent($saved, $command, $message)) {
+                throw new DomainErrors(['submissionId' => self::SUBMISSION_REUSED]);
+            }
+
+            return $saved;
+        }
+
         $picked = $this->pickedPullRequests($card, $command->pullRequestIds);
 
         $verdict = $this->em->wrapInTransaction(function () use ($command, $card, $message, $picked): CardVerdict {
             $notes = $this->notes->pendingOf($card);
-            $verdict = new CardVerdict($card, $command->kind, $command->reviewer, $message, $notes);
+            $verdict = new CardVerdict($card, $command->kind, $command->reviewer, $message, $notes, submissionId: $command->submissionId);
             $this->em->persist($verdict);
             foreach ($picked as $pullRequest) {
                 $this->em->persist(new CardVerdictDelivery($verdict, $pullRequest));
@@ -102,6 +117,27 @@ final readonly class SendCardVerdictHandler
         }
 
         return $verdict;
+    }
+
+    private function sameContent(CardVerdict $saved, SendCardVerdictCommand $command, string $message): bool
+    {
+        if ($saved->kind !== $command->kind || $saved->message !== $message || $saved->reviewer?->id?->toRfc4122() !== $command->reviewer->id?->toRfc4122()) {
+            return false;
+        }
+
+        $storedIds = array_map(
+            static fn (CardVerdictDelivery $delivery): string => (string) $delivery->pullRequest->id,
+            $this->cardVerdictDeliveries->findBy(['verdict' => $saved]),
+        );
+        $sentIds = array_map(
+            static fn (string $id): string => Uuid::isValid($id) ? Uuid::fromString($id)->toRfc4122() : $id,
+            $command->pullRequestIds,
+        );
+        sort($storedIds);
+        $sentIds = array_values(array_unique($sentIds));
+        sort($sentIds);
+
+        return $storedIds === $sentIds;
     }
 
     /**

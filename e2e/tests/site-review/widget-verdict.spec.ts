@@ -19,6 +19,7 @@ test.describe.configure({ mode: 'parallel' });
 
 const E2E_PASSWORD = 'E2eSiteReview1!';
 const CARD = '0197a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const PR_A = '0197a1b2-0000-7000-8000-00000000000a';
 const PR_B = '0197a1b2-0000-7000-8000-00000000000b';
 
@@ -188,7 +189,12 @@ test('an approval sends after the confirm panel and says so', async ({
 
     await expect(panel(page).getByText('Sent to the workflow')).toBeVisible();
     expect(posted).toEqual([
-        { kind: 'approve', pullRequestIds: [PR_A], message: '' },
+        {
+            kind: 'approve',
+            pullRequestIds: [PR_A],
+            message: '',
+            submissionId: expect.stringMatching(UUID),
+        },
     ]);
 });
 
@@ -225,6 +231,7 @@ test('request changes needs a message and warns about the reviewer’s own pull 
             kind: 'request-changes',
             pullRequestIds: [PR_A],
             message: 'The heading is cut off',
+            submissionId: expect.stringMatching(UUID),
         },
     ]);
 });
@@ -255,7 +262,12 @@ test('two pull requests ask the reviewer to tick the ones that get the review', 
     ]);
 
     expect(posted).toEqual([
-        { kind: 'approve', pullRequestIds: [PR_B], message: '' },
+        {
+            kind: 'approve',
+            pullRequestIds: [PR_B],
+            message: '',
+            submissionId: expect.stringMatching(UUID),
+        },
     ]);
 });
 

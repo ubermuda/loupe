@@ -15,6 +15,7 @@ import {
 const CARD = '0197a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
 const PR_A = '0197a1b2-0000-7000-8000-00000000000a';
 const PR_B = '0197a1b2-0000-7000-8000-00000000000b';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 let originalHistory;
 let popup;
@@ -211,7 +212,12 @@ describe('confirm panel', () => {
         await settle();
 
         expect(sent(fetchMock)).toEqual([
-            { kind: 'approve', pullRequestIds: [PR_A], message: '' },
+            {
+                kind: 'approve',
+                pullRequestIds: [PR_A],
+                message: '',
+                submissionId: expect.stringMatching(UUID),
+            },
         ]);
         expect(panelRoot().querySelector('.lp-verdict-ok').textContent).toBe(
             'Sent to the workflow',
@@ -334,6 +340,52 @@ describe('confirm panel', () => {
         expect(panelRoot().getElementById('lp-verdict-message').value).toBe(
             'Looks odd',
         );
+    });
+
+    it('keeps the submission id when the same verdict is sent again after a failure', async () => {
+        let calls = 0;
+        const fetchMock = boot({
+            post: () =>
+                ++calls === 1
+                    ? rejected(500, {})
+                    : ok({ verdictId: 'v1', kind: 'comment', noteCount: 0 }),
+        });
+        await settle();
+        openPanel();
+        press('Comment');
+        await settle();
+        await write('Looks odd');
+        sendButton().click();
+        await settle();
+        sendButton().click();
+        await settle();
+
+        const [first, second] = sent(fetchMock);
+        expect(first.submissionId).toMatch(UUID);
+        expect(second.submissionId).toBe(first.submissionId);
+    });
+
+    it('makes a new submission id when the message changes after a failure', async () => {
+        let calls = 0;
+        const fetchMock = boot({
+            post: () =>
+                ++calls === 1
+                    ? rejected(500, {})
+                    : ok({ verdictId: 'v1', kind: 'comment', noteCount: 0 }),
+        });
+        await settle();
+        openPanel();
+        press('Comment');
+        await settle();
+        await write('Looks odd');
+        sendButton().click();
+        await settle();
+        await write('Looks very odd');
+        sendButton().click();
+        await settle();
+
+        const [first, second] = sent(fetchMock);
+        expect(second.submissionId).not.toBe(first.submissionId);
     });
 
     it('cancel leaves nothing sent', async () => {
