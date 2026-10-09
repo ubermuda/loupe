@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
+use App\Module\AgentReview\Entity\AgentReviewConclusion;
+use App\Module\AgentReview\Workflow\AgentReviewFacts;
+use App\Module\AgentReview\Workflow\ReviewedHead;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
@@ -137,6 +140,80 @@ final class ShippedTemplatesTest extends KernelTestCase
         );
 
         self::assertContainsEquals($this->call('move', ['to' => 'in-review']), $this->actions($facts));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function reviewSlots(): iterable
+    {
+        yield 'implementation' => ['implementation'];
+        yield 'in review' => ['in-review'];
+    }
+
+    #[DataProvider('reviewSlots')]
+    public function test_a_head_with_no_agent_review_asks_for_one(string $slot): void
+    {
+        $facts = self::withAgentReview($slot, [null]);
+        $suffix = 'in-review' === $slot ? '-in-review' : '';
+
+        self::assertContains('agent-review'.$suffix, $this->firingRuleIds($facts));
+        self::assertNotContains('fix-agent-review'.$suffix, $this->firingRuleIds($facts));
+    }
+
+    #[DataProvider('reviewSlots')]
+    public function test_a_failed_agent_review_asks_for_a_fix_with_its_own_reason_and_limit(string $slot): void
+    {
+        $facts = self::withAgentReview($slot, [AgentReviewConclusion::Failure]);
+        $suffix = 'in-review' === $slot ? '-in-review' : '';
+        $rule = array_find($this->lifecycle()->rulesFor($slot), static fn ($rule): bool => 'fix-agent-review'.$suffix === $rule->id);
+
+        self::assertNotNull($rule);
+        self::assertTrue($rule->when->evaluate($facts));
+        self::assertSame(['kind' => 'fix', 'reason' => 'agent-review', 'limit' => 10], \array_slice($rule->then->params, 0, 3));
+        self::assertNotContains('agent-review'.$suffix, $this->firingRuleIds($facts));
+    }
+
+    public function test_a_draft_that_passed_the_agent_review_is_marked_ready(): void
+    {
+        $passed = self::withAgentReview('implementation', [AgentReviewConclusion::Success], draft: true);
+        $pending = self::withAgentReview('implementation', [null], draft: true);
+        $epic = self::withAgentReview('implementation', [AgentReviewConclusion::Success], draft: true, epic: true);
+        $ready = $this->call('forge-write', ['write' => 'review-ready']);
+
+        self::assertContainsEquals($ready, $this->actions($passed));
+        self::assertNotContainsEquals($ready, $this->actions($pending));
+        self::assertNotContainsEquals($ready, $this->actions($epic));
+    }
+
+    public function test_a_card_waits_in_implementation_and_in_review_until_the_agent_review_passed(): void
+    {
+        $toReview = $this->call('move', ['to' => 'in-review']);
+        $merge = $this->call('forge-write', ['write' => 'merge', 'fallback' => 'merge']);
+
+        self::assertNotContainsEquals($toReview, $this->actions(self::withAgentReview('implementation', [null])));
+        self::assertNotContainsEquals($toReview, $this->actions(self::withAgentReview('implementation', [AgentReviewConclusion::Failure])));
+        self::assertContainsEquals($toReview, $this->actions(self::withAgentReview('implementation', [AgentReviewConclusion::Success])));
+        self::assertNotContainsEquals($merge, $this->actions(self::withAgentReview('in-review', [null], approvals: 1)));
+        self::assertContainsEquals($merge, $this->actions(self::withAgentReview('in-review', [AgentReviewConclusion::Success], approvals: 1)));
+    }
+
+    public function test_an_epic_child_waits_for_the_agent_review_before_it_merges_into_the_epic_branch(): void
+    {
+        $merge = $this->call('forge-write', ['write' => 'merge', 'fallback' => 'merge']);
+
+        self::assertNotContainsEquals($merge, $this->actions(self::withAgentReview('in-review', [null], epicBranch: true)));
+        self::assertContainsEquals($merge, $this->actions(self::withAgentReview('in-review', [AgentReviewConclusion::Success], epicBranch: true)));
+    }
+
+    /** @param list<AgentReviewConclusion|null> $conclusions the newest review conclusion of each open pull request head */
+    private static function withAgentReview(string $slot, array $conclusions, bool $draft = false, bool $epic = false, int $approvals = 0, bool $epicBranch = false): Facts
+    {
+        $heads = array_map(static fn (?AgentReviewConclusion $conclusion): ReviewedHead => new ReviewedHead('pull-request', str_repeat('a', 40), $conclusion), $conclusions);
+
+        return FactsMother::facts(
+            card: FactsMother::card(slot: $slot, type: $epic ? 'epic' : 'feature'),
+            pullRequest: FactsMother::pullRequest(draft: $draft, checks: ChecksState::Passed, approvalsCoveringHead: $approvals, baseIsMergeTarget: !$epicBranch, baseIsEpicBranch: $epicBranch),
+            provided: [AgentReviewFacts::class => new AgentReviewFacts($heads, enabled: true, epic: $epic, unposted: false)],
+        );
     }
 
     public function test_a_draft_in_review_moves_back_to_implementation(): void

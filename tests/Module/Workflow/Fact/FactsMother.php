@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Fact;
 
+use App\Module\AgentReview\Workflow\AgentReviewFactProvider;
+use App\Module\AgentReview\Workflow\AgentReviewFacts;
 use App\Module\Board\Workflow\BlockerFactProvider;
 use App\Module\Board\Workflow\BlockerFacts;
 use App\Module\Board\Workflow\CardTypeFactProvider;
@@ -75,6 +77,7 @@ final class FactsMother
             ...self::byClass(new CardTypeFacts($card->type), new BlockerFacts($card->hasOpenBlocker), new ParentFacts($card->isChild)),
             ...self::byClass(new ChildrenFacts($card->childCount, $card->openChildCount, $card->childMergedIntoEpicBranch), new DocumentsFacts($card->documents), new ParentDocumentsFacts($card->parentDocuments)),
             ...self::byClass(new PullRequestList($pullRequests, $pullRequest)),
+            ...self::byClass(new AgentReviewFacts([], enabled: false, epic: false, unposted: false)),
             ...self::byClass(new WorkRequestFacts($run->activeWorkKinds), new RefusalFacts($run->lastRefusalCode), new WorkerRunFacts($run->activeWorkerKinds), new ParentWorkFacts($run->parentActiveKinds)),
         ];
         $prints = [];
@@ -85,6 +88,9 @@ final class FactsMother
             $prints[$provider->factsClass()] = $provider->fingerprint($given[$provider->factsClass()]);
             $legacy[$provider->factsClass()] = $provider->legacyGroup();
         }
+
+        $agentReview = [...$given, ...$provided][AgentReviewFacts::class];
+        $prints[AgentReviewFacts::class] = new \ReflectionClass(AgentReviewFactProvider::class)->newInstanceWithoutConstructor()->fingerprint($agentReview);
 
         return new Facts(
             now: $now,
