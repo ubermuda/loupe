@@ -6,9 +6,11 @@ namespace App\Tests\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictKind;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Entity\SiteReviewCheckState;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\SiteReviewCheckStateRepository;
@@ -86,6 +88,21 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         $call = $this->writer->published[0];
         self::assertSame(PullRequestCheckConclusion::Failure, $call['conclusion']);
         self::assertSame('One site review note is open', $call['title']);
+        self::assertSame('- https://app.example/page: Footer overlaps', $call['summary']);
+    }
+
+    public function test_the_note_of_another_card_on_the_pull_request_fails_the_check_and_shows_in_the_summary(): void
+    {
+        $first = $this->card($this->project);
+        $second = $this->card($this->project, 'next', 2);
+        $this->openPullRequest($first, 7, 'sha-1');
+        $this->em->persist(new CardPullRequest($second, 'https://github.com/Acme/Widgets/pull/7', Forge::GitHub, 'Acme/Widgets', 7));
+        $this->verdict($first, 7, [$this->note($first, 'Footer overlaps')]);
+
+        $this->publish($second);
+
+        $call = $this->writer->published[0];
+        self::assertSame(PullRequestCheckConclusion::Failure, $call['conclusion']);
         self::assertSame('- https://app.example/page: Footer overlaps', $call['summary']);
     }
 

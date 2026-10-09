@@ -22,6 +22,8 @@ final readonly class CheckWanted
         public ?int $postedNoteCount,
         public string $notesDigest,
         public ?string $postedNotesDigest,
+        /** @var list<array{id: string, url: string, body: string, anchorCount: int}> */
+        public array $notes = [],
     ) {
     }
 }

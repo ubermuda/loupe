@@ -237,6 +237,24 @@ class CardPullRequestRepository extends ServiceEntityRepository
         return $pullRequests;
     }
 
+    /**
+     * The card and every card of its project that links an open GitHub pull request of the card.
+     *
+     * @return list<string> card ids
+     */
+    public function findCardIdsSharingOpenPullRequests(Card $card): array
+    {
+        $projectId = $card->project->id ?? throw new \LogicException('A stored project has an id.');
+        $cardIds = [(string) $card->id => (string) $card->id];
+        foreach ($this->findOpenGitHubForCard($card) as $pullRequest) {
+            foreach ($this->findForPullRequest($projectId, Forge::GitHub, $pullRequest->repository, $pullRequest->number) as $link) {
+                $cardIds[(string) $link->card->id] = (string) $link->card->id;
+            }
+        }
+
+        return array_values($cardIds);
+    }
+
     /** Whether a child of the card links a pull request that the last forge read found merged into the branch. */
     public function hasChildMergedInto(Card $parent, string $baseBranch): bool
     {

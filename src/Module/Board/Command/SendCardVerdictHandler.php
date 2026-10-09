@@ -139,7 +139,7 @@ final readonly class SendCardVerdictHandler
     private function evaluate(Card $card): void
     {
         if ($this->evaluations->isOn()) {
-            $this->evaluations->forCards([$card->id ?? throw new \LogicException('A stored card has an id.')]);
+            $this->evaluations->forCards($this->cardPullRequests->findCardIdsSharingOpenPullRequests($card));
         }
     }
 

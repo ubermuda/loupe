@@ -6,10 +6,12 @@ namespace App\Tests\Module\Board\Workflow;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Entity\CardVerdictKind;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Entity\SiteReviewCheckState;
 use App\Module\Board\Workflow\CheckWanted;
 use App\Module\Board\Workflow\SiteReviewFactProvider;
@@ -196,6 +198,52 @@ final class SiteReviewFactProviderTest extends KernelTestCase
 
         self::assertSame([(string) $open->id], array_keys($this->build($card)->checks));
         self::assertNull($noHead->headSha);
+    }
+
+    public function test_the_wanted_check_counts_the_notes_of_every_card_that_links_the_pull_request(): void
+    {
+        $first = $this->card($this->project);
+        $second = $this->card($this->project, 'next', 2);
+        $pullRequest = $this->linkedPullRequest($first, 7);
+        $pullRequest->headSha = 'sha-1';
+        $this->em->persist(new CardPullRequest($second, 'https://github.com/Acme/Widgets/pull/7', Forge::GitHub, 'Acme/Widgets', 7));
+        $this->delivery($first, $pullRequest, [$this->note($first, 'Footer overlaps')]);
+        $this->em->flush();
+
+        $key = (string) $pullRequest->id;
+        $fromFirst = $this->build($first)->checks[$key];
+        $fromSecond = $this->build($second)->checks[$key];
+
+        self::assertSame(['failure', 1], [$fromSecond->wantedConclusion, $fromSecond->noteCount]);
+        self::assertEquals($fromFirst, $fromSecond);
+        self::assertCount(1, $fromSecond->notes);
+    }
+
+    public function test_a_note_on_two_cards_of_one_pull_request_counts_once(): void
+    {
+        $first = $this->card($this->project);
+        $second = $this->card($this->project, 'next', 2);
+        $pullRequest = $this->linkedPullRequest($first, 7);
+        $pullRequest->headSha = 'sha-1';
+        $this->em->persist(new CardPullRequest($second, 'https://github.com/Acme/Widgets/pull/7', Forge::GitHub, 'Acme/Widgets', 7));
+        $note = $this->note($first, 'Footer overlaps');
+        $this->delivery($first, $pullRequest, [$note]);
+        $this->delivery($second, $pullRequest, [$note]);
+        $this->em->flush();
+
+        self::assertSame(1, $this->build($second)->checks[(string) $pullRequest->id]->noteCount);
+    }
+
+    public function test_a_card_that_does_not_link_the_pull_request_adds_no_notes(): void
+    {
+        $linked = $this->card($this->project);
+        $other = $this->card($this->project, 'next', 2);
+        $pullRequest = $this->linkedPullRequest($linked, 7);
+        $pullRequest->headSha = 'sha-1';
+        $this->delivery($other, $this->linkedPullRequest($other, 8), [$this->note($other, 'Elsewhere')]);
+        $this->em->flush();
+
+        self::assertSame(0, $this->build($linked)->checks[(string) $pullRequest->id]->noteCount);
     }
 
     public function test_the_fingerprint_changes_when_the_wanted_note_count_changes(): void

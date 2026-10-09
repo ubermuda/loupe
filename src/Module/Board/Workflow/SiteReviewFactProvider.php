@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Workflow;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
@@ -44,7 +45,7 @@ final readonly class SiteReviewFactProvider implements FactProvider
     {
         $card = $this->cards->find($cardId) ?? throw new \LogicException('The card of the facts exists.');
 
-        $checks = $this->wantedChecks($card, $this->cardPullRequests->findOpenGitHubForCard($card));
+        $checks = $this->wantedChecks($this->cardPullRequests->findOpenGitHubForCard($card));
 
         return new SiteReviewFacts(
             $this->cardVerdictDeliveries->findPendingIdsForCard($card),
@@ -55,37 +56,33 @@ final readonly class SiteReviewFactProvider implements FactProvider
 
     /**
      * The check each of those open pull requests should carry, beside the one Loupe last posted.
+     * It counts the pending notes of every card of the project that links the pull request.
      *
      * @param list<ForgePullRequest> $pullRequests
      *
      * @return array<string, CheckWanted> keyed by forge pull request id
      */
-    public function wantedChecks(Card $card, array $pullRequests): array
+    public function wantedChecks(array $pullRequests): array
     {
-        if ([] === $pullRequests) {
-            return [];
-        }
-
-        $notes = $this->carriedPendingNotes($card);
-        $noteCount = \count($notes);
-        $digest = $this->notesDigest($notes);
-        $wanted = 0 < $noteCount ? CheckWanted::FAILURE : CheckWanted::SUCCESS;
         $checks = [];
         foreach ($pullRequests as $pullRequest) {
             if (null === $pullRequest->headSha) {
                 continue;
             }
+            $notes = $this->carriedPendingNotes($this->linkedCards($pullRequest));
+            $noteCount = \count($notes);
             $posted = $this->siteReviewCheckStates->findOneByPullRequest($pullRequest);
             $checks[(string) $pullRequest->id] = new CheckWanted(
                 $pullRequest->headSha,
-                $wanted,
+                0 < $noteCount ? CheckWanted::FAILURE : CheckWanted::SUCCESS,
                 $noteCount,
                 $posted?->headSha,
                 $posted?->conclusion,
                 $posted?->checkRunId,
                 $posted?->noteCount,
-                $digest,
+                $this->notesDigest($notes),
                 $posted?->notesDigest,
+                $notes,
             );
         }
 
@@ -93,21 +90,37 @@ final readonly class SiteReviewFactProvider implements FactProvider
     }
 
     /**
-     * The copies in the verdicts of the card whose note is still pending.
+     * The copies in the verdicts of those cards whose note is still pending, by card number, then verdict time.
+     * A note id that shows twice counts once.
+     *
+     * @param list<Card> $cards
      *
      * @return list<array{id: string, url: string, body: string, anchorCount: int}>
      */
-    public function carriedPendingNotes(Card $card): array
+    public function carriedPendingNotes(array $cards): array
     {
         $carried = [];
-        foreach ($this->cardVerdicts->findForCard($card) as $verdict) {
-            foreach ($verdict->notes as $note) {
-                $carried[$note['id']] = $note;
+        foreach ($cards as $card) {
+            foreach ($this->cardVerdicts->findForCard($card) as $verdict) {
+                foreach ($verdict->notes as $note) {
+                    $carried[$note['id']] = $note;
+                }
             }
         }
         $pending = array_flip($this->cardVerdicts->findPendingNoteIds(array_keys($carried)));
 
         return array_values(array_filter($carried, static fn (array $note): bool => isset($pending[$note['id']])));
+    }
+
+    /** @return list<Card> the cards of the project that link the pull request, by card number */
+    private function linkedCards(ForgePullRequest $pullRequest): array
+    {
+        $cards = [];
+        foreach ($this->cardPullRequests->findForPullRequest($pullRequest->project->id ?? throw new \LogicException('A stored project has an id.'), Forge::GitHub, $pullRequest->repository, $pullRequest->number) as $link) {
+            $cards[(string) $link->card->id] = $link->card;
+        }
+
+        return array_values($cards);
     }
 
     /**

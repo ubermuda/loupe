@@ -800,7 +800,7 @@ as its template says.
 | **Close the pull requests of an epic when the workflow asks** | off | When on, Loupe closes the pull requests of an epic that moves back to the Backlog. The GitHub App needs "Pull requests: read and write" |
 | **Open the epic pull request** | off | When on, Loupe opens a draft pull request from the epic branch to the default branch after the first child merges into the epic branch, and links it to the epic. The GitHub App needs "Pull requests: read and write" |
 | **Post a widget verdict as a review on GitHub** | off | When on, a verdict that a reviewer sends from the site-review widget becomes a review on the pull requests of the card, under the reviewer's own GitHub account. Loupe stores the verdict and its notes with this setting off or on |
-| **Keep a "Loupe site review" check on pull requests** | off | When on, Loupe posts a check named "Loupe site review" on each open pull request of a managed card. The check fails while open site-review notes remain. The GitHub App needs "Checks: read and write" |
+| **Keep a "Loupe site review" check on pull requests** | off | When on, Loupe posts a check named "Loupe site review" on each open pull request of a managed card. The check fails while open site-review notes remain on any card of the project that links the pull request. The GitHub App needs "Checks: read and write" |
 | **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
 
 The draft and ready switch and the close write were on for each board whose automation was on before the
@@ -1118,6 +1118,8 @@ requests, and only while the matching setting on the **Automation** tab is on:
 - With **Keep a "Loupe site review" check on pull requests** on, the check
   fails while a pending note that a verdict carried remains. The check also
   runs when nobody sends a verdict. It is green until a verdict carries a note.
+  When two cards link one pull request, the check counts the pending notes of
+  both cards.
 
 Before the reviewer sends, the widget lists the writes that the verdict will
 start. The list follows the rules and the settings of the project. It does not
