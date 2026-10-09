@@ -1290,7 +1290,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(0, $older->filter('[data-action="click->review-finish#open"]'));
         self::assertCount(0, $older->filter('dialog input[name="submit_review_form[verdict]"]'));
         self::assertSame(
-            $base.'/versions/2#'.DecisionBlockService::blockElementId('deploy-target'),
+            $base.'#'.DecisionBlockService::blockElementId('deploy-target'),
             $older->filter('#review-panel-decisions .lp-decision-summary__link')->attr('href'),
         );
     }

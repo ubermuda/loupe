@@ -107,8 +107,16 @@ final readonly class DiffDocumentVersionsHandler
                 if (DiffView::SideBySide === $command->view) {
                     $sideBySide = $this->sideBySideDiffs->build($rendered->html);
                     $headings = $this->columnHeadings($sideBySide);
+                    // A heading edited in place shows an old and a new row under one
+                    // document id. The change counts once, on the first row.
+                    $counted = [];
                     foreach ($headings as $heading) {
-                        $changesByHeading[$heading->id] = $rendered->changesByHeadingId[$this->documentId($heading->id)] ?? 0;
+                        $documentId = $this->documentId($heading->id);
+                        if (isset($counted[$documentId])) {
+                            continue;
+                        }
+                        $counted[$documentId] = true;
+                        $changesByHeading[$heading->id] = $rendered->changesByHeadingId[$documentId] ?? 0;
                     }
                     $changesByHeading = array_filter($changesByHeading);
                 } else {
