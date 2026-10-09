@@ -300,7 +300,7 @@ Roughly in the order an agent uses them:
 | `column_update` | Rename a column, or set whether it is terminal |
 | `column_reorder` | Put the columns in a new order; Backlog stays first |
 | `column_delete` | Delete a column, and move its cards to `targetColumn` |
-| `automation_settings_update` | Change the board's Automation settings, the epic branch pattern included |
+| `automation_settings_update` | Change the board's Automation settings |
 | `inbox_ask` | Hand questions and to-dos to the project owner (off by default, see below) |
 | `inbox_search` | Search every inbox item's title and body by words, closed ones included |
 | `inbox_join` | Add an open item that is already in the inbox to the session's own ask |
@@ -519,10 +519,7 @@ settings refuses, and the error says what the agent can fix. For example, a
 delete of a column that holds cards needs `targetColumn`.
 `automation_settings_update` changes the **Automation** settings, and a setting
 that the call omits keeps its value. `openEpicPullRequests` turns the opening of
-epic pull requests on or off. `epicBranchPattern` sets the branch that the
-breakdown pushes for an epic, such as `epic/{number}`. An empty
-`epicBranchPattern` turns epic branches off, and an omitted one keeps the
-pattern.
+epic pull requests on or off.
 
 The board has no delete tool. An agent moves a card to a terminal column; only a
 person removes one. `card_update` also refuses to change `reporter`, because

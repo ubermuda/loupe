@@ -621,6 +621,11 @@ file then holds an `Epics` section. Under that profile, the breakdown of epic
 number n pushes a branch `epic/<n>` from `main`. It pushes the branch only when
 no child of the epic links a pull request yet.
 
+The workflow template of the project names the branch in its top-level
+`epicBranch` value, such as `epic/{number}`. `{number}` stands for the epic card
+number. Both shipped templates carry `epic/{number}`. A template with no
+`epicBranch` value has no epic branches.
+
 Each child of the epic starts from `epic/<n>`, and its pull request targets
 `epic/<n>`. A child that waits on blockers starts when they are done, so its
 branch already holds their code. Before a merge, the merge stage updates the
@@ -798,7 +803,6 @@ anything.
 | **Open the epic pull request** | off | Has no effect. The rule of the workflow decides this write |
 | **Post a widget verdict as a review on GitHub** | off | Has no effect. The rule of the workflow decides this write |
 | **Keep a "Loupe site review" check on pull requests** | off | Has no effect. The rule of the workflow decides this write |
-| **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
 
 The comment gives the reason for the fix and the failed checks. It also gives
 a link to the card. The card page lists the runs. A comment that fails never
@@ -870,7 +874,7 @@ An agent drives the board through the MCP endpoint. See
 | `column_update` | `slug` is required. `label` and `terminal` are optional. |
 | `column_reorder` | `order` is required: the slugs of every column except Backlog, in the new order. |
 | `column_delete` | `slug` is required. `targetColumn` is required when the column holds cards. |
-| `automation_settings_update` | Every argument is optional. Each one is a setting of **Automation**, such as `enabled`, `syncBehind`, `openEpicPullRequests` or `epicBranchPattern`. |
+| `automation_settings_update` | Every argument is optional. Each one is a setting of **Automation**, such as `enabled`, `syncBehind` or `openEpicPullRequests`. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal`, `default` and `backlog`. The Backlog row
@@ -884,9 +888,7 @@ template does not declare is refused.
 `column_create`, `column_update`, `column_reorder` and `column_delete` change
 the columns, as **Board settings** does. They refuse the changes that Board
 settings refuses, and the error says what the agent can fix. A setting that
-`automation_settings_update` omits keeps its value. An empty `epicBranchPattern`
-turns epic branches off. The call refuses a pattern that is not a branch name
-with `{number}` exactly once, and then it saves nothing.
+`automation_settings_update` omits keeps its value.
 
 `card_run_open` and `card_run_close` record an interactive session on a card.
 See [Interactive sessions](worker-runs.md#interactive-sessions).

@@ -214,6 +214,7 @@ final readonly class TemplateParser
         }
 
         $onWorkFailed = self::onWorkFailed($source['onWorkFailed'] ?? null, $errors);
+        $epicBranch = self::epicBranch($source['epicBranch'] ?? null, $lenient, $errors);
 
         $slots = $this->slots(self::topLevelList($source, 'slots', $errors), $errors);
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
@@ -232,7 +233,7 @@ final readonly class TemplateParser
             throw new InvalidTemplate($errors);
         }
 
-        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed, $childChoices);
+        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed, $childChoices, $epicBranch);
     }
 
     /**
@@ -990,6 +991,27 @@ final readonly class TemplateParser
         }
 
         return new WorkFailurePolicy($retryOn, $retries, $backoffMinutes, $repairKind);
+    }
+
+    /**
+     * A template with no value has no epic branches. A stored copy with a value that is not a branch name has none either.
+     *
+     * @param list<string> $errors
+     */
+    private static function epicBranch(mixed $value, bool $lenient, array &$errors): ?string
+    {
+        if (null === $value) {
+            return null;
+        }
+        if (!\is_string($value) || \strlen($value) > Template::EPIC_BRANCH_MAX_LENGTH || 1 !== preg_match(Template::EPIC_BRANCH_RULE, $value)) {
+            if (!$lenient) {
+                $errors[] = 'epicBranch: must be a Git branch name that holds the placeholder {number} exactly once';
+            }
+
+            return null;
+        }
+
+        return $value;
     }
 
     /** @return ?list<int> */

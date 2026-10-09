@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Exception\DomainErrors;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Service\BoardAutomation;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,17 +21,8 @@ final readonly class SaveBoardAutomationSettingsHandler
     ) {
     }
 
-    public const string EPIC_BRANCH_PATTERN_INVALID = 'board.automation.error.epic_branch_pattern_invalid';
-
     public function __invoke(SaveBoardAutomationSettingsCommand $command): void
     {
-        $epicBranchPattern = trim($command->epicBranchPattern ?? '');
-        if ('' !== $epicBranchPattern
-            && (mb_strlen($epicBranchPattern) > BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH
-                || 1 !== preg_match(BoardAutomationSettings::EPIC_BRANCH_PATTERN_RULE, $epicBranchPattern))) {
-            throw new DomainErrors(['epicBranchPattern' => self::EPIC_BRANCH_PATTERN_INVALID]);
-        }
-
         $settings = $this->automation->settingsForUpdate($command->project);
         $wasEnabled = $settings->enabled;
         $settings->enabled = $command->enabled;
@@ -47,7 +36,6 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->openEpicPullRequests = $command->openEpicPullRequests;
         $settings->postWidgetReviews = $command->postWidgetReviews;
         $settings->siteReviewCheck = $command->siteReviewCheck;
-        $settings->epicBranchPattern = '' === $epicBranchPattern ? null : $epicBranchPattern;
         $this->em->flush();
         $this->events->dispatch(new BoardAutomationSettingsSaved(
             $command->project,
@@ -67,7 +55,6 @@ final readonly class SaveBoardAutomationSettingsHandler
             'openEpicPullRequests' => $command->openEpicPullRequests,
             'postWidgetReviews' => $command->postWidgetReviews,
             'siteReviewCheck' => $command->siteReviewCheck,
-            'epicBranchPattern' => $settings->epicBranchPattern,
         ]);
     }
 }
