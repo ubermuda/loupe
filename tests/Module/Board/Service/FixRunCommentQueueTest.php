@@ -262,6 +262,10 @@ final class FixRunCommentQueueTest extends KernelTestCase
         $card = $this->card();
         $this->link($card, Forge::GitLab, 'acme/widgets', 5);
         $this->workerRun($card);
+        // The guard: the card links the pull request, so only the missing commenter leaves it out.
+        $links = self::getContainer()->get(CardPullRequestRepository::class);
+        self::assertInstanceOf(CardPullRequestRepository::class, $links);
+        self::assertCount(1, $links->findNumberedKeysOfCard($this->project->id ?? throw new \LogicException('A flushed project has an id.'), $card->id ?? throw new \LogicException('A flushed card has an id.')));
 
         self::assertSame([], $this->queue()->uncommentedRuns($card));
         self::assertFalse($this->queue()->queue($card));

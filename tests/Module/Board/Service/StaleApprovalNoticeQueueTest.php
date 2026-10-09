@@ -138,7 +138,11 @@ final class StaleApprovalNoticeQueueTest extends KernelTestCase
         $this->em->persist(new CardPullRequest($this->card, 'https://gitlab.com/acme/widgets/-/merge_requests/6', Forge::GitLab, 'acme/widgets', 6));
         $this->em->remove($this->pullRequest);
         $this->em->flush();
-        $this->stale('gitlab', 6);
+        $gitLab = $this->stale('gitlab', 6);
+        // The guard: Forge tracks the pull request of the card, so only the missing commenter leaves it out.
+        $tracked = self::getContainer()->get(CardPullRequests::class);
+        self::assertInstanceOf(CardPullRequests::class, $tracked);
+        self::assertSame([$gitLab], $tracked->forCard($this->card));
 
         self::assertSame([], $this->queue()->unnoticed($this->card));
         self::assertFalse($this->queue()->queue($this->card));
