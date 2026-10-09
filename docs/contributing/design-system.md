@@ -102,7 +102,16 @@ Write a dialog, tabs, pagination and a tooltip like this:
 <twig:Ds:Tooltip id="why-1">The reason.</twig:Ds:Tooltip>
 ```
 
-The dialog sets `data-modal-target="dialog"` itself. The tabs take `tag="div"` for a tab list that is not a navigation. The pagination draws nothing when there is one page. The feature that owns the anchor decides when a tooltip shows.
+The dialog sets `data-modal-target="dialog"` itself. The tabs take `tag="div"` for a tab list that is not a navigation. The pagination draws nothing when there is one page. The feature that owns the anchor decides when a tooltip shows. A tooltip that holds a link takes `:interactive="true"`, and its anchor needs the `interactive-tooltip` controller, so use a StateMark for it.
+
+Write the state of a card like this:
+
+```twig
+<twig:Ds:StateMark kind="stuck" :label="'board.card_state.stuck'|trans">{{ reason }}</twig:Ds:StateMark>
+<twig:Ds:StatusBox kind="stuck" :label="label" :lead="lead" :since="since" :others="others" :othersTitle="'board.card_state.others'|trans" />
+```
+
+`kind` is `stuck`, `needs-you`, `working` or `waiting` for both blocks. The content of a StateMark is its tooltip. A StatusBox takes `since`, `others` and `othersTitle` as optional props, and draws no line for a prop that is empty.
 
 ### The form parts
 

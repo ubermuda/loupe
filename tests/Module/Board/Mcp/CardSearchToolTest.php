@@ -154,7 +154,7 @@ final class CardSearchToolTest extends KernelTestCase
         $row = ($this->tool)('mailpit')['cards'][0];
 
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'parentCardId', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'parentCardId', 'updatedAt', 'state'],
             array_keys($row),
         );
     }
