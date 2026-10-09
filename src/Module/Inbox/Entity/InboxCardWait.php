@@ -13,8 +13,6 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'inbox_card_waits')]
 class InboxCardWait
 {
-    public const int MAX_REASON_LENGTH = 200;
-
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -35,8 +33,11 @@ class InboxCardWait
         #[ORM\Column(length: 30, enumType: InboxCardWaitTrigger::class)]
         public readonly InboxCardWaitTrigger $trigger,
 
-        #[ORM\Column(length: self::MAX_REASON_LENGTH)]
-        public string $reason,
+        #[ORM\Column(length: 20, enumType: InboxCardWaitType::class)]
+        public readonly InboxCardWaitType $type,
+
+        #[ORM\Column(length: 200, enumType: InboxCardWaitReason::class)]
+        public InboxCardWaitReason $reason,
 
         #[ORM\Column(type: UuidType::NAME, nullable: true)]
         public readonly ?Uuid $documentId = null,
@@ -59,9 +60,6 @@ class InboxCardWait
         #[ORM\Column(type: UuidType::NAME, nullable: true)]
         public readonly ?Uuid $pauseId = null,
     ) {
-        if (mb_strlen($reason) > self::MAX_REASON_LENGTH) {
-            throw new \InvalidArgumentException(\sprintf('A wait reason is at most %d characters.', self::MAX_REASON_LENGTH));
-        }
         self::computeKey($trigger, $documentId, $versionNumber, $runId, $pullRequestId, $headSha, $pauseId);
     }
 

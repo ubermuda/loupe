@@ -6,7 +6,9 @@ namespace App\Tests\Module\Inbox\Entity;
 
 use App\Module\Inbox\Entity\InboxCardWait;
 use App\Module\Inbox\Entity\InboxCardWaitEndReason;
+use App\Module\Inbox\Entity\InboxCardWaitReason;
 use App\Module\Inbox\Entity\InboxCardWaitTrigger;
+use App\Module\Inbox\Entity\InboxCardWaitType;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
@@ -42,8 +44,8 @@ final class InboxCardWatchTest extends KernelTestCase
         $cardId = Uuid::v7();
         $documentId = Uuid::v7();
         $watch = $this->watch($project, $cardId, 7);
-        $watch->waits->add(new InboxCardWait($watch, InboxCardWaitTrigger::RunBlocked, 'Run blocked: preview not seeded', runId: Uuid::v7(), startedAt: new \DateTimeImmutable('2026-09-28 10:05:00')));
-        $watch->waits->add(new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, 'Tech design in review, version 2', documentId: $documentId, versionNumber: 2, startedAt: new \DateTimeImmutable('2026-09-28 10:00:00')));
+        $watch->waits->add(new InboxCardWait($watch, InboxCardWaitTrigger::RunBlocked, InboxCardWaitType::WorkerRun, InboxCardWaitReason::Blocked, runId: Uuid::v7(), startedAt: new \DateTimeImmutable('2026-09-28 10:05:00')));
+        $watch->waits->add(new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, InboxCardWaitType::Document, InboxCardWaitReason::WaitingForReview, documentId: $documentId, versionNumber: 2, startedAt: new \DateTimeImmutable('2026-09-28 10:00:00')));
         $this->em->flush();
         $watchId = $watch->id;
         $this->em->clear();
@@ -67,7 +69,7 @@ final class InboxCardWatchTest extends KernelTestCase
     {
         $project = $this->project($this->em, $this->owner($this->em, 'watch-end'), 'inbox');
         $watch = $this->watch($project, Uuid::v7());
-        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, 'Design in review, version 1', documentId: Uuid::v7(), versionNumber: 1);
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, InboxCardWaitType::Document, InboxCardWaitReason::WaitingForReview, documentId: Uuid::v7(), versionNumber: 1);
         $watch->waits->add($wait);
         $wait->endedAt = new \DateTimeImmutable();
         $wait->endReason = InboxCardWaitEndReason::CardFinished;
@@ -106,7 +108,7 @@ final class InboxCardWatchTest extends KernelTestCase
     {
         $project = $this->project($this->em, $this->owner($this->em, 'watch-cascade'), 'inbox');
         $watch = $this->watch($project, Uuid::v7());
-        $watch->waits->add(new InboxCardWait($watch, InboxCardWaitTrigger::RunGaveUp, 'Run gave up', runId: Uuid::v7()));
+        $watch->waits->add(new InboxCardWait($watch, InboxCardWaitTrigger::RunGaveUp, InboxCardWaitType::WorkerRun, InboxCardWaitReason::GaveUp, runId: Uuid::v7()));
         $this->em->flush();
         $watchId = (string) $watch->id;
 
@@ -131,8 +133,8 @@ final class InboxCardWatchTest extends KernelTestCase
         $documentId = Uuid::fromString('01a0e5cf-c001-7967-9205-b049b12f0957');
         $runId = Uuid::fromString('01a0e91e-8210-768c-ae61-cba18491a4fc');
 
-        $document = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, 'In review', documentId: $documentId, versionNumber: 3);
-        $run = new InboxCardWait($watch, InboxCardWaitTrigger::RunWaitingForPerson, 'Waiting', runId: $runId);
+        $document = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, InboxCardWaitType::Document, InboxCardWaitReason::WaitingForReview, documentId: $documentId, versionNumber: 3);
+        $run = new InboxCardWait($watch, InboxCardWaitTrigger::RunWaitingForPerson, InboxCardWaitType::WorkerRun, InboxCardWaitReason::WaitsForPerson, runId: $runId);
 
         self::assertSame('document-in-review:01a0e5cf-c001-7967-9205-b049b12f0957:3', $document->key());
         self::assertSame('run-waiting-for-person:01a0e91e-8210-768c-ae61-cba18491a4fc', $run->key());
@@ -148,7 +150,7 @@ final class InboxCardWatchTest extends KernelTestCase
         $pullRequestId = Uuid::fromString('01a0f3c2-5d10-7b5e-9c1a-2f4e8d6b0a11');
         $headSha = str_repeat('a1', 20);
 
-        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::PullRequestReady, 'Pull request #640 waits for review', pullRequestId: $pullRequestId, headSha: $headSha);
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::PullRequestReady, InboxCardWaitType::PullRequest, InboxCardWaitReason::WaitingForReview, pullRequestId: $pullRequestId, headSha: $headSha);
 
         self::assertSame('pull-request-ready:01a0f3c2-5d10-7b5e-9c1a-2f4e8d6b0a11:'.$headSha, $wait->key());
         self::assertSame($wait->key(), InboxCardWait::computeKey(InboxCardWaitTrigger::PullRequestReady, pullRequestId: $pullRequestId, headSha: $headSha));
@@ -162,7 +164,7 @@ final class InboxCardWatchTest extends KernelTestCase
         $watch = $this->watch($project, Uuid::v7());
         $pullRequestId = Uuid::v7();
         $headSha = str_repeat('c3', 32);
-        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::PullRequestFixStopped, 'Pull request #640: fix loop stopped', pullRequestId: $pullRequestId, headSha: $headSha);
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::PullRequestFixStopped, InboxCardWaitType::PullRequest, InboxCardWaitReason::FixStopped, pullRequestId: $pullRequestId, headSha: $headSha);
         $watch->waits->add($wait);
         $this->em->flush();
         $waitId = $wait->id;
@@ -213,7 +215,7 @@ final class InboxCardWatchTest extends KernelTestCase
         $project = $this->project($this->em, $this->owner($this->em, 'watch-pause'), 'inbox');
         $watch = $this->watch($project, Uuid::v7());
         $pauseId = Uuid::fromString('01a0f3c2-5d10-7b5e-9c1a-2f4e8d6b0a22');
-        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::CardPaused, 'Workflow paused: owner-review', pauseId: $pauseId);
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::CardPaused, InboxCardWaitType::CardPause, InboxCardWaitReason::PauseRule, pauseId: $pauseId);
         $watch->waits->add($wait);
         $this->em->flush();
         $waitId = $wait->id;
@@ -247,15 +249,6 @@ final class InboxCardWatchTest extends KernelTestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         InboxCardWait::computeKey(InboxCardWaitTrigger::RunBlocked, runId: Uuid::v7(), pauseId: Uuid::v7());
-    }
-
-    public function test_a_wait_reason_fits_its_column(): void
-    {
-        $project = $this->project($this->em, $this->owner($this->em, 'watch-reason'), 'inbox');
-        $watch = $this->watch($project, Uuid::v7());
-
-        $this->expectException(\InvalidArgumentException::class);
-        new InboxCardWait($watch, InboxCardWaitTrigger::RunBlocked, str_repeat('a', InboxCardWait::MAX_REASON_LENGTH + 1), runId: Uuid::v7());
     }
 
     private function watch(Project $project, Uuid $cardId, int $cardNumber = 1, int $number = 1): InboxCardWatch
