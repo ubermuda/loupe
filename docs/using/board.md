@@ -336,12 +336,6 @@ A merge from the base after the approval keeps it covered, as
 [Pull request waits](inbox.md#pull-request-waits) describes. A new approval of
 the newest commit shows **Approved** again.
 
-When the project syncs an approved pull request that is behind, each open pull
-request whose base is the default branch also shows one line about its sync. It shows
-**Waits for an approval**, **Conflicts with the base**, **Waits its turn behind
-#N**, **Synced, checks running** or **Sync failed** with the cause. A pull
-request with nothing to wait for shows no line. See [Automation](#automation).
-
 When an approval did not move the card because a blocker is open, the Workflow
 panel says what the card waits for.
 
@@ -792,15 +786,16 @@ of the project settings, beside **Board columns**. Only a repository connected
 through the GitHub App gets a write from Loupe. The rules of the workflow decide
 each write. A write that a rule names happens when the rule fires. When the
 project has no GitHub App installation, the workflow asks a bridge for the
-work instead, as its template says. The merge, base change, epic pull request,
-widget verdict and site-review check settings below no longer change anything.
+work instead, as its template says. The sync, merge, base change, epic pull
+request, widget verdict and site-review check settings below no longer change
+anything.
 
 | Setting | Default | Does |
 |---|---|---|
 | **Run the workflow of the board** | on | When off, the workflow moves no card and asks for no work on this board. Loupe still records the pull request facts |
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
 | **Comment on a pull request when new commits follow its approval** | off | When on, Loupe posts one comment for each new head that the approval does not cover |
-| **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base. The GitHub App needs "Contents: read and write" |
+| **Sync an approved pull request that is behind** | off | Has no effect. The rule of the workflow decides this write |
 | **Merge a pull request when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
 | **Change the base of a pull request when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
 | **Switch an epic pull request between draft and ready when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
@@ -834,11 +829,10 @@ comment at most. A push of another commit gets a new comment. The setting needs
 read and write. A comment that fails retries like a fix run comment. The tab
 does not show its failure.
 
-The sync setting keeps approved work up to date with its base, so it can merge.
-Loupe syncs one pull request of the project at a time. It picks the pull
-request with the oldest approval, and the lower number breaks a tie. While an
-approved pull request is up to date, or a sync of it runs, no other pull request
-syncs. A sync that does not finish in ten minutes counts as failed.
+The `update-behind` rule of the Lifecycle template keeps approved work up to
+date with its base, so it can merge. It updates each approved pull request that
+is behind at once. It also updates a pull request into an epic branch that is
+behind, with no approval. Each sync restarts the checks of that pull request.
 
 Loupe syncs only a pull request that it reads as behind its base. That happens
 only when the rules of the base branch require a branch to be up to date before
@@ -849,10 +843,10 @@ A pull request counts as approved when a person with write access approved its
 current head. An approval of a head that Loupe synced still counts, so a sync
 needs no new review. The exception is a base branch whose rules dismiss stale
 approvals on a push. GitHub then removes the approval when Loupe syncs, and the
-pull request shows **Waits for an approval** until a person approves it again.
-A request for changes removes the pull request from
-the line. Loupe only updates the branch, and it never merges. The GitHub App
-must have Contents: read and write. See
+pull request then needs a new approval before it merges. A request for
+changes stops the sync of a pull request into the default branch. A sync only
+updates the branch, and it never merges. The GitHub App must have Contents:
+read and write. See
 [Forge webhooks](../extending/forge-webhooks.md).
 
 The Lifecycle template asks for a fix when the required checks fail, when the

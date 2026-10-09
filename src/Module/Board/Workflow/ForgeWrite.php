@@ -16,7 +16,6 @@ use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\ForgePullRequestWrites;
-use App\Module\Forge\Service\PullRequestBranchUpdaters;
 use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
@@ -54,7 +53,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         private EpicBranches $epicBranches,
         private ForgePullRequestWrites $forgePullRequestWrites,
         private ForgePullRequestRepository $forgePullRequests,
-        private PullRequestBranchUpdaters $branchUpdaters,
         private PullRequestStateWriters $stateWriters,
         private PullRequestOpeners $pullRequestOpeners,
         private WorkRequestOpener $opener,
@@ -159,7 +157,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
             return match ($write) {
                 ForgeWriteKind::Merge => $this->forgeWrite(fn () => $this->forgePullRequestWrites->merge($pullRequest, $this->mergeMethod), $fallback),
                 ForgeWriteKind::ChangeBase => $this->changeBase($pullRequest, $fallback),
-                ForgeWriteKind::UpdateBranch => $this->updateBranch($pullRequest, $fallback),
+                ForgeWriteKind::UpdateBranch => $this->forgeWrite(fn () => $this->forgePullRequestWrites->updateBranch($pullRequest), $fallback),
             };
         } catch (PullRequestWriteFailed|PullRequestSyncFailed $e) {
             return ActionOutcome::refused($e->cause);
@@ -233,7 +231,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     {
         try {
             $write();
-        } catch (PullRequestWriteFailed $e) {
+        } catch (PullRequestWriteFailed|PullRequestSyncFailed $e) {
             if (self::lacksWriter($e->cause)) {
                 return $fallback();
             }
@@ -280,29 +278,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         }
 
         return $parent?->baseBranch;
-    }
-
-    /** @param \Closure(): ActionOutcome $fallback */
-    private function updateBranch(ForgePullRequest $pullRequest, \Closure $fallback): ActionOutcome
-    {
-        $updater = $this->branchUpdaters->for($pullRequest->forge);
-        if (null === $updater) {
-            return $fallback();
-        }
-        if (null === $pullRequest->headSha) {
-            return ActionOutcome::refused('no-head');
-        }
-        try {
-            $updater->update($pullRequest, $pullRequest->headSha);
-        } catch (PullRequestSyncFailed $e) {
-            if (self::lacksWriter($e->cause)) {
-                return $fallback();
-            }
-
-            throw $e;
-        }
-
-        return ActionOutcome::done();
     }
 
     /**

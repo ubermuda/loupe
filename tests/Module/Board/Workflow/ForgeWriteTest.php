@@ -224,6 +224,9 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertEquals(ActionOutcome::done(), $this->write($card, 'update-branch'));
 
         self::assertSame([['update', $pullRequest->number, 'abc123']], $this->writer->calls);
+        self::assertSame('abc123', $this->em()->getConnection()->fetchOne('SELECT sync_from_sha FROM forge_pull_requests WHERE id = ?', [$pullRequest->id?->toRfc4122()]));
+        self::assertEquals(ActionOutcome::refused('in-flight'), $this->write($card, 'update-branch'));
+        self::assertCount(1, $this->writer->calls);
     }
 
     public function test_a_branch_update_without_an_updater_or_a_head_or_that_fails(): void
@@ -237,6 +240,7 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertEquals(ActionOutcome::refused('no-head'), $this->write($card, 'update-branch'));
 
         $pullRequest->headSha = 'abc123';
+        $this->em()->flush();
         $this->writer->failure = new PullRequestSyncFailed('merge_conflict', permanent: true);
         self::assertEquals(ActionOutcome::refused('merge-conflict'), $this->write($card, 'update-branch'));
     }
@@ -568,12 +572,12 @@ final class ForgeWriteTest extends KernelTestCase
             new ForgePullRequestWrites(
                 new PullRequestMergers($registered),
                 new PullRequestBaseChangers($registered),
+                new PullRequestBranchUpdaters($registered),
                 $forgePullRequests,
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),
             ),
             $forgePullRequests,
-            new PullRequestBranchUpdaters($registered),
             new PullRequestStateWriters($registered),
             new PullRequestOpeners($registered),
             $this->opener(),
