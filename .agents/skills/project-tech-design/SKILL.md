@@ -69,3 +69,4 @@ Take the case of each worked example from this project, such as a card of the bo
 | A decision fence with two paragraphs above the options | One paragraph converts, two do not |
 | An implementation plan submitted as a design | Settle the architecture first |
 | A decision written in class names | Write it for a reader who knows the product |
+| "I recommend option 2", or "under D1 option 1", in a decision | Say what the option does, and state the fact inline (`loupe-documents` rule 18) |
