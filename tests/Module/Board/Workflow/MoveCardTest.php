@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Action;
+namespace App\Tests\Module\Board\Workflow;
 
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Workflow\Action\MoveCard;
+use App\Module\Board\Workflow\MoveCard;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\Actor;
-use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
+use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -107,7 +107,6 @@ final class MoveCardTest extends KernelTestCase
         return new MoveCard(
             $this->service(CardRepository::class),
             $this->service(BoardColumnRepository::class),
-            $this->service(WorkflowSlotLinkRepository::class),
             $this->service(UpdateCardHandler::class),
         );
     }

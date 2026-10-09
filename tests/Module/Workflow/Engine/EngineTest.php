@@ -24,6 +24,9 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Workflow\BoardCardPauses;
 use App\Module\Board\Workflow\CardTypeFacts;
+use App\Module\Board\Workflow\ForgeWrite;
+use App\Module\Board\Workflow\MoveCard;
+use App\Module\Board\Workflow\RequestWork;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
@@ -52,11 +55,8 @@ use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
 use App\Module\Workflow\Action\EvaluateChildren;
-use App\Module\Workflow\Action\ForgeWrite;
-use App\Module\Workflow\Action\MoveCard;
 use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
-use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\EvaluateWorkflowCardHandler;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
@@ -3109,7 +3109,7 @@ final class EngineTest extends KernelTestCase
             $this->service(WorkflowPendingBaselineRepository::class),
             $boardPauses,
             new Actions([
-                new MoveCard($this->service(CardRepository::class), $this->service(BoardColumnRepository::class), $this->service(WorkflowSlotLinkRepository::class), $this->service(UpdateCardHandler::class)),
+                new MoveCard($this->service(CardRepository::class), $this->service(BoardColumnRepository::class), $this->service(UpdateCardHandler::class)),
                 new RequestWork($this->service(CardRepository::class), $opener, $this->service(CardPullRequests::class), $this->service(CardEventRepository::class)),
                 new PauseCard(),
                 new ReleasePause($boardPauses),
@@ -3118,6 +3118,7 @@ final class EngineTest extends KernelTestCase
                 new EvaluateChildren($this->service(CardRepository::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
             ]),
             $opener,
+            $this->contexts(),
             new RuleSubject(),
             $this->asks,
             $engineEvents,

@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Board\Workflow;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
-use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Workflow\Contract\Action;
@@ -19,12 +17,9 @@ use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ActionTraits;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
-use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
-use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
-use App\Module\Workflow\Service\FactsBuilder;
-use Symfony\Component\Uid\Uuid;
+use App\Module\Workflow\Contract\SlotKeys;
 
 /** Moves a card to the column of a slot, of the backlog, or of the first terminal column, and only from the slot `from` names. */
 final readonly class MoveCard implements Action
@@ -34,7 +29,6 @@ final readonly class MoveCard implements Action
     public function __construct(
         private CardRepository $cards,
         private BoardColumnRepository $boardColumns,
-        private WorkflowSlotLinkRepository $workflowSlotLinks,
         private UpdateCardHandler $updateCard,
     ) {
     }
@@ -72,8 +66,8 @@ final readonly class MoveCard implements Action
         $to = (string) $params['to'];
 
         return match ($to) {
-            FactsBuilder::BACKLOG_SLOT => new ActionDescription('workflow.settings.action.move', 'workflow.panel.action.move_backlog', settingsTarget: $to),
-            FactsBuilder::TERMINAL_SLOT => new ActionDescription('workflow.settings.action.move', 'workflow.panel.action.move_terminal', settingsTarget: $to),
+            SlotKeys::BACKLOG => new ActionDescription('workflow.settings.action.move', 'workflow.panel.action.move_backlog', settingsTarget: $to),
+            SlotKeys::TERMINAL => new ActionDescription('workflow.settings.action.move', 'workflow.panel.action.move_terminal', settingsTarget: $to),
             default => new ActionDescription('workflow.settings.action.move', 'workflow.panel.action.move', panelSlots: ['%slot%' => $to], settingsTarget: $to),
         };
     }
@@ -92,11 +86,12 @@ final readonly class MoveCard implements Action
         if (null !== $from && $from !== $context->facts->slot) {
             return ActionOutcome::done();
         }
-        $target = $this->column($card, $context->string('to'));
-        if (null === $target) {
+        $target = $context->column('to');
+        $column = null === $target ? null : $this->boardColumns->find($target->id);
+        if (null === $column) {
             return ActionOutcome::refused('workflow-slot-missing');
         }
-        if ($target === $card->column) {
+        if ($column === $card->column) {
             return ActionOutcome::done();
         }
 
@@ -105,7 +100,7 @@ final readonly class MoveCard implements Action
             ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
                 actor: Actor::System,
-                column: $target,
+                column: $column,
                 onlyFromColumn: $card->column,
                 cause: CardEventCause::workflowRule($context->ruleId),
             ));
@@ -116,21 +111,5 @@ final readonly class MoveCard implements Action
         }
 
         return ActionOutcome::done();
-    }
-
-    private function boardColumnById(?Uuid $columnId): ?BoardColumn
-    {
-        return null === $columnId ? null : $this->boardColumns->find($columnId);
-    }
-
-    private function column(Card $card, string $to): ?BoardColumn
-    {
-        $projectId = (string) ($card->project->id ?? throw new \LogicException('A stored card has a project id.'));
-
-        return match ($to) {
-            FactsBuilder::BACKLOG_SLOT => $this->boardColumns->findBacklogForProjectId($projectId),
-            FactsBuilder::TERMINAL_SLOT => $this->boardColumns->findFirstTerminalForProjectId($projectId),
-            default => $this->boardColumnById($this->workflowSlotLinks->findColumnIdForSlot($card->project, $to)),
-        };
     }
 }

@@ -2,15 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Board\Workflow;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Workflow\DocumentsFacts;
-use App\Module\Board\Workflow\ParentDocumentsFacts;
 use App\Module\Workflow\Contract\Action;
 use App\Module\Workflow\Contract\ActionContext;
 use App\Module\Workflow\Contract\ActionDescription;
