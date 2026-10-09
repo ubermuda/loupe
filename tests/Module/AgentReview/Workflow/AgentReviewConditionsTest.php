@@ -25,6 +25,7 @@ final class AgentReviewConditionsTest extends TestCase
         $none = self::head(null);
         $success = self::head(AgentReviewConclusion::Success);
         $failure = self::head(AgentReviewConclusion::Failure);
+        $headless = new ReviewedHead('headless', '', null);
 
         yield 'due: switch off' => [new AgentReviewDue(), self::review([$none], enabled: false), false];
         yield 'due: epic' => [new AgentReviewDue(), self::review([$none], epic: true), false];
@@ -41,6 +42,8 @@ final class AgentReviewConditionsTest extends TestCase
         yield 'passed: epic' => [new AgentReviewPassed(), self::review([], epic: true), true];
         yield 'passed: no pull request head' => [new AgentReviewPassed(), self::review([]), false];
         yield 'passed: head without review' => [new AgentReviewPassed(), self::review([$success, $none]), false];
+        yield 'passed: a pull request without a head' => [new AgentReviewPassed(), self::review([$success, $headless]), false];
+        yield 'due: a pull request without a head' => [new AgentReviewDue(), self::review([$headless]), false];
         yield 'passed: one head failed' => [new AgentReviewPassed(), self::review([$success, $failure]), false];
         yield 'passed: every head passed' => [new AgentReviewPassed(), self::review([$success, self::head(AgentReviewConclusion::Success, 'other')]), true];
 

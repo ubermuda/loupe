@@ -48,9 +48,9 @@ final readonly class AgentReviewFactProvider implements FactProvider
 
         $open = array_values(array_filter(
             $this->trackedPullRequests->forCard($card),
-            static fn (ForgePullRequest $pullRequest): bool => PullRequestState::Open === $pullRequest->state && null !== $pullRequest->headSha,
+            static fn (ForgePullRequest $pullRequest): bool => PullRequestState::Open === $pullRequest->state,
         ));
-        $latest = $this->agentReviews->findLatestOfHeads($open);
+        $latest = $this->agentReviews->findLatestOfHeads(array_values(array_filter($open, static fn (ForgePullRequest $pullRequest): bool => null !== $pullRequest->headSha)));
         $heads = array_map(
             static fn (ForgePullRequest $pullRequest): ReviewedHead => new ReviewedHead((string) $pullRequest->id, $pullRequest->headSha ?? '', ($latest[(string) $pullRequest->id] ?? null)?->conclusion),
             $open,

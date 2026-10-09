@@ -42,7 +42,7 @@ final readonly class AgentReviewDue implements Condition
     {
         $review = $facts->get(AgentReviewFacts::class);
 
-        return $review->enabled && !$review->epic && array_any($review->heads, static fn (ReviewedHead $head): bool => null === $head->conclusion);
+        return $review->enabled && !$review->epic && array_any($review->heads, static fn (ReviewedHead $head): bool => '' !== $head->headSha && null === $head->conclusion);
     }
 
     #[\Override]

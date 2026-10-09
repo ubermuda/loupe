@@ -87,15 +87,17 @@ final class AgentReviewFactProviderTest extends KernelTestCase
         self::assertNull($this->build($card)->heads[0]->conclusion);
     }
 
-    public function test_only_open_pull_requests_with_a_head_are_listed(): void
+    public function test_every_open_pull_request_is_listed_and_one_without_a_head_has_none(): void
     {
         $this->switchOn();
         $card = $this->card($this->project);
         $open = $this->linked($card, 7);
         $this->linked($card, 8, PullRequestState::Merged);
-        $this->linked($card, 9, headSha: null);
+        $headless = $this->linked($card, 9, headSha: null);
 
-        self::assertSame([(string) $open->id], array_map(static fn (ReviewedHead $head): string => $head->pullRequestId, $this->build($card)->heads));
+        $heads = $this->build($card)->heads;
+        self::assertSame([(string) $open->id, (string) $headless->id], array_map(static fn (ReviewedHead $head): string => $head->pullRequestId, $heads));
+        self::assertSame('', $heads[1]->headSha);
     }
 
     public function test_a_review_that_no_check_shows_is_unposted_only_with_the_switch_on(): void
