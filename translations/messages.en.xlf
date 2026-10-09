@@ -6914,6 +6914,10 @@
                 <source>board.automation.error.epic_branch_pattern_invalid</source>
                 <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
             </trans-unit>
+            <trans-unit id="board.automation.error.stuck_delay_invalid">
+                <source>board.automation.error.stuck_delay_invalid</source>
+                <target>The stuck delay must be a number of minutes from 1 to 1440.</target>
+            </trans-unit>
             <trans-unit id="board.fix_run_comment.intro">
                 <source>board.fix_run_comment.intro</source>
                 <target>Loupe queued a fix run for this pull request.</target>
@@ -7033,6 +7037,14 @@
             <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.help">
                 <source>board.form.save_board_automation_settings_form.epic_branch_pattern.help</source>
                 <target>The branch that the breakdown pushes for an epic. {number} stands for the epic card number. The pattern must match the epic branch of your repository profile. Leave it empty when the project uses no epic branches.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.stuck_delay_minutes.label">
+                <source>board.form.save_board_automation_settings_form.stuck_delay_minutes.label</source>
+                <target>Stuck delay in minutes</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.stuck_delay_minutes.help">
+                <source>board.form.save_board_automation_settings_form.stuck_delay_minutes.help</source>
+                <target>How long a ready pull request may wait for a merge before its card shows Stuck on the board. Use a number from 1 to 1440.</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>

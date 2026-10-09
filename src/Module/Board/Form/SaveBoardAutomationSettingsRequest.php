@@ -24,11 +24,14 @@ class SaveBoardAutomationSettingsRequest
         #[Assert\Length(max: BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH)]
         #[Assert\Regex(pattern: BoardAutomationSettings::EPIC_BRANCH_PATTERN_RULE, message: 'board.form.save_board_automation_settings_form.epic_branch_pattern.invalid')]
         public ?string $epicBranchPattern = BoardAutomationSettings::DEFAULT_EPIC_BRANCH_PATTERN,
+
+        #[Assert\Range(min: BoardAutomationSettings::MIN_STUCK_DELAY_MINUTES, max: BoardAutomationSettings::MAX_STUCK_DELAY_MINUTES)]
+        public int $stuckDelayMinutes = BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
     ) {
     }
 
     public static function fromSettings(BoardAutomationSettings $settings): self
     {
-        return new self($settings->enabled, $settings->commentOnFixQueued, $settings->commentOnStaleApproval, $settings->syncBehind, $settings->mergePullRequests, $settings->changeBase, $settings->epicDraftSwitch, $settings->closeEpicPullRequests, $settings->openEpicPullRequests, $settings->epicBranchPattern);
+        return new self($settings->enabled, $settings->commentOnFixQueued, $settings->commentOnStaleApproval, $settings->syncBehind, $settings->mergePullRequests, $settings->changeBase, $settings->epicDraftSwitch, $settings->closeEpicPullRequests, $settings->openEpicPullRequests, $settings->epicBranchPattern, $settings->stuckDelayMinutes);
     }
 }

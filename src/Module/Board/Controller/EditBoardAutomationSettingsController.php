@@ -55,6 +55,7 @@ final class EditBoardAutomationSettingsController extends AppController
                     closeEpicPullRequests: $data->closeEpicPullRequests,
                     openEpicPullRequests: $data->openEpicPullRequests,
                     epicBranchPattern: $data->epicBranchPattern,
+                    stuckDelayMinutes: $data->stuckDelayMinutes,
                 ));
                 $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 

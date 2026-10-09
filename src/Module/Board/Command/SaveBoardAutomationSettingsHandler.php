@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Messenger\SyncNextPullRequest;
+use App\Module\Board\Repository\StuckPullRequestRepository;
 use App\Module\Board\Service\BoardAutomation;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -23,13 +24,20 @@ final readonly class SaveBoardAutomationSettingsHandler
         private Auditor $auditor,
         private MessageBusInterface $bus,
         private EventDispatcherInterface $events,
+        private StuckPullRequestRepository $stuckPullRequests,
     ) {
     }
 
     public const string EPIC_BRANCH_PATTERN_INVALID = 'board.automation.error.epic_branch_pattern_invalid';
 
+    public const string STUCK_DELAY_INVALID = 'board.automation.error.stuck_delay_invalid';
+
     public function __invoke(SaveBoardAutomationSettingsCommand $command): void
     {
+        if ($command->stuckDelayMinutes < BoardAutomationSettings::MIN_STUCK_DELAY_MINUTES || $command->stuckDelayMinutes > BoardAutomationSettings::MAX_STUCK_DELAY_MINUTES) {
+            throw new DomainErrors(['stuckDelayMinutes' => self::STUCK_DELAY_INVALID]);
+        }
+
         $epicBranchPattern = trim($command->epicBranchPattern ?? '');
         if ('' !== $epicBranchPattern
             && (mb_strlen($epicBranchPattern) > BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH
@@ -51,7 +59,13 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->closeEpicPullRequests = $command->closeEpicPullRequests;
         $settings->openEpicPullRequests = $command->openEpicPullRequests;
         $settings->epicBranchPattern = '' === $epicBranchPattern ? null : $epicBranchPattern;
+        $delayChanged = $settings->stuckDelayMinutes !== $command->stuckDelayMinutes;
+        $settings->stuckDelayMinutes = $command->stuckDelayMinutes;
         $this->em->flush();
+        if ($delayChanged) {
+            // A pull request announced under the old delay would never announce under a longer one.
+            $this->stuckPullRequests->clearAnnouncements($command->project);
+        }
         $this->events->dispatch(new BoardAutomationSettingsSaved(
             $command->project,
             !$wasEnabled && $command->enabled,
@@ -75,6 +89,7 @@ final readonly class SaveBoardAutomationSettingsHandler
             'closeEpicPullRequests' => $command->closeEpicPullRequests,
             'openEpicPullRequests' => $command->openEpicPullRequests,
             'epicBranchPattern' => $settings->epicBranchPattern,
+            'stuckDelayMinutes' => $settings->stuckDelayMinutes,
         ]);
     }
 }

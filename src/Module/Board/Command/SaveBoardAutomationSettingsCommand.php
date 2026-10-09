@@ -21,6 +21,7 @@ final readonly class SaveBoardAutomationSettingsCommand
         public bool $closeEpicPullRequests = false,
         public bool $openEpicPullRequests = false,
         public ?string $epicBranchPattern = BoardAutomationSettings::DEFAULT_EPIC_BRANCH_PATTERN,
+        public int $stuckDelayMinutes = BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
     ) {
     }
 }
