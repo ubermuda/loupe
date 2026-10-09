@@ -111,7 +111,9 @@ test('a card shows a stuck mark until a newer run of the card succeeds or starts
     await mark.getByRole('img', { name: 'Stuck' }).hover();
     const tooltip = mark.getByRole('tooltip');
     await expect(tooltip).toBeVisible();
-    await expect(tooltip).toContainText('The last worker run did not finish its work.');
+    await expect(tooltip).toContainText(
+        'The last worker run did not finish its work.',
+    );
     // The pointer moves from the mark into the tooltip, which stays open.
     await tooltip.getByRole('link', { name: 'Open card' }).hover();
     await expect(tooltip).toBeVisible();
