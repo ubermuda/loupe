@@ -12,7 +12,6 @@ use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Expression;
 use App\Module\Workflow\Template\ActionCall;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\TestCase;
@@ -78,6 +77,6 @@ final class RuleSubjectTest extends TestCase
 
     private static function rule(Expression $when): Rule
     {
-        return new Rule('rule', null, $when, new ActionCall(ActionType::Request, ['kind' => 'fix']));
+        return new Rule('rule', null, $when, new ActionCall('request', ['kind' => 'fix']));
     }
 }

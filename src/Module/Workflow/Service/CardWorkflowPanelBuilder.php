@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Service;
 
 use App\Module\Project\Repository\ProjectRepository;
-use App\Module\Workflow\Action\ActionParams;
+use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Contract\CardPauses;
 use App\Module\Workflow\Contract\CardSnapshot;
@@ -17,7 +17,6 @@ use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\Template;
 use App\Module\Workflow\Template\TemplateMissing;
@@ -45,6 +44,7 @@ final readonly class CardWorkflowPanelBuilder
         private ClockInterface $clock,
         private LoggerInterface $logger,
         private RuleSubject $ruleSubject,
+        private Actions $actions,
     ) {
     }
 
@@ -123,7 +123,7 @@ final readonly class CardWorkflowPanelBuilder
             $rules,
             fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$this->ruleSubject->bind($rule, $facts)->truth,
         ));
-        $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
+        $blocking = array_find($falseRules, static fn (Rule $rule): bool => $rule->then->traits->endsPass) ?? $falseRules[0] ?? null;
         $waiting = null;
         if (null !== $blocking) {
             $bound = $this->ruleSubject->bind($blocking, $facts);
@@ -156,21 +156,13 @@ final readonly class CardWorkflowPanelBuilder
 
     private function nextAction(Template $template, Rule $rule): string
     {
-        return match ($rule->then->type) {
-            ActionType::Move => match ($to = ActionParams::string($rule, 'to')) {
-                FactsBuilder::BACKLOG_SLOT => $this->translator->trans('workflow.panel.action.move_backlog'),
-                FactsBuilder::TERMINAL_SLOT => $this->translator->trans('workflow.panel.action.move_terminal'),
-                default => $this->translator->trans('workflow.panel.action.move', ['%slot%' => $this->slotLabel($template, $to)]),
-            },
-            ActionType::Request => $this->translator->trans('workflow.panel.action.request', ['%kind%' => ActionParams::string($rule, 'kind')]),
-            ActionType::ForgeWrite => $this->translator->trans('workflow.panel.action.forge_write', ['%write%' => ActionParams::string($rule, 'write')]),
-            ActionType::Pause => $this->translator->trans('workflow.panel.action.pause'),
-            ActionType::Release => $this->translator->trans('workflow.panel.action.release'),
-            ActionType::Evaluate => $this->translator->trans('workflow.panel.action.evaluate'),
-            ActionType::Ask => $this->translator->trans('workflow.panel.action.ask'),
-            ActionType::LinkDocument => $this->translator->trans('workflow.panel.action.link_document'),
-            ActionType::Detach => $this->translator->trans('workflow.panel.action.detach'),
-        };
+        $description = $this->actions->get($rule->then->key)->describe($rule->then->params);
+        $parameters = $description->panelParams;
+        foreach ($description->panelSlots as $placeholder => $slot) {
+            $parameters[$placeholder] = $this->slotLabel($template, $slot);
+        }
+
+        return $this->translator->trans($description->panelKey, $parameters);
     }
 
     private function lastRefusal(CardSnapshot $card): ?CardWorkflowRefusal

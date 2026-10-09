@@ -6,12 +6,14 @@ namespace App\Module\Workflow\Engine;
 
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
-use App\Module\Workflow\Action\ActionOutcome;
-use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\Ask;
+use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionOutcomeKind;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardPauses;
@@ -32,7 +34,6 @@ use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
@@ -315,7 +316,7 @@ final readonly class Engine
         if ($state->attempts > $policy->retries || null === $backoff) {
             $state->dueAt = null;
             if (null !== $policy->repairKind && !$state->repaired) {
-                $outcome = $this->opener->open($rule, $run->card, $bound->facts, $policy->repairKind, null, $code);
+                $outcome = $this->opener->open($rule->context($run->card, $bound->facts, $state->fires), $policy->repairKind, null, $code);
                 if (null !== $outcome->requestId) {
                     $state->workRequestId = $outcome->requestId;
                     $state->repaired = true;
@@ -445,7 +446,7 @@ final readonly class Engine
     /** Runs the release rules of a paused card. Answers whether they lifted the pause. */
     private function releasedByRule(Evaluation $run): bool
     {
-        $this->runRules($run, array_filter($run->template->rules, static fn (Rule $rule): bool => ActionType::Release === $rule->then->type));
+        $this->runRules($run, array_filter($run->template->rules, static fn (Rule $rule): bool => ReleasePause::KEY === $rule->then->key));
 
         $run->holdingPause = $this->cardPauses->findActive($run->card->id);
 
@@ -468,7 +469,7 @@ final readonly class Engine
 
         return match ($pause->kind) {
             PauseKind::Rule => match (true) {
-                ActionType::Ask === $rule->then->type => match (true) {
+                Ask::KEY === $rule->then->key => match (true) {
                     !$applies => 'facts-changed',
                     null !== $rule->when->unreadable($run->facts) => null,
                     !$bound->truth => 'facts-changed',
@@ -558,7 +559,7 @@ final readonly class Engine
         $fire = !isset($run->repairing[$rule->id])
             && ($newSubject || !$state->truth || ($state->attempts > 0 && ((null !== $state->dueAt && $state->dueAt <= $run->now) || !$this->fingerprint->sameAs($state->fingerprint, $bound->facts, $rule->when->reads()))));
         // A release rule that turned true before its pause existed would otherwise wait for a new edge.
-        if (!$fire && ActionType::Release === $rule->then->type) {
+        if (!$fire && ReleasePause::KEY === $rule->then->key) {
             $fire = null !== $run->holdingPause && $run->holdingPause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));
         }
         $state->truth = true;
@@ -578,11 +579,11 @@ final readonly class Engine
             $state->repaired = false;
         }
 
-        $type = $rule->then->type;
+        $call = $rule->then;
         // A retry keeps its attempts while its request runs, so the count reaches the limit of the template.
         // The last try after a repair keeps them too, so its refusal pauses the card.
         $retrying = !$newSubject && (null !== $state->workRequestId || $state->repaired) && $state->attempts > 0;
-        $outcome = $this->actions->get($type)->run($rule, $run->card, $bound->facts, $state);
+        $outcome = $this->actions->get($call->key)->run($rule->context($run->card, $bound->facts, $state->fires));
         // The live request still serves the old subject, so the change waits until it settles.
         if ($newSubject && $outcome->alreadyLive) {
             $state->subjectPullRequestId = $stored;
@@ -608,16 +609,19 @@ final readonly class Engine
                 } elseif (!$outcome->alreadyLive) {
                     $state->workRequestId = null;
                 }
-                if ((ActionType::Request === $type || ActionType::ForgeWrite === $type) && !$outcome->alreadyLive) {
+                if (null !== $outcome->askItemId) {
+                    $state->askItemId = $outcome->askItemId;
+                }
+                if ($call->traits->countsTowardLimit && !$outcome->alreadyLive) {
                     ++$state->fires;
                 }
                 // The rules after this one read the new request.
-                if (ActionType::Request === $type && !$outcome->alreadyLive) {
+                if ($call->traits->refreshesFacts && !$outcome->alreadyLive) {
                     $run->facts = $this->facts($run->card, $run->now, $run->facts);
                 }
 
                 // The move queues the next evaluation, and the rules after it would read the old slot.
-                return ActionType::Move !== $type;
+                return !$call->traits->endsPass;
             case ActionOutcomeKind::Refused:
                 $code = $outcome->code ?? throw new \LogicException('A refusal carries a code.');
                 ++$state->attempts;
@@ -636,7 +640,7 @@ final readonly class Engine
                 return false;
             case ActionOutcomeKind::Pause:
                 // The pause ends when its cause goes, and the rule must then fire again.
-                if (ActionType::Ask === $type) {
+                if (Ask::KEY === $call->key) {
                     $state->truth = false;
                 }
                 $this->pause(

@@ -7,9 +7,8 @@ namespace App\Tests\Module\Workflow\Action;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\Detach;
-use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Contract\ActionOutcome;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -48,8 +47,8 @@ final class DetachTest extends KernelTestCase
 
     private function detach(Card $card, bool $isChild): ActionOutcome
     {
-        $rule = $this->rule(ActionType::Detach, [], 'unplanned-child');
+        $rule = $this->rule('detach', [], 'unplanned-child');
 
-        return new Detach($this->service(CardRepository::class), $this->service(UpdateCardHandler::class))->run($rule, $card->snapshot(), FactsMother::facts(card: FactsMother::card(isChild: $isChild)), $this->state($card, $rule->id));
+        return $this->runAction(new Detach($this->service(CardRepository::class), $this->service(UpdateCardHandler::class)), $rule, $card->snapshot(), FactsMother::facts(card: FactsMother::card(isChild: $isChild)), $this->state($card, $rule->id));
     }
 }

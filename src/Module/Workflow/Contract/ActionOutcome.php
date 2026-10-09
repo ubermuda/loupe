@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Workflow\Contract;
 
-use App\Module\Workflow\Contract\PauseKind;
 use Symfony\Component\Uid\Uuid;
 
 /** What an action answers: it did its work, it was refused, or the card must pause. */
@@ -20,13 +19,14 @@ final readonly class ActionOutcome
         public ?PauseKind $pauseKind = null,
         public bool $alreadyLive = false,
         public ?Uuid $requestId = null,
+        public ?Uuid $askItemId = null,
     ) {
     }
 
-    /** Done. A request that the action opened gives its id, so the engine reads how it settles. */
-    public static function done(?Uuid $requestId = null): self
+    /** Done. A request that the action opened gives its id, so the engine reads how it settles. A question that it opened gives the item id. */
+    public static function done(?Uuid $requestId = null, ?Uuid $askItemId = null): self
     {
-        return new self(ActionOutcomeKind::Done, requestId: $requestId);
+        return new self(ActionOutcomeKind::Done, requestId: $requestId, askItemId: $askItemId);
     }
 
     /** Done, because a live work request of the kind already does the work. It opened nothing. */

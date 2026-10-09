@@ -14,12 +14,11 @@ use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkSubject;
-use App\Module\Workflow\Contract\CardSnapshot;
+use App\Module\Workflow\Contract\ActionContext;
+use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Template\AppRules;
-use App\Module\Workflow\Template\Rule;
-use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
 
 /**
@@ -38,13 +37,14 @@ final readonly class WorkRequestOpener
     }
 
     /** A given reason replaces the fix reason of the pull request in the context. */
-    public function open(Rule $rule, CardSnapshot $snapshot, Facts $facts, string $kind, ?string $capability, ?string $reason = null): ActionOutcome
+    public function open(ActionContext $context, string $kind, ?string $capability, ?string $reason = null): ActionOutcome
     {
-        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
+        $facts = $context->facts;
+        $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
         $documentId = null;
-        $tag = ActionParams::optionalString($rule, TemplateParser::DOCUMENT_TAG);
+        $tag = $context->optionalString(TemplateParser::DOCUMENT_TAG);
         if (null !== $tag) {
-            $status = ActionParams::optionalString($rule, TemplateParser::DOCUMENT_STATUS);
+            $status = $context->optionalString(TemplateParser::DOCUMENT_STATUS);
             $documents = array_values(array_filter(
                 $facts->get(DocumentsFacts::class)->documents,
                 static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true) && (null === $status || $status === $document->status),
@@ -55,7 +55,7 @@ final readonly class WorkRequestOpener
             $documentId = $documents[0]->id;
         }
 
-        $promptName = RuleOrigin::App === $rule->origin ? ActionParams::optionalString($rule, TemplateParser::PROMPT) : null;
+        $promptName = $context->appRule ? $context->optionalString(TemplateParser::PROMPT) : null;
 
         try {
             $request = ($this->openWorkRequest)(new OpenWorkRequestCommand(
@@ -64,7 +64,7 @@ final readonly class WorkRequestOpener
                 cardNumber: $card->number,
                 kind: $kind,
                 capability: $capability,
-                ruleId: $rule->id,
+                ruleId: $context->ruleId,
                 context: $this->context($card, $facts, $documentId, $reason),
                 prompt: null === $promptName ? null : $this->appRules->prompt($promptName),
             ));

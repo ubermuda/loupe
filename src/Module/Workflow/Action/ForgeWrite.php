@@ -11,7 +11,6 @@ use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\CardPullRequests;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -21,16 +20,20 @@ use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
+use App\Module\Workflow\Contract\Action;
+use App\Module\Workflow\Contract\ActionContext;
+use App\Module\Workflow\Contract\ActionDescription;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionTraits;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
-use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\CardTypeCatalog;
-use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\ChecksParameters;
+use App\Module\Workflow\Contract\Parameter;
+use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\WorkflowRefusal;
-use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\Template\ActionType;
+use App\Module\Board\Service\CardPullRequests;
 use App\Module\Workflow\Template\ForgeWriteKind;
-use App\Module\Workflow\Template\Rule;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -40,9 +43,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * work instead. A state write with no fallback then does nothing. The epic opening acts on an epic with no pull request:
  * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
  */
-final readonly class ForgeWrite implements Action
+final readonly class ForgeWrite implements Action, ChecksParameters
 {
     public const string OPEN_EPIC_OFF = WorkflowRefusal::OPEN_EPIC_OFF;
+
+    public const string KEY = 'forge-write';
+    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic'];
 
     public function __construct(
         private CardRepository $cards,
@@ -64,23 +70,65 @@ final readonly class ForgeWrite implements Action
     }
 
     #[\Override]
-    public static function type(): ActionType
+    public static function key(): string
     {
-        return ActionType::ForgeWrite;
+        return self::KEY;
     }
 
     #[\Override]
-    public function run(Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public static function source(): string
     {
-        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
-        $write = ForgeWriteKind::tryFrom(ActionParams::string($rule, 'write'))
-            ?? throw new \LogicException(\sprintf('The rule "%s" names an unknown forge write.', $rule->id));
-        $fallbackKind = ActionParams::optionalString($rule, 'fallback');
-        $fallback = fn (): ActionOutcome => null === $fallbackKind ? ActionOutcome::done() : $this->opener->open($rule, $snapshot, $facts, $fallbackKind, null);
+        return 'workflow.source.forge';
+    }
+
+    #[\Override]
+    public static function parameters(): array
+    {
+        return [
+            new Parameter('write', ParameterType::String, choices: array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),
+            new Parameter('fallback', ParameterType::String, required: false),
+        ];
+    }
+
+    #[\Override]
+    public static function check(array $params): array
+    {
+        $needsFallback = !\in_array($params['write'] ?? null, self::WRITES_WITHOUT_FALLBACK, true);
+
+        return $needsFallback && !\array_key_exists('fallback', $params) ? ['missing parameter "fallback"'] : [];
+    }
+
+    #[\Override]
+    public static function traits(): ActionTraits
+    {
+        return new ActionTraits(countsTowardLimit: true);
+    }
+
+    #[\Override]
+    public function describe(array $params): ActionDescription
+    {
+        return new ActionDescription('workflow.settings.action.forge_write', 'workflow.panel.action.forge_write', panelParams: ['%write%' => (string) $params['write']], settingsDetail: (string) $params['write']);
+    }
+
+    #[\Override]
+    public function workKind(array $params): ?string
+    {
+        return isset($params['fallback']) ? (string) $params['fallback'] : null;
+    }
+
+    #[\Override]
+    public function run(ActionContext $context): ActionOutcome
+    {
+        $facts = $context->facts;
+        $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
+        $write = ForgeWriteKind::tryFrom($context->string('write'))
+            ?? throw new \LogicException(\sprintf('The rule "%s" names an unknown forge write.', $context->ruleId));
+        $fallbackKind = $context->optionalString('fallback');
+        $fallback = fn (): ActionOutcome => null === $fallbackKind ? ActionOutcome::done() : $this->opener->open($context, $fallbackKind, null);
 
         $pullRequests = $this->cardPullRequests->forCard($card);
         if (ForgeWriteKind::OpenEpic === $write) {
-            return $this->openEpic($rule, $card, $pullRequests);
+            return $this->openEpic($context->ruleId, $card, $pullRequests);
         }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
             if ([] === $pullRequests) {
@@ -132,7 +180,7 @@ final readonly class ForgeWrite implements Action
      *
      * @param list<ForgePullRequest> $pullRequests
      */
-    private function openEpic(Rule $rule, Card $card, array $pullRequests): ActionOutcome
+    private function openEpic(string $ruleId, Card $card, array $pullRequests): ActionOutcome
     {
         $settings = $this->boardAutomation->settingsOf($card->project);
         $epicBranch = $settings->epicBranchOf($card->number);
@@ -180,7 +228,7 @@ final readonly class ForgeWrite implements Action
                 card: $card,
                 actor: Actor::System,
                 pullRequestUrls: [...$this->cardPullRequests->currentUrls($card), $opener->url($child, $number)],
-                cause: CardEventCause::workflowRule($rule->id),
+                cause: CardEventCause::workflowRule($ruleId),
             ));
         } catch (DomainErrors) {
             return ActionOutcome::refused('link-refused');

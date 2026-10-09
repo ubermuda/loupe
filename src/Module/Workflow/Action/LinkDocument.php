@@ -11,14 +11,16 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Workflow\DocumentsFacts;
 use App\Module\Board\Workflow\ParentDocumentsFacts;
+use App\Module\Workflow\Contract\Action;
+use App\Module\Workflow\Contract\ActionContext;
+use App\Module\Workflow\Contract\ActionDescription;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionTraits;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
-use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\DocumentFacts;
-use App\Module\Workflow\Contract\Facts;
-use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\Template\ActionType;
-use App\Module\Workflow\Template\Rule;
+use App\Module\Workflow\Contract\Parameter;
+use App\Module\Workflow\Contract\ParameterType;
 
 /**
  * Links the document of the parent card that carries the tag to the card, whatever the status of the document.
@@ -29,6 +31,8 @@ final readonly class LinkDocument implements Action
     public const string NO_PARENT_DOCUMENT = 'no-parent-document';
     public const string LINK_REFUSED = 'document-link-refused';
 
+    public const string KEY = 'link-document';
+
     public function __construct(
         private CardRepository $cards,
         private UpdateCardHandler $updateCard,
@@ -36,21 +40,54 @@ final readonly class LinkDocument implements Action
     }
 
     #[\Override]
-    public static function type(): ActionType
+    public static function key(): string
     {
-        return ActionType::LinkDocument;
+        return self::KEY;
     }
 
     #[\Override]
-    public function run(Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public static function source(): string
     {
-        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
-        $tag = ActionParams::string($rule, 'tag');
-        $document = array_find($facts->get(ParentDocumentsFacts::class)->documents, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
+        return 'workflow.source.board';
+    }
+
+    #[\Override]
+    public static function parameters(): array
+    {
+        return [
+            new Parameter('from', ParameterType::String, fixed: 'parent'),
+            new Parameter('tag', ParameterType::String),
+        ];
+    }
+
+    #[\Override]
+    public static function traits(): ActionTraits
+    {
+        return new ActionTraits(option: true);
+    }
+
+    #[\Override]
+    public function describe(array $params): ActionDescription
+    {
+        return new ActionDescription('workflow.settings.action.link_document', 'workflow.panel.action.link_document');
+    }
+
+    #[\Override]
+    public function workKind(array $params): ?string
+    {
+        return null;
+    }
+
+    #[\Override]
+    public function run(ActionContext $context): ActionOutcome
+    {
+        $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
+        $tag = $context->string('tag');
+        $document = array_find($context->facts->get(ParentDocumentsFacts::class)->documents, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
         if (null === $document) {
             return ActionOutcome::refused(self::NO_PARENT_DOCUMENT);
         }
-        $linked = array_map(static fn (DocumentFacts $document): string => $document->id, $facts->get(DocumentsFacts::class)->documents);
+        $linked = array_map(static fn (DocumentFacts $document): string => $document->id, $context->facts->get(DocumentsFacts::class)->documents);
         if (\in_array($document->id, $linked, true)) {
             return ActionOutcome::done();
         }
@@ -60,7 +97,7 @@ final readonly class LinkDocument implements Action
                 card: $card,
                 actor: Actor::System,
                 documentIds: [...$linked, $document->id],
-                cause: CardEventCause::workflowRule($rule->id),
+                cause: CardEventCause::workflowRule($context->ruleId),
             ));
         } catch (DomainErrors) {
             return ActionOutcome::refused(self::LINK_REFUSED);

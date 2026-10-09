@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
+use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\Ask;
+use App\Module\Workflow\Action\Detach;
+use App\Module\Workflow\Action\EvaluateChildren;
+use App\Module\Workflow\Action\ForgeWrite;
+use App\Module\Workflow\Action\LinkDocument;
+use App\Module\Workflow\Action\MoveCard;
+use App\Module\Workflow\Action\PauseCard;
+use App\Module\Workflow\Action\ReleasePause;
+use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Condition\CardChildrenFinished;
 use App\Module\Workflow\Condition\CardDocument;
 use App\Module\Workflow\Condition\CardDocumentApproved;
@@ -14,19 +24,20 @@ use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
 use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Condition\RunWorkActive;
+use App\Module\Workflow\Contract\Action;
 use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
-use App\Module\Workflow\Template\ActionCall;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\AppRequest;
 use App\Module\Workflow\Template\AskOption;
 use App\Module\Workflow\Template\InvalidTemplate;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
+use App\Tests\Module\Workflow\Action\ExpressionPluggedAction;
+use App\Tests\Module\Workflow\Action\PluggedAction;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -34,9 +45,15 @@ final class TemplateParserTest extends TestCase
 {
     private TemplateParser $parser;
 
+    private Actions $actions;
+
     #[\Override]
     protected function setUp(): void
     {
+        $this->actions = new Actions(array_map(
+            static fn (string $class): Action => new \ReflectionClass($class)->newInstanceWithoutConstructor(),
+            [MoveCard::class, RequestWork::class, ForgeWrite::class, PauseCard::class, ReleasePause::class, EvaluateChildren::class, Ask::class, LinkDocument::class, Detach::class],
+        ));
         $this->parser = new TemplateParser(new Conditions([
             new CardChildrenFinished(),
             new CardDocument(),
@@ -47,7 +64,7 @@ final class TemplateParserTest extends TestCase
             new PullRequestApprovalCoversHead(),
             new PullRequestOpen(),
             new RunWorkActive(),
-        ]));
+        ]), $this->actions);
     }
 
     /** @return array<string, mixed> */
@@ -135,13 +152,13 @@ final class TemplateParserTest extends TestCase
         self::assertSame(['wait'], $ids($template->rulesFor(null)));
 
         $start = $template->rulesFor('build')[0];
-        self::assertSame(ActionType::Request, $start->then->type);
+        self::assertSame('request', $start->then->key);
         self::assertSame(['kind' => 'implement', 'capability' => 'interactive', 'limit' => 3], $start->then->params);
         self::assertNull($start->then->until);
         self::assertNull($start->then->refill);
 
         $wait = $template->rulesFor(null)[0];
-        self::assertSame(ActionType::Pause, $wait->then->type);
+        self::assertSame('pause', $wait->then->key);
         self::assertSame(['reason' => 'busy'], $wait->then->params);
         self::assertInstanceOf(Not::class, $wait->then->until);
     }
@@ -246,7 +263,7 @@ final class TemplateParserTest extends TestCase
         $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
 
         $then = $this->parser->parse($template)->rulesFor('@terminal')[1]->then;
-        self::assertSame(ActionType::Evaluate, $then->type);
+        self::assertSame('evaluate', $then->key);
         self::assertSame(['cards' => 'children'], $then->params);
     }
 
@@ -258,6 +275,74 @@ final class TemplateParserTest extends TestCase
 
             self::assertSame(['write' => $write], $this->parser->parse($template)->rulesFor('review')[0]->then->params);
         }
+    }
+
+    public function test_the_parameters_of_an_action_come_from_its_declarations(): void
+    {
+        $parser = new TemplateParser(new Conditions([new CardInSlot()]), new Actions([new PluggedAction()]));
+        $template = self::valid();
+        $template['rules'] = [['id' => 'plugged', 'when' => ['card.in_slot' => ['slot' => 'build']], 'then' => ['plugged' => ['from' => 'review', 'times' => 2, 'mode' => 'fast']]]];
+
+        $parsed = $parser->parse($template);
+        $call = $parsed->rules[0]->then;
+
+        self::assertSame('plugged', $call->key);
+        self::assertSame(['from' => 'review', 'times' => 2, 'mode' => 'fast'], $call->params);
+        self::assertSame('review', $call->from);
+        self::assertTrue($call->traits->endsPass);
+        self::assertSame([], $parsed->rulesFor('build'), 'A rule that acts from another slot is not a rule of this slot.');
+        self::assertCount(1, $parsed->rulesFor('review'));
+    }
+
+    public function test_an_action_cannot_declare_an_expression_parameter_that_a_call_drops(): void
+    {
+        $parser = new TemplateParser(new Conditions([new CardInSlot()]), new Actions([new ExpressionPluggedAction()]));
+        $template = self::valid();
+        $template['rules'] = [['id' => 'expressive', 'when' => ['card.in_slot' => ['slot' => 'build']], 'then' => ['expressive' => ['from' => 'review']]]];
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('declares the expression parameter "only"');
+        $parser->parse($template);
+    }
+
+    /** @param array<string, mixed> $then */
+    #[DataProvider('pluggedActionErrors')]
+    public function test_the_declared_parameters_of_an_action_are_checked(array $then, string $error): void
+    {
+        $parser = new TemplateParser(new Conditions([new CardInSlot()]), new Actions([new PluggedAction()]));
+        $template = self::valid();
+        $template['rules'] = [['id' => 'plugged', 'when' => ['card.in_slot' => ['slot' => 'build']], 'then' => ['plugged' => $then]]];
+
+        try {
+            $parser->parse($template);
+            self::fail('The template must be refused.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame([$error], $e->errors);
+        }
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function pluggedActionErrors(): iterable
+    {
+        yield 'a missing required parameter' => [['from' => 'review'], 'rules[0] (plugged) then.plugged: missing parameter "times"'];
+        yield 'a slot that is not declared' => [['from' => 'shipping', 'times' => 2], 'rules[0] (plugged) then.plugged.from: unknown slot "shipping"'];
+        yield 'an int under its minimum' => [['from' => 'review', 'times' => 1], 'rules[0] (plugged) then.plugged: parameter "times" must be an integer of at least 2'];
+        yield 'a value outside the choices' => [['from' => 'review', 'times' => 2, 'mode' => 'slow'], 'rules[0] (plugged) then.plugged: parameter "mode" must be one of fast, safe'];
+        yield 'a parameter the action does not declare' => [['from' => 'review', 'times' => 2, 'speed' => 1], 'rules[0] (plugged) then.plugged: unknown parameter "speed"'];
+        yield 'a rule on the parameters as a whole' => [['from' => 'review', 'times' => 2, 'mode' => 'safe'], 'rules[0] (plugged) then.plugged: safe mode needs the slot build'];
+    }
+
+    public function test_the_prompt_is_a_parameter_of_an_app_rule_only(): void
+    {
+        $rules = [['id' => 'groom', 'slot' => '@backlog', 'when' => ['card.in_slot' => ['slot' => '@backlog']], 'then' => ['request' => ['kind' => 'groom', 'prompt' => 'groom-card']]]];
+
+        self::assertSame('groom-card', $this->parser->parseAppRules(['rules' => $rules])[0]->then->params['prompt']);
+        $template = self::valid();
+        $template['rules'] = $rules;
+        $this->expectException(InvalidTemplate::class);
+        $this->expectExceptionMessage('unknown parameter "prompt"');
+
+        $this->parser->parse($template);
     }
 
     public function test_a_request_can_expire_with_no_pause(): void
@@ -885,12 +970,12 @@ final class TemplateParserTest extends TestCase
 
         $then = $this->parser->parse($template)->rules[5]->then;
 
-        self::assertSame(ActionType::Ask, $then->type);
+        self::assertSame('ask', $then->key);
         self::assertSame(['question' => 'workflow.ask.unplanned_child'], $then->params);
         self::assertEquals([
-            new AskOption('workflow.ask.unplanned_child.link', [new ActionCall(ActionType::LinkDocument, ['from' => 'parent', 'tag' => 'tech-design'])]),
-            new AskOption('workflow.ask.unplanned_child.design', [new ActionCall(ActionType::Move, ['to' => 'build'])]),
-            new AskOption('workflow.ask.unplanned_child.detach', [new ActionCall(ActionType::Detach, []), new ActionCall(ActionType::Move, ['to' => '@backlog'])]),
+            new AskOption('workflow.ask.unplanned_child.link', [$this->actions->call('link-document', ['from' => 'parent', 'tag' => 'tech-design'])]),
+            new AskOption('workflow.ask.unplanned_child.design', [$this->actions->call('move', ['to' => 'build'])]),
+            new AskOption('workflow.ask.unplanned_child.detach', [$this->actions->call('detach', []), $this->actions->call('move', ['to' => '@backlog'])]),
         ], $then->options);
     }
 
