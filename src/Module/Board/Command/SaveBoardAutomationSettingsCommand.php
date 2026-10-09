@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Project\Entity\Project;
 
 final readonly class SaveBoardAutomationSettingsCommand
@@ -22,7 +21,6 @@ final readonly class SaveBoardAutomationSettingsCommand
         public bool $epicDraftSwitch = false,
         public bool $closeEpicPullRequests = false,
         public bool $openEpicPullRequests = false,
-        public ?string $epicBranchPattern = BoardAutomationSettings::DEFAULT_EPIC_BRANCH_PATTERN,
     ) {
     }
 }

@@ -69,7 +69,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Epics
 
-1. The epic branch of epic card `<n>` is `epic/<n>`. The breakdown pushes it from `origin/main`. The board automation setting "Epic branch pattern" must be `epic/{number}`. Otherwise the app does not know the epic branch, and no child merges into it.
+1. The epic branch of epic card `<n>` is `epic/<n>`. The breakdown pushes it from `origin/main`. The `epicBranch` value of the workflow template of the project must be `epic/{number}`. Otherwise the app does not know the epic branch, and no child merges into it.
 2. A child of an epic whose `epic/<n>` branch exists cuts its worktree from `origin/epic/<n>`, and its pull request targets `epic/<n>`. An epic with no such branch keeps the flow of `main` for its children.
 3. A child merges into `epic/<n>` with `squash` and no approval, once its required checks pass.
 4. No ruleset covers `refs/heads/epic/*`. The merge stage checks a child by name against the required checks of `main`. The epic pull request syncs by a merge of `main`, through `gh pr update-branch` or the app sync. A fix round pushes to `epic/<n>` directly. Nothing force-pushes `epic/<n>`.

@@ -9,7 +9,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Board\Service\VerdictReviewSettler;
@@ -32,6 +31,7 @@ use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\ChecksParameters;
+use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -51,7 +51,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     public function __construct(
         private CardRepository $cards,
         private CardPullRequests $cardPullRequests,
-        private BoardAutomation $boardAutomation,
+        private EpicBranches $epicBranches,
         private ForgePullRequestWrites $forgePullRequestWrites,
         private ForgePullRequestRepository $forgePullRequests,
         private PullRequestBranchUpdaters $branchUpdaters,
@@ -173,8 +173,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
      */
     private function openEpic(string $ruleId, Card $card, array $pullRequests): ActionOutcome
     {
-        $settings = $this->boardAutomation->settingsOf($card->project);
-        $epicBranch = $settings->epicBranchOf($card->number);
+        $epicBranch = $this->epicBranches->of($card->project->requireId(), $card->number);
         if (!$this->catalog->forProject($card->project->requireId())->get($card->type)->children || null === $epicBranch) {
             return ActionOutcome::done();
         }

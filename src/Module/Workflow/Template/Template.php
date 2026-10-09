@@ -8,6 +8,13 @@ use App\Module\Workflow\Contract\ReadsDocumentTag;
 
 final readonly class Template
 {
+    public const string EPIC_BRANCH_NUMBER = '{number}';
+
+    public const int EPIC_BRANCH_MAX_LENGTH = 255;
+
+    /** A Git branch name that holds the epic number placeholder exactly once. */
+    public const string EPIC_BRANCH_RULE = '/^(?!.*\{number\}.*\{number\})(?!.*\.\.)(?!.*\.lock(?:\/|$))(?=.*\{number\})(?:[A-Za-z0-9_]|\{number\})(?:[A-Za-z0-9._-]|\{number\}|\/(?![\/.-]))*(?<![.\/])$/D';
+
     /**
      * @param list<TemplateCardType>          $types
      * @param list<Slot>                      $slots
@@ -15,6 +22,7 @@ final readonly class Template
      * @param list<ManualMove>                $manualMoves
      * @param list<int>                       $backoffMinutes
      * @param array<string, list<ActionCall>> $childChoices   the actions of each choice an agent states for a card it files under a parent, by `inherit` or `own`
+     * @param ?string                         $epicBranch     the branch of an epic, with the card number as the placeholder, or null when the template has no epic branches
      */
     public function __construct(
         public string $key,
@@ -28,7 +36,13 @@ final readonly class Template
         public string $defaultType,
         public ?WorkFailurePolicy $onWorkFailed = null,
         public array $childChoices = [],
+        public ?string $epicBranch = null,
     ) {
+    }
+
+    public function epicBranchOf(int $number): ?string
+    {
+        return null === $this->epicBranch ? null : str_replace(self::EPIC_BRANCH_NUMBER, (string) $number, $this->epicBranch);
     }
 
     public function type(string $key): ?TemplateCardType

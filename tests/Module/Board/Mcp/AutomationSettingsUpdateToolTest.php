@@ -58,7 +58,6 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
             'openEpicPullRequests' => false,
             'postWidgetReviews' => false,
             'siteReviewCheck' => false,
-            'epicBranchPattern' => 'epic/{number}',
         ];
         self::assertSame($expected, $result);
 
@@ -73,10 +72,10 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertTrue($stored->changeBase);
     }
 
-    public function test_an_update_keeps_the_epic_settings_it_omits(): void
+    public function test_an_update_keeps_the_epic_opening_it_omits(): void
     {
         $project = $this->makeProject('automation-update-epic');
-        $this->em->persist(new BoardAutomationSettings($project, openEpicPullRequests: true, epicBranchPattern: 'feature/{number}'));
+        $this->em->persist(new BoardAutomationSettings($project, openEpicPullRequests: true));
         $this->em->flush();
         $this->actAsMcpTokenBoundTo($project);
 
@@ -88,7 +87,6 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         $stored = $repository->findOneBy(['project' => $project->id]);
         self::assertInstanceOf(BoardAutomationSettings::class, $stored);
         self::assertTrue($stored->openEpicPullRequests);
-        self::assertSame('feature/{number}', $stored->epicBranchPattern);
     }
 
     public function test_the_widget_verdict_opt_ins_are_set_and_kept_when_omitted(): void
@@ -110,7 +108,7 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertTrue($stored->siteReviewCheck);
     }
 
-    public function test_it_sets_both_epic_settings_and_turning_the_opening_on_rearms_it(): void
+    public function test_turning_the_epic_opening_on_rearms_it(): void
     {
         $project = $this->makeProject('automation-update-epic-set');
         $this->em->persist(new BoardAutomationSettings($project));
@@ -118,49 +116,12 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
         $saved = $this->savedEvents();
 
-        $result = ($this->tool)(openEpicPullRequests: true, epicBranchPattern: '  feature/epic-{number}  ');
+        $result = ($this->tool)(openEpicPullRequests: true);
 
         self::assertTrue($result['openEpicPullRequests']);
-        self::assertSame('feature/epic-{number}', $result['epicBranchPattern']);
         $stored = $this->stored($project->id);
         self::assertTrue($stored->openEpicPullRequests);
-        self::assertSame('feature/epic-{number}', $stored->epicBranchPattern);
         self::assertCount(1, $saved->events);
-    }
-
-    public function test_an_empty_pattern_turns_epic_branches_off(): void
-    {
-        $project = $this->makeProject('automation-update-epic-clear');
-        $this->em->persist(new BoardAutomationSettings($project, epicBranchPattern: 'feature/{number}'));
-        $this->em->flush();
-        $this->actAsMcpTokenBoundTo($project);
-
-        $result = ($this->tool)(epicBranchPattern: '');
-
-        self::assertNull($result['epicBranchPattern']);
-        self::assertNull($this->stored($project->id)->epicBranchPattern);
-    }
-
-    public function test_a_pattern_that_is_no_branch_name_with_one_number_is_refused_and_nothing_is_saved(): void
-    {
-        $project = $this->makeProject('automation-update-epic-refused');
-        $this->em->persist(new BoardAutomationSettings($project, epicBranchPattern: 'feature/{number}'));
-        $this->em->flush();
-        $this->actAsMcpTokenBoundTo($project);
-        $saved = $this->savedEvents();
-
-        try {
-            ($this->tool)(syncBehind: true, epicBranchPattern: 'epic/{number}/{number}');
-            self::fail('The tool accepted a pattern with the placeholder twice.');
-        } catch (ToolCallException $e) {
-            self::assertStringStartsWith('epicBranchPattern: ', $e->getMessage());
-            self::assertStringContainsString('exactly once', $e->getMessage());
-        }
-
-        $stored = $this->stored($project->id);
-        self::assertSame('feature/{number}', $stored->epicBranchPattern);
-        self::assertFalse($stored->syncBehind);
-        self::assertSame([], $saved->events);
     }
 
     public function test_a_project_with_no_stored_settings_starts_from_the_defaults(): void
