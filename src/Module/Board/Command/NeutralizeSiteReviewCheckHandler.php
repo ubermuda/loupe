@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Contract\CardEvaluations;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 
@@ -20,6 +21,7 @@ final readonly class NeutralizeSiteReviewCheckHandler
         private ProjectRepository $projects,
         private CardPullRequestRepository $cardPullRequests,
         private SiteReviewCheckPublisher $checkPublisher,
+        private CardEvaluations $evaluations,
         private LoggerInterface $logger,
     ) {
     }
@@ -32,12 +34,15 @@ final readonly class NeutralizeSiteReviewCheckHandler
         }
 
         // A card that links the pull request again owns its check, and its evaluation writes the check it wants.
-        if ([] !== $this->cardPullRequests->findForPullRequest($command->projectId, Forge::from($command->forge), $command->repository, $command->number)) {
+        $forge = Forge::from($command->forge);
+        if ([] !== $this->cardPullRequests->findForPullRequest($command->projectId, $forge, $command->repository, $command->number)) {
             return;
         }
 
         $failure = $this->checkPublisher->neutralizeUnlinked($project, $command->forge, $command->repository, $command->number, $command->headSha, $command->runId);
         if (null === $failure) {
+            $this->evaluateCardsLinkedSince($command, $forge);
+
             return;
         }
 
@@ -47,5 +52,19 @@ final readonly class NeutralizeSiteReviewCheckHandler
         }
 
         throw new RecoverableMessageHandlingException($failure->getMessage(), 0, $failure, retryDelay: null === $failure->retryAfterSeconds ? null : min($failure->retryAfterSeconds, self::MAX_RETRY_DELAY_SECONDS) * 1000, forceRetry: false);
+    }
+
+    /** A card can link the pull request between the first read and the write, so its check is evaluated again after the write. */
+    private function evaluateCardsLinkedSince(NeutralizeSiteReviewCheckCommand $command, Forge $forge): void
+    {
+        $cardIds = [];
+        foreach ($this->cardPullRequests->findForPullRequest($command->projectId, $forge, $command->repository, $command->number) as $link) {
+            if (null !== $link->card->id) {
+                $cardIds[] = $link->card->id;
+            }
+        }
+        if ([] !== $cardIds) {
+            $this->evaluations->forCards($cardIds);
+        }
     }
 }

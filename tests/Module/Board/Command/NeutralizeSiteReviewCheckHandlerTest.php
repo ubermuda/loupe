@@ -13,10 +13,13 @@ use App\Module\Board\Repository\SiteReviewCheckStateRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Board\Workflow\SiteReviewFactProvider;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Service\PullRequestCheckConclusion;
+use App\Module\Forge\Service\PullRequestCheckWriter;
 use App\Module\Forge\Service\PullRequestCheckWriters;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Contract\CardEvaluations;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Board\Fake\FakeCheckWriter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -67,6 +70,53 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
         self::assertSame([], $this->writer->published);
     }
 
+    public function test_a_card_that_links_the_pull_request_during_the_write_is_evaluated_again(): void
+    {
+        $create = self::getContainer()->get(CreateCardHandler::class);
+        self::assertInstanceOf(CreateCardHandler::class, $create);
+        $project = $this->project;
+        $linked = null;
+        $racingWriter = new readonly class(static function () use ($create, $project, &$linked): void {
+            $linked = $create(new CreateCardCommand(project: $project, title: 'A card', body: 'Body', type: 'feature', pullRequestUrls: ['https://github.com/acme/widgets/pull/9']));
+        }) implements PullRequestCheckWriter {
+            public function __construct(
+                private \Closure $onPublish,
+            ) {
+            }
+
+            public function supports(string $forge): bool
+            {
+                return true;
+            }
+
+            public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId): int
+            {
+                ($this->onPublish)();
+
+                return $runId ?? 1;
+            }
+        };
+        $evaluations = new class implements CardEvaluations {
+            /** @var list<string|Uuid> */
+            public array $asked = [];
+
+            public function forCards(array $cardIds): void
+            {
+                array_push($this->asked, ...$cardIds);
+            }
+
+            public function isOn(): bool
+            {
+                return true;
+            }
+        };
+
+        ($this->handler($evaluations, $racingWriter))($this->command());
+
+        self::assertNotNull($linked);
+        self::assertSame([$linked->id], $evaluations->asked);
+    }
+
     public function test_a_retryable_refusal_asks_for_a_retry(): void
     {
         $this->writer->failingNumbers = [9];
@@ -98,7 +148,7 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
         return new NeutralizeSiteReviewCheckCommand($this->project->id ?? throw new \LogicException('A persisted project has an id.'), 'github', 'acme/widgets', 9, 'sha-1', 55);
     }
 
-    private function handler(): NeutralizeSiteReviewCheckHandler
+    private function handler(?CardEvaluations $evaluations = null, ?PullRequestCheckWriter $writer = null): NeutralizeSiteReviewCheckHandler
     {
         $container = self::getContainer();
         $em = $container->get(EntityManagerInterface::class);
@@ -120,11 +170,21 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
                 $container->get(SiteReviewFactProvider::class),
                 $container->get(SiteReviewCheckStateRepository::class),
                 $automation,
-                new PullRequestCheckWriters([$this->writer]),
+                new PullRequestCheckWriters([$writer ?? $this->writer]),
                 $translator,
                 $em,
                 $clock,
             ),
+            $evaluations ?? new class implements CardEvaluations {
+                public function forCards(array $cardIds): void
+                {
+                }
+
+                public function isOn(): bool
+                {
+                    return true;
+                }
+            },
             new NullLogger(),
         );
     }
