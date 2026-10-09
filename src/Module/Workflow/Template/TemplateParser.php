@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
-use App\Module\Board\Workflow\ChildrenFacts;
-use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\EvaluateChildren;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ChecksParameters;
+use App\Module\Workflow\Contract\ChildFacts;
+use App\Module\Workflow\Contract\DocumentStatuses;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterNames;
@@ -338,7 +339,7 @@ final readonly class TemplateParser
         }
         $type = $expression instanceof ConditionLeaf && $expression->condition instanceof ReadsCardType ? $expression->condition->cardType($expression->params) : null;
 
-        return self::typeRead($type, \in_array(ChildrenFacts::class, $expression->reads(), true));
+        return self::typeRead($type, array_any($expression->reads(), static fn (EngineFact|string $read): bool => \is_string($read) && is_a($read, ChildFacts::class, true)));
     }
 
     /** @return array<string, array{?string, bool}> */
@@ -789,14 +790,14 @@ final readonly class TemplateParser
         if (!\array_key_exists('status', $given)) {
             return [self::DOCUMENT_TAG => $given['tag']];
         }
-        $status = \is_string($given['status']) ? DocumentStatus::tryFrom($given['status']) : null;
-        if (null === $status) {
-            $errors[] = \sprintf('%s.document: parameter "status" must be one of %s', $where, implode(', ', array_map(static fn (DocumentStatus $s): string => $s->value, DocumentStatus::cases())));
+        $status = $given['status'];
+        if (!\in_array($status, DocumentStatuses::ALL, true)) {
+            $errors[] = \sprintf('%s.document: parameter "status" must be one of %s', $where, implode(', ', DocumentStatuses::ALL));
 
             return [];
         }
 
-        return [self::DOCUMENT_TAG => $given['tag'], self::DOCUMENT_STATUS => $status->value];
+        return [self::DOCUMENT_TAG => $given['tag'], self::DOCUMENT_STATUS => $status];
     }
 
     /**

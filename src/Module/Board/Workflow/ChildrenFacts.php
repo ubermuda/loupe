@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Workflow;
 
-final readonly class ChildrenFacts
+use App\Module\Workflow\Contract\ChildFacts;
+
+final readonly class ChildrenFacts implements ChildFacts
 {
     /** @param bool $childMergedIntoEpicBranch whether a child pull request merged into the epic branch of this card */
     public function __construct(
