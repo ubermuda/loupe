@@ -2053,7 +2053,7 @@ final class EngineTest extends KernelTestCase
     {
         $card = $this->boundCard([
             self::requestRule('work', self::ALWAYS),
-            self::requestRule('follow', ['run.work_active' => ['kind' => 'work']]),
+            self::requestRule('follow', ['card.run.work_active' => ['kind' => 'work']]),
         ]);
 
         $this->evaluate($card);

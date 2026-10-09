@@ -6,12 +6,12 @@ namespace App\Tests\Module\Workflow\Expression;
 
 use App\Module\Board\Workflow\BlockerFacts;
 use App\Module\Board\Workflow\CardTypeFacts;
+use App\Module\Board\Workflow\Condition\CardHasOpenBlocker;
+use App\Module\Board\Workflow\Condition\CardHasType;
+use App\Module\Board\Workflow\Condition\CardParentExists;
+use App\Module\Board\Workflow\Condition\PullRequestChecksFailed;
+use App\Module\Board\Workflow\Condition\PullRequestOpen;
 use App\Module\Board\Workflow\ParentFacts;
-use App\Module\Workflow\Condition\CardHasOpenBlocker;
-use App\Module\Workflow\Condition\CardHasType;
-use App\Module\Workflow\Condition\CardIsChild;
-use App\Module\Workflow\Condition\PullRequestChecksFailed;
-use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\PullRequestList;
@@ -56,7 +56,7 @@ final class ExpressionTest extends TestCase
 
     public function test_all_of_gives_its_first_false_leaf(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $all = new AllOf([$child, $blocker]);
 
@@ -71,7 +71,7 @@ final class ExpressionTest extends TestCase
 
     public function test_any_of_is_true_when_one_child_is_true_and_else_gives_the_first_leaf(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $any = new AnyOf([$child, $blocker]);
 
@@ -137,7 +137,7 @@ final class ExpressionTest extends TestCase
 
     public function test_not_over_all_of_blocks_with_the_negated_sentence(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $not = new Not(new AllOf([$child, $blocker]));
 
@@ -151,7 +151,7 @@ final class ExpressionTest extends TestCase
 
     public function test_not_over_any_of_blocks_with_the_negated_sentence(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $not = new Not(new AnyOf([$child, $blocker]));
 
@@ -165,7 +165,7 @@ final class ExpressionTest extends TestCase
 
     public function test_a_not_inside_all_of_keeps_the_negation(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $all = new AllOf([$child, new Not($blocker)]);
 
@@ -183,7 +183,7 @@ final class ExpressionTest extends TestCase
 
     public function test_a_composite_reads_the_keys_of_its_children_once_in_first_seen_order(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $checks = new ConditionLeaf(new PullRequestChecksFailed(), []);
 
@@ -198,7 +198,7 @@ final class ExpressionTest extends TestCase
     public function test_a_composite_reads_a_facts_class_once_beside_the_fact_keys(): void
     {
         $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
 
         self::assertSame([ProvidedFacts::class, ParentFacts::class], new AllOf([$provided, new Not($provided), $child, $provided])->reads());
     }
@@ -227,7 +227,7 @@ final class ExpressionTest extends TestCase
         $failed = new Unreadable(UnreadableKind::Failed, 'workflow.source.board');
         $facts = FactsMother::facts(card: FactsMother::card(isChild: true), provided: [ProvidedFacts::class => $failed]);
         $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
 
         self::assertSame($failed, $provided->unreadable($facts));
         self::assertSame($failed, new Not($provided)->unreadable($facts));
@@ -264,7 +264,7 @@ final class ExpressionTest extends TestCase
 
     public function test_an_expression_lists_the_keys_of_its_missing_conditions_in_template_order(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $gone = new MissingConditionLeaf('card.gone', []);
         $lost = new MissingConditionLeaf('pr.lost', []);
 

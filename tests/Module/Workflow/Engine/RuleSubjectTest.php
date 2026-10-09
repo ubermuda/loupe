@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Engine;
 
-use App\Module\Workflow\Condition\CardHasType;
-use App\Module\Workflow\Condition\PullRequestChecksFailed;
+use App\Module\Board\Workflow\Condition\CardHasType;
+use App\Module\Board\Workflow\Condition\PullRequestChecksFailed;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Engine\RuleSubject;

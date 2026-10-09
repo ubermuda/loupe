@@ -156,7 +156,7 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
 
     public function test_a_rule_that_stopped_holding_changes_nothing(): void
     {
-        [$card, , $itemId] = $this->askedChild('answer-rule-false', ['all' => [['card.is_child' => []], ['not' => ['card.is_child' => []]]]]);
+        [$card, , $itemId] = $this->askedChild('answer-rule-false', ['all' => [['card.parent.exists' => []], ['not' => ['card.parent.exists' => []]]]]);
 
         $this->answer($itemId, 1);
 

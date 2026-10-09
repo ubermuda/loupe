@@ -8,14 +8,13 @@ use App\Module\Board\Workflow\ChildrenFacts;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\EvaluateChildren;
-use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
-use App\Module\Workflow\Contract\ParameterValue;
+use App\Module\Workflow\Contract\ReadsCardType;
 use App\Module\Workflow\Contract\WorkKind;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
@@ -336,7 +335,7 @@ final readonly class TemplateParser
 
             return $ways;
         }
-        $type = $expression instanceof ConditionLeaf && $expression->condition instanceof CardHasType ? ParameterValue::string($expression->params, 'type') : null;
+        $type = $expression instanceof ConditionLeaf && $expression->condition instanceof ReadsCardType ? $expression->condition->cardType($expression->params) : null;
 
         return self::typeRead($type, \in_array(ChildrenFacts::class, $expression->reads(), true));
     }
@@ -605,8 +604,8 @@ final readonly class TemplateParser
                 $errors[] = \sprintf('%s: unknown parameter "%s"', $where, $name);
             }
         }
-        if (\count($errors) === $errorCount && null !== $types && $condition instanceof CardHasType && !isset($types[ParameterValue::string($params, 'type')])) {
-            $errors[] = \sprintf('%s: unknown type "%s"', $where, ParameterValue::string($params, 'type'));
+        if (\count($errors) === $errorCount && null !== $types && $condition instanceof ReadsCardType && !isset($types[$condition->cardType($params)])) {
+            $errors[] = \sprintf('%s: unknown type "%s"', $where, $condition->cardType($params));
         }
 
         return \count($errors) === $errorCount ? new ConditionLeaf($condition, $params) : null;
