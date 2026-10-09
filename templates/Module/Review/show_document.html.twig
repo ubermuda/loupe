@@ -122,7 +122,6 @@
                 showWaitLine: not diffMode and not readOnly,
                 showPageMenu: true,
                 canComment: canComment,
-                returnToDocument: diffMode,
             } only %}
 
             {% if not readOnly and not diffMode and review is not null and document.status.value in ['approved', 'changes-requested'] %}
@@ -166,6 +165,11 @@
                        column. One flex row put the switch in a different place
                        in each view, and wrapped the count below a narrow one. #}
                     <div class="lp-diff-bar__main">
+                    <a class="lp-btn lp-btn--ghost lp-diff-bar__back" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
+                       aria-label="{{ 'review.document.diff.return'|trans }}" title="{{ 'review.document.diff.return'|trans }}">
+                        <twig:ux:icon name="lucide:chevron-left" />
+                        {{ 'review.document.navigation.document'|trans }}
+                    </a>
                     {% include '@Review/_version_compare_picker.html.twig' with {
                         document: document,
                         versions: versions,

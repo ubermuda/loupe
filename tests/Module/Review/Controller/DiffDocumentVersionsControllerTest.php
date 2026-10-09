@@ -1089,11 +1089,18 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('1', $crawler->filter('#diff-from option[selected]')->attr('value'));
         self::assertSame('2', $crawler->filter('#diff-to option[selected]')->attr('value'));
-        $return = $crawler->filter('.lp-review-doc__byline a')->reduce(
-            static fn (Crawler $link): bool => str_contains($link->text(), 'Return to document'),
-        );
+        // The way back leads the compare bar, which replaces the view tabs.
+        $return = $crawler->filter('.lp-diff-bar__main > a:first-child');
+        self::assertSame('Return to document', $return->attr('aria-label'));
+        self::assertSame('Document', trim($return->text()));
         self::assertSame('/projects/'.$projectId.'/documents/'.$id.'/review', $return->attr('href'));
+        self::assertCount(0, $crawler->filter('.lp-review-doc__byline a[href$="/review"]'));
+        self::assertCount(0, $crawler->filter('.lp-review-workspace-nav'));
         self::assertSelectorNotExists('.lp-version-banner');
+
+        // The document keeps its view tabs.
+        $document = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        self::assertCount(1, $document->filter('.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]'));
     }
 
     /**

@@ -573,9 +573,20 @@
     @apply m-0 pt-1.25 pb-3;
 }
 
-/* ── Diff toolbar ───────────────────────────────────────────────── */
+/* ── Compare bar ────────────────────────────────────────────────── */
+/* One tinted row under the byline. Its wrapper is sticky, so the bar stays in
+   view while the reviewer scrolls. */
+.lp-review .lp-doc-meta-bar {
+    @apply pt-2 pb-1;
+}
 .lp-review .lp-diff-bar {
-    @apply gap-x-4 gap-y-3 border-b-0 pt-3.5 pb-0;
+    @apply gap-x-4 gap-y-3 rounded-lg border-b-0 bg-surface-2 px-3 py-2;
+}
+.lp-review .lp-diff-bar__back {
+    @apply min-h-9 gap-1 px-2 text-sm font-semibold text-fg-mute hover:text-ink;
+}
+.lp-review .lp-diff-bar__back svg {
+    @apply size-4 shrink-0;
 }
 /* Below the two-column breakpoint there is no comment column to line up with,
    so the wrapper steps out of the way and the bar wraps as one row again. */

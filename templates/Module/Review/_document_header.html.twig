@@ -30,12 +30,6 @@
                     {{ 'review.document.comment.untargeted'|trans }}
                 </button>
                 {% endif %}
-                {% if returnToDocument %}
-                <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
-                    <twig:ux:icon name="lucide:file-text" />
-                    {{ 'review.document.diff.return'|trans }}
-                </a>
-                {% endif %}
                 {% if showDocumentActions %}
                 {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
                 {% if document.status.value == 'draft' and is_granted(constant('App\\Module\\Review\\Security\\DocumentVoter::MANAGE'), document) %}
@@ -56,6 +50,8 @@
         </div>
     </div>
     </div>
+    {# The compare bar holds the way back while comparing. #}
+    {% if activeView != 'diff' %}
     <div class="lp-review-workspace-nav">
     <nav class="lp-tabs" aria-label="{{ 'review.document.navigation.label'|trans }}">
         <a class="lp-tabs__tab" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
@@ -71,4 +67,5 @@
         <a class="lp-tabs__tab" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}" {% if activeView == 'history' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:history" />{{ 'review.document.navigation.history'|trans }}</a>
     </nav>
     </div>
+    {% endif %}
 </div>
