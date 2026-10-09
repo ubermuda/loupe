@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Insights\Controller;
 
 use App\Controller\AppController;
+use App\Module\Bridge\Command\ListMetricsCommand;
+use App\Module\Bridge\Command\ListMetricsHandler;
 use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricBucket;
 use App\Module\Bridge\Metric\MetricRange;
@@ -29,6 +31,7 @@ class ShowMetricsController extends AppController
 {
     public function __construct(
         private readonly ShowMetricsHandler $showMetrics,
+        private readonly ListMetricsHandler $listMetrics,
     ) {
     }
 
@@ -36,6 +39,12 @@ class ShowMetricsController extends AppController
     {
         $query = MetricsQuery::fromQuery($request->query);
         $view = ($this->showMetrics)(new ShowMetricsCommand($project, $query));
+        $bucketNames = ($this->listMetrics)(new ListMetricsCommand($project))->bucketNames;
+        // A valid name with no time on any run still reads as 0, so the picker keeps it.
+        if (null !== $query->bucketName && !\in_array($query->bucketName, $bucketNames, true)) {
+            $bucketNames[] = $query->bucketName;
+        }
+        sort($bucketNames, \SORT_STRING);
 
         return $this->render('@Insights/show_metrics.html.twig', [
             'project' => $view->project,
@@ -46,6 +55,7 @@ class ShowMetricsController extends AppController
             'rowLimit' => ShowMetricsHandler::ROW_LIMIT,
             'chart' => MetricChart::build($query->metric, $query->statistic, $query->bucket, $view->metrics->series),
             'metrics' => Metric::standalone(),
+            'bucketNames' => $bucketNames,
             'ranges' => MetricRange::cases(),
             'buckets' => MetricBucket::cases(),
         ]);

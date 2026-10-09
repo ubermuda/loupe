@@ -64,6 +64,56 @@ final class MetricsQueryTest extends TestCase
         self::assertNotContains(Metric::BucketTime, Metric::standalone());
     }
 
+    public function test_a_bucket_key_reads_the_time_of_that_bucket_and_round_trips(): void
+    {
+        $params = ['unit' => 'run', 'metric' => 'bucket-time:git', 'statistic' => 'p90', 'group' => 'model', 'range' => 'all', 'bucket' => 'day'];
+        $query = MetricsQuery::fromQuery(self::query($params));
+
+        self::assertSame(Metric::BucketTime, $query->metric);
+        self::assertSame('git', $query->bucketName);
+        self::assertSame($params, $query->routeParams());
+    }
+
+    public function test_a_standalone_metric_has_no_bucket_name(): void
+    {
+        self::assertNull(MetricsQuery::fromQuery(self::query(['metric' => 'duration']))->bucketName);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function invalidBucketKeys(): iterable
+    {
+        yield 'no name' => ['bucket-time:'];
+        yield 'upper case' => ['bucket-time:Git'];
+        yield 'space' => ['bucket-time:a b'];
+        yield 'too long' => ['bucket-time:'.str_repeat('a', 65)];
+        yield 'name on a standalone metric' => ['cost:git'];
+    }
+
+    #[DataProvider('invalidBucketKeys')]
+    public function test_an_invalid_bucket_key_falls_back_to_cost(string $metric): void
+    {
+        $query = MetricsQuery::fromQuery(self::query(['metric' => $metric]));
+
+        self::assertSame(Metric::Cost, $query->metric);
+        self::assertNull($query->bucketName);
+        self::assertSame([], $query->routeParams());
+    }
+
+    public function test_a_bucket_key_takes_the_controls_that_bucket_time_allows(): void
+    {
+        foreach (MetricUnit::cases() as $unit) {
+            foreach (MetricStatistic::cases() as $statistic) {
+                foreach (MetricGroup::cases() as $group) {
+                    $query = MetricsQuery::fromQuery(self::query(['metric' => 'bucket-time:git', 'unit' => $unit->value, 'statistic' => $statistic->value, 'group' => $group->value]));
+
+                    self::assertContains($query->unit, Metric::BucketTime->units());
+                    self::assertContains($query->statistic, Metric::BucketTime->statistics());
+                    self::assertContains($query->group, Metric::BucketTime->groups());
+                }
+            }
+        }
+    }
+
     /** @return iterable<string, array{Metric}> */
     public static function metrics(): iterable
     {

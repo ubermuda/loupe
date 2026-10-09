@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Insights\Controller;
 
 use App\Controller\AppController;
+use App\Module\Bridge\Metric\Metric;
+use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Insights\Command\ListBucketRulesCommand;
 use App\Module\Insights\Command\ListBucketRulesHandler;
+use App\Module\Insights\Command\ShowBucketSummaryCommand;
+use App\Module\Insights\Command\ShowBucketSummaryHandler;
 use App\Module\Insights\Form\BucketRuleFormType;
 use App\Module\Insights\Form\BucketRuleRequest;
 use App\Module\Project\Entity\Project;
@@ -28,12 +32,14 @@ class ShowBucketRulesController extends AppController
 
     public function __construct(
         private readonly ListBucketRulesHandler $listRules,
+        private readonly ShowBucketSummaryHandler $showSummary,
     ) {
     }
 
     public function __invoke(Project $project, Request $request): Response
     {
         $view = ($this->listRules)(new ListBucketRulesCommand($project));
+        $range = MetricRange::tryFrom($request->query->getString('range')) ?? MetricRange::NinetyDays;
 
         return $this->render('@Insights/show_bucket_rules.html.twig', [
             'project' => $view->project,
@@ -41,6 +47,9 @@ class ShowBucketRulesController extends AppController
             'atLimit' => $view->atLimit,
             'ruleForm' => $this->getInjectedFormView($request, self::RULE_FORM)
                 ?? $this->createForm(BucketRuleFormType::class, new BucketRuleRequest())->createView(),
+            'summary' => ($this->showSummary)(new ShowBucketSummaryCommand($project, $range)),
+            'ranges' => MetricRange::cases(),
+            'metric' => Metric::BucketTime,
         ]);
     }
 }

@@ -75,6 +75,31 @@ class WorkerRunBucketTimeRepository extends ServiceEntityRepository
         return $times;
     }
 
+    /**
+     * The milliseconds each of the runs spent in each of its buckets. A run
+     * with no rows has no entry. PHP turns a numeric bucket name into an int key.
+     *
+     * @param list<Uuid> $runIds
+     *
+     * @return array<string, array<int|string, int>> run id => bucket name => milliseconds
+     */
+    public function findAllMillisecondsOfRuns(array $runIds): array
+    {
+        $times = [];
+        foreach (array_chunk($runIds, 1000) as $chunk) {
+            $rows = $this->getEntityManager()->getConnection()->fetchAllNumeric(
+                'SELECT run_id, bucket, ms FROM bridge_worker_run_bucket_times WHERE run_id IN (:runs)',
+                ['runs' => array_map(static fn (Uuid $id): string => $id->toRfc4122(), $chunk)],
+                ['runs' => ArrayParameterType::STRING],
+            );
+            foreach ($rows as [$runId, $bucket, $ms]) {
+                $times[(string) $runId][(string) $bucket] = (int) $ms;
+            }
+        }
+
+        return $times;
+    }
+
     /** @return list<string> the distinct bucket names with rows on the runs of the project, in order */
     public function findBucketNamesOfProject(Project $project): array
     {

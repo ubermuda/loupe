@@ -71,6 +71,14 @@ not counted.
 | **Merge rate** | the share of finished cards whose pull request merged | card |
 | **Fix rounds** | the number of fix rounds that a finished card needed | card |
 | **Hours to merge** | the hours from the first pull request opening to the last merge | card |
+| **Time in &lt;bucket&gt;** | the tool time of a run in one [time bucket](#time-buckets), such as **Time in git** | run, card |
+
+The metric picker lists one **Time in** metric for each bucket that has data
+on a run of the project. A bucket has data on a run when the run stores a time
+for it, and that time can be 0 ms. The time is unknown for a run with no
+tool-call data, such as a command run or an old run. An address can name any
+valid bucket that has no time. The Metrics tab then shows that bucket, with 0
+on each run with data. A card adds the time of its runs with data.
 
 The dollars are the API list price that claude reports. On a subscription, you
 do not pay this amount. A duration shows in milliseconds, seconds, minutes or
@@ -287,6 +295,24 @@ The first rule that matches a call takes it. A call that no rule takes counts
 in the bucket `other`. Use **Move up** and **Move down** to change the order.
 A project holds at most 50 rules. After each change, Loupe computes the bucket
 times of the runs of the project again, in the background.
+
+The section **Time per bucket** shows the time in each bucket over the closed
+runs of a range. It lists the buckets that the rules name, in rule order. Then
+it lists `other`, which always shows. Then it lists the other buckets with
+time, by name. A run with no tool-call data stays out of every figure except
+the count of closed runs.
+
+| Figure | Meaning |
+|---|---|
+| **Total** | the time of all the runs with data in the bucket |
+| **Median per run** | the middle time of a run with data. A run with no time in the bucket counts as 0 |
+| **Runs with data** | the runs with tool-call data, out of all the closed runs in the range |
+| **Share** | the part of the time of all the listed buckets |
+
+The range is **30 days**, **90 days** or **All time**, and its default is
+**90 days**. A bucket with no time in the range shows **No time yet**. A bucket
+with time has the link **Open in Metrics**. It opens the Metrics tab on the
+time in that bucket for each run, with the median and the same range.
 
 The MCP tools `analysis_get` and `analysis_report` let the agent read and
 finish an analysis. `analytics_settings_get` and `analytics_settings_update`
