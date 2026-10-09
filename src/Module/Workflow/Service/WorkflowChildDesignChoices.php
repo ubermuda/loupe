@@ -72,8 +72,12 @@ final readonly class WorkflowChildDesignChoices implements ChildDesignChoices
     }
 
     #[\Override]
-    public function write(\Closure $write, string $choice, ?CardEventCause $cause = null): Card
+    public function write(\Closure $write, string $choice, ?CardEventCause $cause = null, ?Card $existing = null): Card
     {
+        if (null !== $existing) {
+            $this->checkMoves($existing, $choice, $cause);
+        }
+
         return $this->em->wrapInTransaction(function () use ($write, $choice, $cause): Card {
             $card = $write();
             $parent = $card->parent ?? throw new ChildDesignRefused('childDesign: The card has no parent card, so there is nothing to inherit.');
@@ -93,12 +97,7 @@ final readonly class WorkflowChildDesignChoices implements ChildDesignChoices
 
     private function run(ActionCall $call, Rule $rule, Card $card, WorkflowRuleState $state, string $choice, ?CardEventCause $cause): void
     {
-        if (ActionType::Move === $call->type) {
-            $column = $this->moveCard->columnFor($card, (string) ($call->params['to'] ?? ''));
-            if (null !== $column && !$this->moveGuard->allows($card, $column, CardReporter::Agent, $cause)) {
-                throw new CardManaged($card->number);
-            }
-        }
+        $this->checkMove($call, $card, $cause);
 
         $result = $this->actions->get($call->type)->run(
             new Rule($rule->id, $rule->slot, $rule->when, $call, $rule->origin),
@@ -108,6 +107,24 @@ final readonly class WorkflowChildDesignChoices implements ChildDesignChoices
         );
         if (ActionOutcomeKind::Done !== $result->kind) {
             throw new ChildDesignRefused(self::refusal($choice, $result->code ?? $result->kind->value));
+        }
+    }
+
+    private function checkMoves(Card $card, string $choice, ?CardEventCause $cause): void
+    {
+        foreach ($this->templateFor($card)?->childChoices[$choice] ?? [] as $call) {
+            $this->checkMove($call, $card, $cause);
+        }
+    }
+
+    private function checkMove(ActionCall $call, Card $card, ?CardEventCause $cause): void
+    {
+        if (ActionType::Move !== $call->type) {
+            return;
+        }
+        $column = $this->moveCard->columnFor($card, (string) ($call->params['to'] ?? ''));
+        if (null !== $column && !$this->moveGuard->allows($card, $column, CardReporter::Agent, $cause)) {
+            throw new CardManaged($card->number);
         }
     }
 

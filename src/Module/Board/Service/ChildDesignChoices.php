@@ -24,11 +24,12 @@ interface ChildDesignChoices
 
     /**
      * Runs the card write and the actions of the choice in one transaction. A refusal rolls both back.
+     * For a card that exists, the move the choice makes is checked before the write, so a refusal leaves no trace.
      *
      * @param \Closure(): Card $write
      *
      * @throws ChildDesignRefused when the workflow declares no such choice, or an action refuses
      * @throws CardManaged        when the workflow does not allow the move that `own` makes
      */
-    public function write(\Closure $write, string $choice, ?CardEventCause $cause = null): Card;
+    public function write(\Closure $write, string $choice, ?CardEventCause $cause = null, ?Card $existing = null): Card;
 }

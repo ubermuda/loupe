@@ -141,6 +141,15 @@ final class CardChildDesignToolTest extends KernelTestCase
         self::assertSame('in-review', $this->em()->find(Card::class, $child->id)?->column->slug);
     }
 
+    public function test_a_refused_own_leaves_the_other_fields_of_the_call_unwritten(): void
+    {
+        $child = $this->card('In review', 'feature', $this->epic, 'in-review');
+
+        $this->assertRefused('managed', fn () => $this->update()(cardId: (string) $child->id, title: 'Renamed', childDesign: 'own'));
+        $this->em()->clear();
+        self::assertSame('In review', $this->em()->find(Card::class, $child->id)?->title);
+    }
+
     private function assertRefused(string $fragment, callable $call): void
     {
         try {
