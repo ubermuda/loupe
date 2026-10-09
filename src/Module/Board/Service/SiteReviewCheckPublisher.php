@@ -68,9 +68,9 @@ final readonly class SiteReviewCheckPublisher
 
             $runId = null;
             if (!$optedIn && null !== $state && null !== $state->checkRunId && CheckWanted::FAILURE === $state->conclusion) {
-                $cause = $this->neutralize($state);
-                if (null !== $cause) {
-                    $failure ??= $cause;
+                $refused = $this->neutralize($state);
+                if (null !== $refused) {
+                    $failure ??= $refused->cause;
 
                     continue;
                 }
@@ -118,17 +118,19 @@ final readonly class SiteReviewCheckPublisher
     /**
      * Turns each failed run of the project into a neutral one, so a check that Loupe no longer keeps cannot block a merge.
      *
-     * @return ?string the cause of the first failure
+     * @return ?PullRequestCheckFailed the first refusal that a retry can fix, or else the first refusal
      */
-    public function settle(Project $project): ?string
+    public function settle(Project $project): ?PullRequestCheckFailed
     {
         $failure = null;
         foreach ($this->siteReviewCheckStates->findPostedFailuresOnOpenPullRequests($project) as $state) {
             if ($this->checkIsOn($project)) {
                 break;
             }
-            $cause = $this->neutralize($state);
-            $failure ??= $cause;
+            $refused = $this->neutralize($state);
+            if (null !== $refused && (null === $failure || ($failure->permanent && !$refused->permanent))) {
+                $failure = $refused;
+            }
             $this->em->flush();
         }
 
@@ -146,8 +148,8 @@ final readonly class SiteReviewCheckPublisher
         return $settings->siteReviewCheck;
     }
 
-    /** @return ?string the cause when the forge refused the write, which keeps the run id */
-    private function neutralize(SiteReviewCheckState $state): ?string
+    /** @return ?PullRequestCheckFailed the refusal of the forge, which keeps the run id */
+    private function neutralize(SiteReviewCheckState $state): ?PullRequestCheckFailed
     {
         $writer = $this->writers->for($state->pullRequest->forge);
         if (null === $writer || null === $state->checkRunId) {
@@ -164,7 +166,7 @@ final readonly class SiteReviewCheckPublisher
                 $state->checkRunId,
             );
         } catch (PullRequestCheckFailed $e) {
-            return $e->cause;
+            return $e;
         }
         $state->checkRunId = null;
 

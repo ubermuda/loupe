@@ -18,6 +18,9 @@ final class FakeCheckWriter implements PullRequestCheckWriter
     /** @var list<int> the numbers whose check fails */
     public array $failingNumbers = [];
 
+    /** Whether a failing check fails for good, or a retry can fix it. */
+    public bool $failsForGood = true;
+
     private int $runs = 0;
 
     #[\Override]
@@ -31,7 +34,7 @@ final class FakeCheckWriter implements PullRequestCheckWriter
     {
         $this->published[] = ['number' => $pullRequest->number, 'name' => $name, 'sha' => $sha, 'conclusion' => $conclusion, 'title' => $title, 'summary' => $summary, 'runId' => $runId];
         if (\in_array($pullRequest->number, $this->failingNumbers, true)) {
-            throw new PullRequestCheckFailed('permission', true);
+            throw new PullRequestCheckFailed($this->failsForGood ? 'permission' : 'server_error', $this->failsForGood);
         }
 
         return $runId ?? 100 + ++$this->runs;

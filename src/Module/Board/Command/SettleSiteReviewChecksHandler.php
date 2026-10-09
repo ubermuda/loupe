@@ -8,10 +8,13 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Project\Repository\ProjectRepository;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 
 /** Clears the failed site review checks of a project whose check was switched off. A switch back on before the run leaves them. */
 final readonly class SettleSiteReviewChecksHandler
 {
+    private const int MAX_RETRY_DELAY_SECONDS = 3600;
+
     public function __construct(
         private ProjectRepository $projects,
         private BoardAutomation $boardAutomation,
@@ -28,8 +31,16 @@ final readonly class SettleSiteReviewChecksHandler
         }
 
         $failure = $this->checkPublisher->settle($project);
-        if (null !== $failure) {
-            $this->logger->warning('board.site_review_check_settle_failed', ['projectId' => $command->projectId->toRfc4122(), 'cause' => $failure]);
+        if (null === $failure) {
+            return;
         }
+
+        $this->logger->warning('board.site_review_check_settle_failed', ['projectId' => $command->projectId->toRfc4122(), 'cause' => $failure->cause, 'permanent' => $failure->permanent]);
+        if ($failure->permanent) {
+            return;
+        }
+
+        // A retry writes only the runs that are still failed. forceRetry false keeps the retry budget of the transport.
+        throw new RecoverableMessageHandlingException($failure->getMessage(), 0, $failure, retryDelay: null === $failure->retryAfterSeconds ? null : min($failure->retryAfterSeconds, self::MAX_RETRY_DELAY_SECONDS) * 1000, forceRetry: false);
     }
 }

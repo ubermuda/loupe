@@ -19,6 +19,7 @@ use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Board\Workflow\SiteReviewFactProvider;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Service\PullRequestCheckConclusion;
+use App\Module\Forge\Service\PullRequestCheckFailed;
 use App\Module\Forge\Service\PullRequestCheckWriters;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -296,7 +297,7 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         $this->writer->failingNumbers = [7];
         $this->optIn(false);
 
-        self::assertSame('permission', $this->settle());
+        self::assertSame('permission', $this->settle()?->cause);
 
         self::assertSame(101, $this->stateOf($failed)->checkRunId);
         self::assertNull($this->stateOf($settled)->checkRunId);
@@ -333,7 +334,7 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertSame(101, $this->stateOf($pullRequest)->checkRunId);
     }
 
-    private function settle(): ?string
+    private function settle(): ?PullRequestCheckFailed
     {
         $this->em->flush();
 
