@@ -801,6 +801,8 @@ as its template says.
 | **Open the epic pull request** | off | When on, Loupe opens a draft pull request from the epic branch to the default branch after the first child merges into the epic branch, and links it to the epic. The GitHub App needs "Pull requests: read and write" |
 | **Post a widget verdict as a review on GitHub** | off | When on, a verdict that a reviewer sends from the site-review widget becomes a review on the pull requests of the card, under the reviewer's own GitHub account. Loupe stores the verdict and its notes with this setting off or on |
 | **Keep a "Loupe site review" check on pull requests** | off | When on, Loupe posts a check named "Loupe site review" on each open pull request of a managed card. The check fails while open site-review notes remain on any card of the project that links the pull request. The GitHub App needs "Checks: read and write" |
+| **Ask an agent to review each pull request** | off | When on, Loupe posts the check `loupe/agent-review` for each review that a review worker sends. Each finding shows as a note on its lines. No workflow rule asks for the review yet. The GitHub App needs "Checks: read and write" |
+| **Findings that fail the agent review check** | Important | The finding severities that make the agent review check fail. Select one or more of Important, Nit and Pre-existing. Findings of other severities show as notes only |
 | **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
 
 The draft and ready switch and the close write were on for each board whose automation was on before the
@@ -1135,6 +1137,17 @@ terminal column.
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is
 the one field where an omitted list and an empty list differ. Omit it and the
 links stay. Send `[]` and every link is removed.
+
+### A check from an agent review
+
+A review worker sends its findings with the `agent_review_submit` MCP tool. Each
+finding names a file, a range of lines and a severity. With **Ask an agent to
+review each pull request** on, Loupe posts a check named `loupe/agent-review` on
+the commit that the worker reviewed. The check puts one note beside the lines of
+each finding. An important finding shows as a failure, a nit as a warning, and a
+pre-existing finding as a notice. The check fails when a finding has a severity
+from **Findings that fail the agent review check**. No workflow rule asks for
+the review yet.
 
 ### A person deletes a card, an agent does not
 

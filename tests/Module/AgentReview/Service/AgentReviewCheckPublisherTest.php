@@ -176,6 +176,22 @@ final class AgentReviewCheckPublisherTest extends KernelTestCase
         self::assertSame(['Agent review: no findings', 'Summary of the review.'], [$passed['title'], $passed['summary']]);
     }
 
+    public function test_the_summary_lists_the_first_findings_and_counts_the_rest(): void
+    {
+        $card = $this->card($this->project);
+        $longest = new AgentReviewFinding(str_repeat('p', 1000), 99999, 100000, AgentReviewSeverity::PreExisting, str_repeat('t', 200), str_repeat('b', 4000));
+        $this->em->persist(new AgentReview($this->project, $card, $this->linked($card, 7), str_repeat('a', 40), str_repeat('s', 10000), AgentReviewConclusion::Success, array_fill(0, 200, $longest)));
+
+        $this->publisher()->publish($card);
+
+        $summary = $this->writer->published[0]['summary'];
+        $lines = explode("\n", $summary);
+        self::assertCount(2 + AgentReviewCheckPublisher::MAX_LISTED_FINDINGS + 1, $lines);
+        self::assertSame('And 180 more findings.', array_last($lines));
+        self::assertLessThan(50000, mb_strlen($summary));
+        self::assertCount(200, $this->writer->published[0]['annotations']);
+    }
+
     private function publisher(): AgentReviewCheckPublisher
     {
         $this->em->flush();

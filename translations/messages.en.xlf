@@ -8091,6 +8091,7 @@
             <trans-unit id="agent_review.check.count.important"><source>agent_review.check.count.important</source><target>{0} no important findings|{1} 1 important finding|]1,Inf[ %count% important findings</target></trans-unit>
             <trans-unit id="agent_review.check.count.nit"><source>agent_review.check.count.nit</source><target>{0} no nits|{1} 1 nit|]1,Inf[ %count% nits</target></trans-unit>
             <trans-unit id="agent_review.check.count.pre-existing"><source>agent_review.check.count.pre-existing</source><target>{0} no pre-existing findings|{1} 1 pre-existing finding|]1,Inf[ %count% pre-existing findings</target></trans-unit>
+            <trans-unit id="agent_review.check.summary_more"><source>agent_review.check.summary_more</source><target>{0} No more findings.|{1} And one more finding.|]1,Inf[ And %count% more findings.</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_more"><source>board.site_review_check.summary_more</source><target>{0} No more notes.|{1} And one more note.|]1,Inf[ And %count% more notes.</target></trans-unit>
         </body>
     </file>

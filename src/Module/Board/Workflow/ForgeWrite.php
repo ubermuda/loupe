@@ -137,9 +137,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         if (ForgeWriteKind::OpenEpic === $write) {
             return $this->openEpic($context->ruleId, $card, $pullRequests);
         }
-        if (ForgeWriteKind::AgentReviewCheck === $write && !self::optedIn($write, $this->boardAutomation->settingsOf($card->project))) {
-            return ActionOutcome::done();
-        }
         $result = match ($write) {
             ForgeWriteKind::PostReview => $this->reviewSettler->settle($card),
             ForgeWriteKind::SiteReviewCheck => $this->checkPublisher->publish($card),

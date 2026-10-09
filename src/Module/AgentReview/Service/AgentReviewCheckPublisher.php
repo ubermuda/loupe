@@ -31,6 +31,8 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
 {
     public const string NAME = 'loupe/agent-review';
 
+    public const int MAX_LISTED_FINDINGS = 20;
+
     private const int MAX_BODY_WIDTH = 300;
 
     public function __construct(
@@ -112,11 +114,14 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
         if ([] !== $findings) {
             $lines[] = '';
         }
-        foreach ($findings as $finding) {
+        foreach (\array_slice($findings, 0, self::MAX_LISTED_FINDINGS) as $finding) {
             $range = $finding->startLine === $finding->endLine ? (string) $finding->startLine : $finding->startLine.'-'.$finding->endLine;
             $line = \sprintf('- [%s] %s:%s %s', $finding->severity->value, $finding->path, $range, $finding->title);
             $body = mb_strimwidth(trim(preg_replace('/\s+/', ' ', $finding->body) ?? ''), 0, self::MAX_BODY_WIDTH, '...');
             $lines[] = '' === $body ? $line : $line.': '.$body;
+        }
+        if (\count($findings) > self::MAX_LISTED_FINDINGS) {
+            $lines[] = $this->translator->trans('agent_review.check.summary_more', ['%count%' => \count($findings) - self::MAX_LISTED_FINDINGS]);
         }
 
         return implode("\n", $lines);
