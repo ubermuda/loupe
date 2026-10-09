@@ -24,7 +24,7 @@ beforeEach(async () => {
         </span>
         <button id="outside"></button>`;
     document.querySelector('[data-controller]').getBoundingClientRect = () =>
-        rectangle(40, 100, 16, 16);
+        rectangle(400, 100, 16, 16);
     document.querySelector('#tooltip').getBoundingClientRect = () =>
         rectangle(0, 0, 288, 80);
     application = Application.start();
@@ -43,11 +43,11 @@ const anchor = () => document.querySelector('[data-controller]');
 const tooltip = () => document.querySelector('#tooltip');
 const isOpen = () => tooltip().hasAttribute('data-open');
 
-it('opens under the anchor when the pointer enters it', () => {
+it('opens under the anchor, level with its right edge, when the pointer enters it', () => {
     anchor().dispatchEvent(new Event('pointerenter'));
 
     expect(isOpen()).toBe(true);
-    expect(tooltip().style.left).toBe('40px');
+    expect(tooltip().style.left).toBe('132px');
     expect(tooltip().style.top).toBe('124px');
 });
 
@@ -99,10 +99,17 @@ it('stays inside the window when it fits neither below nor above', () => {
 });
 
 it('stays inside the right edge of the window', () => {
-    anchor().getBoundingClientRect = () => rectangle(900, 100, 16, 16);
+    anchor().getBoundingClientRect = () => rectangle(1010, 100, 16, 16);
     anchor().dispatchEvent(new Event('pointerenter'));
 
     expect(tooltip().style.left).toBe('728px');
+});
+
+it('stays inside the left edge of the window', () => {
+    anchor().getBoundingClientRect = () => rectangle(40, 100, 16, 16);
+    anchor().dispatchEvent(new Event('pointerenter'));
+
+    expect(tooltip().style.left).toBe('8px');
 });
 
 it('stays open while the focus moves from the mark into the link', () => {

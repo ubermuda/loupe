@@ -26,20 +26,6 @@
     <div class="lp-board-card__identity">
         <span class="lp-board-card__number">#{{ card.number }}</span>
         {% include '@Board/_card_type_tag.html.twig' with {card: card} only %}
-        {% if state is not null %}
-        <twig:Ds:StateMark :kind="state.kind.value" :label="state.kind.translationKey|trans">
-            <span class="lp-tooltip__title">{{ state.kind.translationKey|trans }}</span>
-            <span>{{ state.reason.translationKey|trans(state.reason.params) }}</span>
-            {% if state.reason.since is not null %}
-            <span class="lp-tooltip__line--quiet">{{ 'board.card_state.since'|trans({'%time%': state.reason.since|date('Y-m-d H:i')}) }}</span>
-            {% endif %}
-            <a class="lp-tooltip__link"
-               draggable="false"
-               href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
-               data-turbo-frame="card-drawer-frame"
-               data-action="click->card-drawer#prepare">{{ 'board.card_state.open_card'|trans }}</a>
-        </twig:Ds:StateMark>
-        {% endif %}
         {% include '@Board/_card_source_tag.html.twig' with {card: card} only %}
         {% if card.parent and not inLane %}
         <span class="lp-board-card__parent" data-card-parent-tag title="{{ card.parent.title }}">
@@ -49,6 +35,19 @@
         {% endif %}
         {% if progress %}
         <span class="lp-board-card__progress" data-card-progress>{{ 'board.card.children.progress'|trans({'%done%': progress.done, '%total%': progress.total}) }}</span>
+        {% endif %}
+        {% if state is not null %}
+        <twig:Ds:StateMark :kind="state.kind.value" :label="state.kind.translationKey|trans">
+            <span><strong class="lp-tooltip__title">{{ state.kind.translationKey|trans }}.</strong> {{ state.reason.translationKey|trans(state.reason.params) }}</span>
+            {% if state.reason.since is not null %}
+            <span class="lp-tooltip__line--quiet">{{ state.kind.sinceKey|trans({'%time%': state.reason.since|card_state_time}) }}</span>
+            {% endif %}
+            <a class="lp-tooltip__link"
+               draggable="false"
+               href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+               data-turbo-frame="card-drawer-frame"
+               data-action="click->card-drawer#prepare">{{ 'board.card_state.open_card'|trans }}</a>
+        </twig:Ds:StateMark>
         {% endif %}
     </div>
     {# draggable="false" stops the browser's own link drag taking the gesture. #}

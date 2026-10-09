@@ -17,28 +17,33 @@ final class StatusBoxComponentTest extends KernelTestCase
         return static::getContainer()->get(Environment::class)->createTemplate($template)->render();
     }
 
-    public function test_a_status_box_carries_its_kind_state_reason_and_since(): void
+    public function test_a_status_box_carries_its_title_chip_reason_and_fields(): void
     {
-        $html = $this->render('<twig:Ds:StatusBox kind="needs-you" label="Needs you" lead="A document waits." since="Since 2 minutes ago" data-x />');
+        $html = $this->render('<twig:Ds:StatusBox kind="stuck" title="Status" chip="Stuck for 2 h" lead="A pull request waits." :fields="[{label: \'Since\', value: \'14:02, 2 hours ago\'}, {label: \'To unstick it\', value: \'Merge it.\', wide: true}]" data-x />');
 
-        self::assertStringContainsString('class="lp-status-box lp-status-box--needs-you"', $html);
-        self::assertStringContainsString('<strong class="lp-status-box__state">Needs you</strong>', $html);
-        self::assertStringContainsString('<span class="lp-status-box__since">Since 2 minutes ago</span>', $html);
-        self::assertStringContainsString('<p class="lp-status-box__lead">A document waits.</p>', $html);
+        self::assertStringContainsString('class="lp-status-box lp-status-box--stuck"', $html);
+        self::assertStringContainsString('<h2 class="lp-status-box__title">Status</h2>', $html);
+        self::assertStringContainsString('lp-status-chip lp-status-chip--failed lp-status-box__chip', $html);
+        self::assertStringContainsString('Stuck for 2 h', $html);
+        self::assertStringContainsString('<p class="lp-status-box__lead">A pull request waits.</p>', $html);
+        self::assertStringContainsString('<div class="lp-status-box__field">', $html);
+        self::assertStringContainsString('<dd>14:02, 2 hours ago</dd>', $html);
+        self::assertStringContainsString('<div class="lp-status-box__field lp-status-box__field--wide">', $html);
         self::assertStringContainsString('data-x', $html);
         self::assertStringNotContainsString('lp-status-box__others', $html);
     }
 
-    public function test_a_status_box_leaves_out_the_since_line_when_it_has_none(): void
+    public function test_a_status_box_with_no_fields_draws_no_field_list(): void
     {
-        $html = $this->render('<twig:Ds:StatusBox kind="waiting" label="Waiting" lead="Blocked." />');
+        $html = $this->render('<twig:Ds:StatusBox kind="waiting" title="Status" chip="Waiting" lead="Blocked." />');
 
-        self::assertStringNotContainsString('lp-status-box__since', $html);
+        self::assertStringNotContainsString('lp-status-box__fields', $html);
+        self::assertStringContainsString('lp-status-chip--neutral', $html);
     }
 
     public function test_a_status_box_lists_the_other_states(): void
     {
-        $html = $this->render('<twig:Ds:StatusBox kind="stuck" label="Stuck" lead="Paused." othersTitle="Also applies" :others="[{kind: \'working\', label: \'Working\', lead: \'A worker runs.\', since: \'Since now\'}, {kind: \'waiting\', label: \'Waiting\', lead: \'Blocked.\', since: null}]" />');
+        $html = $this->render('<twig:Ds:StatusBox kind="stuck" title="Status" chip="Stuck" lead="Paused." othersTitle="Also applies" :others="[{kind: \'working\', label: \'Working\', lead: \'A worker runs.\', since: \'Since now\'}, {kind: \'waiting\', label: \'Waiting\', lead: \'Blocked.\', since: null}]" />');
 
         self::assertStringContainsString('<p class="lp-status-box__others-title">Also applies</p>', $html);
         self::assertStringContainsString('lp-status-box__other lp-status-box__other--working', $html);

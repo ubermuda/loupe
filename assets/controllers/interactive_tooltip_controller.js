@@ -3,6 +3,7 @@ import { Controller } from '@hotwired/stimulus';
 const CLOSE_DELAY = 150;
 const GAP = 8;
 const MARGIN = 8;
+const OVERHANG = 4;
 
 const focusVisible = (element) => {
     try {
@@ -117,9 +118,13 @@ export default class extends Controller {
         tooltip.style.top = '0px';
         const origin = tooltip.getBoundingClientRect();
         const anchor = this.element.getBoundingClientRect();
+        // The tooltip hangs from the right edge of its mark, which ends the row of the tile.
         const left = Math.max(
             MARGIN,
-            Math.min(anchor.left, window.innerWidth - origin.width - MARGIN),
+            Math.min(
+                anchor.right + OVERHANG - origin.width,
+                window.innerWidth - origin.width - MARGIN,
+            ),
         );
         let top = anchor.bottom + GAP;
         const above = anchor.top - GAP - origin.height;

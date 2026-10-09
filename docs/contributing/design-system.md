@@ -55,7 +55,7 @@ A building block is a Twig component under `templates/components/Ds/`. Its CSS l
 | Tag | A short label, such as a card type or a column | neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink, orange |
 | StatusChip | A state with a coloured dot and an optional reason tooltip | pending, addressed, resolved, ok, failed, neutral |
 | StateMark | An icon that names what a card needs now, with its reason in an interactive tooltip | stuck, needs-you, working, waiting |
-| StatusBox | The state of a card with its reason, since when, and the other states that apply | stuck, needs-you, working, waiting |
+| StatusBox | The state of a card with its reason, its facts, what clears it, and the other states that apply | stuck, needs-you, working, waiting |
 | Dialog | A modal that the `modal` Stimulus controller opens | document, search |
 | Tabs | A strip of links or tab buttons with an underline | none |
 | Pagination | The previous, next and page-number control of a list | none |
@@ -108,10 +108,10 @@ Write the state of a card like this:
 
 ```twig
 <twig:Ds:StateMark kind="stuck" :label="'board.card_state.stuck'|trans">{{ reason }}</twig:Ds:StateMark>
-<twig:Ds:StatusBox kind="stuck" :label="label" :lead="lead" :since="since" :others="others" :othersTitle="'board.card_state.others'|trans" />
+<twig:Ds:StatusBox kind="stuck" :title="'board.card_state.status'|trans" :chip="chip" :lead="lead" :fields="fields" :others="others" :othersTitle="'board.card_state.others'|trans" />
 ```
 
-`kind` is `stuck`, `needs-you`, `working` or `waiting` for both blocks. The content of a StateMark is its tooltip. A StatusBox takes `since`, `others` and `othersTitle` as optional props, and draws no line for a prop that is empty.
+`kind` is `stuck`, `needs-you`, `working` or `waiting` for both blocks. The content of a StateMark is its tooltip. The chip of a StatusBox holds the state and how long it has held. Each entry of `fields` has a `label` and a `value`, and `wide: true` gives a sentence the full width. A StatusBox takes `fields`, `others` and `othersTitle` as optional props, and draws nothing for a prop that is empty.
 
 ### The form parts
 

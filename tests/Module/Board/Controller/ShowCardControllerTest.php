@@ -76,7 +76,9 @@ final class ShowCardControllerTest extends WebTestCase
         $box = $crawler->filter('[data-card-state="stuck"].lp-status-box--stuck');
         self::assertCount(1, $box);
         self::assertStringContainsString('Paused: review-failed.', $box->text());
-        self::assertStringContainsString('Since 1h ago', $box->text());
+        self::assertStringContainsString('Stuck for 1 h', $box->filter('.lp-status-box__chip')->text());
+        self::assertStringContainsString('1 hour ago', $box->filter('.lp-status-box__fields')->text());
+        self::assertStringContainsString('Fix the cause of the pause', $box->filter('.lp-status-box__field--wide')->text());
         $others = $box->filter('.lp-status-box__other--working');
         self::assertCount(1, $others);
         self::assertStringContainsString('Work waits for a bridge to take it.', $others->text());

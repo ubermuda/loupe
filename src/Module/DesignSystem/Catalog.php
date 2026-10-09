@@ -180,7 +180,7 @@ final readonly class Catalog
                 states: [],
                 enforced: true,
                 group: 'core',
-                summary: 'The state of a card with its reason, since when, and the other states that apply.',
+                summary: 'The state of a card with its reason, its facts, what clears it, and the other states that apply.',
                 element: 'section',
                 dotClass: 'lp-status-box__dot',
             ),

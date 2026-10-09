@@ -184,8 +184,8 @@ A card whose latest worker run gave up, is blocked, failed or has no result also
 shows a warning. A newer run of the card clears it. See
 [A warning on the card](worker-runs.md#a-warning-on-the-card).
 
-A card in an open column shows one state mark beside its type, when it is in a
-state. The mark says what the card needs now:
+A card in an open column shows one state mark at the end of its top row, when it
+is in a state. The mark says what the card needs now:
 
 | State | Means |
 |---|---|
@@ -197,7 +197,8 @@ state. The mark says what the card needs now:
 When several states apply, the tile shows the first in the order **Stuck**,
 **Needs you**, **Working**, **Waiting**. Hover the mark, or focus it, to read
 why the card has the state, since when, and a link to the card. The tooltip stays
-open while the pointer moves into it. A card in a terminal column shows no mark.
+open while the pointer moves into it. The **Working** mark spins, and stays still
+when your system asks for less motion. A card in a terminal column shows no mark.
 A pull request that waits for your approval shows **Needs you** and never
 **Stuck**. A pull request that Loupe never read adds no state.
 
@@ -324,9 +325,10 @@ others while you edit, see [The card page](#the-card-page).
 A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
 card id is the UUID, not the number.
 
-At the top of the **Overview** tab, a **Status** box names the state of the card,
-why the card has it, and since when. It lists the other states that apply under
-**Also applies**. A card in no state, and a card in a terminal column, show no
+At the top of the **Overview** tab, a **Status** box names the state of the card
+and how long it has held, such as **Stuck for 2 h**. It says why the card has
+the state, since when, and what clears it. It lists the other states that apply
+under **Also applies**. A card in no state, and a card in a terminal column, show no
 box. A reason has a start time when Loupe stores one. Otherwise the box leaves
 the time out.
 

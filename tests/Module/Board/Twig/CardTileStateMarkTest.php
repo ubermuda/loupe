@@ -45,7 +45,8 @@ final class CardTileStateMarkTest extends KernelTestCase
         $tooltip = $mark->filter('.lp-tooltip--interactive');
         self::assertSame($mark->filter('[role="img"]')->attr('aria-describedby'), $tooltip->attr('id'));
         self::assertStringContainsString($sentence, $tooltip->text());
-        self::assertSame($label, trim($tooltip->filter('.lp-tooltip__title')->text()));
+        self::assertSame($label.'.', trim($tooltip->filter('.lp-tooltip__title')->text()));
+        self::assertSame('lp-state-mark', $tile->filter('.lp-board-card__identity > *')->last()->attr('class') |> (static fn (?string $class): string => explode(' ', (string) $class)[0]));
         $link = $tooltip->filter('a');
         self::assertSame('Open card', trim($link->text()));
         self::assertSame('card-drawer-frame', $link->attr('data-turbo-frame'));
@@ -56,11 +57,13 @@ final class CardTileStateMarkTest extends KernelTestCase
 
     public function test_the_since_line_shows_only_when_the_reason_has_a_time(): void
     {
-        $withTime = $this->tile(CardState::of([new CardStateReason(CardStateCode::RunOpen, [], new \DateTimeImmutable('2026-10-02 09:45:00'))]));
-        self::assertStringContainsString('Since 2026-10-02 09:45', $withTime->filter('.lp-tooltip')->text());
+        $working = $this->tile(CardState::of([new CardStateReason(CardStateCode::RunOpen, [], new \DateTimeImmutable('2026-10-02 09:45:00'))]));
+        self::assertStringContainsString('Started Oct 2, 09:45, ', $working->filter('.lp-tooltip')->text());
+        $waiting = $this->tile(CardState::of([new CardStateReason(CardStateCode::HeldByBlocker, ['%number%' => 7, '%title%' => 'The blocker'], new \DateTimeImmutable('2026-10-02 09:45:00'))]));
+        self::assertStringContainsString('Since Oct 2, 09:45, ', $waiting->filter('.lp-tooltip')->text());
 
         $without = $this->tile(CardState::of([new CardStateReason(CardStateCode::RunOpen)]));
-        self::assertStringNotContainsString('Since', $without->filter('.lp-tooltip')->text());
+        self::assertCount(0, $without->filter('.lp-tooltip__line--quiet'));
     }
 
     public function test_a_card_without_a_state_shows_no_mark(): void

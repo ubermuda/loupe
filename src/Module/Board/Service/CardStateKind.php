@@ -21,4 +21,22 @@ enum CardStateKind: string
             self::Waiting => 'board.card_state.waiting',
         };
     }
+
+    /** The line that says since when the state holds, with a %time% placeholder. */
+    public function sinceKey(): string
+    {
+        return 'board.card_state.since.'.str_replace('-', '_', $this->value);
+    }
+
+    /** The label of the field that holds the start time. */
+    public function sinceLabelKey(): string
+    {
+        return 'board.card_state.since_label.'.str_replace('-', '_', $this->value);
+    }
+
+    /** The label of the field that says what clears the state. */
+    public function remedyLabelKey(): string
+    {
+        return 'board.card_state.remedy_label.'.str_replace('-', '_', $this->value);
+    }
 }

@@ -42,4 +42,10 @@ enum CardStateCode: string
     {
         return 'board.card_state.reason.'.str_replace('-', '_', $this->value);
     }
+
+    /** The sentence that says what clears the reason. */
+    public function remedyKey(): string
+    {
+        return 'board.card_state.remedy.'.str_replace('-', '_', $this->value);
+    }
 }
