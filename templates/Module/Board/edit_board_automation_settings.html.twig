@@ -63,12 +63,6 @@
                     <twig:Ds:FieldErrors :fieldView="field" :data-field-errors="field.vars.name" />
                 </twig:Ds:FormField>
                 {% endfor %}
-                <twig:Ds:FormField>
-                    {{ form_label(form.epicBranchPattern, null, {label_attr: {class: ds_label_class()}}) }}
-                    {{ form_widget(form.epicBranchPattern, {attr: {class: ds_input_class()}}) }}
-                    <twig:Ds:Hint :id="form.epicBranchPattern.vars.id ~ '_help'">{{ form.epicBranchPattern.vars.help|trans }}</twig:Ds:Hint>
-                    <twig:Ds:FieldErrors :fieldView="form.epicBranchPattern" data-field-errors="epicBranchPattern" />
-                </twig:Ds:FormField>
                 <div class="lp-settings-form-actions">
                     <twig:Ds:Button variant="primary" type="submit">{{ 'board.automation.submit'|trans }}</twig:Ds:Button>
                 </div>

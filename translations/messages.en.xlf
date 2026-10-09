@@ -7018,10 +7018,6 @@
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
             </trans-unit>
-            <trans-unit id="board.automation.error.epic_branch_pattern_invalid">
-                <source>board.automation.error.epic_branch_pattern_invalid</source>
-                <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
-            </trans-unit>
             <trans-unit id="board.fix_run_comment.intro">
                 <source>board.fix_run_comment.intro</source>
                 <target>Loupe queued a fix run for this pull request.</target>
@@ -7149,14 +7145,6 @@
             <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
                 <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
                 <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
-                <target>Epic branch pattern</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.help">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.help</source>
-                <target>The branch that the breakdown pushes for an epic. {number} stands for the epic card number. The pattern must match the epic branch of your repository profile. Leave it empty when the project uses no epic branches.</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
