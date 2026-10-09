@@ -9,9 +9,11 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnDeleted;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDeleted;
 use App\Module\Board\EventListener\ForgetWorkflowRowsOnBoardColumnDeleted;
 use App\Module\Board\EventListener\ForgetWorkflowRowsOnCardDeleted;
+use App\Module\Board\EventListener\SweepWorkflowRowsOnCardDeleted;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowPendingBaseline;
 use App\Module\Workflow\Entity\WorkflowRuleState;
@@ -37,6 +39,22 @@ final class ForgetWorkflowRowsTest extends KernelTestCase
         $listener(new CardDeleted($project->id ?? throw new \LogicException(), $gone));
 
         self::assertSame([0, 0], $this->cardRowCounts($gone));
+        self::assertSame([1, 1], $this->cardRowCounts($kept));
+    }
+
+    public function test_a_sweep_after_the_delete_removes_a_row_an_evaluation_wrote_late(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('sweep-card');
+        $this->bindLifecycle($project);
+        $late = $this->cardWithRows($project, 1);
+        $kept = $this->cardWithRows($project, 2);
+
+        $listener = self::getContainer()->get(SweepWorkflowRowsOnCardDeleted::class);
+        self::assertInstanceOf(SweepWorkflowRowsOnCardDeleted::class, $listener);
+        $listener(new CardChanged($project->id ?? throw new \LogicException(), $late, CardChanged::DELETED, false));
+
+        self::assertSame([0, 0], $this->cardRowCounts($late));
         self::assertSame([1, 1], $this->cardRowCounts($kept));
     }
 

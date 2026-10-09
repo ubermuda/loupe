@@ -26,11 +26,17 @@ final readonly class WorkflowRowCleaner implements WorkflowRowCleanup
     #[\Override]
     public function forgetCard(Uuid $cardId): void
     {
-        // The evaluation of a card holds this lock for its transaction, so the delete waits for one that is in flight.
+        $this->workflowRuleStates->deleteForCard($cardId);
+        $this->workflowPendingBaselines->consume($cardId);
+    }
+
+    #[\Override]
+    public function sweepCard(Uuid $cardId): void
+    {
+        // The evaluation of a card holds this lock for its transaction, so the sweep waits for one that is in flight.
         $this->em->wrapInTransaction(function () use ($cardId): void {
             $this->workflowRuleStates->lockCard($cardId);
-            $this->workflowRuleStates->deleteForCard($cardId);
-            $this->workflowPendingBaselines->consume($cardId);
+            $this->forgetCard($cardId);
         });
     }
 
