@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Service;
 
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Entity\CardVerdictKind;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\VerdictReviewSettler;
 use App\Module\Forge\Command\ReadPullRequestStateHandler;
 use App\Module\Forge\Entity\PullRequestState;
@@ -58,7 +56,6 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         $this->poster = new FakeReviewPoster();
         $this->account = new FakeReviewerForgeAccount();
         $this->authors = new FakeAuthorReader();
-        $this->em->persist(new BoardAutomationSettings($this->project, postWidgetReviews: true));
         $this->em->flush();
     }
 
@@ -213,23 +210,6 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         self::assertSame(0, $this->authors->reads);
     }
 
-    public function test_an_opt_in_that_is_off_skips_every_delivery_and_posts_nothing(): void
-    {
-        $card = $this->card($this->project);
-        $first = $this->delivery($card, 7, CardVerdictKind::Approve, '');
-        $second = $this->delivery($card, 8, CardVerdictKind::Approve, '');
-        $this->optIn(false);
-
-        self::assertNull($this->settle($card));
-
-        self::assertSame([], $this->poster->posts);
-        foreach ([$first, $second] as $delivery) {
-            self::assertSame(CardVerdictDeliveryState::Skipped, $delivery->state);
-            self::assertNotNull($delivery->settledAt);
-        }
-        self::assertSame([], $this->pendingOf($card));
-    }
-
     public function test_a_pull_request_that_is_no_longer_open_is_skipped(): void
     {
         $card = $this->card($this->project);
@@ -355,13 +335,6 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         return $repository->findPendingIdsForCard($card);
     }
 
-    private function optIn(bool $on): void
-    {
-        $settings = $this->service(BoardAutomation::class)->settingsOf($this->project);
-        $settings->postWidgetReviews = $on;
-        $this->em->flush();
-    }
-
     private function settle(Card $card): ?string
     {
         $this->em->flush();
@@ -389,7 +362,6 @@ final class VerdictReviewSettlerTest extends KernelTestCase
 
         return new VerdictReviewSettler(
             $this->service(CardVerdictDeliveryRepository::class),
-            $this->service(BoardAutomation::class),
             new PullRequestReviewPosters([$this->poster]),
             $this->account,
             $this->readHandler(),

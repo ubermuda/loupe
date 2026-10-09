@@ -9,12 +9,18 @@ use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Entity\CardVerdictKind;
+use App\Module\Board\Service\ReviewerForgeAccount;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Service\PullRequestCheckWriters;
+use App\Module\Forge\Service\PullRequestReviewPosters;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Tests\Module\Board\CardVerdictScenario;
+use App\Tests\Module\Board\Fake\FakeCheckWriter;
+use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
+use App\Tests\Module\Board\Fake\FakeReviewPoster;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -54,14 +60,14 @@ final class SiteReviewRuleTest extends KernelTestCase
         // The first pass only baselines the card.
         $this->evaluate($card);
         $this->evaluate($card);
-        self::assertSame(CardVerdictDeliveryState::Skipped, $first->state);
+        self::assertSame(CardVerdictDeliveryState::Posted, $first->state);
         // The write queued this evaluation, and it resets the truth of the rule.
         $this->evaluate($card);
         $second = $this->deliveryOf($card, $pullRequest);
         $this->em()->flush();
         $this->evaluate($card);
 
-        self::assertSame(CardVerdictDeliveryState::Skipped, $second->state);
+        self::assertSame(CardVerdictDeliveryState::Posted, $second->state);
     }
 
     #[DataProvider('templates')]
@@ -100,6 +106,10 @@ final class SiteReviewRuleTest extends KernelTestCase
     private function boot(): void
     {
         self::bootKernel();
+        $container = self::getContainer();
+        $container->set(PullRequestCheckWriters::class, new PullRequestCheckWriters([new FakeCheckWriter()]));
+        $container->set(PullRequestReviewPosters::class, new PullRequestReviewPosters([new FakeReviewPoster()]));
+        $container->set(ReviewerForgeAccount::class, new FakeReviewerForgeAccount());
         $this->em = $this->em();
     }
 

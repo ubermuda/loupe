@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Service;
 
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardVerdict;
@@ -14,12 +13,10 @@ use App\Module\Board\Entity\Forge;
 use App\Module\Board\Entity\SiteReviewCheckState;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\SiteReviewCheckStateRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Board\Workflow\SiteReviewFactProvider;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Service\PullRequestCheckConclusion;
-use App\Module\Forge\Service\PullRequestCheckFailed;
 use App\Module\Forge\Service\PullRequestCheckWriters;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -49,7 +46,6 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         $this->em = $em;
         $this->project = $this->makeProject('check-publish');
         $this->writer = new FakeCheckWriter();
-        $this->em->persist(new BoardAutomationSettings($this->project, siteReviewCheck: true));
         $this->em->flush();
     }
 
@@ -206,34 +202,6 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertSame(102, $this->stateOf($pullRequest)->checkRunId);
     }
 
-    public function test_a_row_with_no_run_posts_once_the_opt_in_turns_on(): void
-    {
-        $card = $this->card($this->project);
-        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
-        $this->optIn(false);
-        $this->publish($card);
-        $this->optIn(true);
-
-        $this->publish($card);
-
-        self::assertCount(1, $this->writer->published);
-        self::assertNull($this->writer->published[0]['runId']);
-        self::assertSame(101, $this->stateOf($pullRequest)->checkRunId);
-    }
-
-    public function test_an_opt_in_that_is_off_writes_the_state_and_posts_nothing(): void
-    {
-        $card = $this->card($this->project);
-        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
-        $this->optIn(false);
-
-        self::assertNull($this->publish($card));
-
-        self::assertSame([], $this->writer->published);
-        $state = $this->stateOf($pullRequest);
-        self::assertSame(['sha-1', 'success', null], [$state->headSha, $state->conclusion, $state->checkRunId]);
-    }
-
     public function test_a_failure_on_one_pull_request_does_not_stop_the_others_and_is_refused(): void
     {
         $card = $this->card($this->project);
@@ -256,32 +224,6 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertNull($this->publish($card, writers: false));
 
         self::assertNull($this->stateRowOf($pullRequest));
-    }
-
-    public function test_settle_turns_each_posted_failure_neutral_on_its_own_run(): void
-    {
-        $card = $this->card($this->project);
-        $failed = $this->openPullRequest($card, 7, 'sha-1');
-        $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
-        $other = $this->card($this->project, number: 2);
-        $passed = $this->openPullRequest($other, 8, 'sha-2');
-        $this->publish($card);
-        $this->publish($other);
-        $this->writer->published = [];
-        $this->optIn(false);
-
-        self::assertNull($this->settle());
-
-        self::assertCount(1, $this->writer->published);
-        $call = $this->writer->published[0];
-        self::assertSame([7, 'Loupe site review', 'sha-1', PullRequestCheckConclusion::Neutral, 101], [$call['number'], $call['name'], $call['sha'], $call['conclusion'], $call['runId']]);
-        self::assertSame('Loupe no longer keeps this check', $call['title']);
-        self::assertNull($this->stateOf($failed)->checkRunId);
-        self::assertSame('failure', $this->stateOf($failed)->conclusion);
-        self::assertSame(102, $this->stateOf($passed)->checkRunId);
-
-        $this->publish($card);
-        self::assertCount(1, $this->writer->published);
     }
 
     public function test_neutralizing_an_unlinked_pull_request_writes_a_neutral_run_on_the_posted_run(): void
@@ -325,69 +267,6 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         $this->writer->failingNumbers = [7];
 
         self::assertSame('permission', $this->publisher(true)->neutralizeUnlinked($this->project, 'github', 'acme/widgets', 7, 'sha-1', 101)?->cause);
-    }
-
-    public function test_a_failed_settle_keeps_the_run_to_try_again(): void
-    {
-        $card = $this->card($this->project);
-        $failed = $this->openPullRequest($card, 7, 'sha-1');
-        $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
-        $this->publish($card);
-        $other = $this->card($this->project, number: 2);
-        $settled = $this->openPullRequest($other, 8, 'sha-2');
-        $this->verdict($other, 8, [$this->note($other, 'Fix the footer')]);
-        $this->publish($other);
-        $this->writer->failingNumbers = [7];
-        $this->optIn(false);
-
-        self::assertSame('permission', $this->settle()?->cause);
-
-        self::assertSame(101, $this->stateOf($failed)->checkRunId);
-        self::assertNull($this->stateOf($settled)->checkRunId);
-    }
-
-    public function test_a_publish_while_off_turns_the_failed_run_neutral_before_it_drops_the_run(): void
-    {
-        $card = $this->card($this->project);
-        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
-        $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
-        $this->publish($card);
-        $this->writer->published = [];
-        $this->optIn(false);
-        $pullRequest->headSha = 'sha-2';
-
-        self::assertNull($this->publish($card));
-
-        self::assertCount(1, $this->writer->published);
-        self::assertSame(['sha-1', PullRequestCheckConclusion::Neutral, 101], [$this->writer->published[0]['sha'], $this->writer->published[0]['conclusion'], $this->writer->published[0]['runId']]);
-        self::assertSame(['sha-2', null], [$this->stateOf($pullRequest)->headSha, $this->stateOf($pullRequest)->checkRunId]);
-    }
-
-    public function test_settle_leaves_the_runs_when_the_check_is_on_again(): void
-    {
-        $card = $this->card($this->project);
-        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
-        $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
-        $this->publish($card);
-        $this->writer->published = [];
-
-        self::assertNull($this->settle());
-
-        self::assertSame([], $this->writer->published);
-        self::assertSame(101, $this->stateOf($pullRequest)->checkRunId);
-    }
-
-    private function settle(): ?PullRequestCheckFailed
-    {
-        $this->em->flush();
-
-        return $this->publisher(true)->settle($this->project);
-    }
-
-    private function optIn(bool $on): void
-    {
-        $this->service(BoardAutomation::class)->settingsOf($this->project)->siteReviewCheck = $on;
-        $this->em->flush();
     }
 
     private function openPullRequest(Card $card, int $number, string $sha): ForgePullRequest
@@ -448,7 +327,6 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
             $this->service(CardPullRequestRepository::class),
             $this->service(SiteReviewFactProvider::class),
             $this->service(SiteReviewCheckStateRepository::class),
-            $this->service(BoardAutomation::class),
             new PullRequestCheckWriters($writers ? [$this->writer] : []),
             $this->service(TranslatorInterface::class),
             $this->em,

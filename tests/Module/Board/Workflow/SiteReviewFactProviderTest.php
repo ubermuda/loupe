@@ -51,7 +51,7 @@ final class SiteReviewFactProviderTest extends KernelTestCase
 
         $facts = $this->build($card);
 
-        self::assertEquals(new SiteReviewFacts([], [], false), $facts);
+        self::assertEquals(new SiteReviewFacts([], []), $facts);
         self::assertSame([[], []], $this->provider()->fingerprint($facts));
     }
 
@@ -183,7 +183,6 @@ final class SiteReviewFactProviderTest extends KernelTestCase
         $facts = $this->build($card);
 
         self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-2', 'success', 0, 'sha-1', 'failure', 99, 3, $this->provider()->notesDigest([]), null)], $facts->checks);
-        self::assertTrue($facts->checkOptedIn);
     }
 
     public function test_only_open_github_pull_requests_of_the_card_carry_a_check(): void

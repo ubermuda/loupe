@@ -2473,7 +2473,7 @@ final class EngineTest extends KernelTestCase
 
         self::assertSame('in-progress', $epic->column->slug);
         $state = $this->ruleState($epic, 'epic-open-pull-request');
-        self::assertSame('open-epic-off', $state->lastRefusal);
+        self::assertSame('no-installation', $state->lastRefusal);
         self::assertNotNull($state->dueAt);
     }
 

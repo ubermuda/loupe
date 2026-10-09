@@ -609,7 +609,7 @@ When each linked pull request is closed and none merged, the epic does not
 close when its last child finishes. It stays where it is, as for any card.
 
 For a repository connected through the GitHub App, Loupe also changes the
-pull request, when the epic writes are on in [Automation](#automation):
+pull request, when the workflow has the rules for it:
 
 - When the epic enters `in-review`, Loupe marks its linked pull requests ready
   for review.
@@ -784,9 +784,11 @@ or have your agent move it with `card_update`.
 
 The owner sets how the workflow acts on pull requests on the **Automation** tab
 of the project settings, beside **Board columns**. Only a repository connected
-through the GitHub App gets a write from Loupe. Each write is off until the owner
-turns it on. With a write off, the workflow asks a bridge for the work instead,
-as its template says.
+through the GitHub App gets a write from Loupe. The rules of the workflow decide
+each write. A write that a rule names happens when the rule fires. When the
+project has no GitHub App installation, the workflow asks a bridge for the
+work instead, as its template says. The merge, base change, epic pull request,
+widget verdict and site-review check settings below no longer change anything.
 
 | Setting | Default | Does |
 |---|---|---|
@@ -794,17 +796,14 @@ as its template says.
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
 | **Comment on a pull request when new commits follow its approval** | off | When on, Loupe posts one comment for each new head that the approval does not cover |
 | **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base. The GitHub App needs "Contents: read and write" |
-| **Merge a pull request when the workflow asks** | off | When on, Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write" |
-| **Change the base of a pull request when the workflow asks** | off | When on, Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write" |
-| **Switch an epic pull request between draft and ready when the workflow asks** | off | When on, Loupe marks the pull request of an epic as a draft in implementation, and as ready in review. The GitHub App needs "Pull requests: read and write" |
-| **Close the pull requests of an epic when the workflow asks** | off | When on, Loupe closes the pull requests of an epic that moves back to the Backlog. The GitHub App needs "Pull requests: read and write" |
-| **Open the epic pull request** | off | When on, Loupe opens a draft pull request from the epic branch to the default branch after the first child merges into the epic branch, and links it to the epic. The GitHub App needs "Pull requests: read and write" |
-| **Post a widget verdict as a review on GitHub** | off | When on, a verdict that a reviewer sends from the site-review widget becomes a review on the pull requests of the card, under the reviewer's own GitHub account. Loupe stores the verdict and its notes with this setting off or on |
-| **Keep a "Loupe site review" check on pull requests** | off | When on, Loupe posts a check named "Loupe site review" on each open pull request of a managed card. The check fails while open site-review notes remain on any card of the project that links the pull request. The GitHub App needs "Checks: read and write" |
+| **Merge a pull request when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
+| **Change the base of a pull request when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
+| **Switch an epic pull request between draft and ready when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
+| **Close the pull requests of an epic when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
+| **Open the epic pull request** | off | Has no effect. The rule of the workflow decides this write |
+| **Post a widget verdict as a review on GitHub** | off | Has no effect. The rule of the workflow decides this write |
+| **Keep a "Loupe site review" check on pull requests** | off | Has no effect. The rule of the workflow decides this write |
 | **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
-
-The draft and ready switch and the close write were on for each board whose automation was on before the
-workflow engine, so the epic flow kept working.
 
 The comment gives the reason for the fix and the failed checks. It also gives
 a link to the card. The card page lists the runs. A comment that fails never
@@ -1109,21 +1108,17 @@ the reviewer.
 
 A verdict changes nothing on GitHub by itself. The
 [rules the app adds](workflows.md#rules-the-app-adds) write to the pull
-requests, and only while the matching setting on the **Automation** tab is on:
+requests, as soon as the rule fires:
 
-- With **Post a widget verdict as a review on GitHub** on, the verdict becomes
-  a review under the reviewer's own GitHub account. On the reviewer's own pull
-  request it becomes a comment. With the setting off, the verdict stays on the
-  card and no review goes out.
-- With **Keep a "Loupe site review" check on pull requests** on, the check
-  fails while a pending note that a verdict carried remains. The check also
-  runs when nobody sends a verdict. It is green until a verdict carries a note.
-  When two cards link one pull request, the check counts the pending notes of
-  both cards. When you switch the setting off, Loupe turns each failed check on
-  an open pull request to neutral, so it no longer blocks a merge.
+- The verdict becomes a review under the reviewer's own GitHub account. On the
+  reviewer's own pull request it becomes a comment.
+- The check fails while a pending note that a verdict carried remains. The check
+  also runs when nobody sends a verdict. It is green until a verdict carries a
+  note. When two cards link one pull request, the check counts the pending notes
+  of both cards.
 
 Before the reviewer sends, the widget lists the writes that the verdict will
-start. The list follows the rules and the settings of the project. It does not
+start. The list follows the rules of the project. It does not
 list the fix round that a request for changes on GitHub starts later.
 
 The widget shows the state of each pull request after the send. When the
