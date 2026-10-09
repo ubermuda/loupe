@@ -91,6 +91,9 @@ class ForgePullRequest
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $approvedAt = null;
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $readySince = null;
+
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $approvalSha = null;
 
@@ -244,9 +247,14 @@ class ForgePullRequest
     }
 
     /** A forge counts an approval of an older head, so a stale approval holds the merge. */
-    public function settleReadyToMerge(bool $forgeReady): void
+    public function settleReadyToMerge(bool $forgeReady, \DateTimeImmutable $now): void
     {
         $this->readyToMerge = $forgeReady && !$this->approvalIsStale();
+        if (!$this->readyToMerge) {
+            $this->readySince = null;
+        } elseif (null === $this->readySince) {
+            $this->readySince = $now;
+        }
     }
 
     public function snapshot(): PullRequestSnapshot

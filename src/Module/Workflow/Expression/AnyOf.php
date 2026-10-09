@@ -51,6 +51,14 @@ final readonly class AnyOf extends Expression
     }
 
     #[\Override]
+    public function countAgainst(Facts $facts, bool $wanted): int
+    {
+        $counts = array_map(static fn (Expression $child): int => $child->countAgainst($facts, $wanted), $this->children);
+
+        return $wanted ? min($counts) : self::sumOf($counts);
+    }
+
+    #[\Override]
     public function reads(): array
     {
         return self::readsOf($this->children);
