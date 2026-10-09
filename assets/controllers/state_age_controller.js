@@ -35,10 +35,18 @@ export const ageForm = (seconds) => {
  */
 /* stimulusFetch: 'lazy' */
 export default class extends Controller {
-    static values = { since: Number, now: Number, mode: String };
+    static values = {
+        since: Number,
+        now: Number,
+        mode: String,
+        offset: Number,
+    };
 
     connect() {
-        this.offset = this.nowValue - Date.now() / 1000;
+        // The offset stays on the element, so a page that Turbo restores from its cache keeps it.
+        if (!this.hasOffsetValue) {
+            this.offsetValue = this.nowValue - Date.now() / 1000;
+        }
         this.timer = setInterval(() => this.render(), MINUTE * 1000);
         this.render();
     }
@@ -53,7 +61,7 @@ export default class extends Controller {
             return;
         }
         const [form, count] = ageForm(
-            Date.now() / 1000 + this.offset - this.sinceValue,
+            Date.now() / 1000 + this.offsetValue - this.sinceValue,
         );
         if (typeof texts[form] === 'string') {
             this.element.textContent = texts[form].replace(

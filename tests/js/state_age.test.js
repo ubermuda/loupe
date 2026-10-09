@@ -69,6 +69,20 @@ it('moves the age on while the page stays open', async () => {
     expect(age()).toBe('1 h');
 });
 
+it('keeps its clock offset when a restored page connects again', async () => {
+    await mount('ago', SERVER_NOW - 60 * 60);
+    const element = document.querySelector('#age');
+    const snapshot = element.outerHTML;
+    element.remove();
+    await vi.advanceTimersByTimeAsync(0);
+
+    vi.setSystemTime((SERVER_NOW - 3600 + 2 * 3600) * 1000);
+    document.body.insertAdjacentHTML('beforeend', snapshot);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(age()).toBe('3 hours ago');
+});
+
 it('keeps the server text when the page carries no texts', async () => {
     document.body.innerHTML = `<span id="age" data-controller="state-age" data-state-age-since-value="${SERVER_NOW}" data-state-age-now-value="${SERVER_NOW}" data-state-age-mode-value="ago">server text</span>`;
     application = Application.start();
