@@ -82,7 +82,8 @@ final readonly class ChildDesignChoices
             }
         }
         if (null !== $existing) {
-            $this->checkMoves($existing, $choice, $cause);
+            // The write can change the column, so a move with a `from` slot waits for the check after it.
+            $this->checkMoves($existing, $choice, $cause, withFrom: false);
         }
 
         return $this->em->wrapInTransaction(function () use ($write, $choice, $cause): Card {
@@ -90,7 +91,7 @@ final readonly class ChildDesignChoices
             if (null === $card->parent) {
                 throw new ChildDesignRefused('childDesign: The card has no parent card, so there is nothing to inherit.');
             }
-            $this->checkMoves($card, $choice, $cause);
+            $this->checkMoves($card, $choice, $cause, withFrom: true);
             $refusal = $this->choices->run($card->id ?? throw new \LogicException('A stored card has an id.'), $choice);
             if (null !== $refusal) {
                 throw new ChildDesignRefused(self::refusal($choice, $refusal));
@@ -101,10 +102,10 @@ final readonly class ChildDesignChoices
         });
     }
 
-    private function checkMoves(Card $card, string $choice, ?CardEventCause $cause): void
+    private function checkMoves(Card $card, string $choice, ?CardEventCause $cause, bool $withFrom): void
     {
         foreach ($this->choices->forProject($card->project->requireId())[$choice] ?? [] as $step) {
-            if (self::moves($step, $card) && null !== $step->to && !$this->moveGuard->allows($card->snapshot(), $step->to, Actor::Agent, $cause)) {
+            if (($withFrom || !isset($step->params['from'])) && self::moves($step, $card) && null !== $step->to && !$this->moveGuard->allows($card->snapshot(), $step->to, Actor::Agent, $cause)) {
                 throw new CardManaged($card->number);
             }
         }
