@@ -13,8 +13,12 @@ use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Form\StrikePassageFormType;
 use App\Module\Review\Form\StrikePassageRequest;
+use App\Module\Review\Form\SubmitReviewFormType;
+use App\Module\Review\Form\SubmitReviewRequest;
 use App\Module\Review\Form\SuggestRewordingFormType;
 use App\Module\Review\Form\SuggestRewordingRequest;
+use App\Module\Review\Form\UndoVerdictFormType;
+use App\Module\Review\Form\UndoVerdictRequest;
 use App\Module\Review\Security\DocumentVoter;
 use App\Module\Review\ValueObject\DiffView;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -87,6 +91,20 @@ final class DiffDocumentVersionsController extends AppController
             ]);
         }
 
+        // The verdict forms post as they do from the document. An invalid submit
+        // re-renders the document page, which holds the same dialog.
+        $submitReviewForm = $this->createForm(
+            SubmitReviewFormType::class,
+            new SubmitReviewRequest(versionNumber: $view->version->versionNumber, expectedReviewId: $view->latestReviewId),
+            ['action' => $this->generateUrl('app_document_review_submit', $routeParameters)],
+        )->createView();
+
+        $undoVerdictForm = $this->createForm(
+            UndoVerdictFormType::class,
+            new UndoVerdictRequest(reviewId: $view->review?->id?->toRfc4122()),
+            ['action' => $this->generateUrl('app_document_review_undo', $routeParameters)],
+        )->createView();
+
         return $this->render('@Review/diff_document_versions.html.twig', [
             'document' => $document,
             'version' => $view->version,
@@ -98,14 +116,24 @@ final class DiffDocumentVersionsController extends AppController
             'diffSideBySide' => $view->sideBySide,
             'diffChangeCount' => $view->changeCount,
             'diffHeadings' => $view->headings,
+            'diffChangesByHeading' => $view->changesByHeading,
             'diffSourceHeadings' => $view->sourceHeadings,
             'diffRefusal' => $view->diffRefusal,
             'diffFromVersion' => $fromVersionNumber,
-            // The verdict and the decision controls describe one version, and a
-            // diff describes two, so they stay off here. Commenting is separate:
-            // it anchors to the newer side when that side is the current version.
+            // The decision controls describe one version, and a diff describes
+            // two, so they stay off here. Commenting anchors to the newer side
+            // when that side is the current version, and so does the verdict.
             'readOnly' => true,
+            'verdictAvailable' => $view->isCurrent,
             'diffCommenting' => $view->commentingEnabled,
+            'decisions' => $view->decisions,
+            // The page a Decisions row leads to: the newer side, read as a document.
+            'diffDocumentUrl' => $view->isCurrent
+                ? $this->generateUrl('app_document_review', $routeParameters)
+                : $this->generateUrl('app_document_review_version', [...$routeParameters, 'versionNumber' => $view->version->versionNumber]),
+            'review' => $view->review,
+            'submitReviewForm' => $submitReviewForm,
+            'undoVerdictForm' => $undoVerdictForm,
             'comments' => $view->comments,
             'signals' => $view->signals,
             'addCommentForm' => $addCommentForm,

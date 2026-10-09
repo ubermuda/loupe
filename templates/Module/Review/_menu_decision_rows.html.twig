@@ -1,8 +1,10 @@
 {# Decision rows of the review menu. Rendered by the page and again by the stream
-   that follows an answer, so both must be given `rows` in the same shape. #}
+   that follows an answer, so both must be given `rows` in the same shape. A
+   `documentUrl` makes each row a plain link to the block on that page. #}
+{% set documentUrl = documentUrl|default(null) %}
 {% for row in rows %}
-<a class="lp-review-menu__section" href="#{{ row.elementId }}"
-   data-action="click->review-menu#jump" title="{{ row.label }}">
+<a class="lp-review-menu__section" href="{{ documentUrl }}#{{ row.elementId }}"
+   {%- if documentUrl is null %} data-action="click->review-menu#jump"{% endif %} title="{{ row.label }}">
     <span class="lp-review-menu__mark{{ row.answered ? ' lp-review-menu__mark--approved' }}">
         {% if row.answered %}<twig:ux:icon name="lucide:check" />{% endif %}
     </span>

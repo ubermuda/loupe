@@ -165,6 +165,10 @@ test('the History tab compares two distant versions', async ({
         }),
     ).toHaveCount(1);
 
+    // The compare bar replaces the tabs, so leave it for the Document view first.
+    await page.getByRole('link', { name: 'Return to document' }).click();
+    await expect(page).toHaveURL(seeded.reviewUrl);
+
     await page.evaluate(() => {
         performance.clearMarks('review-preview-render');
         document.addEventListener('turbo:render', () => {

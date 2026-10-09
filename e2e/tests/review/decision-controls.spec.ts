@@ -720,12 +720,12 @@ test('the Decisions button stays in the toolbar when it cannot be opened', async
     await expect(button).toHaveAttribute('aria-pressed', 'false');
     await expect(panel).toBeHidden();
 
-    // A comparison cannot answer a decision, so the button is shut there too.
+    // A comparison of a document that asks nothing shuts the button the same way.
     await page.goto(`${reviewUrl}/diff/1/2?view=rendered`);
     await expect(button).toHaveAttribute('aria-disabled', 'true');
     await expect(button).toHaveAttribute(
         'title',
-        'A comparison cannot answer decisions. Open the Document view to answer them.',
+        'This document has no decisions to answer.',
     );
     await expect(panel).toBeHidden();
 });
