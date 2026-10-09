@@ -6,10 +6,10 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -48,7 +48,7 @@ final readonly class PauseCardHandler
                 return false;
             }
             $this->em->persist($pause);
-            $this->cardEvents->record($card, CardEventKind::Paused, CardReporter::System, null, [
+            $this->cardEvents->record($card, CardEventKind::Paused, Actor::System, null, [
                 'kind' => $pause->kind->value,
                 'reason' => $pause->reason,
                 'ruleId' => $pause->ruleId,

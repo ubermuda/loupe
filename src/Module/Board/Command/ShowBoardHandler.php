@@ -17,9 +17,9 @@ use App\Module\Board\Service\BoardStructureDigest;
 use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\CardStates;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Bridge\Service\CardRunWarnings;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 
 final readonly class ShowBoardHandler
 {
@@ -65,7 +65,7 @@ final readonly class ShowBoardHandler
         }
 
         $backlog ??= throw new \LogicException('Every board has a Backlog.');
-        $types = $this->catalog->forProject($project);
+        $types = $this->catalog->forProject($project->requireId());
         [$lanes, $otherCards] = $this->boardLanes->sort($columns, $this->cards->findLaneEpics($project, $types->withLane()));
 
         $counts = $this->cards->childProgressForProject($project);

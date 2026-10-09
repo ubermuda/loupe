@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\BindWorkflowTemplateHandler;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AgentCredential;
 use App\Tests\Support\OAuthScenario;
@@ -55,7 +55,7 @@ final class BoardCardsApiTest extends WebTestCase
         $cards = static::getContainer()->get(CardRepository::class)->findBy(['project' => $project]);
         self::assertCount(1, $cards);
         // Not Human. Nobody authenticated the person who typed it.
-        self::assertSame(CardReporter::Reviewer, $cards[0]->reporter);
+        self::assertSame(Actor::Reviewer, $cards[0]->reporter);
         self::assertEquals(new CardSource(CardSourceKind::Widget), $cards[0]->source);
         // The endpoint accepts neither, so a reviewer cannot file into a column
         // or attach a URL of their choosing.
@@ -128,7 +128,7 @@ final class BoardCardsApiTest extends WebTestCase
 
         $cards = static::getContainer()->get(CardRepository::class)->findBy(['project' => $project], ['number' => 'ASC']);
         self::assertSame(['feature', 'epic'], array_map(static fn (Card $card) => $card->type, $cards));
-        self::assertSame([CardReporter::Reviewer, CardReporter::Reviewer], array_map(static fn (Card $card) => $card->reporter, $cards));
+        self::assertSame([Actor::Reviewer, Actor::Reviewer], array_map(static fn (Card $card) => $card->reporter, $cards));
     }
 
     public function test_the_widget_cannot_create_a_card_of_an_undeclared_type(): void

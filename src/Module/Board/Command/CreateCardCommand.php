@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 
 final readonly class CreateCardCommand
 {
@@ -23,7 +23,7 @@ final readonly class CreateCardCommand
         public string $type,
         /** Null lands the card in the board's Backlog. */
         public ?BoardColumn $column = null,
-        public CardReporter $reporter = CardReporter::Agent,
+        public Actor $reporter = Actor::Agent,
         public array $pullRequestUrls = [],
         /** @param list<string> $documentIds */
         public array $documentIds = [],
@@ -33,7 +33,7 @@ final readonly class CreateCardCommand
         /** Null keeps the entity default, which draws the lane. */
         public ?bool $laneEnabled = null,
         /** Who makes the call, for the card's history. Null means the reporter. */
-        public ?CardReporter $actor = null,
+        public ?Actor $actor = null,
         /** Null derives the source from the reporter. */
         public ?CardSource $source = null,
     ) {

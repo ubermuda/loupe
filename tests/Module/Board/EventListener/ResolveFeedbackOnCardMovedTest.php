@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\EventListener\ResolveFeedbackOnCardMoved;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -16,6 +15,7 @@ use App\Module\Board\Service\CardMove;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\ResolveSiteReviewCommentHandler;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Exception\InvalidArgumentException as DbalInvalidArgument;
@@ -50,7 +50,7 @@ final class ResolveFeedbackOnCardMovedTest extends KernelTestCase
         $resolved = $this->feedback($card, SiteReviewCommentStatus::Resolved);
         $this->em->flush();
 
-        $this->move($card, $project, 'done', CardReporter::Agent);
+        $this->move($card, $project, 'done', Actor::Agent);
 
         self::assertSame(SiteReviewCommentStatus::Resolved, $this->statusOf($pending));
         self::assertSame(SiteReviewCommentStatus::Resolved, $this->statusOf($addressed));
@@ -147,7 +147,7 @@ final class ResolveFeedbackOnCardMovedTest extends KernelTestCase
         $logger = new RecordingLogger();
 
         new ResolveFeedbackOnCardMoved(new CardFeedbackResolver($links, $resolve), $this->em, $logger)(
-            new CardMoved($card, new CardMove($this->column($project, 'in-progress')), CardReporter::Human),
+            new CardMoved($card, new CardMove($this->column($project, 'in-progress')), Actor::Human),
         );
 
         self::assertCount(1, $logger->records);
@@ -195,11 +195,11 @@ final class ResolveFeedbackOnCardMovedTest extends KernelTestCase
 
         $this->expectExceptionMessage('closed');
         new ResolveFeedbackOnCardMoved(new CardFeedbackResolver($links, $resolve), $closed, $logger)(
-            new CardMoved($card, new CardMove($this->column($project, 'in-progress')), CardReporter::Human),
+            new CardMoved($card, new CardMove($this->column($project, 'in-progress')), Actor::Human),
         );
     }
 
-    private function move(Card $card, Project $project, string $slug, CardReporter $actor = CardReporter::Human): void
+    private function move(Card $card, Project $project, string $slug, Actor $actor = Actor::Human): void
     {
         $handler = self::getContainer()->get(UpdateCardHandler::class);
         self::assertInstanceOf(UpdateCardHandler::class, $handler);

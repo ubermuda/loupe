@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Event;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 
 /**
  * Dispatched inside the transaction of a card write, after its flush, when
@@ -19,7 +19,7 @@ final readonly class CardBlockersRemoved
     public function __construct(
         public Project $project,
         public array $cards,
-        public CardReporter $actor,
+        public Actor $actor,
     ) {
     }
 }

@@ -6,11 +6,11 @@ namespace App\Tests\Module\Workflow\Controller;
 
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\BindWorkflowTemplateHandler;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Engine\Engine;
 use App\Tests\Module\Board\Controller\BoardScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -54,7 +54,7 @@ final class CardWorkflowPanelPageTest extends WebTestCase
         $card = $this->card($em, $project, 'Paused', 'next');
         $pause = static::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, Engine::NO_BRIDGE_TOOK_WORK, 'implement', CardPauseKind::WorkTimeout));
+        $pause(new PauseCardCommand($card, Engine::NO_BRIDGE_TOOK_WORK, 'implement', PauseKind::WorkTimeout));
         $em->clear();
 
         $client->loginUser($owner);
@@ -76,7 +76,7 @@ final class CardWorkflowPanelPageTest extends WebTestCase
         $card = $this->card($em, $project, 'Paused', 'next');
         $pause = static::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, Engine::REPAIR_FAILED, 'implement', CardPauseKind::Retries));
+        $pause(new PauseCardCommand($card, Engine::REPAIR_FAILED, 'implement', PauseKind::Retries));
         $em->clear();
 
         $client->loginUser($owner);
@@ -95,7 +95,7 @@ final class CardWorkflowPanelPageTest extends WebTestCase
         $card = $this->card($em, $project, 'Paused', 'next');
         $pause = static::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, 'api-failed-rate-limited', 'merge-ready', CardPauseKind::Retries));
+        $pause(new PauseCardCommand($card, 'api-failed-rate-limited', 'merge-ready', PauseKind::Retries));
         $em->clear();
 
         $client->loginUser($owner);
@@ -115,7 +115,7 @@ final class CardWorkflowPanelPageTest extends WebTestCase
         $card = $this->card($em, $project, 'Paused', 'next');
         $pause = static::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $paused = $pause(new PauseCardCommand($card, 'move-refused', 'implement', CardPauseKind::Retries));
+        $paused = $pause(new PauseCardCommand($card, 'move-refused', 'implement', PauseKind::Retries));
         $em->clear();
 
         $client->loginUser($owner);
@@ -140,7 +140,7 @@ final class CardWorkflowPanelPageTest extends WebTestCase
         $card = $this->card($em, $project, 'Paused', 'next');
         $pause = static::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, 'on-hold', 'implement', CardPauseKind::Rule));
+        $pause(new PauseCardCommand($card, 'on-hold', 'implement', PauseKind::Rule));
         $em->clear();
 
         $client->loginUser($owner);

@@ -9,9 +9,9 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
+use App\Module\Workflow\Contract\Actor;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
@@ -70,14 +70,14 @@ final readonly class CardCreateTool
                 column: $this->subjects->optionalColumn($project, $status),
                 // The MCP request authenticates as the project owner, so the
                 // tool cannot tell an agent's card from one a person dictated.
-                reporter: $this->subjects->optionalClaimedReporter($reporter) ?? CardReporter::Agent,
+                reporter: $this->subjects->optionalClaimedReporter($reporter) ?? Actor::Agent,
                 pullRequestUrls: array_values($pullRequestUrls),
                 documentIds: array_values($documentIds),
                 relatedCards: $this->subjects->requireRelatedCards($relatedCards),
                 parentCardId: $parentCardId,
                 laneEnabled: $laneEnabled,
                 // A claimed human reporter is not the account that makes this call.
-                actor: CardReporter::Agent,
+                actor: Actor::Agent,
                 source: $this->runSource->forProject($project) ?? new CardSource(CardSourceKind::Agent),
             ));
 

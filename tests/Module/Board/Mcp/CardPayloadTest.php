@@ -8,9 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Repository\CardLinkRepository;
@@ -27,6 +25,8 @@ use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Tests\Support\ShippedCardTypes;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -164,7 +164,7 @@ final class CardPayloadTest extends KernelTestCase
         $this->setId($paused, Uuid::v7());
         $free = $this->card();
         $this->setId($free, Uuid::v7());
-        $pause = new CardPause($paused, $paused->project, 'review-failed', 'fix-on-review', CardPauseKind::Retries, new \DateTimeImmutable('2026-10-02T10:00:00+00:00'));
+        $pause = new CardPause($paused, $paused->project, 'review-failed', 'fix-on-review', PauseKind::Retries, new \DateTimeImmutable('2026-10-02T10:00:00+00:00'));
         $this->setId($pause, Uuid::v7());
         $pauses = $this->createMock(CardPauseRepository::class);
         // One read for the whole page, never one per card.
@@ -234,7 +234,7 @@ final class CardPayloadTest extends KernelTestCase
             body: 'Body',
             number: 7,
             type: $type,
-            origin: CardReporter::Agent,
+            origin: Actor::Agent,
         );
         $this->setId($card, Uuid::v7());
 

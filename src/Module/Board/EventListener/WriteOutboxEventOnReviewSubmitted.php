@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Review\ReviewEventType;
+use App\Module\Workflow\Contract\Actor;
 use App\Outbox\OutboxWriter;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -44,7 +44,7 @@ final readonly class WriteOutboxEventOnReviewSubmitted
             'projectId' => (string) $document->project->id,
             'verdict' => $event->review->verdict->value,
             'cardIds' => array_values($cardIds),
-            'actor' => CardReporter::Human->value,
+            'actor' => Actor::Human->value,
         ]);
     }
 }

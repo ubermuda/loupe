@@ -9,11 +9,11 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\SetCardLaneFormType;
 use App\Module\Board\Form\SetCardLaneRequest;
 use App\Module\Board\Security\CardVoter;
-use App\Module\Board\Service\CardTypeCatalog;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -52,12 +52,12 @@ final class SetCardLaneController extends AppController
         $form->handleRequest($request);
 
         $refusal = 'board.card.lane.error.not_saved';
-        if (!$this->catalog->forProject($card->project)->get($card->type)->lane) {
+        if (!$this->catalog->forProject($card->project->requireId())->get($card->type)->lane) {
             $refusal = 'board.card.lane.error.not_epic';
             $this->logger->info('board.card_lane_refused', ['cardId' => (string) $card->id, 'type' => $card->type]);
         } elseif ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Human, laneEnabled: '1' === $data->laneEnabled));
+                ($this->updateCard)(new UpdateCardCommand($card, Actor::Human, laneEnabled: '1' === $data->laneEnabled));
                 $refusal = null;
             } catch (DomainErrors $e) {
                 $refusal = array_first($e->errors);

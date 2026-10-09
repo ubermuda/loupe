@@ -10,7 +10,6 @@ use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -23,6 +22,7 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Workflow\Contract\PauseKind;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -797,7 +797,7 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $pause = static::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, 'no-bridge-took-work', 'implement', CardPauseKind::WorkTimeout));
+        $pause(new PauseCardCommand($card, 'no-bridge-took-work', 'implement', PauseKind::WorkTimeout));
     }
 
     private function holdCard(Project $project, Card $card): void

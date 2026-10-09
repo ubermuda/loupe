@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Fact;
 
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\FactProvider;
-use Symfony\Component\Uid\Uuid;
 
 /** A fact provider that a test switches at runtime: it gives $facts, throws $failure, or is off. Its source() can throw too. */
 final class ProvidedFactsProvider implements FactProvider
@@ -46,7 +46,7 @@ final class ProvidedFactsProvider implements FactProvider
     }
 
     #[\Override]
-    public function build(Uuid $cardId): object
+    public function build(CardSnapshot $card): object
     {
         ++$this->builds;
         if (null !== $this->onBuild) {

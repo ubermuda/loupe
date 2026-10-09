@@ -20,12 +20,12 @@ use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\CardState;
 use App\Module\Board\Service\CardStateReason;
 use App\Module\Board\Service\CardStates;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\PullRequestStates;
 use App\Module\Board\Service\PullRequestStateView;
 use App\Module\Bridge\Service\CardRunWarnings;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -89,7 +89,7 @@ final readonly class CardPayload
     {
         $commentsByCard = $this->cardSiteReviewComments->findForCards($cards);
         $linksByCard = $this->cardLinks->findForCards($cards);
-        $epics = array_values(array_filter($cards, fn (Card $card): bool => $this->catalog->forProject($card->project)->get($card->type)->children));
+        $epics = array_values(array_filter($cards, fn (Card $card): bool => $this->catalog->forProject($card->project->requireId())->get($card->type)->children));
         $childrenByCard = [] === $epics ? [] : $this->cards->findChildrenOfCards($epics);
         $this->cards->loadParentsOf($cards);
         $states = $this->pullRequestStates->forCards($cards);
@@ -178,7 +178,7 @@ final readonly class CardPayload
      */
     private function render(Card $card, array $links, array $relatedCards, array $children, PullRequestStates $states, ?CardPause $pause, ?CardState $state): array
     {
-        $progress = $this->catalog->forProject($card->project)->get($card->type)->children
+        $progress = $this->catalog->forProject($card->project->requireId())->get($card->type)->children
             ? ['done' => \count(array_filter($children, static fn (Card $child): bool => $child->column->terminal)), 'total' => \count($children)]
             : null;
 

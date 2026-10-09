@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Entity;
 
-use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -68,9 +67,9 @@ class WorkflowRuleState
     public ?\DateTimeImmutable $heldByBlockerSince = null;
 
     public function __construct(
-        #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-        #[ORM\ManyToOne(targetEntity: Card::class)]
-        public readonly Card $card,
+        /** No foreign key, as the card may go. A Board listener deletes the row through WorkflowRowCleanup. */
+        #[ORM\Column(type: UuidType::NAME)]
+        public Uuid $cardId,
 
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Project::class)]

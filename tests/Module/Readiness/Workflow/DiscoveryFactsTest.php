@@ -24,7 +24,7 @@ final class DiscoveryFactsTest extends KernelTestCase
         $this->discoveryRun($card, DiscoveryRunState::Failed, '2026-10-02 10:00:00');
         $latest = $this->discoveryRun($card, DiscoveryRunState::Requested, '2026-10-02 11:00:00');
 
-        $facts = $this->provider()->build($card->id ?? throw new \LogicException('A flushed card has an id.'));
+        $facts = $this->provider()->build($card->snapshot());
 
         self::assertEquals(new DiscoveryFacts((string) $latest->id, DiscoveryRunState::Requested), $facts);
         self::assertSame([(string) $latest->id, 'requested'], $this->provider()->fingerprint($facts));
@@ -35,7 +35,7 @@ final class DiscoveryFactsTest extends KernelTestCase
         self::bootKernel();
         $card = $this->discoveryCard($this->workflowProject('discovery-facts-empty'));
 
-        $facts = $this->provider()->build($card->id ?? throw new \LogicException('A flushed card has an id.'));
+        $facts = $this->provider()->build($card->snapshot());
 
         self::assertEquals(new DiscoveryFacts(null, null), $facts);
         self::assertSame([null, null], $this->provider()->fingerprint($facts));

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Expression;
 
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Unreadable;
 
@@ -31,7 +31,7 @@ abstract readonly class Expression
     /** How many leaves must change for the expression to take the wanted value. An unreadable leaf counts as one. */
     abstract public function countAgainst(Facts $facts, bool $wanted): int;
 
-    /** @return list<FactKey|class-string> the fact groups and facts classes the leaves read, each once, in first-seen order */
+    /** @return list<EngineFact|class-string> the fact groups and facts classes the leaves read, each once, in first-seen order */
     abstract public function reads(): array;
 
     /** @return list<ConditionLeaf> every leaf, in template order */
@@ -43,14 +43,14 @@ abstract readonly class Expression
     /**
      * @param list<Expression> $children
      *
-     * @return list<FactKey|class-string>
+     * @return list<EngineFact|class-string>
      */
     protected static function readsOf(array $children): array
     {
         $keys = [];
         foreach ($children as $child) {
             foreach ($child->reads() as $key) {
-                $keys[$key instanceof FactKey ? 'key:'.$key->value : 'class:'.$key] ??= $key;
+                $keys[$key instanceof EngineFact ? 'key:'.$key->value : 'class:'.$key] ??= $key;
             }
         }
 

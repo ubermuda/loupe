@@ -9,7 +9,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkSubject;
@@ -19,6 +18,7 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -40,7 +40,7 @@ final class ShowCardControllerTest extends WebTestCase
             title: 'From the widget',
             body: '',
             number: 50,
-            origin: CardReporter::Reviewer,
+            origin: Actor::Reviewer,
         );
         $em->persist($widget);
         $plain = $this->card($em, $project, 'By an agent');

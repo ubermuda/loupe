@@ -154,7 +154,7 @@ trait InboxFixtures
         }
         $this->stageLinks[(string) $projectId] = true;
         if (!isset($this->stageLinks[$key])) {
-            $em->persist(new WorkflowSlotLink($project, $slug, $column));
+            $em->persist(new WorkflowSlotLink($project, $slug, $column->id));
             $this->stageLinks[$key] = true;
         }
 

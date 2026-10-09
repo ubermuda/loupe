@@ -9,10 +9,10 @@ final class ProjectEventType
 {
     public const string RENAMED = 'project.renamed';
 
-    /** A signed-in person. Board's CardReporter::Human writes the same value, which Project cannot import. */
+    /** A signed-in person. Board's Actor::Human writes the same value, which Project cannot import. */
     public const string ACTOR_HUMAN = 'human';
 
-    /** An MCP call. Board's CardReporter::Agent writes the same value. */
+    /** An MCP call. Board's Actor::Agent writes the same value. */
     public const string ACTOR_AGENT = 'agent';
 
     private function __construct()

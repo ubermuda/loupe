@@ -30,13 +30,13 @@ use App\Module\Board\Service\BoardColumnTonePicker;
 use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardDigest;
 use App\Module\Board\Service\CardState;
-use App\Module\Board\Service\CardTypeCatalog;
-use App\Module\Board\Service\CardTypeDefinition;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\View\DocumentListItem;
+use App\Module\Workflow\Contract\CardTypeCatalog;
+use App\Module\Workflow\Contract\CardTypeDefinition;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -61,7 +61,7 @@ final class BoardExtension extends AbstractExtension
     /** The type of a card as its project's template declares it. */
     public function cardType(Card $card): CardTypeDefinition
     {
-        return $this->catalog->forProject($card->project)->get($card->type);
+        return $this->catalog->forProject($card->project->requireId())->get($card->type);
     }
 
     #[\Override]

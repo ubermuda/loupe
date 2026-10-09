@@ -14,6 +14,7 @@ use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\Service\WorkRequestPayload;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
+use App\Module\Workflow\Contract\WorkKind;
 use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -57,7 +58,7 @@ final readonly class OpenWorkRequestHandler
     public function __invoke(OpenWorkRequestCommand $command): WorkRequest
     {
         $errors = [];
-        if (1 !== preg_match(WorkRequest::KIND_PATTERN, $command->kind)) {
+        if (1 !== preg_match(WorkKind::PATTERN, $command->kind)) {
             $errors['kind'] = self::INVALID_KIND;
         }
         if (null !== $command->capability && 1 !== preg_match(Bridge::CAPABILITY_PATTERN, $command->capability)) {

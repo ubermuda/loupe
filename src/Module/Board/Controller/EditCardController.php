@@ -13,10 +13,10 @@ use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\CreateCardFormType;
 use App\Module\Board\Form\UpdateCardRequest;
 use App\Module\Board\Security\CardVoter;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\ClickableInterface;
 use Symfony\Component\Form\FormError;
@@ -64,7 +64,7 @@ final class EditCardController extends AppController
             try {
                 ($this->updateCard)(new UpdateCardCommand(
                     card: $card,
-                    actor: CardReporter::Human,
+                    actor: Actor::Human,
                     title: $title,
                     body: $data->body ?? '',
                     type: $data->type,

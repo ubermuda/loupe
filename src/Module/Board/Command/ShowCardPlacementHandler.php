@@ -16,9 +16,9 @@ use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\CardStates;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Bridge\Service\CardRunWarnings;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 
 /** Reads one card and its neighbours, so the cost does not grow with the board. */
 final readonly class ShowCardPlacementHandler
@@ -65,7 +65,7 @@ final readonly class ShowCardPlacementHandler
         }
 
         $card = $command->card;
-        $types = $this->catalog->forProject($command->project);
+        $types = $this->catalog->forProject($command->project->requireId());
         $columnId = null === $card ? null : $this->columnCards->shownColumnId($card, $windowStart);
         $laneEpicIds = null === $columnId ? [] : array_map(
             static fn (Card $epic): string => (string) $epic->id,

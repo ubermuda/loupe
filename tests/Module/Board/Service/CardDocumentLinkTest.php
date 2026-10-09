@@ -10,11 +10,11 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Module\Review\Entity\Document;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -67,10 +67,10 @@ final class CardDocumentLinkTest extends KernelTestCase
         $card = ($this->createCard)($this->newCard($project, []));
         $this->changedCards = [];
 
-        ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Agent, title: 'Renamed'));
+        ($this->updateCard)(new UpdateCardCommand($card, Actor::Agent, title: 'Renamed'));
         self::assertSame([], $this->changedCards);
 
-        ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Agent, documentIds: [(string) $doc->id]));
+        ($this->updateCard)(new UpdateCardCommand($card, Actor::Agent, documentIds: [(string) $doc->id]));
         self::assertSame([$card->id?->toRfc4122()], $this->changedCards);
     }
 
@@ -128,10 +128,10 @@ final class CardDocumentLinkTest extends KernelTestCase
         [$project, $doc] = $this->projectWithDocument('link-replace');
         $card = ($this->createCard)($this->newCard($project, [(string) $doc->id]));
 
-        ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Agent, title: 'Renamed, links untouched'));
+        ($this->updateCard)(new UpdateCardCommand($card, Actor::Agent, title: 'Renamed, links untouched'));
         self::assertCount(1, $card->documents);
 
-        ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Agent, documentIds: []));
+        ($this->updateCard)(new UpdateCardCommand($card, Actor::Agent, documentIds: []));
         self::assertCount(0, $card->documents);
     }
 
@@ -149,12 +149,12 @@ final class CardDocumentLinkTest extends KernelTestCase
 
         $card = ($this->createCard)($this->newCard($project, [(string) $doc->id]));
 
-        ($this->updateCard)(new UpdateCardCommand($card, CardReporter::Agent, documentIds: [(string) $doc->id]));
+        ($this->updateCard)(new UpdateCardCommand($card, Actor::Agent, documentIds: [(string) $doc->id]));
         self::assertCount(1, $card->documents);
 
         ($this->updateCard)(new UpdateCardCommand(
             $card,
-            CardReporter::Agent,
+            Actor::Agent,
             documentIds: [(string) $doc->id, (string) $second->id],
         ));
         self::assertSame(

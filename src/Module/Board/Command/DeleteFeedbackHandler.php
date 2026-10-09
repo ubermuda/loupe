@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\DeleteCommentCommand;
 use App\Module\SiteReview\Command\DeleteCommentHandler;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -71,7 +71,7 @@ final readonly class DeleteFeedbackHandler
             $card = $link->card;
             $this->cards->refreshColumn($card);
             $this->cards->refreshTypeAndParent($card);
-            $types = $this->catalog->forProject($command->project);
+            $types = $this->catalog->forProject($command->project->requireId());
             if (!$card->column->backlog
                 || $types->get($card->type)->children
                 || [] !== $this->cardSiteReviewComments->findForCard($card)
@@ -79,7 +79,7 @@ final readonly class DeleteFeedbackHandler
                 return false;
             }
 
-            ($this->deleteCard)(new DeleteCardCommand($card, CardReporter::Reviewer));
+            ($this->deleteCard)(new DeleteCardCommand($card, Actor::Reviewer));
 
             return true;
         });
