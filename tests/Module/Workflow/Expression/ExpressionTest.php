@@ -11,8 +11,10 @@ use App\Module\Workflow\Condition\CardHasOpenBlocker;
 use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\CardIsChild;
 use App\Module\Workflow\Condition\PullRequestChecksFailed;
+use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\EngineFact;
+use App\Module\Workflow\Contract\PullRequestList;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Expression\AllOf;
@@ -208,6 +210,16 @@ final class ExpressionTest extends TestCase
 
         self::assertNull($provided->unreadable($facts));
         self::assertTrue($provided->evaluate($facts));
+    }
+
+    public function test_a_pull_request_leaf_is_unreadable_while_the_list_of_pull_requests_is(): void
+    {
+        $failed = new Unreadable(UnreadableKind::Failed, 'workflow.source.board');
+        $open = new ConditionLeaf(new PullRequestOpen(), []);
+
+        self::assertNull($open->unreadable(FactsMother::facts()));
+        self::assertSame($failed, $open->unreadable(FactsMother::facts(provided: [PullRequestList::class => $failed])));
+        self::assertSame($failed, new Not($open)->unreadable(FactsMother::facts(provided: [PullRequestList::class => $failed])));
     }
 
     public function test_an_unreadable_leaf_makes_every_expression_above_it_unreadable(): void

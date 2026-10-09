@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Expression;
 
 use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestList;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 
@@ -29,6 +31,8 @@ final readonly class ConditionLeaf extends Expression
     public function unreadable(Facts $facts): ?Unreadable
     {
         foreach ($this->reads() as $key) {
+            // The pull request a rule acts on comes from the list of pull requests, so the rule waits while the list is unreadable.
+            $key = EngineFact::PullRequest === $key ? PullRequestList::class : $key;
             if (!\is_string($key)) {
                 continue;
             }
