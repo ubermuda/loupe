@@ -1794,10 +1794,11 @@ export default class extends Controller {
                 ? passage
                 : passage.parentElement;
         element?.scrollIntoView({ block: 'center', behavior: 'auto' });
-        // A paragraph taller than the viewport can still hide the quote.
+        // A paragraph taller than the viewport can still hide the quote. The
+        // app shell scrolls .lp-main, and the landing demo the window.
         const line = this.anchorRanges.get(card).getClientRects?.()[0];
         if (line && (line.top < 0 || line.bottom > window.innerHeight)) {
-            window.scrollBy({
+            (element?.closest('.lp-main') ?? window).scrollBy({
                 top: line.top - (window.innerHeight - line.height) / 2,
                 behavior: 'auto',
             });

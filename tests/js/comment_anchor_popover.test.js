@@ -83,7 +83,7 @@ function card(id, quote, status = 'pending') {
 }
 
 async function mount({ earlyStatus = 'pending' } = {}) {
-    document.body.innerHTML = `<div data-controller="comment-anchor">
+    document.body.innerHTML = `<main class="lp-main"><div data-controller="comment-anchor">
         <div data-comment-anchor-target="block">
             <form data-comment-anchor-target="composer" hidden>
                 <textarea data-comment-anchor-target="composerBody"></textarea>
@@ -92,7 +92,7 @@ async function mount({ earlyStatus = 'pending' } = {}) {
             <div data-comment-anchor-target="margin">${row('late')}${row('early')}</div>
             <div id="comment-threads">${card('early', 'beta', earlyStatus)}${card('late', 'delta')}</div>
         </div>
-    </div>`;
+    </div></main>`;
     await settle();
 }
 
@@ -252,14 +252,14 @@ it('scrolls an off-screen passage into view before its row opens the thread', as
 it('scrolls to the quote when its tall paragraph still hides it', async () => {
     await mount();
     Element.prototype.scrollIntoView = () => {};
+    const pane = document.querySelector('.lp-main');
     const scrolledBy = [];
-    window.scrollBy = (options) => scrolledBy.push(options.top);
+    pane.scrollBy = (options) => scrolledBy.push(options.top);
     passageTop = 2000;
     Range.prototype.getClientRects = () => [
         { top: 2000, bottom: 2020, left: 50, right: 90, height: 20 },
     ];
     rowOf('early').click();
-    delete window.scrollBy;
 
     expect(scrolledBy).toEqual([2000 - (window.innerHeight - 20) / 2]);
     expect(opened).toEqual([cardOf('early')]);
