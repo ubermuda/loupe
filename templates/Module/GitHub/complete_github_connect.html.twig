@@ -12,7 +12,7 @@
         <twig:UX:Icon name="lucide:plug" class="w-5 h-5" aria-hidden="true" />
     </div>
     <p class="lp-consent__lead" data-callback-text>{{ 'github.connect.callback.connected'|trans({'%login%': connected.login}) }}</p>
-    <a class="lp-btn lp-btn--ghost" href="{{ connectedAppsUrl }}">{{ 'github.connect.callback.connected_apps'|trans }}</a>
+    <twig:Ds:Button variant="ghost" href="{{ connectedAppsUrl }}">{{ 'github.connect.callback.connected_apps'|trans }}</twig:Ds:Button>
 </div>
 {# The target origin is the one the project allows; never "*". #}
 <script nonce="{{ csp_nonce('script') }}">
