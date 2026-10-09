@@ -11,11 +11,13 @@ use App\Module\Board\Command\SendCardVerdictHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Entity\CardVerdictKind;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -132,6 +134,20 @@ final class SendCardVerdictHandlerTest extends KernelTestCase
         self::assertArrayNotHasKey('message', $context);
 
         self::assertEquals([new EvaluateCard((string) $card->id)], $this->evaluations());
+    }
+
+    public function test_a_verdict_asks_the_engine_to_evaluate_every_card_on_the_shared_pull_request(): void
+    {
+        $card = $this->card($this->project);
+        $sharing = $this->card($this->project, 'next', 2);
+        $pullRequest = $this->linkedPullRequest($card, 7);
+        $this->em->persist(new CardPullRequest($sharing, 'https://github.com/Acme/Widgets/pull/7', Forge::GitHub, 'Acme/Widgets', 7));
+        $this->note($card, 'One note.');
+        $this->em->flush();
+
+        $this->send($card, CardVerdictKind::Comment, [(string) $pullRequest->id], 'Look.');
+
+        self::assertEquals([new EvaluateCard((string) $card->id), new EvaluateCard((string) $sharing->id)], $this->evaluations());
     }
 
     public function test_an_approval_needs_no_message(): void
