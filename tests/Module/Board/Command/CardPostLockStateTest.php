@@ -14,7 +14,6 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
@@ -23,6 +22,7 @@ use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\ShippedCardTypes;
@@ -113,7 +113,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the mover', 'next');
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, $this->column($this->project, 'in-progress')));
+        ($this->moveCard)(new MoveCardCommand($mover, Actor::Human, $this->column($this->project, 'in-progress')));
 
         self::assertSame('next', $this->audit->record('board.card_moved')->context['fromStatus']);
         self::assertSame([0, 1], [$this->storedPosition($next), $this->storedPosition($behind)]);
@@ -128,7 +128,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the doomed card', 'next');
         $this->putInTheMiddleOfNext($doomed, $behind);
 
-        ($this->deleteCard)(new DeleteCardCommand($doomed, CardReporter::Human));
+        ($this->deleteCard)(new DeleteCardCommand($doomed, Actor::Human));
 
         self::assertSame('next', $this->audit->record('board.card_deleted')->context['status']);
         self::assertSame([0, 1], [$this->storedPosition($next), $this->storedPosition($behind)]);
@@ -145,7 +145,7 @@ final class CardPostLockStateTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $mover,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             title: 'Renamed',
             body: 'Rewritten',
             column: $this->column($this->project, 'in-progress'),
@@ -167,7 +167,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the mover', 'next');
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $mover, actor: CardReporter::Agent, column: $this->column($this->project, 'next')));
+        ($this->updateCard)(new UpdateCardCommand(card: $mover, actor: Actor::Agent, column: $this->column($this->project, 'next')));
 
         // Nothing changed, so nothing is recorded: not the move the re-read
         // ruled out, and not an update whose every flag is false.

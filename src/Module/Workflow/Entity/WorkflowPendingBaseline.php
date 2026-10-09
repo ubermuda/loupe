@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Entity;
 
-use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -23,9 +22,9 @@ class WorkflowPendingBaseline
     public private(set) ?Uuid $id = null;
 
     public function __construct(
-        #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-        #[ORM\OneToOne(targetEntity: Card::class)]
-        public readonly Card $card,
+        /** No foreign key, as the card may go. A Board listener deletes the row through WorkflowRowCleanup. */
+        #[ORM\Column(type: UuidType::NAME, unique: true)]
+        public readonly Uuid $cardId,
 
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Project::class)]

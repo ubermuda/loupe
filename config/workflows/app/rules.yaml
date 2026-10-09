@@ -4,7 +4,7 @@ rules:
     # The rule reads the state of the discovery run, so a failed run turns it false and the engine does not retry.
     - id: discovery
       slot: '@backlog'
-      when: { card.discovery_requested: {} }
+      when: { card.discovery.requested: {} }
       then:
           request:
               kind: discovery

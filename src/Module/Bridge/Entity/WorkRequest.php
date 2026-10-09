@@ -36,9 +36,6 @@ class WorkRequest
 
     public const int MAX_KIND_LENGTH = 40;
 
-    /** A kind of work, such as design, implement, fix or merge. */
-    public const string KIND_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
-
     public const int MAX_RULE_ID_LENGTH = 100;
 
     /** The id of the template rule that opened the request. */

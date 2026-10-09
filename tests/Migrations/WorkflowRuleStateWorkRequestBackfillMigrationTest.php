@@ -49,7 +49,7 @@ final class WorkflowRuleStateWorkRequestBackfillMigrationTest extends KernelTest
 
     private function state(Card $card, string $ruleId): WorkflowRuleState
     {
-        return new WorkflowRuleState($card, $card->project, $ruleId);
+        return new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, $ruleId);
     }
 
     private function request(Project $project, Card $card, string $ruleId, string $at): WorkRequest

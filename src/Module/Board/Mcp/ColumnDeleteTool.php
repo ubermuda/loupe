@@ -9,7 +9,7 @@ use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\ListBoardColumnsCommand;
 use App\Module\Board\Command\ListBoardColumnsHandler;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Workflow\Contract\Actor;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -43,7 +43,7 @@ final readonly class ColumnDeleteTool
             $column = $this->subjects->requireColumn($project, $slug, 'column', 'slug');
             $target = $this->subjects->optionalColumn($project, $targetColumn, 'column', 'targetColumn');
 
-            $deleted = ($this->deleteColumn)(new DeleteBoardColumnCommand($column, CardReporter::Agent, $target));
+            $deleted = ($this->deleteColumn)(new DeleteBoardColumnCommand($column, Actor::Agent, $target));
             $view = ($this->listColumns)(new ListBoardColumnsCommand($project));
 
             return [

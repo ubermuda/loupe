@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
@@ -30,7 +30,7 @@ class CreateCardFormType extends AbstractType
     {
         $project = $options['project'] instanceof Project ? $options['project'] : throw new \LogicException('The resolver requires a project.');
         $card = $options['card'] instanceof Card ? $options['card'] : null;
-        $types = $this->catalog->forProject($project);
+        $types = $this->catalog->forProject($project->requireId());
         // A card keeps a type its template no longer declares, so the edit form still offers it.
         $typeKeys = null === $card || $types->has($card->type) ? $types->keys() : [...$types->keys(), $card->type];
 

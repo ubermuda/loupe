@@ -52,7 +52,7 @@ final class WorkflowClosedUnmergedRuleDropMigrationTest extends KernelTestCase
         $card = new Card($binding->project, $this->column($binding->project, 'in-progress'), 'Card', '', 1);
         $this->em()->persist($card);
         foreach (['closed-unmerged', 'merged'] as $ruleId) {
-            $state = new WorkflowRuleState($card, $card->project, $ruleId);
+            $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, $ruleId);
             $state->attempts = 1;
             $state->dueAt = new \DateTimeImmutable('2026-10-02 12:10:00');
             $this->em()->persist($state);

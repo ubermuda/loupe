@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Workflow\Contract\Actor;
 
 final readonly class DeleteBoardColumnCommand
 {
@@ -14,7 +14,7 @@ final readonly class DeleteBoardColumnCommand
      */
     public function __construct(
         public BoardColumn $column,
-        public CardReporter $actor,
+        public Actor $actor,
         public ?BoardColumn $target = null,
     ) {
     }

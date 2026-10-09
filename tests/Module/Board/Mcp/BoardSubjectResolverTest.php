@@ -7,12 +7,12 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Mcp\BoardSubjectResolver;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Module\Workflow\Contract\Actor;
 use App\Security\McpBoundProjectVoter;
 use App\Tests\Support\McpTokenScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -71,8 +71,8 @@ final class BoardSubjectResolverTest extends KernelTestCase
     {
         // Guard: the two an agent may claim still resolve, so the refusal below
         // is about this value rather than about reporters being refused wholesale.
-        self::assertSame(CardReporter::Human, $this->resolver->requireClaimedReporter('human'));
-        self::assertSame(CardReporter::Agent, $this->resolver->requireClaimedReporter('agent'));
+        self::assertSame(Actor::Human, $this->resolver->requireClaimedReporter('human'));
+        self::assertSame(Actor::Agent, $this->resolver->requireClaimedReporter('agent'));
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('Unknown reporter "reviewer". Use one of: human, agent.');
@@ -82,9 +82,9 @@ final class BoardSubjectResolverTest extends KernelTestCase
     /** A filter matches a reporter rather than claiming one, so it reads the widget's cards too. */
     public function test_a_filter_reads_every_reporter_including_reviewer(): void
     {
-        self::assertSame(CardReporter::Reviewer, $this->resolver->requireReporter('reviewer'));
-        self::assertSame(CardReporter::Human, $this->resolver->requireReporter('human'));
-        self::assertSame(CardReporter::Agent, $this->resolver->requireReporter('agent'));
+        self::assertSame(Actor::Reviewer, $this->resolver->requireReporter('reviewer'));
+        self::assertSame(Actor::Human, $this->resolver->requireReporter('human'));
+        self::assertSame(Actor::Agent, $this->resolver->requireReporter('agent'));
     }
 
     public function test_a_filter_refuses_a_reporter_that_is_not_a_value(): void

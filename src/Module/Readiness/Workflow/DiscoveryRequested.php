@@ -15,7 +15,7 @@ final readonly class DiscoveryRequested implements Condition
     #[\Override]
     public static function key(): string
     {
-        return 'card.discovery_requested';
+        return 'card.discovery.requested';
     }
 
     #[\Override]

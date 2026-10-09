@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Service;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Service\BoardCardReportSource;
@@ -16,6 +15,7 @@ use App\Module\Bridge\Experiment\CardOutcome;
 use App\Module\Bridge\Experiment\CardReportSourceInterface;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -155,7 +155,7 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $card = $this->em->find(Card::class, $cardId) ?? throw new \LogicException('The card exists.');
         $events = self::getContainer()->get(CardEventRepository::class);
         self::assertInstanceOf(CardEventRepository::class, $events);
-        $events->record($card, $kind, CardReporter::System, null, $detail, $at);
+        $events->record($card, $kind, Actor::System, null, $detail, $at);
         $this->em->flush();
     }
 

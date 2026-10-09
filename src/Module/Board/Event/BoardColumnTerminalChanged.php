@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Event;
 
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 
 /**
  * Dispatched by TerminalColumnCards inside the transaction that flipped the
@@ -20,7 +20,7 @@ final readonly class BoardColumnTerminalChanged
         public string $columnId,
         public bool $terminal,
         public array $cardIds,
-        public CardReporter $actor,
+        public Actor $actor,
     ) {
     }
 }

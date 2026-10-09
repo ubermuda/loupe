@@ -24,10 +24,10 @@ use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -200,7 +200,7 @@ final readonly class CreateCardHandler
             CardChanged::CREATED,
             true,
         ));
-        if ($card->drawsLane($this->catalog->forProject($command->project))) {
+        if ($card->drawsLane($this->catalog->forProject($command->project->requireId()))) {
             $this->events->dispatch(new BoardColumnsChanged($command->project));
         }
 

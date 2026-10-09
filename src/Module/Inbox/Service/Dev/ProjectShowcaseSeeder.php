@@ -12,7 +12,6 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
@@ -20,7 +19,6 @@ use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
@@ -54,6 +52,8 @@ use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\Uid\Uuid;
@@ -616,10 +616,10 @@ final readonly class ProjectShowcaseSeeder
         $this->em->persist(new WorkerRunStateChange($open, WorkerRunState::Running, $startedAt, $startedAt));
         $this->em->flush();
 
-        $this->cardEvents->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => $backlog, 'type' => $card->type], new \DateTimeImmutable('-4 days'));
-        $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::Agent, $owner, ['from' => $backlog, 'to' => $inProgress, 'cause' => null], new \DateTimeImmutable('-3 days'));
-        $this->cardEvents->record($card, CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks-failed', 'pullRequest' => 441], new \DateTimeImmutable('-48 hours'));
-        $this->cardEvents->record($card, CardEventKind::RunFinished, CardReporter::Agent, $owner, [
+        $this->cardEvents->record($card, CardEventKind::Created, Actor::Human, $owner, ['column' => $backlog, 'type' => $card->type], new \DateTimeImmutable('-4 days'));
+        $this->cardEvents->record($card, CardEventKind::Moved, Actor::Agent, $owner, ['from' => $backlog, 'to' => $inProgress, 'cause' => null], new \DateTimeImmutable('-3 days'));
+        $this->cardEvents->record($card, CardEventKind::FixRequested, Actor::System, null, ['reason' => 'checks-failed', 'pullRequest' => 441], new \DateTimeImmutable('-48 hours'));
+        $this->cardEvents->record($card, CardEventKind::RunFinished, Actor::Agent, $owner, [
             'runId' => (string) $finished->id,
             'workKind' => $finished->workKind,
             'state' => $finished->state->value,
@@ -628,9 +628,9 @@ final readonly class ProjectShowcaseSeeder
             'endedAt' => $endedAt->format(\DateTimeInterface::ATOM),
             'durationSeconds' => 434,
         ], $endedAt);
-        $this->cardEvents->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => 441], new \DateTimeImmutable('-30 hours'));
-        $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::System, null, ['from' => $inProgress, 'to' => $done, 'cause' => CardEventCause::merged(441)->detail()], new \DateTimeImmutable('-28 hours'));
-        $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::Human, $owner, ['from' => $done, 'to' => $inProgress, 'cause' => null], new \DateTimeImmutable('-6 hours'));
+        $this->cardEvents->record($card, CardEventKind::ReadyToMerge, Actor::System, null, ['pullRequest' => 441], new \DateTimeImmutable('-30 hours'));
+        $this->cardEvents->record($card, CardEventKind::Moved, Actor::System, null, ['from' => $inProgress, 'to' => $done, 'cause' => CardEventCause::merged(441)->detail()], new \DateTimeImmutable('-28 hours'));
+        $this->cardEvents->record($card, CardEventKind::Moved, Actor::Human, $owner, ['from' => $done, 'to' => $inProgress, 'cause' => null], new \DateTimeImmutable('-6 hours'));
     }
 
     /** An epic lane whose child card holds the warning of a run that gave up. */
@@ -741,7 +741,7 @@ final readonly class ProjectShowcaseSeeder
             body: '',
             number: $this->cards->nextNumber($project),
             type: 'feature',
-            origin: CardReporter::Reviewer,
+            origin: Actor::Reviewer,
         );
         $basket->completedAt = $now->modify('-1 day');
         $this->em->persist($basket);

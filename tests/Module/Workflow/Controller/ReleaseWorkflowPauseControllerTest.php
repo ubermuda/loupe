@@ -9,11 +9,11 @@ use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\BindWorkflowTemplateHandler;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Tests\Module\Board\Controller\BoardScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -38,7 +38,7 @@ final class ReleaseWorkflowPauseControllerTest extends WebTestCase
 
     public function test_the_manager_releases_a_retries_pause_and_returns_to_the_card(): void
     {
-        [$project, $card, $pause] = $this->paused('release-ok@example.com', CardPauseKind::Retries);
+        [$project, $card, $pause] = $this->paused('release-ok@example.com', PauseKind::Retries);
 
         $this->post($project, $card, $pause);
 
@@ -53,7 +53,7 @@ final class ReleaseWorkflowPauseControllerTest extends WebTestCase
 
     public function test_a_refused_release_flashes_its_reason_and_keeps_the_pause(): void
     {
-        [$project, $card, $pause] = $this->paused('release-rule@example.com', CardPauseKind::Rule);
+        [$project, $card, $pause] = $this->paused('release-rule@example.com', PauseKind::Rule);
 
         $this->post($project, $card, $pause);
 
@@ -65,7 +65,7 @@ final class ReleaseWorkflowPauseControllerTest extends WebTestCase
 
     public function test_a_user_who_does_not_manage_the_project_is_refused(): void
     {
-        [$project, $card, $pause] = $this->paused('release-owner@example.com', CardPauseKind::Retries);
+        [$project, $card, $pause] = $this->paused('release-owner@example.com', PauseKind::Retries);
         $stranger = $this->user($this->em, 'release-stranger@example.com');
 
         $this->post($project, $card, $pause, as: $stranger);
@@ -76,7 +76,7 @@ final class ReleaseWorkflowPauseControllerTest extends WebTestCase
 
     public function test_a_bad_csrf_token_is_refused(): void
     {
-        [$project, $card, $pause] = $this->paused('release-csrf@example.com', CardPauseKind::Retries);
+        [$project, $card, $pause] = $this->paused('release-csrf@example.com', PauseKind::Retries);
 
         $this->post($project, $card, $pause, token: 'invalid-token');
 
@@ -86,7 +86,7 @@ final class ReleaseWorkflowPauseControllerTest extends WebTestCase
 
     public function test_a_card_of_another_project_is_not_found(): void
     {
-        [$project, , $pause] = $this->paused('release-scope@example.com', CardPauseKind::Retries);
+        [$project, , $pause] = $this->paused('release-scope@example.com', PauseKind::Retries);
         $other = $this->project($this->em, $project->owner, 'other-board');
         $foreign = $this->card($this->em, $other, 'Foreign', 'next');
 
@@ -101,7 +101,7 @@ final class ReleaseWorkflowPauseControllerTest extends WebTestCase
      *
      * @return array{Project, Card, CardPause}
      */
-    private function paused(string $email, CardPauseKind $kind): array
+    private function paused(string $email, PauseKind $kind): array
     {
         $owner = $this->user($this->em, $email);
         $project = $this->project($this->em, $owner);

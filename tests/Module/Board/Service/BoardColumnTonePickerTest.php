@@ -6,9 +6,9 @@ namespace App\Tests\Module\Board\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Service\BoardColumnTonePicker;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\LabelTone;
 use PHPUnit\Framework\TestCase;
 use Random\Engine\Mt19937;
 use Random\Randomizer;

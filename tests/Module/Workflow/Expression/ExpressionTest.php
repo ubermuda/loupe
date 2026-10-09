@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Expression;
 
-use App\Module\Workflow\Condition\CardHasOpenBlocker;
-use App\Module\Workflow\Condition\CardHasType;
-use App\Module\Workflow\Condition\CardIsChild;
-use App\Module\Workflow\Condition\PullRequestChecksFailed;
+use App\Module\Board\Workflow\BlockerFacts;
+use App\Module\Board\Workflow\CardTypeFacts;
+use App\Module\Board\Workflow\Condition\CardHasOpenBlocker;
+use App\Module\Board\Workflow\Condition\CardHasType;
+use App\Module\Board\Workflow\Condition\CardParentExists;
+use App\Module\Board\Workflow\Condition\PullRequestChecksFailed;
+use App\Module\Board\Workflow\Condition\PullRequestOpen;
+use App\Module\Board\Workflow\ParentFacts;
 use App\Module\Workflow\Contract\ChecksState;
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
+use App\Module\Workflow\Contract\PullRequestList;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Expression\AllOf;
@@ -51,7 +56,7 @@ final class ExpressionTest extends TestCase
 
     public function test_all_of_gives_its_first_false_leaf(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $all = new AllOf([$child, $blocker]);
 
@@ -66,7 +71,7 @@ final class ExpressionTest extends TestCase
 
     public function test_any_of_is_true_when_one_child_is_true_and_else_gives_the_first_leaf(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $any = new AnyOf([$child, $blocker]);
 
@@ -132,7 +137,7 @@ final class ExpressionTest extends TestCase
 
     public function test_not_over_all_of_blocks_with_the_negated_sentence(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $not = new Not(new AllOf([$child, $blocker]));
 
@@ -146,7 +151,7 @@ final class ExpressionTest extends TestCase
 
     public function test_not_over_any_of_blocks_with_the_negated_sentence(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $not = new Not(new AnyOf([$child, $blocker]));
 
@@ -160,7 +165,7 @@ final class ExpressionTest extends TestCase
 
     public function test_a_not_inside_all_of_keeps_the_negation(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $all = new AllOf([$child, new Not($blocker)]);
 
@@ -173,29 +178,29 @@ final class ExpressionTest extends TestCase
 
     public function test_a_leaf_reads_what_its_condition_reads(): void
     {
-        self::assertSame([FactKey::CardType], new ConditionLeaf(new CardHasType(), ['type' => 'epic'])->reads());
+        self::assertSame([CardTypeFacts::class], new ConditionLeaf(new CardHasType(), ['type' => 'epic'])->reads());
     }
 
     public function test_a_composite_reads_the_keys_of_its_children_once_in_first_seen_order(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $checks = new ConditionLeaf(new PullRequestChecksFailed(), []);
 
         $expression = new AllOf([$blocker, new AnyOf([$child, new Not($blocker)]), new Not($checks), $child]);
 
-        self::assertSame([FactKey::Blockers, FactKey::Parent, FactKey::PullRequest], $expression->reads());
-        self::assertSame([FactKey::Parent, FactKey::Blockers], new AnyOf([$child, $blocker, $child])->reads());
-        self::assertSame([FactKey::PullRequest], new Not($checks)->reads());
+        self::assertSame([BlockerFacts::class, ParentFacts::class, EngineFact::PullRequest], $expression->reads());
+        self::assertSame([ParentFacts::class, BlockerFacts::class], new AnyOf([$child, $blocker, $child])->reads());
+        self::assertSame([EngineFact::PullRequest], new Not($checks)->reads());
         self::assertSame([], new AllOf([])->reads());
     }
 
     public function test_a_composite_reads_a_facts_class_once_beside_the_fact_keys(): void
     {
         $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
 
-        self::assertSame([ProvidedFacts::class, FactKey::Parent], new AllOf([$provided, new Not($provided), $child, $provided])->reads());
+        self::assertSame([ProvidedFacts::class, ParentFacts::class], new AllOf([$provided, new Not($provided), $child, $provided])->reads());
     }
 
     public function test_a_leaf_over_readable_provided_facts_evaluates_them(): void
@@ -207,12 +212,22 @@ final class ExpressionTest extends TestCase
         self::assertTrue($provided->evaluate($facts));
     }
 
+    public function test_a_pull_request_leaf_is_unreadable_while_the_list_of_pull_requests_is(): void
+    {
+        $failed = new Unreadable(UnreadableKind::Failed, 'workflow.source.board');
+        $open = new ConditionLeaf(new PullRequestOpen(), []);
+
+        self::assertNull($open->unreadable(FactsMother::facts()));
+        self::assertSame($failed, $open->unreadable(FactsMother::facts(provided: [PullRequestList::class => $failed])));
+        self::assertSame($failed, new Not($open)->unreadable(FactsMother::facts(provided: [PullRequestList::class => $failed])));
+    }
+
     public function test_an_unreadable_leaf_makes_every_expression_above_it_unreadable(): void
     {
         $failed = new Unreadable(UnreadableKind::Failed, 'workflow.source.board');
         $facts = FactsMother::facts(card: FactsMother::card(isChild: true), provided: [ProvidedFacts::class => $failed]);
         $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
 
         self::assertSame($failed, $provided->unreadable($facts));
         self::assertSame($failed, new Not($provided)->unreadable($facts));
@@ -249,7 +264,7 @@ final class ExpressionTest extends TestCase
 
     public function test_an_expression_lists_the_keys_of_its_missing_conditions_in_template_order(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $gone = new MissingConditionLeaf('card.gone', []);
         $lost = new MissingConditionLeaf('pr.lost', []);
 
