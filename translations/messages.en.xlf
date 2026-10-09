@@ -7078,7 +7078,7 @@
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.help">
                 <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
-                <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
+                <target>Has no effect. The rule of the workflow decides this write.</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.label">
                 <source>board.form.save_board_automation_settings_form.merge_pull_requests.label</source>
