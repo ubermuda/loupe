@@ -102,8 +102,21 @@ decision in the list. A green tag shows an answered decision, and a grey tag
 shows one with no answer. A note shows under the answer as "Note:" and its text.
 Select a row to go to its decision in the text.
 
-The Comments panel lists the threads, general comments first, then the others in
-passage order. The Outline panel lists the sections and links to each one.
+The Comments panel lists each thread on two lines. The first line is the quoted
+passage in grey, and the second line is the comment. General comments come
+first, then the threads in passage order. A thread whose passage is gone from
+this version sits under **No longer in the text**, with its quote struck
+through. A resolved thread fades. The panel ends with **Comment on the whole
+document**, which opens the composer for a general comment above the text.
+
+Select a highlighted passage, or a row in the Comments panel, to open its
+thread in a popover over the passage. A thread with no passage opens beside its
+row. The popover shows the author, the status, the replies and a reply field,
+with **Delete**, **Reply** and **Resolve**, or **Reopen** on a resolved thread.
+Press Esc, or select outside the popover, to close it. A link to a thread, such
+as `#comment-thread-<id>`, opens that thread when the page loads.
+
+The Outline panel lists the sections and links to each one.
 Decisions is disabled when the document has no decisions. Its tooltip says why.
 
 The filter in the Comments panel head shows counts for Open, Resolved, Unanchored and All.
@@ -119,9 +132,6 @@ When a kind has more than one link, the menu shows its count and the first
 three links. Select **Show N more** to see the rest. The menu ends with
 **Version history** and, when the document has more than one version,
 **Compare versions**. The History page shows the version notes.
-
-Select **Add general comment** in the header to comment on the whole document.
-Its composer opens above the text.
 
 When the inbox is on, the review page lists the inbox items linked to the
 document above it, and you can answer them there. See
@@ -147,7 +157,7 @@ and resolved counts, a chip that counts the addressed threads, and **All
 answered** when no thread is pending. The banner above the document counts the
 orphaned threads. Every count is a thread count, so a reply never adds to one.
 
-The General comments and orphaned-thread buttons expand or collapse their groups.
+The General comments and **No longer in the text** buttons expand or collapse their groups.
 Each button reports its expanded state to assistive technology.
 You can reverse a panel transition with another click. Panels, dialogs, and flash
 messages skip their movement when your system requests reduced motion.
@@ -155,7 +165,7 @@ messages skip their movement when your system requests reduced motion.
 ### Deleted threads
 
 Delete hides a thread and its replies from the review without changing their status.
-Confirm the deletion, then a notice replaces the thread in the Comments panel.
+Confirm the deletion, then a notice shows in the Comments panel.
 Select **Undo** in that notice to restore the thread and its replies.
 A thread restored on an older version stays read-only.
 
@@ -168,8 +178,8 @@ Deleting the project or account also removes its hidden threads.
 
 On narrow screens, the toolbar and the open panels appear above the document.
 The corner menu also provides section navigation, version links, references and review actions.
-Each comment card shows its author, status, body, replies and actions.
-Cards move down when necessary to prevent overlap.
+The Comments panel shows its rows there too, and a thread opens in a popover
+that stays inside the screen.
 Reply opens an inline form, puts the caret in it, and preserves its draft when closed.
 Select **Cancel** in that form to close it again.
 
@@ -177,13 +187,11 @@ A comment does not repeat its highlighted passage.
 Suggestions and strikes retain the quoted text.
 A thread whose passage is absent from this version also retains its quote.
 
-On narrow screens, comment cards stack below the document in passage order.
 Resizing the window preserves open reply forms and their drafts.
 
 Touch works the same way as a mouse. Select a passage and the comment toolbar
 appears. A highlighted passage has no hover, so a tap on one takes its place: the
-passage and its card light up together, and a tap on plain text drops the pair
-again.
+passage opens its thread in a popover, and a tap on plain text closes it.
 
 Three views help across versions:
 

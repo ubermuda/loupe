@@ -18,6 +18,7 @@ import {
     suppressWidget,
 } from '../fixtures';
 import { coverageScaled } from '../timeouts';
+import { commentRow } from './panels';
 
 // Guest by default — each test logs in as the user it just created.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -150,7 +151,7 @@ async function selectPhrase(
 
             const range = document.createRange();
             range.setStart(start.node, start.index);
-            if (end === null) {
+            if (end === null || to === undefined) {
                 range.setEnd(start.node, start.index + from.length);
             } else {
                 range.setEnd(end.node, end.index + to.length);
@@ -340,11 +341,10 @@ test('a comment made on an inserted run lands on the current version', async ({
     });
 
     // The thread list is on the diff page too, so the stream that replaces it
-    // has somewhere to land.
-    await expect(page.locator('#comment-threads')).toContainText(
-        'Three steps reads better.',
-        { timeout: coverageScaled(10000) },
-    );
+    // has somewhere to land, and the post opens the Comments panel on its row.
+    await expect(commentRow(page, 'Three steps reads better.')).toBeVisible({
+        timeout: coverageScaled(10000),
+    });
 
     // storedAnchors reads the LATEST version's comments, so the quote appearing
     // here is the whole claim: an ordinary anchor on the current version.
@@ -377,6 +377,7 @@ test('side-by-side takes no comment and carries no comment column', async ({
     await expect(page.locator(TOOLBAR)).toHaveCount(0);
     await expect(page.locator('.lp-review-margin')).toHaveCount(0);
     await expect(page.locator('#comment-threads')).toHaveCount(0);
+    await expect(page.locator('#comment-rows')).toHaveCount(0);
     await expect(page.locator('#diff-columns-notice')).toContainText(
         'no comment column',
     );
@@ -440,6 +441,7 @@ test('a diff whose newer side is not the current version offers no commenting', 
     await expect(page.locator(DOC)).toHaveCount(0);
     await expect(page.locator(TOOLBAR)).toHaveCount(0);
     await expect(page.locator('#comment-threads')).toHaveCount(0);
+    await expect(page.locator('#comment-rows')).toHaveCount(0);
 
     await page.goto(
         `/projects/${projectId}/documents/${documentId}/review/diff/1/2?view=side-by-side`,
@@ -485,10 +487,9 @@ test('an anchor that spans a removal is never painted over the removed text', as
     await page.getByRole('button', { name: 'Comment', exact: true }).click();
     await page.locator(COMPOSER_BODY).fill('Reads well now.');
     await page.getByRole('button', { name: 'Post' }).click();
-    await expect(page.locator('#comment-threads')).toContainText(
-        'Reads well now.',
-        { timeout: coverageScaled(10000) },
-    );
+    await expect(commentRow(page, 'Reads well now.')).toBeVisible({
+        timeout: coverageScaled(10000),
+    });
 
     // Painted on the document page, so the diff page's answer below is about the
     // diff and not about the anchor being unusable everywhere.
@@ -502,7 +503,7 @@ test('an anchor that spans a removal is never painted over the removed text', as
         `/projects/${projectId}/documents/${documentId}/review/diff/1/2`,
     );
     await expect(page.locator(DOC)).toBeVisible();
-    await expect(page.locator('#comment-threads')).toContainText(
+    await expect(page.locator('#comment-rows')).toContainText(
         'Reads well now.',
     );
     await expect(page.locator('.lp-diff__mark--deleted').first()).toBeVisible();

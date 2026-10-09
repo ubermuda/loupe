@@ -180,7 +180,7 @@ export default class extends Controller {
             '.lp-general-comments, .lp-orphan-group',
         )) {
             group.hidden = !group.querySelector(
-                '.lp-comment-thread:not([hidden])',
+                '.lp-comment-row:not([hidden])',
             );
         }
         window.dispatchEvent(new Event('resize'));

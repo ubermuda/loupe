@@ -121,7 +121,6 @@
                 lastSeenVersionNumber: diffMode or readOnly ? null : lastSeenVersionNumber,
                 showWaitLine: not diffMode and not readOnly,
                 showPageMenu: true,
-                canComment: canComment,
                 showNewTextSwitch: not diffMode,
             } only %}
 
@@ -283,9 +282,12 @@
                 answeredDecisions: answeredDecisions,
                 sectionRows: sectionRows,
                 comments: comments,
-                readOnlyThreads: readOnly and not diffCommenting,
+                canComment: canComment,
                 commentCount: signals.threadCount,
             } only %}
+            {% if (not diffMode or diffCommenting) and not diffColumns %}
+            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly and not diffCommenting} only %}
+            {% endif %}
 
             {# The one part the diff view replaces — see diff_document_versions.html.twig.
                Everything else on this page reads the same in both modes, which is

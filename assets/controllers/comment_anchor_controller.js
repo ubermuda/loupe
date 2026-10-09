@@ -22,10 +22,10 @@ import {
  * characters.
  *
  * Display: each existing thread's anchor is highlighted in the document (CSS
- * Custom Highlight API — no DOM mutation, so `textContent` stays intact) and the
- * thread card is positioned vertically near its anchor. Positioning degrades to
- * normal document flow on any failure. Where the stylesheet gives the page no
- * comment column, the cards stack below the prose in passage order.
+ * Custom Highlight API — no DOM mutation, so `textContent` stays intact). On the
+ * landing demo the card sits level with its anchor in an absolute margin. On the
+ * review page each card is a popover that a click on its highlight or on its
+ * row in the Comments panel opens, and the rows stack in passage order.
  *
  * Three actions share that one captured selection. Comment and Suggest open a
  * composer; Strike submits a hidden form outright, which is what lets it also be
@@ -62,6 +62,7 @@ export default class extends Controller {
         'actionError',
         'toolbar',
         'thread',
+        'row',
         'agentHighlight',
         'prototype',
     ];
@@ -157,6 +158,9 @@ export default class extends Controller {
     // handles are dragged, so the toolbar waits for the last of them.
     static SELECTION_SETTLE_MS = 250;
 
+    // Space kept between an open thread popover, its passage and the viewport.
+    static POPOVER_MARGIN = 8;
+
     connect() {
         this.transport = this.demoValue
             ? new DemoTransport(this)
@@ -173,6 +177,17 @@ export default class extends Controller {
         this.docTextCache = null;
         this.pointerDown = false;
         this.selectionSettle = null;
+        this.openCard = null;
+        this.openThreadId = null;
+        this.pressedOpenCard = null;
+        this.threadToReopen = null;
+        this.placementFrame = null;
+        // A restored comment links here with its card id as the fragment.
+        this.threadIdFromHash = window.location.hash.startsWith(
+            '#comment-thread-',
+        )
+            ? window.location.hash.slice(1)
+            : null;
         this.#restoreHideResolved();
         this.#hideToolbar();
         this.#hideComposer();
@@ -190,6 +205,13 @@ export default class extends Controller {
             this.#scheduleLayout();
         };
         window.addEventListener('resize', this.onResize);
+
+        // Capture, so a scroll of the panel column or of the card moves it too.
+        this.onViewportScroll = () => this.#schedulePlacement();
+        document.addEventListener('scroll', this.onViewportScroll, true);
+        // A popover toggle does not bubble, so it is caught on the way down.
+        this.onToggle = (event) => this.#onToggle(event);
+        this.element.addEventListener('toggle', this.onToggle, true);
 
         // Web fonts land after first layout and change every line box, so a
         // measurement taken before they arrive places every card a few pixels
@@ -245,10 +267,31 @@ export default class extends Controller {
             childList: true,
             subtree: true,
         });
+
+        // The Undo notice of a deleted thread lands in the Comments panel, which
+        // can be closed when the delete came from a popover.
+        this.onStreamRender = (event) => {
+            if (event.target?.getAttribute?.('target') === 'comment-recovery') {
+                this.dispatch('reveal', { detail: { thread: null } });
+            }
+        };
+        document.addEventListener(
+            'turbo:before-stream-render',
+            this.onStreamRender,
+        );
     }
 
     threadTargetConnected(thread) {
         this.resizeObserver?.observe(thread);
+        // A stream replaced the open card. The new one opens once the next
+        // layout has located its passage.
+        if (
+            this.openThreadId !== null &&
+            thread.id === this.openThreadId &&
+            thread !== this.openCard
+        ) {
+            this.threadToReopen = thread;
+        }
         // The stream replaces the whole list, so the new card is the one whose
         // id the list did not hold when the submit began.
         if (
@@ -263,10 +306,38 @@ export default class extends Controller {
 
     threadTargetDisconnected(thread) {
         this.resizeObserver?.unobserve(thread);
+        if (thread !== this.openCard) {
+            return;
+        }
+        this.#unmarkOpenThread(thread);
+        this.openCard = null;
+        // The replacement connects in the same mutation batch. When none does,
+        // the thread was deleted and nothing reopens.
+        setTimeout(() => {
+            if (
+                this.openCard === null &&
+                this.threadToReopen === null &&
+                !this.threadTargets.some(
+                    (each) => each.id === this.openThreadId,
+                )
+            ) {
+                this.openThreadId = null;
+                this.#clearActiveHighlight();
+            }
+        }, 0);
     }
 
     disconnect() {
+        document.removeEventListener(
+            'turbo:before-stream-render',
+            this.onStreamRender,
+        );
         window.removeEventListener('resize', this.onResize);
+        document.removeEventListener('scroll', this.onViewportScroll, true);
+        this.element.removeEventListener('toggle', this.onToggle, true);
+        if (this.placementFrame !== null) {
+            cancelAnimationFrame(this.placementFrame);
+        }
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('pointerdown', this.onPointerDown, true);
         document.removeEventListener('pointerup', this.onPointerUp, true);
@@ -344,14 +415,14 @@ export default class extends Controller {
     }
 
     /**
-     * A click or a tap on a highlighted passage rings its card, tints the
-     * passage, and opens the Comments panel on that card. A click on bare prose
-     * drops the pairing, which is how a reader lets one go.
+     * A click or a tap on a highlighted passage opens its thread over the
+     * passage. A click on bare prose drops the pairing, which is how a reader
+     * lets one go.
      */
     onDocClick(event) {
         if (
             event.target.closest?.(
-                '.lp-comment-thread, .lp-anchor-toolbar, .lp-comment-composer',
+                '.lp-comment-thread, .lp-comment-row, .lp-anchor-toolbar, .lp-comment-composer',
             )
         ) {
             return;
@@ -366,11 +437,215 @@ export default class extends Controller {
             this.#clearAnchorHover();
         }
         if (this.hoveredThread !== null) {
-            this.#revealThread(this.hoveredThread);
+            this.#openThread(this.hoveredThread);
         }
     }
 
-    /** Asks review-panels to show Comments, then scrolls to the card after the next layout. */
+    /**
+     * Row action. Light dismiss closes an open popover before the click
+     * arrives, so the press records whether this row's thread was the open one.
+     */
+    pressRow(event) {
+        const card = this.#cardFor(event.currentTarget);
+        this.pressedOpenCard =
+            card !== null && card === this.openCard ? card : null;
+    }
+
+    /** Row action: open the row's thread, or close it when it is open. */
+    openRow(event) {
+        event?.preventDefault();
+        const card = this.#cardFor(event.currentTarget);
+        const wasOpen =
+            card !== null &&
+            (card === this.pressedOpenCard || card === this.openCard);
+        this.pressedOpenCard = null;
+        if (card === null) {
+            return;
+        }
+        if (wasOpen) {
+            this.#closeThread();
+
+            return;
+        }
+        const box = this.anchorRanges?.get(card)?.getBoundingClientRect();
+        if (box && (box.top < 0 || box.bottom > window.innerHeight)) {
+            this.#scrollToPassage(card);
+        }
+        this.#openThread(card);
+    }
+
+    /** Row action: light the passage the row's thread points at. */
+    focusRow(event) {
+        const card = this.#cardFor(event.currentTarget);
+        if (card !== null) {
+            this.#setHoveredThread(card);
+        }
+    }
+
+    blurRow(event) {
+        const card = this.#cardFor(event.currentTarget);
+        if (card !== null && this.hoveredThread === card) {
+            this.#setHoveredThread(null);
+        }
+    }
+
+    #cardFor(row) {
+        const id = row?.dataset.threadId ?? '';
+
+        return this.threadTargets.find((thread) => thread.id === id) ?? null;
+    }
+
+    #rowFor(card) {
+        if (card.id === '') {
+            return null;
+        }
+
+        return (
+            this.rowTargets.find((row) => row.dataset.threadId === card.id) ??
+            null
+        );
+    }
+
+    #openThread(card) {
+        if (
+            !card.hasAttribute('popover') ||
+            typeof card.showPopover !== 'function'
+        ) {
+            return;
+        }
+        if (this.openCard !== null && this.openCard !== card) {
+            this.#unmarkOpenThread(this.openCard);
+        }
+        this.openCard = card;
+        this.openThreadId = card.id;
+        try {
+            card.showPopover();
+        } catch {
+            // Already open, which is the state this asks for.
+        }
+        this.#placeCard(card);
+        this.#markOpenThread(card);
+    }
+
+    #closeThread() {
+        const card = this.openCard;
+        if (card === null) {
+            return;
+        }
+        this.#threadClosed(card);
+        try {
+            card.hidePopover();
+        } catch {
+            // Light dismiss closed it already.
+        }
+    }
+
+    #threadClosed(card) {
+        this.#unmarkOpenThread(card);
+        this.openCard = null;
+        this.openThreadId = null;
+        this.#clearActiveHighlight();
+    }
+
+    #markOpenThread(card) {
+        const range = this.anchorRanges?.get(card);
+        if (range === undefined) {
+            this.#clearActiveHighlight();
+        } else {
+            this.#setActiveHighlight(range);
+        }
+        const row = this.#rowFor(card);
+        row?.classList.add('lp-comment-row--active');
+        row?.setAttribute('aria-expanded', 'true');
+    }
+
+    #unmarkOpenThread(card) {
+        const row = this.#rowFor(card);
+        row?.classList.remove('lp-comment-row--active');
+        row?.setAttribute('aria-expanded', 'false');
+    }
+
+    // The browser closes a popover on light dismiss and on Escape. A card a
+    // stream removed also reports a close, and the reopen path owns that one.
+    #onToggle(event) {
+        const card = event.target;
+        if (
+            event.newState !== 'closed' ||
+            card !== this.openCard ||
+            !card.isConnected
+        ) {
+            return;
+        }
+        this.#threadClosed(card);
+    }
+
+    #threadOpen() {
+        if (this.openCard === null) {
+            return false;
+        }
+        try {
+            return this.openCard.matches(':popover-open');
+        } catch {
+            return true;
+        }
+    }
+
+    #schedulePlacement() {
+        if (this.openCard === null || this.placementFrame !== null) {
+            return;
+        }
+        this.placementFrame = requestAnimationFrame(() => {
+            this.placementFrame = null;
+            if (this.openCard?.isConnected) {
+                this.#placeCard(this.openCard);
+            }
+        });
+    }
+
+    /**
+     * Places an open card under the first line of its passage, or above it
+     * when there is no room below. A thread with no passage opens beside its
+     * row. Either way the card stays inside the viewport.
+     */
+    #placeCard(card) {
+        const margin = this.constructor.POPOVER_MARGIN;
+        const width = card.offsetWidth;
+        const height = card.offsetHeight;
+        const viewportWidth = document.documentElement.clientWidth;
+        const viewportHeight = window.innerHeight;
+        const lines = this.anchorRanges?.get(card)?.getClientRects() ?? [];
+        const row = this.#rowFor(card);
+        let top = (viewportHeight - height) / 2;
+        let left = (viewportWidth - width) / 2;
+
+        if (lines.length > 0) {
+            const line = lines[0];
+            top = line.bottom + margin;
+            left = line.left;
+            if (
+                top + height > viewportHeight - margin &&
+                line.top - margin - height >= margin
+            ) {
+                top = line.top - margin - height;
+            }
+        } else if (row !== null && row.offsetParent !== null) {
+            const box = row.getBoundingClientRect();
+            if (box.left - margin - width >= margin) {
+                top = box.top;
+                left = box.left - margin - width;
+            } else {
+                top = box.bottom + margin;
+                left = box.left;
+            }
+        }
+
+        const clamp = (value, size, limit) =>
+            Math.max(margin, Math.min(value, limit - size - margin));
+        card.style.top = `${Math.round(clamp(top, height, viewportHeight))}px`;
+        card.style.left = `${Math.round(clamp(left, width, viewportWidth))}px`;
+    }
+
+    /** Asks review-panels to show Comments, then scrolls to the row after the next layout. */
     #revealThread(thread) {
         this.dispatch('reveal', { detail: { thread } });
         this.threadToReveal = thread;
@@ -656,8 +931,12 @@ export default class extends Controller {
     #onKeydown(event) {
         // Escape backs out of whatever is open, in the order a reader would
         // expect to undo it: the composer they are filling in first, then the
-        // toolbar that opened it.
+        // toolbar that opened it. An open thread goes first, and the browser
+        // closes that one itself.
         if (event.key === 'Escape') {
+            if (this.#threadOpen()) {
+                return;
+            }
             if (this.#anyComposerOpen()) {
                 this.hideComposer(event);
             } else {
@@ -1302,7 +1581,10 @@ export default class extends Controller {
         // on one still reaches here. A probe already queued from the prose would
         // run after that card's own mouseenter and clear the pairing it set, so
         // the frame is cancelled rather than only skipped.
-        if (event.target?.closest?.('.lp-comment-thread') != null) {
+        if (
+            event.target?.closest?.('.lp-comment-thread, .lp-comment-row') !=
+            null
+        ) {
             this.#cancelHoverProbe();
 
             return;
@@ -1334,7 +1616,11 @@ export default class extends Controller {
         // sweep of the whole document plus a TreeWalker — re-locating here put
         // that cost on every frame on the longest documents. General comments
         // never enter the map, which is the set the old loop skipped by hand.
+        const hiddenRowIds = this.#hiddenRowIds();
         for (const [thread, range] of this.anchorRanges ?? []) {
+            if (this.#isFilteredOut(thread, hiddenRowIds)) {
+                continue;
+            }
             for (const rect of range.getClientRects()) {
                 if (
                     clientX >= rect.left &&
@@ -1460,14 +1746,65 @@ export default class extends Controller {
         // path.
         this.#syncResolvedToggle();
 
-        // After the stacking pass, which can move the card.
+        // After the stacking pass, which can move the row. The review page
+        // shows the row, and the landing demo the card itself.
         if (this.threadToReveal?.isConnected) {
-            this.threadToReveal.scrollIntoView({
+            const row = this.#rowFor(this.threadToReveal);
+            (this.hasRowTarget ? row : this.threadToReveal)?.scrollIntoView({
                 block: 'nearest',
                 behavior: 'auto',
             });
         }
         this.threadToReveal = null;
+
+        // After the anchor pass, which locates the passage the card opens over.
+        if (this.threadToReopen?.isConnected) {
+            this.#openThread(this.threadToReopen);
+        } else if (this.openCard?.isConnected) {
+            this.#placeCard(this.openCard);
+            this.#markOpenThread(this.openCard);
+        }
+        this.threadToReopen = null;
+
+        if (this.threadIdFromHash !== null) {
+            this.#openThreadFromHash(this.threadIdFromHash);
+            this.threadIdFromHash = null;
+        }
+    }
+
+    #openThreadFromHash(id) {
+        const card = this.threadTargets.find((thread) => thread.id === id);
+        if (card === undefined || !card.hasAttribute('popover')) {
+            return;
+        }
+        if (!this.#scrollToPassage(card)) {
+            this.#revealThread(card);
+        }
+        this.#openThread(card);
+    }
+
+    /** Returns false when the thread has no passage to scroll to. */
+    #scrollToPassage(card) {
+        const passage = this.anchorRanges?.get(card)?.startContainer;
+        if (passage === undefined) {
+            return false;
+        }
+        const element =
+            passage.nodeType === Node.ELEMENT_NODE
+                ? passage
+                : passage.parentElement;
+        element?.scrollIntoView({ block: 'center', behavior: 'auto' });
+        // A paragraph taller than the viewport can still hide the quote. The
+        // app shell scrolls .lp-main, and the landing demo the window.
+        const line = this.anchorRanges.get(card).getClientRects?.()[0];
+        if (line && (line.top < 0 || line.bottom > window.innerHeight)) {
+            (element?.closest('.lp-main') ?? window).scrollBy({
+                top: line.top - (window.innerHeight - line.height) / 2,
+                behavior: 'auto',
+            });
+        }
+
+        return true;
     }
 
     /**
@@ -1494,12 +1831,17 @@ export default class extends Controller {
         }
         this.marginTarget.style.top = '';
 
-        const threads = this.threadTargets.filter(
-            (thread) => thread.parentElement === this.marginTarget,
+        const rangeOf = (row) => {
+            const card = this.#cardFor(row);
+
+            return card === null ? undefined : this.anchorRanges.get(card);
+        };
+        const rows = this.rowTargets.filter(
+            (row) => row.parentElement === this.marginTarget,
         );
-        threads.sort((first, second) => {
-            const firstRange = this.anchorRanges.get(first);
-            const secondRange = this.anchorRanges.get(second);
+        rows.sort((first, second) => {
+            const firstRange = rangeOf(first);
+            const secondRange = rangeOf(second);
             if (!firstRange || !secondRange) {
                 return 0;
             }
@@ -1511,13 +1853,11 @@ export default class extends Controller {
         });
 
         let previous = null;
-        for (const thread of threads) {
-            thread.style.top = '';
-            thread.style.position = '';
-            if (previous !== null && previous.nextElementSibling !== thread) {
-                previous.after(thread);
+        for (const row of rows) {
+            if (previous !== null && previous.nextElementSibling !== row) {
+                previous.after(row);
             }
-            previous = thread;
+            previous = row;
         }
     }
 
@@ -1713,12 +2053,34 @@ export default class extends Controller {
      */
     #releaseThreads() {
         for (const thread of this.threadTargets) {
+            // A popover card is placed by #placeCard, not by the margin.
+            if (thread.hasAttribute('popover')) {
+                continue;
+            }
             thread.style.top = '';
             thread.style.position = 'static';
         }
         if (this.hasBlockTarget) {
             this.blockTarget.style.minHeight = '';
         }
+    }
+
+    // The panel filter hides rows, and a hidden row hides its passage too.
+    #hiddenRowIds() {
+        return new Set(
+            this.rowTargets
+                .filter((row) => row.hidden)
+                .map((row) => row.dataset.threadId),
+        );
+    }
+
+    #isFilteredOut(thread, hiddenRowIds) {
+        return (
+            thread.hidden ||
+            hiddenRowIds.has(thread.id) ||
+            (this.hideResolvedValue &&
+                (thread.dataset.anchorStatus ?? 'pending') === 'resolved')
+        );
     }
 
     /**
@@ -1737,12 +2099,10 @@ export default class extends Controller {
         }
         this.struckHighlight?.clear();
         this.suggestionHighlight?.clear();
+        const hiddenRowIds = this.#hiddenRowIds();
         for (const thread of this.threadTargets) {
             const status = thread.dataset.anchorStatus ?? 'pending';
-            if (
-                thread.hidden ||
-                (this.hideResolvedValue && status === 'resolved')
-            ) {
+            if (this.#isFilteredOut(thread, hiddenRowIds)) {
                 continue;
             }
             const highlight =

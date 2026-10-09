@@ -1720,9 +1720,13 @@
                 <source>review.document.comment.add</source>
                 <target>Comment</target>
             </trans-unit>
-            <trans-unit id="review.document.comment.untargeted">
-                <source>review.document.comment.untargeted</source>
-                <target>Add general comment</target>
+            <trans-unit id="review.document.comment.whole_document">
+                <source>review.document.comment.whole_document</source>
+                <target>Comment on the whole document</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.row_general">
+                <source>review.document.comment.row_general</source>
+                <target>Whole document</target>
             </trans-unit>
             <trans-unit id="review.document.margin.empty_all">
                 <source>review.document.margin.empty_all</source>

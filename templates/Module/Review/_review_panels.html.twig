@@ -2,7 +2,7 @@
    applies the reader's stored choice, as `mode` says. Params: mode, showComments,
    decisionsReason and decisionsHint (translation keys), decisionsUrl (null links
    the rows in this page), decisionRows, answeredDecisions, sectionRows, comments,
-   readOnlyThreads, commentCount. #}
+   canComment, commentCount. #}
 {% set panelNames = ['decisions']|merge(showComments ? ['comments'] : [])|merge(['outline']) %}
 {% set openPanels = {document: ['decisions'], compare: ['decisions', 'outline'], columns: []}[mode] %}
 <aside class="lp-review-panels" aria-label="{{ 'review.document.panels.label'|trans }}">
@@ -62,7 +62,13 @@
                 </details>
             </div>
             <div id="comment-recovery" aria-live="polite"></div>
-            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnlyThreads} only %}
+            {% include '@Review/_comment_rows.html.twig' with {comments: comments} only %}
+            {% if canComment %}
+            <twig:Ds:Button variant="ghost" type="button" class="lp-comment-whole-document" data-action="comment-anchor#startUntargeted">
+                <twig:ux:icon name="lucide:message-square-plus" />
+                {{ 'review.document.comment.whole_document'|trans }}
+            </twig:Ds:Button>
+            {% endif %}
         </section>
         {% endif %}
 

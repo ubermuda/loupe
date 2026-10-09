@@ -1,12 +1,15 @@
 {#
-  Turbo Stream returned after a comment is added: re-render the whole thread
-  list in place (preserving offset order and clearing the empty state).
-
-  Vars:  @comment-budget-ignore
-    comments  list<Comment>   All comments for the version.
+  Turbo Stream returned after a comment is added, resolved or reopened: it
+  re-renders the cards and the Comments panel rows in place.
+  Vars: comments, list<Comment>, all comments for the version.
 #}
 <turbo-stream action="replace" target="comment-threads">
     <template>
         {% include '@Review/_comment_threads.html.twig' with {comments: comments} only %}
+    </template>
+</turbo-stream>
+<turbo-stream action="replace" target="comment-rows">
+    <template>
+        {% include '@Review/_comment_rows.html.twig' with {comments: comments} only %}
     </template>
 </turbo-stream>
