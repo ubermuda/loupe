@@ -1,0 +1,7 @@
+{#
+  Props:
+    size   string   document or search. Optional.
+  Any other attribute, class included, is passed to the element. The modal Stimulus controller finds it by data-modal-target.
+#}
+{%- props size = null -%}
+<dialog{{ attributes.defaults({class: 'lp-dialog' ~ (size ? ' lp-dialog--' ~ size : ''), 'data-modal-target': 'dialog'}) }}>{% block content %}{% endblock %}</dialog>

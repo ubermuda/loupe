@@ -17,28 +17,28 @@
             <p class="lp-workspace-desc">{{ 'inbox.page.description'|trans }}</p>
         </div>
         <div class="lp-needs-you__header-actions">
-            <a class="lp-btn" href="{{ path('app_project_activity', {id: inbox.project.id}) }}">
+            <twig:Ds:Button href="{{ path('app_project_activity', {id: inbox.project.id}) }}">
                 <twig:ux:icon name="lucide:activity" class="w-4 h-4" />
                 {{ 'inbox.activity'|trans }}
-            </a>
+            </twig:Ds:Button>
             {% if is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), inbox.project) %}
-            <a class="lp-btn" href="{{ path('app_inbox_settings', {id: inbox.project.id}) }}">
+            <twig:Ds:Button href="{{ path('app_inbox_settings', {id: inbox.project.id}) }}">
                 <twig:ux:icon name="lucide:settings" class="w-4 h-4" />
                 {{ 'inbox.settings_link'|trans }}
-            </a>
+            </twig:Ds:Button>
             {% endif %}
         </div>
     </header>
 
     {% if not inbox.isEmpty and not inbox.isSearch %}
-    <nav class="lp-tabs" aria-label="{{ 'inbox.tabs.label'|trans }}">
+    <twig:Ds:Tabs aria-label="{{ 'inbox.tabs.label'|trans }}">
         <a class="lp-tabs__tab"
            href="{{ path('app_project_inbox', {id: inbox.project.id}) }}"
            {% if not completed %}aria-current="page"{% endif %}>{{ 'inbox.tabs.open'|trans }}</a>
         <a class="lp-tabs__tab"
            href="{{ path('app_project_inbox', {id: inbox.project.id, queue: 'completed'}) }}"
            {% if completed %}aria-current="page"{% endif %}>{{ 'inbox.tabs.completed'|trans }}</a>
-    </nav>
+    </twig:Ds:Tabs>
     {% endif %}
 
     {% if not inbox.isEmpty %}
@@ -51,14 +51,14 @@
             <div class="lp-filter-search">
                 <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                 <label class="sr-only" for="inbox-search">{{ 'inbox.search.label'|trans }}</label>
-                <input type="search"
+                <twig:Ds:Input type="search"
                        id="inbox-search"
                        name="q"
-                       class="lp-input lp-filter-input"
+                       class="lp-filter-input"
                        value="{{ inbox.query }}"
                        placeholder="{{ 'inbox.search.placeholder'|trans }}"
                        data-autosearch-target="field"
-                       data-action="input->autosearch#search">
+                       data-action="input->autosearch#search" />
             </div>
             <a href="{{ path('app_project_inbox', {id: inbox.project.id}) }}"
                data-autosearch-target="clearButton"
@@ -77,10 +77,7 @@
     {% endif %}
 
     {% if inbox.isEmpty %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'inbox.page.empty'|trans }}</h2>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:inbox" iconClass="text-accent w-12 h-12" :title="'inbox.page.empty'|trans" />
     {% else %}
         {# One queue at a time, as a list of requests beside the selected request. #}
         {% set entries = [] %}
@@ -120,18 +117,12 @@
         {# The open queue is whole, so only the completed asks and the search results page. #}
         {% if completed or inbox.isSearch %}
             {% set pageParams = {id: inbox.project.id}|merge(inbox.isSearch ? {q: inbox.query} : {queue: 'completed'}) %}
-            <twig:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="pageParams" />
+            <twig:Ds:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="pageParams" />
         {% endif %}
         {% elseif inbox.isSearch %}
-        <div class="lp-empty-state" data-inbox-search-empty>
-            <twig:ux:icon name="lucide:search" class="lp-empty-state__icon text-accent w-12 h-12" />
-            <h2 class="lp-empty-state__title">{{ 'inbox.search.empty'|trans }}</h2>
-        </div>
+        <twig:Ds:EmptyState icon="lucide:search" iconClass="text-accent w-12 h-12" :title="'inbox.search.empty'|trans" data-inbox-search-empty />
         {% else %}
-        <div class="lp-empty-state" data-inbox-queue-empty="{{ section }}">
-            <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
-            <h2 class="lp-empty-state__title">{{ (completed ? 'inbox.page.completed_empty' : 'inbox.page.open_empty')|trans }}</h2>
-        </div>
+        <twig:Ds:EmptyState icon="lucide:inbox" iconClass="text-accent w-12 h-12" :title="(completed ? 'inbox.page.completed_empty' : 'inbox.page.open_empty')|trans" data-inbox-queue-empty="{{ section }}" />
         {% endif %}
     {% endif %}
 </div>

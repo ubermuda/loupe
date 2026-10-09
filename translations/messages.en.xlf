@@ -7586,6 +7586,8 @@
             <!-- Workflow conditions: what a rule waits for -->
             <trans-unit id="workflow.waiting.card_in_slot"><source>workflow.waiting.card_in_slot</source><target>Waiting: the card is not in the %slot% slot.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_in_slot"><source>workflow.waiting.not.card_in_slot</source><target>Waiting: the card is still in the %slot% slot.</target></trans-unit>
+            <trans-unit id="workflow.waiting.parent_in_slot"><source>workflow.waiting.parent_in_slot</source><target>Waiting: the parent card is not in the %slot% slot.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.parent_in_slot"><source>workflow.waiting.not.parent_in_slot</source><target>Waiting: the parent card is still in the %slot% slot.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_type"><source>workflow.waiting.card_type</source><target>Waiting: the card type is not %type%.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_type"><source>workflow.waiting.not.card_type</source><target>Waiting: the card type is %type%.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_has_open_blocker"><source>workflow.waiting.card_has_open_blocker</source><target>Waiting: the card has no open blocker.</target></trans-unit>

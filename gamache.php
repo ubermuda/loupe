@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Gamache\Check\CommentBudgetCheck;
 use Gamache\Check\DeploymentConfigParityCheck;
+use Gamache\Check\DesignSystemAdoptionCheck;
+use Gamache\Check\DesignSystemComponent;
 use Gamache\Check\FormTypeTranslationKeysCheck;
 use Gamache\Check\MessengerRoutingCheck;
 use Gamache\Check\NoArbitraryValuesCheck;
@@ -131,6 +133,27 @@ return (new GamacheConfig())->registerChecks([
         // consecutive green gates here. `@comment-budget-ignore` marks the
         // blocks that have earned their length.
         severity: Severity::Error,
+    ),
+    new DesignSystemAdoptionCheck(
+        components: [
+            new DesignSystemComponent('Button', 'lp-btn', 'templates/components/Ds/Button.html.twig', enforced: true),
+            new DesignSystemComponent('Input', 'lp-input', 'templates/components/Ds/Input.html.twig', enforced: true),
+            new DesignSystemComponent('Select', 'lp-select', 'templates/components/Ds/Select.html.twig', enforced: true),
+            new DesignSystemComponent('Textarea', 'lp-textarea', 'templates/components/Ds/Textarea.html.twig', enforced: true),
+            new DesignSystemComponent('FormField', 'lp-form-field', 'templates/components/Ds/FormField.html.twig', enforced: true),
+            new DesignSystemComponent('Label', 'lp-label', 'templates/components/Ds/Label.html.twig', enforced: true),
+            new DesignSystemComponent('FieldErrors', 'lp-field-errors', 'templates/components/Ds/FieldErrors.html.twig', enforced: true),
+            new DesignSystemComponent('Hint', 'lp-form-hint', 'templates/components/Ds/Hint.html.twig', enforced: true),
+            new DesignSystemComponent('Tag', 'lp-tag', 'templates/components/Ds/Tag.html.twig', enforced: true),
+            new DesignSystemComponent('Badge', 'lp-badge', 'templates/components/Ds/Badge.html.twig', enforced: true),
+            new DesignSystemComponent('StatusChip', 'lp-status-chip', 'templates/components/Ds/StatusChip.html.twig', enforced: true),
+            new DesignSystemComponent('EmptyState', 'lp-empty-state', 'templates/components/Ds/EmptyState.html.twig', enforced: true),
+            new DesignSystemComponent('Flash', 'lp-flash', 'templates/components/Ds/Flash.html.twig', enforced: true),
+            new DesignSystemComponent('Dialog', 'lp-dialog', 'templates/components/Ds/Dialog.html.twig', enforced: true),
+            new DesignSystemComponent('Tabs', 'lp-tabs', 'templates/components/Ds/Tabs.html.twig', enforced: true),
+            new DesignSystemComponent('Pagination', 'lp-pagination', 'templates/components/Ds/Pagination.html.twig', enforced: true),
+            new DesignSystemComponent('Tooltip', 'lp-tooltip', 'templates/components/Ds/Tooltip.html.twig', enforced: true),
+        ],
     ),
     new FormTypeTranslationKeysCheck(),
     new TurboStreamTargetsCheck(),

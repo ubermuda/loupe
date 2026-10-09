@@ -18,7 +18,7 @@
     <tr {% if part %}class="lp-experiment-table__part" data-metric-part="{{ metric.key }}"{% else %}data-metric="{{ metric.key }}"{% endif %}>
         <th scope="row">
             {{ label }}
-            {% if not metric.clear %}<span data-metric-unclear><twig:StatusChip modifier="neutral" :label="'bridge.experiments.too_few_cards'|trans" /></span>{% endif %}
+            {% if not metric.clear %}<span data-metric-unclear><twig:Ds:StatusChip modifier="neutral" :label="'bridge.experiments.too_few_cards'|trans" /></span>{% endif %}
         </th>
         {% for variant in variants %}
             {% set interval = metric.for(variant.name) %}
@@ -129,7 +129,7 @@
 
     {% if is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), project) %}
         <p class="lp-experiment-note">
-            <a class="lp-btn lp-btn--outline lp-btn--sm" href="{{ path('app_project_analytics_reports', {id: project.id, topic: 'experiment', experiment: report.experiment}) }}" data-experiment-analyse>{{ 'bridge.experiments.analyse'|trans }}</a>
+            <twig:Ds:Button variant="outline" size="sm" href="{{ path('app_project_analytics_reports', {id: project.id, topic: 'experiment', experiment: report.experiment}) }}" data-experiment-analyse>{{ 'bridge.experiments.analyse'|trans }}</twig:Ds:Button>
         </p>
     {% endif %}
 </div>

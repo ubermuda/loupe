@@ -527,9 +527,11 @@ The lane header shows the epic number, a progress bar and the "3/7 done" count
 above the epic title. A collapse button and a lane toggle sit to its left. An epic
 with its lane on shows as the lane header only, not as a card in its column.
 
+A new child of an epic moves from Backlog to Next at once. A person parks a
+child by moving it back to Backlog, and a parked child never starts by itself.
 An epic with children in Backlog shows an **Up next** deck at the right end of
-its lane header, with a count such as "3 in Backlog". The deck is a pile of
-those children in rank order. Hover over it or focus it, and it fans out to
+its lane header, with a count such as "3 in Backlog". The deck holds the
+parked children. It is a pile of those children in rank order. Hover over it or focus it, and it fans out to
 show the cards. When the deck holds more cards than the fan shows, a "+N more"
 tile takes the first place of the fan, under the pointer.
 The tile opens the Backlog page filtered to the epic.
@@ -571,10 +573,11 @@ Loupe moves an epic on its own:
 - When a child of a done epic or of an epic in `in-review` leaves the terminal
   column, or an open card joins such an epic, the epic moves back to the
   `implementation` column.
-- When a child with a parent waits in Backlog and its last blocker
+- When a child with a parent waits in Next and its last blocker
   moves to a terminal column, the child moves to the `implementation` column.
-  The child waits while a run of its epic is open. When the run ends, the epic
-  evaluates its children again, and a child with no open blocker moves.
+  The child waits until its epic sits in `implementation`, and while a run of
+  its epic is open. When the epic enters `implementation`, or the run ends, the
+  epic evaluates its children again, and a child with no open blocker moves.
 
 A board with no `implementation` column skips the moves back. An epic with no
 children never moves on its own.

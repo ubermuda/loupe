@@ -31,18 +31,18 @@
 
             <h3 class="lp-workshop-section__title">{{ 'readiness.settings.guide.title'|trans }}</h3>
             {{ form_start(form, {attr: {class: 'lp-form'}}) }}
-                <div class="lp-form-field">
+                <twig:Ds:FormField>
                     <label class="lp-choice">
                         {{ form_widget(form.showGuide) }}
                         {{ form.showGuide.vars.label|trans }}
                     </label>
                     {% if project.readinessGuideHiddenAt is not null %}
-                    <p class="lp-form-hint" data-readiness-hidden-at>{{ 'readiness.settings.guide.hidden_at'|trans({'%date%': project.readinessGuideHiddenAt|date('Y-m-d')}) }}</p>
+                    <twig:Ds:Hint data-readiness-hidden-at>{{ 'readiness.settings.guide.hidden_at'|trans({'%date%': project.readinessGuideHiddenAt|date('Y-m-d')}) }}</twig:Ds:Hint>
                     {% endif %}
-                    <div class="lp-field-errors">{{ form_errors(form.showGuide) }}</div>
-                </div>
+                    <twig:Ds:FieldErrors :fieldView="form.showGuide" />
+                </twig:Ds:FormField>
                 <div class="lp-settings-form-actions">
-                    <button class="lp-btn lp-btn--primary" type="submit">{{ 'readiness.settings.submit'|trans }}</button>
+                    <twig:Ds:Button variant="primary" type="submit">{{ 'readiness.settings.submit'|trans }}</twig:Ds:Button>
                 </div>
             {{ form_end(form) }}
         </section>

@@ -80,6 +80,7 @@ final class FactFingerprintTest extends TestCase
         yield 'work requests' => [FactKey::WorkRequests, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement'], 'no-capacity', self::WORKER_KINDS, self::PARENT_KINDS))];
         yield 'refusal' => [FactKey::Refusal, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-bridge', self::WORKER_KINDS, self::PARENT_KINDS))];
         yield 'worker runs' => [FactKey::WorkerRuns, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-capacity', ['implement'], self::PARENT_KINDS))];
+        yield 'parent slot' => [FactKey::ParentSlot, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents(), parentSlot: 'implementation'), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
         yield 'parent work' => [FactKey::ParentWork, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-capacity', self::WORKER_KINDS, ['plan']))];
     }
 

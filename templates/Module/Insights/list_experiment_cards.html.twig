@@ -56,18 +56,15 @@
             <span class="lp-data-table__cell lp-data-table__cell--end">{{ card.fixRounds }}</span>
             <span class="lp-data-table__cell lp-data-table__cell--end" data-experiment-card-cost>{{ card.costMicros is null ? '–' : (card.costMicros / 1000000)|format_currency('USD') }}</span>
             <span class="lp-data-table__cell lp-experiment-reasons">
-                {% for reason in card.leftOut %}<span class="lp-tag lp-tag--amber">{{ ('bridge.experiments.left_out_reason.' ~ reason.value)|trans }}</span>{% endfor %}
+                {% for reason in card.leftOut %}<twig:Ds:Tag tone="amber">{{ ('bridge.experiments.left_out_reason.' ~ reason.value)|trans }}</twig:Ds:Tag>{% endfor %}
             </span>
         </div>
         {% endfor %}
     </twig:DataTable>
 
-    <twig:Pagination route="app_project_analytics_experiment_cards" :page="report.page" :totalPages="report.totalPages" :pageList="report.pageList" :routeParams="routeParams|merge(query.routeParams)" />
+    <twig:Ds:Pagination route="app_project_analytics_experiment_cards" :page="report.page" :totalPages="report.totalPages" :pageList="report.pageList" :routeParams="routeParams|merge(query.routeParams)" />
     {% else %}
-    <div class="lp-empty-state" data-experiment-cards-empty>
-        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'bridge.experiments.cards.empty'|trans }}</h2>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:chart-column" :title="'bridge.experiments.cards.empty'|trans" data-experiment-cards-empty />
     {% endif %}
 </div>
 {% endblock %}

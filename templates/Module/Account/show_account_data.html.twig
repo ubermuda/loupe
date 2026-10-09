@@ -24,16 +24,15 @@
            Turbo off: the response is a streamed ZIP, and a prefetch on hover
            would pull the whole archive down. #}
         {% if export.isDownloadable %}
-        <a href="{{ path('app_account_export_download', {id: export.id}) }}"
-           class="lp-btn lp-btn--ghost"
-           data-turbo="false" data-turbo-prefetch="false">{{ 'account.settings.export.download_link'|trans }}</a>
+        <twig:Ds:Button variant="ghost" href="{{ path('app_account_export_download', {id: export.id}) }}"
+           data-turbo="false" data-turbo-prefetch="false">{{ 'account.settings.export.download_link'|trans }}</twig:Ds:Button>
         {% endif %}
     </div>
     {% endfor %}
 
     <form method="post" action="{{ path('app_account_export_request') }}">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('request-data-export') }}">
-        <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.export.request_button'|trans }}</button>
+        <twig:Ds:Button variant="primary" type="submit">{{ 'account.settings.export.request_button'|trans }}</twig:Ds:Button>
     </form>
 </section>
 
@@ -42,7 +41,7 @@
     <p class="lp-danger-zone-desc">{{ 'account.delete.danger.body'|trans }}</p>
     <form method="post" action="{{ path('app_account_delete_request') }}">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('request-account-deletion') }}">
-        <button type="submit" class="lp-btn lp-btn--danger">{{ 'account.delete.danger.cta'|trans }}</button>
+        <twig:Ds:Button variant="danger" type="submit">{{ 'account.delete.danger.cta'|trans }}</twig:Ds:Button>
     </form>
 </section>
 {% endblock %}

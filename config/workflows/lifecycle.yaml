@@ -259,6 +259,11 @@ rules:
               - not: { run.work_active: {} }
       then: { move: { to: '@terminal' } }
 
+    - id: epic-entered-implementation
+      slot: implementation
+      when: { card.type: { type: epic } }
+      then: { evaluate: { cards: children } }
+
     - id: breakdown-ended
       when:
           all:
@@ -331,18 +336,19 @@ rules:
                   - A preview URL per epic branch
 
     - id: child-unblocked
-      slot: '@backlog'
+      slot: next
       when:
           all:
               - card.is_child: {}
               - card.document_approved: { tag: tech-design }
+              - parent.in_slot: { slot: implementation }
               - not: { card.has_open_blocker: {} }
               - not: { pr.linked: {} }
               - not: { parent.work_active: {} }
       then: { move: { to: implementation } }
 
     - id: unplanned-child
-      slot: '@backlog'
+      slot: next
       when:
           all:
               - card.is_child: {}
@@ -373,3 +379,9 @@ rules:
               - card.children_finished: {}
               - any: [{ not: { card.type: { type: epic } } }, { not: { run.worker_active: {} } }]
       then: { move: { to: '@terminal' } }
+
+    # Last, with no slot. A fired move ends the pass even when it moves nothing, so an earlier place would shadow the rules after it.
+    # The truth outlives a move: a child that a person moves back to the Backlog makes no edge and stays parked.
+    - id: child-to-next
+      when: { card.is_child: {} }
+      then: { move: { to: next, from: '@backlog' } }

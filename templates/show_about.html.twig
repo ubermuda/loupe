@@ -19,7 +19,7 @@
             <p class="lp-about-hero__eyebrow">{{ 'app.name'|trans }}</p>
             <p class="lp-about-hero__lead" id="about-lead">{{ 'about.lead'|trans }}</p>
             <ul class="lp-about-hero__facts">
-                <li class="lp-tag lp-tag--lime"><twig:ux:icon name="lucide:scale" class="w-3.5 h-3.5" />{{ 'about.hero.licence'|trans }}</li>            </ul>
+                <twig:Ds:Tag tone="lime" as="li"><twig:ux:icon name="lucide:scale" class="w-3.5 h-3.5" />{{ 'about.hero.licence'|trans }}</twig:Ds:Tag>            </ul>
         </div>
         <img class="lp-about-hero__mascot" src="{{ asset('images/mascots/planner.png') }}" alt="">
     </section>
@@ -30,7 +30,7 @@
             <div class="lp-about-card__main">
                 <h2 class="lp-about-card__title" id="about-licence">{{ 'about.licence.heading'|trans }}</h2>
                 <p class="lp-about-card__text">{{ 'about.licence.body'|trans }}</p>
-                {% include '_source_link.html.twig' with {class: 'lp-btn lp-btn--primary lp-about-card__action'} only %}
+                {% include '_source_link.html.twig' with {class: ds_button_class('primary') ~ ' lp-about-card__action'} only %}
             </div>
         </section>
 
@@ -39,10 +39,10 @@
             <div class="lp-about-card__main">
                 <h2 class="lp-about-card__title" id="about-docs">{{ 'about.docs.heading'|trans }}</h2>
                 <p class="lp-about-card__text">{{ 'about.docs.body'|trans }}</p>
-                <a href="{{ app_docs_url }}/" class="lp-btn lp-about-card__action" target="_blank" rel="noopener noreferrer">
+                <twig:Ds:Button href="{{ app_docs_url }}/" class="lp-about-card__action" target="_blank" rel="noopener noreferrer">
                     <twig:ux:icon name="lucide:book-open" class="w-3.5 h-3.5 shrink-0" />
                     <span>{{ 'about.docs.action'|trans }}</span>
-                </a>
+                </twig:Ds:Button>
             </div>
         </section>
 

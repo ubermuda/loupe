@@ -26,16 +26,16 @@
             <p class="lp-connect-hint">{{ 'project.connect.step.agent.purpose'|trans }}</p>
 
             <div data-controller="modal">
-                <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
+                <twig:Ds:Button variant="primary" type="button" data-action="click->modal#open">
                     <twig:ux:icon name="lucide:link" />{{ 'project.connect.configure'|trans }}
-                </button>
-                <dialog class="lp-dialog lp-dialog--document lp-connect-dialog" data-modal-target="dialog" aria-labelledby="connect-agent-title">
+                </twig:Ds:Button>
+                <twig:Ds:Dialog size="document" class="lp-connect-dialog" aria-labelledby="connect-agent-title">
                     <header class="lp-connect-dialog__header">
                         <div>
                             <h2 class="lp-dialog-title" id="connect-agent-title">{{ 'project.connect.step.agent.heading'|trans }}</h2>
                             <p class="lp-dialog-desc">{{ 'project.connect.step.agent.purpose'|trans }}</p>
                         </div>
-                        <button type="button" class="lp-btn lp-btn--icon" data-action="modal#close" aria-label="{{ 'project.connect.dialog.close'|trans }}"><twig:ux:icon name="lucide:x" /></button>
+                        <twig:Ds:Button variant="icon" type="button" data-action="modal#close" aria-label="{{ 'project.connect.dialog.close'|trans }}"><twig:ux:icon name="lucide:x" /></twig:Ds:Button>
                     </header>
                     {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, projectId: project.id} only %}
                     <details class="lp-tools-disclosure">
@@ -53,9 +53,9 @@
                         </div>
                     </details>
                     <div class="lp-settings-form-actions">
-                        <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'project.connect.dialog.close'|trans }}</button>
+                        <twig:Ds:Button type="button" data-action="click->modal#close">{{ 'project.connect.dialog.close'|trans }}</twig:Ds:Button>
                     </div>
-                </dialog>
+                </twig:Ds:Dialog>
             </div>
         </section>
 
@@ -81,11 +81,11 @@
                 </span>
                 <form method="POST" action="{{ path('app_project_widget_forwarding_toggle', {id: project.id}) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('toggle-project-widget-forwarding') }}">
-                    <button type="submit" class="lp-btn lp-btn--sm">
+                    <twig:Ds:Button size="sm" type="submit">
                         {{ (project.forwardsToAgent
                             ? 'project.connect.forwarding.disable'
                             : 'project.connect.forwarding.enable')|trans }}
-                    </button>
+                    </twig:Ds:Button>
                 </form>
             </div>
             <p class="lp-connect-note"><twig:ux:icon name="lucide:shield" />{{ 'project.connect.forwarding.warning'|trans }}</p>
@@ -103,14 +103,16 @@
                     <pre class="lp-code-dark__body"><code data-testid="widget-oauth-snippet">{{ oauthSnippet }}</code></pre>
                 </div>
                 {{ form_start(allowedOriginsForm, {'attr': {'class': 'lp-form', 'data-testid': 'allowed-origins-form'}}) }}
-                    <div class="lp-form-field">
-                        {{ form_label(allowedOriginsForm.origins, null, {'label_attr': {'class': 'lp-label'}}) }}
-                        {{ form_widget(allowedOriginsForm.origins, {'attr': {'class': 'lp-input'}}) }}
-                        {{ form_help(allowedOriginsForm.origins, {'help_attr': {'class': 'lp-form-hint'}}) }}
-                        <div class="lp-field-errors">{{ form_errors(allowedOriginsForm.origins) }}</div>
-                    </div>
+                    <twig:Ds:FormField>
+                        {{ form_label(allowedOriginsForm.origins, null, {'label_attr': {'class': ds_label_class()}}) }}
+                        {{ form_widget(allowedOriginsForm.origins, {'attr': {'class': ds_input_class('textarea')}}) }}
+                        {% if allowedOriginsForm.origins.vars.help is not empty %}
+                            <twig:Ds:Hint id="{{ allowedOriginsForm.origins.vars.id }}_help">{{ allowedOriginsForm.origins.vars.translation_domain is same as(false) ? allowedOriginsForm.origins.vars.help : allowedOriginsForm.origins.vars.help|trans(allowedOriginsForm.origins.vars.help_translation_parameters, allowedOriginsForm.origins.vars.translation_domain) }}</twig:Ds:Hint>
+                        {% endif %}
+                        <twig:Ds:FieldErrors :fieldView="allowedOriginsForm.origins" />
+                    </twig:Ds:FormField>
                     <div class="lp-settings-form-actions">
-                        <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.allowed_origins.save'|trans }}</button>
+                        <twig:Ds:Button variant="primary" type="submit">{{ 'project.allowed_origins.save'|trans }}</twig:Ds:Button>
                     </div>
                 {{ form_end(allowedOriginsForm) }}
             </div>

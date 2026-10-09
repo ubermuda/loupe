@@ -42,9 +42,9 @@
                 {{ 'review.document.version.references_are_current'|trans }}
             {% endif %}
         </span>
-        <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
+        <twig:Ds:Button variant="ghost" size="sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
             {{ 'review.document.version.back_to_latest'|trans }}
-        </a>
+        </twig:Ds:Button>
     </div>
     {% endif %}
 
@@ -84,7 +84,7 @@
         {% set hasMermaid = not diffMode and 'language-mermaid' in decisionMarkedHtml %}
         {% set tooltipDefinitions = diffMode ? {} : referenceDefinitions %}
         {% set docControllers = ['decision']|merge(tooltipDefinitions is not empty ? ['reference-tooltip'] : [])|merge(hasMermaid ? ['mermaid'] : []) %}
-        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="{{ docControllers|join(' ') }}"{% if not diffMode %} data-decision-page="{{ document.id }}/{{ version.versionNumber }}" data-decision-summary-url-value="{{ path('app_document_decision_summary', {projectId: document.project.id, documentId: document.id, versionNumber: version.versionNumber}) }}" data-decision-changed-by-value="{{ 'review.decision.status.changed_by'|trans }}"{% endif %} data-decision-note-label-value="{{ 'review.decision.note.label'|trans }}" data-decision-note-placeholder-value="{{ 'review.decision.note.placeholder'|trans }}" data-decision-clear-label-value="{{ 'review.decision.clear'|trans }}" data-decision-error-message-value="{{ 'review.decision.error.save_failed'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}
+        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="{{ docControllers|join(' ') }}"{% if not diffMode %} data-decision-page="{{ document.id }}/{{ version.versionNumber }}" data-decision-summary-url-value="{{ path('app_document_decision_summary', {projectId: document.project.id, documentId: document.id, versionNumber: version.versionNumber}) }}" data-decision-changed-by-value="{{ 'review.decision.status.changed_by'|trans }}"{% endif %} data-decision-note-label-value="{{ 'review.decision.note.label'|trans }}" data-decision-note-placeholder-value="{{ 'review.decision.note.placeholder'|trans }}" data-decision-clear-label-value="{{ 'review.decision.clear'|trans }}" data-decision-clear-class-value="{{ ds_button_class('ghost', 'sm') ~ ' lp-decision__clear' }}" data-decision-error-message-value="{{ 'review.decision.error.save_failed'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}
             {%- if tooltipDefinitions is not empty %} data-reference-tooltip-definitions-value="{{ tooltipDefinitions|json_encode|e('html_attr') }}" data-reference-tooltip-from-value="{{ 'review.document.reference.from'|trans }}"{% endif %}
             {%- if hasMermaid %} data-mermaid-enabled-value="{{ is_feature_enabled('review.mermaid.enabled') ? 'true' : 'false' }}" data-mermaid-module-url-value="{{ mermaid_module_url }}"{% endif %}>
 
@@ -177,26 +177,26 @@
                         idPrefix: 'diff',
                     } only %}
                     <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
-                        <a class="lp-btn lp-btn--ghost lp-diff-views__link"
+                        <twig:Ds:Button variant="ghost" class="lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
-                           {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
-                           {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}
-                        >{{ 'review.document.diff.view.rendered'|trans }}</a>
+                           :aria-current="diffView.value == 'rendered' ? 'page' : null"
+                           :aria-describedby="diffColumns ? 'diff-columns-notice' : null"
+                        >{{ 'review.document.diff.view.rendered'|trans }}</twig:Ds:Button>
                         {# describedby rather than a second link: the notice below says
                            why this view is worth opening, and this is the control that
                            opens it. Second of the three: it reads the same document,
                            where the columns rebuild the page. #}
-                        <a class="lp-btn lp-btn--ghost lp-diff-views__link"
+                        <twig:Ds:Button variant="ghost" class="lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
-                           {% if diffView.value == 'source' %}aria-current="page"{% endif %}
-                           {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
-                        >{{ 'review.document.diff.view.source'|trans }}</a>
+                           :aria-current="diffView.value == 'source' ? 'page' : null"
+                           :aria-describedby="diffUnmarked ? 'diff-unmarked-notice' : null"
+                        >{{ 'review.document.diff.view.source'|trans }}</twig:Ds:Button>
                         {# The same rendered blocks in two columns. The notice
                            below says what it gives up, and this link opens it. #}
-                        <a class="lp-btn lp-btn--ghost lp-diff-views__link"
+                        <twig:Ds:Button variant="ghost" class="lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
-                           {% if diffColumns %}aria-current="page"{% endif %}
-                        >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
+                           :aria-current="diffColumns ? 'page' : null"
+                        >{{ 'review.document.diff.view.side_by_side'|trans }}</twig:Ds:Button>
                     </nav>
                     </div>
                     {% if diffNavigation %}
@@ -260,16 +260,18 @@
                         class="lp-comment-composer__error"
                         data-comment-anchor-target="composerError"
                     ></span>
-                    <button
+                    <twig:Ds:Button
+                        variant="ghost"
+                        size="sm"
                         type="button"
-                        class="lp-btn lp-btn--ghost lp-btn--sm"
                         data-action="comment-anchor#hideComposer"
-                    >{{ 'review.document.comment.cancel'|trans }}</button>
-                    <button
+                    >{{ 'review.document.comment.cancel'|trans }}</twig:Ds:Button>
+                    <twig:Ds:Button
+                        variant="primary"
+                        size="sm"
                         type="submit"
-                        class="lp-btn lp-btn--primary lp-btn--sm"
                         data-action="comment-anchor#submitComment"
-                    >{{ 'review.document.comment.submit'|trans }}</button>
+                    >{{ 'review.document.comment.submit'|trans }}</twig:Ds:Button>
                 </div>
             {{ form_end(addCommentForm) }}
             {% endif %}
@@ -366,7 +368,7 @@
                         {% if document.tags is not empty %}
                         <div>
                             <dt>{{ 'review.document.meta.tags'|trans }}</dt>
-                            <dd><ul class="lp-doc-tags__list">{% for tag in document.tags %}<li class="lp-tag">{{ tag.name }}</li>{% endfor %}</ul></dd>
+                            <dd><ul class="lp-doc-tags__list">{% for tag in document.tags %}<twig:Ds:Tag as="li">{{ tag.name }}</twig:Ds:Tag>{% endfor %}</ul></dd>
                         </div>
                         {% endif %}
                     </dl>
@@ -510,16 +512,18 @@
                         class="lp-comment-composer__error"
                         data-comment-anchor-target="suggestComposerError"
                     ></span>
-                    <button
+                    <twig:Ds:Button
+                        variant="ghost"
+                        size="sm"
                         type="button"
-                        class="lp-btn lp-btn--ghost lp-btn--sm"
                         data-action="comment-anchor#hideComposer"
-                    >{{ 'review.document.comment.cancel'|trans }}</button>
-                    <button
+                    >{{ 'review.document.comment.cancel'|trans }}</twig:Ds:Button>
+                    <twig:Ds:Button
+                        variant="primary"
+                        size="sm"
                         type="submit"
-                        class="lp-btn lp-btn--primary lp-btn--sm"
                         data-action="comment-anchor#submitSuggestion"
-                    >{{ 'review.document.suggestion.submit'|trans }}</button>
+                    >{{ 'review.document.suggestion.submit'|trans }}</twig:Ds:Button>
                 </div>
             {{ form_end(suggestRewordingForm) }}
             {% endif %}
@@ -552,7 +556,7 @@
     </div>
 
     {% if undoVerdictForm is defined %}
-        <div class="lp-field-errors" data-review-withdrawal-errors>{{ form_errors(undoVerdictForm) }}{{ form_errors(undoVerdictForm.reviewId) }}</div>
+        <twig:Ds:FieldErrors data-review-withdrawal-errors>{{ form_errors(undoVerdictForm) }}{{ form_errors(undoVerdictForm.reviewId) }}</twig:Ds:FieldErrors>
     {% endif %}
     {% if not readOnly and not diffMode and document.status.value in ['approved', 'changes-requested'] %}
     {% set verdict = document.status.value %}
@@ -567,11 +571,11 @@
             {% endif %}
         </span>
         <div class="lp-verdict-bar__actions">
-            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="click->modal#open">{{ 'review.document.verdict.change'|trans }}</button>
+            <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="click->modal#open">{{ 'review.document.verdict.change'|trans }}</twig:Ds:Button>
             {% if review is not null %}
             {{ form_start(undoVerdictForm, {attr: {class: 'lp-verdict-bar__undo'}}) }}
                 {{ form_widget(undoVerdictForm.reviewId) }}
-                <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.verdict.undo'|trans }}</button>
+                <twig:Ds:Button variant="ghost" size="sm" type="submit">{{ 'review.document.verdict.undo'|trans }}</twig:Ds:Button>
             {{ form_end(undoVerdictForm) }}
             {% endif %}
         </div>

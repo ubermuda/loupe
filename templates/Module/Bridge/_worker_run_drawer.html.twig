@@ -19,12 +19,12 @@
         <div>
             <h2 class="lp-dialog-title" id="run-title-{{ run.id }}">{{ 'bridge.worker_runs.details.title'|trans }}</h2>
             <p class="lp-run-drawer__identifier">{{ run.id }}</p>
-            <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">{{ item.state.translationKey()|trans }}</span>
+            <twig:Ds:StatusChip :modifier="item.state.chipModifier()" :dot="false">{{ item.state.translationKey()|trans }}</twig:Ds:StatusChip>
             {% if item.control and item.control.label %}<span class="lp-worker-run-control-label{{ item.control.labelWarns ? ' lp-worker-run-control-label--warns' : '' }}" data-worker-run-control-label>{{ item.control.label|trans(item.control.labelParameters) }}</span>{% endif %}
-            {% if item.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
-            {% if item.command %}<span class="lp-tag lp-tag--neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</span>{% endif %}
+            {% if item.interactive %}<twig:Ds:Tag tone="neutral">{{ 'bridge.worker_runs.interactive'|trans }}</twig:Ds:Tag>{% endif %}
+            {% if item.command %}<twig:Ds:Tag tone="neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</twig:Ds:Tag>{% endif %}
         </div>
-        <button type="button" class="lp-btn" data-action="modal#close" autofocus>{{ 'bridge.worker_runs.details.close'|trans }}</button>
+        <twig:Ds:Button type="button"  data-action="modal#close" autofocus>{{ 'bridge.worker_runs.details.close'|trans }}</twig:Ds:Button>
     </header>
     <div class="lp-run-drawer__body">
         <dl class="lp-run-drawer__metadata">
@@ -97,7 +97,7 @@
         {% if item.control and item.control.action and is_granted('project.manage', project) %}
         {% include '@Bridge/_worker_run_control_form.html.twig' with {project: project, run: run, control: item.control, frame: '_top', compact: false} only %}
         {% endif %}
-        <button type="button" class="lp-btn" data-action="worker-run-output#copy">{{ 'bridge.worker_runs.details.copy'|trans }}</button>
+        <twig:Ds:Button type="button"  data-action="worker-run-output#copy">{{ 'bridge.worker_runs.details.copy'|trans }}</twig:Ds:Button>
     </footer>
 {% endblock %}
 {% endembed %}

@@ -31,7 +31,7 @@ The owner reads a design to make its decisions. The owner knows what the product
 2. Write At a glance, each decision and each Decided entry for a reader with no file open. Put class names, fields, methods and file paths in Architecture, the work order and the project checks. A reader who knows the product can skip those parts.
 3. Write the question and each option of a decision in plain words. Each option says what changes for a person or an agent. Two options can look the same to a person. Then name their difference in plain words, such as "keep a copy" or "count on each page load", and say what each one costs. In a tech design, put the code that each option changes in the "How each option works" list (see "Decisions").
 4. A name that a person sees in the product is a plain word. Examples are a tool name, a column, a tag and a button label. A class, a field, a method or a file path is not a plain word. Keep it out of the question, the options, the table and the example.
-5. Explain a new idea in one sentence where it first appears. Add a small example when it helps. Rule 16 of `../SKILL.md` covers an ID from another source. This item covers an idea, such as a kind of pause.
+5. Explain a new idea in one sentence where it first appears, and again in one sentence in each decision that uses it. Add a small example when it helps. Rule 16 of `../SKILL.md` covers an ID from another source. This item covers an idea, such as a kind of pause.
 6. A fact with no mark is checked. Mark only an estimate, with "(estimated)". When a section states facts from the code, end it with one "Checked in the code" line that names the files behind them. Never tag each sentence with "(checked, File.php)".
 
 Before, the decision is written in the terms of the code:
@@ -63,6 +63,12 @@ Give each open decision its own section, with a stable ID in the heading.
 Keep the reasons in the table. The fence holds only its question and the one-line options (`decision-fences.md`). End the recommended option with its confidence marker, such as `(recommended: moderate)`, so Loupe shows a badge on it.
 
 Each entry of the example shows the input and what the user or the system sees. Prefer a short code block, a before and after, or a list of steps to prose. Keep each entry near ten lines. The order is the table, the example, the How list of a tech design, then the fence. Put them above the fence, because a fence takes only one question paragraph. When a revision answers the decision, keep them in the section above the `**Decided:**` line.
+
+Write each decision so that a reader who opens only that section can answer it (rule 18 of `../SKILL.md`). The reader comes from the decisions panel, an inbox item or a notification. A recommendation says what the option does.
+
+Before: "I recommend option 1 of D1. Under D1 option 2, card 370 stays as it is."
+
+After: "I recommend taking the open time from the first check result of the card. The card history that card 370 adds records each check result, so no new field is needed."
 
 A Decisions log entry of a product document stays one line with its reason. A Decided entry of a tech design follows `../../loupe-stage-tech-design/SKILL.md`. Neither gets an example or a How list. Write both in product terms.
 
