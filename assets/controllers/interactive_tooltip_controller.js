@@ -59,7 +59,7 @@ export default class extends Controller {
 
     /** A touch has no hover to return to, so a touch tooltip waits for a press outside it. */
     scheduleClose(event) {
-        if (event?.pointerType === 'touch' || event?.pointerType === 'pen') {
+        if (event?.pointerType === 'touch') {
             return;
         }
         this.cancelClose();
