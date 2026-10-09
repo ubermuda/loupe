@@ -36,6 +36,7 @@ use App\Module\Workflow\Template\InvalidTemplate;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
+use App\Tests\Module\Workflow\Action\ExpressionPluggedAction;
 use App\Tests\Module\Workflow\Action\PluggedAction;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -291,6 +292,17 @@ final class TemplateParserTest extends TestCase
         self::assertTrue($call->traits->endsPass);
         self::assertSame([], $parsed->rulesFor('build'), 'A rule that acts from another slot is not a rule of this slot.');
         self::assertCount(1, $parsed->rulesFor('review'));
+    }
+
+    public function test_an_action_cannot_declare_an_expression_parameter_that_a_call_drops(): void
+    {
+        $parser = new TemplateParser(new Conditions([new CardInSlot()]), new Actions([new ExpressionPluggedAction()]));
+        $template = self::valid();
+        $template['rules'] = [['id' => 'expressive', 'when' => ['card.in_slot' => ['slot' => 'build']], 'then' => ['expressive' => ['from' => 'review']]]];
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('declares the expression parameter "only"');
+        $parser->parse($template);
     }
 
     /** @param array<string, mixed> $then */

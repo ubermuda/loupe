@@ -644,6 +644,9 @@ final readonly class TemplateParser
         $declared = array_values(array_filter($action::parameters(), static fn (Parameter $parameter): bool => $app || !$parameter->appOnly));
         foreach ($declared as $parameter) {
             $param = $parameter->name;
+            if (ParameterType::Expression === $parameter->type && !\in_array($param, ['until', 'refill'], true)) {
+                throw new \LogicException(\sprintf('The action "%s" declares the expression parameter "%s", and an action call keeps only "until" and "refill".', $name, $param));
+            }
             if (!\array_key_exists($param, $value)) {
                 if ($parameter->required) {
                     $errors[] = ParameterType::Expression === $parameter->type
