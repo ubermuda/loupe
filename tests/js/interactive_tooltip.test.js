@@ -129,6 +129,20 @@ it('closes when the focus leaves the anchor', () => {
     expect(isOpen()).toBe(false);
 });
 
+it('moves the focus back to the mark when Escape closes the tooltip from its link', () => {
+    document.querySelector('#mark').focus();
+    anchor().dispatchEvent(new FocusEvent('focusin'));
+    document.querySelector('#link').focus();
+    document
+        .querySelector('#link')
+        .dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+        );
+
+    expect(isOpen()).toBe(false);
+    expect(document.activeElement).toBe(document.querySelector('#mark'));
+});
+
 it('closes on Escape', () => {
     anchor().dispatchEvent(new Event('pointerenter'));
     anchor().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));

@@ -22,6 +22,7 @@ export default class extends Controller {
 
     connect() {
         this.closeTimer = null;
+        this.returningFocus = false;
         this.onScroll = () => this.close();
         this.onOutsidePress = (event) => {
             if (!this.element.contains(event.target)) {
@@ -35,6 +36,9 @@ export default class extends Controller {
     }
 
     open(event) {
+        if (this.returningFocus) {
+            return;
+        }
         if (event?.type === 'focusin' && !focusVisible(event.target)) {
             return;
         }
@@ -48,13 +52,30 @@ export default class extends Controller {
         document.addEventListener('pointerdown', this.onOutsidePress, true);
     }
 
-    close() {
+    close(event) {
         this.cancelClose();
         window.removeEventListener('scroll', this.onScroll, true);
         document.removeEventListener('pointerdown', this.onOutsidePress, true);
-        if (this.hasTooltipTarget) {
-            this.tooltipTarget.removeAttribute('data-open');
+        if (!this.hasTooltipTarget) {
+            return;
         }
+        this.tooltipTarget.removeAttribute('data-open');
+        // Escape from the link would leave the focus on a hidden element.
+        if (
+            event?.type === 'keydown' &&
+            this.tooltipTarget.contains(document.activeElement)
+        ) {
+            this.returnFocus();
+        }
+    }
+
+    returnFocus() {
+        const anchor = this.element.matches('[tabindex]')
+            ? this.element
+            : this.element.querySelector('[tabindex]');
+        this.returningFocus = true;
+        anchor?.focus();
+        this.returningFocus = false;
     }
 
     /** A touch has no hover to return to, so a touch tooltip waits for a press outside it. */
