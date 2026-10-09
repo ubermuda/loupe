@@ -6,6 +6,7 @@ namespace App\Module\Board\Entity;
 
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\PauseKind;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -56,8 +57,8 @@ class CardPause
         #[ORM\Column(name: 'rule_id', length: self::MAX_RULE_ID_LENGTH)]
         public string $ruleId,
 
-        #[ORM\Column(name: 'kind', length: 20, enumType: CardPauseKind::class)]
-        public CardPauseKind $kind,
+        #[ORM\Column(name: 'kind', length: 20, enumType: PauseKind::class)]
+        public PauseKind $kind,
 
         #[ORM\Column(name: 'created_at')]
         public \DateTimeImmutable $createdAt,

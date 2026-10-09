@@ -8,8 +8,8 @@ use App\Controller\AppController;
 use App\Module\Board\Command\SearchCardsCommand;
 use App\Module\Board\Command\SearchCardsHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -46,7 +46,7 @@ final class ListCardsController extends AppController
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
-        $known = $this->catalog->forProject($project);
+        $known = $this->catalog->forProject($project->requireId());
         $query = $request->query->get('q');
         $type = $request->query->get('type');
         $types = \is_string($type) && $known->has($type) ? [$type] : [];

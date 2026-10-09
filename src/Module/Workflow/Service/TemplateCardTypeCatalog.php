@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Board\Service\CardTypeCatalog;
-use App\Module\Board\Service\CardTypeDefinition;
-use App\Module\Board\Service\CardTypes;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardTypeCatalog;
+use App\Module\Workflow\Contract\CardTypeDefinition;
+use App\Module\Workflow\Contract\CardTypes;
 use App\Module\Workflow\Template\ShippedTemplates;
 use App\Module\Workflow\Template\Template;
 use App\Module\Workflow\Template\TemplateCardType;
@@ -15,6 +15,7 @@ use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateParser;
 use App\Module\Workflow\Template\TemplateSource;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ResetInterface;
 
 /** Reads the card types from the stored template copy. A project bound to no template gets the types of the Simple template. */
@@ -34,11 +35,9 @@ final class TemplateCardTypeCatalog implements CardTypeCatalog, ResetInterface
     }
 
     #[\Override]
-    public function forProject(Project $project): CardTypes
+    public function forProject(Uuid $projectId): CardTypes
     {
-        $projectId = $project->id ?? throw new \LogicException('The project is not persisted.');
-
-        return $this->types[$projectId->toRfc4122()] ??= self::of($this->template($project));
+        return $this->types[$projectId->toRfc4122()] ??= self::of($this->template($projectId));
     }
 
     #[\Override]
@@ -47,10 +46,10 @@ final class TemplateCardTypeCatalog implements CardTypeCatalog, ResetInterface
         $this->types = [];
     }
 
-    private function template(Project $project): Template
+    private function template(Uuid $projectId): Template
     {
         try {
-            return $this->templates->forProject($project->id ?? throw new \LogicException('The project is not persisted.'));
+            return $this->templates->forProject($projectId);
         } catch (TemplateMissing) {
             return $this->parser->parse($this->shippedTemplates->source(self::UNBOUND_TEMPLATE));
         }

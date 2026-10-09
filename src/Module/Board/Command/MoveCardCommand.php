@@ -7,7 +7,7 @@ namespace App\Module\Board\Command;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Workflow\Contract\Actor;
 
 final readonly class MoveCardCommand
 {
@@ -25,7 +25,7 @@ final readonly class MoveCardCommand
      */
     public function __construct(
         public Card $card,
-        public CardReporter $actor,
+        public Actor $actor,
         public BoardColumn $column,
         public ?int $position = null,
         public ?string $parent = null,

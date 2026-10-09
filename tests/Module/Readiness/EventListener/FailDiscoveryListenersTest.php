@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Readiness\EventListener;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
@@ -20,6 +19,7 @@ use App\Module\Readiness\Command\StartDiscoveryCommand;
 use App\Module\Readiness\Command\StartDiscoveryHandler;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Tests\Module\Readiness\DiscoveryScenario;
@@ -63,7 +63,7 @@ final class FailDiscoveryListenersTest extends KernelTestCase
 
         self::assertSame(WorkRequestState::Cancelled, $request->state);
         self::assertSame([DiscoveryRunState::Failed, 'card-moved'], [$run->state, $run->failureReason]);
-        $next = $this->startHandler()(new StartDiscoveryCommand($card->project, CardReporter::Human));
+        $next = $this->startHandler()(new StartDiscoveryCommand($card->project, Actor::Human));
         self::assertSame(DiscoveryRunState::Requested, $next->state);
         self::assertNotSame($card->id, $next->card->id);
     }

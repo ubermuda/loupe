@@ -15,13 +15,13 @@ use App\Module\Board\Command\OpenInteractiveRun;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Service\CardMover;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -70,7 +70,7 @@ final class CardInteractiveRunTest extends KernelTestCase
         $card = $this->card('next');
         $run = $this->openRun($card);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress')));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Human, column: $this->column($this->project, 'in-progress')));
 
         self::assertSame(WorkerRunState::Closed, $this->stateOf($run));
         self::assertFalse($this->runs->hasOpenRun($this->project, $this->idOf($card)));
@@ -82,7 +82,7 @@ final class CardInteractiveRunTest extends KernelTestCase
         $this->card('next');
         $run = $this->openRun($card);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'next'), position: 1));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Human, column: $this->column($this->project, 'next'), position: 1));
 
         self::assertSame(1, $card->position, 'the rank must really change, or this test proves nothing');
         self::assertSame(WorkerRunState::Running, $this->stateOf($run));
@@ -93,7 +93,7 @@ final class CardInteractiveRunTest extends KernelTestCase
         $card = $this->card('next');
         $run = $this->openRun($card);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, title: 'Renamed'));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Human, title: 'Renamed'));
 
         self::assertSame(WorkerRunState::Running, $this->stateOf($run));
     }
@@ -106,7 +106,7 @@ final class CardInteractiveRunTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             column: $this->column($this->project, 'next'),
             openInteractiveRun: new OpenInteractiveRun($sessionId, 'loupe:product-design'),
         ));
@@ -127,7 +127,7 @@ final class CardInteractiveRunTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             column: $this->column($this->project, 'next'),
             openInteractiveRun: new OpenInteractiveRun($sessionId, 'loupe:product-design'),
         ));
@@ -143,7 +143,7 @@ final class CardInteractiveRunTest extends KernelTestCase
 
         $updated = ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             column: $this->column($this->project, 'next'),
             openInteractiveRun: new OpenInteractiveRun($sessionId, 'loupe:product-design'),
         ));
@@ -157,7 +157,7 @@ final class CardInteractiveRunTest extends KernelTestCase
     {
         $card = $this->card('next');
 
-        $updated = ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, title: 'Renamed'));
+        $updated = ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Human, title: 'Renamed'));
 
         self::assertSame($card, $updated->card);
         self::assertNull($updated->openedRun);
@@ -172,7 +172,7 @@ final class CardInteractiveRunTest extends KernelTestCase
         $delete = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $delete);
 
-        $delete(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'in-progress')));
+        $delete(new DeleteBoardColumnCommand($this->column($this->project, 'next'), Actor::Human, $this->column($this->project, 'in-progress')));
 
         self::assertSame(WorkerRunState::Closed, $this->stateOf($movedRun));
         self::assertSame(WorkerRunState::Running, $this->stateOf($staysRun));
@@ -212,7 +212,7 @@ final class CardInteractiveRunTest extends KernelTestCase
         $delete = self::getContainer()->get(DeleteCardHandler::class);
         self::assertInstanceOf(DeleteCardHandler::class, $delete);
 
-        $delete(new DeleteCardCommand($deleted, CardReporter::Human));
+        $delete(new DeleteCardCommand($deleted, Actor::Human));
 
         self::assertSame(WorkerRunState::Closed, $this->stateOf($deletedRun));
         self::assertSame(WorkerRunState::Running, $this->stateOf($keptRun));
@@ -226,7 +226,7 @@ final class CardInteractiveRunTest extends KernelTestCase
             body: 'Body',
             type: 'feature',
             column: $this->column($this->project, $column),
-            reporter: CardReporter::Agent,
+            reporter: Actor::Agent,
         ));
     }
 

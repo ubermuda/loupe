@@ -9,8 +9,8 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\DeleteCardCommand;
 use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Security\CardVoter;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -42,7 +42,7 @@ final class DeleteCardController extends AppController
         $title = $card->title;
 
         try {
-            ($this->deleteCard)(new DeleteCardCommand($card, CardReporter::Human));
+            ($this->deleteCard)(new DeleteCardCommand($card, Actor::Human));
         } catch (DomainErrors $e) {
             $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Condition;
 
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
@@ -35,13 +35,13 @@ final readonly class CardInSlot implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::Slot];
+        return [EngineFact::Slot];
     }
 
     #[\Override]
     public function evaluate(Facts $facts, array $params): bool
     {
-        return ParameterValue::string($params, 'slot') === $facts->card->slot;
+        return ParameterValue::string($params, 'slot') === $facts->slot;
     }
 
     #[\Override]

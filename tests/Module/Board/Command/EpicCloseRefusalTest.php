@@ -10,8 +10,8 @@ use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -42,15 +42,15 @@ final class EpicCloseRefusalTest extends KernelTestCase
         $this->updateCard = $update;
     }
 
-    /** @return iterable<string, array{CardReporter}> */
+    /** @return iterable<string, array{Actor}> */
     public static function people(): iterable
     {
-        yield 'a person' => [CardReporter::Human];
-        yield 'an agent' => [CardReporter::Agent];
+        yield 'a person' => [Actor::Human];
+        yield 'an agent' => [Actor::Agent];
     }
 
     #[DataProvider('people')]
-    public function test_an_epic_with_open_children_is_not_moved_to_done(CardReporter $actor): void
+    public function test_an_epic_with_open_children_is_not_moved_to_done(Actor $actor): void
     {
         $project = $this->makeProject('epic-refuse-'.$actor->value);
         $epic = $this->card($project, 'in-progress', 'epic');
@@ -76,7 +76,7 @@ final class EpicCloseRefusalTest extends KernelTestCase
         $epic = $this->card($project, 'in-progress', 'epic');
         $this->card($project, 'backlog', parent: $epic);
 
-        $this->move($epic, 'done', CardReporter::System);
+        $this->move($epic, 'done', Actor::System);
 
         $this->em->clear();
         self::assertSame('done', $this->reload($epic)->column->slug);
@@ -88,7 +88,7 @@ final class EpicCloseRefusalTest extends KernelTestCase
         $epic = $this->card($project, 'in-progress', 'epic');
         $this->card($project, 'done', parent: $epic);
         // The flag stays off, so the child did not close the epic on its own.
-        $this->move($epic, 'done', CardReporter::Human);
+        $this->move($epic, 'done', Actor::Human);
 
         $this->em->clear();
         self::assertSame('done', $this->reload($epic)->column->slug);
@@ -100,7 +100,7 @@ final class EpicCloseRefusalTest extends KernelTestCase
         $epic = $this->card($project, 'in-progress', 'epic');
         $this->card($project, 'backlog', parent: $epic);
 
-        $this->move($epic, 'next', CardReporter::Human);
+        $this->move($epic, 'next', Actor::Human);
 
         $this->em->clear();
         self::assertSame('next', $this->reload($epic)->column->slug);
@@ -121,7 +121,7 @@ final class EpicCloseRefusalTest extends KernelTestCase
         return $card;
     }
 
-    private function move(Card $card, string $column, CardReporter $actor): void
+    private function move(Card $card, string $column, Actor $actor): void
     {
         $fresh = $this->reload($card);
         ($this->updateCard)(new UpdateCardCommand($fresh, $actor, column: $this->column($fresh->project, $column)));

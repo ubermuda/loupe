@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Condition;
 
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
@@ -18,7 +18,7 @@ final readonly class ParentInSlot implements Condition
     #[\Override]
     public static function key(): string
     {
-        return 'parent.in_slot';
+        return 'card.parent.in_slot';
     }
 
     #[\Override]
@@ -36,13 +36,13 @@ final readonly class ParentInSlot implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::ParentSlot];
+        return [EngineFact::ParentSlot];
     }
 
     #[\Override]
     public function evaluate(Facts $facts, array $params): bool
     {
-        return ParameterValue::string($params, 'slot') === $facts->card->parentSlot;
+        return ParameterValue::string($params, 'slot') === $facts->parentSlot;
     }
 
     #[\Override]

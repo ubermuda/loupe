@@ -6,6 +6,7 @@ namespace App\Tests\Module\Bridge\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Mcp\AutomationSettingsUpdateTool;
+use App\Module\Board\Mcp\CardPauseReleaseTool;
 use App\Module\Bridge\Command\ListBridgeHostSamplesHandler;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Command\ListWorkerRunToolCallsHandler;
@@ -23,7 +24,6 @@ use App\Module\Bridge\Mcp\WorkerRunResumeTool;
 use App\Module\Bridge\Mcp\WorkerRunStopTool;
 use App\Module\Bridge\Mcp\WorkerRunToolCallsTool;
 use App\Module\Project\Mcp\AdvertisedTools;
-use App\Module\Workflow\Mcp\CardPauseReleaseTool;
 use Mcp\Capability\Registry;
 use Mcp\Server;
 use PHPUnit\Framework\Attributes\DataProvider;

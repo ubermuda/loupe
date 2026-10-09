@@ -13,7 +13,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Inbox\Command\AnswerInboxItemCommand;
 use App\Module\Inbox\Command\AnswerInboxItemHandler;
 use App\Module\Inbox\Command\AskInboxCommand;
@@ -36,6 +35,7 @@ use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Inbox\InboxFixtures;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
@@ -191,7 +191,7 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
         $item = $this->linkedItem(1, $card);
         $this->em->flush();
 
-        $this->service(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'in-progress'), CardReporter::Human, $this->column($this->project, 'done')));
+        $this->service(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'in-progress'), Actor::Human, $this->column($this->project, 'done')));
 
         self::assertSame(InboxItemState::Obsolete, $this->reload($item)->state);
         $this->assertPublishedAtTerminate(1);
@@ -336,7 +336,7 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
 
     private function move(Card $card, string $slug): void
     {
-        $this->service(UpdateCardHandler::class)(new UpdateCardCommand($card, CardReporter::Human, column: $this->column($this->project, $slug)));
+        $this->service(UpdateCardHandler::class)(new UpdateCardCommand($card, Actor::Human, column: $this->column($this->project, $slug)));
     }
 
     private function reload(InboxItem $item): InboxItem

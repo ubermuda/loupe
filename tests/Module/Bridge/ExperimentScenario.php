@@ -7,11 +7,11 @@ namespace App\Tests\Module\Bridge;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -50,7 +50,7 @@ trait ExperimentScenario
     {
         $events = static::getContainer()->get(CardEventRepository::class);
         self::assertInstanceOf(CardEventRepository::class, $events);
-        $events->record($card, $kind, CardReporter::System, null, $detail, new \DateTimeImmutable($at));
+        $events->record($card, $kind, Actor::System, null, $detail, new \DateTimeImmutable($at));
         $em->flush();
     }
 

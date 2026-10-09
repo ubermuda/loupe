@@ -9,9 +9,9 @@ use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Command\BoardLaneView;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Service\BoardStructureDigest;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\LabelTone;
 use PHPUnit\Framework\TestCase;
 
 final class BoardStructureDigestTest extends TestCase

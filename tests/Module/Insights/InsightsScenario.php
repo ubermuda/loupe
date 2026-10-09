@@ -28,7 +28,7 @@ trait InsightsScenario
         return $this->project($em, $this->user($em, $name.'-'.uniqid().'@example.com'), 'Project '.$name);
     }
 
-    /** A card run that names the experiment, so the project lists it. A fixed time keeps the experiments in name order. */
+    /** A card run that names the experiment, so the project lists it. Every run shares one receive time, so the list orders by name. */
     private function seedExperiment(Project $project, string $experiment): void
     {
         $em = $this->em();

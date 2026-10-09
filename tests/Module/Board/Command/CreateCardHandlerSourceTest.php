@@ -8,10 +8,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -46,17 +46,17 @@ final class CreateCardHandlerSourceTest extends KernelTestCase
         $this->em->flush();
     }
 
-    /** @return iterable<string, array{CardReporter, CardSourceKind}> */
+    /** @return iterable<string, array{Actor, CardSourceKind}> */
     public static function reporters(): iterable
     {
-        yield 'human' => [CardReporter::Human, CardSourceKind::Person];
-        yield 'agent' => [CardReporter::Agent, CardSourceKind::Agent];
-        yield 'reviewer' => [CardReporter::Reviewer, CardSourceKind::Widget];
-        yield 'system' => [CardReporter::System, CardSourceKind::Loupe];
+        yield 'human' => [Actor::Human, CardSourceKind::Person];
+        yield 'agent' => [Actor::Agent, CardSourceKind::Agent];
+        yield 'reviewer' => [Actor::Reviewer, CardSourceKind::Widget];
+        yield 'system' => [Actor::System, CardSourceKind::Loupe];
     }
 
     #[DataProvider('reporters')]
-    public function test_a_command_with_no_source_takes_it_from_the_reporter(CardReporter $reporter, CardSourceKind $kind): void
+    public function test_a_command_with_no_source_takes_it_from_the_reporter(Actor $reporter, CardSourceKind $kind): void
     {
         $card = ($this->handler)(new CreateCardCommand($this->project, 'Ship it', '', 'feature', reporter: $reporter));
 
@@ -68,7 +68,7 @@ final class CreateCardHandlerSourceTest extends KernelTestCase
         $run = Uuid::v4();
         $runCard = Uuid::v4();
 
-        $card = ($this->handler)(new CreateCardCommand($this->project, 'Ship it', '', 'feature', reporter: CardReporter::Agent, source: CardSource::run($run, $runCard)));
+        $card = ($this->handler)(new CreateCardCommand($this->project, 'Ship it', '', 'feature', reporter: Actor::Agent, source: CardSource::run($run, $runCard)));
 
         $source = $this->reload($card)->source;
         self::assertSame(CardSourceKind::Run, $source->kind);
@@ -95,7 +95,7 @@ final class CreateCardHandlerSourceTest extends KernelTestCase
 
     public function test_a_row_with_no_stored_source_reads_the_reporter(): void
     {
-        $card = ($this->handler)(new CreateCardCommand($this->project, 'Ship it', '', 'feature', reporter: CardReporter::Human));
+        $card = ($this->handler)(new CreateCardCommand($this->project, 'Ship it', '', 'feature', reporter: Actor::Human));
         $this->em->getConnection()->executeStatement('UPDATE board_cards SET source = NULL WHERE id = :id', ['id' => (string) $card->id]);
 
         self::assertSame(CardSourceKind::Person, $this->reload($card)->source->kind);

@@ -9,12 +9,12 @@ use App\Module\Board\Command\CardLinkInput;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
@@ -155,7 +155,7 @@ final readonly class BoardSubjectResolver
     /** Refuses a key the workflow template of the project does not declare. */
     public function requireType(Project $project, string $type): string
     {
-        $types = $this->catalog->forProject($project);
+        $types = $this->catalog->forProject($project->requireId());
 
         return $types->has($type)
             ? $type
@@ -168,13 +168,13 @@ final readonly class BoardSubjectResolver
     }
 
     /** Reads every value, so a filter reaches the reviewer cards the widget wrote. */
-    public function requireReporter(string $reporter): CardReporter
+    public function requireReporter(string $reporter): Actor
     {
-        return CardReporter::tryFrom($reporter)
-            ?? throw new ToolCallException(\sprintf('Unknown reporter "%s". Use one of: %s.', $reporter, implode(', ', CardReporter::values())));
+        return Actor::tryFrom($reporter)
+            ?? throw new ToolCallException(\sprintf('Unknown reporter "%s". Use one of: %s.', $reporter, implode(', ', Actor::values())));
     }
 
-    public function optionalReporter(?string $reporter): ?CardReporter
+    public function optionalReporter(?string $reporter): ?Actor
     {
         return null === $reporter ? null : $this->requireReporter($reporter);
     }
@@ -187,22 +187,22 @@ final readonly class BoardSubjectResolver
      * the tool description would make the rule a request rather than a
      * constraint, and the value would be forgeable from any client.
      *
-     * @var list<CardReporter>
+     * @var list<Actor>
      */
-    private const array CLAIMABLE_REPORTERS = [CardReporter::Human, CardReporter::Agent];
+    private const array CLAIMABLE_REPORTERS = [Actor::Human, Actor::Agent];
 
     /** Narrower than requireReporter(): a write claims a reporter, a filter only matches one. */
-    public function requireClaimedReporter(string $reporter): CardReporter
+    public function requireClaimedReporter(string $reporter): Actor
     {
-        $parsed = CardReporter::tryFrom($reporter);
+        $parsed = Actor::tryFrom($reporter);
         if (null === $parsed || !\in_array($parsed, self::CLAIMABLE_REPORTERS, true)) {
-            throw new ToolCallException(\sprintf('Unknown reporter "%s". Use one of: %s.', $reporter, implode(', ', array_map(static fn (CardReporter $r): string => $r->value, self::CLAIMABLE_REPORTERS))));
+            throw new ToolCallException(\sprintf('Unknown reporter "%s". Use one of: %s.', $reporter, implode(', ', array_map(static fn (Actor $r): string => $r->value, self::CLAIMABLE_REPORTERS))));
         }
 
         return $parsed;
     }
 
-    public function optionalClaimedReporter(?string $reporter): ?CardReporter
+    public function optionalClaimedReporter(?string $reporter): ?Actor
     {
         return null === $reporter ? null : $this->requireClaimedReporter($reporter);
     }

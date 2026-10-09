@@ -7,10 +7,10 @@ namespace App\Tests\Module\Board;
 use App\Module\Board\Command\ConfigureBoardColumnCommand;
 use App\Module\Board\Command\ConfigureBoardColumnHandler;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -78,7 +78,7 @@ trait BoardColumnFixtures
 
         $handler(new ConfigureBoardColumnCommand(
             $column,
-            CardReporter::Human,
+            Actor::Human,
             $label ?? $translator->trans($column->label),
             $terminal ?? $column->terminal,
             $column->label,

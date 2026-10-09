@@ -14,9 +14,9 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -60,14 +60,14 @@ final class CardHoldReleaseTest extends KernelTestCase
     {
         $card = $this->heldCard('next');
 
-        $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress')));
+        $this->updateCard()(new UpdateCardCommand(card: $card, actor: Actor::Human, column: $this->column($this->project, 'in-progress')));
 
         self::assertSame('in-progress', $card->column->slug);
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($card)));
     }
 
     #[DataProvider('automatedActors')]
-    public function test_an_automated_move_keeps_the_hold(CardReporter $actor): void
+    public function test_an_automated_move_keeps_the_hold(Actor $actor): void
     {
         $card = $this->heldCard('next');
 
@@ -77,11 +77,11 @@ final class CardHoldReleaseTest extends KernelTestCase
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($card)));
     }
 
-    /** @return iterable<string, array{CardReporter}> */
+    /** @return iterable<string, array{Actor}> */
     public static function automatedActors(): iterable
     {
-        yield 'agent' => [CardReporter::Agent];
-        yield 'system' => [CardReporter::System];
+        yield 'agent' => [Actor::Agent];
+        yield 'system' => [Actor::System];
     }
 
     public function test_a_human_rank_move_inside_the_column_keeps_the_hold(): void
@@ -89,7 +89,7 @@ final class CardHoldReleaseTest extends KernelTestCase
         $card = $this->heldCard('next');
         $this->card('next');
 
-        $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'next'), position: 1));
+        $this->updateCard()(new UpdateCardCommand(card: $card, actor: Actor::Human, column: $this->column($this->project, 'next'), position: 1));
 
         self::assertSame(1, $card->position, 'the rank must really change, or this test proves nothing');
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($card)));
@@ -102,7 +102,7 @@ final class CardHoldReleaseTest extends KernelTestCase
         $delete = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $delete);
 
-        $delete(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'in-progress')));
+        $delete(new DeleteBoardColumnCommand($this->column($this->project, 'next'), Actor::Human, $this->column($this->project, 'in-progress')));
 
         self::assertFalse($this->holds->isHeld($this->project, $this->idOf($moved)));
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($elsewhere)));
@@ -116,7 +116,7 @@ final class CardHoldReleaseTest extends KernelTestCase
         $delete = self::getContainer()->get(DeleteCardHandler::class);
         self::assertInstanceOf(DeleteCardHandler::class, $delete);
 
-        $delete(new DeleteCardCommand($deleted, CardReporter::Human));
+        $delete(new DeleteCardCommand($deleted, Actor::Human));
 
         self::assertFalse($this->holds->isHeld($this->project, $deletedId));
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($kept)));
@@ -147,7 +147,7 @@ final class CardHoldReleaseTest extends KernelTestCase
             body: 'Body',
             type: 'bug',
             column: $this->column($this->project, $column),
-            reporter: CardReporter::Agent,
+            reporter: Actor::Agent,
         ));
     }
 

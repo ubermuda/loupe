@@ -12,9 +12,9 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -77,7 +77,7 @@ final class CardParentWriteTest extends KernelTestCase
         self::assertCount(1, $events);
         self::assertNull($events[0]->oldParent);
         self::assertSame((string) $epic->id, (string) $events[0]->newParent?->id);
-        self::assertSame(CardReporter::Agent, $events[0]->actor);
+        self::assertSame(Actor::Agent, $events[0]->actor);
     }
 
     public function test_a_card_created_with_no_parent_fires_no_event_and_keeps_its_lane_setting(): void
@@ -260,7 +260,7 @@ final class CardParentWriteTest extends KernelTestCase
 
         $this->expectRefusal(
             ['parent' => 'board.card.error.parent_not_epic'],
-            fn () => ($this->updateCard)(new UpdateCardCommand($loaded, CardReporter::Agent, parentCardId: (string) $epic->id)),
+            fn () => ($this->updateCard)(new UpdateCardCommand($loaded, Actor::Agent, parentCardId: (string) $epic->id)),
         );
     }
 
@@ -277,7 +277,7 @@ final class CardParentWriteTest extends KernelTestCase
 
         $this->expectRefusal(
             ['type' => 'board.card.error.parent_card_cannot_be_epic'],
-            fn () => ($this->updateCard)(new UpdateCardCommand($loaded, CardReporter::Agent, type: 'epic')),
+            fn () => ($this->updateCard)(new UpdateCardCommand($loaded, Actor::Agent, type: 'epic')),
         );
     }
 
@@ -305,7 +305,7 @@ final class CardParentWriteTest extends KernelTestCase
         $second = $this->cardIn($project, parent: $epic);
         $this->em->clear();
 
-        $this->expectRefusal(['card' => 'board.card.error.epic_delete_has_children'], fn () => ($this->deleteCard)(new DeleteCardCommand($this->reload($epic), CardReporter::Human)));
+        $this->expectRefusal(['card' => 'board.card.error.epic_delete_has_children'], fn () => ($this->deleteCard)(new DeleteCardCommand($this->reload($epic), Actor::Human)));
         $this->em->clear();
         self::assertNotNull($this->em->find(Card::class, $epic->id));
 
@@ -313,7 +313,7 @@ final class CardParentWriteTest extends KernelTestCase
         $this->update($second, parentCardId: '');
         $this->em->clear();
 
-        ($this->deleteCard)(new DeleteCardCommand($this->reload($epic), CardReporter::Human));
+        ($this->deleteCard)(new DeleteCardCommand($this->reload($epic), Actor::Human));
         $this->em->clear();
         self::assertNull($this->em->find(Card::class, $epic->id));
     }
@@ -325,7 +325,7 @@ final class CardParentWriteTest extends KernelTestCase
         $child = $this->cardIn($project, parent: $epic);
         $this->em->clear();
 
-        ($this->deleteCard)(new DeleteCardCommand($this->reload($child), CardReporter::Human));
+        ($this->deleteCard)(new DeleteCardCommand($this->reload($child), Actor::Human));
         $this->em->clear();
 
         self::assertNull($this->em->find(Card::class, $child->id));
@@ -359,7 +359,7 @@ final class CardParentWriteTest extends KernelTestCase
     ): void {
         ($this->updateCard)(new UpdateCardCommand(
             $this->reload($card),
-            CardReporter::Agent,
+            Actor::Agent,
             title: $title,
             type: $type,
             parentCardId: $parentCardId,

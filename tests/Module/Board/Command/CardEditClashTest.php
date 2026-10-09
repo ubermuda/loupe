@@ -11,9 +11,9 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -97,7 +97,7 @@ final class CardEditClashTest extends KernelTestCase
         // Editor B changes the type alone. The form trims the textarea.
         ($this->updateCard)(new UpdateCardCommand(
             card: $this->card,
-            actor: CardReporter::Human,
+            actor: Actor::Human,
             title: 'Opened title',
             body: 'Opened body',
             type: 'bug',
@@ -106,7 +106,7 @@ final class CardEditClashTest extends KernelTestCase
         // Editor A saves the same text with the fingerprint it opened with.
         ($this->updateCard)(new UpdateCardCommand(
             card: $this->card,
-            actor: CardReporter::Human,
+            actor: Actor::Human,
             title: 'Opened title',
             body: "Opened body\r\n",
             type: 'docs',
@@ -128,7 +128,7 @@ final class CardEditClashTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $this->card,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             body: "    Opened body\n",
         ));
 
@@ -147,7 +147,7 @@ final class CardEditClashTest extends KernelTestCase
         try {
             ($this->updateCard)(new UpdateCardCommand(
                 card: $this->card,
-                actor: CardReporter::Human,
+                actor: Actor::Human,
                 body: 'Opened body',
                 expectedFingerprint: Card::contentFingerprint('Opened title', "Opened body\n"),
             ));
@@ -161,7 +161,7 @@ final class CardEditClashTest extends KernelTestCase
     {
         $this->changeBehindTheEditor();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $this->card, actor: CardReporter::Agent, body: 'Agent body'));
+        ($this->updateCard)(new UpdateCardCommand(card: $this->card, actor: Actor::Agent, body: 'Agent body'));
 
         self::assertSame(['Other title', 'Agent body'], $this->stored());
     }
@@ -170,7 +170,7 @@ final class CardEditClashTest extends KernelTestCase
     {
         ($this->updateCard)(new UpdateCardCommand(
             card: $this->card,
-            actor: CardReporter::Human,
+            actor: Actor::Human,
             title: 'Opened title',
             body: 'Edited body',
             expectedFingerprint: Card::contentFingerprint('Opened title', 'Opened body'),
@@ -186,7 +186,7 @@ final class CardEditClashTest extends KernelTestCase
         try {
             ($this->updateCard)(new UpdateCardCommand(
                 card: $this->card,
-                actor: CardReporter::Human,
+                actor: Actor::Human,
                 title: 'Opened title',
                 body: 'Edited body',
                 expectedFingerprint: Card::contentFingerprint('Opened title', 'Opened body'),
@@ -205,7 +205,7 @@ final class CardEditClashTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $this->card,
-            actor: CardReporter::Human,
+            actor: Actor::Human,
             title: 'Opened title',
             body: 'Edited body',
             expectedFingerprint: Card::contentFingerprint('Opened title', 'Opened body'),

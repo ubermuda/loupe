@@ -10,7 +10,7 @@ use App\Module\Board\Command\OpenCardRunCommand;
 use App\Module\Board\Command\OpenCardRunHandler;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Workflow\Contract\Actor;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -48,7 +48,7 @@ final readonly class CardRunOpenTool
 
             $opened = ($this->openRun)(new OpenCardRunCommand(
                 card: $card,
-                actor: CardReporter::Agent,
+                actor: Actor::Agent,
                 sessionId: $session,
                 name: $name,
                 column: $this->subjects->optionalColumn($card->project, $status),
