@@ -5005,6 +5005,126 @@
                 <source>inbox.item.kind.workflow</source>
                 <target>Workflow question</target>
             </trans-unit>
+            <trans-unit id="review.inbox_wait.waiting_for_review">
+                <source>review.inbox_wait.waiting_for_review</source>
+                <target>The document "%title%", version %version%, of card %card% waits for your review.</target>
+            </trans-unit>
+            <trans-unit id="review.inbox_wait.waiting_for_review.action">
+                <source>review.inbox_wait.waiting_for_review.action</source>
+                <target>Review the document</target>
+            </trans-unit>
+            <trans-unit id="forge.inbox_wait.waiting_for_review">
+                <source>forge.inbox_wait.waiting_for_review</source>
+                <target>Pull request #%number% of card %card% waits for your review.</target>
+            </trans-unit>
+            <trans-unit id="forge.inbox_wait.waiting_for_review.action">
+                <source>forge.inbox_wait.waiting_for_review.action</source>
+                <target>Review pull request #%number%</target>
+            </trans-unit>
+            <trans-unit id="forge.inbox_wait.new_commits_after_approval">
+                <source>forge.inbox_wait.new_commits_after_approval</source>
+                <target>Pull request #%number% of card %card% changed after you approved it.</target>
+            </trans-unit>
+            <trans-unit id="forge.inbox_wait.new_commits_after_approval.action">
+                <source>forge.inbox_wait.new_commits_after_approval.action</source>
+                <target>Review pull request #%number% again</target>
+            </trans-unit>
+            <trans-unit id="forge.inbox_wait.fix_stopped">
+                <source>forge.inbox_wait.fix_stopped</source>
+                <target>The automatic fixes of pull request #%number% of card %card% stopped.</target>
+            </trans-unit>
+            <trans-unit id="forge.inbox_wait.fix_stopped.action">
+                <source>forge.inbox_wait.fix_stopped.action</source>
+                <target>Open pull request #%number%</target>
+            </trans-unit>
+            <trans-unit id="bridge.inbox_wait.blocked">
+                <source>bridge.inbox_wait.blocked</source>
+                <target>A worker on card %card% is blocked and needs you.</target>
+            </trans-unit>
+            <trans-unit id="bridge.inbox_wait.blocked.action">
+                <source>bridge.inbox_wait.blocked.action</source>
+                <target>Open the run</target>
+            </trans-unit>
+            <trans-unit id="bridge.inbox_wait.gave_up">
+                <source>bridge.inbox_wait.gave_up</source>
+                <target>A worker on card %card% gave up.</target>
+            </trans-unit>
+            <trans-unit id="bridge.inbox_wait.gave_up.action">
+                <source>bridge.inbox_wait.gave_up.action</source>
+                <target>Open the run</target>
+            </trans-unit>
+            <trans-unit id="bridge.inbox_wait.waits_for_person">
+                <source>bridge.inbox_wait.waits_for_person</source>
+                <target>A worker on card %card% waits for an answer from you.</target>
+            </trans-unit>
+            <trans-unit id="bridge.inbox_wait.waits_for_person.action">
+                <source>bridge.inbox_wait.waits_for_person.action</source>
+                <target>Open the run</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.rule">
+                <source>board.inbox_wait.rule</source>
+                <target>A workflow rule paused card %card%.</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.rule.action">
+                <source>board.inbox_wait.rule.action</source>
+                <target>Open the card and resume it</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.retries">
+                <source>board.inbox_wait.retries</source>
+                <target>Card %card% paused because its work failed too many times.</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.retries.action">
+                <source>board.inbox_wait.retries.action</source>
+                <target>Open the card and resume it</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.work_limit">
+                <source>board.inbox_wait.work_limit</source>
+                <target>Card %card% paused because its work reached a limit.</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.work_limit.action">
+                <source>board.inbox_wait.work_limit.action</source>
+                <target>Open the card and resume it</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.work_timeout">
+                <source>board.inbox_wait.work_timeout</source>
+                <target>Card %card% paused because its work ran too long.</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.work_timeout.action">
+                <source>board.inbox_wait.work_timeout.action</source>
+                <target>Open the card and resume it</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.work_stopped">
+                <source>board.inbox_wait.work_stopped</source>
+                <target>Card %card% paused because a worker stopped and the workflow does not retry it.</target>
+            </trans-unit>
+            <trans-unit id="board.inbox_wait.work_stopped.action">
+                <source>board.inbox_wait.work_stopped.action</source>
+                <target>Open the card and resume it</target>
+            </trans-unit>
+            <trans-unit id="inbox.wait.ended.resolved">
+                <source>inbox.wait.ended.resolved</source>
+                <target>Closed when you acted on it.</target>
+            </trans-unit>
+            <trans-unit id="inbox.wait.ended.card_finished">
+                <source>inbox.wait.ended.card_finished</source>
+                <target>Closed because the card finished.</target>
+            </trans-unit>
+            <trans-unit id="inbox.wait.ended.card_deleted">
+                <source>inbox.wait.ended.card_deleted</source>
+                <target>Closed because the card was deleted.</target>
+            </trans-unit>
+            <trans-unit id="inbox.wait.ended.switched_off">
+                <source>inbox.wait.ended.switched_off</source>
+                <target>Closed because you switched this kind of item off.</target>
+            </trans-unit>
+            <trans-unit id="inbox.wait.ended.dismissed">
+                <source>inbox.wait.ended.dismissed</source>
+                <target>Closed because you dismissed the item.</target>
+            </trans-unit>
+            <trans-unit id="inbox.wait.dismiss_help">
+                <source>inbox.wait.dismiss_help</source>
+                <target>Dismiss hides this item. The card still waits until you act on it.</target>
+            </trans-unit>
             <trans-unit id="inbox.item.dismiss">
                 <source>inbox.item.dismiss</source>
                 <target>Dismiss</target>
@@ -7762,6 +7882,7 @@
             <trans-unit id="workflow.settings.rules.until"><source>workflow.settings.rules.until</source><target>Until:</target></trans-unit>
             <trans-unit id="workflow.settings.rules.refill"><source>workflow.settings.rules.refill</source><target>Starts the limit again while:</target></trans-unit>
             <trans-unit id="workflow.settings.rules.missing_condition"><source>workflow.settings.rules.missing_condition</source><target>Condition no longer exists: %condition%</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.missing_action"><source>workflow.settings.rules.missing_action</source><target>Action not known to this version: %action%</target></trans-unit>
             <trans-unit id="workflow.settings.app_rules.heading"><source>workflow.settings.app_rules.heading</source><target>Rules the app adds</target></trans-unit>
             <trans-unit id="workflow.settings.app_rules.description"><source>workflow.settings.app_rules.description</source><target>The app adds these rules to the workflow of every project, after the rules of its template.</target></trans-unit>
             <trans-unit id="workflow.settings.where.backlog"><source>workflow.settings.where.backlog</source><target>the Backlog</target></trans-unit>
@@ -7776,6 +7897,7 @@
             <trans-unit id="workflow.settings.action.ask"><source>workflow.settings.action.ask</source><target>Ask the owner</target></trans-unit>
             <trans-unit id="workflow.settings.action.link_document"><source>workflow.settings.action.link_document</source><target>Link a document of the parent</target></trans-unit>
             <trans-unit id="workflow.settings.action.detach"><source>workflow.settings.action.detach</source><target>Remove the parent of the card</target></trans-unit>
+            <trans-unit id="workflow.settings.action.missing"><source>workflow.settings.action.missing</source><target>An action this version does not know</target></trans-unit>
             <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
             <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A managed card may move along these paths outside the rules.</target></trans-unit>
             <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
@@ -7815,6 +7937,7 @@
             <trans-unit id="workflow.panel.unreadable.failed"><source>workflow.panel.unreadable.failed</source><target>Waiting: could not read %source%.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.off"><source>workflow.panel.unreadable.off</source><target>Waiting: %source% is off on this instance.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.missing_condition"><source>workflow.panel.unreadable.missing_condition</source><target>Waiting: the condition %condition% no longer exists.</target></trans-unit>
+            <trans-unit id="workflow.panel.unreadable.missing_action"><source>workflow.panel.unreadable.missing_action</source><target>Waiting: this version does not know the action %action%.</target></trans-unit>
             <trans-unit id="workflow.panel.slot.label"><source>workflow.panel.slot.label</source><target>Slot</target></trans-unit>
             <trans-unit id="workflow.panel.slot.none"><source>workflow.panel.slot.none</source><target>No slot</target></trans-unit>
             <trans-unit id="workflow.panel.slot.backlog"><source>workflow.panel.slot.backlog</source><target>Backlog</target></trans-unit>
@@ -7834,6 +7957,7 @@
             <trans-unit id="workflow.panel.action.ask"><source>workflow.panel.action.ask</source><target>Ask the owner what to do with the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.link_document"><source>workflow.panel.action.link_document</source><target>Link a document of the parent to the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.detach"><source>workflow.panel.action.detach</source><target>Remove the parent of the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.missing"><source>workflow.panel.action.missing</source><target>An action this version does not know</target></trans-unit>
             <trans-unit id="workflow.pause.no-bridge-took-work"><source>workflow.pause.no-bridge-took-work</source><target>No bridge took the requested work in time.</target></trans-unit>
             <trans-unit id="workflow.pause.repair-failed"><source>workflow.pause.repair-failed</source><target>The repair worker could not fix the failure.</target></trans-unit>
             <trans-unit id="workflow.pause.inbox-off"><source>workflow.pause.inbox-off</source><target>The inbox is off, so the workflow cannot ask the owner about this card. The pause ends when the inbox is on.</target></trans-unit>

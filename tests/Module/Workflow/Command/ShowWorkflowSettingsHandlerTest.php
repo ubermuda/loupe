@@ -195,6 +195,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             'rules' => [
                 ['id' => 'gone', 'when' => ['card.gone' => []], 'then' => ['request' => ['kind' => 'gone']]],
                 ['id' => 'work', 'when' => ['all' => []], 'then' => ['request' => ['kind' => 'work']]],
+                ['id' => 'later', 'when' => ['all' => [['card.parent.exists' => []]]], 'then' => ['jump' => []]],
                 ['id' => 'paused', 'when' => ['all' => [['card.parent.exists' => []], ['card.parent.exists' => []], ['not' => ['any' => [['card.parent.exists' => []], ['not' => ['card.children.exist' => []]]]]]]], 'then' => ['pause' => ['reason' => 'held', 'until' => ['all' => [['pr.lost' => []], ['card.parent.exists' => []], ['pr.open' => []]]]]]],
             ],
         ]));
@@ -204,17 +205,20 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
         $template = $this->show($project)->template;
 
         self::assertInstanceOf(BoundWorkflowView::class, $template);
-        self::assertSame(['gone', 'work', 'paused'], array_map(static fn (WorkflowRuleView $rule): string => $rule->id, $template->rules));
+        self::assertSame(['gone', 'work', 'later', 'paused'], array_map(static fn (WorkflowRuleView $rule): string => $rule->id, $template->rules));
         self::assertSame(['card.gone'], $template->rules[0]->missingConditions);
         self::assertSame([], $template->rules[0]->whenGroups);
         self::assertSame([], $template->rules[1]->missingConditions);
         self::assertSame([], $template->rules[1]->whenGroups);
-        self::assertSame(['pr.lost'], $template->rules[2]->missingConditions);
-        self::assertEquals([new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.parent.exists', false, ''), new WorkflowConditionView('card.parent.exists', true, ''), new WorkflowConditionView('card.children.exist', false, '')])], $template->rules[2]->whenGroups);
+        self::assertSame('jump', $template->rules[2]->missingAction);
+        self::assertSame('workflow.settings.action.missing', $template->rules[2]->actionKey);
+        self::assertNull($template->rules[1]->missingAction);
+        self::assertSame(['pr.lost'], $template->rules[3]->missingConditions);
+        self::assertEquals([new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.parent.exists', false, ''), new WorkflowConditionView('card.parent.exists', true, ''), new WorkflowConditionView('card.children.exist', false, '')])], $template->rules[3]->whenGroups);
         self::assertEquals([
             new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.parent.exists', false, '')]),
             new WorkflowConditionGroupView('workflow.source.forge', [new WorkflowConditionView('pr.open', false, '')]),
-        ], $template->rules[2]->untilGroups);
+        ], $template->rules[3]->untilGroups);
         self::assertSame([], $template->rules[0]->untilGroups);
         self::assertSame([], $template->rules[0]->refillGroups);
         self::assertNull($template->workFailedBackoffMinutes);

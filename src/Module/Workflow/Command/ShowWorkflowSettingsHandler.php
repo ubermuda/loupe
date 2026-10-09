@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Command;
 
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\MissingAction;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Expression;
+use App\Module\Workflow\Expression\MissingActionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
@@ -97,6 +99,7 @@ final readonly class ShowWorkflowSettingsHandler
             untilGroups: null === $rule->then->until ? [] : self::groups($rule->then->until),
             refillGroups: null === $rule->then->refill ? [] : self::groups($rule->then->refill),
             missingConditions: array_values(array_unique($missing)),
+            missingAction: MissingAction::KEY === $rule->then->key ? (string) $rule->then->params['name'] : null,
         );
     }
 
@@ -127,7 +130,7 @@ final readonly class ShowWorkflowSettingsHandler
             $expression instanceof ConditionLeaf => [[$expression, $negated]],
             $expression instanceof Not => self::conditions($expression->inner, !$negated),
             $expression instanceof AllOf, $expression instanceof AnyOf => array_merge(...array_map(static fn (Expression $child): array => self::conditions($child, $negated), $expression->children)),
-            $expression instanceof MissingConditionLeaf => [],
+            $expression instanceof MissingConditionLeaf, $expression instanceof MissingActionLeaf => [],
             default => throw new \LogicException(\sprintf('The settings page cannot list a %s.', $expression::class)),
         };
     }
