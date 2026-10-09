@@ -26,7 +26,7 @@
             {# A bucket name comes from the project rules, so it is rendered as text. Never add |raw here. #}
             <optgroup label="{{ 'analytics.metrics.metric_group.bucket_time'|trans }}">
                 {% for name in bucketNames %}
-                <option value="bucket-time:{{ name }}"{{ query.bucketName == name ? ' selected' : '' }}>{{ 'analytics.metrics.metric.bucket_time_named'|trans({'%bucket%': name}) }}</option>
+                <option value="bucket-time:{{ name }}"{{ query.bucketName is same as(name) ? ' selected' : '' }}>{{ 'analytics.metrics.metric.bucket_time_named'|trans({'%bucket%': name}) }}</option>
                 {% endfor %}
             </optgroup>
             {% endif %}

@@ -305,6 +305,23 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertSame(['4 s', '0 ms', 'unknown'], $table->filter('tbody td.lp-metric-table__number')->each(static fn (Crawler $cell): string => trim($cell->text())));
     }
 
+    public function test_a_numeric_bucket_name_selects_only_its_own_option(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'metrics-bucket-numeric@example.com');
+        $project = $this->project($em, $owner, 'Bucket numeric');
+        $this->bucketTimes($em, $this->seedRun($em, $project), ['1' => 10, '01' => 5]);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics?metric=bucket-time:1&unit=run&range=all');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['bucket-time:1'], $crawler->filter('form[data-metrics-form] select[name="metric"] option[selected]')->each(static fn (Crawler $option): string => (string) $option->attr('value')));
+    }
+
     public function test_a_valid_bucket_with_no_time_shows_zero_on_the_runs_with_data(): void
     {
         $client = static::createClient();
@@ -401,11 +418,11 @@ final class ShowMetricsControllerTest extends WebTestCase
         $em->flush();
     }
 
-    /** @param array<string, int> $times bucket name => milliseconds */
+    /** @param array<int|string, int> $times bucket name => milliseconds */
     private function bucketTimes(EntityManagerInterface $em, WorkerRun $run, array $times): void
     {
         foreach ($times as $bucket => $ms) {
-            $em->getConnection()->insert('bridge_worker_run_bucket_times', ['id' => (string) Uuid::v7(), 'run_id' => (string) $run->id, 'bucket' => $bucket, 'ms' => $ms]);
+            $em->getConnection()->insert('bridge_worker_run_bucket_times', ['id' => (string) Uuid::v7(), 'run_id' => (string) $run->id, 'bucket' => (string) $bucket, 'ms' => $ms]);
         }
     }
 

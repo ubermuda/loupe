@@ -8,8 +8,8 @@ namespace App\Module\Bridge\Metric;
 final readonly class BucketTimes
 {
     /**
-     * @param int                               $runs  the closed runs in the range, with bucket data or not
-     * @param array<string, array<string, int>> $times run id => bucket name => milliseconds, for the runs with bucket data alone
+     * @param int                                   $runs  the closed runs in the range, with bucket data or not
+     * @param array<string, array<int|string, int>> $times run id => bucket name => milliseconds, for the runs with bucket data alone; a numeric name is an int key
      */
     public function __construct(
         public int $runs,

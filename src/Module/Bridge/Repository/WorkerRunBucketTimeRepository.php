@@ -77,11 +77,11 @@ class WorkerRunBucketTimeRepository extends ServiceEntityRepository
 
     /**
      * The milliseconds each of the runs spent in each of its buckets. A run
-     * with no rows has no entry.
+     * with no rows has no entry. PHP turns a numeric bucket name into an int key.
      *
      * @param list<Uuid> $runIds
      *
-     * @return array<string, array<string, int>> run id => bucket name => milliseconds
+     * @return array<string, array<int|string, int>> run id => bucket name => milliseconds
      */
     public function findAllMillisecondsOfRuns(array $runIds): array
     {

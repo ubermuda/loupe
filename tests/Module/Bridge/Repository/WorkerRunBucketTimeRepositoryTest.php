@@ -70,7 +70,7 @@ final class WorkerRunBucketTimeRepositoryTest extends KernelTestCase
         $none = $this->seedRun($this->em(), $project)->id ?? throw new \LogicException();
         $unasked = $this->seedRun($this->em(), $project)->id ?? throw new \LogicException();
         $this->repository()->replaceForRun($both, ['tests' => 40, 'other' => 2]);
-        $this->repository()->replaceForRun($one, ['git' => 3]);
+        $this->repository()->replaceForRun($one, ['git' => 3, '123' => 4]);
         $this->repository()->replaceForRun($unasked, ['git' => 9]);
 
         $times = $this->repository()->findAllMillisecondsOfRuns([$both, $one, $none]);
@@ -80,7 +80,7 @@ final class WorkerRunBucketTimeRepositoryTest extends KernelTestCase
         }
         unset($buckets);
 
-        $expected = [(string) $both => ['other' => 2, 'tests' => 40], (string) $one => ['git' => 3]];
+        $expected = [(string) $both => ['other' => 2, 'tests' => 40], (string) $one => [123 => 4, 'git' => 3]];
         ksort($expected);
         self::assertSame($expected, $times);
         self::assertSame([], $this->repository()->findAllMillisecondsOfRuns([]));
