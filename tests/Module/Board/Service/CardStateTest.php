@@ -62,6 +62,17 @@ final class CardStateTest extends TestCase
         self::assertSame('paused|1000|run-open', $state->digest());
     }
 
+    public function test_the_digest_changes_when_the_parameters_of_the_winner_change(): void
+    {
+        $digest = static fn (string $title): string => CardState::of([
+            new CardStateReason(CardStateCode::DocumentInReview, ['%title%' => $title]),
+        ])->digest();
+
+        self::assertStringStartsWith('document-in-review:', $digest('Plan'));
+        self::assertNotSame($digest('Plan'), $digest('Plan, renamed'));
+        self::assertSame($digest('Plan'), $digest('Plan'));
+    }
+
     public function test_a_reason_names_its_translation_key_after_its_code(): void
     {
         self::assertSame('board.card_state.reason.waits_for_approval', new CardStateReason(CardStateCode::WaitsForApproval)->translationKey());
