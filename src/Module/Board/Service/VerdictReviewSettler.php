@@ -68,14 +68,14 @@ final readonly class VerdictReviewSettler
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped);
         }
         $pullRequest = $delivery->pullRequest;
-        if (PullRequestState::Open !== $pullRequest->state) {
+        if (!self::isOpen($pullRequest)) {
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped, self::REASON_NOT_OPEN);
         }
         if (!$this->authorIsRead($pullRequest)) {
             return self::AUTHOR_UNREAD;
         }
         // The read can find the pull request closed.
-        if (PullRequestState::Open !== $pullRequest->state) {
+        if (!self::isOpen($pullRequest)) {
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped, self::REASON_NOT_OPEN);
         }
 
@@ -127,6 +127,12 @@ final readonly class VerdictReviewSettler
         }
 
         return $pullRequest->authorRead;
+    }
+
+    /** @phpstan-impure The author read between two calls can change the state. */
+    private static function isOpen(ForgePullRequest $pullRequest): bool
+    {
+        return PullRequestState::Open === $pullRequest->state;
     }
 
     private function finish(CardVerdictDelivery $delivery, CardVerdictDeliveryState $state, ?string $reason = null): null
