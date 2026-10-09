@@ -266,6 +266,19 @@ final class SendCardVerdictHandlerTest extends KernelTestCase
         self::assertCount(1, $this->evaluations());
     }
 
+    public function test_a_retry_still_finds_its_verdict_after_the_card_closed(): void
+    {
+        $card = $this->card($this->project);
+        $this->em->flush();
+        $submission = Uuid::v7();
+        $saved = $this->send($card, CardVerdictKind::Approve, [], '', $submission);
+
+        $card->column = $this->column($this->project, 'done');
+        $this->em->flush();
+
+        self::assertSame((string) $saved->id, (string) $this->send($card, CardVerdictKind::Approve, [], '', $submission)->id);
+    }
+
     /** @return iterable<string, array{CardVerdictKind, string, bool}> */
     public static function changedContent(): iterable
     {

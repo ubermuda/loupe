@@ -3374,6 +3374,7 @@
         verdict.open = null;
         verdict.message = '';
         verdict.ticked = [];
+        verdict.attempt = null;
         verdict.error = null;
         sync();
     };

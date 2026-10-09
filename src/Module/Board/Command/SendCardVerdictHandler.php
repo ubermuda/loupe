@@ -60,27 +60,35 @@ final readonly class SendCardVerdictHandler
         if (!$card instanceof Card) {
             throw new DomainErrors(['card' => self::CARD_GONE]);
         }
+
+        $message = trim($command->message);
+
+        // First, so a retry still finds its verdict after the workflow closed the card.
+        $saved = $this->cardVerdicts->findBySubmission($card, $command->submissionId);
+        if ($saved instanceof CardVerdict) {
+            return $this->replay($saved, $command, $message);
+        }
+
         if ($card->column->terminal) {
             throw new DomainErrors(['card' => self::CARD_CLOSED]);
         }
-
-        $message = trim($command->message);
         if ('' === $message && $command->kind->needsMessage()) {
             throw new DomainErrors(['message' => self::MESSAGE_REQUIRED]);
         }
 
-        $saved = $this->cardVerdicts->findBySubmission($card, $command->submissionId);
-        if ($saved instanceof CardVerdict) {
-            if (!$this->sameContent($saved, $command, $message)) {
-                throw new DomainErrors(['submissionId' => self::SUBMISSION_REUSED]);
-            }
-
-            return $saved;
-        }
-
+        $replayed = false;
         $picked = $this->pickedPullRequests($card, $command->pullRequestIds);
 
-        $verdict = $this->em->wrapInTransaction(function () use ($command, $card, $message, $picked): CardVerdict {
+        $verdict = $this->em->wrapInTransaction(function () use ($command, $card, $message, $picked, &$replayed): CardVerdict {
+            // Two sends of one submission queue here, so the second finds the first.
+            $this->em->getConnection()->executeStatement('SELECT pg_advisory_xact_lock(hashtext(?))', [(string) $command->submissionId]);
+            $raced = $this->cardVerdicts->findBySubmission($card, $command->submissionId);
+            if ($raced instanceof CardVerdict) {
+                $replayed = true;
+
+                return $raced;
+            }
+
             $notes = $this->notes->pendingOf($card);
             $verdict = new CardVerdict($card, $command->kind, $command->reviewer, $message, $notes, submissionId: $command->submissionId);
             $this->em->persist($verdict);
@@ -96,6 +104,10 @@ final readonly class SendCardVerdictHandler
 
             return $verdict;
         });
+
+        if ($replayed) {
+            return $this->replay($verdict, $command, $message);
+        }
 
         // After the commit, never inside it: the sink drains at kernel.terminate, so a record written in the closure outlives a rollback.
         $this->auditor->record(
@@ -117,6 +129,15 @@ final readonly class SendCardVerdictHandler
         }
 
         return $verdict;
+    }
+
+    private function replay(CardVerdict $saved, SendCardVerdictCommand $command, string $message): CardVerdict
+    {
+        if (!$this->sameContent($saved, $command, $message)) {
+            throw new DomainErrors(['submissionId' => self::SUBMISSION_REUSED]);
+        }
+
+        return $saved;
     }
 
     private function sameContent(CardVerdict $saved, SendCardVerdictCommand $command, string $message): bool

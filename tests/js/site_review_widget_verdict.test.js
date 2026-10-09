@@ -388,6 +388,27 @@ describe('confirm panel', () => {
         expect(second.submissionId).not.toBe(first.submissionId);
     });
 
+    it('makes a new submission id after the reviewer cancelled', async () => {
+        const fetchMock = boot({ post: () => rejected(500, {}) });
+        await settle();
+        openPanel();
+        press('Comment');
+        await settle();
+        await write('Looks odd');
+        sendButton().click();
+        await settle();
+        panelRoot().getElementById('lp-verdict-cancel').click();
+        await settle();
+        press('Comment');
+        await settle();
+        await write('Looks odd');
+        sendButton().click();
+        await settle();
+
+        const [first, second] = sent(fetchMock);
+        expect(second.submissionId).not.toBe(first.submissionId);
+    });
+
     it('cancel leaves nothing sent', async () => {
         const fetchMock = boot();
         await settle();
