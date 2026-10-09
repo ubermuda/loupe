@@ -3092,7 +3092,8 @@ final class EngineTest extends KernelTestCase
             new ProjectTemplateCopy($this->service(WorkflowBindingRepository::class), $this->service(TemplateParser::class), $this->service(AppRules::class)),
             new FactsBuilder(
                 $this->service(WorkflowSlotLinkRepository::class),
-                $this->service(CardRepository::class),
+                $this->service(CardDirectory::class),
+                $this->service(ProjectRepository::class),
                 $this->providers(),
                 $this->em()->getConnection(),
             ),
@@ -3115,7 +3116,7 @@ final class EngineTest extends KernelTestCase
                 new ReleasePause($boardPauses),
                 $this->service(ForgeWrite::class),
                 new Ask($this->asks, $this->service(TranslatorInterface::class), 'en'),
-                new EvaluateChildren($this->service(CardRepository::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
+                new EvaluateChildren($this->service(CardDirectory::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
             ]),
             $opener,
             $this->contexts(),

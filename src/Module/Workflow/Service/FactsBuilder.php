@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\ColumnRef;
 use App\Module\Workflow\Contract\FactProvider;
@@ -31,7 +30,8 @@ final readonly class FactsBuilder
 
     public function __construct(
         private WorkflowSlotLinkRepository $workflowSlotLinks,
-        private CardRepository $cards,
+        private CardDirectory $cards,
+        private ProjectRepository $projects,
         private FactProviders $providers,
         private Connection $connection,
     ) {
@@ -39,15 +39,15 @@ final readonly class FactsBuilder
 
     public function build(CardSnapshot $snapshot, \DateTimeImmutable $now): Facts
     {
-        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
-
         $provided = array_map(fn (FactProvider $provider): array => $this->provided($provider, $snapshot), $this->providers->byClass);
         $pullRequests = $provided[PullRequestList::class][0] ?? null;
+        $card = $this->cards->findWithParentColumn($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
+        $project = $this->projects->find($snapshot->projectId) ?? throw new \LogicException('A stored card has a project.');
 
         return new Facts(
             now: $now,
-            slot: $this->slotOf($card->column),
-            parentSlot: $this->parentSlotOf($card),
+            slot: $this->slotOfRef($project, $card->column),
+            parentSlot: null === $card->parentColumn ? null : $this->slotOfRef($project, $card->parentColumn),
             pullRequest: $pullRequests instanceof PullRequestList ? $pullRequests->primary : null,
             provided: array_map(static fn (array $result): object => $result[0], $provided),
             fingerprints: array_map(static fn (array $result): mixed => $result[1], array_filter($provided, static fn (array $result): bool => !$result[0] instanceof Unreadable)),
@@ -91,23 +91,6 @@ final readonly class FactsBuilder
 
             return [new Unreadable(UnreadableKind::Failed, $source, $e), null];
         }
-    }
-
-    /** The slot of the parent, read from the stored column, because only the column of the evaluated card is refreshed. */
-    private function parentSlotOf(Card $card): ?string
-    {
-        if (null === $card->parent) {
-            return null;
-        }
-        $this->cards->refreshColumn($card->parent);
-
-        return $this->slotOf($card->parent->column);
-    }
-
-    /** The slot key of a column, or null for a column no slot links. */
-    public function slotOf(BoardColumn $column): ?string
-    {
-        return $this->slotOfRef($column->project, $column->ref());
     }
 
     public function slotOfRef(Project $project, ColumnRef $column): ?string
