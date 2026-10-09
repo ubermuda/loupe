@@ -461,7 +461,7 @@ final class PullRequestSnapshotTest extends TestCase
     {
         $pullRequest = $this->pullRequest();
         $at = new \DateTimeImmutable('2026-10-01 10:00');
-        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', defaultBranch: 'main', checks: PullRequestChecks::Passed));
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', checks: PullRequestChecks::Passed, defaultBranch: 'main'));
 
         $pullRequest->settleStartTimes($at);
         $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 11:00'));
@@ -472,10 +472,10 @@ final class PullRequestSnapshotTest extends TestCase
     public function test_an_approval_that_covers_the_head_clears_the_waits_for_approval_time(): void
     {
         $pullRequest = $this->pullRequest();
-        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', defaultBranch: 'main', checks: PullRequestChecks::Passed));
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', checks: PullRequestChecks::Passed, defaultBranch: 'main'));
         $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 10:00'));
 
-        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', defaultBranch: 'main', checks: PullRequestChecks::Passed, review: PullRequestReview::Approved, approvalSha: 'head1', approvalId: 'review1'));
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', checks: PullRequestChecks::Passed, review: PullRequestReview::Approved, approvalSha: 'head1', defaultBranch: 'main', approvalId: 'review1'));
         $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 11:00'));
 
         self::assertNull($pullRequest->waitsForApprovalSince);
@@ -484,7 +484,7 @@ final class PullRequestSnapshotTest extends TestCase
     public function test_a_stale_approval_still_waits_for_approval(): void
     {
         $pullRequest = $this->pullRequest();
-        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1', baseBranch: 'main', defaultBranch: 'main', checks: PullRequestChecks::Passed, review: PullRequestReview::Approved, approvalSha: 'approved1', approvalId: 'review1'));
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1', baseBranch: 'main', checks: PullRequestChecks::Passed, review: PullRequestReview::Approved, approvalSha: 'approved1', defaultBranch: 'main', approvalId: 'review1'));
         $at = new \DateTimeImmutable('2026-10-01 10:00');
 
         $pullRequest->settleStartTimes($at);

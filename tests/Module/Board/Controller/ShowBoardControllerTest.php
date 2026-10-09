@@ -305,7 +305,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame(0, $lazyLinkReads);
     }
 
-    public function test_the_board_reads_document_counts_in_one_query_whatever_the_card_count(): void
+    public function test_the_board_reads_documents_in_a_fixed_number_of_queries_whatever_the_card_count(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -352,8 +352,9 @@ final class ShowBoardControllerTest extends WebTestCase
             $reads[$name] = ['selects' => $selects, 'documents' => $documentReads];
         }
 
-        self::assertSame(1, $reads['three-cards']['documents']);
-        self::assertSame(1, $reads['twelve-cards']['documents']);
+        // The count of linked documents, and the stage documents in review that make a card need you.
+        self::assertSame(2, $reads['three-cards']['documents']);
+        self::assertSame(2, $reads['twelve-cards']['documents']);
         self::assertSame($reads['three-cards']['selects'], $reads['twelve-cards']['selects']);
     }
 

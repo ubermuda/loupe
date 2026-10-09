@@ -430,7 +430,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame($page['rowDigests'][(string) $epic->id], $this->digestOf($after, $epic));
     }
 
-    public function test_the_manifest_reads_the_pull_requests_documents_and_runs_in_one_query_whatever_the_card_count(): void
+    public function test_the_manifest_reads_the_pull_requests_documents_and_runs_in_a_fixed_number_of_queries_whatever_the_card_count(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -481,8 +481,9 @@ final class ShowBoardManifestControllerTest extends WebTestCase
 
         self::assertGreaterThan(0, $reads['twelve-cards']['cards']);
         self::assertSame(0, $reads['twelve-cards']['links']);
-        self::assertSame(1, $reads['twelve-cards']['documents']);
-        self::assertSame(1, $reads['twelve-cards']['runs']);
+        // Counts and stage documents for documents, the last outcome and the open runs for runs.
+        self::assertSame(2, $reads['twelve-cards']['documents']);
+        self::assertSame(2, $reads['twelve-cards']['runs']);
         self::assertSame($reads['three-cards']['selects'], $reads['twelve-cards']['selects']);
     }
 

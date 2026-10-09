@@ -15,8 +15,10 @@ use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\CardStates;
 use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\LaneDecks;
+use App\Module\Bridge\Service\CardRunWarnings;
 
 /** Reads one card and its neighbours, so the cost does not grow with the board. */
 final readonly class ShowCardPlacementHandler
@@ -32,6 +34,8 @@ final readonly class ShowCardPlacementHandler
         private CardMarkers $markers,
         private BoardAutomation $automation,
         private CardTypeCatalog $catalog,
+        private CardStates $cardStates,
+        private CardRunWarnings $runWarnings,
     ) {
     }
 
@@ -108,6 +112,10 @@ final readonly class ShowCardPlacementHandler
             }
         }
 
+        $pullRequestStates = $this->pullRequestStates->forCards([$card]);
+        $cardId = (string) $card->id;
+        $warning = $this->runWarnings->forCard($card->project, $card->id ?? throw new \LogicException('A stored card has an id.'));
+
         return new CardPlacementView(
             $card,
             $column,
@@ -122,7 +130,8 @@ final readonly class ShowCardPlacementHandler
             $laneHead,
             $laneAfter,
             $laneHead ? ($this->laneDecks->forEpics($backlog, [(string) $card->id])[(string) $card->id] ?? null) : null,
-            [...$this->pullRequestStates->forCards([$card])->badgesOf($card), ...($this->markers->forCards($card->project, [$card])[(string) $card->id] ?? [])],
+            [...$pullRequestStates->badgesOf($card), ...($this->markers->forCards($card->project, [$card])[$cardId] ?? [])],
+            state: $this->cardStates->forCards($card->project, [$card], $pullRequestStates, null === $warning ? [] : [$cardId => $warning])[$cardId] ?? null,
         );
     }
 }

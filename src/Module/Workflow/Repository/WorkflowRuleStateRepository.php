@@ -51,6 +51,36 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * The cards among $cardIds that a move rule holds for an open blocker alone, with the blocker of the lowest number.
+     * A card that has no open blocker now is left out, whatever the stamp says.
+     *
+     * @param list<string> $cardIds RFC 4122 ids
+     *
+     * @return list<array{card_id: string, since: string, number: int, title: string}>
+     */
+    public function findBlockerHolds(array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        /** @var list<array{card_id: string, since: string, number: int, title: string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->executeQuery(
+            'SELECT DISTINCT ON (st.card_id) st.card_id, st.held_by_blocker_since AS since, b.number, b.title
+             FROM workflow_rule_states st
+             JOIN board_card_links l ON l.target_card_id = st.card_id AND l.kind = \'blocks\'
+             JOIN board_cards b ON b.id = l.source_card_id
+             JOIN board_columns k ON k.id = b.column_id AND k.terminal = false
+             WHERE st.card_id IN (:cards) AND st.held_by_blocker_since IS NOT NULL
+             ORDER BY st.card_id, st.held_by_blocker_since, b.number',
+            ['cards' => $cardIds],
+            ['cards' => ArrayParameterType::STRING],
+        )->fetchAllAssociative();
+
+        return $rows;
+    }
+
     public function findOneByAskItemId(Uuid $itemId): ?WorkflowRuleState
     {
         return $this->findOneBy(['askItemId' => $itemId]);
