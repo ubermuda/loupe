@@ -16,4 +16,10 @@ interface CardDirectory
 
     /** Reads the stored column, type and parent again, so the snapshot shows what a move or an edit committed. */
     public function refresh(Uuid $cardId): ?CardSnapshot;
+
+    /** Keeps the column the card has in memory, and reads the stored column of its parent again. */
+    public function findWithParentColumn(Uuid $cardId): ?CardSnapshot;
+
+    /** @return list<Uuid> the children of the card in board order, or none for an unknown card */
+    public function childIds(Uuid $cardId): array;
 }

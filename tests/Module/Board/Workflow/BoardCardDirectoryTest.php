@@ -78,6 +78,45 @@ final class BoardCardDirectoryTest extends KernelTestCase
         self::assertNull($this->directory()->refresh(Uuid::v7()));
     }
 
+    public function test_the_child_ids_follow_the_board_order(): void
+    {
+        $project = $this->makeProject('directory-children');
+        $parent = $this->cardIn($project);
+        $finished = $this->cardIn($project);
+        $finished->parent = $parent;
+        $finished->column = $this->column($project, 'done');
+        $waiting = $this->cardIn($project);
+        $waiting->parent = $parent;
+        $this->cardIn($project);
+        $this->em->flush();
+
+        $ids = $this->directory()->childIds($parent->id ?? throw new \LogicException());
+
+        self::assertSame([(string) $waiting->id, (string) $finished->id], array_map(strval(...), $ids));
+        self::assertSame([], $this->directory()->childIds($waiting->id ?? throw new \LogicException()));
+        self::assertSame([], $this->directory()->childIds(Uuid::v7()));
+    }
+
+    public function test_a_read_with_the_parent_column_reads_the_stored_column_of_the_parent_and_not_of_the_card(): void
+    {
+        $project = $this->makeProject('directory-parent-column');
+        $parent = $this->cardIn($project);
+        $card = $this->cardIn($project);
+        $card->parent = $parent;
+        $this->em->flush();
+        $backlogId = (string) $card->column->id;
+        $done = $this->column($project, 'done');
+        $this->em->getConnection()->executeStatement('UPDATE board_cards SET column_id = ? WHERE id IN (?, ?)', [(string) $done->id, (string) $card->id, (string) $parent->id]);
+
+        $snapshot = $this->directory()->findWithParentColumn($card->id ?? throw new \LogicException());
+
+        self::assertNotNull($snapshot);
+        self::assertSame($backlogId, (string) $snapshot->column->id);
+        self::assertSame((string) $done->id, (string) $snapshot->parentColumn?->id);
+        self::assertNull($this->directory()->findWithParentColumn($parent->id ?? throw new \LogicException())?->parentColumn);
+        self::assertNull($this->directory()->findWithParentColumn(Uuid::v7()));
+    }
+
     private function directory(): CardDirectory
     {
         $directory = self::getContainer()->get(CardDirectory::class);

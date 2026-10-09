@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Action;
 
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Repository\CardRepository;
 use App\Module\Workflow\Contract\Action;
 use App\Module\Workflow\Contract\ActionContext;
 use App\Module\Workflow\Contract\ActionDescription;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ActionTraits;
+use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
@@ -21,7 +20,7 @@ final readonly class EvaluateChildren implements Action
     public const string KEY = 'evaluate';
 
     public function __construct(
-        private CardRepository $cards,
+        private CardDirectory $cards,
         private CardEvaluations $evaluations,
     ) {
     }
@@ -67,8 +66,7 @@ final readonly class EvaluateChildren implements Action
     #[\Override]
     public function run(ActionContext $context): ActionOutcome
     {
-        $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
-        $ids = array_values(array_filter(array_map(static fn (Card $child) => $child->id, $this->cards->findChildren($card))));
+        $ids = $this->cards->childIds($context->card->id);
         if ([] !== $ids) {
             $this->evaluations->forCards($ids);
         }
