@@ -9,7 +9,7 @@ Each record is a file `NNNN-short-name.md` in `docs/adr/`. The number counts fro
 
 A record has these sections:
 
-- Status: Proposed, Accepted, or Superseded by a later record.
+- Status: Proposed, Accepted, or Superseded by a later record. A record that a later record clarifies keeps its decision, and its status names that record.
 - Context: the problem, and the facts that force a decision.
 - Decision: what we do, in one or two sentences, then the rule in detail.
 - Rejected options: the options we did not choose, and why.

@@ -1,15 +1,15 @@
 ---
 title: "0001: Let the app do mechanical work, not a bridge worker"
-description: "When a step needs no judgment, the Loupe app does it, rather than an agent that a bridge starts."
+description: "When a step needs no judgment, an action of the Loupe app does it, rather than an agent that a bridge starts. A rule of the workflow template decides when it runs."
 ---
 
 ## Status
 
-Accepted on 2026-09-30.
+Accepted on 2026-09-30. Amended on 2026-10-09 by [ADR 0004](0004-workflow-concerns-stay-in-workflow.md), which says that the workflow template decides when a step runs.
 
 ## Context
 
-The board lifecycle runs two kinds of automation. The Loupe app reacts to webhooks and card moves in PHP. A `loupe bridge` on the owner's machine starts a Claude worker when a rule in its `rules.yaml` matches an event, and the worker follows a stage skill.
+The board lifecycle runs two kinds of automation. The workflow engine of the Loupe app evaluates the rules of the workflow template on each change, and runs their actions in PHP. A `loupe bridge` on the owner's machine starts a Claude worker when a rule in its `rules.yaml` matches an event, and the worker follows a stage skill.
 
 Some worker stages do work that needs no judgment. The Update step of `loupe-stage-merge` is the example that raised this record. It reads the review, checks that the approval covers the head, checks that the branch does not conflict, and calls update-branch. Each step is a fixed read or a fixed call.
 
@@ -22,7 +22,7 @@ A worker also needs a bridge that runs. An instance with no bridge, or a bridge 
 
 ## Decision
 
-When a step needs no judgment, the app does it. A bridge worker does only the work that needs an agent.
+When a step needs no judgment, an action of the app does it. A bridge worker does only the work that needs an agent. In both cases, a rule of the workflow template decides when the step runs, as ADR 0004 says. This record decides who does a step, never when it runs.
 
 A step needs no judgment when you can write it as a fixed procedure: read these values, compare them, make this call. When the steps depend on reading and understanding content, the work belongs to a worker. These examples need an agent:
 
@@ -34,11 +34,11 @@ A step needs no judgment when you can write it as a fixed procedure: read these 
 
 These examples do not need an agent:
 
-- Sync a branch that is behind, when it is approved and does not conflict.
-- Move a card when its pull request merges, or when its checks pass.
-- Post a fixed comment, or record a state change.
+- Sync a branch that is behind. The `update-behind` rule decides when, and the `forge-write` action calls update-branch.
+- Move a card. A rule decides when, such as after a merge or a green check, and its `move` action moves the card.
+- Post a fixed comment, or record a state change, as the action of a rule.
 
-Apply this rule when you design a new stage, a new bridge rule or a new automation. When you find an existing worker step that needs no judgment, raise a card to move it into the app. Card 369 moves the branch sync. The owner applies this preference case by case. A step that the app cannot do yet, such as one that needs a git checkout, can stay in a worker until it can.
+Apply this rule when you design a new stage, a new bridge rule or a new automation. When you find an existing worker step that needs no judgment, raise a card to move it into an app action that a template rule runs. Card 369 moved the branch sync this way. The owner applies this preference case by case. A step that the app cannot do yet, such as one that needs a git checkout, can stay in a worker until it can.
 
 ## Rejected options
 
