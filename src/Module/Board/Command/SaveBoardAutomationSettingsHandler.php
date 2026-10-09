@@ -26,16 +26,6 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings = $this->automation->settingsForUpdate($command->project);
         $wasEnabled = $settings->enabled;
         $settings->enabled = $command->enabled;
-        $settings->commentOnFixQueued = $command->commentOnFixQueued;
-        $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
-        $settings->syncBehind = $command->syncBehind;
-        $settings->mergePullRequests = $command->mergePullRequests;
-        $settings->changeBase = $command->changeBase;
-        $settings->epicDraftSwitch = $command->epicDraftSwitch;
-        $settings->closeEpicPullRequests = $command->closeEpicPullRequests;
-        $settings->openEpicPullRequests = $command->openEpicPullRequests;
-        $settings->postWidgetReviews = $command->postWidgetReviews;
-        $settings->siteReviewCheck = $command->siteReviewCheck;
         $this->em->flush();
         $this->events->dispatch(new BoardAutomationSettingsSaved(
             $command->project,
@@ -45,16 +35,6 @@ final readonly class SaveBoardAutomationSettingsHandler
         $this->auditor->record('board.automation_settings_saved', AuditOutcome::Success, [
             'projectId' => (string) $command->project->id,
             'enabled' => $command->enabled,
-            'commentOnFixQueued' => $command->commentOnFixQueued,
-            'commentOnStaleApproval' => $command->commentOnStaleApproval,
-            'syncBehind' => $command->syncBehind,
-            'mergePullRequests' => $command->mergePullRequests,
-            'changeBase' => $command->changeBase,
-            'epicDraftSwitch' => $command->epicDraftSwitch,
-            'closeEpicPullRequests' => $command->closeEpicPullRequests,
-            'openEpicPullRequests' => $command->openEpicPullRequests,
-            'postWidgetReviews' => $command->postWidgetReviews,
-            'siteReviewCheck' => $command->siteReviewCheck,
         ]);
     }
 }

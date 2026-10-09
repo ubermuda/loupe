@@ -6998,7 +6998,7 @@
             </trans-unit>
             <trans-unit id="board.automation.description">
                 <source>board.automation.description</source>
-                <target>Loupe watches the pull requests of your cards. These settings control the fix and merge requests that Loupe sends to your bridge.</target>
+                <target>The workflow of the board decides each action on a pull request, and the rules of the workflow are the only switches. This setting stops the whole workflow.</target>
             </trans-unit>
             <trans-unit id="board.automation.submit">
                 <source>board.automation.submit</source>
@@ -7052,89 +7052,9 @@
                 <source>board.form.save_board_automation_settings_form.enabled.help</source>
                 <target>When this is on, the workflow of the board moves the cards and asks for their work. Loupe records the pull request facts in all cases.</target>
             </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.label">
-                <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.label</source>
-                <target>Comment on the pull request when a fix run is queued</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.help">
-                <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.help</source>
-                <target>Loupe posts a new comment on the GitHub pull request each time a bridge queues a fix run for it. The GitHub App needs "Pull requests: read and write". It needs a bridge that reports the event that queued a run. An older bridge sends none, so no comment posts.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_stale_approval.label">
-                <source>board.form.save_board_automation_settings_form.comment_on_stale_approval.label</source>
-                <target>Comment on a pull request when new commits follow its approval</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_stale_approval.help">
-                <source>board.form.save_board_automation_settings_form.comment_on_stale_approval.help</source>
-                <target>An approval that does not cover the newest commit starts no merge. Loupe then posts one comment on the GitHub pull request for that commit. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
             <trans-unit id="board.stale_approval_notice.body">
                 <source>board.stale_approval_notice.body</source>
                 <target>Not merged: commit `%sha%` came after your approval. Approve the new head to merge.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.label">
-                <source>board.form.save_board_automation_settings_form.sync_behind.label</source>
-                <target>Sync an approved pull request that is behind</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.help">
-                <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
-                <target>Has no effect. The rule of the workflow decides this write.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.merge_pull_requests.label</source>
-                <target>Merge a pull request when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.merge_pull_requests.help</source>
-                <target>Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.change_base.label">
-                <source>board.form.save_board_automation_settings_form.change_base.label</source>
-                <target>Change the base of a pull request when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.change_base.help">
-                <source>board.form.save_board_automation_settings_form.change_base.help</source>
-                <target>Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.label">
-                <source>board.form.save_board_automation_settings_form.epic_draft_switch.label</source>
-                <target>Switch an epic pull request between draft and ready when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.help">
-                <source>board.form.save_board_automation_settings_form.epic_draft_switch.help</source>
-                <target>Loupe marks the pull request of an epic as a draft while the epic is in implementation, and as ready when it moves to review. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.label</source>
-                <target>Close the pull requests of an epic when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.help</source>
-                <target>Loupe closes the pull requests of an epic that a person moves back to the Backlog. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.label</source>
-                <target>Open the epic pull request</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.help</source>
-                <target>Loupe opens a draft pull request from the epic branch to the default branch after the first child merges, and links it to the epic. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.label">
-                <source>board.form.save_board_automation_settings_form.post_widget_reviews.label</source>
-                <target>Post a widget verdict as a review on GitHub</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.help">
-                <source>board.form.save_board_automation_settings_form.post_widget_reviews.help</source>
-                <target>When a reviewer sends a verdict from the site-review widget, Loupe posts it as a review on the pull requests of the card, under the reviewer's own GitHub account. The reviewer connects that account once.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.label">
-                <source>board.form.save_board_automation_settings_form.site_review_check.label</source>
-                <target>Keep a "Loupe site review" check on pull requests</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
-                <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
-                <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>

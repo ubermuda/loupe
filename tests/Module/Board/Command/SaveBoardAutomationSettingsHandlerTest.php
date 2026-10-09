@@ -12,7 +12,6 @@ use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
@@ -34,101 +33,23 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         $this->project = $this->makeProject('save-automation');
     }
 
-    public function test_it_stores_and_audits_the_sync_setting(): void
+    public function test_it_stores_and_audits_the_master_switch(): void
     {
-        $this->save(enabled: true, syncBehind: true);
+        $this->save(enabled: false);
 
-        $settings = $this->stored();
-        self::assertTrue($settings->syncBehind);
-        self::assertTrue($this->audit->record('board.automation_settings_saved')->context['syncBehind']);
+        self::assertFalse($this->stored()->enabled);
+        self::assertFalse($this->audit->record('board.automation_settings_saved')->context['enabled']);
+
+        $this->save(enabled: true);
+
+        self::assertTrue($this->stored()->enabled);
     }
 
-    public function test_both_widget_verdict_opt_ins_start_off_and_are_stored_and_audited(): void
-    {
-        self::assertFalse((new BoardAutomationSettings($this->project))->postWidgetReviews);
-        self::assertFalse((new BoardAutomationSettings($this->project))->siteReviewCheck);
-
-        $this->save(enabled: true, syncBehind: false, postWidgetReviews: true, siteReviewCheck: true);
-
-        $settings = $this->stored();
-        self::assertTrue($settings->postWidgetReviews);
-        self::assertTrue($settings->siteReviewCheck);
-        $context = $this->audit->record('board.automation_settings_saved')->context;
-        self::assertTrue($context['postWidgetReviews']);
-        self::assertTrue($context['siteReviewCheck']);
-
-        $this->save(enabled: true, syncBehind: false);
-        self::assertFalse($this->stored()->postWidgetReviews);
-        self::assertFalse($this->stored()->siteReviewCheck);
-    }
-
-    public function test_it_stores_and_audits_the_stale_approval_comment_setting(): void
-    {
-        $this->save(enabled: true, syncBehind: false, commentOnStaleApproval: true);
-
-        self::assertTrue($this->stored()->commentOnStaleApproval);
-        self::assertTrue($this->audit->record('board.automation_settings_saved')->context['commentOnStaleApproval']);
-    }
-
-    /** @return iterable<string, array{bool, bool}> */
-    public static function writeOptIns(): iterable
-    {
-        yield 'merge on' => [true, false];
-        yield 'base change on' => [false, true];
-    }
-
-    #[DataProvider('writeOptIns')]
-    public function test_it_stores_and_audits_the_write_opt_ins(bool $mergePullRequests, bool $changeBase): void
-    {
-        $this->save(enabled: true, syncBehind: false, mergePullRequests: $mergePullRequests, changeBase: $changeBase);
-
-        $settings = $this->stored();
-        self::assertSame($mergePullRequests, $settings->mergePullRequests);
-        self::assertSame($changeBase, $settings->changeBase);
-        $context = $this->audit->record('board.automation_settings_saved')->context;
-        self::assertSame($mergePullRequests, $context['mergePullRequests']);
-        self::assertSame($changeBase, $context['changeBase']);
-    }
-
-    public function test_it_stores_and_audits_the_epic_pull_request_setting(): void
-    {
-        $this->save(enabled: true, syncBehind: false, openEpicPullRequests: true);
-
-        $settings = $this->stored();
-        self::assertTrue($settings->openEpicPullRequests);
-        $context = $this->audit->record('board.automation_settings_saved')->context;
-        self::assertTrue($context['openEpicPullRequests']);
-    }
-
-    public function test_every_write_opt_in_is_off_by_default(): void
-    {
-        $this->em->persist(new BoardAutomationSettings($this->project));
-        $this->em->flush();
-
-        $settings = $this->stored();
-        self::assertFalse($settings->mergePullRequests);
-        self::assertFalse($settings->changeBase);
-        self::assertFalse($settings->epicDraftSwitch);
-        self::assertFalse($settings->closeEpicPullRequests);
-        self::assertFalse($settings->openEpicPullRequests);
-    }
-
-    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, bool $postWidgetReviews = false, bool $siteReviewCheck = false): void
+    private function save(bool $enabled): void
     {
         $handler = self::getContainer()->get(SaveBoardAutomationSettingsHandler::class);
         self::assertInstanceOf(SaveBoardAutomationSettingsHandler::class, $handler);
-        $handler(new SaveBoardAutomationSettingsCommand(
-            project: $this->project,
-            enabled: $enabled,
-            commentOnFixQueued: false,
-            commentOnStaleApproval: $commentOnStaleApproval,
-            syncBehind: $syncBehind,
-            mergePullRequests: $mergePullRequests,
-            changeBase: $changeBase,
-            postWidgetReviews: $postWidgetReviews,
-            siteReviewCheck: $siteReviewCheck,
-            openEpicPullRequests: $openEpicPullRequests,
-        ));
+        $handler(new SaveBoardAutomationSettingsCommand(project: $this->project, enabled: $enabled));
     }
 
     private function stored(): BoardAutomationSettings
