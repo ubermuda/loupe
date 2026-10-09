@@ -5,7 +5,7 @@ description: "When a step needs no judgment, an action of the Loupe app does it,
 
 ## Status
 
-Accepted on 2026-09-30. Amended on 2026-10-09 by [ADR 0004](0004-workflow-concerns-stay-in-workflow.md), which says that the workflow template decides when a step runs.
+Accepted on 2026-09-30. [ADR 0004](0004-workflow-concerns-stay-in-workflow.md) amends its wording. ADR 0004 says that the workflow template decides when a step runs.
 
 ## Context
 
