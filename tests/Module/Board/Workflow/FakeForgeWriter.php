@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Action;
+namespace App\Tests\Module\Board\Workflow;
 
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Service\PullRequestBaseChanger;

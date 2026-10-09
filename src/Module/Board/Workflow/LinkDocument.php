@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Board\Workflow;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
@@ -16,13 +16,20 @@ use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ActionTraits;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
+use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\Parameter;
+use App\Module\Workflow\Contract\ParameterType;
 
-/** Removes the parent of the card. A card with no parent stays as it is. */
-final readonly class Detach implements Action
+/**
+ * Links the document of the parent card that carries the tag to the card, whatever the status of the document.
+ * Two such documents give the one linked first. The card keeps the documents it has.
+ */
+final readonly class LinkDocument implements Action
 {
-    public const string DETACH_REFUSED = 'detach-refused';
+    public const string NO_PARENT_DOCUMENT = 'no-parent-document';
+    public const string LINK_REFUSED = 'document-link-refused';
 
-    public const string KEY = 'detach';
+    public const string KEY = 'link-document';
 
     public function __construct(
         private CardRepository $cards,
@@ -45,7 +52,10 @@ final readonly class Detach implements Action
     #[\Override]
     public static function parameters(): array
     {
-        return [];
+        return [
+            new Parameter('from', ParameterType::String, fixed: 'parent'),
+            new Parameter('tag', ParameterType::String),
+        ];
     }
 
     #[\Override]
@@ -57,7 +67,7 @@ final readonly class Detach implements Action
     #[\Override]
     public function describe(array $params): ActionDescription
     {
-        return new ActionDescription('workflow.settings.action.detach', 'workflow.panel.action.detach');
+        return new ActionDescription('workflow.settings.action.link_document', 'workflow.panel.action.link_document');
     }
 
     #[\Override]
@@ -70,7 +80,13 @@ final readonly class Detach implements Action
     public function run(ActionContext $context): ActionOutcome
     {
         $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
-        if (!$context->facts->card->isChild) {
+        $tag = $context->string('tag');
+        $document = array_find($context->facts->card->parentDocuments, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
+        if (null === $document) {
+            return ActionOutcome::refused(self::NO_PARENT_DOCUMENT);
+        }
+        $linked = array_map(static fn (DocumentFacts $document): string => $document->id, $context->facts->card->documents);
+        if (\in_array($document->id, $linked, true)) {
             return ActionOutcome::done();
         }
 
@@ -78,11 +94,11 @@ final readonly class Detach implements Action
             ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
                 actor: Actor::System,
-                parentCardId: '',
+                documentIds: [...$linked, $document->id],
                 cause: CardEventCause::workflowRule($context->ruleId),
             ));
         } catch (DomainErrors) {
-            return ActionOutcome::refused(self::DETACH_REFUSED);
+            return ActionOutcome::refused(self::LINK_REFUSED);
         }
 
         return ActionOutcome::done();

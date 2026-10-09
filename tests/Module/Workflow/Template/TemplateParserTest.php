@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
+use App\Module\Board\Workflow\Detach;
+use App\Module\Board\Workflow\ForgeWrite;
+use App\Module\Board\Workflow\LinkDocument;
+use App\Module\Board\Workflow\MoveCard;
+use App\Module\Board\Workflow\RequestWork;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
-use App\Module\Workflow\Action\Detach;
 use App\Module\Workflow\Action\EvaluateChildren;
-use App\Module\Workflow\Action\ForgeWrite;
-use App\Module\Workflow\Action\LinkDocument;
-use App\Module\Workflow\Action\MoveCard;
 use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
-use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Condition\CardChildrenFinished;
 use App\Module\Workflow\Condition\CardDocument;
 use App\Module\Workflow\Condition\CardDocumentApproved;

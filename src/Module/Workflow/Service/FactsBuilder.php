@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\CardPullRequests;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
@@ -29,6 +30,7 @@ use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Contract\RunFacts;
+use App\Module\Workflow\Contract\SlotKeys;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
@@ -37,9 +39,9 @@ use Doctrine\DBAL\Connection;
 /** Reads what the engine knows about one card, from Board, Forge, Bridge and every fact provider. It logs nothing. */
 final readonly class FactsBuilder
 {
-    public const string BACKLOG_SLOT = '@backlog';
+    public const string BACKLOG_SLOT = SlotKeys::BACKLOG;
 
-    public const string TERMINAL_SLOT = '@terminal';
+    public const string TERMINAL_SLOT = SlotKeys::TERMINAL;
 
     private const string SAVEPOINT = 'workflow_fact_provider';
 

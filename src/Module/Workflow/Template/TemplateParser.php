@@ -14,6 +14,7 @@ use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Contract\Parameter;
+use App\Module\Workflow\Contract\ParameterNames;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\ParameterValue;
 use App\Module\Workflow\Contract\WorkKind;
@@ -41,12 +42,12 @@ final readonly class TemplateParser
     private const array KEPT_PARAMETERS = ['expression' => ['until', 'refill'], 'list' => ['checks'], 'options' => ['options']];
 
     /** The parameters that hold the tag and the status of a request's `document` map. A template cannot write them. */
-    public const string DOCUMENT_TAG = 'document.tag';
-    public const string DOCUMENT_STATUS = 'document.status';
+    public const string DOCUMENT_TAG = ParameterNames::DOCUMENT_TAG;
+    public const string DOCUMENT_STATUS = ParameterNames::DOCUMENT_STATUS;
 
     /** The parameter of an app request that names a prompt file. A template cannot write it. */
-    public const string PROMPT = 'prompt';
-    public const string PROMPT_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
+    public const string PROMPT = ParameterNames::PROMPT;
+    public const string PROMPT_PATTERN = ParameterNames::PROMPT_PATTERN;
 
     public function __construct(
         private Conditions $conditions,

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Board\Workflow;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
@@ -11,6 +11,7 @@ use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\CardPullRequests;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -32,8 +33,6 @@ use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\WorkflowRefusal;
-use App\Module\Workflow\Service\CardPullRequests;
-use App\Module\Workflow\Template\ForgeWriteKind;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 

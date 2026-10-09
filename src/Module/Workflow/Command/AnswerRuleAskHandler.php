@@ -12,6 +12,7 @@ use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
+use App\Module\Workflow\Service\ActionContexts;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\Rule;
@@ -42,6 +43,7 @@ final readonly class AnswerRuleAskHandler
         private FactsBuilder $factsBuilder,
         private RuleSubject $ruleSubject,
         private Actions $actions,
+        private ActionContexts $contexts,
         private CardEvaluations $evaluations,
         private ClockInterface $clock,
         private Auditor $auditor,
@@ -119,7 +121,7 @@ final readonly class AnswerRuleAskHandler
             // Facts again for each action: the one before may have changed the card.
             $facts = $this->factsBuilder->build($snapshot, $now);
             $optionRule = new Rule($rule->id, $rule->slot, $rule->when, $call, $rule->origin);
-            $result = $this->actions->get($call->key)->run($optionRule->context($snapshot, $facts, $state->fires));
+            $result = $this->actions->get($call->key)->run($this->contexts->for($optionRule, $snapshot, $facts, $state->fires));
             if (ActionOutcomeKind::Done !== $result->kind) {
                 $refusal = $result->code ?? $result->kind->value;
                 $state->lastRefusal = $refusal;

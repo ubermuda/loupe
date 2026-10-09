@@ -10,7 +10,6 @@ use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
 use App\Module\Workflow\Action\ReleasePause;
-use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ActionOutcomeKind;
@@ -26,11 +25,13 @@ use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Contract\WithdrawKind;
 use App\Module\Workflow\Contract\WorkLedger;
+use App\Module\Workflow\Contract\WorkOpener;
 use App\Module\Workflow\Contract\WorkState;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Event\CardPaused;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
+use App\Module\Workflow\Service\ActionContexts;
 use App\Module\Workflow\Service\FactFingerprint;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
@@ -73,7 +74,8 @@ final readonly class Engine
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private CardPauses $cardPauses,
         private Actions $actions,
-        private WorkRequestOpener $opener,
+        private WorkOpener $opener,
+        private ActionContexts $contexts,
         private RuleSubject $ruleSubject,
         private RuleAsks $ruleAsks,
         private EventDispatcherInterface $events,
@@ -316,7 +318,7 @@ final readonly class Engine
         if ($state->attempts > $policy->retries || null === $backoff) {
             $state->dueAt = null;
             if (null !== $policy->repairKind && !$state->repaired) {
-                $outcome = $this->opener->open($rule->context($run->card, $bound->facts, $state->fires), $policy->repairKind, null, $code);
+                $outcome = $this->opener->open($this->contexts->for($rule, $run->card, $bound->facts, $state->fires), $policy->repairKind, null, $code);
                 if (null !== $outcome->requestId) {
                     $state->workRequestId = $outcome->requestId;
                     $state->repaired = true;
@@ -583,7 +585,7 @@ final readonly class Engine
         // A retry keeps its attempts while its request runs, so the count reaches the limit of the template.
         // The last try after a repair keeps them too, so its refusal pauses the card.
         $retrying = !$newSubject && (null !== $state->workRequestId || $state->repaired) && $state->attempts > 0;
-        $outcome = $this->actions->get($call->key)->run($rule->context($run->card, $bound->facts, $state->fires));
+        $outcome = $this->actions->get($call->key)->run($this->contexts->for($rule, $run->card, $bound->facts, $state->fires));
         // The live request still serves the old subject, so the change waits until it settles.
         if ($newSubject && $outcome->alreadyLive) {
             $state->subjectPullRequestId = $stored;

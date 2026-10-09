@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Board\Workflow;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardPullRequests;
 use App\Module\Workflow\Contract\Action;
 use App\Module\Workflow\Contract\ActionContext;
 use App\Module\Workflow\Contract\ActionDescription;
@@ -17,10 +18,9 @@ use App\Module\Workflow\Contract\ActionTraits;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
+use App\Module\Workflow\Contract\ParameterNames;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\PauseKind;
-use App\Module\Workflow\Service\CardPullRequests;
-use App\Module\Workflow\Template\TemplateParser;
 
 /** A fix request also writes the fix-requested card event that the experiment report counts. */
 final readonly class RequestWork implements Action
@@ -60,7 +60,7 @@ final readonly class RequestWork implements Action
             new Parameter('onTimeout', ParameterType::String, required: false, choices: ['pause', 'expire']),
             new Parameter('document', ParameterType::Document, required: false),
             new Parameter('checks', ParameterType::List, required: false),
-            new Parameter(TemplateParser::PROMPT, ParameterType::String, required: false, pattern: TemplateParser::PROMPT_PATTERN, patternHint: '[a-z][a-z0-9-], at most 40 characters', appOnly: true),
+            new Parameter(ParameterNames::PROMPT, ParameterType::String, required: false, pattern: ParameterNames::PROMPT_PATTERN, patternHint: '[a-z][a-z0-9-], at most 40 characters', appOnly: true),
         ];
     }
 

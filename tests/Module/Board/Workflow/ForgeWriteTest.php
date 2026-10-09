@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Action;
+namespace App\Tests\Module\Board\Workflow;
 
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
@@ -12,6 +12,8 @@ use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Workflow\ForgeWrite;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -26,10 +28,9 @@ use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
 use App\Module\Project\Entity\Project;
-use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\Facts;
-use App\Module\Workflow\Service\CardPullRequests;
+use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
