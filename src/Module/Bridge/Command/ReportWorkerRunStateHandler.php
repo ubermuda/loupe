@@ -8,10 +8,8 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\ResumableWorkerRunEnded;
 use App\Module\Bridge\Event\WorkerRunChanged;
-use App\Module\Bridge\Event\WorkerRunQueued;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
-use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\Service\WorkerRunUsageRecorder;
@@ -36,9 +34,6 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class ReportWorkerRunStateHandler
 {
-    /** The work kind of a run that fixes a pull request. */
-    public const string FIX_KIND = 'fix';
-
     public function __construct(
         private ProjectRepository $projects,
         private WorkerRunRepository $workerRuns,
@@ -50,19 +45,18 @@ final readonly class ReportWorkerRunStateHandler
         private WorkerRunChangedPublisher $publisher,
         private WorkerRunUsageRecorder $usageRecorder,
         private EventDispatcherInterface $events,
-        private WorkRequestRepository $workRequests,
     ) {
     }
 
     public function __invoke(ReportWorkerRunStateCommand $command): ReportWorkerRunStateResult
     {
-        /** @var array{ReportWorkerRunStateResult, bool, bool, bool} $outcome */
+        /** @var array{ReportWorkerRunStateResult, bool, bool} $outcome */
         $outcome = $this->em->wrapInTransaction(function () use ($command): array {
             // The project lock serialises two first reports of one run, which
             // would otherwise both miss the read and trip the unique index.
             $project = $this->lockedProject($command);
             if (null === $project) {
-                return [new ReportWorkerRunStateResult(null, newState: false), false, false, false];
+                return [new ReportWorkerRunStateResult(null, newState: false), false, false];
             }
 
             $run = $this->workerRuns->findOneByRunKey($project, $command->bridgeId, $command->runKey);
@@ -88,11 +82,9 @@ final readonly class ReportWorkerRunStateHandler
                     ruleId: $command->ruleId,
                 );
                 $this->em->persist($run);
-                $created = true;
                 $moves = true;
                 $history = [];
             } else {
-                $created = false;
                 $history = $this->workerRunStateChanges->statesOf($run);
                 $moves = self::moves($run->state, $command->state, $history);
             }
@@ -125,10 +117,10 @@ final readonly class ReportWorkerRunStateHandler
             $this->em->flush();
             $this->searchIndexer->index($run);
 
-            return [new ReportWorkerRunStateResult($run, $newState), $closes, $poolMoved || $harnessChanged, $created];
+            return [new ReportWorkerRunStateResult($run, $newState), $closes, $poolMoved || $harnessChanged];
         });
 
-        [$result, $closes, $shownChanged, $created] = $outcome;
+        [$result, $closes, $shownChanged] = $outcome;
         // A repeat of a state the run already held changes nothing a page shows, unless it moves the pool or names the harness.
         if (($result->newState || $shownChanged) && null !== $result->run) {
             $this->publisher->runsChanged($result->run->project);
@@ -142,10 +134,6 @@ final readonly class ReportWorkerRunStateHandler
             if (null !== $ended) {
                 $this->events->dispatch($ended);
             }
-        }
-        if ($created && null !== $result->run && WorkerRunState::Queued === $command->state
-            && self::FIX_KIND === $result->run->workKind && $result->run->subject()->isCard()) {
-            $this->events->dispatch($this->queued($result->run));
         }
 
         return $result;
@@ -189,19 +177,6 @@ final readonly class ReportWorkerRunStateHandler
             bridgeId: $run->bridgeId,
             sessionId: $run->sessionId,
             liveSince: $run->receivedAt,
-        );
-    }
-
-    private function queued(WorkerRun $run): WorkerRunQueued
-    {
-        $context = null === $run->workRequestId ? null : $this->workRequests->findOneOfSubject($run->workRequestId, $run->project, $run->subject())?->context;
-
-        return new WorkerRunQueued(
-            projectId: $run->project->id ?? throw new \LogicException('A persisted project has an id.'),
-            runId: $run->id ?? throw new \LogicException('A flushed run has an id.'),
-            cardId: $run->subjectId,
-            pullRequestNumber: $context?->pullRequestNumber,
-            pullRequestUrl: $context?->pullRequestUrl,
         );
     }
 

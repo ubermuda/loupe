@@ -11,7 +11,9 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Service\FixRunCommentQueue;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
+use App\Module\Board\Service\StaleApprovalNoticeQueue;
 use App\Module\Board\Service\VerdictReviewSettler;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
@@ -42,11 +44,13 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * pull request of the card. A write that no writer of the forge supports opens the fallback
  * work instead. A state write with no fallback then does nothing. The epic opening acts on an epic with no pull request:
  * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
+ * A comment write queues the comment that the card's facts ask for, and it has no fallback.
  */
 final readonly class ForgeWrite implements Action, ChecksParameters
 {
     public const string KEY = 'forge-write';
-    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check'];
+    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'comment'];
+    private const array COMMENTS = ['fix-run', 'stale-approval'];
 
     public function __construct(
         private CardRepository $cards,
@@ -62,6 +66,8 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         private UrlGeneratorInterface $urlGenerator,
         private VerdictReviewSettler $reviewSettler,
         private SiteReviewCheckPublisher $checkPublisher,
+        private FixRunCommentQueue $fixRunComments,
+        private StaleApprovalNoticeQueue $staleApprovalNotices,
         private CardEvaluations $evaluations,
         private CardTypeCatalog $catalog,
 
@@ -88,13 +94,18 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         return [
             new Parameter('write', ParameterType::String, choices: array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),
             new Parameter('fallback', ParameterType::String, required: false),
+            new Parameter('comment', ParameterType::String, required: false, choices: self::COMMENTS),
         ];
     }
 
     #[\Override]
     public static function check(array $params): array
     {
-        $needsFallback = !\in_array($params['write'] ?? null, self::WRITES_WITHOUT_FALLBACK, true);
+        $write = $params['write'] ?? null;
+        if (ForgeWriteKind::Comment->value === $write && !\array_key_exists('comment', $params)) {
+            return ['missing parameter "comment"'];
+        }
+        $needsFallback = !\in_array($write, self::WRITES_WITHOUT_FALLBACK, true);
 
         return $needsFallback && !\array_key_exists('fallback', $params) ? ['missing parameter "fallback"'] : [];
     }
@@ -140,6 +151,19 @@ final readonly class ForgeWrite implements Action, ChecksParameters
 
             return null === $result->failure ? ActionOutcome::done() : ActionOutcome::refused($result->failure);
         }
+        if (ForgeWriteKind::Comment === $write) {
+            $queued = match ($context->string('comment')) {
+                'fix-run' => $this->fixRunComments->queue($card),
+                'stale-approval' => $this->staleApprovalNotices->queue($card),
+                default => throw new \LogicException(\sprintf('The rule "%s" names an unknown comment.', $context->ruleId)),
+            };
+            // The stored row turns the condition false, and only a new evaluation reads it.
+            if ($queued && $this->evaluations->isOn()) {
+                $this->evaluations->forCards([$card->id ?? throw new \LogicException('A stored card has an id.')]);
+            }
+
+            return ActionOutcome::done();
+        }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
             if ([] === $pullRequests) {
                 return ActionOutcome::done();
@@ -151,9 +175,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         $pullRequest = $this->cardPullRequests->subjectOf($pullRequests, $facts->pullRequest);
         if (null === $pullRequest) {
             return ActionOutcome::refused('no-pull-request');
-        }
-        if (ForgeWriteKind::Comment === $write) {
-            return ActionOutcome::refused('unsupported-write');
         }
         try {
             return match ($write) {
