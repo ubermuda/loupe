@@ -62,11 +62,11 @@ final readonly class GitHubUserApi
     }
 
     /**
-     * Removes the App's grant for the user, which voids every token of it.
+     * Voids this access token alone. The grant, and the tokens of another Loupe user on the same GitHub account, stay.
      *
      * @throws GitHubUserApiFailed
      */
-    public function revokeGrant(#[\SensitiveParameter] string $accessToken): void
+    public function revokeToken(#[\SensitiveParameter] string $accessToken): void
     {
         $clientId = $this->configuration->clientId;
         $clientSecret = $this->configuration->clientSecret;
@@ -75,7 +75,7 @@ final readonly class GitHubUserApi
         }
 
         try {
-            $status = $this->githubApiClient->request('DELETE', '/applications/'.rawurlencode($clientId).'/grant', [
+            $status = $this->githubApiClient->request('DELETE', '/applications/'.rawurlencode($clientId).'/token', [
                 'auth_basic' => [$clientId, $clientSecret],
                 'json' => ['access_token' => $accessToken],
             ])->getStatusCode();

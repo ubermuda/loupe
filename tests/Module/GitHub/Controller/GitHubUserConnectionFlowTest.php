@@ -312,7 +312,7 @@ final class GitHubUserConnectionFlowTest extends WebTestCase
         self::assertNull($this->connectionOf($user));
         self::assertCount(1, $this->apiRequests);
         self::assertSame('DELETE', $this->apiRequests[0]['method']);
-        self::assertSame('https://api.github.com/applications/the-client-id/grant', $this->apiRequests[0]['url']);
+        self::assertSame('https://api.github.com/applications/the-client-id/token', $this->apiRequests[0]['url']);
         self::assertSame(['access_token' => self::TOKEN], json_decode($this->apiRequests[0]['body'], true));
         self::assertStringContainsString('Your GitHub account is disconnected.', $this->followedText());
         self::assertTrue($audit->record('github.user_disconnected')->context['revoked']);
@@ -329,7 +329,7 @@ final class GitHubUserConnectionFlowTest extends WebTestCase
 
         self::assertResponseRedirects('/account/connected-apps');
         self::assertNull($this->connectionOf($user));
-        self::assertStringContainsString('GitHub did not confirm the removal', $this->followedText());
+        self::assertStringContainsString('GitHub did not confirm that it voided the token', $this->followedText());
     }
 
     public function test_disconnect_refreshes_an_ended_access_token_before_it_revokes(): void
@@ -375,7 +375,7 @@ final class GitHubUserConnectionFlowTest extends WebTestCase
         self::assertResponseRedirects('/account/connected-apps');
         self::assertNull($this->connectionOf($user));
         self::assertSame([], $this->apiRequests);
-        self::assertStringContainsString('GitHub did not confirm the removal', $this->followedText());
+        self::assertStringContainsString('GitHub did not confirm that it voided the token', $this->followedText());
     }
 
     public function test_the_page_offers_a_reconnect_when_the_refresh_token_has_ended(): void

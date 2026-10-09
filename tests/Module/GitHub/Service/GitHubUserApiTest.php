@@ -97,15 +97,15 @@ final class GitHubUserApiTest extends TestCase
         $api->user('at');
     }
 
-    public function test_the_revoke_deletes_the_grant_with_basic_auth_and_the_token_in_the_body(): void
+    public function test_the_revoke_deletes_the_token_with_basic_auth_and_the_token_in_the_body(): void
     {
         $api = $this->api(apiResponses: [new MockResponse('', ['http_code' => 204])]);
 
-        $api->revokeGrant('at');
+        $api->revokeToken('at');
 
         $request = $this->apiRequests[0];
         self::assertSame('DELETE', $request['method']);
-        self::assertSame('https://api.github.com/applications/the-client-id/grant', $request['url']);
+        self::assertSame('https://api.github.com/applications/the-client-id/token', $request['url']);
         self::assertContains('Authorization: Basic '.base64_encode('the-client-id:the-client-secret'), $request['options']['headers']);
         self::assertSame(['access_token' => 'at'], json_decode((string) $request['options']['body'], true));
     }
@@ -115,7 +115,7 @@ final class GitHubUserApiTest extends TestCase
         $api = $this->api(apiResponses: [new MockResponse('{"message":"Not Found"}', ['http_code' => 404])]);
 
         try {
-            $api->revokeGrant(self::SECRET_TOKEN);
+            $api->revokeToken(self::SECRET_TOKEN);
             self::fail('A refused revoke must throw.');
         } catch (GitHubUserApiFailed $e) {
             self::assertSame('http_status', $e->reason);
@@ -129,7 +129,7 @@ final class GitHubUserApiTest extends TestCase
         $api = new GitHubUserApi(new MockHttpClient(), new MockHttpClient(), new GitHubAppConfiguration(null, null, null, null, null, null), new MockClock(self::NOW));
 
         try {
-            $api->revokeGrant('at');
+            $api->revokeToken('at');
             self::fail('A revoke without credentials must throw.');
         } catch (GitHubUserApiFailed $e) {
             self::assertSame('not_configured', $e->reason);

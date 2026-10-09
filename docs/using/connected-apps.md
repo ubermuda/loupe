@@ -98,9 +98,12 @@ does not act as an app that uses Loupe.
 - When GitHub refuses the refresh, the row shows that the connection expired.
   This happens when you remove Loupe on GitHub, or when the refresh token is
   six months old. Choose **Connect again** to fix it.
-- **Disconnect** asks GitHub to remove the access of Loupe, and then deletes the
-  tokens. If GitHub does not confirm, Loupe still deletes the tokens and says
-  so. Then remove Loupe under *Applications* in your GitHub settings.
+- **Disconnect** asks GitHub to void the token that Loupe holds, and then
+  deletes the tokens. If GitHub does not confirm, Loupe still deletes the
+  tokens and says so.
+- Disconnect leaves Loupe in the authorized apps of your GitHub account,
+  because another Loupe account can connect the same GitHub account. To end
+  every access, remove Loupe under *Applications* in your GitHub settings.
 
 Deleting your Loupe account deletes the stored tokens. GitHub keeps its grant
 until you remove it in your GitHub settings. The data export includes

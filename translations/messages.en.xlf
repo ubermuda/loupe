@@ -7610,7 +7610,7 @@
             <trans-unit id="github.connect.action.reconnect"><source>github.connect.action.reconnect</source><target>Connect again</target></trans-unit>
             <trans-unit id="github.connect.action.disconnect"><source>github.connect.action.disconnect</source><target>Disconnect</target></trans-unit>
             <trans-unit id="github.connect.disconnect.title"><source>github.connect.disconnect.title</source><target>Disconnect your GitHub account?</target></trans-unit>
-            <trans-unit id="github.connect.disconnect.description"><source>github.connect.disconnect.description</source><target>Loupe forgets the connection to %login% and asks GitHub to remove its access.</target></trans-unit>
+            <trans-unit id="github.connect.disconnect.description"><source>github.connect.disconnect.description</source><target>Loupe forgets the connection to %login% and asks GitHub to void the token it holds.</target></trans-unit>
             <trans-unit id="github.connect.disconnect.cancel"><source>github.connect.disconnect.cancel</source><target>Cancel</target></trans-unit>
             <trans-unit id="github.connect.disconnect.confirm"><source>github.connect.disconnect.confirm</source><target>Disconnect</target></trans-unit>
             <trans-unit id="github.connect.callback.page.title"><source>github.connect.callback.page.title</source><target>GitHub account</target></trans-unit>
@@ -7624,7 +7624,7 @@
             <trans-unit id="github.connect.flash.tokens_do_not_expire"><source>github.connect.flash.tokens_do_not_expire</source><target>The GitHub App does not expire user tokens. Ask the operator to turn on user token expiry in the App settings.</target></trans-unit>
             <trans-unit id="github.connect.flash.github_unavailable"><source>github.connect.flash.github_unavailable</source><target>GitHub did not answer. Try again in a moment.</target></trans-unit>
             <trans-unit id="github.connect.flash.disconnected"><source>github.connect.flash.disconnected</source><target>Your GitHub account is disconnected.</target></trans-unit>
-            <trans-unit id="github.connect.flash.disconnected_not_revoked"><source>github.connect.flash.disconnected_not_revoked</source><target>Your GitHub account is disconnected in Loupe. GitHub did not confirm the removal, so revoke Loupe under your GitHub settings as well.</target></trans-unit>
+            <trans-unit id="github.connect.flash.disconnected_not_revoked"><source>github.connect.flash.disconnected_not_revoked</source><target>Your GitHub account is disconnected in Loupe. GitHub did not confirm that it voided the token, so revoke Loupe under your GitHub settings as well.</target></trans-unit>
             <trans-unit id="github.app.flash.repositories_incomplete"><source>github.app.flash.repositories_incomplete</source><target>GitHub listed more repositories than Loupe reads at one time, so the repository list may be incomplete. A missing repository joins the list on its first delivery.</target></trans-unit>
             <trans-unit id="github.app.flash.repositories_elsewhere"><source>github.app.flash.repositories_elsewhere</source><target>{0}No repository belongs to another project.|{1}1 repository belongs to another project, so Loupe did not connect it.|]1,Inf[%count% repositories belong to another project, so Loupe did not connect them.</target></trans-unit>
 

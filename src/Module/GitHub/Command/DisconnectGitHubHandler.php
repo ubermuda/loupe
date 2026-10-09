@@ -16,7 +16,7 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * Asks GitHub to void the grant, then deletes the row. A failed call must not
+ * Asks GitHub to void the access token, then deletes the row. A failed call must not
  * keep a person connected, so the delete runs whatever the call does.
  */
 final readonly class DisconnectGitHubHandler
@@ -42,7 +42,7 @@ final readonly class DisconnectGitHubHandler
         try {
             $token = $this->tokens->accessTokenFor($command->user);
             if (GitHubUserTokenStatus::Fresh === $token->status && null !== $token->accessToken) {
-                $this->gitHubUserApi->revokeGrant($token->accessToken);
+                $this->gitHubUserApi->revokeToken($token->accessToken);
                 $revoked = true;
             }
         } catch (GitHubUserApiFailed $e) {
