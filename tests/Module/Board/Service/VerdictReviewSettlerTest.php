@@ -14,9 +14,11 @@ use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\VerdictReviewSettler;
 use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Service\PullRequestReviewFailed;
 use App\Module\Forge\Service\PullRequestReviewKind;
 use App\Module\Forge\Service\PullRequestReviewPosters;
+use App\Module\Forge\Service\PullRequestTracker;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\CardVerdictScenario;
 use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
@@ -25,6 +27,7 @@ use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class VerdictReviewSettlerTest extends KernelTestCase
@@ -126,6 +129,33 @@ final class VerdictReviewSettlerTest extends KernelTestCase
 
         self::assertSame(PullRequestReviewKind::Comment, $this->poster->posts[0]['kind']);
         self::assertSame('Needs work', $this->poster->posts[0]['body']);
+    }
+
+    public function test_a_pull_request_with_an_unread_author_waits_for_a_refresh_instead_of_posting(): void
+    {
+        $card = $this->card($this->project);
+        $delivery = $this->delivery($card, 7, CardVerdictKind::Approve, '', authorLogin: null);
+
+        self::assertSame(VerdictReviewSettler::AUTHOR_UNREAD, $this->settle($card));
+
+        self::assertSame([], $this->poster->posts);
+        self::assertSame(CardVerdictDeliveryState::Pending, $delivery->state);
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+        $queued = array_map(static fn ($envelope) => $envelope->getMessage(), $transport->getSent());
+        self::assertNotEmpty($queued);
+        self::assertContains((string) $delivery->pullRequest->id, array_map(static fn ($message) => $message instanceof RefreshPullRequestState ? $message->pullRequestId : null, $queued));
+    }
+
+    public function test_an_author_that_is_not_a_user_account_does_not_block_the_review(): void
+    {
+        $card = $this->card($this->project);
+        $delivery = $this->delivery($card, 7, CardVerdictKind::Approve, '', authorLogin: 'dependabot[bot]');
+
+        self::assertNull($this->settle($card));
+
+        self::assertSame(PullRequestReviewKind::Approve, $this->poster->posts[0]['kind']);
+        self::assertSame(CardVerdictDeliveryState::Posted, $delivery->state);
     }
 
     public function test_an_opt_in_that_is_off_skips_every_delivery_and_posts_nothing(): void
@@ -293,6 +323,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
             $this->service(BoardAutomation::class),
             new PullRequestReviewPosters([$this->poster]),
             $this->account,
+            $this->service(PullRequestTracker::class),
             $translator,
             $this->em,
             new MockClock('2026-10-08 12:00:00'),
@@ -302,9 +333,9 @@ final class VerdictReviewSettlerTest extends KernelTestCase
     /**
      * @param list<array{id: string, url: string, body: string, anchorCount: int}> $notes
      */
-    private function delivery(Card $card, int $number, CardVerdictKind $kind, string $message, array $notes = [], ?string $authorId = null, bool $reviewer = true): CardVerdictDelivery
+    private function delivery(Card $card, int $number, CardVerdictKind $kind, string $message, array $notes = [], ?string $authorId = null, bool $reviewer = true, ?string $authorLogin = 'octocat'): CardVerdictDelivery
     {
-        $pullRequest = $this->linkedPullRequest($card, $number, authorId: $authorId);
+        $pullRequest = $this->linkedPullRequest($card, $number, authorId: $authorId, authorLogin: $authorLogin);
         $verdict = new CardVerdict($card, $kind, $reviewer ? $this->project->owner : null, $message, $notes);
         $this->em->persist($verdict);
         $delivery = new CardVerdictDelivery($verdict, $pullRequest);

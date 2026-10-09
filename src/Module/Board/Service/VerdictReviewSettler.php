@@ -12,6 +12,7 @@ use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Service\PullRequestReviewFailed;
 use App\Module\Forge\Service\PullRequestReviewKind;
 use App\Module\Forge\Service\PullRequestReviewPosters;
+use App\Module\Forge\Service\PullRequestTracker;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -23,11 +24,14 @@ final readonly class VerdictReviewSettler
 
     public const string REASON_NO_POSTER = 'no-poster';
 
+    public const string AUTHOR_UNREAD = 'author-unread';
+
     public function __construct(
         private CardVerdictDeliveryRepository $cardVerdictDeliveries,
         private BoardAutomation $boardAutomation,
         private PullRequestReviewPosters $posters,
         private ReviewerForgeAccount $forgeAccount,
+        private PullRequestTracker $tracker,
         private TranslatorInterface $translator,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
@@ -73,6 +77,13 @@ final readonly class VerdictReviewSettler
         $poster = $this->posters->for($pullRequest->forge);
         if (null === $poster) {
             return $this->finish($delivery, CardVerdictDeliveryState::Refused, self::REASON_NO_POSTER);
+        }
+
+        // A row from before the author column has neither id nor login. A review of one's own pull request is refused for good.
+        if (null === $pullRequest->authorId && null === $pullRequest->authorLogin) {
+            $this->tracker->refresh($pullRequest->project, $pullRequest->forge, $pullRequest->repository, $pullRequest->number);
+
+            return self::AUTHOR_UNREAD;
         }
 
         $reviewerForgeId = $this->forgeAccount->forgeUserIdOf($reviewer);
