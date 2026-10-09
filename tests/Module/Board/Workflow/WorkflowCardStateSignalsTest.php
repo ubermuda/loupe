@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Service;
+namespace App\Tests\Module\Board\Workflow;
 
 use App\Module\Board\Service\CardStateCode;
+use App\Module\Board\Workflow\WorkflowCardStateSignals;
 use App\Module\Review\Entity\DocumentStatus;
-use App\Module\Workflow\Service\WorkflowCardStateSignals;
 use App\Tests\Module\Board\CardStateFixtures;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 

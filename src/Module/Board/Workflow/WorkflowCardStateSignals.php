@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Service;
+namespace App\Module\Board\Workflow;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardDocumentRepository;
@@ -11,10 +11,7 @@ use App\Module\Board\Service\CardStateReason;
 use App\Module\Board\Service\CardStateSignalsInterface;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Tag;
-use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
-use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
-use App\Module\Workflow\Template\TemplateMissing;
-use App\Module\Workflow\Template\TemplateSource;
+use App\Module\Workflow\Contract\CardStateHints;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -25,9 +22,7 @@ final readonly class WorkflowCardStateSignals implements CardStateSignalsInterfa
 {
     public function __construct(
         private CardDocumentRepository $cardDocuments,
-        private WorkflowRuleStateRepository $workflowRuleStates,
-        private WorkflowSlotLinkRepository $workflowSlotLinks,
-        private TemplateSource $templates,
+        private CardStateHints $hints,
     ) {
     }
 
@@ -40,11 +35,11 @@ final readonly class WorkflowCardStateSignals implements CardStateSignalsInterfa
         foreach ($this->documentsInReview($project, $ids) as $cardId => $reason) {
             $signals[$cardId][] = $reason;
         }
-        foreach ($this->workflowRuleStates->findBlockerHolds($ids) as $row) {
-            $signals[$row['card_id']][] = new CardStateReason(
+        foreach ($this->hints->blockerHolds($ids) as $hold) {
+            $signals[$hold->cardId][] = new CardStateReason(
                 CardStateCode::HeldByBlocker,
-                ['%number%' => (int) $row['number'], '%title%' => $row['title']],
-                new \DateTimeImmutable($row['since']),
+                ['%number%' => $hold->blockerNumber, '%title%' => $hold->blockerTitle],
+                $hold->since,
             );
         }
 
@@ -62,25 +57,16 @@ final readonly class WorkflowCardStateSignals implements CardStateSignalsInterfa
         if ([] === $rows) {
             return [];
         }
-        try {
-            $template = $this->templates->forProject($project->id ?? throw new \LogicException('Project has no id.'));
-        } catch (TemplateMissing) {
+        $stageTags = $this->hints->stageDocumentTags($project->requireId());
+        if (null === $stageTags) {
             return [];
-        }
-
-        $slots = [];
-        foreach ($this->workflowSlotLinks->findColumnsBySlot($project) as $slot => $column) {
-            if (null !== $column) {
-                $slots[(string) $column->id] = $slot;
-            }
         }
 
         $found = [];
         foreach ($rows as $row) {
             $card = $row['link']->card;
-            $slot = $card->column->backlog ? FactsBuilder::BACKLOG_SLOT : $slots[(string) $card->column->id] ?? null;
             $tags = array_map(static fn (Tag $tag): string => $tag->name, $row['link']->document->tags->toArray());
-            if ([] === array_intersect($template->documentTagsFor($slot), $tags)) {
+            if ([] === array_intersect($stageTags->forColumn((string) $card->column->id, $card->column->backlog), $tags)) {
                 continue;
             }
             $cardId = (string) $card->id;

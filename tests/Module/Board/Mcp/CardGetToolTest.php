@@ -104,7 +104,7 @@ final class CardGetToolTest extends KernelTestCase
         self::assertInstanceOf(Card::class, $card);
         $handler = self::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $handler);
-        $pause = $handler(new PauseCardCommand($card, 'review-failed', 'fix-on-review', CardPauseKind::Retries));
+        $pause = $handler(new PauseCardCommand($card, 'review-failed', 'fix-on-review', PauseKind::Retries));
         self::assertNotNull($pause);
 
         $state = ($this->tool)($created['cardId'])['state'];

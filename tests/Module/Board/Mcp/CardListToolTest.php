@@ -59,7 +59,7 @@ final class CardListToolTest extends KernelTestCase
         $free = $this->createTool->__invoke('Free', 'Body', 'feature');
         $handler = self::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $handler);
-        $pause = $handler(new PauseCardCommand($paused, 'review-failed', 'fix-on-review', CardPauseKind::Retries));
+        $pause = $handler(new PauseCardCommand($paused, 'review-failed', 'fix-on-review', PauseKind::Retries));
         self::assertNotNull($pause);
         $expected = ['kind' => 'stuck', 'code' => 'paused', 'since' => $pause->createdAt->format(\DATE_ATOM)];
 

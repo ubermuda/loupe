@@ -14,6 +14,7 @@ use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ActionOutcomeKind;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\BlockerHoldChanged;
 use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardPauses;
 use App\Module\Workflow\Contract\CardSnapshot;
@@ -61,6 +62,9 @@ final readonly class Engine
     private const string LEFT_SLOT = 'left-slot';
     private const string RULE_REMOVED = 'rule-removed';
 
+    /** The key of the Board condition that reads an open blocker, which the engine may not import. */
+    private const string OPEN_BLOCKER = 'card.blocker.open';
+
     public function __construct(
         private EntityManagerInterface $em,
         private CardDirectory $cards,
@@ -90,12 +94,7 @@ final readonly class Engine
             return;
         }
         if ($run->holdChanged) {
-            $this->events->dispatch(new CardChanged(
-                $run->card->project->id ?? throw new \LogicException('A persisted project has an id.'),
-                $cardId,
-                CardChanged::UPDATED,
-                false,
-            ));
+            $this->events->dispatch(new BlockerHoldChanged($run->card->projectId, $cardId));
         }
         if ($run->baselined) {
             $this->logger->info('workflow.card_baselined', ['cardId' => $cardId->toRfc4122()]);
@@ -700,10 +699,10 @@ final readonly class Engine
     /** Stamps the first pass in which only an open blocker keeps a move rule false, and clears the stamp on the pass in which it does not. */
     private function markBlockerHold(Evaluation $run, Rule $rule, WorkflowRuleState $state, BoundRule $bound): void
     {
-        $held = !$bound->truth && ActionType::Move === $rule->then->type && 1 === $rule->when->countAgainst($bound->facts, true);
+        $held = !$bound->truth && $rule->then->traits->endsPass && 1 === $rule->when->countAgainst($bound->facts, true);
         if ($held) {
             $blocking = $rule->when->firstFalseLeaf($bound->facts);
-            $held = $blocking?->leaf->condition instanceof CardHasOpenBlocker && $blocking->negated;
+            $held = null !== $blocking && $blocking->negated && self::OPEN_BLOCKER === $blocking->leaf->condition::key();
         }
         $state->heldByBlockerSince = $held ? ($state->heldByBlockerSince ?? $run->now) : null;
     }

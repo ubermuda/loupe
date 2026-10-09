@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
@@ -32,8 +32,8 @@ final readonly class ClosestRule
     /** @return array{Facts, int} the facts bound to the open pull request with the fewest false conditions, and that count */
     private function bind(Rule $rule, Facts $facts): array
     {
-        $candidates = \in_array(FactKey::PullRequest, $rule->when->reads(), true)
-            ? array_values(array_filter($facts->pullRequests, static fn (PullRequestFacts $pullRequest): bool => PullRequestState::Open === $pullRequest->state))
+        $candidates = \in_array(EngineFact::PullRequest, $rule->when->reads(), true)
+            ? array_values(array_filter($facts->pullRequests(), static fn (PullRequestFacts $pullRequest): bool => PullRequestState::Open === $pullRequest->state))
             : [];
         $best = [$facts, $rule->when->countAgainst($facts, true)];
         foreach ($candidates as $index => $candidate) {

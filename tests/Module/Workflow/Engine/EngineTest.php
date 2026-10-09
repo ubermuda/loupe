@@ -62,6 +62,7 @@ use App\Module\Workflow\Command\EvaluateWorkflowCardHandler;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\BlockerHoldChanged;
 use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\PauseKind;
@@ -123,7 +124,7 @@ final class EngineTest extends KernelTestCase
     /** @var list<CardPaused> */
     private array $paused = [];
 
-    /** @var list<CardChanged> */
+    /** @var list<BlockerHoldChanged> */
     private array $changed = [];
 
     private RecordingLogger $logger;
@@ -2325,7 +2326,7 @@ final class EngineTest extends KernelTestCase
 
     public function test_a_request_rule_is_never_a_blocker_hold(): void
     {
-        $card = $this->boundCard([['id' => 'work', 'slot' => 'one', 'when' => ['not' => ['card.has_open_blocker' => []]], 'then' => ['request' => ['kind' => 'work']]]]);
+        $card = $this->boundCard([['id' => 'work', 'slot' => 'one', 'when' => ['not' => ['card.blocker.open' => []]], 'then' => ['request' => ['kind' => 'work']]]]);
         $this->block($card);
 
         $this->evaluate($card);
@@ -2336,8 +2337,8 @@ final class EngineTest extends KernelTestCase
     private function heldCard(): Card
     {
         return $this->boundCard([self::moveRule('approved', 'two', ['all' => [
-            ['card.document_approved' => ['tag' => 'design']],
-            ['not' => ['card.has_open_blocker' => []]],
+            ['card.document.approved' => ['tag' => 'design']],
+            ['not' => ['card.blocker.open' => []]],
         ]])]);
     }
 
@@ -3164,7 +3165,7 @@ final class EngineTest extends KernelTestCase
         $engineEvents->addListener(CardPaused::class, function (CardPaused $event): void {
             $this->paused[] = $event;
         });
-        $engineEvents->addListener(CardChanged::class, function (CardChanged $event): void {
+        $engineEvents->addListener(BlockerHoldChanged::class, function (BlockerHoldChanged $event): void {
             $this->changed[] = $event;
         });
 

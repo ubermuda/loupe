@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
@@ -25,6 +24,7 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\DocumentRenamed;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\CardStateFixtures;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -111,7 +111,7 @@ final class CardTileRefreshOnStateInputsTest extends KernelTestCase
         $blocker->column = $this->column($project, 'done');
         $this->em()->flush();
 
-        $this->blockerMoved()(new CardMoved($blocker, new CardMove($from), CardReporter::Human));
+        $this->blockerMoved()(new CardMoved($blocker, new CardMove($from), Actor::Human));
 
         self::assertSame([(string) $blocked->id], $this->changedCardIds());
     }
@@ -127,7 +127,7 @@ final class CardTileRefreshOnStateInputsTest extends KernelTestCase
         $blocker->column = $this->column($project, 'in-progress');
         $this->em()->flush();
 
-        $this->blockerMoved()(new CardMoved($blocker, new CardMove($from), CardReporter::Human));
+        $this->blockerMoved()(new CardMoved($blocker, new CardMove($from), Actor::Human));
 
         self::assertSame([(string) $blocked->id], $this->changedCardIds());
     }
@@ -143,7 +143,7 @@ final class CardTileRefreshOnStateInputsTest extends KernelTestCase
         $blocker->column = $this->column($project, 'next');
         $this->em()->flush();
 
-        $this->blockerMoved()(new CardMoved($blocker, new CardMove($from), CardReporter::Human));
+        $this->blockerMoved()(new CardMoved($blocker, new CardMove($from), Actor::Human));
 
         self::assertSame([], $this->changes);
     }
@@ -154,7 +154,7 @@ final class CardTileRefreshOnStateInputsTest extends KernelTestCase
         $first = $this->stateCard($project);
         $second = $this->stateCard($project);
 
-        new DispatchCardChangedOnCardBlockersRemoved($this->dispatcher)(new CardBlockersRemoved($project, [$first, $second], CardReporter::Human));
+        new DispatchCardChangedOnCardBlockersRemoved($this->dispatcher)(new CardBlockersRemoved($project, [$first, $second], Actor::Human));
 
         self::assertSame([(string) $first->id, (string) $second->id], $this->changedCardIds());
     }

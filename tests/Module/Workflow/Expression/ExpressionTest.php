@@ -275,7 +275,7 @@ final class ExpressionTest extends TestCase
 
     public function test_all_of_counts_every_false_child_to_turn_true_and_its_cheapest_child_to_turn_false(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $epic = new ConditionLeaf(new CardHasType(), ['type' => 'epic']);
         $all = new AllOf([$child, $blocker, $epic]);
@@ -294,7 +294,7 @@ final class ExpressionTest extends TestCase
 
     public function test_any_of_counts_its_cheapest_child_to_turn_true_and_every_true_child_to_turn_false(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $any = new AnyOf([new AllOf([$child, $blocker]), $blocker]);
 
@@ -305,7 +305,7 @@ final class ExpressionTest extends TestCase
 
     public function test_not_counts_its_inner_expression_against_the_opposite_value(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $not = new Not(new AllOf([$child, $blocker]));
         $both = FactsMother::facts(card: FactsMother::card(hasOpenBlocker: true, isChild: true));
@@ -317,7 +317,7 @@ final class ExpressionTest extends TestCase
 
     public function test_a_nested_expression_counts_the_leaves_that_must_change(): void
     {
-        $child = new ConditionLeaf(new CardIsChild(), []);
+        $child = new ConditionLeaf(new CardParentExists(), []);
         $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
         $epic = new ConditionLeaf(new CardHasType(), ['type' => 'epic']);
         $expression = new AllOf([$epic, new AnyOf([new AllOf([$child, $blocker]), new Not($blocker)]), new Not($blocker)]);

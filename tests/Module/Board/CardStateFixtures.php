@@ -9,7 +9,6 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -26,6 +25,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Tag;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use Symfony\Component\Uid\Uuid;
@@ -66,7 +66,7 @@ trait CardStateFixtures
 
     private function pauseCard(Card $card, string $at = '2026-10-02 09:00:00'): CardPause
     {
-        $pause = new CardPause($card, $card->project, 'review-failed', 'fix-rule', CardPauseKind::Retries, new \DateTimeImmutable($at));
+        $pause = new CardPause($card, $card->project, 'review-failed', 'fix-rule', PauseKind::Retries, new \DateTimeImmutable($at));
         $this->em()->persist($pause);
         $this->em()->flush();
 
@@ -156,7 +156,7 @@ trait CardStateFixtures
     {
         $blocker = $this->stateCard($card->project, 'next');
         $this->em()->persist(new CardLink($blocker, $card, CardLinkKind::Blocks));
-        $state = $this->em()->getRepository(WorkflowRuleState::class)->findOneBy(['card' => $card, 'ruleId' => 'tech-design-approved']) ?? new WorkflowRuleState($card, $card->project, 'tech-design-approved');
+        $state = $this->em()->getRepository(WorkflowRuleState::class)->findOneBy(['cardId' => $card->id, 'ruleId' => 'tech-design-approved']) ?? new WorkflowRuleState($card->id ?? throw new \LogicException('A persisted card has an id.'), $card->project, 'tech-design-approved');
         $state->heldByBlockerSince = new \DateTimeImmutable($at);
         $this->em()->persist($state);
         $this->em()->flush();
