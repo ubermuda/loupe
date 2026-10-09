@@ -16,7 +16,7 @@ final class Version20261009082941 extends AbstractMigration
         return 'Write the shipped Simple and Lifecycle copies, whose conditions carry the new card, parent and run names, into every binding';
     }
 
-    /** The parser refuses an old condition name, so a binding that keeps its old copy fails to load. */
+    /** A stored copy that keeps an old condition name reads it as a missing condition, so its rule never fires. */
     public function up(Schema $schema): void
     {
         foreach (['simple', 'lifecycle'] as $key) {
