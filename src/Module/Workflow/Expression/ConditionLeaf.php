@@ -32,7 +32,9 @@ final readonly class ConditionLeaf extends Expression
     {
         foreach ($this->reads() as $key) {
             // The pull request a rule acts on comes from the list of pull requests, so the rule waits while the list is unreadable.
-            $key = EngineFact::PullRequest === $key ? PullRequestList::class : $key;
+            if (EngineFact::PullRequest === $key) {
+                $key = PullRequestList::class;
+            }
             if (!\is_string($key)) {
                 continue;
             }
