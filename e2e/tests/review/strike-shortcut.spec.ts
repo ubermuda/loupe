@@ -11,8 +11,12 @@
  * /dev/review/{id}/state, which reports `replacement` — '' is a strike.
  */
 
-import { test, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as test,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
 // Guest by default — each test logs in as the user it just created.
