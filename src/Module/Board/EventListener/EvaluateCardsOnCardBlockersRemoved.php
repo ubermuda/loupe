@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\EventListener;
+namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Event\CardBlockersRemoved;
-use App\Module\Workflow\Service\EvaluationTrigger;
+use App\Module\Workflow\Contract\CardEvaluations;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 #[AsEventListener]
 final readonly class EvaluateCardsOnCardBlockersRemoved
 {
     public function __construct(
-        private EvaluationTrigger $trigger,
+        private CardEvaluations $trigger,
     ) {
     }
 

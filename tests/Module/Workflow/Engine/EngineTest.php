@@ -28,6 +28,7 @@ use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
+use App\Module\Bridge\EventListener\RearmCardsOnCardHoldsReleased;
 use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
@@ -64,14 +65,13 @@ use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\PauseKind;
-use App\Module\Workflow\Contract\WorkLedger;
+use App\Module\Workflow\Contract\WorkflowRuleStates;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
 use App\Module\Workflow\Event\CardPaused;
-use App\Module\Workflow\EventListener\RearmCardsOnCardHoldsReleased;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Messenger\EvaluateCardHandler;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
@@ -3219,9 +3219,8 @@ final class EngineTest extends KernelTestCase
         $clock = new MockClock($at);
         $events = new EventDispatcher();
         $events->addListener(CardHoldsReleased::class, new RearmCardsOnCardHoldsReleased(
-            $this->service(WorkflowRuleStateRepository::class),
-            $this->service(WorkLedger::class),
-            $this->service(WorkflowPendingBaselineRepository::class),
+            $this->service(WorkRequestRepository::class),
+            $this->service(WorkflowRuleStates::class),
             new EvaluationTrigger($this->service(MessageBusInterface::class)),
             $clock,
         ));

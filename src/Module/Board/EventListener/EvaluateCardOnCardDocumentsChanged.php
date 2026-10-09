@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\EventListener;
+namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Workflow\Service\EvaluationTrigger;
+use App\Module\Workflow\Contract\CardEvaluations;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /** A rule reads the documents of a card, and of its parent, so a link change can open or close a gate. */
@@ -15,7 +15,7 @@ final readonly class EvaluateCardOnCardDocumentsChanged
 {
     public function __construct(
         private CardRepository $cards,
-        private EvaluationTrigger $trigger,
+        private CardEvaluations $trigger,
     ) {
     }
 
