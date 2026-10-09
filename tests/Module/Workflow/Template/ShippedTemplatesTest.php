@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
+use App\Module\Board\Workflow\FixRunFacts;
+use App\Module\Board\Workflow\StaleApprovalFacts;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
@@ -164,6 +166,25 @@ final class ShippedTemplatesTest extends KernelTestCase
             pullRequest: FactsMother::pullRequest(checks: ChecksState::Passed),
         );
         self::assertNotContainsEquals($merge, $this->actions($unapproved));
+    }
+
+    public function test_an_uncommented_fix_run_or_a_stale_approval_asks_for_its_comment_in_any_column(): void
+    {
+        $fixRun = $this->call('forge-write', ['write' => 'comment', 'comment' => 'fix-run']);
+        $stale = $this->call('forge-write', ['write' => 'comment', 'comment' => 'stale-approval']);
+        $quiet = FactsMother::facts(card: FactsMother::card(slot: 'in-review'));
+        self::assertNotContainsEquals($fixRun, $this->actions($quiet));
+        self::assertNotContainsEquals($stale, $this->actions($quiet));
+
+        foreach (['implementation', 'in-review'] as $slot) {
+            $facts = FactsMother::facts(card: FactsMother::card(slot: $slot), provided: [
+                FixRunFacts::class => new FixRunFacts(['run-1']),
+                StaleApprovalFacts::class => new StaleApprovalFacts(['pull-request-1' => 'head1']),
+            ]);
+
+            self::assertContainsEquals($fixRun, $this->actions($facts), $slot);
+            self::assertContainsEquals($stale, $this->actions($facts), $slot);
+        }
     }
 
     public function test_an_epic_with_finished_children_moves_to_review_with_a_draft_pull_request(): void
