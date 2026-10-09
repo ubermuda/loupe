@@ -1,0 +1,113 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\Board\Command;
+
+use App\Module\Board\Command\NeutralizeSiteReviewCheckCommand;
+use App\Module\Board\Command\NeutralizeSiteReviewCheckHandler;
+use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\SiteReviewCheckStateRepository;
+use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\SiteReviewCheckPublisher;
+use App\Module\Board\Workflow\SiteReviewFactProvider;
+use App\Module\Forge\Service\PullRequestCheckConclusion;
+use App\Module\Forge\Service\PullRequestCheckWriters;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
+use App\Tests\Module\Board\Fake\FakeCheckWriter;
+use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
+use Psr\Log\NullLogger;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
+use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
+
+final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
+{
+    private FakeCheckWriter $writer;
+    private Project $project;
+
+    protected function setUp(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $owner = new \App\Module\Account\Entity\User(fullName: 'Riley', email: 'neutralize-'.uniqid().'@example.com', password: 'hashed');
+        $em->persist($owner);
+        $this->project = new Project($owner, 'neutralize-'.uniqid());
+        $em->persist($this->project);
+        $em->flush();
+        $this->writer = new FakeCheckWriter();
+    }
+
+    public function test_it_turns_the_posted_run_neutral(): void
+    {
+        ($this->handler())($this->command());
+
+        self::assertCount(1, $this->writer->published);
+        self::assertSame([PullRequestCheckConclusion::Neutral, 55, 'sha-1'], [$this->writer->published[0]['conclusion'], $this->writer->published[0]['runId'], $this->writer->published[0]['sha']]);
+    }
+
+    public function test_a_retryable_refusal_asks_for_a_retry(): void
+    {
+        $this->writer->failingNumbers = [9];
+        $this->writer->failsForGood = false;
+
+        $this->expectException(RecoverableMessageHandlingException::class);
+
+        ($this->handler())($this->command());
+    }
+
+    public function test_a_permanent_refusal_ends_the_message(): void
+    {
+        $this->writer->failingNumbers = [9];
+
+        ($this->handler())($this->command());
+
+        self::assertCount(1, $this->writer->published);
+    }
+
+    public function test_a_deleted_project_ends_the_message(): void
+    {
+        ($this->handler())(new NeutralizeSiteReviewCheckCommand(Uuid::v7(), 'github', 'acme/widgets', 9, 'sha-1', 55));
+
+        self::assertSame([], $this->writer->published);
+    }
+
+    private function command(): NeutralizeSiteReviewCheckCommand
+    {
+        return new NeutralizeSiteReviewCheckCommand($this->project->id ?? throw new \LogicException('A persisted project has an id.'), 'github', 'acme/widgets', 9, 'sha-1', 55);
+    }
+
+    private function handler(): NeutralizeSiteReviewCheckHandler
+    {
+        $container = self::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $clock = $container->get(ClockInterface::class);
+        $translator = $container->get(TranslatorInterface::class);
+        $projects = $container->get(ProjectRepository::class);
+        $automation = $container->get(BoardAutomation::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        self::assertInstanceOf(ClockInterface::class, $clock);
+        self::assertInstanceOf(TranslatorInterface::class, $translator);
+        self::assertInstanceOf(ProjectRepository::class, $projects);
+        self::assertInstanceOf(BoardAutomation::class, $automation);
+
+        return new NeutralizeSiteReviewCheckHandler(
+            $projects,
+            new SiteReviewCheckPublisher(
+                $container->get(CardPullRequestRepository::class),
+                $container->get(SiteReviewFactProvider::class),
+                $container->get(SiteReviewCheckStateRepository::class),
+                $automation,
+                new PullRequestCheckWriters([$this->writer]),
+                $translator,
+                $em,
+                $clock,
+            ),
+            new NullLogger(),
+        );
+    }
+}

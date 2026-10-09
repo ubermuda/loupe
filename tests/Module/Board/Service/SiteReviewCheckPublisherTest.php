@@ -284,6 +284,24 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertCount(1, $this->writer->published);
     }
 
+    public function test_neutralizing_an_unlinked_pull_request_writes_a_neutral_run_on_the_posted_run(): void
+    {
+        self::assertNull($this->publisher(true)->neutralizeUnlinked($this->project, 'github', 'acme/widgets', 7, 'sha-1', 101));
+
+        self::assertCount(1, $this->writer->published);
+        $call = $this->writer->published[0];
+        self::assertSame([7, 'Loupe site review', 'sha-1', PullRequestCheckConclusion::Neutral, 101], [$call['number'], $call['name'], $call['sha'], $call['conclusion'], $call['runId']]);
+        self::assertSame('Loupe no longer keeps this check', $call['title']);
+        self::assertSame('No card links this pull request any more, so this check does not block it.', $call['summary']);
+    }
+
+    public function test_a_refused_neutral_write_for_an_unlinked_pull_request_returns_the_refusal(): void
+    {
+        $this->writer->failingNumbers = [7];
+
+        self::assertSame('permission', $this->publisher(true)->neutralizeUnlinked($this->project, 'github', 'acme/widgets', 7, 'sha-1', 101)?->cause);
+    }
+
     public function test_a_failed_settle_keeps_the_run_to_try_again(): void
     {
         $card = $this->card($this->project);

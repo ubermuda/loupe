@@ -10,6 +10,7 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\SiteReviewCheckStateRepository;
 use App\Module\Board\Workflow\CheckWanted;
 use App\Module\Board\Workflow\SiteReviewFactProvider;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Service\PullRequestCheckConclusion;
 use App\Module\Forge\Service\PullRequestCheckFailed;
 use App\Module\Forge\Service\PullRequestCheckWriters;
@@ -135,6 +136,34 @@ final readonly class SiteReviewCheckPublisher
         }
 
         return $failure;
+    }
+
+    /**
+     * Turns the failed run of a pull request that no card links any more into a neutral one. The row of the pull request is gone, so the write uses an unsaved copy of its key.
+     *
+     * @return ?PullRequestCheckFailed the refusal of the forge
+     */
+    public function neutralizeUnlinked(Project $project, string $forge, string $repository, int $number, string $headSha, int $runId): ?PullRequestCheckFailed
+    {
+        $writer = $this->writers->for($forge);
+        if (null === $writer) {
+            return null;
+        }
+        try {
+            $writer->publish(
+                new ForgePullRequest($project, $forge, $repository, $number),
+                self::NAME,
+                $headSha,
+                PullRequestCheckConclusion::Neutral,
+                $this->translator->trans('board.site_review_check.title_off'),
+                $this->translator->trans('board.site_review_check.summary_unlinked'),
+                $runId,
+            );
+        } catch (PullRequestCheckFailed $e) {
+            return $e;
+        }
+
+        return null;
     }
 
     /** Reads the setting from the database, because another worker can switch it while this one writes. */
