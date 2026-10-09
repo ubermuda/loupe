@@ -66,7 +66,9 @@ final readonly class SiteReviewFactProvider implements FactProvider
             return [];
         }
 
-        $noteCount = \count($this->carriedPendingNotes($card));
+        $notes = $this->carriedPendingNotes($card);
+        $noteCount = \count($notes);
+        $digest = $this->notesDigest($notes);
         $wanted = 0 < $noteCount ? CheckWanted::FAILURE : CheckWanted::SUCCESS;
         $checks = [];
         foreach ($pullRequests as $pullRequest) {
@@ -82,6 +84,8 @@ final readonly class SiteReviewFactProvider implements FactProvider
                 $posted?->conclusion,
                 $posted?->checkRunId,
                 $posted?->noteCount,
+                $digest,
+                $posted?->notesDigest,
             );
         }
 
@@ -106,6 +110,16 @@ final readonly class SiteReviewFactProvider implements FactProvider
         return array_values(array_filter($carried, static fn (array $note): bool => isset($pending[$note['id']])));
     }
 
+    /**
+     * A digest of the notes in the order the check summary lists them.
+     *
+     * @param list<array{id: string, url: string, body: string, anchorCount: int}> $notes
+     */
+    public function notesDigest(array $notes): string
+    {
+        return hash('sha256', json_encode(array_map(static fn (array $note): array => [$note['id'], $note['url'], $note['body']], $notes), \JSON_THROW_ON_ERROR));
+    }
+
     #[\Override]
     public function fingerprint(object $facts): mixed
     {
@@ -115,7 +129,7 @@ final readonly class SiteReviewFactProvider implements FactProvider
 
         return [
             $facts->pendingDeliveryIds,
-            array_map(static fn (CheckWanted $check): array => [$check->headSha, $check->wantedConclusion, $check->noteCount], $facts->checks),
+            array_map(static fn (CheckWanted $check): array => [$check->headSha, $check->wantedConclusion, $check->noteCount, $check->notesDigest], $facts->checks),
         ];
     }
 

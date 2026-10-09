@@ -154,6 +154,25 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertSame(1, $this->stateOf($pullRequest)->noteCount);
     }
 
+    public function test_other_notes_with_the_same_count_post_again_with_the_new_summary(): void
+    {
+        $card = $this->card($this->project);
+        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
+        $first = $this->note($card, 'Footer overlaps');
+        $second = $this->note($card, 'Logo is blurry');
+        $this->verdict($card, 7, [$first]);
+        $this->publish($card);
+        $first->status = SiteReviewCommentStatus::Resolved;
+        $this->verdict($card, 7, [$second]);
+
+        $this->publish($card);
+        $this->publish($card);
+
+        self::assertCount(2, $this->writer->published);
+        self::assertSame('- https://app.example/page: Logo is blurry', $this->writer->published[1]['summary']);
+        self::assertSame(1, $this->stateOf($pullRequest)->noteCount);
+    }
+
     public function test_a_new_head_starts_a_new_run(): void
     {
         $card = $this->card($this->project);

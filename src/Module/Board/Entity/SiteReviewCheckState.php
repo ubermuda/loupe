@@ -42,6 +42,10 @@ class SiteReviewCheckState
         #[ORM\Column(type: Types::BIGINT, nullable: true)]
         public ?int $checkRunId = null,
 
+        /** A digest of the notes the posted summary listed. */
+        #[ORM\Column(length: 64, nullable: true)]
+        public ?string $notesDigest = null,
+
         #[ORM\Column]
         public \DateTimeImmutable $postedAt = new \DateTimeImmutable(),
     ) {
