@@ -15,8 +15,12 @@ use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
 use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Condition\RunWorkActive;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
+use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
+use App\Module\Workflow\Expression\MissingActionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\ActionCall;
@@ -27,6 +31,7 @@ use App\Module\Workflow\Template\InvalidTemplate;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
+use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -926,8 +931,8 @@ final class TemplateParserTest extends TestCase
     #[DataProvider('refusals')]
     public function test_a_stored_copy_refuses_every_error_but_an_unknown_condition(\Closure $mutate, string $message): void
     {
-        if (str_contains($message, 'unknown condition')) {
-            self::assertCount(\count(self::valid()['rules']), $this->parser->parseStored($mutate(self::valid()))->rules);
+        if (str_contains($message, 'unknown condition') || str_contains($message, 'unknown action')) {
+            self::assertCount(\count($mutate(self::valid())['rules']), $this->parser->parseStored($mutate(self::valid()))->rules);
 
             return;
         }
@@ -953,6 +958,48 @@ final class TemplateParserTest extends TestCase
         $any = $rules[1]->when;
         self::assertInstanceOf(AnyOf::class, $any);
         self::assertEquals(new MissingConditionLeaf('pr.bar', 'not a map'), $any->children[0]);
+    }
+
+    public function test_a_stored_copy_keeps_a_rule_with_an_unknown_action_as_a_rule_that_never_fires(): void
+    {
+        $template = self::valid();
+        $template['rules'][1]['then'] = ['jump' => ['to' => 'nowhere']];
+
+        $rule = $this->parser->parseStored($template)->rules[1];
+
+        self::assertSame(ActionType::Missing, $rule->then->type);
+        self::assertSame('jump', $rule->then->params['name']);
+        self::assertInstanceOf(AllOf::class, $rule->when);
+        self::assertEquals(new MissingActionLeaf('jump'), $rule->when->children[0]);
+        self::assertFalse($rule->when->evaluate(FactsMother::facts()));
+        self::assertEquals(new Unreadable(UnreadableKind::MissingAction, 'jump'), $rule->when->unreadable(FactsMother::facts()));
+    }
+
+    public function test_a_stored_copy_makes_a_rule_unknown_when_an_ask_option_names_an_unknown_action(): void
+    {
+        $template = self::valid();
+        $template['rules'][] = self::askRule();
+        $template['rules'][5]['then']['ask']['options'][1]['then'] = [['jump' => []]];
+
+        $rule = $this->parser->parseStored($template)->rules[5];
+
+        self::assertSame(ActionType::Missing, $rule->then->type);
+        self::assertSame('jump', $rule->then->params['name']);
+        self::assertSame([], $rule->then->options);
+    }
+
+    public function test_strict_mode_refuses_an_unknown_action_and_the_placeholder_value(): void
+    {
+        foreach (['jump', ActionType::Missing->value] as $name) {
+            $template = self::valid();
+            $template['rules'][1]['then'] = [$name => []];
+            try {
+                $this->parser->parse($template);
+                self::fail('The parser must refuse the template.');
+            } catch (InvalidTemplate $e) {
+                self::assertSame([\sprintf('rules[1] (to-review) then: unknown action "%s"', $name)], $e->errors);
+            }
+        }
     }
 
     public function test_it_reports_every_error_at_once(): void

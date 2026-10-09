@@ -147,6 +147,7 @@ final readonly class CardWorkflowPanelBuilder
         return match ($unreadable->kind) {
             UnreadableKind::Failed => $this->translator->trans('workflow.panel.unreadable.failed', ['%source%' => $this->translator->trans($unreadable->source)]),
             UnreadableKind::Off => $this->translator->trans('workflow.panel.unreadable.off', ['%source%' => $this->translator->trans($unreadable->source)]),
+            UnreadableKind::MissingAction => $this->translator->trans('workflow.panel.unreadable.missing_action', ['%action%' => $unreadable->source]),
             UnreadableKind::MissingCondition => $this->translator->trans('workflow.panel.unreadable.missing_condition', ['%condition%' => $unreadable->source]),
         };
     }
@@ -167,6 +168,7 @@ final readonly class CardWorkflowPanelBuilder
             ActionType::Ask => $this->translator->trans('workflow.panel.action.ask'),
             ActionType::LinkDocument => $this->translator->trans('workflow.panel.action.link_document'),
             ActionType::Detach => $this->translator->trans('workflow.panel.action.detach'),
+            ActionType::Missing => $this->translator->trans('workflow.panel.action.missing'),
         };
     }
 

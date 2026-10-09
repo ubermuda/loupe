@@ -15,4 +15,6 @@ enum ActionType: string
     case Ask = 'ask';
     case LinkDocument = 'link-document';
     case Detach = 'detach';
+    /** Stands for an action this version does not know. The parser refuses the value in a template. */
+    case Missing = 'missing-action';
 }

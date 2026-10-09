@@ -2542,6 +2542,22 @@ final class EngineTest extends KernelTestCase
         self::assertSame(\stdClass::class, $errors[0]['context']['factsClass'] ?? null);
     }
 
+    public function test_a_rule_with_an_unknown_action_never_fires_and_logs_one_warning_while_the_other_rules_fire(): void
+    {
+        $unknown = ['id' => 'unknown', 'slot' => 'one', 'when' => self::ALWAYS, 'then' => ['jump' => ['to' => 'two']]];
+        $card = $this->boundCard([$unknown, self::requestRule('work', self::ALWAYS)]);
+
+        $this->evaluate($card);
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertNull($this->ruleStateOrNull($card, 'unknown'));
+        $warnings = array_values(array_filter($this->logger->records, static fn (array $record): bool => LogLevel::WARNING === $record['level']));
+        self::assertCount(1, $warnings);
+        self::assertSame('workflow.action_missing', $warnings[0]['message']);
+        self::assertSame('unknown', $warnings[0]['context']['ruleId'] ?? null);
+        self::assertSame('jump', $warnings[0]['context']['action'] ?? null);
+    }
+
     public function test_a_failing_source_logs_once_when_a_withdrawal_rebuilds_the_facts(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);

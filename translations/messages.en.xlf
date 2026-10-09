@@ -7691,6 +7691,7 @@
             <trans-unit id="workflow.settings.rules.until"><source>workflow.settings.rules.until</source><target>Until:</target></trans-unit>
             <trans-unit id="workflow.settings.rules.refill"><source>workflow.settings.rules.refill</source><target>Starts the limit again while:</target></trans-unit>
             <trans-unit id="workflow.settings.rules.missing_condition"><source>workflow.settings.rules.missing_condition</source><target>Condition no longer exists: %condition%</target></trans-unit>
+            <trans-unit id="workflow.settings.rules.missing_action"><source>workflow.settings.rules.missing_action</source><target>Action not known to this version: %action%</target></trans-unit>
             <trans-unit id="workflow.settings.app_rules.heading"><source>workflow.settings.app_rules.heading</source><target>Rules the app adds</target></trans-unit>
             <trans-unit id="workflow.settings.app_rules.description"><source>workflow.settings.app_rules.description</source><target>The app adds these rules to the workflow of every project, after the rules of its template.</target></trans-unit>
             <trans-unit id="workflow.settings.where.backlog"><source>workflow.settings.where.backlog</source><target>the Backlog</target></trans-unit>
@@ -7705,6 +7706,7 @@
             <trans-unit id="workflow.settings.action.ask"><source>workflow.settings.action.ask</source><target>Ask the owner</target></trans-unit>
             <trans-unit id="workflow.settings.action.link_document"><source>workflow.settings.action.link_document</source><target>Link a document of the parent</target></trans-unit>
             <trans-unit id="workflow.settings.action.detach"><source>workflow.settings.action.detach</source><target>Remove the parent of the card</target></trans-unit>
+            <trans-unit id="workflow.settings.action.missing"><source>workflow.settings.action.missing</source><target>An action this version does not know</target></trans-unit>
             <trans-unit id="workflow.settings.moves.heading"><source>workflow.settings.moves.heading</source><target>Manual moves</target></trans-unit>
             <trans-unit id="workflow.settings.moves.description"><source>workflow.settings.moves.description</source><target>A managed card may move along these paths outside the rules.</target></trans-unit>
             <trans-unit id="workflow.settings.moves.from"><source>workflow.settings.moves.from</source><target>From</target></trans-unit>
@@ -7744,6 +7746,7 @@
             <trans-unit id="workflow.panel.unreadable.failed"><source>workflow.panel.unreadable.failed</source><target>Waiting: could not read %source%.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.off"><source>workflow.panel.unreadable.off</source><target>Waiting: %source% is off on this instance.</target></trans-unit>
             <trans-unit id="workflow.panel.unreadable.missing_condition"><source>workflow.panel.unreadable.missing_condition</source><target>Waiting: the condition %condition% no longer exists.</target></trans-unit>
+            <trans-unit id="workflow.panel.unreadable.missing_action"><source>workflow.panel.unreadable.missing_action</source><target>Waiting: this version does not know the action %action%.</target></trans-unit>
             <trans-unit id="workflow.panel.slot.label"><source>workflow.panel.slot.label</source><target>Slot</target></trans-unit>
             <trans-unit id="workflow.panel.slot.none"><source>workflow.panel.slot.none</source><target>No slot</target></trans-unit>
             <trans-unit id="workflow.panel.slot.backlog"><source>workflow.panel.slot.backlog</source><target>Backlog</target></trans-unit>
@@ -7763,6 +7766,7 @@
             <trans-unit id="workflow.panel.action.ask"><source>workflow.panel.action.ask</source><target>Ask the owner what to do with the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.link_document"><source>workflow.panel.action.link_document</source><target>Link a document of the parent to the card</target></trans-unit>
             <trans-unit id="workflow.panel.action.detach"><source>workflow.panel.action.detach</source><target>Remove the parent of the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.missing"><source>workflow.panel.action.missing</source><target>An action this version does not know</target></trans-unit>
             <trans-unit id="workflow.pause.no-bridge-took-work"><source>workflow.pause.no-bridge-took-work</source><target>No bridge took the requested work in time.</target></trans-unit>
             <trans-unit id="workflow.pause.repair-failed"><source>workflow.pause.repair-failed</source><target>The repair worker could not fix the failure.</target></trans-unit>
             <trans-unit id="workflow.pause.inbox-off"><source>workflow.pause.inbox-off</source><target>The inbox is off, so the workflow cannot ask the owner about this card. The pause ends when the inbox is on.</target></trans-unit>

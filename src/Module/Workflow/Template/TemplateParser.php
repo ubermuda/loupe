@@ -18,6 +18,7 @@ use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Expression;
+use App\Module\Workflow\Expression\MissingActionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 
@@ -64,6 +65,7 @@ final readonly class TemplateParser
 
     /**
      * Parses a stored copy. A condition this instance no longer has becomes a leaf that is never readable.
+     * A rule whose action this version does not know never fires.
      *
      * @param array<mixed> $source
      *
@@ -489,6 +491,12 @@ final readonly class TemplateParser
                 $errors[] = $where.' then: is missing';
             }
 
+            $unknownAction = null === $then ? null : self::unknownAction($then);
+            if (null !== $unknownAction && null !== $when) {
+                $when = new AllOf([new MissingActionLeaf($unknownAction), $when]);
+                $then = new ActionCall(ActionType::Missing, ['name' => $unknownAction]);
+            }
+
             if (\count($errors) === $errorCount && null !== $when && null !== $then && (null === $slot || \is_string($slot))) {
                 $rule = new Rule($id, $slot, $when, $then, $app ? RuleOrigin::App : RuleOrigin::Template);
                 $rules[] = $rule;
@@ -628,7 +636,10 @@ final readonly class TemplateParser
         $name = array_key_first($node);
         $value = $node[$name];
         $type = ActionType::tryFrom($name);
-        if (null === $type) {
+        if (null === $type || ActionType::Missing === $type) {
+            if ($lenient) {
+                return new ActionCall(ActionType::Missing, ['name' => $name]);
+            }
             $errors[] = \sprintf('%s: unknown action "%s"', $where, $name);
 
             return null;
@@ -770,6 +781,18 @@ final readonly class TemplateParser
         return $options;
     }
 
+    /** @return ?string the name of the first action that this version does not know, in the action or in an ask option */
+    private static function unknownAction(ActionCall $action): ?string
+    {
+        foreach ([$action, ...array_merge([], ...array_map(static fn (AskOption $option): array => $option->actions, $action->options))] as $call) {
+            if (ActionType::Missing === $call->type) {
+                return (string) $call->params['name'];
+            }
+        }
+
+        return null;
+    }
+
     /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write and the epic opening need no fallback. */
     private static function actionParameters(ActionType $type): array
     {
@@ -782,7 +805,7 @@ final readonly class TemplateParser
             ActionType::Evaluate => ['cards' => true],
             ActionType::Ask => ['question' => true, 'options' => true],
             ActionType::LinkDocument => ['from' => true, 'tag' => true],
-            ActionType::Detach => [],
+            ActionType::Detach, ActionType::Missing => [],
         };
     }
 
