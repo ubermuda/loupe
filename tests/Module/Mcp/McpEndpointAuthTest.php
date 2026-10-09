@@ -89,6 +89,7 @@ final class McpEndpointAuthTest extends WebTestCase
         $raw = $this->persistValidToken($client);
 
         self::assertSame([
+            'agent_review_submit',
             'analysis_get',
             'analysis_report',
             'analytics_settings_get',

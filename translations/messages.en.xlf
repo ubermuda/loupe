@@ -2598,6 +2598,10 @@
                 <source>project.connect.tool.feedback_mark_addressed</source>
                 <target>Mark feedback items as addressed after fixing them. Accepts the feedback ids from feedback_list or card_get. Items that are unknown, already addressed or resolved are skipped, not fatal.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.agent_review_submit">
+                <source>project.connect.tool.agent_review_submit</source>
+                <target>Submit the review of a pull request of a card, with its findings on file lines. Only a running review worker of the card can call it. Loupe shows the review as a check on the pull request when the agent review is on.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.card_create">
                 <source>project.connect.tool.card_create</source>
                 <target>Add a card to the project board, with a type, a reporter, the pull requests that carry the work and the cards it links to (relatedCards).</target>
