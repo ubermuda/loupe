@@ -255,8 +255,8 @@ final class ShowMetricsControllerTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'metrics-bucket-picker@example.com');
         $project = $this->project($em, $owner, 'Bucket picker');
-        $this->bucketTimes($em, $this->seedRun($em, $project), ['tests' => 10, 'git' => 5]);
-        $this->bucketTimes($em, $this->seedRun($em, $project), ['tests' => 20]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project), ['tests' => 10, 'git' => 5]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project), ['tests' => 20]);
         $projectId = (string) $project->id;
         $em->clear();
 
@@ -281,8 +281,8 @@ final class ShowMetricsControllerTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'metrics-bucket-rows@example.com');
         $project = $this->project($em, $owner, 'Bucket rows');
-        $this->bucketTimes($em, $this->seedRun($em, $project, cardNumber: 4, endedAt: new \DateTimeImmutable('2026-09-03 10:05:00')), ['tests' => 4000, 'git' => 1000]);
-        $this->bucketTimes($em, $this->seedRun($em, $project, cardNumber: 5, endedAt: new \DateTimeImmutable('2026-09-02 10:05:00')), ['git' => 700]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, cardNumber: 4, endedAt: new \DateTimeImmutable('2026-09-03 10:05:00')), ['tests' => 4000, 'git' => 1000]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, cardNumber: 5, endedAt: new \DateTimeImmutable('2026-09-02 10:05:00')), ['git' => 700]);
         $this->seedRun($em, $project, cardNumber: 6, endedAt: new \DateTimeImmutable('2026-09-01 10:05:00'));
         $projectId = (string) $project->id;
         $em->clear();
@@ -311,7 +311,7 @@ final class ShowMetricsControllerTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'metrics-bucket-numeric@example.com');
         $project = $this->project($em, $owner, 'Bucket numeric');
-        $this->bucketTimes($em, $this->seedRun($em, $project), ['1' => 10, '01' => 5]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project), ['1' => 10, '01' => 5]);
         $projectId = (string) $project->id;
         $em->clear();
 
@@ -328,7 +328,7 @@ final class ShowMetricsControllerTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'metrics-bucket-empty@example.com');
         $project = $this->project($em, $owner, 'Bucket empty');
-        $this->bucketTimes($em, $this->seedRun($em, $project, cardNumber: 4, endedAt: new \DateTimeImmutable('2026-09-02 10:05:00')), ['git' => 700]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, cardNumber: 4, endedAt: new \DateTimeImmutable('2026-09-02 10:05:00')), ['git' => 700]);
         $this->seedRun($em, $project, cardNumber: 5, endedAt: new \DateTimeImmutable('2026-09-01 10:05:00'));
         $projectId = (string) $project->id;
         $em->clear();
@@ -416,14 +416,6 @@ final class ShowMetricsControllerTest extends WebTestCase
             ));
         }
         $em->flush();
-    }
-
-    /** @param array<int|string, int> $times bucket name => milliseconds */
-    private function bucketTimes(EntityManagerInterface $em, WorkerRun $run, array $times): void
-    {
-        foreach ($times as $bucket => $ms) {
-            $em->getConnection()->insert('bridge_worker_run_bucket_times', ['id' => (string) Uuid::v7(), 'run_id' => (string) $run->id, 'bucket' => (string) $bucket, 'ms' => $ms]);
-        }
     }
 
     /** @return array<string, string> select name => selected value */

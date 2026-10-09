@@ -65,5 +65,50 @@
     {% else %}
     <twig:Ds:EmptyState icon="lucide:list-filter" :title="'insights.bucket_rules.empty.title'|trans" :body="'insights.bucket_rules.empty.description'|trans({'%fallback%': constant('App\\Module\\Bridge\\Service\\BucketRule::FALLBACK')})" data-bucket-rules-empty />
     {% endif %}
+
+    <section class="lp-reports-panel" data-bucket-summary>
+        <h2 class="lp-section-title">{{ 'insights.bucket_rules.summary.title'|trans }}</h2>
+        <twig:Ds:Hint>{{ 'insights.bucket_rules.summary.intro'|trans }}</twig:Ds:Hint>
+        <form method="get" action="{{ path('app_project_analytics_time_buckets', {id: project.id}) }}" data-controller="autosearch" class="lp-list-filters lp-filter-form">
+            <label class="sr-only" for="bucket-summary-range">{{ 'insights.bucket_rules.summary.range'|trans }}</label>
+            <twig:Ds:Select id="bucket-summary-range" name="range" class="lp-filter-select" data-action="change->autosearch#search">
+                {% for option in ranges %}
+                    <option value="{{ option.value }}"{{ option == summary.range ? ' selected' : '' }}>{{ ('analytics.metrics.range.' ~ option.value)|trans }}</option>
+                {% endfor %}
+            </twig:Ds:Select>
+            <noscript><twig:Ds:Button type="submit">{{ 'analytics.metrics.form.apply'|trans }}</twig:Ds:Button></noscript>
+        </form>
+        <div class="lp-metric-table">
+            <table class="lp-metric-table__table">
+                <thead>
+                    <tr>
+                        <th scope="col">{{ 'insights.bucket_rules.summary.column.bucket'|trans }}</th>
+                        <th scope="col" class="lp-metric-table__number">{{ 'insights.bucket_rules.summary.column.total'|trans }}</th>
+                        <th scope="col" class="lp-metric-table__number">{{ 'insights.bucket_rules.summary.column.median'|trans }}</th>
+                        <th scope="col">{{ 'insights.bucket_rules.summary.column.runs'|trans }}</th>
+                        <th scope="col" class="lp-metric-table__number">{{ 'insights.bucket_rules.summary.column.share'|trans }}</th>
+                        <th scope="col"><span class="sr-only">{{ 'insights.bucket_rules.summary.column.link'|trans }}</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in summary.rows %}
+                    {# A bucket name comes from the project rules or the bridge, so it is rendered as text. Never add |raw here. #}
+                    <tr data-bucket-summary-row="{{ row.name }}">
+                        <td>{{ row.name }}</td>
+                        {% if row.metricsParams is null %}
+                        <td colspan="5" data-bucket-summary-no-time>{{ 'insights.bucket_rules.summary.no_time'|trans }}</td>
+                        {% else %}
+                        <td class="lp-metric-table__number" data-bucket-summary-total>{{ row.total|metric_value(metric, constant('App\\Module\\Bridge\\Metric\\MetricStatistic::Sum')) }}</td>
+                        <td class="lp-metric-table__number" data-bucket-summary-median>{{ row.median|metric_value(metric, constant('App\\Module\\Bridge\\Metric\\MetricStatistic::Median')) }}</td>
+                        <td data-bucket-summary-runs>{{ 'insights.bucket_rules.summary.runs'|trans({'%known%': summary.knownRuns, '%count%': summary.runs}) }}</td>
+                        <td class="lp-metric-table__number" data-bucket-summary-share>{{ row.share|format_percent_number }}</td>
+                        <td><a href="{{ path('app_project_analytics_metrics', {id: project.id}|merge(row.metricsParams)) }}" data-bucket-summary-open>{{ 'insights.bucket_rules.summary.open'|trans }}</a></td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 {% endblock %}

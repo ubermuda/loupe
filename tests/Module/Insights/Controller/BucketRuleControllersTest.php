@@ -35,7 +35,127 @@ final class BucketRuleControllersTest extends WebTestCase
         $empty = $crawler->filter('[data-bucket-rules-empty]');
         self::assertCount(1, $empty);
         self::assertStringContainsString('counts in the bucket "other"', $empty->text());
-        self::assertCount(1, $crawler->filter('form[action="/projects/'.$projectId.'/analytics/time-buckets"]'));
+        self::assertCount(1, $crawler->filter('[data-bucket-rule-form] form[method="post"][action="/projects/'.$projectId.'/analytics/time-buckets"]'));
+    }
+
+    public function test_the_summary_shows_the_fallback_bucket_with_no_time_and_no_link(): void
+    {
+        $client = static::createClient();
+        $project = $this->scenarioProject('summary-empty');
+        $projectId = (string) $project->id;
+        $this->em()->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/time-buckets');
+
+        self::assertResponseIsSuccessful();
+        $summary = $crawler->filter('[data-bucket-summary]');
+        self::assertSame('Time per bucket', trim($summary->filter('h2')->text()));
+        $form = $summary->filter('form');
+        self::assertSame('get', $form->attr('method'));
+        self::assertSame('/projects/'.$projectId.'/analytics/time-buckets', $form->attr('action'));
+        self::assertSame('ninety-days', $form->filter('select[name="range"] option[selected]')->attr('value'));
+        self::assertCount(1, $form->filter('noscript'));
+        self::assertSame(['other'], $summary->filter('[data-bucket-summary-row]')->each(static fn ($row): string => (string) $row->attr('data-bucket-summary-row')));
+        self::assertSame('No time yet', trim($summary->filter('[data-bucket-summary-no-time]')->text()));
+        self::assertCount(0, $summary->filter('a[data-bucket-summary-open]'));
+    }
+
+    public function test_the_summary_lists_the_rule_buckets_then_the_fallback_then_the_others_with_their_figures(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('summary-figures');
+        $this->rule($project, 'Bash:just test*', 'tests', 0);
+        $this->rule($project, 'Bash:git *', 'git', 1);
+        $this->rule($project, 'Bash:gh *', 'git', 2);
+        $this->rule($project, 'Read:docs/*', 'docs', 3);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-2 days')), ['tests' => 4000, 'git' => 1000, 'other' => 1000]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-3 days')), ['git' => 3000, 'deploy' => 2000]);
+        $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-4 days'));
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/time-buckets');
+
+        self::assertResponseIsSuccessful();
+        $summary = $crawler->filter('[data-bucket-summary]');
+        $rows = [];
+        $summary->filter('[data-bucket-summary-row]')->each(static function ($row) use (&$rows): void {
+            $rows[(string) $row->attr('data-bucket-summary-row')] = 0 === $row->filter('[data-bucket-summary-no-time]')->count()
+                ? array_map(static fn (string $hook): string => trim($row->filter('[data-bucket-summary-'.$hook.']')->text()), ['total', 'median', 'runs', 'share'])
+                : 'No time yet' === trim($row->filter('[data-bucket-summary-no-time]')->text()) && 0 === $row->filter('a')->count();
+        });
+        self::assertSame([
+            'tests' => ['4 s', '2 s', '2 of 3 runs', '36%'],
+            'git' => ['4 s', '2 s', '2 of 3 runs', '36%'],
+            'docs' => true,
+            'other' => ['1 s', '500 ms', '2 of 3 runs', '9%'],
+            'deploy' => ['2 s', '1 s', '2 of 3 runs', '18%'],
+        ], $rows);
+    }
+
+    public function test_a_bucket_link_opens_its_metric_per_run_in_the_range(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('summary-link');
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-2 days')), ['git' => 1000]);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/time-buckets?range=all');
+
+        self::assertResponseIsSuccessful();
+        $link = $crawler->filter('[data-bucket-summary-row="git"] a[data-bucket-summary-open]');
+        self::assertSame('Open in Metrics', trim($link->text()));
+        $href = (string) $link->attr('href');
+        self::assertSame('/projects/'.$projectId.'/analytics/metrics', parse_url($href, \PHP_URL_PATH));
+        parse_str((string) parse_url($href, \PHP_URL_QUERY), $params);
+        self::assertSame(['unit' => 'run', 'metric' => 'bucket-time:git', 'range' => 'all'], $params);
+    }
+
+    public function test_numeric_bucket_names_stay_apart(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('summary-numeric');
+        $this->rule($project, 'Bash:one *', '1', 0);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-2 days')), ['1' => 3000, '01' => 1000]);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/time-buckets');
+
+        self::assertResponseIsSuccessful();
+        $summary = $crawler->filter('[data-bucket-summary]');
+        self::assertSame(['1', 'other', '01'], $summary->filter('[data-bucket-summary-row]')->each(static fn ($row): string => (string) $row->attr('data-bucket-summary-row')));
+        self::assertSame(['3 s', '1 s'], $summary->filter('[data-bucket-summary-total]')->each(static fn ($cell): string => trim($cell->text())));
+    }
+
+    public function test_the_range_leaves_an_older_run_out(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('summary-range');
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-2 days')), ['git' => 1000]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-45 days')), ['git' => 5000, 'deploy' => 2000]);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/time-buckets?range=thirty-days');
+
+        self::assertResponseIsSuccessful();
+        $summary = $crawler->filter('[data-bucket-summary]');
+        self::assertSame('thirty-days', $summary->filter('select[name="range"] option[selected]')->attr('value'));
+        self::assertSame(['other', 'git'], $summary->filter('[data-bucket-summary-row]')->each(static fn ($row): string => (string) $row->attr('data-bucket-summary-row')));
+        $git = $summary->filter('[data-bucket-summary-row="git"]');
+        self::assertSame('1 s', trim($git->filter('[data-bucket-summary-total]')->text()));
+        self::assertSame('1 of 1 run', trim($git->filter('[data-bucket-summary-runs]')->text()));
     }
 
     public function test_the_page_lists_the_rules_in_order_with_edge_moves_disabled(): void
