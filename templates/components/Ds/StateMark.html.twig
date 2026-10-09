@@ -1,0 +1,21 @@
+{#
+  Props:  @comment-budget-ignore
+    kind   string   stuck, needs-you, working or waiting. Picks the icon and the colour.
+    label  string   Translated name of the state. It is the accessible name of the mark.
+    id     string   The tooltip id. Optional, generated when absent.
+  The content is the tooltip, and it may hold a link. Any other attribute, class included, is passed to the element.
+#}
+{% props kind, label, id = null %}
+{% set icons = {'stuck': 'lucide:circle-alert', 'needs-you': 'lucide:circle-user', 'working': 'lucide:loader-circle', 'waiting': 'lucide:circle-pause'} %}
+{% set tooltipId = id ?? ('state-mark-' ~ random()) %}
+{% set body %}{{ block('content') }}{% endset %}
+<span{{ attributes.defaults({
+    class: 'lp-state-mark lp-state-mark--' ~ kind,
+    'data-controller': 'interactive-tooltip',
+    'data-action': 'pointerenter->interactive-tooltip#open pointerleave->interactive-tooltip#scheduleClose focusin->interactive-tooltip#open focusout->interactive-tooltip#leaveFocus keydown.esc->interactive-tooltip#close',
+}) }}>
+    <span class="lp-state-mark__icon" tabindex="0" role="img" aria-label="{{ label }}" aria-describedby="{{ tooltipId }}" data-action="pointerdown->interactive-tooltip#pressed">
+        <twig:ux:icon :name="icons[kind]" class="lp-state-mark__glyph" aria-hidden="true" />
+    </span>
+    <twig:Ds:Tooltip id="{{ tooltipId }}" :interactive="true">{{ body }}</twig:Ds:Tooltip>
+</span>

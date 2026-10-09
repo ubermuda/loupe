@@ -4,3 +4,10 @@
     Anchor
     <twig:Ds:Tooltip id="styleguide-tooltip">A short explanation under its anchor.</twig:Ds:Tooltip>
 </span>
+<span class="lp-styleguide__tooltip-anchor" tabindex="0" data-controller="interactive-tooltip" data-action="pointerenter->interactive-tooltip#open pointerleave->interactive-tooltip#scheduleClose focusin->interactive-tooltip#open focusout->interactive-tooltip#leaveFocus keydown.esc->interactive-tooltip#close">
+    Interactive anchor
+    <twig:Ds:Tooltip id="styleguide-tooltip-interactive" :interactive="true">
+        <span>Stays open while the pointer or the focus is inside.</span>
+        <a class="lp-tooltip__link" href="#components">A link inside</a>
+    </twig:Ds:Tooltip>
+</span>

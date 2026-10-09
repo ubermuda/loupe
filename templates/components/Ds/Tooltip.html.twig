@@ -1,4 +1,8 @@
 {#
+  Props:  @comment-budget-ignore
+    interactive  bool   The tooltip stays open while the pointer or the focus is inside it, so it may hold a link.
+                        Its anchor carries data-controller="interactive-tooltip" and the actions of Ds:StateMark. False by default.
   Any attribute, class included, is passed to the element. The anchor's own rules decide when it shows.
 #}
-<span{{ attributes.defaults({class: 'lp-tooltip', role: 'tooltip'}) }}>{% block content %}{% endblock %}</span>
+{% props interactive = false %}
+<span{{ attributes.defaults({class: 'lp-tooltip' ~ (interactive ? ' lp-tooltip--interactive' : ''), role: 'tooltip'}) }}{% if interactive %} data-interactive-tooltip-target="tooltip"{% endif %}>{% block content %}{% endblock %}</span>
