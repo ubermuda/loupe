@@ -29,7 +29,7 @@ class AgentReview
     #[ORM\Column(type: Types::JSON)]
     public array $findings;
 
-    /** The forge's id of the check run, kept to update the run of the same head. */
+    /** The forge's id of the check run that shows this review. Each review gets its own run. */
     #[ORM\Column(type: Types::BIGINT, nullable: true)]
     public ?int $checkRunId = null;
 
