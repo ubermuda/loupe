@@ -238,6 +238,21 @@ reading context, not for a terminal or a README.
     and needs no draft step. A person in the session with you can read the
     document at once, so an interactive session needs no draft either.
 
+18. **Make each decision stand on its own.** The owner often answers a
+    decision outside its document, or after a long gap. A reader who opens
+    only the decision section must understand it and answer it.
+
+    1. Do not lean on an earlier section, another decision, a card, a pull
+       request or a term that the document defines elsewhere. State the fact
+       in a sentence or two. A link can stay as a source for further reading.
+    2. A recommendation says what the option does, in plain words. Never
+       write only "I recommend option 2" or "the option of D1".
+    3. The fence question and each option line name the subject. The
+       decisions panel of the review page shows the question with no text
+       around it.
+    4. Rule 16 still covers an outside ID. This rule also covers the IDs and
+       terms that the document defines itself, such as `D1` or `W3`.
+
 ## Example
 
 Entry shape, lead sentence first and detail after:
@@ -298,3 +313,7 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
   code in the How list (rule 15).
 - Citing a rule ID of a skill, such as C2, with no meaning and no source. The
   reviewer does not have the skill open (rule 16).
+- Writing "I recommend option 2", "under D1 option 1" or "as in card 412" in a
+  decision. The owner answers from the decisions panel or the inbox with no
+  other section open. Say what the option does, and state the fact inline
+  (rule 18).

@@ -2103,7 +2103,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $epic->column->slug);
     }
 
-    public function test_a_lifecycle_child_waits_in_the_backlog_while_the_breakdown_of_its_epic_runs_and_moves_when_it_ends(): void
+    public function test_a_lifecycle_child_waits_in_next_while_the_breakdown_of_its_epic_runs_and_moves_when_it_ends(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-breakdown-ended');
@@ -2113,10 +2113,10 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($epic);
         self::assertFalse($this->ruleState($epic, 'breakdown-ended')->truth);
 
-        $child = $this->childOf($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
         $this->document($child, 'tech-design');
         $this->evaluate($child, '2026-10-02 12:05:00');
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
 
         $breakdown->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
@@ -2130,52 +2130,52 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $child->column->slug);
     }
 
-    public function test_a_lifecycle_child_in_the_backlog_starts_only_once_it_links_an_approved_tech_design(): void
+    public function test_a_lifecycle_child_in_next_starts_only_once_it_links_an_approved_tech_design(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-child-needs-design');
         $this->bindLifecycle($project);
         $epic = $this->epic($project);
-        $child = $this->childOf($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
 
         $this->evaluate($child, '2026-10-02 12:05:00');
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
 
         $design = $this->document($child, 'tech-design', DocumentStatus::InReview);
         $this->evaluate($child, '2026-10-02 12:10:00');
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
 
         $this->setStatus($design, DocumentStatus::Approved);
         $this->evaluate($child, '2026-10-02 12:15:00');
         self::assertSame('in-progress', $child->column->slug);
     }
 
-    public function test_a_lifecycle_child_in_the_backlog_does_not_start_on_the_design_of_another_tag(): void
+    public function test_a_lifecycle_child_in_next_does_not_start_on_the_design_of_another_tag(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-child-other-tag');
         $this->bindLifecycle($project);
         $epic = $this->epic($project);
-        $child = $this->childOf($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
         $this->document($child, 'product-design');
 
         $this->evaluate($child, '2026-10-02 12:05:00');
 
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
     }
 
-    public function test_a_lifecycle_child_in_the_backlog_waits_while_work_is_requested_for_its_epic(): void
+    public function test_a_lifecycle_child_in_next_waits_while_work_is_requested_for_its_epic(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-child-epic-request');
         $this->bindLifecycle($project);
         $epic = $this->epic($project);
-        $child = $this->childOf($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
         $this->document($child, 'tech-design');
         $request = $this->workRequest($epic, 'breakdown');
 
         $this->evaluate($child, '2026-10-02 12:05:00');
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
 
         $request->state = WorkRequestState::Done;
         $this->em()->flush();
@@ -2212,7 +2212,7 @@ final class EngineTest extends KernelTestCase
         $this->liveRequestOfKind($child, 'merge');
     }
 
-    public function test_a_lifecycle_child_with_an_open_blocker_stays_in_the_backlog_when_the_breakdown_of_its_epic_ends(): void
+    public function test_a_lifecycle_child_with_an_open_blocker_stays_in_next_when_the_breakdown_of_its_epic_ends(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-breakdown-ended-blocked');
@@ -2220,7 +2220,7 @@ final class EngineTest extends KernelTestCase
         $epic = $this->epic($project);
         $breakdown = $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
         $this->evaluate($epic);
-        $child = $this->childOf($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
         $this->document($child, 'tech-design');
         $this->block($child);
 
@@ -2229,10 +2229,10 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($epic, '2026-10-02 12:10:00');
 
         self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
     }
 
-    public function test_a_resumed_breakdown_of_the_epic_still_holds_the_child_in_the_backlog(): void
+    public function test_a_resumed_breakdown_of_the_epic_still_holds_the_child_in_next(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-breakdown-resumed');
@@ -2241,11 +2241,11 @@ final class EngineTest extends KernelTestCase
         $this->workerRun($epic, 'breakdown', WorkerRunState::Blocked);
         $resumed = $this->workerRun($epic, 'breakdown', WorkerRunState::Resumed);
         $this->evaluate($epic);
-        $child = $this->childOf($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
         $this->document($child, 'tech-design');
 
         $this->evaluate($child, '2026-10-02 12:05:00');
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
 
         $resumed->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
@@ -2256,7 +2256,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $child->column->slug);
     }
 
-    public function test_a_lifecycle_child_waits_in_the_backlog_while_any_worker_run_of_its_epic_is_open(): void
+    public function test_a_lifecycle_child_waits_in_next_while_any_worker_run_of_its_epic_is_open(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-parent-run-ended');
@@ -2264,11 +2264,11 @@ final class EngineTest extends KernelTestCase
         $epic = $this->epic($project);
         $run = $this->workerRun($epic, 'implement', WorkerRunState::Running);
         $this->evaluate($epic);
-        $child = $this->childOf($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
         $this->document($child, 'tech-design');
 
         $this->evaluate($child, '2026-10-02 12:05:00');
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
 
         $run->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
@@ -2279,7 +2279,7 @@ final class EngineTest extends KernelTestCase
         self::assertSame('in-progress', $child->column->slug);
     }
 
-    public function test_a_lifecycle_epic_in_a_design_column_wakes_its_children_when_its_run_ends(): void
+    public function test_a_lifecycle_epic_in_a_design_column_wakes_its_children_when_its_run_ends_and_they_wait_for_implementation(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('engine-design-run-ended');
@@ -2289,10 +2289,10 @@ final class EngineTest extends KernelTestCase
         $run = $this->workerRun($epic, 'tech-design', WorkerRunState::Running);
         $this->evaluate($epic);
         self::assertFalse($this->ruleState($epic, 'breakdown-ended')->truth);
-        $child = $this->childOf($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
         $this->document($child, 'tech-design');
         $this->evaluate($child, '2026-10-02 12:05:00');
-        self::assertSame('backlog', $child->column->slug);
+        self::assertSame('next', $child->column->slug);
 
         $run->moveTo(WorkerRunState::Succeeded);
         $this->em()->flush();
@@ -2301,6 +2301,93 @@ final class EngineTest extends KernelTestCase
 
         self::assertContains('breakdown-ended', $this->firedRules());
         self::assertSame(1, $this->evaluateQueued($child, '2026-10-02 12:10:00'));
+        self::assertSame('next', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_created_in_the_backlog_moves_to_next_and_waits_there_while_its_epic_sits_in_next(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-child-to-next');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->moveTo($epic, 'next');
+        $child = $this->childOf($epic, 'backlog');
+        $this->document($child, 'tech-design');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('next', $child->column->slug);
+        self::assertContains('child-to-next', $this->firedRules());
+
+        $this->evaluate($child, '2026-10-02 12:10:00');
+        self::assertSame('next', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_that_a_person_moves_from_next_to_the_backlog_stays_there(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-child-parked');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $child = $this->childOf($epic, 'backlog');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('next', $child->column->slug);
+
+        $this->moveTo($child, 'backlog');
+        $this->evaluate($child, '2026-10-02 12:10:00');
+        $this->evaluate($child, '2026-10-02 12:15:00');
+
+        self::assertSame('backlog', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_with_an_approved_design_does_not_start_while_its_epic_sits_in_the_backlog(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-child-epic-backlog');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->moveTo($epic, 'backlog');
+        $child = $this->childOf($epic, 'next');
+        $this->document($child, 'tech-design');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+
+        self::assertSame('next', $child->column->slug);
+        self::assertFalse($this->ruleState($child, 'child-unblocked')->truth);
+    }
+
+    public function test_a_lifecycle_epic_entering_implementation_evaluates_its_children_and_a_child_with_an_approved_design_moves(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-epic-entered-implementation');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $this->moveTo($epic, 'next');
+        $child = $this->childOf($epic, 'next');
+        $this->document($child, 'tech-design');
+        $this->evaluate($child, '2026-10-02 12:05:00');
+        self::assertSame('next', $child->column->slug);
+
+        $this->moveTo($epic, 'in-progress');
+        $this->evaluate($epic, '2026-10-02 12:10:00');
+        self::assertContains('epic-entered-implementation', $this->firedRules());
+        $this->finishRequests($epic);
+
+        self::assertGreaterThan(0, $this->evaluateQueued($child, '2026-10-02 12:15:00'));
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
+    public function test_a_lifecycle_child_created_straight_into_next_still_starts_through_its_other_rules(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('engine-child-created-in-next');
+        $this->bindLifecycle($project);
+        $epic = $this->epic($project);
+        $child = $this->childOf($epic, 'next');
+        $this->document($child, 'tech-design');
+
+        $this->evaluate($child, '2026-10-02 12:05:00');
+
         self::assertSame('in-progress', $child->column->slug);
     }
 
