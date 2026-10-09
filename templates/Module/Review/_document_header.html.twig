@@ -24,6 +24,21 @@
                     {{ 'review.document.since_last_visit.chip'|trans({'%from%': lastSeen, '%to%': version.versionNumber}) }}
                 </a>
                 {% endif %}
+                {% if showNewTextSwitch|default(false) %}
+                {% set newTextUnavailable = version.versionNumber == 1 ? 'review.document.new_text.no_previous'|trans : null %}
+                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-new-text-switch" role="switch" aria-checked="false"
+                        {%- if newTextUnavailable %} aria-disabled="true"{% endif %}
+                        title="{{ newTextUnavailable ?? 'review.document.new_text.label'|trans }}"
+                        data-controller="review-new-text"
+                        data-action="click->review-new-text#toggle review-new-text:paint->comment-anchor#paintNewText"
+                        data-review-new-text-url-value="{{ path('app_document_new_text', {projectId: document.project.id, documentId: document.id, versionNumber: version.versionNumber}) }}"
+                        data-review-new-text-no-previous-message-value="{{ 'review.document.new_text.no_previous'|trans }}"
+                        data-review-new-text-refused-message-value="{{ 'review.document.new_text.refused'|trans }}"
+                        data-review-new-text-error-message-value="{{ 'review.document.new_text.error'|trans }}">
+                    <twig:ux:icon name="lucide:eye" />
+                    {{ 'review.document.new_text.label'|trans }}
+                </button>
+                {% endif %}
                 {% if canComment %}
                 <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="comment-anchor#startUntargeted">
                     <twig:ux:icon name="lucide:message-square-plus" />
