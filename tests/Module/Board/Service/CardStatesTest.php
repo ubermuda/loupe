@@ -245,6 +245,18 @@ final class CardStatesTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-10-02 09:30:00'), $state->reason->since);
     }
 
+    public function test_a_run_outranks_the_request_it_serves(): void
+    {
+        $card = $this->stateCard($this->stateProject('state-run-over-request'));
+        $this->requestWork($card);
+        $this->openRun($card);
+
+        $state = $this->stateOf($card);
+
+        self::assertSame(CardStateCode::RunOpen, $state?->reason->code);
+        self::assertSame([CardStateCode::WorkRequested], array_map(static fn ($reason) => $reason->code, $state->others));
+    }
+
     public function test_an_open_run_makes_the_card_work_since_the_run_started(): void
     {
         $card = $this->stateCard($this->stateProject('state-run'));

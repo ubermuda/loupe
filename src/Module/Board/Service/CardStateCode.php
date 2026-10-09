@@ -17,8 +17,8 @@ enum CardStateCode: string
     case WaitsForApproval = 'waits-for-approval';
     case OpenQuestion = 'open-question';
 
-    case WorkRequested = 'work-requested';
     case RunOpen = 'run-open';
+    case WorkRequested = 'work-requested';
     case ForgeRequestPending = 'forge-request-pending';
 
     case HeldByBlocker = 'held-by-blocker';
@@ -33,7 +33,7 @@ enum CardStateCode: string
         return match ($this) {
             self::Paused, self::RunStopped, self::ChecksFailed, self::Conflicting, self::ReadyNotMerged => CardStateKind::Stuck,
             self::DocumentInReview, self::WaitsForApproval, self::OpenQuestion => CardStateKind::NeedsYou,
-            self::WorkRequested, self::RunOpen, self::ForgeRequestPending => CardStateKind::Working,
+            self::RunOpen, self::WorkRequested, self::ForgeRequestPending => CardStateKind::Working,
             self::HeldByBlocker => CardStateKind::Waiting,
         };
     }
