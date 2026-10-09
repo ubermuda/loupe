@@ -136,7 +136,7 @@ final class AgentReviewFactProviderTest extends KernelTestCase
         $pullRequest->headSha = str_repeat('f', 40);
         $moved = $this->fingerprint($card);
 
-        self::assertCount(4, array_unique(array_map('serialize', [$off, $unreviewed, $reviewed, $moved])));
+        self::assertCount(4, array_unique(array_map(serialize(...), [$off, $unreviewed, $reviewed, $moved])));
         self::assertSame($moved, $this->fingerprint($card));
     }
 
