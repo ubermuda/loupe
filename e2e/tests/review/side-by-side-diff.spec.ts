@@ -418,7 +418,7 @@ test('the jump controls still walk the changes across the two columns', async ({
     ).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Next change' }).click();
-    await expect(counter).toHaveText('Change 1 of 4');
+    await expect(counter).toHaveText('1 of 4 changes');
     await expect(page.locator('.lp-diff__hunk--current')).toHaveCount(1);
 });
 

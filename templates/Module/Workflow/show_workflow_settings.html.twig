@@ -16,10 +16,7 @@
             <h1 class="lp-workspace-title">{{ 'workflow.settings.page.title'|trans }}</h1>
         </div>
     </header>
-    <div class="lp-empty-state" data-workflow-unbound>
-        <twig:ux:icon name="lucide:workflow" class="lp-empty-state__icon w-12 h-12" />
-        <p>{{ 'workflow.settings.unbound'|trans }}</p>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:workflow" :body="'workflow.settings.unbound'|trans" data-workflow-unbound />
     {% else %}
     <header class="lp-orchestration-header" data-workflow-template="{{ template.key }}">
         <div>
@@ -43,7 +40,7 @@
             <div class="lp-data-table__row" data-slot-key="{{ slot.key }}">
                 <span class="lp-data-table__cell lp-data-table__title">{{ slot.labelKey|trans }}</span>
                 <span class="lp-data-table__cell" data-slot-column>
-                    {%- if slot.columnLabel is not null %}{{ slot.columnLabel|trans }}{% else %}<span class="lp-tag lp-tag--amber">{{ 'workflow.settings.slots.not_linked'|trans }}</span>{% endif -%}
+                    {%- if slot.columnLabel is not null %}{{ slot.columnLabel|trans }}{% else %}<twig:Ds:Tag tone="amber">{{ 'workflow.settings.slots.not_linked'|trans }}</twig:Ds:Tag>{% endif -%}
                 </span>
             </div>
             {% endfor %}
@@ -64,7 +61,7 @@
             <div class="lp-data-table__row" data-card-type="{{ type.key }}">
                 <span class="lp-data-table__cell lp-data-table__title">
                     {% include '_tone_tag.html.twig' with {label: type.labelKey|trans, tone: type.tone} only %}
-                    {%- if type.isDefault %} <span class="lp-tag lp-tag--neutral" data-card-type-default>{{ 'workflow.settings.types.default'|trans }}</span>{% endif -%}
+                    {%- if type.isDefault %} <twig:Ds:Tag tone="neutral" data-card-type-default>{{ 'workflow.settings.types.default'|trans }}</twig:Ds:Tag>{% endif -%}
                 </span>
                 <span class="lp-data-table__cell" data-card-type-capabilities>
                     {%- set capabilities = [] -%}

@@ -31,10 +31,10 @@
         {# The controller writes into this unguarded, so it has to exist even
            though a demo write can never fail. #}
         <span class="lp-comment-composer__error" data-comment-anchor-target="composerError"></span>
-        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm"
-                data-action="comment-anchor#hideComposer">{{ 'review.document.comment.cancel'|trans }}</button>
-        <button type="button" class="lp-btn lp-btn--primary lp-btn--sm"
-                data-action="comment-anchor#submitComment">{{ 'review.document.comment.submit'|trans }}</button>
+        <twig:Ds:Button type="button" variant="ghost" size="sm"
+                data-action="comment-anchor#hideComposer">{{ 'review.document.comment.cancel'|trans }}</twig:Ds:Button>
+        <twig:Ds:Button type="button" variant="primary" size="sm"
+                data-action="comment-anchor#submitComment">{{ 'review.document.comment.submit'|trans }}</twig:Ds:Button>
     </div>
 </div>
 
@@ -53,10 +53,10 @@
         {# The controller writes into this unguarded, so it has to exist even
            though a demo write can never fail. #}
         <span class="lp-comment-composer__error" data-comment-anchor-target="suggestComposerError"></span>
-        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm"
-                data-action="comment-anchor#hideComposer">{{ 'review.document.comment.cancel'|trans }}</button>
-        <button type="button" class="lp-btn lp-btn--primary lp-btn--sm"
-                data-action="comment-anchor#submitSuggestion">{{ 'review.document.suggestion.submit'|trans }}</button>
+        <twig:Ds:Button type="button" variant="ghost" size="sm"
+                data-action="comment-anchor#hideComposer">{{ 'review.document.comment.cancel'|trans }}</twig:Ds:Button>
+        <twig:Ds:Button type="button" variant="primary" size="sm"
+                data-action="comment-anchor#submitSuggestion">{{ 'review.document.suggestion.submit'|trans }}</twig:Ds:Button>
     </div>
 </div>
 
@@ -74,8 +74,8 @@
         body="{{ kind == 'strike' ? '' : '…' }}"
     >
         <div class="lp-comment-actions">
-            <button type="button" class="lp-btn lp-btn--danger-ghost lp-btn--sm lp-comment-actions__delete"
-                    data-action="comment-anchor#deleteDemoComment">{{ 'review.document.comment.delete'|trans }}</button>
+            <twig:Ds:Button type="button" variant="danger-ghost" size="sm" class="lp-comment-actions__delete"
+                    data-action="comment-anchor#deleteDemoComment">{{ 'review.document.comment.delete'|trans }}</twig:Ds:Button>
         </div>
     </twig:CommentCard>
 </template>

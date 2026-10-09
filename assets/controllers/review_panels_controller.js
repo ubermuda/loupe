@@ -15,13 +15,20 @@ export default class extends Controller {
         'count',
     ];
 
+    // `compare` opens the outline over the stored choice, and `columns` starts
+    // with every panel hidden. Neither writes the choice the document reads.
+    static values = { mode: { type: String, default: 'document' } };
+
     connect() {
-        const stored = this.#storedPanels();
+        const stored = this.modeValue === 'columns' ? [] : this.#storedPanels();
         if (stored !== null) {
             for (const button of this.buttonTargets) {
                 const name = button.dataset.reviewPanelsNameParam;
                 this.#show(name, stored.includes(name));
             }
+        }
+        if (this.modeValue === 'compare') {
+            this.#show('outline', true);
         }
 
         this.activeFilter = this.element.classList.contains(
@@ -81,8 +88,11 @@ export default class extends Controller {
     }
 
     #remember(name, open) {
+        if (this.modeValue !== 'document') {
+            return;
+        }
         // Stored choices for a panel this page lacks or disables stay as they
-        // were, so a comparison does not close Decisions on the document.
+        // were, so a page without Comments does not close it on another page.
         const panels = new Set(this.#storedPanels() ?? DEFAULT_PANELS);
         if (open) {
             panels.add(name);

@@ -102,6 +102,7 @@ async function mount({
         data-decision-note-label-value="Note"
         data-decision-note-placeholder-value="Add a note"
         data-decision-clear-label-value="Clear choice"
+        data-decision-clear-class-value="lp-decision__clear"
         data-decision-error-message-value="Could not save.">
     <div class="prose">${block('a', notes.a, checked, kind)}${block('b', notes.b, checked, kind)}</div>
     ${editable ? form : ''}

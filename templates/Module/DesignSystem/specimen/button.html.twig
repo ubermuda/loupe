@@ -1,0 +1,15 @@
+{# twig-cs-fixer-disable #}
+{# Dev-only specimen of the Button for the styleguide, so it is intentionally untranslated. #}
+{% set iconOnly = variant in ['icon', 'compact'] %}
+<twig:Ds:Button :variant="variant">
+    {% if iconOnly %}<twig:UX:Icon name="lucide:plus" class="w-4 h-4" />{% else %}Button{% endif %}
+</twig:Ds:Button>
+<twig:Ds:Button :variant="variant" size="sm">
+    {% if iconOnly %}<twig:UX:Icon name="lucide:plus" class="w-4 h-4" />{% else %}Small{% endif %}
+</twig:Ds:Button>
+<twig:Ds:Button :variant="variant" disabled>
+    {% if iconOnly %}<twig:UX:Icon name="lucide:plus" class="w-4 h-4" />{% else %}Disabled{% endif %}
+</twig:Ds:Button>
+<twig:Ds:Button :variant="variant" href="#">
+    {% if iconOnly %}<twig:UX:Icon name="lucide:plus" class="w-4 h-4" />{% else %}Link{% endif %}
+</twig:Ds:Button>

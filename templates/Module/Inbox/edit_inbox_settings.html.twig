@@ -22,18 +22,18 @@
             <h2 class="lp-section-title">{{ 'inbox.settings.heading'|trans }}</h2>
             <p class="lp-connect-hint">{{ 'inbox.settings.description'|trans }}</p>
             {{ form_start(form, {attr: {class: 'lp-form'}}) }}
-                {% for field in [form.documentInReview, form.runBlocked, form.runGaveUp, form.runWaitingForPerson, form.pullRequestReady, form.pullRequestFixStopped, form.cardPaused] %}
-                <div class="lp-form-field">
+                {% for formItem in [form.documentInReview, form.runBlocked, form.runGaveUp, form.runWaitingForPerson, form.pullRequestReady, form.pullRequestFixStopped, form.cardPaused] %}
+                <twig:Ds:FormField>
                     <label class="lp-choice">
-                        {{ form_widget(field) }}
-                        {{ field.vars.label|trans }}
+                        {{ form_widget(formItem) }}
+                        {{ formItem.vars.label|trans }}
                     </label>
-                    {{ form_help(field, {help_attr: {class: 'lp-form-hint'}}) }}
-                    <div class="lp-field-errors" data-field-errors="{{ field.vars.name }}">{{ form_errors(field) }}</div>
-                </div>
+                    {% if formItem.vars.help %}<twig:Ds:Hint as="div" id="{{ formItem.vars.id }}_help">{{ formItem.vars.help|trans(formItem.vars.help_translation_parameters, formItem.vars.translation_domain) }}</twig:Ds:Hint>{% endif %}
+                    <twig:Ds:FieldErrors :fieldView="formItem" data-field-errors="{{ formItem.vars.name }}" />
+                </twig:Ds:FormField>
                 {% endfor %}
                 <div class="lp-settings-form-actions">
-                    <button class="lp-btn lp-btn--primary" type="submit">{{ 'inbox.settings.submit'|trans }}</button>
+                    <twig:Ds:Button variant="primary" type="submit">{{ 'inbox.settings.submit'|trans }}</twig:Ds:Button>
                 </div>
             {{ form_end(form) }}
         </section>

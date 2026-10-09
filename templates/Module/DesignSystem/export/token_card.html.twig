@@ -1,0 +1,36 @@
+{# twig-cs-fixer-disable #}<!-- @dsCard group="{{ group.name|capitalize }}" viewport="700x220" subtitle="{{ group.tokens|length }} tokens" name="{{ group.name|capitalize }}" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ group.name|capitalize }}</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 14px 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .sw { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .chip { height: 44px; border-radius: 8px; border: 1px solid var(--border-faint); background: var(--surface-1); }
+  .n { font-family: var(--font-mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v { font-family: var(--font-mono); font-size: 10px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="grid">
+{% for token in group.tokens %}
+  <div class="sw" title="{{ token.use }}">
+{% if group.name == 'colour' %}
+    <div class="chip" style="background: var({{ token.name }})"></div>
+{% elseif group.name == 'radius' %}
+    <div class="chip" style="border-radius: var({{ token.name }})"></div>
+{% elseif group.name == 'shadow' %}
+    <div class="chip" style="box-shadow: var({{ token.name }})"></div>
+{% elseif group.name == 'type' %}
+    <div class="n" style="font-family: var({{ token.name }}); font-size: 18px">Aa Bb Cc 123</div>
+{% endif %}
+    <span class="n">{{ token.name }}</span>
+    <span class="v">{{ token.value }}</span>
+  </div>
+{% endfor %}
+</div>
+</body>
+</html>

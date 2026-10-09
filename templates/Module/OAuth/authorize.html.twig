@@ -92,22 +92,22 @@
     {{ form_start(form, {'attr': {'class': 'lp-form lp-consent__form', 'novalidate': 'novalidate', 'data-turbo': 'false', 'data-controller': 'require-choice'}}) }}
         {{ form_errors(form) }}
         {% if form.project is defined %}
-        <div class="lp-form-field">
+        <twig:Ds:FormField>
             {{ form_label(form.project, null, {'label_attr': {'class': 'lp-consent__picker-label'}}) }}
             {{ form_widget(form.project, {'attr': {
-                'class': 'lp-input lp-select',
+                'class': ds_input_class('select'),
                 'data-require-choice-target': 'choice',
                 'data-action': 'change->require-choice#check',
             }}) }}
-            <div class="lp-field-errors">{{ form_errors(form.project) }}</div>
+            <twig:Ds:FieldErrors :fieldView="form.project" />
             {% if view.projects is empty %}
             <p class="lp-connect-hint">{{ 'oauth.consent.no_projects'|trans }}</p>
             {% endif %}
-        </div>
+        </twig:Ds:FormField>
         {% endif %}
         <div class="lp-consent__actions">
-            {{ form_widget(form.deny, {'attr': {'class': 'lp-btn lp-btn--ghost'}}) }}
-            {{ form_widget(form.approve, {'attr': {'class': 'lp-btn lp-btn--primary', 'data-require-choice-target': 'submit'}}) }}
+            {{ form_widget(form.deny, {'attr': {'class': ds_button_class('ghost')}}) }}
+            {{ form_widget(form.approve, {'attr': {'class': ds_button_class('primary'), 'data-require-choice-target': 'submit'}}) }}
         </div>
     {{ form_end(form) }}
 

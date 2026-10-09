@@ -1,14 +1,16 @@
-{# The toolbar and the panels it switches, in a fixed order. Decisions is on by
-   default; review_panels_controller.js applies the reader's stored choice.
-   Params: showComments, decisionsReason (translation key or null), decisionRows,
-   answeredDecisions, sectionRows, comments, canComment, commentCount. #}
+{# The toolbar and the panels it switches, in a fixed order. review_panels_controller.js
+   applies the reader's stored choice, as `mode` says. Params: mode, showComments,
+   decisionsReason and decisionsHint (translation keys), decisionsUrl (null links
+   the rows in this page), decisionRows, answeredDecisions, sectionRows, comments,
+   canComment, commentCount. #}
 {% set panelNames = ['decisions']|merge(showComments ? ['comments'] : [])|merge(['outline']) %}
+{% set openPanels = {document: ['decisions'], compare: ['decisions', 'outline'], columns: []}[mode] %}
 <aside class="lp-review-panels" aria-label="{{ 'review.document.panels.label'|trans }}">
     <div class="lp-review-panels__inner">
         <div class="lp-review-toolbar">
             {% for name in panelNames %}
             {% set reason = name == 'decisions' ? decisionsReason : null %}
-            {% set open = name == 'decisions' and reason is null %}
+            {% set open = name in openPanels and reason is null %}
             <button type="button" class="lp-review-toolbar__button"
                     aria-controls="review-panel-{{ name }}"
                     aria-pressed="{{ open ? 'true' : 'false' }}"
@@ -26,16 +28,16 @@
         </div>
 
         <section class="lp-review-panel" id="review-panel-decisions" data-review-panels-target="panel" data-review-panel="decisions"
-                 data-controller="contents-rail" aria-labelledby="review-panel-decisions-title"{{ decisionsReason is not null ? ' hidden' }}>
+                 data-controller="contents-rail" aria-labelledby="review-panel-decisions-title"{{ decisionsReason is not null or 'decisions' not in openPanels ? ' hidden' }}>
             <div class="lp-review-panel__head">
                 <h2 id="review-panel-decisions-title">{{ 'review.document.panels.decisions'|trans }}</h2>
                 <span class="lp-review-panel__count" id="decision-summary-count">{{ 'review.document.panels.decisions_count'|trans({'%answered%': answeredDecisions, '%total%': decisionRows|length}) }}</span>
             </div>
             {% if decisionRows|length > 0 %}
             <ul class="lp-decision-summary__list" id="decision-summary-list">
-                {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
+                {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows, documentUrl: decisionsUrl} only %}
             </ul>
-            <p class="lp-review-panel__hint">{{ 'review.document.margin.decisions_save_hint'|trans }}</p>
+            <p class="lp-review-panel__hint">{{ decisionsHint|trans }}</p>
             {% elseif decisionsReason is not null %}<p class="lp-review-panel__hint">{{ decisionsReason|trans }}</p>
             {% else %}<p class="lp-review-panel__hint">{{ 'review.document.margin.decisions_empty'|trans }}</p>{% endif %}
         </section>
@@ -62,16 +64,16 @@
             <div id="comment-recovery" aria-live="polite"></div>
             {% include '@Review/_comment_rows.html.twig' with {comments: comments} only %}
             {% if canComment %}
-            <button type="button" class="lp-btn lp-btn--ghost lp-comment-whole-document" data-action="comment-anchor#startUntargeted">
+            <twig:Ds:Button variant="ghost" type="button" class="lp-comment-whole-document" data-action="comment-anchor#startUntargeted">
                 <twig:ux:icon name="lucide:message-square-plus" />
                 {{ 'review.document.comment.whole_document'|trans }}
-            </button>
+            </twig:Ds:Button>
             {% endif %}
         </section>
         {% endif %}
 
         <section class="lp-review-panel" id="review-panel-outline" data-review-panels-target="panel" data-review-panel="outline"
-                 data-panel="contents" data-controller="contents-rail" aria-labelledby="review-panel-outline-title" hidden>
+                 data-panel="contents" data-controller="contents-rail" aria-labelledby="review-panel-outline-title"{{ 'outline' not in openPanels ? ' hidden' }}>
             <div class="lp-review-panel__head">
                 <h2 id="review-panel-outline-title">{{ 'review.document.panels.outline'|trans }}</h2>
                 <span class="lp-review-panel__count">{{ sectionRows|length }}</span>

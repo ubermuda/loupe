@@ -6,9 +6,12 @@ namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\DecisionBlockService;
+use App\Module\Review\Service\DecisionSummaryReader;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -39,6 +42,8 @@ final readonly class DiffDocumentVersionsHandler
         private SideBySideDiffBuilder $sideBySideDiffs,
         private SourceHeadingIndexBuilder $sourceHeadingIndexes,
         private HeadingExtractor $headings,
+        private DecisionSummaryReader $decisionSummary,
+        private ReviewRepository $reviews,
         private Auditor $auditor,
     ) {
     }
@@ -57,6 +62,7 @@ final readonly class DiffDocumentVersionsHandler
         $diffRefusal = null;
         $changeCount = null;
         $headings = [];
+        $changesByHeading = [];
         $sourceHeadings = null;
         if ($result instanceof DiffRefusal) {
             $diffRefusal = $result;
@@ -101,16 +107,28 @@ final readonly class DiffDocumentVersionsHandler
                 if (DiffView::SideBySide === $command->view) {
                     $sideBySide = $this->sideBySideDiffs->build($rendered->html);
                     $headings = $this->columnHeadings($sideBySide);
+                    // A heading edited in place shows an old and a new row under one
+                    // document id. The change counts once, on the first row.
+                    $counted = [];
+                    foreach ($headings as $heading) {
+                        $documentId = $this->documentId($heading->id);
+                        if (isset($counted[$documentId])) {
+                            continue;
+                        }
+                        $counted[$documentId] = true;
+                        $changesByHeading[$heading->id] = $rendered->changesByHeadingId[$documentId] ?? 0;
+                    }
+                    $changesByHeading = array_filter($changesByHeading);
                 } else {
                     $renderedDiff = $rendered;
                     $headings = $this->headings->extract($rendered->html);
+                    $changesByHeading = $rendered->changesByHeadingId;
                 }
             }
         }
 
-        // A verdict still belongs to the document rather than to a comparison, so
-        // the page stays `readOnly` even where commenting is offered.
         $comments = $this->comments->findByVersion($version);
+        $latestReview = $this->reviews->findNewestByVersion($version);
 
         return new DiffDocumentVersionsView(
             version: $version,
@@ -121,11 +139,16 @@ final readonly class DiffDocumentVersionsHandler
             diffRefusal: $diffRefusal,
             changeCount: $changeCount,
             headings: $headings,
+            changesByHeading: $changesByHeading,
             sourceHeadings: $sourceHeadings,
             commentingEnabled: $isCurrent && (null !== $renderedDiff || null !== $sideBySide),
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
+            isCurrent: $isCurrent,
+            decisions: ($this->decisionSummary)($command->document, $version),
+            review: Verdict::Withdrawn === $latestReview?->verdict ? null : $latestReview,
+            latestReviewId: $latestReview?->id?->toRfc4122(),
         );
     }
 

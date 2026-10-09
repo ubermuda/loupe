@@ -1,11 +1,13 @@
 {# Rows of the Decisions panel. Rendered by the page and again by the stream
    that follows an answer, so both must be given `rows` in the same shape. Both
-   jump actions are listed, as in `_contents_rows.html.twig`. #}
+   jump actions are listed, as in `_contents_rows.html.twig`. A `documentUrl`
+   makes each row a plain link to the block on that page. #}
+{% set documentUrl = documentUrl|default(null) %}
 {% for row in rows %}
 <li class="lp-decision-summary__item">
     <span class="lp-decision-summary__tag{{ row.answered ? ' lp-decision-summary__tag--answered' }}">{{ row.tag }}</span>
-    <a class="lp-decision-summary__link" href="#{{ row.elementId }}"
-       data-action="click->metadata-tabs#jump click->contents-rail#jump">{{ row.label }}</a>
+    <a class="lp-decision-summary__link" href="{{ documentUrl }}#{{ row.elementId }}"
+       {%- if documentUrl is null %} data-action="click->metadata-tabs#jump click->contents-rail#jump"{% endif %}>{{ row.label }}</a>
     {% if not row.answered %}
     <span class="lp-decision-summary__pending">{{ 'review.document.decisions.pending'|trans }}</span>
     {% else %}

@@ -1353,7 +1353,7 @@
             <trans-unit id="review.document.margin.filter_empty"><source>review.document.margin.filter_empty</source><target>No comments match this filter.</target></trans-unit>
             <trans-unit id="review.document.margin.outline_empty"><source>review.document.margin.outline_empty</source><target>This document has no section headings.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_disabled_empty"><source>review.document.margin.decisions_disabled_empty</source><target>This document has no decisions to answer.</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions_disabled_diff"><source>review.document.margin.decisions_disabled_diff</source><target>A comparison cannot answer decisions. Open the Document view to answer them.</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_read_only_diff"><source>review.document.margin.decisions_read_only_diff</source><target>Decisions are read-only while you compare versions. Select a decision to answer it in the document.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select an option to save it. Add a note if you need one.</target></trans-unit>
             <trans-unit id="review.decision.note.label"><source>review.decision.note.label</source><target>Note</target></trans-unit>
@@ -1605,6 +1605,22 @@
             <trans-unit id="review.document.since_last_visit.chip">
                 <source>review.document.since_last_visit.chip</source>
                 <target>New since v%from% · see what changed</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.label">
+                <source>review.document.new_text.label</source>
+                <target>Highlight new text</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.no_previous">
+                <source>review.document.new_text.no_previous</source>
+                <target>This is the first version. No earlier version exists to compare with.</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.refused">
+                <source>review.document.new_text.refused</source>
+                <target>This version cannot be compared with the one before it, so the new text is not marked.</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.error">
+                <source>review.document.new_text.error</source>
+                <target>The new text could not be loaded. Try again.</target>
             </trans-unit>
             <trans-unit id="review.document.diff.notes_title">
                 <source>review.document.diff.notes_title</source>
@@ -4179,9 +4195,13 @@
                 <source>review.document.diff.nav.count</source>
                 <target>{0}No changes|{1}1 change|]1,Inf[%count% changes</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.outline.changes">
+                <source>review.document.diff.outline.changes</source>
+                <target>{0}No changes|{1}1 change|]1,Inf[%count% changes</target>
+            </trans-unit>
             <trans-unit id="review.document.diff.nav.position">
                 <source>review.document.diff.nav.position</source>
-                <target>Change %current% of %total%</target>
+                <target>{0}No changes|{1}%current% of 1 change|]1,Inf[%current% of %total% changes</target>
             </trans-unit>
             <trans-unit id="review.document.diff.nav.previous">
                 <source>review.document.diff.nav.previous</source>

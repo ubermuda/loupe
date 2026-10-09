@@ -15,7 +15,7 @@
             <p>{{ 'review.deleted_threads.deleted'|trans }}</p>
             {{ form_start(recoveryForm) }}
                 {{ form_widget(recoveryForm.deletionSequence, {type: 'hidden'}) }}
-                <button type="submit" class="lp-btn">{{ 'review.deleted_threads.undo'|trans }}</button>
+                <twig:Ds:Button type="submit">{{ 'review.deleted_threads.undo'|trans }}</twig:Ds:Button>
             {{ form_end(recoveryForm) }}
         </div>
     </template>

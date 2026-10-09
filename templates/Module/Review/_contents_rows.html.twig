@@ -1,4 +1,5 @@
-{# One section per row, in document order: a link to its heading.
+{# One section per row, in document order: a link to its heading, and while
+   comparing the number of changes it holds.
 
    Both jump actions are listed. Stimulus binds the one whose controller is on
    an ancestor. #}
@@ -8,5 +9,6 @@
     <a class="lp-review-contents__link" data-level="{{ row.level }}" href="#{{ row.headingId }}"
        data-contents-rail-target="link"
        data-action="click->metadata-tabs#jump click->contents-rail#jump" title="{{ row.label }}">{{ row.label }}</a>
+    {% if row.changes|default(0) > 0 %}<span class="lp-review-contents__changes">{{ 'review.document.diff.outline.changes'|trans({'%count%': row.changes}) }}</span>{% endif %}
 </li>
 {% endfor %}

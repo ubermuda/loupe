@@ -12,7 +12,7 @@ import { smoothScrollTo } from '../lib/smooth_scroll.js';
  *
  * Usage:
  *   <div data-controller="diff-navigation"
- *        data-diff-navigation-position-value="Change %current% of 12">
+ *        data-diff-navigation-position-value="%current% of 12 changes">
  *     <p data-diff-navigation-target="counter">12 changes</p>
  *     <button data-action="diff-navigation#previous">…</button>
  *     <button data-action="diff-navigation#next">…</button>

@@ -1,7 +1,7 @@
 {# The review screen's menu below the lg breakpoint. Above lg it is display:none
    and the same controls live in the top bar and the metadata tabs.
    Params: document, version, versions, showVersions, showContents, sectionRows,
-   referenceCount, decisionRows, answeredDecisions,
+   referenceCount, decisionRows, decisionsUrl, answeredDecisions,
    showResolvedToggle, showVerdict, diffMode, diffFromVersion, diffViewValue. #}
 <div class="lp-review-menu" data-controller="review-menu">
     <div class="lp-review-menu__scrim"
@@ -65,10 +65,10 @@
             {% endif %}
             {% if showVerdict %}
             <hr class="lp-review-menu__rule">
-            <button type="button" class="lp-btn lp-btn--primary lp-review-menu__verdict"
+            <twig:Ds:Button variant="primary" type="button" class="lp-review-menu__verdict"
                     data-action="click->review-menu#close click->modal#open">
                 {{ 'review.document.finish.title'|trans }}
-            </button>
+            </twig:Ds:Button>
             {% endif %}
         </div>
 
@@ -160,7 +160,7 @@
                 }) }}</span>
             </p>
             <div id="review-menu-decisions-list">
-                {% include '@Review/_menu_decision_rows.html.twig' with {rows: decisionRows} only %}
+                {% include '@Review/_menu_decision_rows.html.twig' with {rows: decisionRows, documentUrl: decisionsUrl} only %}
             </div>
         </div>
         {% endif %}

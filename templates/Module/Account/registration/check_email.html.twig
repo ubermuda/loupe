@@ -30,10 +30,10 @@
 
     <form method="post" action="{{ path('app_register_resend') }}" class="mt-1.5">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('resend-verification') }}">
-        <button type="submit" class="btn primary sm">
+        <twig:Ds:Button type="submit" variant="primary" size="sm">
             <twig:UX:Icon name="lucide:rotate-cw" class="w-3.5 h-3.5" aria-hidden="true" />
             {{ 'account.registration.check_email.resend'|trans }}
-        </button>
+        </twig:Ds:Button>
     </form>
 
     <a href="{{ path('app_login') }}" class="auth-link text-sm font-medium mt-1">{{ 'account.registration.check_email.back'|trans }}</a>
