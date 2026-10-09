@@ -25,6 +25,7 @@ use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\WorkflowRefusal;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
@@ -41,7 +42,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  */
 final readonly class ForgeWrite implements Action
 {
-    public const string OPEN_EPIC_OFF = 'open-epic-off';
+    public const string OPEN_EPIC_OFF = WorkflowRefusal::OPEN_EPIC_OFF;
 
     public function __construct(
         private CardRepository $cards,

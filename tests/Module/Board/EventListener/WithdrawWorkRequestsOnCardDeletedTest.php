@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\EventListener;
+namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\EventListener\WithdrawWorkRequestsOnCardDeleted;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\WorkLedger;
-use App\Module\Workflow\EventListener\WithdrawWorkRequestsOnCardDeleted;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;

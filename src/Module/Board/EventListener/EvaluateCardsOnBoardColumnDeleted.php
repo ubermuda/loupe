@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\EventListener;
+namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Event\BoardColumnDeleted;
-use App\Module\Workflow\Service\EvaluationTrigger;
+use App\Module\Workflow\Contract\CardEvaluations;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /** A column delete moves its cards in bulk and dispatches no CardMoved for them. */
@@ -13,7 +13,7 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 final readonly class EvaluateCardsOnBoardColumnDeleted
 {
     public function __construct(
-        private EvaluationTrigger $trigger,
+        private CardEvaluations $trigger,
     ) {
     }
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\EventListener;
+namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
@@ -17,6 +17,16 @@ use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
+use App\Module\Board\EventListener\EvaluateCardOnCardDocumentsChanged;
+use App\Module\Board\EventListener\EvaluateCardOnWorkRequestChanged;
+use App\Module\Board\EventListener\EvaluateCardsOnBoardColumnDeleted;
+use App\Module\Board\EventListener\EvaluateCardsOnBoardColumnTerminalChanged;
+use App\Module\Board\EventListener\EvaluateCardsOnCardBlockersRemoved;
+use App\Module\Board\EventListener\EvaluateCardsOnCardMoved;
+use App\Module\Board\EventListener\EvaluateCardsOnCardParentChanged;
+use App\Module\Board\EventListener\EvaluateCardsOnDocumentStatusChanged;
+use App\Module\Board\EventListener\EvaluateCardsOnPullRequestStateChanged;
+use App\Module\Board\EventListener\EvaluateCardsOnReviewSubmitted;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -25,6 +35,9 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkRequestChanged;
+use App\Module\Bridge\EventListener\EvaluateCardsOnWorkerRunChanged;
+use App\Module\Bridge\EventListener\RearmCardsOnCardHoldsReleased;
+use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -36,23 +49,10 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Workflow\Contract\Actor;
-use App\Module\Workflow\Contract\WorkLedger;
+use App\Module\Workflow\Contract\WorkflowRuleStates;
 use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\EventListener\EvaluateCardOnCardDocumentsChanged;
-use App\Module\Workflow\EventListener\EvaluateCardOnWorkRequestChanged;
-use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnDeleted;
-use App\Module\Workflow\EventListener\EvaluateCardsOnBoardColumnTerminalChanged;
-use App\Module\Workflow\EventListener\EvaluateCardsOnCardBlockersRemoved;
-use App\Module\Workflow\EventListener\EvaluateCardsOnCardMoved;
-use App\Module\Workflow\EventListener\EvaluateCardsOnCardParentChanged;
-use App\Module\Workflow\EventListener\EvaluateCardsOnDocumentStatusChanged;
-use App\Module\Workflow\EventListener\EvaluateCardsOnPullRequestStateChanged;
-use App\Module\Workflow\EventListener\EvaluateCardsOnReviewSubmitted;
-use App\Module\Workflow\EventListener\EvaluateCardsOnWorkerRunChanged;
-use App\Module\Workflow\EventListener\RearmCardsOnCardHoldsReleased;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
-use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Support\ShippedCardTypes;
@@ -305,9 +305,8 @@ final class EvaluationListenersTest extends KernelTestCase
     private function rearmListener(): RearmCardsOnCardHoldsReleased
     {
         return new RearmCardsOnCardHoldsReleased(
-            $this->service(WorkflowRuleStateRepository::class),
-            $this->service(WorkLedger::class),
-            $this->service(WorkflowPendingBaselineRepository::class),
+            $this->service(WorkRequestRepository::class),
+            $this->service(WorkflowRuleStates::class),
             $this->trigger(),
             new MockClock(self::RELEASED_AT),
         );

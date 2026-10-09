@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\EventListener;
+namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Event\CardChanged;
 use App\Module\Workflow\Contract\WithdrawKind;

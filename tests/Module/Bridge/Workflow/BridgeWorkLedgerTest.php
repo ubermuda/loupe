@@ -138,23 +138,6 @@ final class BridgeWorkLedgerTest extends KernelTestCase
         self::assertFalse($this->openOnCard($run, $project, $cardId));
     }
 
-    public function test_restart_clock_sets_the_reopen_time_of_open_requests_of_the_cards_only(): void
-    {
-        $project = $this->scenario('ledger-clock@example.com');
-        $cardId = Uuid::v7();
-        $open = $this->seedWorkRequest($this->em(), $project, $cardId);
-        $claimed = $this->seedWorkRequest($this->em(), $project, $cardId, 'fix', state: WorkRequestState::Claimed);
-        $other = $this->seedWorkRequest($this->em(), $project, Uuid::v7());
-
-        $this->ledger()->restartClock($this->projectId($project), [$cardId], new \DateTimeImmutable('2026-10-02 08:00:00'));
-
-        $this->em()->clear();
-        $reopened = static fn (WorkRequest $request): ?string => $request->reopenedAt?->format('Y-m-d H:i:s');
-        self::assertSame('2026-10-02 08:00:00', $reopened($this->em()->find(WorkRequest::class, $open->id) ?? throw new \LogicException()));
-        self::assertNull($reopened($this->em()->find(WorkRequest::class, $claimed->id) ?? throw new \LogicException()));
-        self::assertNull($reopened($this->em()->find(WorkRequest::class, $other->id) ?? throw new \LogicException()));
-    }
-
     public function test_is_held_follows_the_hold_of_the_card(): void
     {
         $project = $this->scenario('ledger-held@example.com');
