@@ -106,6 +106,21 @@ final class AnnounceStuckPullRequestsHandlerTest extends KernelTestCase
         self::assertSame([(string) $card->id], $this->changedCardIds());
     }
 
+    public function test_the_announcement_is_not_recorded_when_a_merge_started_after_the_read(): void
+    {
+        $card = $this->stateCard($this->stateProject('announce-merge-race'));
+        $row = $this->ready($card, '-20 minutes');
+        $row->mergeRequestedSha = 'head1';
+        $row->mergeRequestedAt = new \DateTimeImmutable('-1 minute');
+        $this->em()->flush();
+
+        $repository = self::getContainer()->get(StuckPullRequestRepository::class);
+        self::assertInstanceOf(StuckPullRequestRepository::class, $repository);
+        $repository->markAnnounced((string) $row->id, $this->reload($row)->readySince?->format('Y-m-d H:i:s') ?? '', new \DateTimeImmutable());
+
+        self::assertNull($this->reload($row)->stuckAnnouncedFor);
+    }
+
     public function test_a_pull_request_that_is_not_ready_is_left_alone(): void
     {
         $card = $this->stateCard($this->stateProject('announce-not-ready'));

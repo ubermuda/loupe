@@ -55,8 +55,7 @@ class StuckPullRequestRepository extends ServiceEntityRepository
                 'open' => 'open',
                 'defaultDelay' => BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
                 'now' => $now->format(self::TIME_FORMAT),
-                // A merge in flight hides Stuck on the tile, so the announcement waits until its marker expires.
-                'requestCutoff' => $now->modify(\sprintf('-%d seconds', ForgePullRequestWrites::MARKER_LIFETIME_SECONDS))->format(self::TIME_FORMAT),
+                'requestCutoff' => self::requestCutoff($now),
                 'limit' => $limit,
             ],
         );
@@ -69,21 +68,29 @@ class StuckPullRequestRepository extends ServiceEntityRepository
         ], $rows);
     }
 
-    /** Records the announcement, unless the pull request turned ready again or the board delay grew since the read. */
+    /** Records the announcement, unless the pull request turned ready again, a merge started, or the board delay grew since the read. */
     public function markAnnounced(string $pullRequestId, string $readySince, \DateTimeImmutable $now): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(
             'UPDATE forge_pull_requests SET stuck_announced_for = ready_since
             WHERE id = :id
                 AND ready_since = :readySince
+                AND (merge_requested_sha IS NULL OR merge_requested_at IS NULL OR merge_requested_at <= :requestCutoff)
                 AND ready_since + make_interval(mins => COALESCE((SELECT settings.stuck_delay_minutes FROM board_automation_settings settings WHERE settings.project_id = forge_pull_requests.project_id), :defaultDelay)) <= :now',
             [
                 'id' => $pullRequestId,
                 'readySince' => $readySince,
+                'requestCutoff' => self::requestCutoff($now),
                 'defaultDelay' => BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
                 'now' => $now->format(self::TIME_FORMAT),
             ],
         );
+    }
+
+    /** A merge in flight hides Stuck on the tile, so the announcement waits until its marker expires. */
+    private static function requestCutoff(\DateTimeImmutable $now): string
+    {
+        return $now->modify(\sprintf('-%d seconds', ForgePullRequestWrites::MARKER_LIFETIME_SECONDS))->format(self::TIME_FORMAT);
     }
 
     /**
