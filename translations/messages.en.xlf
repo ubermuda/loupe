@@ -6248,6 +6248,7 @@
             <trans-unit id="bridge.experiments.fix_reason.conflict"><source>bridge.experiments.fix_reason.conflict</source><target>Conflict</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.checks-failed"><source>bridge.experiments.fix_reason.checks-failed</source><target>Checks failed</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.changes-requested"><source>bridge.experiments.fix_reason.changes-requested</source><target>Changes requested</target></trans-unit>
+            <trans-unit id="bridge.experiments.fix_reason.agent-review"><source>bridge.experiments.fix_reason.agent-review</source><target>Agent review failed</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.other"><source>bridge.experiments.fix_reason.other</source><target>Other reason: %reason%</target></trans-unit>
             <trans-unit id="bridge.experiments.too_few_cards"><source>bridge.experiments.too_few_cards</source><target>Too few cards</target></trans-unit>
             <trans-unit id="bridge.experiments.range"><source>bridge.experiments.range</source><target>%low%–%high%</target></trans-unit>
@@ -6698,6 +6699,7 @@
             <trans-unit id="board.card.badge.unmanaged"><source>board.card.badge.unmanaged</source><target>Unmanaged</target></trans-unit>
             <trans-unit id="board.card.history.reason.conflict"><source>board.card.history.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
             <trans-unit id="board.card.history.reason.checks_failed"><source>board.card.history.reason.checks_failed</source><target>the checks fail</target></trans-unit>
+            <trans-unit id="board.card.history.reason.agent_review"><source>board.card.history.reason.agent_review</source><target>the agent review found problems</target></trans-unit>
             <trans-unit id="board.card.history.reason.changes_requested"><source>board.card.history.reason.changes_requested</source><target>a reviewer requested changes</target></trans-unit>
             <trans-unit id="board.card.linked_work.title"><source>board.card.linked_work.title</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
@@ -7049,6 +7051,10 @@
             <trans-unit id="board.fix_run_comment.reason.changes-requested">
                 <source>board.fix_run_comment.reason.changes-requested</source>
                 <target>changes requested</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.reason.agent-review">
+                <source>board.fix_run_comment.reason.agent-review</source>
+                <target>the agent review found problems</target>
             </trans-unit>
             <trans-unit id="board.fix_run_comment.reason.other">
                 <source>board.fix_run_comment.reason.other</source>

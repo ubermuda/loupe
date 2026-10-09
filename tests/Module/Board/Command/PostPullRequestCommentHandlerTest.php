@@ -200,6 +200,15 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertStringNotContainsString('**Failed checks:**', $body);
     }
 
+    public function test_an_agent_review_reason_reads_as_its_own_sentence(): void
+    {
+        $this->handle($this->pending(reason: 'agent-review'));
+
+        $body = $this->commenter->comments[0][1];
+        self::assertStringContainsString('**Reason:** the agent review found problems', $body);
+        self::assertStringNotContainsString('**Failed checks:**', $body);
+    }
+
     public function test_a_check_name_stays_inside_its_code_span(): void
     {
         $this->pullRequest->failedChecks = ["lint`\n@octocat [x](https://example.com)", 'e2e'];

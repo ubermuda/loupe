@@ -40,7 +40,7 @@
 {% endblock %}
 
 {% block body %}
-{% set knownReasons = ['conflict', 'checks-failed', 'changes-requested'] %}
+{% set knownReasons = ['conflict', 'checks-failed', 'changes-requested', 'agent-review'] %}
 {% set headline = report.headline %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
     {% include '@Insights/_header.html.twig' with {} only %}

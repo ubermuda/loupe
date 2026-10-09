@@ -87,6 +87,20 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertEquals($comment->id, $message->commentId);
     }
 
+    public function test_the_reason_of_the_work_request_wins_over_the_state_of_the_pull_request(): void
+    {
+        $this->commentOnFixQueued(true);
+        $card = $this->card();
+        $this->link($card, Forge::GitHub, 'acme/widgets', 5);
+        $this->tracked('acme/widgets', 5, checks: PullRequestChecks::Failed);
+
+        $this->listener()($this->event(cardId: $card->id, reason: 'agent-review'));
+
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame('agent-review', $rows[0]->reason);
+    }
+
     public function test_the_comment_picks_the_open_pull_request_over_a_merged_one(): void
     {
         $this->commentOnFixQueued(true);
@@ -279,7 +293,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function event(?Uuid $projectId = null, ?Uuid $cardId = null, ?int $pullRequestNumber = null, ?string $pullRequestUrl = null): WorkerRunQueued
+    private function event(?Uuid $projectId = null, ?Uuid $cardId = null, ?int $pullRequestNumber = null, ?string $pullRequestUrl = null, ?string $reason = null): WorkerRunQueued
     {
         return new WorkerRunQueued(
             projectId: $projectId ?? $this->project->id ?? throw new \LogicException('A persisted project has an id.'),
@@ -287,6 +301,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
             cardId: $cardId ?? Uuid::v7(),
             pullRequestNumber: $pullRequestNumber,
             pullRequestUrl: $pullRequestUrl,
+            reason: $reason,
         );
     }
 
