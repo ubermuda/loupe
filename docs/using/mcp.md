@@ -517,9 +517,8 @@ slug.
 the columns, as **Board settings** does. They refuse the changes that Board
 settings refuses, and the error says what the agent can fix. For example, a
 delete of a column that holds cards needs `targetColumn`.
-`automation_settings_update` changes the **Automation** settings, and a setting
-that the call omits keeps its value. `openEpicPullRequests` turns the opening of
-epic pull requests on or off.
+`automation_settings_update` turns the workflow of the board on or off with
+`enabled`, as the **Automation** tab does. A call that omits it keeps the value.
 
 The board has no delete tool. An agent moves a card to a terminal column; only a
 person removes one. `card_update` also refuses to change `reporter`, because

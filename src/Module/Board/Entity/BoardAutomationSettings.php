@@ -10,20 +10,14 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
-/** How the board drives the pull requests of the cards of one project, and how much finished work it shows. */
+/** Whether the workflow of a project's board runs, and how much finished work the board shows. */
 #[ORM\Entity(repositoryClass: BoardAutomationSettingsRepository::class)]
 #[ORM\Table(name: 'board_automation_settings')]
 class BoardAutomationSettings
 {
-    public const int MIN_LOOP_LIMIT = 1;
-
-    public const int MAX_LOOP_LIMIT = 20;
-
     public const int MIN_TERMINAL_WINDOW_DAYS = 1;
 
     public const int MAX_TERMINAL_WINDOW_DAYS = 30;
-
-    public const string DEFAULT_EPIC_BRANCH_PATTERN = 'epic/{number}';
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -38,60 +32,6 @@ class BoardAutomationSettings
 
         #[ORM\Column]
         public bool $enabled = true,
-
-        #[ORM\Column(length: 20, enumType: BoardMergeStrategy::class)]
-        public BoardMergeStrategy $mergeStrategy = BoardMergeStrategy::Worker,
-
-        #[ORM\Column(length: 20, enumType: BoardFixStrategy::class)]
-        public BoardFixStrategy $fixStrategy = BoardFixStrategy::Fresh,
-
-        /** The automatic fix rounds a card gets before the board stops asking. */
-        #[ORM\Column]
-        public int $loopLimit = 3,
-
-        /** Posts a comment on the pull request when a fix run is queued for it. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $commentOnFixQueued = false,
-
-        /** Posts a comment on the pull request when its head moves past the approval. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $commentOnStaleApproval = false,
-
-        /** Brings an approved pull request that is behind its base up to date. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $syncBehind = false,
-
-        /** Merges a pull request when the workflow asks. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $mergePullRequests = false,
-
-        /** Changes the base of a pull request when the workflow asks. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $changeBase = false,
-
-        /** Switches the draft state of an epic pull request when the workflow asks. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $epicDraftSwitch = false,
-
-        /** Closes the pull requests of an epic when the workflow asks. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $closeEpicPullRequests = false,
-
-        /** Opens the pull request of an epic when the workflow asks. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $openEpicPullRequests = false,
-
-        /** Posts a widget verdict as a review on the pull requests of the card, under the reviewer's own account. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $postWidgetReviews = false,
-
-        /** Keeps a "Loupe site review" check on the open pull requests of a managed card. */
-        #[ORM\Column(options: ['default' => false])]
-        public bool $siteReviewCheck = false,
-
-        /** No code reads it. The workflow template holds the epic branch. */
-        #[ORM\Column(length: 255, nullable: true, options: ['default' => self::DEFAULT_EPIC_BRANCH_PATTERN])]
-        public ?string $epicBranchPattern = self::DEFAULT_EPIC_BRANCH_PATTERN,
 
         /** How many days back a terminal column of the board reads. The history page shows the rest. */
         #[ORM\Column(options: ['default' => 3])]

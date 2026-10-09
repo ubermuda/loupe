@@ -77,7 +77,7 @@ When no column fits a role, leave the card where it is and tell the owner.
 | `column_update` | Rename a column, or set whether it is terminal. A rename changes the slug. |
 | `column_reorder` | Put the columns in a new order. Pass every slug except `backlog`. |
 | `column_delete` | Delete a column. A column that holds cards needs `targetColumn`, where the cards go. |
-| `automation_settings_update` | Change the Automation settings of the board, `openEpicPullRequests` included. A setting you leave out keeps its value. The workflow template names the epic branch. |
+| `automation_settings_update` | Turn the workflow of the board on or off with `enabled`. A setting you leave out keeps its value. The workflow template names the epic branch. |
 
 `card_get`, `card_get_history` and `card_update` take a `cardId`, which you
 read from `card_list`, `card_search` or `card_create`. They also take the card

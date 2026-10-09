@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Workflow;
 
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardVerdict;
@@ -171,13 +170,12 @@ final class SiteReviewFactProviderTest extends KernelTestCase
         self::assertNotSame($this->provider()->fingerprint($before), $this->provider()->fingerprint($after));
     }
 
-    public function test_the_posted_check_and_the_opt_in_are_read(): void
+    public function test_the_posted_check_is_read(): void
     {
         $card = $this->card($this->project);
         $pullRequest = $this->linkedPullRequest($card, 7);
         $pullRequest->headSha = 'sha-2';
         $this->em->persist(new SiteReviewCheckState($pullRequest, 'sha-1', 'failure', 3, 99));
-        $this->em->persist(new BoardAutomationSettings($this->project, siteReviewCheck: true));
         $this->em->flush();
 
         $facts = $this->build($card);

@@ -11,7 +11,6 @@ use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Repository\CardVerdictRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\GitHub\Entity\GitHubUserConnection;
 use App\Module\Project\Entity\Project;
@@ -56,13 +55,12 @@ final class CardVerdictApiTest extends WebTestCase
         self::assertNull($data['latestVerdict']);
     }
 
-    public function test_the_panel_previews_the_review_write_for_every_kind_while_the_workflow_and_the_opt_in_are_on(): void
+    public function test_the_panel_previews_the_review_write_for_every_kind_while_the_workflow_is_on(): void
     {
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'verdict-api-preview@example.com', 'verdict-api-preview');
         $card = $this->card($project);
         $this->service(BindWorkflowTemplateHandler::class)(new BindWorkflowTemplateCommand($project, 'simple', []));
-        $this->service(BoardAutomation::class)->settingsForUpdate($project)->postWidgetReviews = true;
         $this->em->flush();
 
         $data = $this->call($client, Request::METHOD_GET, $this->panelPath($card), $raw);

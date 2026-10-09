@@ -24,7 +24,6 @@ use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Repository\PullRequestNoticeRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\StaleApprovalNoticeBody;
 use App\Module\Board\Workflow\BoardCardPauses;
@@ -3374,17 +3373,9 @@ final class EngineTest extends KernelTestCase
 
     private function saveAutomation(Card $card, bool $enabled): void
     {
-        $settings = $this->service(BoardAutomation::class)->settingsOf($card->project);
         $this->service(SaveBoardAutomationSettingsHandler::class)(new SaveBoardAutomationSettingsCommand(
             $card->project,
             $enabled,
-            $settings->commentOnFixQueued,
-            $settings->commentOnStaleApproval,
-            $settings->syncBehind,
-            $settings->mergePullRequests,
-            $settings->changeBase,
-            $settings->postWidgetReviews,
-            $settings->siteReviewCheck,
         ));
     }
 

@@ -1,6 +1,6 @@
 /**
  * Browser coverage for the board automation settings: the owner opens the
- * Automation tab, changes every field, saves, and reads the values back after
+ * Automation tab, turns the workflow off, saves, and reads the value back after
  * a reload, because the server is what decides.
  */
 
@@ -41,9 +41,7 @@ async function seedProject(page: Page): Promise<string> {
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test('the owner changes the automation settings and reads them back', async ({
-    page,
-}) => {
+test('the owner turns the workflow off and reads it back', async ({ page }) => {
     // A sign-in, a seed, three page visits and a save outlast the default budget.
     test.slow();
     await suppressToolbar(page);
@@ -60,20 +58,11 @@ test('the owner changes the automation settings and reads them back', async ({
 
     const settings = page.locator('[data-board-automation-settings]');
     const enabled = settings.getByLabel('Run the workflow of the board');
-    const epicDraftSwitch = settings.getByLabel(
-        'Switch an epic pull request between draft and ready when the workflow asks',
-    );
-    const commentOnFixQueued = settings.getByLabel(
-        'Comment on the pull request when a fix run is queued',
-    );
 
     await expect(enabled).toBeChecked();
-    await expect(epicDraftSwitch).not.toBeChecked();
-    await expect(commentOnFixQueued).not.toBeChecked();
+    await expect(settings.getByRole('checkbox')).toHaveCount(1);
 
     await enabled.uncheck();
-    await epicDraftSwitch.check();
-    await commentOnFixQueued.check();
     await settings.getByRole('button', { name: 'Save automation' }).click();
 
     await expect(page.getByText('Automation settings saved.')).toBeVisible(
@@ -82,6 +71,4 @@ test('the owner changes the automation settings and reads them back', async ({
 
     await page.reload();
     await expect(enabled).not.toBeChecked();
-    await expect(epicDraftSwitch).toBeChecked();
-    await expect(commentOnFixQueued).toBeChecked();
 });

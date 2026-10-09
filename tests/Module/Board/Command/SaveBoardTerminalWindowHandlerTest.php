@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Command;
 use App\Module\Board\Command\SaveBoardTerminalWindowCommand;
 use App\Module\Board\Command\SaveBoardTerminalWindowHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
-use App\Module\Board\Entity\BoardMergeStrategy;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Project\Entity\Project;
@@ -60,9 +59,9 @@ final class SaveBoardTerminalWindowHandlerTest extends KernelTestCase
         self::assertSame([$this->project], $changed);
     }
 
-    public function test_it_keeps_the_other_settings_of_the_project(): void
+    public function test_it_keeps_the_master_switch_of_the_project(): void
     {
-        $settings = new BoardAutomationSettings($this->project, enabled: false, mergeStrategy: BoardMergeStrategy::Off, loopLimit: 7);
+        $settings = new BoardAutomationSettings($this->project, enabled: false);
         $this->em->persist($settings);
         $this->em->flush();
 
@@ -71,8 +70,6 @@ final class SaveBoardTerminalWindowHandlerTest extends KernelTestCase
         $stored = $this->stored();
         self::assertSame(1, $stored->terminalWindowDays);
         self::assertFalse($stored->enabled);
-        self::assertSame(BoardMergeStrategy::Off, $stored->mergeStrategy);
-        self::assertSame(7, $stored->loopLimit);
     }
 
     private function save(int $days): void

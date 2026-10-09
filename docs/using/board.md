@@ -781,28 +781,21 @@ or have your agent move it with `card_update`.
 
 ### Automation
 
-The owner sets how the workflow acts on pull requests on the **Automation** tab
-of the project settings, beside **Board columns**. Only a repository connected
-through the GitHub App gets a write from Loupe. The rules of the workflow decide
-each write. A write that a rule names happens when the rule fires. When the
-project has no GitHub App installation, the workflow asks a bridge for the
-work instead, as its template says. The comment, sync, merge, base change, epic pull
-request, widget verdict and site-review check settings below no longer change
-anything.
+The **Automation** tab of the project settings, beside **Board columns**, has
+one setting. The rules of the workflow decide every write to a pull request. A
+write that a rule names happens when the rule fires, and no other switch gates
+it. Only a repository connected through the GitHub App gets a write from Loupe.
+When the project has no GitHub App installation, the workflow asks a bridge for
+the work instead, as its template says.
 
 | Setting | Default | Does |
 |---|---|---|
 | **Run the workflow of the board** | on | When off, the workflow moves no card and asks for no work on this board. Loupe still records the pull request facts |
-| **Comment on the pull request when a fix run is queued** | off | Has no effect. The rule `comment-fix-run` of the Lifecycle template decides this comment |
-| **Comment on a pull request when new commits follow its approval** | off | Has no effect. The rule `comment-stale-approval` of the Lifecycle template decides this comment |
-| **Sync an approved pull request that is behind** | off | Has no effect. The rule of the workflow decides this write |
-| **Merge a pull request when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
-| **Change the base of a pull request when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
-| **Switch an epic pull request between draft and ready when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
-| **Close the pull requests of an epic when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
-| **Open the epic pull request** | off | Has no effect. The rule of the workflow decides this write |
-| **Post a widget verdict as a review on GitHub** | off | Has no effect. The rule of the workflow decides this write |
-| **Keep a "Loupe site review" check on pull requests** | off | Has no effect. The rule of the workflow decides this write |
+
+The epic branch pattern, the loop limit of the fix rules and the comments are
+part of the workflow template. The `epicBranch` value of the template names the
+epic branch, such as `epic/{number}`. The `limit` of a fix rule sets the
+number of fix rounds.
 
 In the Lifecycle template, Loupe posts a comment on the pull request each time
 a bridge queues a fix run for it. The comment gives the reason for the fix and
@@ -876,7 +869,7 @@ An agent drives the board through the MCP endpoint. See
 | `column_update` | `slug` is required. `label` and `terminal` are optional. |
 | `column_reorder` | `order` is required: the slugs of every column except Backlog, in the new order. |
 | `column_delete` | `slug` is required. `targetColumn` is required when the column holds cards. |
-| `automation_settings_update` | Every argument is optional. Each one is a setting of **Automation**, such as `enabled`, `syncBehind` or `openEpicPullRequests`. |
+| `automation_settings_update` | Every argument is optional. `enabled` turns the workflow of the board on or off. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal`, `default` and `backlog`. The Backlog row
