@@ -6,6 +6,10 @@ namespace App\Module\Board\Repository;
 
 use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestCommentState;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
@@ -58,6 +62,26 @@ class PullRequestCommentRepository extends ServiceEntityRepository
         );
 
         return \is_string($id) ? Uuid::fromString($id) : null;
+    }
+
+    /** @return list<WorkerRun> the open worker runs of the work kind on the card that have no comment row, by id */
+    public function findUncommentedOpenRuns(Uuid $cardId, string $workKind): array
+    {
+        /** @var list<WorkerRun> $runs */
+        $runs = $this->getEntityManager()->createQuery(
+            'SELECT r FROM '.WorkerRun::class.' r LEFT JOIN '.PullRequestComment::class.' comment WITH comment.runId = r.id
+            WHERE r.subjectType = :cardSubject AND r.subjectId = :cardId AND r.kind = :kind AND r.workKind = :workKind
+                AND r.state IN (:openStates) AND comment.id IS NULL
+            ORDER BY r.id ASC',
+        )
+            ->setParameter('cardSubject', WorkSubject::CARD)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->setParameter('workKind', $workKind)
+            ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
+            ->getResult();
+
+        return $runs;
     }
 
     /** Answers the posted or failed row that settled last. */

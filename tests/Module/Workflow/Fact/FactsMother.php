@@ -12,11 +12,13 @@ use App\Module\Board\Workflow\ChildrenFactProvider;
 use App\Module\Board\Workflow\ChildrenFacts;
 use App\Module\Board\Workflow\DocumentsFactProvider;
 use App\Module\Board\Workflow\DocumentsFacts;
+use App\Module\Board\Workflow\FixRunFacts;
 use App\Module\Board\Workflow\ParentDocumentsFactProvider;
 use App\Module\Board\Workflow\ParentDocumentsFacts;
 use App\Module\Board\Workflow\ParentFactProvider;
 use App\Module\Board\Workflow\ParentFacts;
 use App\Module\Board\Workflow\PullRequestListFactProvider;
+use App\Module\Board\Workflow\StaleApprovalFacts;
 use App\Module\Bridge\Workflow\ParentWorkFactProvider;
 use App\Module\Bridge\Workflow\ParentWorkFacts;
 use App\Module\Bridge\Workflow\RefusalFactProvider;
@@ -76,8 +78,9 @@ final class FactsMother
             ...self::byClass(new ChildrenFacts($card->childCount, $card->openChildCount, $card->childMergedIntoEpicBranch), new DocumentsFacts($card->documents), new ParentDocumentsFacts($card->parentDocuments)),
             ...self::byClass(new PullRequestList($pullRequests, $pullRequest)),
             ...self::byClass(new WorkRequestFacts($run->activeWorkKinds), new RefusalFacts($run->lastRefusalCode), new WorkerRunFacts($run->activeWorkerKinds), new ParentWorkFacts($run->parentActiveKinds)),
+            ...self::byClass(new FixRunFacts([]), new StaleApprovalFacts([])),
         ];
-        $prints = [];
+        $prints = [FixRunFacts::class => [], StaleApprovalFacts::class => []];
         $legacy = [];
         foreach (self::PROVIDERS as $providerClass) {
             $provider = new \ReflectionClass($providerClass)->newInstanceWithoutConstructor();
