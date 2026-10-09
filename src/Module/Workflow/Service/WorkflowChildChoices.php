@@ -40,11 +40,11 @@ final readonly class WorkflowChildChoices implements ChildChoices
     {
         $steps = [];
         foreach ($this->calls($projectId) as $choice => $calls) {
-            $steps[$choice] = array_map(fn (ActionCall $call): ChildChoiceStep => new ChildChoiceStep(
-                $call->key,
-                $call->params,
-                $this->contexts->columns(self::rule($choice, $call), $projectId)['to'] ?? null,
-            ), $calls);
+            $steps[$choice] = array_map(function (ActionCall $call) use ($choice, $projectId): ChildChoiceStep {
+                $columns = $this->contexts->columns(self::rule($choice, $call), $projectId);
+
+                return new ChildChoiceStep($call->key, $call->params, $columns['to'] ?? null, $columns['from'] ?? null);
+            }, $calls);
         }
 
         return $steps;

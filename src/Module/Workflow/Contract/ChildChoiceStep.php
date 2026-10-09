@@ -13,6 +13,8 @@ final readonly class ChildChoiceStep
         public array $params,
         /** The column of the `to` slot of the action, or null when the action has none or the slot has no column. */
         public ?ColumnRef $to,
+        /** The column of the `from` slot of the action, or null when the action has none or the slot has no column. */
+        public ?ColumnRef $from = null,
     ) {
     }
 }
