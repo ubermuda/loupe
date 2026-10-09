@@ -33,6 +33,7 @@ test('a reviewer signs in through the popup and saves a comment', async ({
 
     // A signed-out widget collapses its quick actions once the boot load
     // ends. A click on Review before that is undone by the collapse.
+    await expect(page.locator('#lp-launcher')).toBeVisible();
     await expect(page.locator('#lp-launch-note')).toBeHidden();
     await page.getByRole('button', { name: 'Review' }).click();
     const signIn = page.getByRole('button', { name: 'Sign in with Loupe' });
