@@ -54,6 +54,7 @@ use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\RuleBudgets;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Service\EvaluationTrigger;
+use App\Routing\PinnedUrlGenerator;
 use App\Tests\Module\Board\Fake\FakeCheckWriter;
 use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
 use App\Tests\Module\Board\Fake\FakeReviewPoster;
@@ -700,6 +701,8 @@ final class ForgeWriteTest extends KernelTestCase
                 $this->service(TranslatorInterface::class),
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),
+                $this->service(PinnedUrlGenerator::class),
+                'en',
             ),
             new SiteReviewCheckPublisher(
                 $this->service(CardPullRequestRepository::class),

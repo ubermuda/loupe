@@ -170,6 +170,15 @@ has a line that says one of these:
 When your GitHub connection ended, the line says so and offers **Connect
 again**.
 
+### What the review says on GitHub
+
+Every review that Loupe posts opens with one line. The line says that the
+review comes from the Loupe site review of the card, and links to the
+**Feedback** tab of the card. It also links to the page of the first note, when
+the review has a note. Only members of the project can open the card link. The
+message and the notes follow the line, and an approval with no message posts
+the line alone.
+
 ## Retrying a save
 
 A failed save keeps the draft open. Press **Save** again to retry it.

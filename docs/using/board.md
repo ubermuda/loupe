@@ -1102,7 +1102,8 @@ A verdict changes nothing on GitHub by itself. The
 requests, as soon as the rule fires:
 
 - The verdict becomes a review under the reviewer's own GitHub account. On the
-  reviewer's own pull request it becomes a comment.
+  reviewer's own pull request it becomes a comment. Each review opens with a
+  line that names the Loupe site review and links to the card.
 - The check fails while a pending note that a verdict carried remains. The check
   also runs when nobody sends a verdict. It is green until a verdict carries a
   note. When two cards link one pull request, the check counts the pending notes
