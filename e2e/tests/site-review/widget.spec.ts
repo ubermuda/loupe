@@ -3688,7 +3688,11 @@ test('the corner control walks the launcher round every corner, each on screen',
         await expectPanelMeetsLauncher(page, corner);
 
         await page.locator('#lp-cancel').click();
+        // The composer collapses and slides the header down under the pointer, so
+        // a press mid-collapse releases off the button and fires no click.
+        await settledBox(page, '#lp-panel');
         await page.locator('#lp-move').click();
+        await expect.poll(() => cornerAttribute(page)).not.toBe(corner);
     }
 
     expect(visited).toEqual([

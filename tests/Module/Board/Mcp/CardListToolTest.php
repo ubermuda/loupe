@@ -51,6 +51,31 @@ final class CardListToolTest extends KernelTestCase
         $this->createTool = $createTool;
     }
 
+    public function test_a_row_reads_the_kind_of_its_state_with_and_without_full(): void
+    {
+        $this->boardWith('card-list-state');
+        $paused = $this->em->find(Card::class, $this->createTool->__invoke('Held', 'Body', 'feature')['cardId']);
+        self::assertInstanceOf(Card::class, $paused);
+        $free = $this->createTool->__invoke('Free', 'Body', 'feature');
+        $handler = self::getContainer()->get(PauseCardHandler::class);
+        self::assertInstanceOf(PauseCardHandler::class, $handler);
+        $pause = $handler(new PauseCardCommand($paused, 'review-failed', 'fix-on-review', CardPauseKind::Retries));
+        self::assertNotNull($pause);
+        $expected = ['kind' => 'stuck', 'code' => 'paused', 'since' => $pause->createdAt->format(\DATE_ATOM)];
+
+        $rows = array_column(($this->tool)()['cards'], null, 'title');
+        $fullRows = array_column(($this->tool)(full: true)['cards'], null, 'title');
+
+        self::assertSame($expected, $rows['Held']['state']);
+        self::assertNull($rows['Free']['state']);
+        $heldState = $fullRows['Held']['state'];
+        self::assertNotNull($heldState);
+        self::assertSame($expected, array_intersect_key($heldState, $expected));
+        self::assertSame('Paused: review-failed.', $heldState['reason']);
+        self::assertNull($fullRows['Free']['state']);
+        self::assertSame($free['cardId'], $fullRows['Free']['cardId']);
+    }
+
     public function test_an_open_column_reads_in_rank_order(): void
     {
         $project = $this->boardWith('card-list-order');
@@ -231,7 +256,7 @@ final class CardListToolTest extends KernelTestCase
         $row = ($this->tool)()['cards'][0];
 
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'parentCardId', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'parentCardId', 'updatedAt', 'state'],
             array_keys($row),
         );
     }
