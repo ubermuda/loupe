@@ -15,6 +15,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\McpTokenScenario;
 use Mcp\Exception\ToolCallException;
@@ -95,6 +96,17 @@ final class CardChildDesignToolTest extends KernelTestCase
     public function test_a_choice_with_no_parent_is_refused(): void
     {
         $this->assertRefused('no parent', fn () => $this->create()(title: 'Orphan', body: 'Body', type: 'feature', childDesign: 'own'));
+    }
+
+    public function test_own_is_refused_before_the_write_when_tech_design_has_no_column(): void
+    {
+        $link = self::getContainer()->get(WorkflowSlotLinkRepository::class)->findOneBy(['project' => $this->project, 'slotKey' => 'tech-design']);
+        self::assertNotNull($link);
+        $link->columnId = null;
+        $this->em()->flush();
+
+        $this->assertRefused('no column for the Tech design step', fn () => $this->create()(title: 'No column', body: 'Body', type: 'feature', parentCardId: (string) $this->epic->id, childDesign: 'own'));
+        self::assertSame(0, $this->childCount('No column'));
     }
 
     public function test_own_with_a_status_is_refused(): void

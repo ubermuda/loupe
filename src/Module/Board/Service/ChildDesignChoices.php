@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Workflow\LinkDocument;
 use App\Module\Board\Workflow\MoveCard;
+use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardMoveGuard;
@@ -28,6 +29,7 @@ final readonly class ChildDesignChoices
     public const array CHOICES = ChildChoices::CHOICES;
 
     private const string APPROVED = 'approved';
+    private const string SLOT_MISSING = 'workflow-slot-missing';
 
     public function __construct(
         private ChildChoices $choices,
@@ -70,8 +72,15 @@ final readonly class ChildDesignChoices
      * @throws ChildDesignRefused when the workflow declares no such choice, or an action refuses
      * @throws CardManaged        when the workflow does not allow the move that `own` makes
      */
-    public function write(\Closure $write, string $choice, ?CardEventCause $cause = null, ?Card $existing = null): Card
+    public function write(Project $project, \Closure $write, string $choice, ?CardEventCause $cause = null, ?Card $existing = null): Card
     {
+        // The card handlers record their audit event outside this transaction, so refuse what can be known before the write.
+        $steps = $this->choices->forProject($project->requireId())[$choice] ?? throw new ChildDesignRefused(self::refusal($choice, ChildChoices::NO_CHOICE));
+        foreach ($steps as $step) {
+            if (MoveCard::KEY === $step->key && null === $step->to) {
+                throw new ChildDesignRefused(self::refusal($choice, self::SLOT_MISSING));
+            }
+        }
         if (null !== $existing) {
             $this->checkMoves($existing, $choice, $cause);
         }
@@ -105,7 +114,7 @@ final readonly class ChildDesignChoices
     {
         return match ($code) {
             LinkDocument::NO_PARENT_DOCUMENT => 'childDesign: The parent card has no tech design to inherit. Pass "own" to give this card a design of its own.',
-            'workflow-slot-missing' => 'childDesign: This board has no column for the Tech design step, so "own" cannot move the card there.',
+            self::SLOT_MISSING => 'childDesign: This board has no column for the Tech design step, so "own" cannot move the card there.',
             ChildChoices::NO_CHOICE => \sprintf('childDesign: The workflow of this project declares no "%s" choice.', $choice),
             default => \sprintf('childDesign: The workflow refused the "%s" choice (%s).', $choice, $code),
         };

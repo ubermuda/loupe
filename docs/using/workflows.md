@@ -268,7 +268,8 @@ no such section refuses `childDesign`.
 In a workflow file, the action `ask` takes a `question` key and a list of
 `options`. Each option has a `label` and a `then` list of actions. The action
 `link-document` links a document of the parent card to the card. It takes
-`from: parent` and a `tag`. The action `detach` removes the parent of the
+`from: parent` and a `tag`. When the parent has two documents with that tag, it
+links the approved one. The action `detach` removes the parent of the
 card. The `question` and each `label` are translation keys. They can use the
 parameters `%child%` and `%epic%`, which hold the card numbers.
 

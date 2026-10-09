@@ -90,7 +90,7 @@ final readonly class CardCreateTool
                 actor: Actor::Agent,
                 source: $this->runSource->forProject($project) ?? new CardSource(CardSourceKind::Agent),
             ));
-            $card = null === $choice ? $create() : $this->choices->write($create, $choice);
+            $card = null === $choice ? $create() : $this->choices->write($project, $create, $choice);
 
             $view = ($this->showCard)(new ShowCardCommand($card));
 
