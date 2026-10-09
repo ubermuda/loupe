@@ -24,6 +24,8 @@ Call `inbox_ask` with:
 - `context`: one or two sentences the owner reads above the items, such as "Working on card 33, I need two decisions before I write the migration".
 - `items`: each with a `kind` (`question` or `todo`) and a one-line `title`. The `title` and each option follow rule 18 of `loupe-documents`: they make sense with no document open. The `context` names the card in words, not only by its number.
 
+Write the `context` and each item so that the owner can act on them with no other page open. Say what the ask is, why you ask now, and the next steps you suggest.
+
 Set `blocking` on each item. A question blocks by default and a to-do does not. Pass `false` on a question you can work around, and `true` on a to-do your next step needs.
 
 A question needs `options`, `freeText` or both. A to-do takes neither. `multiple` needs two options. Each option is at most 500 characters.
