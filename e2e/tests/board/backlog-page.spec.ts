@@ -7,8 +7,13 @@
  * the parent in one call. A card with no status lands in Backlog.
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
-import { accessToken, suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as base,
+    accessToken,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBacklogPage1!';

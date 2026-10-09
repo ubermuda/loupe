@@ -8,8 +8,9 @@
  * The status badge is asserted on the project dashboard (/projects/{projectId}/documents).
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import {
+    hubStubbedTest as base,
     skipUnreachableHub,
     suppressToolbar,
     suppressWidget,

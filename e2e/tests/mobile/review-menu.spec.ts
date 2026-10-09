@@ -9,8 +9,12 @@
  * Mailpit.
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as base,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eReviewMenu1!';
