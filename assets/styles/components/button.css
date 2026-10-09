@@ -1,0 +1,106 @@
+/* The button. `templates/components/Ds/Button.html.twig` renders it, and
+   `ds_button_class()` gives the same classes to a Symfony form button. */
+@layer components {
+    .lp-btn {
+        @apply inline-flex items-center justify-center gap-1.5 border border-line bg-surface-1 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
+        @apply min-h-9 rounded-lg px-3 py-1.5 leading-5;
+    }
+    .lp-btn:hover {
+        @apply bg-surface-2;
+    }
+    .lp-btn:active {
+        @apply translate-y-px scale-97;
+    }
+    .lp-btn--primary {
+        @apply border-accent-border bg-accent text-ink font-semibold;
+    }
+    .lp-btn--primary:hover {
+        @apply bg-accent-hover;
+    }
+    /* Inverse — Resolve, Send reply, Approve. Accent on near-black rather than
+       the other way round, so it reads as the decisive action on a light card
+       without a second accent fill competing with the primary button. */
+    .lp-btn--inverse {
+        @apply border-ink bg-ink text-accent font-bold;
+    }
+    .lp-btn--inverse:hover {
+        @apply bg-chrome-raised;
+    }
+    /* On a card, whose own fill is already the raised grey. */
+    .lp-btn--on-card {
+        @apply bg-app;
+    }
+    .lp-btn--on-card:hover {
+        @apply bg-tint-strong;
+    }
+    /* Outline, for use on the dark chrome (the top bar's Request changes). */
+    .lp-btn--outline {
+        @apply bg-transparent border border-chrome-line text-chrome-fg font-normal;
+    }
+    .lp-btn--outline:hover {
+        @apply bg-chrome-raised;
+    }
+    .lp-btn--success {
+        @apply bg-status-ok-border text-status-ok-ink font-bold;
+    }
+    .lp-btn--success:hover {
+        @apply bg-status-ok-bg;
+    }
+    /* Filled destructive — irreversible, and the only red fill on the screen. */
+    .lp-btn--danger {
+        @apply bg-status-danger-bg text-danger font-bold;
+    }
+    .lp-btn--danger:hover {
+        @apply bg-status-danger-border;
+    }
+    .lp-btn--ghost {
+        @apply border-transparent bg-transparent text-fg-mute shadow-none;
+    }
+    .lp-btn--ghost:hover {
+        @apply bg-tint-strong text-ink;
+    }
+    /* Text-only destructive — recoverable (Delete a comment, Revoke a token). */
+    .lp-btn--danger-ghost {
+        @apply border-transparent bg-transparent px-3 text-danger shadow-none;
+    }
+    .lp-btn--danger-ghost:hover {
+        @apply bg-status-danger-bg;
+    }
+    .lp-btn--sm {
+        @apply px-3.5 text-sm;
+    }
+    .lp-btn--icon {
+        @apply w-9 h-9 p-0 border-transparent bg-transparent text-fg-mute;
+    }
+    .lp-btn--icon:hover {
+        @apply bg-tint-strong text-ink;
+    }
+    /* An icon button that fits a text-sm line, so a list row keeps its height. */
+    .lp-btn--compact {
+        @apply size-5 min-h-0 rounded-sm;
+    }
+    /* Open control on a linked-work row: labelled where the table has room,
+       and a named icon button below `sm`, where the word costs a column. */
+    .lp-btn--open {
+        @apply w-9 p-0 sm:w-auto sm:px-3.5 border-transparent bg-transparent text-fg-mute;
+    }
+    .lp-btn--open:hover {
+        @apply bg-tint-strong text-ink;
+    }
+    .lp-btn__label {
+        @apply hidden sm:inline;
+    }
+
+    /* Buttons are pills everywhere else at 36px; the hero's pair carry the page
+       and need the extra weight. */
+    .lp-btn--lg {
+        @apply h-11 px-6 text-base;
+    }
+
+    /* What `j` and `k` look like: the keyboard reaches the same two buttons the
+       pointer does, so the press has to be visible on them. Matches the hover
+       fill and the `:active` transform the pointer gets. */
+    .lp-btn--icon.lp-btn--pressed {
+        @apply bg-tint-strong text-ink translate-y-px scale-97;
+    }
+}

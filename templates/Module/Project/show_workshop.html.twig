@@ -36,7 +36,7 @@
         {% include '@Project/_readiness_checklist.html.twig' with {project: workshop.project, readiness: readiness, layout: 'full'} only %}
         <form class="lp-readiness-guide__hide" method="post" action="{{ path('app_readiness_guide_hide', {id: workshop.project.id}) }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('readiness-guide-hide') }}">
-            <button type="submit" class="lp-btn lp-btn--ghost" data-readiness-hide>{{ 'readiness.guide.hide'|trans }}</button>
+            <twig:Ds:Button variant="ghost" type="submit" data-readiness-hide>{{ 'readiness.guide.hide'|trans }}</twig:Ds:Button>
         </form>
     </div>
     {% else %}
@@ -60,10 +60,10 @@
             <span class="lp-workshop-stat__value">{{ workshop.stats.completedCardCount }}</span>
             <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.completed'|trans }}</strong>{{ 'project.workshop.summary.completed_detail'|trans }}</span>
         </a>
-        <a class="lp-btn lp-workshop-summary__action" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
+        <twig:Ds:Button class="lp-workshop-summary__action" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
             <twig:ux:icon name="lucide:square-kanban" />
             {{ 'project.workshop.in_motion.action'|trans }}
-        </a>
+        </twig:Ds:Button>
     </div>
 
     <div class="lp-workshop-layout">

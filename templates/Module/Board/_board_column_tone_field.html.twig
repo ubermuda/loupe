@@ -1,5 +1,5 @@
-<fieldset class="lp-form-field">
-    <legend class="lp-label">{{ field.vars.label|trans }}</legend>
+<twig:Ds:FormField as="fieldset">
+    <twig:Ds:Label as="legend">{{ field.vars.label|trans }}</twig:Ds:Label>
     <div class="lp-tone-picker">
         {% for choice in field %}
         <label class="lp-choice">
@@ -9,5 +9,5 @@
         </label>
         {% endfor %}
     </div>
-    <div class="lp-field-errors" data-field-errors="tone">{{ form_errors(field) }}</div>
-</fieldset>
+    <twig:Ds:FieldErrors :fieldView="field" data-field-errors="tone" />
+</twig:Ds:FormField>

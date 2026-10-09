@@ -24,10 +24,7 @@
                 <div class="lp-site-review-main">
                     <div class="lp-site-review-title-row">
                         <p class="lp-site-review-quote">{{ 'outbox.event_label'|trans({'%date%': event.createdAt|date('Y-m-d H:i')}) }}</p>
-                        <span class="lp-status-chip lp-status-chip--pending shrink-0">
-                            <span class="lp-status-chip__dot"></span>
-                            {{ 'outbox.status.unsent'|trans }}
-                        </span>
+                        <twig:Ds:StatusChip modifier="pending" class="shrink-0">{{ 'outbox.status.unsent'|trans }}</twig:Ds:StatusChip>
                     </div>
 
                     <div class="lp-site-review-context">
@@ -52,10 +49,7 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:circle-check" class="lp-empty-state__icon text-accent w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'outbox.empty'|trans }}</h2>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:circle-check" iconClass="text-accent w-12 h-12" :title="'outbox.empty'|trans" />
     {% endif %}
 </div>
 {% endblock %}

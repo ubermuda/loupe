@@ -1,0 +1,13 @@
+{#
+  Props:  @comment-budget-ignore
+    fieldView   FormView   The field whose errors it lists. Without it, the body is the content.
+    as          string     div or p. Defaults to div.
+  Any other attribute, class included, is passed to the element. A null attribute is left out.
+#}
+{%- props fieldView = null, as = 'div' -%}
+{%- for name, value in attributes.all -%}
+    {%- if value is null -%}
+        {%- set attributes = attributes.remove(name) -%}
+    {%- endif -%}
+{%- endfor -%}
+<{{ as }}{{ attributes.defaults({class: 'lp-field-errors'}) }}>{% if fieldView %}{{ form_errors(fieldView) }}{% else %}{% block content %}{% endblock %}{% endif %}</{{ as }}>

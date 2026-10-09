@@ -1,0 +1,27 @@
+/* The tab strip. `templates/components/Ds/Tabs.html.twig` renders it. */
+@layer components {
+    /* The one tab strip: role="tab" buttons (aria-selected), page links
+       (aria-current) or view toggles (aria-pressed) share the underline. */
+    .lp-tabs {
+        @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
+        scrollbar-width: none;
+    }
+    .lp-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-tabs__tab {
+        @apply inline-flex items-center gap-2 px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute no-underline whitespace-nowrap cursor-pointer transition-colors;
+    }
+    .lp-tabs__tab:hover,
+    .lp-tabs__tab:focus-visible {
+        @apply text-ink;
+    }
+    .lp-tabs__tab[aria-selected='true'],
+    .lp-tabs__tab[aria-current='page'],
+    .lp-tabs__tab[aria-pressed='true'] {
+        @apply border-accent text-ink;
+    }
+    .lp-tabs__count {
+        @apply inline-flex items-center justify-center min-w-5 rounded-md bg-surface-3 px-1.5 py-0.5 text-xs text-fg-dim;
+    }
+}

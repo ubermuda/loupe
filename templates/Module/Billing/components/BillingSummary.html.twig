@@ -22,8 +22,8 @@
 
     {# The actions themselves live on the subscribe page, which owns the CSRF
        tokens and the Stripe redirects. #}
-    <a href="{{ path('app_billing_subscribe') }}" class="lp-btn lp-btn--primary">
+    <twig:Ds:Button variant="primary" href="{{ path('app_billing_subscribe') }}">
         {{ (view.hasLiveSubscription ? 'billing.subscribe.portal.button' : 'billing.subscribe.checkout.button')|trans }}
-    </a>
+    </twig:Ds:Button>
 </section>
 {% endif %}

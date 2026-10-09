@@ -44,6 +44,8 @@ final readonly class RedirectUnverifiedUserListener
         // signed-in unverified account may redeem one too.
         'app_billing_beta_invite',
         'app_billing_beta_invite_claim',
+        // The dev-only styleguide reads no account data.
+        'app_dev_styleguide',
     ];
 
     public function __construct(
