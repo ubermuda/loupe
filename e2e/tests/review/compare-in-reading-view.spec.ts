@@ -87,11 +87,11 @@ test('the comparison chrome is one toolbar row', async ({ page }) => {
     ).toBe(true);
 
     await next.click();
-    await expect(counter).toHaveText('Change 1 of 2');
+    await expect(counter).toHaveText('1 of 2 changes');
     await next.click();
-    await expect(counter).toHaveText('Change 2 of 2');
+    await expect(counter).toHaveText('2 of 2 changes');
     await previous.click();
-    await expect(counter).toHaveText('Change 1 of 2');
+    await expect(counter).toHaveText('1 of 2 changes');
     await expect(page.locator('.lp-diff__hunk--current')).toHaveCount(1);
 
     // The Markdown view is a plain navigation, and the switch follows it.
@@ -111,7 +111,7 @@ test('the comparison chrome is one toolbar row', async ({ page }) => {
     await expect(page.locator('#diff-from')).toHaveValue('2');
     await expect(page.locator('#diff-to')).toHaveValue('3');
 
-    // The header's return action is the way back to the latest version.
+    // The compare bar's return link is the way back to the latest version.
     await page.getByRole('link', { name: 'Return to document' }).click();
     await expect(page).toHaveURL(reviewPath);
     await expect(page.locator('.lp-diff-bar')).toHaveCount(0);
