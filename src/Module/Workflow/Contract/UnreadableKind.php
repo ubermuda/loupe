@@ -9,4 +9,5 @@ enum UnreadableKind: string
     case Failed = 'failed';
     case Off = 'off';
     case MissingCondition = 'missing-condition';
+    case MissingAction = 'missing-action';
 }

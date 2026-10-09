@@ -103,6 +103,7 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
             'workTimeoutMinutes' => 120,
             'rules' => [
                 ['id' => 'gone', 'when' => ['all' => [['card.gone' => []], ['card.parent.exists' => []]]], 'then' => ['request' => ['kind' => 'gone']]],
+                ['id' => 'later', 'when' => ['card.parent.exists' => []], 'then' => ['jump' => []]],
                 ['id' => 'hold', 'when' => ['card.parent.exists' => []], 'then' => ['pause' => ['reason' => 'held', 'until' => ['all' => [['card.parent.exists' => []], ['pr.open' => []]]]]]],
             ],
         ]));
@@ -113,6 +114,7 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[data-rule-id="gone"][data-rule-missing] .lp-tag', 'Condition no longer exists: card.gone');
+        self::assertSelectorTextContains('[data-rule-id="later"][data-rule-missing] .lp-tag', 'Action not known to this version: jump');
         self::assertSelectorTextContains('[data-rule-id="gone"] [data-condition-source="workflow.source.board"]', 'Board: card.parent.exists');
         self::assertSelectorNotExists('[data-rule-id="gone"] [data-rule-until]');
         self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until]', 'Until:');
