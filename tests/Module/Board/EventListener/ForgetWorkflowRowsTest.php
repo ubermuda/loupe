@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\EventListener;
 
+use App\Module\Board\Command\DeleteCardCommand;
+use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnDeleted;
-use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDeleted;
 use App\Module\Board\EventListener\ForgetWorkflowRowsOnBoardColumnDeleted;
 use App\Module\Board\EventListener\ForgetWorkflowRowsOnCardDeleted;
 use App\Module\Project\Entity\Project;
@@ -32,24 +34,27 @@ final class ForgetWorkflowRowsTest extends KernelTestCase
 
         $listener = self::getContainer()->get(ForgetWorkflowRowsOnCardDeleted::class);
         self::assertInstanceOf(ForgetWorkflowRowsOnCardDeleted::class, $listener);
-        $listener(new CardChanged($project->id ?? throw new \LogicException(), $gone, CardChanged::DELETED, false));
+        $listener(new CardDeleted($project->id ?? throw new \LogicException(), $gone));
 
         self::assertSame([0, 0], $this->cardRowCounts($gone));
         self::assertSame([1, 1], $this->cardRowCounts($kept));
     }
 
-    public function test_a_card_that_only_changed_keeps_its_rows(): void
+    public function test_deleting_a_card_through_its_handler_removes_its_workflow_rows(): void
     {
         self::bootKernel();
-        $project = $this->workflowProject('forget-card-updated');
+        $project = $this->workflowProject('forget-card-handler');
         $this->bindLifecycle($project);
-        $card = $this->cardWithRows($project, 1);
+        $goneId = $this->cardWithRows($project, 1);
+        $kept = $this->cardWithRows($project, 2);
+        $gone = $this->em()->find(Card::class, $goneId) ?? throw new \LogicException();
+        $delete = self::getContainer()->get(DeleteCardHandler::class);
+        self::assertInstanceOf(DeleteCardHandler::class, $delete);
 
-        $listener = self::getContainer()->get(ForgetWorkflowRowsOnCardDeleted::class);
-        self::assertInstanceOf(ForgetWorkflowRowsOnCardDeleted::class, $listener);
-        $listener(new CardChanged($project->id ?? throw new \LogicException(), $card, CardChanged::UPDATED, true));
+        $delete(new DeleteCardCommand($gone, CardReporter::Human));
 
-        self::assertSame([1, 1], $this->cardRowCounts($card));
+        self::assertSame([0, 0], $this->cardRowCounts($goneId));
+        self::assertSame([1, 1], $this->cardRowCounts($kept));
     }
 
     public function test_a_deleted_column_leaves_its_slot_unlinked_and_spares_the_other_slots(): void

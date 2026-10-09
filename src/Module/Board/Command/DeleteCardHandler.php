@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDeleted;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -100,8 +101,11 @@ final readonly class DeleteCardHandler
             // The link rows cascade in the database, so read the cards they block first.
             $unblocked = $this->cards->findBlockedBy($card);
             $trackedBefore = $this->pullRequestTracking->referencesOf($card);
+            $deletedCardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+            $deletedProjectId = $card->project->id ?? throw new \LogicException('A persisted project has an id.');
             $this->em->remove($card);
             $this->em->flush();
+            $this->events->dispatch(new CardDeleted($deletedProjectId, $deletedCardId));
             $this->pullRequestTracking->apply($card->project, $trackedBefore, []);
 
             // After the flush, so the epic counts its children without this

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
-use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDeleted;
 use App\Module\Workflow\Contract\WorkflowRowCleanup;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -17,12 +17,8 @@ final readonly class ForgetWorkflowRowsOnCardDeleted
     ) {
     }
 
-    public function __invoke(CardChanged $event): void
+    public function __invoke(CardDeleted $event): void
     {
-        if (CardChanged::DELETED !== $event->change) {
-            return;
-        }
-
         $this->cleanup->forgetCard($event->cardId);
     }
 }
