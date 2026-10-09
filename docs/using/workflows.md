@@ -153,7 +153,7 @@ act on a site-review verdict, and they never ask a bridge for work:
 | Write | Does |
 |---|---|
 | `post-review` | Posts each unsent verdict as a review on the open GitHub pull requests that the reviewer picked. The review goes out under the reviewer's own GitHub account |
-| `site-review-check` | Keeps a check named "Loupe site review" on each open GitHub pull request of the card. The check goes out as the GitHub App |
+| `site-review-check` | Keeps a check named "Loupe site review" on each open GitHub pull request of the card. The check counts the notes of every card that links the pull request. The check goes out as the GitHub App |
 
 A review that the reviewer sends on their own pull request becomes a comment,
 because GitHub refuses a review from the author of a pull request.

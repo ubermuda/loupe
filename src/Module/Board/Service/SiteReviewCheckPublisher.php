@@ -17,7 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-/** Keeps the site review check of each open pull request of a card in line with the notes that verdicts carried. */
+/** Keeps the site review check of each open pull request of a card in line with the notes that the verdicts of every card on that pull request carried. */
 final readonly class SiteReviewCheckPublisher
 {
     public const string NAME = 'Loupe site review';
@@ -46,13 +46,12 @@ final readonly class SiteReviewCheckPublisher
     public function publish(Card $card): SiteReviewWriteResult
     {
         $pullRequests = $this->cardPullRequests->findOpenGitHubForCard($card);
-        $wanted = $this->facts->wantedChecks($card, $pullRequests);
+        $wanted = $this->facts->wantedChecks($pullRequests);
         if ([] === $wanted) {
             return new SiteReviewWriteResult(null, false);
         }
 
         $optedIn = $this->boardAutomation->settingsOf($card->project)->siteReviewCheck;
-        $notes = $this->facts->carriedPendingNotes($card);
         $failure = null;
         $changed = false;
         foreach ($pullRequests as $pullRequest) {
@@ -80,7 +79,7 @@ final readonly class SiteReviewCheckPublisher
                         $check->headSha,
                         CheckWanted::SUCCESS === $check->wantedConclusion ? PullRequestCheckConclusion::Success : PullRequestCheckConclusion::Failure,
                         $this->title($check),
-                        $this->summary($check, $notes),
+                        $this->summary($check),
                         $reusable ? $state->checkRunId : null,
                     );
                 } catch (PullRequestCheckFailed $e) {
@@ -112,9 +111,9 @@ final readonly class SiteReviewCheckPublisher
         return $this->translator->trans('board.site_review_check.title', ['%count%' => $check->noteCount]);
     }
 
-    /** @param list<array{id: string, url: string, body: string, anchorCount: int}> $notes */
-    private function summary(CheckWanted $check, array $notes): string
+    private function summary(CheckWanted $check): string
     {
+        $notes = $check->notes;
         if (CheckWanted::SUCCESS === $check->wantedConclusion) {
             return $this->translator->trans('board.site_review_check.summary_clear');
         }
