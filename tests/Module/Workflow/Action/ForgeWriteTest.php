@@ -26,11 +26,10 @@ use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
 use App\Module\Project\Entity\Project;
-use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ForgeWrite;
+use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
-use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
@@ -444,7 +443,7 @@ final class ForgeWriteTest extends KernelTestCase
 
         $params = null === $fallback ? ['write' => $write] : ['write' => $write, 'fallback' => $fallback];
 
-        return $action->run($this->rule(ActionType::ForgeWrite, $params), $card->snapshot(), $facts ?? FactsMother::facts(), $this->state($card));
+        return $this->runAction($action, $this->rule('forge-write', $params), $card->snapshot(), $facts ?? FactsMother::facts(), $this->state($card));
     }
 
     /** @return list<string> */

@@ -9,11 +9,10 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\MoveCard;
+use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
-use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -27,9 +26,9 @@ final class MoveCardTest extends KernelTestCase
         $project = $this->workflowProject('move-slot');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'tech-design');
-        $rule = $this->rule(ActionType::Move, ['to' => 'implementation'], 'tech-design-approved');
+        $rule = $this->rule('move', ['to' => 'implementation'], 'tech-design-approved');
 
-        $outcome = $this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $this->state($card, $rule->id));
+        $outcome = $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $this->state($card, $rule->id));
 
         self::assertEquals(ActionOutcome::done(), $outcome);
         self::assertSame('in-progress', $card->column->slug);
@@ -48,10 +47,10 @@ final class MoveCardTest extends KernelTestCase
         $project = $this->workflowProject('move-flags');
         $card = $this->card($project, 'next');
 
-        self::assertEquals(ActionOutcome::done(), $this->action()->run($this->rule(ActionType::Move, ['to' => '@terminal']), $card->snapshot(), FactsMother::facts(), $this->state($card)));
+        self::assertEquals(ActionOutcome::done(), $this->runAction($this->action(), $this->rule('move', ['to' => '@terminal']), $card->snapshot(), FactsMother::facts(), $this->state($card)));
         self::assertTrue($card->column->terminal);
 
-        self::assertEquals(ActionOutcome::done(), $this->action()->run($this->rule(ActionType::Move, ['to' => '@backlog']), $card->snapshot(), FactsMother::facts(), $this->state($card)));
+        self::assertEquals(ActionOutcome::done(), $this->runAction($this->action(), $this->rule('move', ['to' => '@backlog']), $card->snapshot(), FactsMother::facts(), $this->state($card)));
         self::assertTrue($card->column->backlog);
     }
 
@@ -62,7 +61,7 @@ final class MoveCardTest extends KernelTestCase
         $this->bindLifecycle($project);
         $card = $this->card($project, 'in-progress');
 
-        $outcome = $this->action()->run($this->rule(ActionType::Move, ['to' => 'implementation']), $card->snapshot(), FactsMother::facts(), $this->state($card));
+        $outcome = $this->runAction($this->action(), $this->rule('move', ['to' => 'implementation']), $card->snapshot(), FactsMother::facts(), $this->state($card));
 
         self::assertEquals(ActionOutcome::done(), $outcome);
         self::assertSame('in-progress', $card->column->slug);
@@ -75,9 +74,9 @@ final class MoveCardTest extends KernelTestCase
         $project = $this->workflowProject('move-from');
         $this->bindLifecycle($project);
         $card = $this->card($project, 'next');
-        $rule = $this->rule(ActionType::Move, ['to' => 'implementation', 'from' => '@backlog']);
+        $rule = $this->rule('move', ['to' => 'implementation', 'from' => '@backlog']);
 
-        $outcome = $this->action()->run($rule, $card->snapshot(), FactsMother::facts(card: FactsMother::card(slot: 'next')), $this->state($card));
+        $outcome = $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(card: FactsMother::card(slot: 'next')), $this->state($card));
 
         self::assertEquals(ActionOutcome::done(), $outcome);
         self::assertSame('next', $card->column->slug);
@@ -85,7 +84,7 @@ final class MoveCardTest extends KernelTestCase
 
         $card->column = $this->column($project, 'backlog');
         $this->em()->flush();
-        $outcome = $this->action()->run($rule, $card->snapshot(), FactsMother::facts(card: FactsMother::card(slot: '@backlog')), $this->state($card));
+        $outcome = $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(card: FactsMother::card(slot: '@backlog')), $this->state($card));
 
         self::assertEquals(ActionOutcome::done(), $outcome);
         self::assertSame('in-progress', $card->column->slug);
@@ -97,7 +96,7 @@ final class MoveCardTest extends KernelTestCase
         $project = $this->workflowProject('move-unbound');
         $card = $this->card($project, 'tech-design');
 
-        $outcome = $this->action()->run($this->rule(ActionType::Move, ['to' => 'implementation']), $card->snapshot(), FactsMother::facts(), $this->state($card));
+        $outcome = $this->runAction($this->action(), $this->rule('move', ['to' => 'implementation']), $card->snapshot(), FactsMother::facts(), $this->state($card));
 
         self::assertEquals(ActionOutcome::refused('workflow-slot-missing'), $outcome);
         self::assertSame('tech-design', $card->column->slug);

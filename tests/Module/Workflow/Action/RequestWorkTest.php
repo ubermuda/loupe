@@ -11,13 +11,12 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Forge\Entity\PullRequestState;
-use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\RequestWork;
+use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Service\CardPullRequests;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
 use App\Tests\Module\Workflow\Fact\FactsMother;
@@ -32,9 +31,9 @@ final class RequestWorkTest extends KernelTestCase
     {
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-open'), 'next');
-        $rule = $this->rule(ActionType::Request, ['kind' => 'product-design', 'capability' => 'interactive'], 'start-product-design');
+        $rule = $this->rule('request', ['kind' => 'product-design', 'capability' => 'interactive'], 'start-product-design');
 
-        $outcome = $this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $this->state($card, $rule->id));
+        $outcome = $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $this->state($card, $rule->id));
 
         self::assertOpenedWork($outcome);
         $live = $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.'));
@@ -46,9 +45,9 @@ final class RequestWorkTest extends KernelTestCase
     {
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-prompt'), 'next');
-        $rule = $this->rule(ActionType::Request, ['kind' => 'groom', TemplateParser::PROMPT => 'groom-card'], 'app-groom', RuleOrigin::App);
+        $rule = $this->rule('request', ['kind' => 'groom', TemplateParser::PROMPT => 'groom-card'], 'app-groom', RuleOrigin::App);
 
-        $outcome = $this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $this->state($card, $rule->id));
+        $outcome = $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $this->state($card, $rule->id));
 
         self::assertOpenedWork($outcome);
         self::assertSame("Groom the card.\n", $this->liveRequest($card)->prompt);
@@ -58,9 +57,9 @@ final class RequestWorkTest extends KernelTestCase
     {
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-no-prompt'), 'next');
-        $rule = $this->rule(ActionType::Request, ['kind' => 'groom', TemplateParser::PROMPT => 'groom-card']);
+        $rule = $this->rule('request', ['kind' => 'groom', TemplateParser::PROMPT => 'groom-card']);
 
-        $this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $this->state($card));
+        $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $this->state($card));
 
         self::assertNull($this->liveRequest($card)->prompt);
     }
@@ -69,9 +68,9 @@ final class RequestWorkTest extends KernelTestCase
     {
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-app-no-prompt'), 'next');
-        $rule = $this->rule(ActionType::Request, ['kind' => 'groom'], 'app-groom', RuleOrigin::App);
+        $rule = $this->rule('request', ['kind' => 'groom'], 'app-groom', RuleOrigin::App);
 
-        $this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $this->state($card, $rule->id));
+        $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $this->state($card, $rule->id));
 
         self::assertNull($this->liveRequest($card)->prompt);
     }
@@ -80,10 +79,10 @@ final class RequestWorkTest extends KernelTestCase
     {
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-live'), 'next');
-        $rule = $this->rule(ActionType::Request, ['kind' => 'fix']);
+        $rule = $this->rule('request', ['kind' => 'fix']);
 
-        $this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $this->state($card));
-        $outcome = $this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $this->state($card));
+        $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $this->state($card));
+        $outcome = $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $this->state($card));
 
         self::assertEquals(ActionOutcome::alreadyLive(), $outcome);
         self::assertNotEquals(ActionOutcome::done(), $outcome);
@@ -95,7 +94,7 @@ final class RequestWorkTest extends KernelTestCase
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-invalid'), 'next');
 
-        $outcome = $this->action()->run($this->rule(ActionType::Request, ['kind' => 'Not A Kind']), $card->snapshot(), FactsMother::facts(), $this->state($card));
+        $outcome = $this->runAction($this->action(), $this->rule('request', ['kind' => 'Not A Kind']), $card->snapshot(), FactsMother::facts(), $this->state($card));
 
         self::assertEquals(ActionOutcome::refused('invalid-work-request'), $outcome);
     }
@@ -104,15 +103,15 @@ final class RequestWorkTest extends KernelTestCase
     {
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-limit'), 'next');
-        $rule = $this->rule(ActionType::Request, ['kind' => 'fix', 'limit' => 3]);
+        $rule = $this->rule('request', ['kind' => 'fix', 'limit' => 3]);
         $state = $this->state($card);
         $state->fires = 2;
 
-        self::assertOpenedWork($this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $state));
+        self::assertOpenedWork($this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $state));
 
         $this->em()->getConnection()->executeStatement('DELETE FROM work_requests');
         $state->fires = 3;
-        $outcome = $this->action()->run($rule, $card->snapshot(), FactsMother::facts(), $state);
+        $outcome = $this->runAction($this->action(), $rule, $card->snapshot(), FactsMother::facts(), $state);
 
         self::assertEquals(ActionOutcome::pause(PauseKind::WorkLimit, 'work-limit-reached'), $outcome);
         self::assertSame([], $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.')));
@@ -132,10 +131,10 @@ final class RequestWorkTest extends KernelTestCase
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-fix-event'), 'in-progress');
         $pullRequest = $this->pullRequest($card);
-        $rule = $this->rule(ActionType::Request, ['kind' => 'fix', 'limit' => 3]);
+        $rule = $this->rule('request', ['kind' => 'fix', 'limit' => 3]);
         $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(checks: $checks, conflicting: $conflicting, changesRequested: $changesRequested));
 
-        $this->action()->run($rule, $card->snapshot(), $facts, $this->state($card));
+        $this->runAction($this->action(), $rule, $card->snapshot(), $facts, $this->state($card));
         $this->em()->flush();
 
         self::assertSame([['reason' => $reason, 'pullRequest' => $pullRequest->number]], $this->fixEvents($card));
@@ -148,10 +147,10 @@ final class RequestWorkTest extends KernelTestCase
         $this->pullRequest($card);
         $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed));
 
-        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'implement']), $card->snapshot(), $facts, $this->state($card));
-        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
+        $this->runAction($this->action(), $this->rule('request', ['kind' => 'implement']), $card->snapshot(), $facts, $this->state($card));
+        $this->runAction($this->action(), $this->rule('request', ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
         $this->em()->flush();
-        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
+        $this->runAction($this->action(), $this->rule('request', ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
         $this->em()->flush();
 
         self::assertCount(1, $this->fixEvents($card));
@@ -165,7 +164,7 @@ final class RequestWorkTest extends KernelTestCase
         $primary = $this->pullRequest($card, headSha: 'ABC1234');
         $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed, changesRequested: true));
 
-        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
+        $this->runAction($this->action(), $this->rule('request', ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
 
         self::assertEquals(
             new WorkRequestContext($primary->number, 'https://github.com/acme/widgets/pull/'.$primary->number, 'abc1234', 'checks-failed'),
@@ -184,7 +183,7 @@ final class RequestWorkTest extends KernelTestCase
         $this->em()->flush();
         $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(conflicting: true, id: $base->id));
 
-        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
+        $this->runAction($this->action(), $this->rule('request', ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
         $this->em()->flush();
 
         self::assertEquals(
@@ -201,7 +200,7 @@ final class RequestWorkTest extends KernelTestCase
         $this->pullRequest($card);
         $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed, id: Uuid::v7()));
 
-        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
+        $this->runAction($this->action(), $this->rule('request', ['kind' => 'fix']), $card->snapshot(), $facts, $this->state($card));
         $this->em()->flush();
 
         self::assertEquals(new WorkRequestContext(reason: 'checks-failed'), $this->liveRequest($card)->context);
@@ -213,7 +212,7 @@ final class RequestWorkTest extends KernelTestCase
         self::bootKernel();
         $card = $this->card($this->workflowProject('request-context-empty'), 'next');
 
-        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'implement']), $card->snapshot(), FactsMother::facts(), $this->state($card));
+        $this->runAction($this->action(), $this->rule('request', ['kind' => 'implement']), $card->snapshot(), FactsMother::facts(), $this->state($card));
 
         self::assertEquals(new WorkRequestContext(), $this->liveRequest($card)->context);
     }
@@ -224,7 +223,7 @@ final class RequestWorkTest extends KernelTestCase
         $card = $this->card($this->workflowProject('request-context-shape'), 'in-progress');
         $pullRequest = $this->pullRequest($card, headSha: 'not-a-sha', url: 'http://github.com/acme/widgets/pull/1');
 
-        $this->action()->run($this->rule(ActionType::Request, ['kind' => 'sync']), $card->snapshot(), FactsMother::facts(pullRequest: FactsMother::pullRequest()), $this->state($card));
+        $this->runAction($this->action(), $this->rule('request', ['kind' => 'sync']), $card->snapshot(), FactsMother::facts(pullRequest: FactsMother::pullRequest()), $this->state($card));
 
         self::assertEquals(new WorkRequestContext($pullRequest->number), $this->liveRequest($card)->context);
     }
@@ -239,7 +238,7 @@ final class RequestWorkTest extends KernelTestCase
             new DocumentFacts(['design', 'tech'], 'changes-requested', $documentId),
         ]));
 
-        $outcome = $this->action()->run($this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design']), $card->snapshot(), $facts, $this->state($card));
+        $outcome = $this->runAction($this->action(), $this->rule('request', ['kind' => 'tech-design-revise', 'document.tag' => 'design']), $card->snapshot(), $facts, $this->state($card));
 
         self::assertOpenedWork($outcome);
         self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
@@ -254,9 +253,9 @@ final class RequestWorkTest extends KernelTestCase
             new DocumentFacts(['design'], 'approved', Uuid::v7()->toRfc4122()),
             new DocumentFacts(['design'], 'changes-requested', $documentId),
         ]));
-        $rule = $this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design', 'document.status' => 'changes-requested']);
+        $rule = $this->rule('request', ['kind' => 'tech-design-revise', 'document.tag' => 'design', 'document.status' => 'changes-requested']);
 
-        self::assertOpenedWork($this->action()->run($rule, $card->snapshot(), $facts, $this->state($card)));
+        self::assertOpenedWork($this->runAction($this->action(), $rule, $card->snapshot(), $facts, $this->state($card)));
         self::assertSame($documentId, $this->liveRequest($card)->context->documentId);
     }
 
@@ -276,7 +275,7 @@ final class RequestWorkTest extends KernelTestCase
         $documents = array_map(static fn (string $tag): DocumentFacts => new DocumentFacts([$tag], 'changes-requested', Uuid::v7()->toRfc4122()), $tags);
         $facts = FactsMother::facts(card: FactsMother::card(documents: $documents));
 
-        $outcome = $this->action()->run($this->rule(ActionType::Request, ['kind' => 'tech-design-revise', 'document.tag' => 'design']), $card->snapshot(), $facts, $this->state($card));
+        $outcome = $this->runAction($this->action(), $this->rule('request', ['kind' => 'tech-design-revise', 'document.tag' => 'design']), $card->snapshot(), $facts, $this->state($card));
 
         self::assertEquals(ActionOutcome::refused($code), $outcome);
         self::assertSame([], $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.')));

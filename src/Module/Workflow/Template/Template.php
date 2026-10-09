@@ -60,7 +60,7 @@ final readonly class Template
         return array_values(array_filter(
             $this->rules,
             static fn (Rule $rule): bool => (null === $rule->slot || $rule->slot === $slot)
-                && (ActionType::Move !== $rule->then->type || ($rule->then->params['from'] ?? $slot) === $slot),
+                && (null === $rule->then->from || $rule->then->from === $slot),
         ));
     }
 

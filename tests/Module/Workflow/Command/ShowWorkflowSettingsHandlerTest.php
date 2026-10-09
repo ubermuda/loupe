@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Workflow\Command;
 
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Command\BoundWorkflowView;
 use App\Module\Workflow\Command\ShowWorkflowSettingsCommand;
@@ -123,6 +124,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             $bindings,
             $this->service(WorkflowSlotLinkRepository::class),
             new ProjectTemplateCopy($bindings, $parser, new AppRules($parser, AppRulesTest::FIXTURE)),
+            $this->service(Actions::class),
         );
 
         $template = $handler(new ShowWorkflowSettingsCommand($this->em()->find(Project::class, $project->id) ?? throw new \LogicException('The project is gone.')))->template;

@@ -13,11 +13,10 @@ use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Workflow\BoardCardPauses;
-use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ReleasePause;
+use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\CardPauses;
 use App\Module\Workflow\Contract\PauseKind;
-use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -102,6 +101,6 @@ final class ReleasePauseTest extends KernelTestCase
     {
         $action = new ReleasePause($this->cardPauses());
 
-        return $action->run($this->rule(ActionType::Release, ['reason' => $reason]), $card->snapshot(), FactsMother::facts(), $this->state($card));
+        return $this->runAction($action, $this->rule('release', ['reason' => $reason]), $card->snapshot(), FactsMother::facts(), $this->state($card));
     }
 }

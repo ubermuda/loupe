@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Tests\Module\Workflow\Action;
 
 use App\Module\Workflow\Contract\Action;
 use App\Module\Workflow\Contract\ActionContext;
@@ -11,17 +11,14 @@ use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ActionTraits;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
-use App\Module\Workflow\Contract\PauseKind;
 
-/** Answers a pause with the reason of the rule. The engine writes the pause and reads its release condition. */
-final readonly class PauseCard implements Action
+/** An action a module could plug in, that declares an expression parameter an action call cannot keep. */
+final readonly class ExpressionPluggedAction implements Action
 {
-    public const string KEY = 'pause';
-
     #[\Override]
     public static function key(): string
     {
-        return self::KEY;
+        return 'expressive';
     }
 
     #[\Override]
@@ -34,21 +31,21 @@ final readonly class PauseCard implements Action
     public static function parameters(): array
     {
         return [
-            new Parameter('reason', ParameterType::String),
-            new Parameter('until', ParameterType::Expression),
+            new Parameter('from', ParameterType::Slot),
+            new Parameter('only', ParameterType::Expression, required: false),
         ];
     }
 
     #[\Override]
     public static function traits(): ActionTraits
     {
-        return new ActionTraits();
+        return new ActionTraits(endsPass: true);
     }
 
     #[\Override]
     public function describe(array $params): ActionDescription
     {
-        return new ActionDescription('workflow.settings.action.pause', 'workflow.panel.action.pause');
+        return new ActionDescription('workflow.settings.action.expressive', 'workflow.panel.action.expressive');
     }
 
     #[\Override]
@@ -60,6 +57,6 @@ final readonly class PauseCard implements Action
     #[\Override]
     public function run(ActionContext $context): ActionOutcome
     {
-        return ActionOutcome::pause(PauseKind::Rule, $context->string('reason'));
+        return ActionOutcome::done();
     }
 }

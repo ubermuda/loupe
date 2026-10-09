@@ -12,10 +12,9 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
-use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\LinkDocument;
+use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\DocumentFacts;
-use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -116,9 +115,9 @@ final class LinkDocumentTest extends KernelTestCase
         // The card was built in this test, so its document collection has not read the rows that the test wrote.
         $this->em()->clear();
         $card = $this->em()->find(Card::class, $card->id) ?? throw new \LogicException('The card exists.');
-        $rule = $this->rule(ActionType::LinkDocument, ['from' => 'parent', 'tag' => 'tech-design'], 'unplanned-child');
+        $rule = $this->rule('link-document', ['from' => 'parent', 'tag' => 'tech-design'], 'unplanned-child');
 
-        return new LinkDocument($this->service(CardRepository::class), $this->service(UpdateCardHandler::class))->run($rule, $card->snapshot(), $facts, $this->state($card, $rule->id));
+        return $this->runAction(new LinkDocument($this->service(CardRepository::class), $this->service(UpdateCardHandler::class)), $rule, $card->snapshot(), $facts, $this->state($card, $rule->id));
     }
 
     /** @return list<string> */

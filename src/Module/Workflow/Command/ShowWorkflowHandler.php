@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
+use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Contract\BoardColumns;
 use App\Module\Workflow\Contract\ColumnView;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\AppRules;
-use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
@@ -21,6 +20,7 @@ final readonly class ShowWorkflowHandler
         private WorkflowSlotLinkRepository $workflowSlotLinks,
         private BoardColumns $boardColumns,
         private AppRules $appRules,
+        private Actions $actions,
     ) {
     }
 
@@ -40,7 +40,7 @@ final readonly class ShowWorkflowHandler
         $kinds = [];
         foreach ([RuleOrigin::Template, RuleOrigin::App] as $origin) {
             foreach ($template->rules as $rule) {
-                $kind = $origin === $rule->origin ? self::kind($rule) : null;
+                $kind = $origin === $rule->origin ? $this->actions->get($rule->then->key)->workKind($rule->then->params) : null;
                 if (null === $kind) {
                     continue;
                 }
@@ -69,17 +69,5 @@ final readonly class ShowWorkflowHandler
                 array_values($kinds),
             ),
         );
-    }
-
-    /** The kind of work a rule asks a bridge for: a request's kind, or a write's fallback. */
-    private static function kind(Rule $rule): ?string
-    {
-        $params = $rule->then->params;
-
-        return match ($rule->then->type) {
-            ActionType::Request => (string) $params['kind'],
-            ActionType::ForgeWrite => isset($params['fallback']) ? (string) $params['fallback'] : null,
-            default => null,
-        };
     }
 }
