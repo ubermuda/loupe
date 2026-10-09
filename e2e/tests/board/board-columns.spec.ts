@@ -5,8 +5,12 @@
  * change is read back after a reload, because the server is what decides.
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as base,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { expectFilterFocusRingVisible } from '../helpers';
 
 const RUN = Date.now();
