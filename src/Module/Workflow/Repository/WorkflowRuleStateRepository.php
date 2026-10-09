@@ -98,4 +98,13 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
             ['now' => Types::DATETIME_IMMUTABLE, 'limit' => Types::INTEGER],
         ));
     }
+
+    /** @return list<Uuid> every card that has a rule state with a fingerprint */
+    public function findFingerprintedCardIds(): array
+    {
+        return array_map(
+            Uuid::fromString(...),
+            array_map(strval(...), $this->getEntityManager()->getConnection()->fetchFirstColumn('SELECT DISTINCT card_id FROM workflow_rule_states WHERE fingerprint IS NOT NULL ORDER BY card_id')),
+        );
+    }
 }

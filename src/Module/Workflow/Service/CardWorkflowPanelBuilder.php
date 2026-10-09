@@ -118,7 +118,7 @@ final readonly class CardWorkflowPanelBuilder
 
     private function progress(CardSnapshot $card, Template $template, Facts $facts): CardWorkflowProgress
     {
-        $rules = $template->rulesFor($facts->card->slot);
+        $rules = $template->rulesFor($facts->slot);
         $falseRules = array_values(array_filter(
             $rules,
             fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$this->ruleSubject->bind($rule, $facts)->truth,
@@ -138,7 +138,7 @@ final readonly class CardWorkflowPanelBuilder
         }
 
         return new CardWorkflowProgress(
-            $this->slotLabel($template, $facts->card->slot),
+            $this->slotLabel($template, $facts->slot),
             $waiting,
             null === $blocking ? null : $this->nextAction($template, $blocking),
             $this->lastRefusal($card),

@@ -22,7 +22,7 @@ interface Condition
     /**
      * @param array<string, mixed> $params
      *
-     * @return list<FactKey|class-string> a FactKey for a built-in fact group, a facts class for the facts of a provider
+     * @return list<EngineFact|class-string> an EngineFact for a group the engine builds, a facts class for the facts of a provider
      */
     public function reads(array $params): array;
 

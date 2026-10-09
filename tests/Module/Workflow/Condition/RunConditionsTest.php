@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Condition;
 
+use App\Module\Bridge\Workflow\ParentWorkFacts;
+use App\Module\Bridge\Workflow\RefusalFacts;
+use App\Module\Bridge\Workflow\WorkerRunFacts;
+use App\Module\Bridge\Workflow\WorkRequestFacts;
 use App\Module\Workflow\Condition\ParentWorkActive;
 use App\Module\Workflow\Condition\RunLastRefusal;
 use App\Module\Workflow\Condition\RunWorkActive;
 use App\Module\Workflow\Condition\RunWorkerActive;
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -51,9 +55,9 @@ final class RunConditionsTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed>  $params
-     * @param array<string, string> $expectedParameters
-     * @param list<FactKey>         $expectedReads
+     * @param array<string, mixed>          $params
+     * @param array<string, string>         $expectedParameters
+     * @param list<EngineFact|class-string> $expectedReads
      */
     #[DataProvider('waiting')]
     public function test_it_says_what_it_waits_for_and_what_it_reads(Condition $condition, array $params, array $expectedParameters, array $expectedReads): void
@@ -70,13 +74,13 @@ final class RunConditionsTest extends TestCase
         self::assertSame($expectedReads, $condition->reads($params));
     }
 
-    /** @return iterable<string, array{Condition, array<string, mixed>, array<string, string>, list<FactKey>}> */
+    /** @return iterable<string, array{Condition, array<string, mixed>, array<string, string>, list<EngineFact|class-string>}> */
     public static function waiting(): iterable
     {
-        yield 'run.work_active' => [new RunWorkActive(), ['kind' => 'fix'], [], [FactKey::WorkRequests]];
-        yield 'run.worker_active' => [new RunWorkerActive(), ['kind' => 'breakdown'], [], [FactKey::WorkerRuns]];
-        yield 'parent.work_active' => [new ParentWorkActive(), ['kind' => 'breakdown'], [], [FactKey::ParentWork]];
-        yield 'run.last_refusal' => [new RunLastRefusal(), ['code' => 'no-worker'], ['%code%' => 'no-worker'], [FactKey::Refusal]];
+        yield 'run.work_active' => [new RunWorkActive(), ['kind' => 'fix'], [], [WorkRequestFacts::class]];
+        yield 'run.worker_active' => [new RunWorkerActive(), ['kind' => 'breakdown'], [], [WorkerRunFacts::class]];
+        yield 'parent.work_active' => [new ParentWorkActive(), ['kind' => 'breakdown'], [], [ParentWorkFacts::class]];
+        yield 'run.last_refusal' => [new RunLastRefusal(), ['code' => 'no-worker'], ['%code%' => 'no-worker'], [RefusalFacts::class]];
     }
 
     /** @param list<string> $activeWorkKinds */

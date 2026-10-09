@@ -4,41 +4,96 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Fact;
 
-use App\Module\Workflow\Contract\CardFacts;
+use App\Module\Board\Workflow\BlockerFactProvider;
+use App\Module\Board\Workflow\BlockerFacts;
+use App\Module\Board\Workflow\CardTypeFactProvider;
+use App\Module\Board\Workflow\CardTypeFacts;
+use App\Module\Board\Workflow\ChildrenFactProvider;
+use App\Module\Board\Workflow\ChildrenFacts;
+use App\Module\Board\Workflow\DocumentsFactProvider;
+use App\Module\Board\Workflow\DocumentsFacts;
+use App\Module\Board\Workflow\ParentDocumentsFactProvider;
+use App\Module\Board\Workflow\ParentDocumentsFacts;
+use App\Module\Board\Workflow\ParentFactProvider;
+use App\Module\Board\Workflow\ParentFacts;
+use App\Module\Board\Workflow\PullRequestListFactProvider;
+use App\Module\Bridge\Workflow\ParentWorkFactProvider;
+use App\Module\Bridge\Workflow\ParentWorkFacts;
+use App\Module\Bridge\Workflow\RefusalFactProvider;
+use App\Module\Bridge\Workflow\RefusalFacts;
+use App\Module\Bridge\Workflow\WorkerRunFactProvider;
+use App\Module\Bridge\Workflow\WorkerRunFacts;
+use App\Module\Bridge\Workflow\WorkRequestFactProvider;
+use App\Module\Bridge\Workflow\WorkRequestFacts;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\FactProvider;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\LegacyFingerprintGroup;
 use App\Module\Workflow\Contract\PullRequestFacts;
+use App\Module\Workflow\Contract\PullRequestList;
 use App\Module\Workflow\Contract\PullRequestState;
-use App\Module\Workflow\Contract\RunFacts;
 use App\Module\Workflow\Contract\Unreadable;
 use Symfony\Component\Uid\Uuid;
 
 /** Builds facts for a neutral card. Each named argument overrides one default. */
 final class FactsMother
 {
+    private const array PROVIDERS = [
+        CardTypeFactProvider::class,
+        BlockerFactProvider::class,
+        ParentFactProvider::class,
+        ChildrenFactProvider::class,
+        DocumentsFactProvider::class,
+        ParentDocumentsFactProvider::class,
+        PullRequestListFactProvider::class,
+        WorkRequestFactProvider::class,
+        RefusalFactProvider::class,
+        WorkerRunFactProvider::class,
+        ParentWorkFactProvider::class,
+    ];
+
     /**
+     * The facts the providers of Board and Bridge give for the inputs. Their fingerprints come from the providers themselves.
+     *
      * @param list<PullRequestFacts>                 $pullRequests
-     * @param array<class-string, object|Unreadable> $provided
+     * @param array<class-string, object|Unreadable> $provided     replaces what the inputs give, or adds a facts class
      * @param array<class-string, mixed>             $fingerprints
      */
     public static function facts(
-        ?CardFacts $card = null,
+        ?CardInputs $card = null,
         ?PullRequestFacts $pullRequest = null,
         array $pullRequests = [],
-        ?RunFacts $run = null,
+        ?RunInputs $run = null,
         \DateTimeImmutable $now = new \DateTimeImmutable('2026-10-01 12:00:00'),
         array $provided = [],
         array $fingerprints = [],
     ): Facts {
+        $card ??= self::card();
+        $run ??= self::run();
+        $given = [
+            ...self::byClass(new CardTypeFacts($card->type), new BlockerFacts($card->hasOpenBlocker), new ParentFacts($card->isChild)),
+            ...self::byClass(new ChildrenFacts($card->childCount, $card->openChildCount, $card->childMergedIntoEpicBranch), new DocumentsFacts($card->documents), new ParentDocumentsFacts($card->parentDocuments)),
+            ...self::byClass(new PullRequestList($pullRequests, $pullRequest)),
+            ...self::byClass(new WorkRequestFacts($run->activeWorkKinds), new RefusalFacts($run->lastRefusalCode), new WorkerRunFacts($run->activeWorkerKinds), new ParentWorkFacts($run->parentActiveKinds)),
+        ];
+        $prints = [];
+        $legacy = [];
+        foreach (self::PROVIDERS as $providerClass) {
+            $provider = new \ReflectionClass($providerClass)->newInstanceWithoutConstructor();
+            \assert($provider instanceof FactProvider && $provider instanceof LegacyFingerprintGroup);
+            $prints[$provider->factsClass()] = $provider->fingerprint($given[$provider->factsClass()]);
+            $legacy[$provider->factsClass()] = $provider->legacyGroup();
+        }
+
         return new Facts(
             now: $now,
-            card: $card ?? self::card(),
+            slot: $card->slot,
+            parentSlot: $card->parentSlot,
             pullRequest: $pullRequest,
-            pullRequests: $pullRequests,
-            run: $run ?? self::run(),
-            provided: $provided,
-            fingerprints: $fingerprints,
+            provided: [...$given, ...$provided],
+            fingerprints: [...$prints, ...$fingerprints],
+            legacyGroups: $legacy,
         );
     }
 
@@ -57,19 +112,8 @@ final class FactsMother
         bool $childMergedIntoEpicBranch = false,
         array $parentDocuments = [],
         ?string $parentSlot = null,
-    ): CardFacts {
-        return new CardFacts(
-            slot: $slot,
-            type: $type,
-            hasOpenBlocker: $hasOpenBlocker,
-            isChild: $isChild,
-            childCount: $childCount,
-            openChildCount: $openChildCount,
-            documents: $documents,
-            childMergedIntoEpicBranch: $childMergedIntoEpicBranch,
-            parentDocuments: $parentDocuments,
-            parentSlot: $parentSlot,
-        );
+    ): CardInputs {
+        return new CardInputs($slot, $type, $hasOpenBlocker, $isChild, $childCount, $openChildCount, $documents, $childMergedIntoEpicBranch, $parentDocuments, $parentSlot);
     }
 
     public static function pullRequest(
@@ -109,8 +153,19 @@ final class FactsMother
      * @param list<string> $activeWorkerKinds
      * @param list<string> $parentActiveKinds
      */
-    public static function run(array $activeWorkKinds = [], ?string $lastRefusalCode = null, array $activeWorkerKinds = [], array $parentActiveKinds = []): RunFacts
+    public static function run(array $activeWorkKinds = [], ?string $lastRefusalCode = null, array $activeWorkerKinds = [], array $parentActiveKinds = []): RunInputs
     {
-        return new RunFacts(activeWorkKinds: $activeWorkKinds, lastRefusalCode: $lastRefusalCode, activeWorkerKinds: $activeWorkerKinds, parentActiveKinds: $parentActiveKinds);
+        return new RunInputs($activeWorkKinds, $lastRefusalCode, $activeWorkerKinds, $parentActiveKinds);
+    }
+
+    /** @return array<class-string, object> */
+    private static function byClass(object ...$facts): array
+    {
+        $byClass = [];
+        foreach ($facts as $one) {
+            $byClass[$one::class] = $one;
+        }
+
+        return $byClass;
     }
 }

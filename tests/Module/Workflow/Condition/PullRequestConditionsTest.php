@@ -20,9 +20,10 @@ use App\Module\Workflow\Condition\PullRequestsAllFinishedOneMerged;
 use App\Module\Workflow\Condition\PullRequestStacked;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
+use App\Module\Workflow\Contract\PullRequestList;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -135,9 +136,9 @@ final class PullRequestConditionsTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed>  $params
-     * @param array<string, string> $expectedParameters
-     * @param list<FactKey>         $expectedReads
+     * @param array<string, mixed>          $params
+     * @param array<string, string>         $expectedParameters
+     * @param list<EngineFact|class-string> $expectedReads
      */
     #[DataProvider('waiting')]
     public function test_it_says_what_it_waits_for_and_what_it_reads(Condition $condition, array $params, array $expectedParameters, array $expectedReads): void
@@ -154,10 +155,10 @@ final class PullRequestConditionsTest extends TestCase
         self::assertSame($expectedReads, $condition->reads($params));
     }
 
-    /** @return iterable<string, array{Condition, array<string, mixed>, array<string, string>, list<FactKey>}> */
+    /** @return iterable<string, array{Condition, array<string, mixed>, array<string, string>, list<EngineFact|class-string>}> */
     public static function waiting(): iterable
     {
-        $one = [FactKey::PullRequest];
+        $one = [EngineFact::PullRequest];
         yield 'pr.open' => [new PullRequestOpen(), [], [], $one];
         yield 'pr.draft' => [new PullRequestDraft(), [], [], $one];
         yield 'pr.checks_passed' => [new PullRequestChecksPassed(), [], [], $one];
@@ -170,8 +171,8 @@ final class PullRequestConditionsTest extends TestCase
         yield 'pr.base_is_epic_branch' => [new PullRequestBaseIsEpicBranch(), [], [], $one];
         yield 'pr.stacked' => [new PullRequestStacked(), [], [], $one];
         yield 'pr.parent_merged' => [new PullRequestParentMerged(), [], [], $one];
-        yield 'pr.linked' => [new PullRequestLinked(), [], [], [FactKey::PullRequests]];
-        yield 'pr.all_finished_one_merged' => [new PullRequestsAllFinishedOneMerged(), [], [], [FactKey::PullRequests]];
+        yield 'pr.linked' => [new PullRequestLinked(), [], [], [PullRequestList::class]];
+        yield 'pr.all_finished_one_merged' => [new PullRequestsAllFinishedOneMerged(), [], [], [PullRequestList::class]];
     }
 
     private static function current(

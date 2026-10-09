@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Condition;
 
+use App\Module\Board\Workflow\BlockerFacts;
+use App\Module\Board\Workflow\CardTypeFacts;
+use App\Module\Board\Workflow\ChildrenFacts;
+use App\Module\Board\Workflow\DocumentsFacts;
+use App\Module\Board\Workflow\ParentDocumentsFacts;
+use App\Module\Board\Workflow\ParentFacts;
 use App\Module\Workflow\Condition\CardChildMergedIntoEpicBranch;
 use App\Module\Workflow\Condition\CardChildrenFinished;
 use App\Module\Workflow\Condition\CardDocument;
@@ -18,7 +24,7 @@ use App\Module\Workflow\Condition\ParentDocumentApproved;
 use App\Module\Workflow\Condition\ParentInSlot;
 use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\DocumentFacts;
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -141,8 +147,8 @@ final class CardConditionsTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $params
-     * @param list<FactKey>        $expected
+     * @param array<string, mixed>          $params
+     * @param list<EngineFact|class-string> $expected
      */
     #[DataProvider('reads')]
     public function test_it_names_the_facts_it_reads(Condition $condition, array $params, array $expected): void
@@ -150,22 +156,22 @@ final class CardConditionsTest extends TestCase
         self::assertSame($expected, $condition->reads($params));
     }
 
-    /** @return iterable<string, array{Condition, array<string, mixed>, list<FactKey>}> */
+    /** @return iterable<string, array{Condition, array<string, mixed>, list<EngineFact|class-string>}> */
     public static function reads(): iterable
     {
-        yield 'card.in_slot' => [new CardInSlot(), ['slot' => 'next'], [FactKey::Slot]];
-        yield 'card.type' => [new CardHasType(), ['type' => 'epic'], [FactKey::CardType]];
-        yield 'card.has_open_blocker' => [new CardHasOpenBlocker(), [], [FactKey::Blockers]];
-        yield 'card.is_child' => [new CardIsChild(), [], [FactKey::Parent]];
-        yield 'card.has_children' => [new CardHasChildren(), [], [FactKey::Children]];
-        yield 'card.children_finished' => [new CardChildrenFinished(), [], [FactKey::Children]];
-        yield 'card.child_merged_into_epic_branch' => [new CardChildMergedIntoEpicBranch(), [], [FactKey::Children]];
-        yield 'card.document' => [new CardDocument(), ['tag' => 'design'], [FactKey::Documents]];
-        yield 'card.document with a status' => [new CardDocument(), ['tag' => 'design', 'status' => 'approved'], [FactKey::Documents]];
-        yield 'card.document_approved' => [new CardDocumentApproved(), ['tag' => 'design'], [FactKey::Documents]];
-        yield 'card.document_changes_requested' => [new CardDocumentChangesRequested(), ['tag' => 'design'], [FactKey::Documents]];
-        yield 'parent.document_approved' => [new ParentDocumentApproved(), ['tag' => 'design'], [FactKey::ParentDocuments]];
-        yield 'parent.in_slot' => [new ParentInSlot(), ['slot' => 'next'], [FactKey::ParentSlot]];
+        yield 'card.in_slot' => [new CardInSlot(), ['slot' => 'next'], [EngineFact::Slot]];
+        yield 'card.type' => [new CardHasType(), ['type' => 'epic'], [CardTypeFacts::class]];
+        yield 'card.has_open_blocker' => [new CardHasOpenBlocker(), [], [BlockerFacts::class]];
+        yield 'card.is_child' => [new CardIsChild(), [], [ParentFacts::class]];
+        yield 'card.has_children' => [new CardHasChildren(), [], [ChildrenFacts::class]];
+        yield 'card.children_finished' => [new CardChildrenFinished(), [], [ChildrenFacts::class]];
+        yield 'card.child_merged_into_epic_branch' => [new CardChildMergedIntoEpicBranch(), [], [ChildrenFacts::class]];
+        yield 'card.document' => [new CardDocument(), ['tag' => 'design'], [DocumentsFacts::class]];
+        yield 'card.document with a status' => [new CardDocument(), ['tag' => 'design', 'status' => 'approved'], [DocumentsFacts::class]];
+        yield 'card.document_approved' => [new CardDocumentApproved(), ['tag' => 'design'], [DocumentsFacts::class]];
+        yield 'card.document_changes_requested' => [new CardDocumentChangesRequested(), ['tag' => 'design'], [DocumentsFacts::class]];
+        yield 'parent.document_approved' => [new ParentDocumentApproved(), ['tag' => 'design'], [ParentDocumentsFacts::class]];
+        yield 'parent.in_slot' => [new ParentInSlot(), ['slot' => 'next'], [EngineFact::ParentSlot]];
     }
 
     /**

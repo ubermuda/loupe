@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Expression;
 
+use App\Module\Board\Workflow\BlockerFacts;
+use App\Module\Board\Workflow\CardTypeFacts;
+use App\Module\Board\Workflow\ParentFacts;
 use App\Module\Workflow\Condition\CardHasOpenBlocker;
 use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\CardIsChild;
 use App\Module\Workflow\Condition\PullRequestChecksFailed;
 use App\Module\Workflow\Contract\ChecksState;
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Expression\AllOf;
@@ -173,7 +176,7 @@ final class ExpressionTest extends TestCase
 
     public function test_a_leaf_reads_what_its_condition_reads(): void
     {
-        self::assertSame([FactKey::CardType], new ConditionLeaf(new CardHasType(), ['type' => 'epic'])->reads());
+        self::assertSame([CardTypeFacts::class], new ConditionLeaf(new CardHasType(), ['type' => 'epic'])->reads());
     }
 
     public function test_a_composite_reads_the_keys_of_its_children_once_in_first_seen_order(): void
@@ -184,9 +187,9 @@ final class ExpressionTest extends TestCase
 
         $expression = new AllOf([$blocker, new AnyOf([$child, new Not($blocker)]), new Not($checks), $child]);
 
-        self::assertSame([FactKey::Blockers, FactKey::Parent, FactKey::PullRequest], $expression->reads());
-        self::assertSame([FactKey::Parent, FactKey::Blockers], new AnyOf([$child, $blocker, $child])->reads());
-        self::assertSame([FactKey::PullRequest], new Not($checks)->reads());
+        self::assertSame([BlockerFacts::class, ParentFacts::class, EngineFact::PullRequest], $expression->reads());
+        self::assertSame([ParentFacts::class, BlockerFacts::class], new AnyOf([$child, $blocker, $child])->reads());
+        self::assertSame([EngineFact::PullRequest], new Not($checks)->reads());
         self::assertSame([], new AllOf([])->reads());
     }
 
@@ -195,7 +198,7 @@ final class ExpressionTest extends TestCase
         $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
         $child = new ConditionLeaf(new CardIsChild(), []);
 
-        self::assertSame([ProvidedFacts::class, FactKey::Parent], new AllOf([$provided, new Not($provided), $child, $provided])->reads());
+        self::assertSame([ProvidedFacts::class, ParentFacts::class], new AllOf([$provided, new Not($provided), $child, $provided])->reads());
     }
 
     public function test_a_leaf_over_readable_provided_facts_evaluates_them(): void

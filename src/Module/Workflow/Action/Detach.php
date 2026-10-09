@@ -9,6 +9,7 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Workflow\ParentFacts;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardSnapshot;
@@ -38,7 +39,7 @@ final readonly class Detach implements Action
     public function run(Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
     {
         $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
-        if (!$facts->card->isChild) {
+        if (!$facts->get(ParentFacts::class)->isChild) {
             return ActionOutcome::done();
         }
 

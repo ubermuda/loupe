@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Service;
+namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardPullRequestRepository;

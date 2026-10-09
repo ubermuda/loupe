@@ -45,7 +45,7 @@ final readonly class MoveCard implements Action
     {
         $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
         $from = ActionParams::optionalString($rule, 'from');
-        if (null !== $from && $from !== $facts->card->slot) {
+        if (null !== $from && $from !== $facts->slot) {
             return ActionOutcome::done();
         }
         $target = $this->column($card, ActionParams::string($rule, 'to'));

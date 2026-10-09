@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
+use App\Module\Board\Workflow\ChildrenFacts;
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
@@ -33,13 +33,13 @@ final readonly class CardChildrenFinished implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::Children];
+        return [ChildrenFacts::class];
     }
 
     #[\Override]
     public function evaluate(Facts $facts, array $params): bool
     {
-        return 0 === $facts->card->openChildCount;
+        return 0 === $facts->get(ChildrenFacts::class)->openChildCount;
     }
 
     #[\Override]

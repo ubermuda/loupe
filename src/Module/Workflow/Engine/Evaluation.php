@@ -57,6 +57,6 @@ final class Evaluation
 
     public function applies(Rule $rule): bool
     {
-        return null === $rule->slot || $rule->slot === $this->facts->card->slot;
+        return null === $rule->slot || $rule->slot === $this->facts->slot;
     }
 }

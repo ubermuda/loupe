@@ -588,7 +588,7 @@ final class ShippedTemplatesTest extends KernelTestCase
     private function firingRuleIds(Facts $facts): array
     {
         $ids = [];
-        foreach ($this->lifecycle()->rulesFor($facts->card->slot) as $rule) {
+        foreach ($this->lifecycle()->rulesFor($facts->slot) as $rule) {
             if ($rule->when->evaluate($facts)) {
                 $ids[] = $rule->id;
             }
@@ -601,7 +601,7 @@ final class ShippedTemplatesTest extends KernelTestCase
     private function actions(Facts $facts): array
     {
         $actions = [];
-        foreach ($this->lifecycle()->rulesFor($facts->card->slot) as $rule) {
+        foreach ($this->lifecycle()->rulesFor($facts->slot) as $rule) {
             if ($rule->when->evaluate($facts)) {
                 $actions[] = $rule->then;
             }

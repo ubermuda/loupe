@@ -9,6 +9,8 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Workflow\DocumentsFacts;
+use App\Module\Board\Workflow\ParentDocumentsFacts;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardSnapshot;
@@ -44,11 +46,11 @@ final readonly class LinkDocument implements Action
     {
         $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
         $tag = ActionParams::string($rule, 'tag');
-        $document = array_find($facts->card->parentDocuments, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
+        $document = array_find($facts->get(ParentDocumentsFacts::class)->documents, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
         if (null === $document) {
             return ActionOutcome::refused(self::NO_PARENT_DOCUMENT);
         }
-        $linked = array_map(static fn (DocumentFacts $document): string => $document->id, $facts->card->documents);
+        $linked = array_map(static fn (DocumentFacts $document): string => $document->id, $facts->get(DocumentsFacts::class)->documents);
         if (\in_array($document->id, $linked, true)) {
             return ActionOutcome::done();
         }
