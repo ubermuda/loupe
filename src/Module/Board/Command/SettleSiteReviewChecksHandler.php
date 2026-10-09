@@ -26,7 +26,7 @@ final readonly class SettleSiteReviewChecksHandler
     public function __invoke(SettleSiteReviewChecksCommand $command): void
     {
         $project = $this->projects->find($command->projectId);
-        if (null === $project || $this->boardAutomation->settingsOf($project)->siteReviewCheck) {
+        if (null === $project || $this->boardAutomation->settingsOf($project)->keepsSiteReviewCheck()) {
             return;
         }
 

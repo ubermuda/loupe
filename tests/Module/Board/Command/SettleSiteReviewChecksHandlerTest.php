@@ -71,6 +71,17 @@ final class SettleSiteReviewChecksHandlerTest extends KernelTestCase
         self::assertSame(PullRequestCheckConclusion::Neutral, $this->writer->published[0]['conclusion']);
     }
 
+    public function test_it_turns_the_failed_check_neutral_once_the_automation_is_off(): void
+    {
+        $this->settings->enabled = false;
+        $this->em->flush();
+
+        $this->settle();
+
+        self::assertCount(1, $this->writer->published);
+        self::assertSame(PullRequestCheckConclusion::Neutral, $this->writer->published[0]['conclusion']);
+    }
+
     public function test_it_writes_nothing_when_the_check_is_on_again(): void
     {
         $this->settle();

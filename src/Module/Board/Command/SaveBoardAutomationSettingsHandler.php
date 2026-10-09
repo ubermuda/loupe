@@ -42,6 +42,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $wasEnabled = $settings->enabled;
         $wasSyncing = $settings->enabled && $settings->syncBehind;
         $wasOpeningEpics = $settings->openEpicPullRequests;
+        $wasKeepingCheck = $settings->keepsSiteReviewCheck();
         $wasChecking = $settings->siteReviewCheck;
         $settings->enabled = $command->enabled;
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
@@ -63,7 +64,7 @@ final readonly class SaveBoardAutomationSettingsHandler
             !$wasChecking && $command->siteReviewCheck,
         ));
 
-        if ($wasChecking && !$command->siteReviewCheck) {
+        if ($wasKeepingCheck && !$settings->keepsSiteReviewCheck()) {
             $this->bus->dispatch(new SettleSiteReviewChecks($command->project->id ?? throw new \LogicException('A stored project has an id.')));
         }
 

@@ -106,6 +106,12 @@ class BoardAutomationSettings
     ) {
     }
 
+    /** The workflow keeps the check only while the board automation runs. */
+    public function keepsSiteReviewCheck(): bool
+    {
+        return $this->enabled && $this->siteReviewCheck;
+    }
+
     public function epicBranchOf(int $number): ?string
     {
         if (null === $this->epicBranchPattern || '' === $this->epicBranchPattern) {

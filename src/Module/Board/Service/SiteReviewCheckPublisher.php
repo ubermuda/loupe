@@ -145,7 +145,7 @@ final readonly class SiteReviewCheckPublisher
             $this->em->refresh($settings);
         }
 
-        return $settings->siteReviewCheck;
+        return $settings->keepsSiteReviewCheck();
     }
 
     /** @return ?PullRequestCheckFailed the refusal of the forge, which keeps the run id */

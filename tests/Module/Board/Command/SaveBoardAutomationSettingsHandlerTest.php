@@ -247,6 +247,18 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertEquals($this->project->id, $settles[0]->projectId);
     }
 
+    public function test_turning_the_automation_off_queues_a_settle_while_the_check_stays_on(): void
+    {
+        $this->save(enabled: true, syncBehind: false, siteReviewCheck: true);
+        $this->save(enabled: false, syncBehind: false, siteReviewCheck: true);
+        $this->save(enabled: false, syncBehind: false, siteReviewCheck: true);
+        $this->save(enabled: true, syncBehind: false, siteReviewCheck: true);
+
+        $settles = $this->settles();
+        self::assertCount(1, $settles);
+        self::assertEquals($this->project->id, $settles[0]->projectId);
+    }
+
     /** @return list<SettleSiteReviewChecks> */
     private function settles(): array
     {
