@@ -7,11 +7,19 @@ namespace App\Module\Board\Twig;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Extension\AbstractExtension;
-use Twig\TwigFilter;
+use Twig\Markup;
+use Twig\TwigFunction;
 
-/** The time texts of a card state: when it started, and how long it has held. */
+/**
+ * The time texts of a card state: when it started, and how long it has held. The age sits in a
+ * span that the state-age controller keeps current while the page stays open.
+ */
 final class CardStateExtension extends AbstractExtension
 {
+    private const string AGE = "\u{0}age\u{0}";
+
+    private const array FORMS = ['now', 'minute', 'minutes', 'hour', 'hours', 'day', 'days'];
+
     public function __construct(
         private readonly TranslatorInterface $translator,
         private readonly ClockInterface $clock,
@@ -19,41 +27,66 @@ final class CardStateExtension extends AbstractExtension
     }
 
     #[\Override]
-    public function getFilters(): array
+    public function getFunctions(): array
     {
         return [
-            new TwigFilter('card_state_time', $this->time(...)),
-            new TwigFilter('card_state_duration', $this->duration(...)),
+            new TwigFunction('card_state_text', $this->text(...)),
+            new TwigFunction('card_state_age_texts', $this->ageTexts(...)),
         ];
     }
 
-    /** The clock time, with the day when it is not today, then how long ago: "14:02, 2 hours ago". */
-    public function time(\DateTimeImmutable $since): string
+    /**
+     * Translates a key whose %clock% is the start time, such as "14:02" or "Oct 7, 14:02", and whose
+     * %age% is how long ago it was, in the ago mode, or how long the state has held, in the duration mode.
+     *
+     * @param array<string, string|int> $params
+     * @param 'ago'|'duration'          $mode
+     */
+    public function text(string $key, \DateTimeImmutable $since, string $mode = 'ago', array $params = []): Markup
     {
-        $now = $this->clock->now()->setTimezone($since->getTimezone());
-        $clock = $since->format('Y-m-d') === $now->format('Y-m-d') ? $since->format('H:i') : $since->format('M j, H:i');
-        [$unit, $count] = self::span($since, $now);
+        $now = $this->clock->now();
+        $local = $now->setTimezone($since->getTimezone());
+        $clock = $since->format('Y-m-d') === $local->format('Y-m-d') ? $since->format('H:i') : $since->format('M j, H:i');
+        [$form, $count] = self::form($since, $now);
+        $age = \sprintf(
+            '<span data-controller="state-age" data-state-age-since-value="%d" data-state-age-now-value="%d" data-state-age-mode-value="%s">%s</span>',
+            $since->getTimestamp(),
+            $now->getTimestamp(),
+            $mode,
+            htmlspecialchars($this->translator->trans('board.card_state.'.$mode.'.'.$form, ['%count%' => $count])),
+        );
+        $text = htmlspecialchars($this->translator->trans($key, [...$params, '%clock%' => $clock, '%age%' => self::AGE]));
 
-        return $clock.', '.$this->translator->trans('board.card_state.ago.'.$unit, ['%count%' => $count]);
+        return new Markup(str_replace(htmlspecialchars(self::AGE), $age, $text), 'UTF-8');
     }
 
-    /** How long the state has held, in its largest whole unit: "2 h". */
-    public function duration(\DateTimeImmutable $since): string
+    /** @return array{ago: array<string, string>, duration: array<string, string>} each form with a literal %count% */
+    public function ageTexts(): array
     {
-        [$unit, $count] = self::span($since, $this->clock->now());
+        $texts = ['ago' => [], 'duration' => []];
+        foreach (array_keys($texts) as $mode) {
+            foreach (self::FORMS as $form) {
+                $texts[$mode][$form] = $this->translator->trans('board.card_state.'.$mode.'.'.$form);
+            }
+        }
 
-        return $this->translator->trans('board.card_state.duration.'.$unit, ['%count%' => $count]);
+        return $texts;
     }
 
-    /** @return array{'minutes'|'hours'|'days', int} */
-    private static function span(\DateTimeImmutable $since, \DateTimeImmutable $now): array
+    /** @return array{string, int} the form of the age and its count, in the largest whole unit */
+    private static function form(\DateTimeImmutable $since, \DateTimeImmutable $now): array
     {
         $minutes = intdiv(max(0, $now->getTimestamp() - $since->getTimestamp()), 60);
-
-        return match (true) {
-            $minutes < 60 => ['minutes', $minutes],
-            $minutes < 1440 => ['hours', intdiv($minutes, 60)],
-            default => ['days', intdiv($minutes, 1440)],
+        [$unit, $count] = match (true) {
+            $minutes < 60 => ['minute', $minutes],
+            $minutes < 1440 => ['hour', intdiv($minutes, 60)],
+            default => ['day', intdiv($minutes, 1440)],
         };
+
+        return [match ($count) {
+            0 => 'now',
+            1 => $unit,
+            default => $unit.'s',
+        }, $count];
     }
 }

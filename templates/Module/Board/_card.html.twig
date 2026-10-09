@@ -40,7 +40,7 @@
         <twig:Ds:StateMark :kind="state.kind.value" :label="state.kind.translationKey|trans">
             <span><strong class="lp-tooltip__title">{{ state.kind.translationKey|trans }}.</strong> {{ state.reason.translationKey|trans(state.reason.params) }}</span>
             {% if state.reason.since is not null %}
-            <span class="lp-tooltip__line--quiet">{{ state.kind.sinceKey|trans({'%time%': state.reason.since|card_state_time}) }}</span>
+            <span class="lp-tooltip__line--quiet">{{ card_state_text(state.kind.sinceKey, state.reason.since) }}</span>
             {% endif %}
             <a class="lp-tooltip__link"
                draggable="false"
