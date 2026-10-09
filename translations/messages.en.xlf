@@ -7198,6 +7198,8 @@
             <trans-unit id="analytics.metrics.metric.merge-rate"><source>analytics.metrics.metric.merge-rate</source><target>Merge rate</target></trans-unit>
             <trans-unit id="analytics.metrics.metric.fix-rounds"><source>analytics.metrics.metric.fix-rounds</source><target>Fix rounds</target></trans-unit>
             <trans-unit id="analytics.metrics.metric.hours-to-merge"><source>analytics.metrics.metric.hours-to-merge</source><target>Hours to merge</target></trans-unit>
+            <trans-unit id="analytics.metrics.metric.bucket_time_named"><source>analytics.metrics.metric.bucket_time_named</source><target>Time in %bucket%</target></trans-unit>
+            <trans-unit id="analytics.metrics.metric_group.bucket_time"><source>analytics.metrics.metric_group.bucket_time</source><target>Time buckets</target></trans-unit>
             <trans-unit id="analytics.metrics.unit.run"><source>analytics.metrics.unit.run</source><target>Per run</target></trans-unit>
             <trans-unit id="analytics.metrics.unit.card"><source>analytics.metrics.unit.card</source><target>Per finished card</target></trans-unit>
             <trans-unit id="analytics.metrics.statistic.median"><source>analytics.metrics.statistic.median</source><target>Median</target></trans-unit>

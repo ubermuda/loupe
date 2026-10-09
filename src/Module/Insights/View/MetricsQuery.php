@@ -7,6 +7,7 @@ namespace App\Module\Insights\View;
 use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricBucket;
 use App\Module\Bridge\Metric\MetricGroup;
+use App\Module\Bridge\Metric\MetricKey;
 use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Bridge\Metric\MetricStatistic;
 use App\Module\Bridge\Metric\MetricUnit;
@@ -25,6 +26,8 @@ final readonly class MetricsQuery
         public MetricGroup $group = MetricGroup::None,
         public MetricRange $range = MetricRange::NinetyDays,
         public MetricBucket $bucket = MetricBucket::Week,
+        /** The bucket of a bucket-time query, and null for every other metric. */
+        public ?string $bucketName = null,
     ) {
     }
 
@@ -36,8 +39,8 @@ final readonly class MetricsQuery
      */
     public static function fromQuery(InputBag $query): self
     {
-        $requested = Metric::tryFrom($query->getString('metric'));
-        $metric = null !== $requested && \in_array($requested, Metric::standalone(), true) ? $requested : Metric::Cost;
+        $key = MetricKey::tryParse($query->getString('metric')) ?? new MetricKey(Metric::Cost);
+        $metric = $key->metric;
 
         return new self(
             unit: self::allowed(MetricUnit::tryFrom($query->getString('unit')) ?? MetricUnit::Card, $metric->units()),
@@ -46,6 +49,7 @@ final readonly class MetricsQuery
             group: self::allowed(MetricGroup::tryFrom($query->getString('group')) ?? MetricGroup::None, $metric->groups(), MetricGroup::None),
             range: MetricRange::tryFrom($query->getString('range')) ?? MetricRange::NinetyDays,
             bucket: MetricBucket::tryFrom($query->getString('bucket')) ?? MetricBucket::Week,
+            bucketName: $key->bucketName,
         );
     }
 
@@ -57,7 +61,7 @@ final readonly class MetricsQuery
             $params['unit'] = $this->unit->value;
         }
         if (Metric::Cost !== $this->metric) {
-            $params['metric'] = $this->metric->value;
+            $params['metric'] = new MetricKey($this->metric, $this->bucketName)->key();
         }
         if (MetricStatistic::Median !== $this->statistic) {
             $params['statistic'] = $this->statistic->value;

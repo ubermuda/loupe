@@ -8,7 +8,7 @@
 
 {% block body %}
 {% set metric = query.metric %}
-{% set metricName = ('analytics.metrics.metric.' ~ metric.value)|trans %}
+{% set metricName = query.bucketName is null ? ('analytics.metrics.metric.' ~ metric.value)|trans : 'analytics.metrics.metric.bucket_time_named'|trans({'%bucket%': query.bucketName}) %}
 {% set rowsKey = 'analytics.metrics.rows.' ~ query.unit.value %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
     {% include '@Insights/_header.html.twig' with {} only %}
@@ -20,8 +20,16 @@
         <label class="sr-only" for="metrics-metric">{{ 'analytics.metrics.form.metric'|trans }}</label>
         <twig:Ds:Select id="metrics-metric" name="metric" class="lp-filter-select" data-action="change->autosearch#search">
             {% for option in metrics %}
-                <option value="{{ option.value }}"{{ option == metric ? ' selected' : '' }}>{{ ('analytics.metrics.metric.' ~ option.value)|trans }}</option>
+                <option value="{{ option.value }}"{{ query.bucketName is null and option == metric ? ' selected' : '' }}>{{ ('analytics.metrics.metric.' ~ option.value)|trans }}</option>
             {% endfor %}
+            {% if bucketNames is not empty %}
+            {# A bucket name comes from the project rules, so it is rendered as text. Never add |raw here. #}
+            <optgroup label="{{ 'analytics.metrics.metric_group.bucket_time'|trans }}">
+                {% for name in bucketNames %}
+                <option value="bucket-time:{{ name }}"{{ query.bucketName == name ? ' selected' : '' }}>{{ 'analytics.metrics.metric.bucket_time_named'|trans({'%bucket%': name}) }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endif %}
         </twig:Ds:Select>
         <label class="sr-only" for="metrics-unit">{{ 'analytics.metrics.form.unit'|trans }}</label>
         <twig:Ds:Select id="metrics-unit" name="unit" class="lp-filter-select" data-action="change->autosearch#search">
