@@ -200,3 +200,25 @@ it('opens nothing when the URL hash names no thread of the page', async () => {
 
     expect(opened).toEqual([]);
 });
+
+it('asks for the Comments panel when the Undo notice of a delete arrives', async () => {
+    await mount();
+    const reveals = [];
+    document.addEventListener('comment-anchor:reveal', (event) =>
+        reveals.push(event.detail),
+    );
+    const stream = document.createElement('turbo-stream');
+    stream.setAttribute('target', 'comment-recovery');
+    document.body.append(stream);
+    stream.dispatchEvent(
+        new Event('turbo:before-stream-render', { bubbles: true }),
+    );
+    const other = document.createElement('turbo-stream');
+    other.setAttribute('target', 'comment-rows');
+    document.body.append(other);
+    other.dispatchEvent(
+        new Event('turbo:before-stream-render', { bubbles: true }),
+    );
+
+    expect(reveals).toEqual([{ thread: null }]);
+});

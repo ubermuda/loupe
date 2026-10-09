@@ -261,6 +261,18 @@ export default class extends Controller {
             childList: true,
             subtree: true,
         });
+
+        // The Undo notice of a deleted thread lands in the Comments panel, which
+        // can be closed when the delete came from a popover.
+        this.onStreamRender = (event) => {
+            if (event.target?.getAttribute?.('target') === 'comment-recovery') {
+                this.dispatch('reveal', { detail: { thread: null } });
+            }
+        };
+        document.addEventListener(
+            'turbo:before-stream-render',
+            this.onStreamRender,
+        );
     }
 
     threadTargetConnected(thread) {
@@ -310,6 +322,10 @@ export default class extends Controller {
     }
 
     disconnect() {
+        document.removeEventListener(
+            'turbo:before-stream-render',
+            this.onStreamRender,
+        );
         window.removeEventListener('resize', this.onResize);
         document.removeEventListener('scroll', this.onViewportScroll, true);
         this.element.removeEventListener('toggle', this.onToggle, true);
