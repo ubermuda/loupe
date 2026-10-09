@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Entity;
 
-use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Workflow\Contract\PauseKind;
 
-/** Why a card waits, as a code. The pause cases carry the value of their CardPauseKind. */
+/** Why a card waits, as a code. The pause cases carry the value of their PauseKind. */
 enum InboxCardWaitReason: string
 {
     case WaitingForReview = 'waiting-for-review';
@@ -21,7 +21,7 @@ enum InboxCardWaitReason: string
     case PauseWorkTimeout = 'work-timeout';
     case PauseWorkStopped = 'work-stopped';
 
-    public static function forPause(CardPauseKind $kind): self
+    public static function forPause(PauseKind $kind): self
     {
         return self::from($kind->value);
     }
