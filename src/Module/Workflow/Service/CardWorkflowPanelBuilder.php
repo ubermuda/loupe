@@ -43,6 +43,7 @@ final readonly class CardWorkflowPanelBuilder
         private ClockInterface $clock,
         private LoggerInterface $logger,
         private RuleSubject $ruleSubject,
+        private ClosestRule $closestRule,
     ) {
     }
 
@@ -120,24 +121,25 @@ final readonly class CardWorkflowPanelBuilder
             $rules,
             fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$this->ruleSubject->bind($rule, $facts)->truth,
         ));
-        $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
+        $match = $this->closestRule->find($falseRules, $facts);
         $waiting = null;
-        if (null !== $blocking) {
-            $bound = $this->ruleSubject->bind($blocking, $facts);
+        if (null !== $match) {
+            $blocking = $match->rule;
+            $bound = $match->facts;
             $unreadable = $blocking->when->unreadable($facts);
             // The engine reads the until of a pause only once its when is true.
-            if (null === $unreadable && $bound->truth) {
+            if (null === $unreadable && $blocking->when->evaluate($bound)) {
                 $unreadable = $blocking->then->until?->unreadable($facts);
             }
             $waiting = null === $unreadable
-                ? $blocking->when->firstFalseLeaf($bound->facts)?->waitingFor()->trans($this->translator)
+                ? $blocking->when->firstFalseLeaf($bound)?->waitingFor()->trans($this->translator)
                 : $this->unreadableReason($unreadable);
         }
 
         return new CardWorkflowProgress(
             $this->slotLabel($template, $facts->card->slot),
             $waiting,
-            null === $blocking ? null : $this->nextAction($template, $blocking),
+            null === $match ? null : $this->nextAction($template, $match->rule),
             $this->lastRefusal($card),
         );
     }

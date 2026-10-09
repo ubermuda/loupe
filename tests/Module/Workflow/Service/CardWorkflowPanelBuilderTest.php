@@ -18,6 +18,7 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Engine\RuleSubject;
@@ -25,6 +26,7 @@ use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\CardWorkflowPanelBuilder;
+use App\Module\Workflow\Service\ClosestRule;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Template\TemplateSource;
@@ -63,8 +65,8 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertNull($panel->pause);
         $progress = $panel->progress ?? self::fail('The automation is on, so the panel shows the progress.');
         self::assertSame('Tech design', $progress->slot);
-        self::assertSame('Waiting: no tech-design document is approved.', $progress->waiting);
-        self::assertSame('Move the card to Implementation', $progress->nextAction);
+        self::assertSame('Waiting: a pull request is still open, or none is merged.', $progress->waiting);
+        self::assertSame('Move the card to a terminal column', $progress->nextAction);
         $refusal = $progress->lastRefusal ?? self::fail('The card has a refusal.');
         self::assertSame('move-refused', $refusal->code);
         self::assertSame('The board refused the move.', $refusal->reason);
@@ -90,15 +92,15 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame($text, $refusal->reason);
     }
 
-    public function test_a_slot_with_no_rule_of_its_own_shows_the_first_global_move_rule(): void
+    public function test_a_slot_with_no_rule_of_its_own_shows_the_closest_global_rule(): void
     {
         $card = $this->card('backlog');
 
         $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on.');
 
         self::assertSame('Backlog', $progress->slot);
-        self::assertSame('Waiting: the pull request is not open.', $progress->waiting);
-        self::assertSame('Move the card to Implementation', $progress->nextAction);
+        self::assertSame('Waiting: a pull request is still open, or none is merged.', $progress->waiting);
+        self::assertSame('Move the card to a terminal column', $progress->nextAction);
         self::assertNull($progress->lastRefusal);
     }
 
@@ -220,7 +222,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $progress = $panel->progress ?? self::fail('The automation is on, so the panel shows the progress.');
         self::assertSame('Tech design', $progress->slot);
         self::assertSame('Waiting: could not read Board.', $progress->waiting);
-        self::assertSame('Move the card to Implementation', $progress->nextAction);
+        self::assertSame('Pause the card', $progress->nextAction);
         self::assertSame('The workflow ends the pause when it next evaluates the card.', $panel->pause?->release);
         self::assertSame([], $logger->records);
     }
@@ -289,7 +291,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame('Move the card to Implementation', $progress->nextAction);
     }
 
-    public function test_a_built_in_rule_beside_an_unreadable_rule_shows_its_own_waiting_sentence(): void
+    public function test_an_unreadable_rule_before_a_built_in_rule_of_the_same_size_wins_on_template_order(): void
     {
         $card = $this->card('tech-design');
         $this->define([
@@ -300,8 +302,8 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
 
         $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
 
-        self::assertSame('Waiting: no design document is approved.', $progress->waiting);
-        self::assertSame('Move the card to Implementation', $progress->nextAction);
+        self::assertSame('Waiting: could not read Board.', $progress->waiting);
+        self::assertSame('Request provided work from a bridge', $progress->nextAction);
     }
 
     public function test_a_pause_rule_whose_when_is_false_shows_the_when_leaf_even_when_its_until_cannot_be_read(): void
@@ -336,6 +338,22 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $pause = $this->builder()->build($card)->pause ?? self::fail('The card is paused.');
 
         self::assertSame($this->service(TranslatorInterface::class)->trans('workflow.panel.release.met'), $pause->release);
+    }
+
+    public function test_an_epic_child_whose_pull_request_waits_for_its_checks_names_the_epic_child_merge_rule(): void
+    {
+        $epic = $this->card('in-progress', 'epic');
+        $card = $this->card('in-review');
+        $card->parent = $epic;
+        $pullRequest = $this->linkedPullRequest($card, 7, 'epic/'.$epic->number, 'child-branch', PullRequestChecks::Pending, '2026-10-01 09:00');
+        $pullRequest->mergeability = PullRequestMergeability::Mergeable;
+        $this->em()->flush();
+
+        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertSame('In review', $progress->slot);
+        self::assertSame('Waiting: the required checks have not passed.', $progress->waiting);
+        self::assertSame('Write merge to the pull request', $progress->nextAction);
     }
 
     /** @param list<array<string, mixed>> $rules */
@@ -378,6 +396,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             new MockClock('2026-10-02 12:00'),
             $logger,
             new RuleSubject(),
+            new ClosestRule(),
         );
     }
 
@@ -407,13 +426,13 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $this->em()->flush();
     }
 
-    private function card(string $column): Card
+    private function card(string $column, string $type = 'feature'): Card
     {
         return $this->service(CreateCardHandler::class)(new CreateCardCommand(
             project: $this->project,
             title: 'Card',
             body: 'Body',
-            type: 'feature',
+            type: $type,
             column: $this->column($this->project, $column),
             reporter: CardReporter::Human,
         ));
