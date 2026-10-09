@@ -262,6 +262,42 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([['setDraft', $first->number, false], ['setDraft', $second->number, false]], $this->writer->calls);
     }
 
+    public function test_review_ready_marks_every_open_pull_request_ready_and_skips_the_others(): void
+    {
+        $card = $this->card($this->project(agentReview: true), 'in-review');
+        $first = $this->pullRequest($card);
+        $this->pullRequest($card, state: PullRequestState::Closed);
+        $this->pullRequest($card, state: PullRequestState::Merged);
+        $second = $this->pullRequest($card);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'review-ready', fallback: null));
+
+        self::assertSame([['setDraft', $first->number, false], ['setDraft', $second->number, false]], $this->writer->calls);
+    }
+
+    public function test_review_ready_does_nothing_while_the_switch_is_off_or_no_pull_request_is_open(): void
+    {
+        $off = $this->card($this->project(epicDraftSwitch: true), 'in-review');
+        $this->pullRequest($off);
+        $closed = $this->card($this->project(agentReview: true), 'in-review');
+        $this->pullRequest($closed, state: PullRequestState::Closed);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($off, 'review-ready', fallback: null));
+        self::assertEquals(ActionOutcome::done(), $this->write($closed, 'review-ready', fallback: null));
+
+        self::assertSame([], $this->writer->calls);
+        self::assertSame([], $this->liveKinds($off));
+    }
+
+    public function test_review_ready_is_refused_with_the_cause_of_a_failed_write(): void
+    {
+        $card = $this->card($this->project(agentReview: true), 'in-review');
+        $this->pullRequest($card);
+        $this->writer->failure = new PullRequestWriteFailed('permission', permanent: true);
+
+        self::assertEquals(ActionOutcome::refused('permission'), $this->write($card, 'review-ready', fallback: null));
+    }
+
     public function test_a_state_write_on_a_card_with_no_pull_request_is_done(): void
     {
         $card = $this->card($this->project(closeEpicPullRequests: true), 'backlog');
