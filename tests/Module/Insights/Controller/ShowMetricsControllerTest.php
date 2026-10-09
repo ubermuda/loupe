@@ -249,7 +249,7 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertSame('#9', trim($row->filter('a')->text()));
     }
 
-    public function test_the_picker_lists_one_option_for_each_bucket_with_time(): void
+    public function test_the_picker_lists_one_option_for_each_bucket_with_data(): void
     {
         $client = static::createClient();
         $em = $this->em();

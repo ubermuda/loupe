@@ -117,6 +117,30 @@ final class BucketRuleControllersTest extends WebTestCase
         self::assertSame(['unit' => 'run', 'metric' => 'bucket-time:git', 'range' => 'all'], $params);
     }
 
+    public function test_the_metrics_tab_shows_the_median_of_the_summary(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->scenarioProject('summary-link-median');
+        foreach (['-2 days' => 1000, '-3 days' => 2000, '-4 days' => 6000] as $endedAt => $milliseconds) {
+            $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable($endedAt)), ['git' => $milliseconds]);
+        }
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($project->owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/time-buckets?range=all');
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-bucket-summary-row="git"]');
+        $median = trim($row->filter('[data-bucket-summary-median]')->text());
+        self::assertSame('2 s', $median);
+        $metrics = $client->request(Request::METHOD_GET, (string) $row->filter('a[data-bucket-summary-open]')->attr('href'));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($median, trim($metrics->filter('[data-metrics-summary] .lp-metric-summary__value')->text()));
+    }
+
     public function test_numeric_bucket_names_stay_apart(): void
     {
         $client = static::createClient();
