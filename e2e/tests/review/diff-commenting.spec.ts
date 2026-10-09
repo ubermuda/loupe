@@ -147,7 +147,7 @@ async function selectPhrase(
 
             const range = document.createRange();
             range.setStart(start.node, start.index);
-            if (end === null) {
+            if (end === null || to === undefined) {
                 range.setEnd(start.node, start.index + from.length);
             } else {
                 range.setEnd(end.node, end.index + to.length);
