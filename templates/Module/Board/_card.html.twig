@@ -1,14 +1,15 @@
 {# One card face. The whole card is the drag handle.
-   Props: card (Card), pendingComments (int), documentCount (int), static (bool, optional): a card
-   shown outside the board, which does not drag and names its column instead.
-   A static card also skips the prefetch. progress (CardProgress, optional) shows on an epic. inLane (bool,
-   optional) hides the parent tag its lane gives. runWarning (CardRunWarning, optional) holds until the server receives a newer run of the card. badges (list<CardBadge>, optional). state (?CardState, optional) only feeds the digest. #}
+   Props: card (Card), pendingComments (int), documentCount (int), static (bool, optional): a card shown outside the board,
+   which does not drag, skips the prefetch and names its column. progress (CardProgress, optional) shows on an epic.
+   inLane (bool, optional) hides the parent tag its lane gives. state (?CardState, optional) draws the one state mark.
+   runWarning and badges feed the digest. The tile draws only the Unmanaged badge. #}
 {% set static = static ?? false %}
 {% set badges = badges ?? [] %}
 {% set state = state ?? null %}
 {% set progress = progress ?? null %}
 {% set inLane = inLane ?? false %}
 {% set runWarning = runWarning ?? null %}
+{% set tileBadges = badges|filter(badge => 'unmanaged' == badge.value) %}
 <article class="lp-board-card{{ static ? ' lp-board-card--static' }}"
          {% if not static %}data-controller="card-prefetch"
          data-board-drag-target="card"
@@ -25,6 +26,20 @@
     <div class="lp-board-card__identity">
         <span class="lp-board-card__number">#{{ card.number }}</span>
         {% include '@Board/_card_type_tag.html.twig' with {card: card} only %}
+        {% if state is not null %}
+        <twig:Ds:StateMark :kind="state.kind.value" :label="state.kind.translationKey|trans">
+            <span class="lp-tooltip__title">{{ state.kind.translationKey|trans }}</span>
+            <span>{{ state.reason.translationKey|trans(state.reason.params) }}</span>
+            {% if state.reason.since is not null %}
+            <span class="lp-tooltip__line--quiet">{{ 'board.card_state.since'|trans({'%date%': state.reason.since|date('Y-m-d H:i')}) }}</span>
+            {% endif %}
+            <a class="lp-tooltip__link"
+               draggable="false"
+               href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+               data-turbo-frame="card-drawer-frame"
+               data-action="click->card-drawer#prepare">{{ 'board.card_state.open_card'|trans }}</a>
+        </twig:Ds:StateMark>
+        {% endif %}
         {% include '@Board/_card_source_tag.html.twig' with {card: card} only %}
         {% if card.parent and not inLane %}
         <span class="lp-board-card__parent" data-card-parent-tag title="{{ card.parent.title }}">
@@ -48,18 +63,8 @@
     {% if static %}
     <twig:Ds:StatusChip :dot="false" class="lp-board-card__status">{{ card.column.label|trans }}</twig:Ds:StatusChip>
     {% endif %}
-    {% if runWarning is not null %}
-    <a class="lp-board-card__warning"
-       draggable="false"
-       href="{{ path('app_project_worker_runs', {id: card.project.id, search: runWarning.runId}) }}"
-       data-card-run-warning="{{ runWarning.runId }}">
-        <twig:Ds:StatusChip :modifier="runWarning.state.chipModifier" :dot="false"><twig:ux:icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0" />
-            {{ runWarning.state.translationKey|trans }}</twig:Ds:StatusChip>
-        <span class="lp-board-card__warning-summary">{{ runWarning.summary|slice(0, 140) }}{% if runWarning.summary|length > 140 %}…{% endif %}</span>
-    </a>
-    {% endif %}
-    {% if badges is not empty %}
-    {% include '@Board/_card_badges.html.twig' with {badges: badges} only %}
+    {% if tileBadges is not empty %}
+    {% include '@Board/_card_badges.html.twig' with {badges: tileBadges} only %}
     {% endif %}
     {% if pendingComments > 0 or card.pullRequests|length > 0 or documentCount > 0 %}
     <div class="lp-board-card__meta">
