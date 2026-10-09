@@ -6572,7 +6572,7 @@
             <trans-unit id="board.card_state.working"><source>board.card_state.working</source><target>Working</target></trans-unit>
             <trans-unit id="board.card_state.waiting"><source>board.card_state.waiting</source><target>Waiting</target></trans-unit>
             <trans-unit id="board.card_state.reason.paused"><source>board.card_state.reason.paused</source><target>Paused: %reason%.</target></trans-unit>
-            <trans-unit id="board.card_state.reason.run_stopped"><source>board.card_state.reason.run_stopped</source><target>The last worker run ended without a result.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.run_stopped"><source>board.card_state.reason.run_stopped</source><target>The last worker run did not finish its work.</target></trans-unit>
             <trans-unit id="board.card_state.reason.checks_failed"><source>board.card_state.reason.checks_failed</source><target>The checks of pull request #%number% fail, and no fix is under way.</target></trans-unit>
             <trans-unit id="board.card_state.reason.conflicting"><source>board.card_state.reason.conflicting</source><target>Pull request #%number% has a merge conflict, and no fix is under way.</target></trans-unit>
             <trans-unit id="board.card_state.reason.ready_not_merged"><source>board.card_state.reason.ready_not_merged</source><target>Pull request #%number% is ready to merge, and no merge rule matches it.</target></trans-unit>

@@ -630,7 +630,7 @@ final class ShowBoardControllerTest extends WebTestCase
         $mark = $crawler->filter('[data-card-id="'.$stays->id.'"] .lp-state-mark--stuck');
         self::assertCount(1, $mark);
         self::assertSame('Stuck', $mark->filter('[role="img"]')->attr('aria-label'));
-        self::assertStringContainsString('The last run ended as gave-up.', $mark->filter('.lp-tooltip')->text());
+        self::assertStringContainsString('The last worker run did not finish its work.', $mark->filter('.lp-tooltip')->text());
         self::assertCount(1, $crawler->filter('[data-card-id="'.$unnamed->id.'"] .lp-state-mark--stuck'));
         self::assertCount(1, $crawler->filter('[data-card-id="'.$moved->id.'"] .lp-state-mark--stuck'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] .lp-state-mark'));
