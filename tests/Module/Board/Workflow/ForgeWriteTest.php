@@ -262,17 +262,27 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([['setDraft', $first->number, false], ['setDraft', $second->number, false]], $this->writer->calls);
     }
 
-    public function test_review_ready_marks_every_open_pull_request_ready_and_skips_the_others(): void
+    public function test_review_ready_marks_only_the_open_pull_request_the_rule_acts_on(): void
     {
         $card = $this->card($this->project(agentReview: true), 'in-review');
-        $first = $this->pullRequest($card);
+        $this->pullRequest($card);
         $this->pullRequest($card, state: PullRequestState::Closed);
-        $this->pullRequest($card, state: PullRequestState::Merged);
-        $second = $this->pullRequest($card);
+        $bound = $this->pullRequest($card);
 
-        self::assertEquals(ActionOutcome::done(), $this->write($card, 'review-ready', fallback: null));
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'review-ready', fallback: null, facts: FactsMother::facts(pullRequest: FactsMother::pullRequest(id: $bound->id))));
 
-        self::assertSame([['setDraft', $first->number, false], ['setDraft', $second->number, false]], $this->writer->calls);
+        self::assertSame([['setDraft', $bound->number, false]], $this->writer->calls);
+    }
+
+    public function test_review_ready_skips_a_bound_pull_request_that_is_not_open(): void
+    {
+        $card = $this->card($this->project(agentReview: true), 'in-review');
+        $this->pullRequest($card);
+        $closed = $this->pullRequest($card, state: PullRequestState::Closed);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'review-ready', fallback: null, facts: FactsMother::facts(pullRequest: FactsMother::pullRequest(id: $closed->id))));
+
+        self::assertSame([], $this->writer->calls);
     }
 
     public function test_review_ready_does_nothing_while_the_switch_is_off_or_no_pull_request_is_open(): void

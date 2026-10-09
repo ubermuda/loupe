@@ -164,8 +164,8 @@ marks the delivery as skipped. The check write records what it would have
 posted. Turning an opt-in on later posts nothing for a verdict that was settled
 before.
 
-The `review-ready` write marks each open pull request of the card as ready for
-review. It skips a closed or merged pull request. Like `agent-review-check`, it
+The `review-ready` write marks the open pull request that the rule acts on as
+ready for review. It skips a closed or merged pull request. Like `agent-review-check`, it
 has no fallback and does nothing while **Ask an agent to review each pull
 request** is off.
 
@@ -227,7 +227,7 @@ Lifecycle uses the conditions in these rules:
 |---|---|---|
 | `agent-review` and `agent-review-in-review` | Implementation and In review | When `agent_review.due` holds, asks for work of kind `review` |
 | `fix-agent-review` and `fix-agent-review-in-review` | Implementation and In review | When `agent_review.failed` holds, asks for a fix with the reason `agent-review`. The limit is 10 rounds. The count starts again when `agent_review.passed` holds |
-| `review-ready` | Implementation | Marks a draft pull request ready, when its review passed, its checks passed and it has no conflict. It uses the `review-ready` write |
+| `review-ready` | Implementation | Marks a draft pull request ready, when its review passed, its checks passed, it has no conflict and no request for changes. It uses the `review-ready` write |
 
 The limit of 10 is fixed in the template. The **Automation** tab does not
 change it. The rules `reviewable`, `merge-ready` and `merge-ready-epic-child`

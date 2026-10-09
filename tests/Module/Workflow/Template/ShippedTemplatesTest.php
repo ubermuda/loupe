@@ -209,11 +209,13 @@ final class ShippedTemplatesTest extends KernelTestCase
         $passed = self::withAgentReview('implementation', [AgentReviewConclusion::Success], draft: true);
         $pending = self::withAgentReview('implementation', [null], draft: true);
         $epic = self::withAgentReview('implementation', [AgentReviewConclusion::Success], draft: true, epic: true);
+        $changesRequested = self::withAgentReview('implementation', [AgentReviewConclusion::Success], draft: true, changesRequested: true);
         $ready = $this->call('forge-write', ['write' => 'review-ready']);
 
         self::assertContainsEquals($ready, $this->actions($passed));
         self::assertNotContainsEquals($ready, $this->actions($pending));
         self::assertNotContainsEquals($ready, $this->actions($epic));
+        self::assertNotContainsEquals($ready, $this->actions($changesRequested));
     }
 
     public function test_a_card_waits_in_implementation_and_in_review_until_the_agent_review_passed(): void
@@ -237,14 +239,14 @@ final class ShippedTemplatesTest extends KernelTestCase
     }
 
     /** @param list<AgentReviewConclusion|null> $conclusions the newest review conclusion of each open pull request head */
-    private static function withAgentReview(string $slot, array $conclusions, bool $draft = false, bool $epic = false, int $approvals = 0, bool $epicBranch = false): Facts
+    private static function withAgentReview(string $slot, array $conclusions, bool $draft = false, bool $epic = false, int $approvals = 0, bool $epicBranch = false, bool $changesRequested = false): Facts
     {
         $id = Uuid::v7();
         $heads = array_map(static fn (?AgentReviewConclusion $conclusion): ReviewedHead => new ReviewedHead((string) $id, str_repeat('a', 40), $conclusion), $conclusions);
 
         return FactsMother::facts(
             card: FactsMother::card(slot: $slot, type: $epic ? 'epic' : 'feature'),
-            pullRequest: FactsMother::pullRequest(draft: $draft, checks: ChecksState::Passed, approvalsCoveringHead: $approvals, baseIsMergeTarget: !$epicBranch, baseIsEpicBranch: $epicBranch, id: $id),
+            pullRequest: FactsMother::pullRequest(draft: $draft, checks: ChecksState::Passed, approvalsCoveringHead: $approvals, changesRequested: $changesRequested, baseIsMergeTarget: !$epicBranch, baseIsEpicBranch: $epicBranch, id: $id),
             provided: [AgentReviewFacts::class => new AgentReviewFacts($heads, enabled: true, epic: $epic, unposted: false)],
         );
     }

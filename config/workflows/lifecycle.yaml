@@ -199,6 +199,7 @@ rules:
               - agent_review.passed: {}
               - pr.checks_passed: {}
               - not: { pr.conflicting: {} }
+              - not: { pr.changes_requested: {} }
       then: { forge-write: { write: review-ready } }
 
     - id: fix-in-review

@@ -154,7 +154,8 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close, ForgeWriteKind::ReviewReady], true)) {
             if (ForgeWriteKind::ReviewReady === $write) {
-                $pullRequests = array_values(array_filter($pullRequests, static fn (ForgePullRequest $pullRequest): bool => PullRequestState::Open === $pullRequest->state));
+                $subject = $this->cardPullRequests->subjectOf(array_values(array_filter($pullRequests, static fn (ForgePullRequest $pullRequest): bool => PullRequestState::Open === $pullRequest->state)), $facts->pullRequest);
+                $pullRequests = null === $subject ? [] : [$subject];
             }
             if ([] === $pullRequests) {
                 return ActionOutcome::done();
