@@ -84,7 +84,7 @@ final class SiteReviewFactProviderTest extends KernelTestCase
 
         $facts = $this->build($card);
 
-        self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-1', 'success', 0, null, null, null, null)], $facts->checks);
+        self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-1', 'success', 0, null, null, null, null, $this->provider()->notesDigest([]), null)], $facts->checks);
     }
 
     public function test_the_wanted_check_fails_while_a_note_that_a_verdict_carried_is_pending(): void
@@ -146,6 +146,29 @@ final class SiteReviewFactProviderTest extends KernelTestCase
         self::assertSame('success', $this->build($card)->checks[(string) $pullRequest->id]->wantedConclusion);
     }
 
+    public function test_other_notes_with_the_same_count_give_another_digest_and_fingerprint(): void
+    {
+        $card = $this->card($this->project);
+        $pullRequest = $this->linkedPullRequest($card, 7);
+        $pullRequest->headSha = 'sha-1';
+        $first = $this->note($card, 'Footer overlaps');
+        $second = $this->note($card, 'Logo is blurry');
+        $this->delivery($card, $pullRequest, [$first]);
+        $this->em->flush();
+        $before = $this->build($card);
+
+        $first->status = SiteReviewCommentStatus::Resolved;
+        $this->delivery($card, $pullRequest, [$second]);
+        $this->em->flush();
+        $after = $this->build($card);
+
+        $key = (string) $pullRequest->id;
+        self::assertSame(1, $before->checks[$key]->noteCount);
+        self::assertSame(1, $after->checks[$key]->noteCount);
+        self::assertNotSame($before->checks[$key]->notesDigest, $after->checks[$key]->notesDigest);
+        self::assertNotSame($this->provider()->fingerprint($before), $this->provider()->fingerprint($after));
+    }
+
     public function test_the_posted_check_and_the_opt_in_are_read(): void
     {
         $card = $this->card($this->project);
@@ -157,7 +180,7 @@ final class SiteReviewFactProviderTest extends KernelTestCase
 
         $facts = $this->build($card);
 
-        self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-2', 'success', 0, 'sha-1', 'failure', 99, 3)], $facts->checks);
+        self::assertEquals([(string) $pullRequest->id => new CheckWanted('sha-2', 'success', 0, 'sha-1', 'failure', 99, 3, $this->provider()->notesDigest([]), null)], $facts->checks);
         self::assertTrue($facts->checkOptedIn);
     }
 

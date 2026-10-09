@@ -37,20 +37,22 @@ final class SiteReviewConditionsTest extends TestCase
     public static function checks(): iterable
     {
         yield 'no open pull request' => [false, null, true];
-        yield 'never posted' => [true, new CheckWanted('sha-1', 'success', 0, null, null, null, null), false];
-        yield 'posted and current' => [false, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', 5, 0), true];
-        yield 'the head moved' => [true, new CheckWanted('sha-2', 'success', 0, 'sha-1', 'success', 5, 0), false];
-        yield 'the conclusion changed' => [true, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'failure', 5, 0), false];
-        yield 'the note count changed' => [true, new CheckWanted('sha-1', 'failure', 3, 'sha-1', 'failure', 5, 2), false];
-        yield 'opted in and the row has no run' => [true, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', null, 0), true];
-        yield 'opted out and the row has no run' => [false, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', null, 0), false];
+        yield 'never posted' => [true, new CheckWanted('sha-1', 'success', 0, null, null, null, null, 'd1', null), false];
+        yield 'posted and current' => [false, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', 5, 0, 'd1', 'd1'), true];
+        yield 'the head moved' => [true, new CheckWanted('sha-2', 'success', 0, 'sha-1', 'success', 5, 0, 'd1', 'd1'), false];
+        yield 'the conclusion changed' => [true, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'failure', 5, 0, 'd1', 'd1'), false];
+        yield 'the note count changed' => [true, new CheckWanted('sha-1', 'failure', 3, 'sha-1', 'failure', 5, 2, 'd1', 'd1'), false];
+        yield 'the notes changed with the same count' => [true, new CheckWanted('sha-1', 'failure', 2, 'sha-1', 'failure', 5, 2, 'd2', 'd1'), false];
+        yield 'a row from before the digest' => [true, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', 5, 0, 'd1', null), false];
+        yield 'opted in and the row has no run' => [true, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', null, 0, 'd1', 'd1'), true];
+        yield 'opted out and the row has no run' => [false, new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', null, 0, 'd1', 'd1'), false];
     }
 
     public function test_one_stale_pull_request_makes_the_condition_true(): void
     {
         $facts = new SiteReviewFacts([], [
-            'a' => new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', 1, 0),
-            'b' => new CheckWanted('sha-2', 'success', 0, 'sha-1', 'success', 2, 0),
+            'a' => new CheckWanted('sha-1', 'success', 0, 'sha-1', 'success', 1, 0, 'd1', 'd1'),
+            'b' => new CheckWanted('sha-2', 'success', 0, 'sha-1', 'success', 2, 0, 'd1', 'd1'),
         ]);
 
         self::assertTrue(new CheckStale()->evaluate(self::facts($facts), []));
