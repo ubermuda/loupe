@@ -14,6 +14,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
+use Symfony\Bridge\Doctrine\Middleware\Debug\DebugDataHolder;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class CardSearchToolTest extends KernelTestCase
@@ -233,6 +234,26 @@ final class CardSearchToolTest extends KernelTestCase
         // still findable rather than indexed under a configuration nothing asks
         // for.
         self::assertSame(1, ($this->tool)('goeland')['total']);
+    }
+
+    public function test_a_page_of_rows_reads_the_pull_request_links_in_one_query(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-search-links'));
+        foreach ([1, 2, 3] as $number) {
+            ($this->createTool)('Kestrel '.$number, 'Body', 'feature', pullRequestUrls: ['https://github.com/ubermuda/loupe/pull/'.$number]);
+        }
+        $this->em->clear();
+        $queries = self::getContainer()->get('doctrine.debug_data_holder');
+        self::assertInstanceOf(DebugDataHolder::class, $queries);
+        $queries->reset();
+
+        $rows = ($this->tool)('kestrel')['cards'];
+
+        self::assertCount(3, $rows);
+        $statements = array_merge(...array_values($queries->getData()));
+        self::assertNotEmpty($statements);
+        $reads = array_filter($statements, static fn (array $query): bool => str_contains((string) $query['sql'], 'FROM board_card_pull_requests'));
+        self::assertLessThanOrEqual(1, \count($reads));
     }
 
     private function boardWith(string $label): void

@@ -164,6 +164,7 @@ final readonly class CardPayload
             return [];
         }
         $project = $cards[0]->project;
+        $this->cards->loadPullRequestsOf($cards);
 
         return $this->cardStates->forCards($project, $cards, $pullRequests ?? $this->pullRequestStates->forCards($cards), $this->runWarnings->forProject($project), $paused);
     }

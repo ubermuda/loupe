@@ -14,6 +14,7 @@ use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogSort;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Common\Collections\AbstractLazyCollection;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
@@ -509,6 +510,29 @@ class CardRepository extends ServiceEntityRepository
             ->addSelect('k')
             ->andWhere('c.id IN (:ids)')
             ->setParameter('ids', array_map(strval(...), array_keys($ids)))
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Loads, in one query, the pull request links of each card whose collection is still lazy. The
+     * query fills the collections in place, so a page read from a query without a join costs one
+     * query rather than one for each card.
+     *
+     * @param list<Card> $cards
+     */
+    public function loadPullRequestsOf(array $cards): void
+    {
+        $lazy = array_values(array_filter($cards, static fn (Card $card): bool => $card->pullRequests instanceof AbstractLazyCollection && !$card->pullRequests->isInitialized()));
+        if ([] === $lazy) {
+            return;
+        }
+
+        $this->createQueryBuilder('c')
+            ->leftJoin('c.pullRequests', 'l')
+            ->addSelect('l')
+            ->andWhere('c IN (:cards)')
+            ->setParameter('cards', $lazy)
             ->getQuery()
             ->getResult();
     }
