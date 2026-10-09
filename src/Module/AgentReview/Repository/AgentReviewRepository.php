@@ -83,6 +83,30 @@ class AgentReviewRepository extends ServiceEntityRepository
         return $latest;
     }
 
+    /**
+     * @param list<Card>             $cards
+     * @param list<ForgePullRequest> $pullRequests
+     *
+     * @return list<AgentReview> for each card and pull request pair, the newest review (by creation time, then id)
+     */
+    public function findLatestOfCards(array $cards, array $pullRequests): array
+    {
+        if ([] === $cards || [] === $pullRequests) {
+            return [];
+        }
+
+        /** @var list<AgentReview> $reviews */
+        $reviews = $this->createQueryBuilder('r')
+            ->where('r.card IN (:cards) AND r.pullRequest IN (:pullRequests)')
+            ->andWhere('NOT EXISTS (SELECT 1 FROM '.AgentReview::class.' n WHERE n.card = r.card AND n.pullRequest = r.pullRequest AND (n.createdAt > r.createdAt OR (n.createdAt = r.createdAt AND n.id > r.id)))')
+            ->setParameter('cards', $cards)
+            ->setParameter('pullRequests', $pullRequests)
+            ->getQuery()
+            ->getResult();
+
+        return $reviews;
+    }
+
     /** @return int the number of reviews deleted */
     public function deleteByProject(Project $project): int
     {
