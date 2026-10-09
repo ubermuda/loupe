@@ -95,7 +95,7 @@ final readonly class CardUpdateTool
                 laneEnabled: $laneEnabled,
                 cause: null === $column ? null : $this->runCause->forCard($card),
             ))->card;
-            $card = null === $choice ? $update() : $this->choices->write($update, $choice, $this->runCause->forCard($card), $card);
+            $card = null === $choice ? $update() : $this->choices->write($update, $choice, $this->runCause->forCard($card), null === $parentCardId ? $card : null);
 
             $view = ($this->showCard)(new ShowCardCommand($card));
 

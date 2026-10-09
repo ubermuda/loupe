@@ -24,7 +24,7 @@ interface ChildDesignChoices
 
     /**
      * Runs the card write and the actions of the choice in one transaction. A refusal rolls both back.
-     * For a card that exists, the move the choice makes is checked before the write, so a refusal leaves no trace.
+     * For a card that exists and keeps its parent, the move the choice makes is checked before the write, so a refusal leaves no trace.
      *
      * @param \Closure(): Card $write
      *
