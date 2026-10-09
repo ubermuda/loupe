@@ -141,7 +141,7 @@ final class BucketRuleControllersTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $project = $this->scenarioProject('summary-range');
-        $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-2 days')), ['git' => 1000]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-2 days')), ['git' => 1000, 'lint' => 0]);
         $this->seedBucketTimes($em, $this->seedRun($em, $project, endedAt: new \DateTimeImmutable('-45 days')), ['git' => 5000, 'deploy' => 2000]);
         $projectId = (string) $project->id;
         $em->clear();

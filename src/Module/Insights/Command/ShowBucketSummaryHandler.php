@@ -32,8 +32,10 @@ final readonly class ShowBucketSummaryHandler
         $named = array_values(array_unique($named));
         $timed = [];
         foreach ($bucketTimes->times as $runTimes) {
-            foreach (array_keys($runTimes) as $name) {
-                $timed[(string) $name] = true;
+            foreach ($runTimes as $name => $ms) {
+                if (0 < $ms) {
+                    $timed[(string) $name] = true;
+                }
             }
         }
         $others = array_values(array_diff(array_map(strval(...), array_keys($timed)), $named));
