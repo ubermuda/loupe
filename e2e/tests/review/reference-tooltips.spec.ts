@@ -271,7 +271,10 @@ test('a mention at the bottom of the screen opens its definition above it', asyn
     const tooltip = page.locator(TOOLTIP);
     await mark.evaluate((element) => {
         const main = element.closest('.lp-main');
-        if (main instanceof HTMLElement) main.style.paddingBottom = '800px';
+        if (main instanceof HTMLElement) {
+            main.style.paddingTop = '800px';
+            main.style.paddingBottom = '800px';
+        }
         element.scrollIntoView({ block: 'end' });
     });
 

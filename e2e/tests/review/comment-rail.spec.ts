@@ -30,7 +30,7 @@ const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
 const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
 const ROW = '#comment-rows .lp-comment-row';
-const COUNT = '[data-review-panels-target="count"]';
+const COUNT = '[data-review-panels-target="openCount"]';
 
 async function devRegisterAndVerify(
     page: Page,

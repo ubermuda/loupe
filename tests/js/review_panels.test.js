@@ -37,7 +37,6 @@ async function mount({
         ${button('outline')}
         <section data-review-panels-target="panel" data-review-panel="decisions"${decisionsDisabled ? ' hidden' : ''}>Decisions</section>
         <section data-review-panels-target="panel" data-review-panel="comments" hidden>
-            <span data-review-panels-target="count">0</span>
             <details data-review-panels-target="filter">
                 <summary>Filter</summary>
                 <button type="button" data-review-panels-target="option" data-review-panels-filter-param="open" data-action="review-panels#filter">Open <span data-filter-count>0</span></button>
@@ -139,7 +138,7 @@ it('never opens a disabled panel and keeps its stored choice for other pages', a
 });
 
 it('counts the threads per filter and shows the open ones when resolved are hidden', async () => {
-    const element = await mount({ hideResolved: true });
+    await mount({ hideResolved: true });
     const counts = Object.fromEntries(
         [
             ...document.querySelectorAll(
@@ -156,10 +155,6 @@ it('counts the threads per filter and shows the open ones when resolved are hidd
         unanchored: '1',
         all: '3',
     });
-    expect(
-        element.querySelector('[data-review-panels-target="count"]')
-            .textContent,
-    ).toBe('3');
     expect(document.getElementById('resolved-thread').hidden).toBe(true);
     expect(document.getElementById('open-thread').hidden).toBe(false);
 });

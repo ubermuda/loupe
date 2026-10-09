@@ -12,7 +12,6 @@ export default class extends Controller {
         'thread',
         'option',
         'empty',
-        'count',
         'openCount',
         'filterLabel',
         'inTextTitle',
@@ -158,9 +157,6 @@ export default class extends Controller {
             );
             option.querySelector('[data-filter-count]').textContent =
                 counts[name];
-        }
-        for (const count of this.countTargets) {
-            count.textContent = counts.all;
         }
         for (const count of this.openCountTargets) {
             count.textContent = counts.open;
