@@ -129,6 +129,15 @@ final class CardChildDesignToolTest extends KernelTestCase
         self::assertSame([(string) $this->design->id], $this->linkedDocumentIds((string) $card->id));
     }
 
+    public function test_update_that_resends_the_parent_it_has_needs_no_choice(): void
+    {
+        $card = $this->card('Kept child', 'feature', $this->epic);
+
+        $result = $this->update()(cardId: (string) $card->id, title: 'Kept child, renamed', parentCardId: (string) $this->epic->id);
+
+        self::assertSame('Kept child, renamed', $result['title']);
+    }
+
     public function test_update_that_sets_a_parent_needs_the_choice(): void
     {
         $card = $this->card('Loose', 'feature');

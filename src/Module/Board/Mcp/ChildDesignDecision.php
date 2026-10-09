@@ -44,7 +44,8 @@ final readonly class ChildDesignDecision
 
         $targets = $this->choices->forChild($parent, $documentIds);
         if (null === $childDesign) {
-            if ($parentSet && true === $targets?->choiceRequired) {
+            $parentChanges = $parentSet && true !== $parent->id?->equals($current?->parent?->id);
+            if ($parentChanges && true === $targets?->choiceRequired) {
                 throw new ToolCallException('childDesign: This card joins a parent whose tech design is approved. Pass "inherit" if that design covers the card, or "own" if the card needs a design of its own.');
             }
 
