@@ -214,6 +214,26 @@ of a card with `cardId`, `number`, `title` and `status`. `progress` holds `done`
 and `total` for a card of a type with the `children` capability, and it is null for any other card. A child counts as
 done when it sits in a terminal column.
 
+## Say whether the parent design covers a child
+
+A child of an epic whose tech design is approved needs one choice from you.
+Pass `childDesign` to `card_create`, or to `card_update` when it sets
+`parentCardId`. The call is refused without it, when the owner would otherwise
+get a question about the card. The refusal names both values.
+
+- `inherit` links the tech design of the parent. Choose it for a fix inside a
+  decision that the parent design already made. The card starts with the other
+  children.
+- `own` moves the card to Tech design, where it gets a design of its own. Choose
+  it for a card that asks an open question, or that changes a decision of the
+  parent design. Pass no `status` with it.
+
+Read the parent design before you choose. When you are unsure, choose `own`.
+The choice is refused when the parent has no tech design to inherit, when the
+card has no parent, or when the workflow does not allow the move to Tech design.
+A card made by hand in the UI makes no choice, so the owner still gets the
+question for it.
+
 ## A card that opens with `**Parked.**` is paused
 
 The board has no parked state. A card whose body opens with `**Parked.**` waits

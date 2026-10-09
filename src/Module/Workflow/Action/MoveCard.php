@@ -43,7 +43,7 @@ final readonly class MoveCard implements Action
         if (null !== $from && $from !== $facts->card->slot) {
             return ActionOutcome::done();
         }
-        $target = $this->column($card, ActionParams::string($rule, 'to'));
+        $target = $this->columnFor($card, ActionParams::string($rule, 'to'));
         if (null === $target) {
             return ActionOutcome::refused('workflow-slot-missing');
         }
@@ -69,7 +69,7 @@ final readonly class MoveCard implements Action
         return ActionOutcome::done();
     }
 
-    private function column(Card $card, string $to): ?BoardColumn
+    public function columnFor(Card $card, string $to): ?BoardColumn
     {
         $projectId = (string) ($card->project->id ?? throw new \LogicException('A stored card has a project id.'));
 

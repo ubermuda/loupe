@@ -6,12 +6,15 @@ namespace App\Module\Board\Mcp;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\CardManaged;
+use App\Module\Board\Command\ChildDesignRefused;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Service\ChildDesignChoices;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -25,7 +28,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Change a card on the project board. Pass one of cardId or number to name the card. Every other field is optional, and a field you leave out keeps the value it has. status takes the slug of a column on this board. backlog is a status that always exists. The board does not draw Backlog as a column, and Backlog has its own page. Each board has its own columns, and board_columns lists them. A terminal column is where finished work goes. Moving a card to a terminal column stamps its completion time; moving it back to a column that is not terminal clears that stamp. A change of status appends the card to the end of the column it arrives in. pullRequestUrls and documentIds are the fields where leaving one out and sending an empty list differ: leave one out and those links stay, send an empty list and every link of that kind is removed. A documentId naming no document of this project is refused. relatedCards works the same way, and it replaces every link that touches the card, including links written from the other card. Send the whole set: the relatedCards of card_get goes back unchanged. Each entry takes a cardId and a kind (relates-to, blocks or blocked-by). type takes a type key from board_columns, and a type the project does not declare is refused. parentCardId puts the card under a card of this project: omit it to keep the parent, send an empty string to clear it, or send the id of the new parent. Only a card of a type with the children capability can be a parent, such a card cannot have a parent, and it keeps its type while it has children. laneEnabled says whether the board draws a lane for a card of a type with the lane capability. Reporter cannot be changed, because it records who first raised the card. To finish a card, move it to a terminal column rather than asking for it to be deleted. The card number does not change, and you cannot set it. It is the short label that counts from 1 inside this project. This tool takes the cardId or the number, never both.')]
+#[McpTool(name: self::NAME, description: 'Change a card on the project board. Pass one of cardId or number to name the card. Every other field is optional, and a field you leave out keeps the value it has. status takes the slug of a column on this board. backlog is a status that always exists. The board does not draw Backlog as a column, and Backlog has its own page. Each board has its own columns, and board_columns lists them. A terminal column is where finished work goes. Moving a card to a terminal column stamps its completion time; moving it back to a column that is not terminal clears that stamp. A change of status appends the card to the end of the column it arrives in. pullRequestUrls and documentIds are the fields where leaving one out and sending an empty list differ: leave one out and those links stay, send an empty list and every link of that kind is removed. A documentId naming no document of this project is refused. relatedCards works the same way, and it replaces every link that touches the card, including links written from the other card. Send the whole set: the relatedCards of card_get goes back unchanged. Each entry takes a cardId and a kind (relates-to, blocks or blocked-by). type takes a type key from board_columns, and a type the project does not declare is refused. parentCardId puts the card under a card of this project: omit it to keep the parent, send an empty string to clear it, or send the id of the new parent. Only a card of a type with the children capability can be a parent, such a card cannot have a parent, and it keeps its type while it has children. laneEnabled says whether the board draws a lane for a card of a type with the lane capability. Reporter cannot be changed, because it records who first raised the card. To finish a card, move it to a terminal column rather than asking for it to be deleted. childDesign says whether the tech design of the parent covers the card, for a card under a parent whose tech design is approved. Pass inherit to link that design: choose it for a fix inside a decision the design already made. Pass own for a card that asks an open question or changes a decision of the design: the card goes to Tech design, so pass no status with it. When the call sets parentCardId and the owner would get a question about the card, the call is refused until you pass the choice. The card number does not change, and you cannot set it. It is the short label that counts from 1 inside this project. This tool takes the cardId or the number, never both.')]
 final readonly class CardUpdateTool
 {
     public const string NAME = 'card_update';
@@ -37,6 +40,8 @@ final readonly class CardUpdateTool
         private CardPayload $payload,
         private BoardToolErrorMessages $errorMessages,
         private AgentRunCause $runCause,
+        private ChildDesignDecision $childDesign,
+        private ChildDesignChoices $choices,
     ) {
     }
 
@@ -58,16 +63,25 @@ final readonly class CardUpdateTool
      * @param array<mixed>|null $relatedCards    the full set of card links; omit to keep them, send an empty list to remove them all
      * @param string|null       $parentCardId    the id of a card of this project whose type has the children capability; omit to keep the parent, send an empty string to clear it
      * @param bool|null         $laneEnabled     whether the board draws a lane for this card, when its type has the lane capability; omit to keep the setting
+     * @param string|null       $childDesign     inherit or own, for a card under a parent whose tech design is approved; inherit links that design, and own moves the card to Tech design
      *
      * @return CardSummary
      */
-    public function __invoke(?string $cardId = null, #[Schema(minimum: 1)] ?int $number = null, ?string $title = null, ?string $body = null, ?string $type = null, ?string $status = null, ?array $pullRequestUrls = null, ?array $documentIds = null, #[Schema(items: BoardSubjectResolver::RELATED_CARD_ITEM)] ?array $relatedCards = null, ?string $parentCardId = null, ?bool $laneEnabled = null): array
+    public function __invoke(?string $cardId = null, #[Schema(minimum: 1)] ?int $number = null, ?string $title = null, ?string $body = null, ?string $type = null, ?string $status = null, ?array $pullRequestUrls = null, ?array $documentIds = null, #[Schema(items: BoardSubjectResolver::RELATED_CARD_ITEM)] ?array $relatedCards = null, ?string $parentCardId = null, ?bool $laneEnabled = null, #[Schema(enum: ChildDesignChoices::CHOICES)] ?string $childDesign = null): array
     {
         try {
             $card = $this->subjects->requireCardByIdOrNumber($cardId, $number, McpBoundProjectVoter::CARD_WRITE);
             $column = $this->subjects->optionalColumn($card->project, $status);
 
-            $card = ($this->updateCard)(new UpdateCardCommand(
+            $choice = $this->childDesign->resolve(
+                $parentCardId,
+                $card,
+                $childDesign,
+                null === $documentIds ? $this->linkedDocumentIds($card) : array_values($documentIds),
+                null !== $status,
+            );
+
+            $update = fn (): Card => ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
                 actor: CardReporter::Agent,
                 title: $title,
@@ -81,12 +95,15 @@ final readonly class CardUpdateTool
                 laneEnabled: $laneEnabled,
                 cause: null === $column ? null : $this->runCause->forCard($card),
             ))->card;
+            $card = null === $choice ? $update() : $this->choices->write($update, $choice, $this->runCause->forCard($card));
 
             $view = ($this->showCard)(new ShowCardCommand($card));
 
             return $this->payload->forCard($view);
         } catch (EpicChildrenOpen $e) {
             throw new ToolCallException(\sprintf('status: This epic has open child cards %s. Move each of them to a terminal column first.', $e->cardList()), previous: $e);
+        } catch (ChildDesignRefused $e) {
+            throw new ToolCallException($e->getMessage(), previous: $e);
         } catch (CardManaged $e) {
             throw new ToolCallException(CardManaged::AGENT_MESSAGE, previous: $e);
         } catch (DomainErrors $e) {
@@ -96,5 +113,11 @@ final readonly class CardUpdateTool
         } catch (\Throwable $e) {
             throw new ToolCallException('The card could not be changed. The error has been logged.', previous: $e);
         }
+    }
+
+    /** @return list<string> */
+    private function linkedDocumentIds(Card $card): array
+    {
+        return array_values(array_map(static fn ($link): string => (string) $link->document->id, $card->documents->toArray()));
     }
 }
