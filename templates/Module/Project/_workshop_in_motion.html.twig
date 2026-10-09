@@ -6,7 +6,7 @@
             <header><span>#{{ card.number }}</span>{% include '_tone_tag.html.twig' with {label: card.column|trans, tone: card.columnTone, class: 'lp-workshop-work-card__badge'} only %}</header>
             <h3>{{ card.title }}</h3>
             <footer class="lp-workshop-work-card__run">
-                <span class="lp-status-chip lp-status-chip--{{ card.stateTone }}"><span class="lp-status-chip__dot"></span>{{ card.stateLabel|trans }}</span>
+                <twig:Ds:StatusChip :modifier="card.stateTone">{{ card.stateLabel|trans }}</twig:Ds:StatusChip>
                 <span class="lp-workshop-work-card__kind">{% if card.command %}{{ 'project.workshop.in_motion.kind.command'|trans }}{% elseif card.kind is null %}{{ 'project.workshop.in_motion.kind.interactive'|trans }}{% elseif card.kind is same as('') %}{{ 'project.workshop.in_motion.kind.worker'|trans }}{% else %}{{ card.kind }}{% endif %}</span>
                 <time class="lp-workshop-work-card__elapsed"
                       datetime="{{ card.since|date('c') }}"
@@ -21,6 +21,6 @@
         {% endfor %}
     </div>
     {% if inMotion.more > 0 %}
-    <a class="lp-btn lp-btn--sm lp-workshop-work-more" href="{{ path('app_project_worker_runs', {id: project.id, outcome: 'open'}) }}" data-workshop-more>{{ 'project.workshop.in_motion.more'|trans({'%count%': inMotion.more}) }} <twig:ux:icon name="lucide:arrow-right" /></a>
+    <twig:Ds:Button size="sm" class="lp-workshop-work-more" href="{{ path('app_project_worker_runs', {id: project.id, outcome: 'open'}) }}" data-workshop-more>{{ 'project.workshop.in_motion.more'|trans({'%count%': inMotion.more}) }} <twig:ux:icon name="lucide:arrow-right" /></twig:Ds:Button>
     {% endif %}
 </turbo-frame>

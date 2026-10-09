@@ -15,7 +15,7 @@
         </p>
         <form method="POST" action="{{ path('app_welcome_finish') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-finish') }}">
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.wizard.done.finish'|trans }}</button>
+            <twig:Ds:Button variant="primary" type="submit">{{ 'project.wizard.done.finish'|trans }}</twig:Ds:Button>
         </form>
     </div>
 </div>

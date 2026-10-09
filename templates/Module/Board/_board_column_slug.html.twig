@@ -5,6 +5,6 @@
     {% if refusal %}
     <p class="lp-board__slug-refusal">{{ refusal|trans }}</p>
     {% else %}
-    <p class="lp-form-hint">{{ 'board.column.rename.slug'|trans }} <code class="lp-board__slug-value">{{ slug }}</code></p>
+    <twig:Ds:Hint>{{ 'board.column.rename.slug'|trans }} <code class="lp-board__slug-value">{{ slug }}</code></twig:Ds:Hint>
     {% endif %}
 </turbo-frame>

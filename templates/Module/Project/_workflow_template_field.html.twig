@@ -1,13 +1,13 @@
-<fieldset class="lp-form-field" data-workflow-template-field>
-    <legend class="lp-label">{{ field.vars.label|trans }}</legend>
+<twig:Ds:FormField as="fieldset" data-workflow-template-field>
+    <twig:Ds:Label as="legend">{{ field.vars.label|trans }}</twig:Ds:Label>
     {% for choice in field %}
-    <div class="lp-form-field">
+    <twig:Ds:FormField>
         <label class="lp-choice">
             {{ form_widget(choice) }}
             {{ choice.vars.label|trans }}
         </label>
-        <p class="lp-form-hint" data-workflow-template-description="{{ choice.vars.value }}">{{ choice.vars.description|trans }}</p>
-    </div>
+        <twig:Ds:Hint data-workflow-template-description="{{ choice.vars.value }}">{{ choice.vars.description|trans }}</twig:Ds:Hint>
+    </twig:Ds:FormField>
     {% endfor %}
-    <div class="lp-field-errors">{{ form_errors(field) }}</div>
-</fieldset>
+    <twig:Ds:FieldErrors :fieldView="field" />
+</twig:Ds:FormField>
