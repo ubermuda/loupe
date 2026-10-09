@@ -12,9 +12,9 @@ use App\Module\Board\Command\MoveBacklogCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Middleware\Debug\DebugDataHolder;
@@ -65,7 +65,7 @@ final class CardRankWriteQueryCountTest extends KernelTestCase
 
         $updates = $this->positionUpdatesOf(fn () => $this->updateCard(new UpdateCardCommand(
             card: $last,
-            actor: CardReporter::Human,
+            actor: Actor::Human,
             column: $this->column($this->project, 'next'),
             position: 0,
         )));
@@ -82,7 +82,7 @@ final class CardRankWriteQueryCountTest extends KernelTestCase
 
         $updates = $this->positionUpdatesOf(fn () => $this->updateCard(new UpdateCardCommand(
             card: $dragged,
-            actor: CardReporter::Human,
+            actor: Actor::Human,
             column: $this->column($this->project, 'next'),
             beforeCardId: $neighbour->id?->toRfc4122(),
         )));
@@ -102,7 +102,7 @@ final class CardRankWriteQueryCountTest extends KernelTestCase
 
         $handler = self::getContainer()->get(MoveBacklogCardHandler::class);
         self::assertInstanceOf(MoveBacklogCardHandler::class, $handler);
-        $updates = $this->positionUpdatesOf(fn () => $handler(new MoveBacklogCardCommand($top, CardReporter::Human, $this->column($this->project, 'next'))));
+        $updates = $this->positionUpdatesOf(fn () => $handler(new MoveBacklogCardCommand($top, Actor::Human, $this->column($this->project, 'next'))));
 
         self::assertLessThanOrEqual(4, \count($updates), implode("\n", $updates));
         $this->assertColumnReads('backlog', range(2, self::COLUMN_SIZE));
@@ -125,7 +125,7 @@ final class CardRankWriteQueryCountTest extends KernelTestCase
         $updates = $this->positionUpdatesOf(fn () => $handler(new BulkMoveBacklogCardsCommand(
             $this->column($this->project, 'backlog'),
             $ids,
-            CardReporter::Human,
+            Actor::Human,
             $this->column($this->project, 'next'),
         )));
 

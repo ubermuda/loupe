@@ -18,8 +18,10 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState as ForgePullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\CardFacts;
 use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\ColumnRef;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\FactProvider;
 use App\Module\Workflow\Contract\Facts;
@@ -189,10 +191,15 @@ final readonly class FactsBuilder
     /** The slot key of a column, or null for a column no slot links. */
     public function slotOf(BoardColumn $column): ?string
     {
+        return $this->slotOfRef($column->project, $column->ref());
+    }
+
+    public function slotOfRef(Project $project, ColumnRef $column): ?string
+    {
         return match (true) {
             $column->backlog => self::BACKLOG_SLOT,
             $column->terminal => self::TERMINAL_SLOT,
-            default => $this->workflowSlotLinks->findSlotKeyForColumn($column->project, $column),
+            default => $this->workflowSlotLinks->findSlotKeyForColumnId($project, $column->id),
         };
     }
 

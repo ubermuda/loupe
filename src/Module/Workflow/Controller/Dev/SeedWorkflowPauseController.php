@@ -8,9 +8,9 @@ use App\Controller\AppController;
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\Workflow\Contract\PauseKind;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\When;
@@ -46,7 +46,7 @@ final class SeedWorkflowPauseController extends AppController
             throw $this->createNotFoundException();
         }
 
-        $pause = ($this->pauseCard)(new PauseCardCommand($card, 'move-refused', 'tech-design-write', CardPauseKind::Retries))
+        $pause = ($this->pauseCard)(new PauseCardCommand($card, 'move-refused', 'tech-design-write', PauseKind::Retries))
             ?? throw new \LogicException('The card was already paused.');
 
         return $this->json(['pauseId' => (string) $pause->id], JsonResponse::HTTP_CREATED);

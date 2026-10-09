@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Workflow\Condition\CardChildrenFinished;
 use App\Module\Workflow\Condition\CardDocument;
 use App\Module\Workflow\Condition\CardDocumentApproved;
@@ -15,6 +14,7 @@ use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
 use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Condition\RunWorkActive;
+use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;

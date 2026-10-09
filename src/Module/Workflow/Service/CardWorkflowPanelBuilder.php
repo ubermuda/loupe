@@ -6,12 +6,12 @@ namespace App\Module\Workflow\Service;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Engine\RuleSubject;
@@ -58,7 +58,7 @@ final readonly class CardWorkflowPanelBuilder
         $progress = null;
         try {
             $template = $this->templates->forProject($projectId);
-            if ($managed || CardPauseKind::Rule === $pause?->kind) {
+            if ($managed || PauseKind::Rule === $pause?->kind) {
                 $facts = $this->factsBuilder->build($card, $this->clock->now());
             }
             if ($managed && null !== $facts) {
@@ -81,9 +81,9 @@ final readonly class CardWorkflowPanelBuilder
     private function pause(CardPause $pause, ?Template $template, ?Facts $facts, bool $managed): CardWorkflowPause
     {
         $release = match ($pause->kind) {
-            CardPauseKind::Rule => $this->ruleRelease($pause, $template, $facts),
-            CardPauseKind::WorkLimit => $this->translator->trans('workflow.panel.release.left_slot'),
-            CardPauseKind::Retries, CardPauseKind::WorkTimeout, CardPauseKind::WorkStopped => $this->translator->trans('workflow.panel.release.facts_changed'),
+            PauseKind::Rule => $this->ruleRelease($pause, $template, $facts),
+            PauseKind::WorkLimit => $this->translator->trans('workflow.panel.release.left_slot'),
+            PauseKind::Retries, PauseKind::WorkTimeout, PauseKind::WorkStopped => $this->translator->trans('workflow.panel.release.facts_changed'),
         };
 
         return new CardWorkflowPause(

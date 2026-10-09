@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Action;
 
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\Ask;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ActionType;
@@ -87,7 +87,7 @@ final class AskTest extends KernelTestCase
 
         $outcome = $this->action()->run($this->askRule(), $card, FactsMother::facts(), $state);
 
-        self::assertEquals(ActionOutcome::pause(CardPauseKind::Rule, 'inbox-off'), $outcome);
+        self::assertEquals(ActionOutcome::pause(PauseKind::Rule, 'inbox-off'), $outcome);
         self::assertSame([], $this->asks->opened);
         self::assertNull($state->askItemId);
     }

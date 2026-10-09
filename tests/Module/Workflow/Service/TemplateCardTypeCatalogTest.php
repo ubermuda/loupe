@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Service;
 
-use App\Module\Board\Entity\LabelTone;
-use App\Module\Board\Service\CardTypeDefinition;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Contract\CardTypeDefinition;
+use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Service\TemplateCardTypeCatalog;
 use App\Module\Workflow\Template\ShippedTemplates;
 use App\Module\Workflow\Template\TemplateParser;
@@ -32,7 +32,7 @@ final class TemplateCardTypeCatalogTest extends KernelTestCase
         $binding->definition = $definition;
         $this->em()->flush();
 
-        $types = $this->catalog()->forProject($project);
+        $types = $this->catalog()->forProject($project->requireId());
 
         self::assertSame(self::SHIPPED_KEYS, array_map(static fn (CardTypeDefinition $type): string => $type->key, $types->all));
         self::assertSame('feature', $types->defaultKey);
@@ -46,7 +46,7 @@ final class TemplateCardTypeCatalogTest extends KernelTestCase
         $project = $this->workflowProject('card-types-simple');
         $this->bindHandler()(new BindWorkflowTemplateCommand($project, 'simple', []));
 
-        $types = $this->catalog()->forProject($project);
+        $types = $this->catalog()->forProject($project->requireId());
 
         self::assertSame(self::SHIPPED_KEYS, array_map(static fn (CardTypeDefinition $type): string => $type->key, $types->all));
     }
@@ -56,7 +56,7 @@ final class TemplateCardTypeCatalogTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('card-types-unbound');
 
-        $types = $this->catalog()->forProject($project);
+        $types = $this->catalog()->forProject($project->requireId());
 
         self::assertSame(self::SHIPPED_KEYS, array_map(static fn (CardTypeDefinition $type): string => $type->key, $types->all));
         self::assertSame('feature', $types->default()->key);
@@ -67,7 +67,7 @@ final class TemplateCardTypeCatalogTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('card-types-reset');
         $catalog = $this->catalog();
-        self::assertSame(LabelTone::Amber, $catalog->forProject($project)->get('bug')->tone);
+        self::assertSame(LabelTone::Amber, $catalog->forProject($project->requireId())->get('bug')->tone);
         $binding = $this->bindLifecycle($project);
         $definition = $binding->definition;
         self::assertIsArray($definition['types']);
@@ -76,9 +76,9 @@ final class TemplateCardTypeCatalogTest extends KernelTestCase
         $binding->definition = $definition;
         $this->em()->flush();
 
-        self::assertSame(LabelTone::Amber, $catalog->forProject($project)->get('bug')->tone);
+        self::assertSame(LabelTone::Amber, $catalog->forProject($project->requireId())->get('bug')->tone);
         $catalog->reset();
-        self::assertSame(LabelTone::Pink, $catalog->forProject($project)->get('bug')->tone);
+        self::assertSame(LabelTone::Pink, $catalog->forProject($project->requireId())->get('bug')->tone);
     }
 
     /** No service reads the catalog yet, so the container removes it. The test builds it from the services it needs. */

@@ -6,9 +6,7 @@ namespace App\Tests\Module\Inbox\EventListener;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
@@ -39,6 +37,8 @@ use App\Module\Review\Command\SubmitReviewCommand;
 use App\Module\Review\Command\SubmitReviewHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Event\DocumentStatusChanged;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Event\CardPaused;
 use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -88,29 +88,29 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
 
     public function test_a_workflow_pause_asks_for_its_card(): void
     {
-        $this->dispatch(new CardPaused($this->projectId(), $this->cardId($this->card), 'owner-review', CardPauseKind::Rule));
+        $this->dispatch(new CardPaused($this->projectId(), $this->cardId($this->card), 'owner-review', PauseKind::Rule));
 
         self::assertSame([[(string) $this->projectId(), [(string) $this->card->id]]], $this->sent());
     }
 
     public function test_a_terminal_change_asks_for_the_cards_of_the_column(): void
     {
-        $this->dispatch(new BoardColumnTerminalChanged($this->project, 'column', true, [(string) $this->card->id, (string) $this->other->id], CardReporter::Human));
+        $this->dispatch(new BoardColumnTerminalChanged($this->project, 'column', true, [(string) $this->card->id, (string) $this->other->id], Actor::Human));
 
         self::assertSame([[(string) $this->projectId(), [(string) $this->card->id, (string) $this->other->id]]], $this->sent());
     }
 
     public function test_a_column_delete_asks_for_the_moved_cards(): void
     {
-        $this->dispatch(new BoardColumnDeleted($this->project, Uuid::v7()->toRfc4122(), 'review', 'backlog', [(string) $this->card->id], CardReporter::Human, false, false));
+        $this->dispatch(new BoardColumnDeleted($this->project, Uuid::v7()->toRfc4122(), 'review', 'backlog', [(string) $this->card->id], Actor::Human, false, false));
 
         self::assertSame([[(string) $this->projectId(), [(string) $this->card->id]]], $this->sent());
     }
 
     public function test_a_column_event_with_no_cards_asks_for_nothing(): void
     {
-        $this->dispatch(new BoardColumnTerminalChanged($this->project, 'column', true, [], CardReporter::Human));
-        $this->dispatch(new BoardColumnDeleted($this->project, Uuid::v7()->toRfc4122(), 'review', null, [], CardReporter::Human, false, false));
+        $this->dispatch(new BoardColumnTerminalChanged($this->project, 'column', true, [], Actor::Human));
+        $this->dispatch(new BoardColumnDeleted($this->project, Uuid::v7()->toRfc4122(), 'review', null, [], Actor::Human, false, false));
 
         self::assertSame([], $this->sent());
     }

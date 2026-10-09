@@ -8,8 +8,8 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Service\CardEventCause;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Template\ActionType;
@@ -41,7 +41,7 @@ final readonly class Detach implements Action
         try {
             ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
-                actor: CardReporter::System,
+                actor: Actor::System,
                 parentCardId: '',
                 cause: CardEventCause::workflowRule($rule->id),
             ));

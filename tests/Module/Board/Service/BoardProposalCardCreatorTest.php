@@ -6,11 +6,11 @@ namespace App\Tests\Module\Board\Service;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Insights\Proposal\ProposalCard;
 use App\Module\Insights\Proposal\ProposalCardCreatorInterface;
 use App\Module\Review\Entity\Document;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -40,7 +40,7 @@ final class BoardProposalCardCreatorTest extends KernelTestCase
         self::assertSame('Cache the dependencies', $card->title);
         self::assertSame('Each run installs them again.', $card->body);
         self::assertSame('feature', $card->type);
-        self::assertSame(CardReporter::Agent, $card->origin);
+        self::assertSame(Actor::Agent, $card->origin);
         self::assertSame('backlog', $card->column->slug);
         self::assertSame([(string) $document->id], array_map(static fn (CardDocument $link): string => (string) $link->document->id, $card->documents->toArray()));
     }

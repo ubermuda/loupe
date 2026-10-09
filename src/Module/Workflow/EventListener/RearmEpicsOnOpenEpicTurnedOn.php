@@ -7,14 +7,14 @@ namespace App\Module\Workflow\EventListener;
 use App\Module\Board\Command\ReleaseCardPauseCommand;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Workflow\Action\ForgeWrite;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEvaluations;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -97,14 +97,14 @@ final readonly class RearmEpicsOnOpenEpicTurnedOn
 
             return true;
         }
-        if (CardPauseKind::Retries !== $pause->kind || ForgeWrite::OPEN_EPIC_OFF !== $pause->reason || $state->ruleId !== $pause->ruleId
+        if (PauseKind::Retries !== $pause->kind || ForgeWrite::OPEN_EPIC_OFF !== $pause->reason || $state->ruleId !== $pause->ruleId
             || !($this->releaseCardPause)(new ReleaseCardPauseCommand($pause, self::REASON))) {
             return false;
         }
 
         $state->reset();
         $state->updatedAt = $pause->releasedAt ?? $now;
-        $this->cardEvents->record($card, CardEventKind::PauseReleased, CardReporter::System, null, [
+        $this->cardEvents->record($card, CardEventKind::PauseReleased, Actor::System, null, [
             'kind' => $pause->kind->value,
             'reason' => $pause->reason,
             'ruleId' => $pause->ruleId,

@@ -16,13 +16,13 @@ use App\Module\Board\Command\ListBacklogPageIdsCommand;
 use App\Module\Board\Command\ListBacklogPageIdsHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\BulkMoveBacklogCardsFormType;
 use App\Module\Board\Form\BulkMoveBacklogCardsRequest;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogPageChange;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -81,7 +81,7 @@ final class BulkMoveBacklogCardsController extends AppController
                 $moved = ($this->bulkMove)(new BulkMoveBacklogCardsCommand(
                     $backlog,
                     $data->ids,
-                    CardReporter::Human,
+                    Actor::Human,
                     $data->column ?? throw new \LogicException('column required after validation'),
                 ));
             } catch (DomainErrors $e) {

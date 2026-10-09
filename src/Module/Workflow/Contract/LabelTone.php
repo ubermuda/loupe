@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Entity;
+namespace App\Module\Workflow\Contract;
 
 /**
  * The colour of a card type or column label. Each case has an .lp-tag and an

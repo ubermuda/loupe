@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Service;
-
-use App\Module\Board\Entity\LabelTone;
+namespace App\Module\Workflow\Contract;
 
 final readonly class CardTypeDefinition
 {

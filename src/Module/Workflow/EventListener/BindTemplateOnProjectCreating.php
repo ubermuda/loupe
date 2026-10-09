@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Workflow\EventListener;
 
 use App\Exception\DomainErrors;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Event\ProjectCreating;
+use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
 use App\Module\Workflow\Template\ShippedTemplateChoices;

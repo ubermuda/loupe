@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Mcp;
 
 use App\Exception\DomainErrors;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Mcp\BoardSubjectResolver;
 use App\Module\Bridge\Mcp\BridgeCommandRefusals;
 use App\Module\Bridge\Mcp\BridgeSubjectResolver;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
+use App\Module\Workflow\Contract\Actor;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -53,7 +53,7 @@ final readonly class CardPauseReleaseTool
             $card = $this->boardSubjects->requireCard((string) $id, McpBoundProjectVoter::CARD_WRITE);
 
             try {
-                $released = ($this->release)(new ReleaseWorkflowPauseCommand($card, $this->subjects->requireUser(), CardReporter::Agent, $pause));
+                $released = ($this->release)(new ReleaseWorkflowPauseCommand($card, $this->subjects->requireUser(), Actor::Agent, $pause));
 
                 return [
                     'cardId' => (string) $id,

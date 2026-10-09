@@ -9,10 +9,7 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\CardEventCause;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -22,6 +19,9 @@ use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Service\CardPullRequests;
@@ -131,7 +131,7 @@ final readonly class ForgeWrite implements Action
     {
         $settings = $this->boardAutomation->settingsOf($card->project);
         $epicBranch = $settings->epicBranchOf($card->number);
-        if (!$this->catalog->forProject($card->project)->get($card->type)->children || null === $epicBranch) {
+        if (!$this->catalog->forProject($card->project->requireId())->get($card->type)->children || null === $epicBranch) {
             return ActionOutcome::done();
         }
         // A refusal waits, and turning the write on re-arms it. A done rule never fires again.
@@ -173,7 +173,7 @@ final readonly class ForgeWrite implements Action
         try {
             ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
-                actor: CardReporter::System,
+                actor: Actor::System,
                 pullRequestUrls: [...$this->cardPullRequests->currentUrls($card), $opener->url($child, $number)],
                 cause: CardEventCause::workflowRule($rule->id),
             ));

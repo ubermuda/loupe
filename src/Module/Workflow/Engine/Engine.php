@@ -11,8 +11,6 @@ use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -28,7 +26,9 @@ use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Contract\RuleAsks;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
@@ -274,7 +274,7 @@ final readonly class Engine
                 $this->write($run, $state, function (WorkflowRuleState $state) use ($run, $rule): void {
                     $state->lastRefusal = self::REPAIR_FAILED;
                     $state->lastRefusalAt = $run->now;
-                    $this->pause($run, CardPauseKind::Retries, self::REPAIR_FAILED, $rule->id);
+                    $this->pause($run, PauseKind::Retries, self::REPAIR_FAILED, $rule->id);
                 });
                 continue;
             }
@@ -316,7 +316,7 @@ final readonly class Engine
         $state->lastRefusal = $code;
         $state->lastRefusalAt = $run->now;
         if (!$policy->retries($code)) {
-            $this->pause($run, CardPauseKind::WorkStopped, $code, $rule->id);
+            $this->pause($run, PauseKind::WorkStopped, $code, $rule->id);
 
             return;
         }
@@ -339,7 +339,7 @@ final readonly class Engine
                     return;
                 }
             }
-            $this->pause($run, CardPauseKind::Retries, $code, $rule->id);
+            $this->pause($run, PauseKind::Retries, $code, $rule->id);
 
             return;
         }
@@ -370,7 +370,7 @@ final readonly class Engine
                 $state = $run->states[$rule->id] ?? null;
                 $repair = null !== $state && $state->repaired && null !== $state->workRequestId && $state->workRequestId->equals($requestId);
                 if ($repair || 'expire' !== ActionParams::optionalString($rule, 'onTimeout')) {
-                    $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
+                    $this->pause($run, PauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
                 }
             }
         }
@@ -399,7 +399,7 @@ final readonly class Engine
         $rule = $run->rule($pause->ruleId);
         if (self::RUN_RESUMED === $code && null !== $rule) {
             $this->keepQuiet($run, $rule);
-            $this->cardEvents->record($run->card, CardEventKind::PauseReleased, CardReporter::System, null, [
+            $this->cardEvents->record($run->card, CardEventKind::PauseReleased, Actor::System, null, [
                 'kind' => $pause->kind->value,
                 'reason' => $pause->reason,
                 'ruleId' => $pause->ruleId,
@@ -477,13 +477,13 @@ final readonly class Engine
         $applies = $run->applies($rule);
         $bound = $this->ruleSubject->bind($rule, $run->facts);
         $stored = ($run->states[$rule->id] ?? null)?->subjectPullRequestId;
-        if (CardPauseKind::Rule !== $pause->kind && $applies && $bound->binds && $bound->truth
+        if (PauseKind::Rule !== $pause->kind && $applies && $bound->binds && $bound->truth
             && null !== $stored && null !== $bound->subject && !$stored->equals($bound->subject)) {
             return self::SUBJECT_CHANGED;
         }
 
         return match ($pause->kind) {
-            CardPauseKind::Rule => match (true) {
+            PauseKind::Rule => match (true) {
                 ActionType::Ask === $rule->then->type => match (true) {
                     !$applies => 'facts-changed',
                     null !== $rule->when->unreadable($run->facts) => null,
@@ -496,12 +496,12 @@ final readonly class Engine
                 $rule->then->until->evaluate($this->ruleSubject->paused($rule, $run->facts, $stored)) => 'until-met',
                 default => null,
             },
-            CardPauseKind::WorkLimit => match (true) {
+            PauseKind::WorkLimit => match (true) {
                 !$applies => 'left-slot',
                 $this->refills($run, $rule, $stored) => self::REFILLED,
                 default => null,
             },
-            CardPauseKind::Retries, CardPauseKind::WorkTimeout, CardPauseKind::WorkStopped => match (true) {
+            PauseKind::Retries, PauseKind::WorkTimeout, PauseKind::WorkStopped => match (true) {
                 !$applies => 'facts-changed',
                 null !== $rule->when->unreadable($run->facts) => null,
                 !$bound->truth,
@@ -646,7 +646,7 @@ final readonly class Engine
                     return true;
                 }
                 $state->dueAt = null;
-                $this->pause($run, CardPauseKind::Retries, $code, $rule->id);
+                $this->pause($run, PauseKind::Retries, $code, $rule->id);
 
                 return false;
             case ActionOutcomeKind::Pause:
@@ -779,7 +779,7 @@ final readonly class Engine
         return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122(), $state->workRequestId?->toRfc4122(), $state->repaired, $state->askItemId?->toRfc4122()];
     }
 
-    private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void
+    private function pause(Evaluation $run, PauseKind $kind, string $code, string $ruleId): void
     {
         $run->ended = true;
         $pause = ($this->pauseCard)(new PauseCardCommand($run->card, $code, $ruleId, $kind));

@@ -6,9 +6,9 @@ namespace App\Tests\Module\Workflow\Repository;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Bridge\Entity\CardHold;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Tests\Module\Workflow\WorkflowProjects;
@@ -118,7 +118,7 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         $free = $this->card($project);
         $this->state($paused, 'a', $now->modify('-2 hours'));
         $this->state($free, 'a', $now->modify('-1 hour'));
-        $pause = new CardPause($paused, $project, 'on-hold', 'hold', CardPauseKind::Rule, $now);
+        $pause = new CardPause($paused, $project, 'on-hold', 'hold', PauseKind::Rule, $now);
         $this->em()->persist($pause);
         $this->em()->flush();
 

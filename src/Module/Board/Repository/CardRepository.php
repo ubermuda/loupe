@@ -9,10 +9,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogSort;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Types\Type;
@@ -1393,7 +1393,7 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function findForBoard(array $columns, ?string $type = null, ?CardReporter $reporter = null, ?Card $parent = null, ?bool $paused = null): array
+    public function findForBoard(array $columns, ?string $type = null, ?Actor $reporter = null, ?Card $parent = null, ?bool $paused = null): array
     {
         $cards = [];
         foreach ($columns as $column) {
@@ -1460,7 +1460,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(BoardColumn $column, ?string $type, ?CardReporter $reporter, ?Card $parent, ?bool $paused): array
+    private function findColumn(BoardColumn $column, ?string $type, ?Actor $reporter, ?Card $parent, ?bool $paused): array
     {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.column = :column')

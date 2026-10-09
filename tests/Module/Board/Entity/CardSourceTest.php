@@ -4,26 +4,26 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Entity;
 
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
+use App\Module\Workflow\Contract\Actor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
 
 final class CardSourceTest extends TestCase
 {
-    /** @return iterable<string, array{CardReporter, CardSourceKind}> */
+    /** @return iterable<string, array{Actor, CardSourceKind}> */
     public static function reporters(): iterable
     {
-        yield 'human' => [CardReporter::Human, CardSourceKind::Person];
-        yield 'agent' => [CardReporter::Agent, CardSourceKind::Agent];
-        yield 'reviewer' => [CardReporter::Reviewer, CardSourceKind::Widget];
-        yield 'system' => [CardReporter::System, CardSourceKind::Loupe];
+        yield 'human' => [Actor::Human, CardSourceKind::Person];
+        yield 'agent' => [Actor::Agent, CardSourceKind::Agent];
+        yield 'reviewer' => [Actor::Reviewer, CardSourceKind::Widget];
+        yield 'system' => [Actor::System, CardSourceKind::Loupe];
     }
 
     #[DataProvider('reporters')]
-    public function test_a_reporter_maps_to_its_source_kind(CardReporter $reporter, CardSourceKind $kind): void
+    public function test_a_reporter_maps_to_its_source_kind(Actor $reporter, CardSourceKind $kind): void
     {
         $source = CardSource::fromReporter($reporter);
 

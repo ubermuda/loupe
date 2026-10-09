@@ -8,11 +8,11 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -52,7 +52,7 @@ final class ReleaseWorkflowPauseController extends AppController
             ($this->release)(new ReleaseWorkflowPauseCommand(
                 $card,
                 $user,
-                CardReporter::Human,
+                Actor::Human,
                 Uuid::fromString($pauseId),
             ));
             $this->addFlash('success', $this->translator->trans('workflow.pause_release.flash.released'));

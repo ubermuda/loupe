@@ -6,10 +6,10 @@ namespace App\Module\Workflow\Action;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardEventRepository;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
@@ -38,7 +38,7 @@ final readonly class RequestWork implements Action
     {
         $limit = ActionParams::optionalInt($rule, 'limit');
         if (null !== $limit && $state->fires >= $limit) {
-            return ActionOutcome::pause(CardPauseKind::WorkLimit, 'work-limit-reached');
+            return ActionOutcome::pause(PauseKind::WorkLimit, 'work-limit-reached');
         }
 
         $kind = ActionParams::string($rule, 'kind');
@@ -57,6 +57,6 @@ final readonly class RequestWork implements Action
         if (null !== $number) {
             $detail['pullRequest'] = $number;
         }
-        $this->cardEvents->record($card, CardEventKind::FixRequested, CardReporter::System, null, $detail, $facts->now);
+        $this->cardEvents->record($card, CardEventKind::FixRequested, Actor::System, null, $detail, $facts->now);
     }
 }

@@ -7,7 +7,6 @@ namespace App\Module\Inbox\Service\Dev;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -21,6 +20,7 @@ use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\Uid\Uuid;
@@ -71,7 +71,7 @@ final readonly class DevCodexRunSeeder
         $card = new Card(project: $project, column: $column, title: 'Run a worker on Codex', body: '', number: $this->cards->nextNumber($project), type: 'feature', createdAt: $createdAt);
         $this->em->persist($card);
         $this->em->flush();
-        $this->cardEvents->record($card, CardEventKind::Created, CardReporter::Agent, null, [], $createdAt);
+        $this->cardEvents->record($card, CardEventKind::Created, Actor::Agent, null, [], $createdAt);
 
         $runs = [];
         foreach (self::RUNS as [$daysAgo, $costUsd]) {

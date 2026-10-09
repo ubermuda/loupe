@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
-use App\Module\Board\Entity\LabelTone;
+use App\Module\Workflow\Contract\LabelTone;
 
 /** A card type the template declares. A type with children can be a parent, and a type with a lane gets a lane on the board. */
 final readonly class TemplateCardType

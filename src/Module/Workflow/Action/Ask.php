@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Action;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Contract\RuleAsks;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Template\ActionType;
@@ -44,7 +44,7 @@ final readonly class Ask implements Action
     {
         $projectId = $card->project->id ?? throw new \LogicException('A stored card has a project id.');
         if (!$this->asks->isOn($projectId)) {
-            return ActionOutcome::pause(CardPauseKind::Rule, self::INBOX_OFF);
+            return ActionOutcome::pause(PauseKind::Rule, self::INBOX_OFF);
         }
 
         $parameters = ['%child%' => $card->number, '%epic%' => $card->parent->number ?? ''];

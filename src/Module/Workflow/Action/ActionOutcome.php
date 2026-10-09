@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Action;
 
-use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Workflow\Contract\PauseKind;
 use Symfony\Component\Uid\Uuid;
 
 /** What an action answers: it did its work, it was refused, or the card must pause. */
@@ -17,7 +17,7 @@ final readonly class ActionOutcome
     private function __construct(
         public ActionOutcomeKind $kind,
         public ?string $code = null,
-        public ?CardPauseKind $pauseKind = null,
+        public ?PauseKind $pauseKind = null,
         public bool $alreadyLive = false,
         public ?Uuid $requestId = null,
     ) {
@@ -40,7 +40,7 @@ final readonly class ActionOutcome
         return new self(ActionOutcomeKind::Refused, self::code($code));
     }
 
-    public static function pause(CardPauseKind $kind, string $code): self
+    public static function pause(PauseKind $kind, string $code): self
     {
         return new self(ActionOutcomeKind::Pause, self::code($code), $kind);
     }

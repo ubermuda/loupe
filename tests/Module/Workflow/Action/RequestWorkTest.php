@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Workflow\Action;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
@@ -15,6 +14,7 @@ use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\RuleOrigin;
@@ -113,7 +113,7 @@ final class RequestWorkTest extends KernelTestCase
         $state->fires = 3;
         $outcome = $this->action()->run($rule, $card, FactsMother::facts(), $state);
 
-        self::assertEquals(ActionOutcome::pause(CardPauseKind::WorkLimit, 'work-limit-reached'), $outcome);
+        self::assertEquals(ActionOutcome::pause(PauseKind::WorkLimit, 'work-limit-reached'), $outcome);
         self::assertSame([], $this->service(WorkRequestRepository::class)->findLiveForCard($card->id ?? throw new \LogicException('A flushed card has an id.')));
     }
 

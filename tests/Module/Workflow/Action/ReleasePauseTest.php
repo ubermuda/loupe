@@ -9,11 +9,11 @@ use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ReleasePause;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -61,7 +61,7 @@ final class ReleasePauseTest extends KernelTestCase
 
     private function pause(Card $card, string $reason): CardPause
     {
-        $pause = $this->pauseHandler()(new PauseCardCommand($card, $reason, 'hold-rule', CardPauseKind::Rule));
+        $pause = $this->pauseHandler()(new PauseCardCommand($card, $reason, 'hold-rule', PauseKind::Rule));
         self::assertNotNull($pause);
 
         return $pause;

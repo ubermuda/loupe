@@ -9,7 +9,6 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
@@ -37,6 +36,7 @@ use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\EventListener\EvaluateCardOnCardDocumentsChanged;
 use App\Module\Workflow\EventListener\EvaluateCardOnWorkRequestChanged;
@@ -90,7 +90,7 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->flush();
 
         new EvaluateCardsOnCardMoved($this->service(CardRepository::class), $this->trigger())(
-            new CardMoved($card, new CardMove($this->column($this->project, 'in-progress')), CardReporter::Human),
+            new CardMoved($card, new CardMove($this->column($this->project, 'in-progress')), Actor::Human),
         );
 
         self::assertSame($this->ids($card, $epic, $blocked), $this->sent());
@@ -100,8 +100,8 @@ final class EvaluationListenersTest extends KernelTestCase
     {
         [$card, $old, $new] = [$this->card($this->project, 'next'), $this->card($this->project, 'next'), $this->card($this->project, 'next')];
 
-        new EvaluateCardsOnCardParentChanged($this->trigger())(new CardParentChanged($card, $old, $new, CardReporter::Human));
-        new EvaluateCardsOnCardParentChanged($this->trigger())(new CardParentChanged($card, null, $new, CardReporter::Human));
+        new EvaluateCardsOnCardParentChanged($this->trigger())(new CardParentChanged($card, $old, $new, Actor::Human));
+        new EvaluateCardsOnCardParentChanged($this->trigger())(new CardParentChanged($card, null, $new, Actor::Human));
 
         self::assertSame([...$this->ids($card, $old, $new), ...$this->ids($card, $new)], $this->sent());
     }
@@ -122,7 +122,7 @@ final class EvaluationListenersTest extends KernelTestCase
     {
         [$one, $two] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
 
-        new EvaluateCardsOnCardBlockersRemoved($this->trigger())(new CardBlockersRemoved($this->project, [$one, $two], CardReporter::Human));
+        new EvaluateCardsOnCardBlockersRemoved($this->trigger())(new CardBlockersRemoved($this->project, [$one, $two], Actor::Human));
 
         self::assertSame($this->ids($one, $two), $this->sent());
     }
@@ -131,8 +131,8 @@ final class EvaluationListenersTest extends KernelTestCase
     {
         [$one, $two] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
 
-        new EvaluateCardsOnBoardColumnTerminalChanged($this->trigger())(new BoardColumnTerminalChanged($this->project, 'column', true, $this->ids($one, $two), CardReporter::Human));
-        new EvaluateCardsOnBoardColumnDeleted($this->trigger())(new BoardColumnDeleted($this->project, 'column', 'review', 'backlog', $this->ids($two), CardReporter::Human, false, false));
+        new EvaluateCardsOnBoardColumnTerminalChanged($this->trigger())(new BoardColumnTerminalChanged($this->project, 'column', true, $this->ids($one, $two), Actor::Human));
+        new EvaluateCardsOnBoardColumnDeleted($this->trigger())(new BoardColumnDeleted($this->project, 'column', 'review', 'backlog', $this->ids($two), Actor::Human, false, false));
 
         self::assertSame([...$this->ids($one, $two), ...$this->ids($two)], $this->sent());
     }

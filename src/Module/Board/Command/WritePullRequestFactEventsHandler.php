@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardPullRequestRepository;
@@ -16,6 +15,7 @@ use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\ForgeEventType;
 use App\Module\Forge\PullRequestSnapshot;
+use App\Module\Workflow\Contract\Actor;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -170,7 +170,7 @@ final readonly class WritePullRequestFactEventsHandler
         if (null !== $headSha && 1 === preg_match(self::SHA_PATTERN, $headSha)) {
             $payload['headSha'] = $headSha;
         }
-        $payload['actor'] = CardReporter::System->value;
+        $payload['actor'] = Actor::System->value;
 
         $this->outbox->write($project, $type, $payload + $fields);
     }

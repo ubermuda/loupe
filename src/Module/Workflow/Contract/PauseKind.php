@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Entity;
+namespace App\Module\Workflow\Contract;
 
 /** What paused a card: a rule that pauses, too many retries, work that hit its limit or its timeout, or a worker that stopped. */
-enum CardPauseKind: string
+enum PauseKind: string
 {
     case Rule = 'rule';
 

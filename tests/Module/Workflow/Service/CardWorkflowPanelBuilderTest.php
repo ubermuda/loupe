@@ -9,9 +9,7 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -20,6 +18,8 @@ use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
@@ -128,7 +128,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $pause = self::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', PauseKind::Retries));
 
         $shown = $this->builder()->build($card)->pause ?? self::fail('The card is paused.');
 
@@ -141,7 +141,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     public function test_a_retries_pause_of_a_managed_card_is_releasable_and_names_its_id(): void
     {
         $card = $this->card('tech-design');
-        $pause = $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $pause = $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', PauseKind::Retries));
 
         $shown = $this->builder()->build($card)->pause ?? self::fail('The card is paused.');
 
@@ -152,7 +152,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     public function test_a_rule_pause_is_not_releasable(): void
     {
         $card = $this->card('tech-design');
-        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'tech-design-approved', CardPauseKind::Rule));
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'tech-design-approved', PauseKind::Rule));
 
         self::assertFalse(($this->builder()->build($card)->pause ?? self::fail('The card is paused.'))->releasable);
     }
@@ -160,7 +160,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     public function test_a_pause_of_a_held_card_is_not_releasable(): void
     {
         $card = $this->card('tech-design');
-        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', PauseKind::Retries));
         $this->service(CardHolds::class)->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null);
 
         self::assertFalse(($this->builder()->build($card)->pause ?? self::fail('The card is paused.'))->releasable);
@@ -171,7 +171,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $pause = self::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', PauseKind::Retries));
         $templates = $this->createStub(TemplateSource::class);
         $templates->method('forProject')->willThrowException(new \RuntimeException('broken'));
 
@@ -211,7 +211,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             ],
         ];
         $this->em()->flush();
-        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'hold', CardPauseKind::Rule));
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'hold', PauseKind::Rule));
         $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
         $logger = new RecordingLogger();
 
@@ -326,7 +326,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $base = $this->linkedPullRequest($card, 4, 'main', 'base-branch', PullRequestChecks::Passed, '2026-10-01 09:00');
         $this->linkedPullRequest($card, 5, 'base-branch', 'upper-branch', PullRequestChecks::Failed, '2026-10-01 10:00');
-        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'red', 'hold', CardPauseKind::Rule));
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'red', 'hold', PauseKind::Rule));
         $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $this->project, 'hold');
         $state->truth = true;
         $state->subjectPullRequestId = $base->id;
@@ -415,7 +415,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             body: 'Body',
             type: 'feature',
             column: $this->column($this->project, $column),
-            reporter: CardReporter::Human,
+            reporter: Actor::Human,
         ));
     }
 

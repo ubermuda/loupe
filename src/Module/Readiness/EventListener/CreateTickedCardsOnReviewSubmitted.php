@@ -10,7 +10,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -25,6 +24,7 @@ use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\ValueObject\Decision;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -116,8 +116,8 @@ final readonly class CreateTickedCardsOnReviewSubmitted
                     body: $proposal->body,
                     type: $proposal->type,
                     column: $next,
-                    reporter: CardReporter::Agent,
-                    actor: CardReporter::System,
+                    reporter: Actor::Agent,
+                    actor: Actor::System,
                     source: new CardSource(CardSourceKind::Loupe),
                 ));
             } catch (DomainErrors $e) {
@@ -132,7 +132,7 @@ final readonly class CreateTickedCardsOnReviewSubmitted
         $terminal = $this->boardColumns->findFirstTerminalForProjectId((string) $project->id);
         if (null !== $terminal && $terminal !== $run->card->column) {
             try {
-                ($this->updateCard)(new UpdateCardCommand(card: $run->card, actor: CardReporter::System, column: $terminal));
+                ($this->updateCard)(new UpdateCardCommand(card: $run->card, actor: Actor::System, column: $terminal));
             } catch (DomainErrors|EpicChildrenOpen $e) {
                 $this->logger->warning('readiness.discovery_card_not_moved', ['discoveryRunId' => (string) $run->id, 'cardId' => (string) $run->card->id, 'reason' => $e::class]);
             }

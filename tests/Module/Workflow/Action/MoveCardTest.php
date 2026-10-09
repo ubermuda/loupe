@@ -6,11 +6,11 @@ namespace App\Tests\Module\Workflow\Action;
 
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\MoveCard;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
@@ -37,7 +37,7 @@ final class MoveCardTest extends KernelTestCase
             static fn ($event): bool => CardEventKind::Moved === $event->kind,
         ));
         self::assertCount(1, $moves);
-        self::assertSame(CardReporter::System, $moves[0]->actorKind);
+        self::assertSame(Actor::System, $moves[0]->actorKind);
         self::assertSame(['type' => 'workflow-rule', 'rule' => 'tech-design-approved'], $moves[0]->detail['cause']);
     }
 

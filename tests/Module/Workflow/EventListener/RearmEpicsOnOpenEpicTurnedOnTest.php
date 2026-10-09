@@ -10,11 +10,11 @@ use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
 use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Action\ForgeWrite;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\EventListener\RearmEpicsOnOpenEpicTurnedOn;
 use App\Module\Workflow\Messenger\EvaluateCard;
@@ -162,7 +162,7 @@ final class RearmEpicsOnOpenEpicTurnedOnTest extends KernelTestCase
 
     private function pause(Card $epic, string $reason): CardPause
     {
-        return $this->service(PauseCardHandler::class)(new PauseCardCommand($epic, $reason, 'epic-open-pull-request', CardPauseKind::Retries))
+        return $this->service(PauseCardHandler::class)(new PauseCardCommand($epic, $reason, 'epic-open-pull-request', PauseKind::Retries))
             ?? throw new \LogicException('The card had no pause.');
     }
 

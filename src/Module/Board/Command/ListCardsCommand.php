@@ -6,8 +6,8 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 
 /**
  * One filtered, paginated read of a project's board.
@@ -22,7 +22,7 @@ final readonly class ListCardsCommand
         /** A column of this project's board. Null reads every column. */
         public ?BoardColumn $column = null,
         public ?string $type = null,
-        public ?CardReporter $reporter = null,
+        public ?Actor $reporter = null,
         public int $page = 1,
         public int $perPage = ListCardsHandler::DEFAULT_PER_PAGE,
         /** A card of this project. Null reads every card, with or without a parent. */

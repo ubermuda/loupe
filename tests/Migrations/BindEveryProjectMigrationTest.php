@@ -7,9 +7,7 @@ namespace App\Tests\Migrations;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardPauseRepository;
-use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -20,6 +18,8 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardMoveGuard;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -182,8 +182,8 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
 
         $guard = $this->service(CardMoveGuard::class);
         $to = $this->column($project, 'in-review');
-        self::assertFalse($guard->allows($managed, $to, CardReporter::Human, null));
-        self::assertTrue($guard->allows($held, $to, CardReporter::Human, null));
+        self::assertFalse($guard->allows($managed->snapshot(), $to->ref(), Actor::Human, null));
+        self::assertTrue($guard->allows($held->snapshot(), $to->ref(), Actor::Human, null));
     }
 
     /** @return array<string, Card> */
