@@ -8,6 +8,7 @@ use App\Module\Bridge\Command\ListMetricsCommand;
 use App\Module\Bridge\Command\ListMetricsHandler;
 use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricGroup;
+use App\Module\Bridge\Metric\MetricKey;
 use App\Module\Bridge\Metric\MetricStatistic;
 use App\Module\Bridge\Metric\MetricUnit;
 use Mcp\Capability\Attribute\McpTool;
@@ -33,7 +34,7 @@ final readonly class MetricListTool
 
             return ['metrics' => [
                 ...array_map(static fn (Metric $metric): array => self::entry($metric, $metric->value), $view->metrics),
-                ...array_map(static fn (string $name): array => self::entry(Metric::BucketTime, Metric::BucketTime->value.':'.$name), $view->bucketNames),
+                ...array_map(static fn (string $name): array => self::entry(Metric::BucketTime, new MetricKey(Metric::BucketTime, $name)->key()), $view->bucketNames),
             ]];
         } catch (ToolCallException $e) {
             throw $e;
