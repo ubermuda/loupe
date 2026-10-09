@@ -3212,6 +3212,8 @@
         message_required: 'Write a message before you send.',
         card_closed: 'This card is closed, so it takes no verdict.',
         card_not_found: 'This card is gone.',
+        submission_reused:
+            'This verdict changed after a first try. Send it again.',
         pull_request_not_on_card:
             'A pull request you picked is no longer on this card. The list is up to date now.',
     };
@@ -3226,6 +3228,7 @@
         connecting: false,
         error: null,
         notice: null,
+        attempt: null,
     };
     let verdictGeneration = 0;
     let verdictDrawn = null;
@@ -3241,7 +3244,36 @@
             connecting: false,
             error: null,
             notice: null,
+            attempt: null,
         });
+    };
+
+    const newSubmissionId = () => {
+        if (window.crypto && window.crypto.randomUUID) {
+            return window.crypto.randomUUID();
+        }
+        const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
+        return [
+            hex.slice(0, 4),
+            hex.slice(4, 6),
+            hex.slice(6, 8),
+            hex.slice(8, 10),
+            hex.slice(10),
+        ]
+            .map((part) => part.join(''))
+            .join('-');
+    };
+    // A retry of the same content keeps its id, so the server can tell it from
+    // a second verdict. Any edit makes a new id.
+    const submissionIdFor = (content) => {
+        const key = JSON.stringify(content);
+        if (!verdict.attempt || verdict.attempt.key !== key) {
+            verdict.attempt = { key, id: newSubmissionId() };
+        }
+        return verdict.attempt.id;
     };
 
     const verdictActions = (data, kind) =>
@@ -3342,6 +3374,7 @@
         verdict.open = null;
         verdict.message = '';
         verdict.ticked = [];
+        verdict.attempt = null;
         verdict.error = null;
         sync();
     };
@@ -3358,6 +3391,13 @@
         if (!verdict.open || !verdictCurrent() || !verdictSendable()) return;
         const cardId = verdict.cardId;
         const kind = verdict.open;
+        const content = {
+            cardId,
+            kind,
+            pullRequestIds: [...verdict.ticked].sort(),
+            message: verdict.message.trim(),
+        };
+        const submissionId = submissionIdFor(content);
         verdict.sending = true;
         verdict.error = null;
         sync();
@@ -3368,7 +3408,8 @@
                 {
                     kind,
                     pullRequestIds: verdict.ticked,
-                    message: verdict.message.trim(),
+                    message: content.message,
+                    submissionId,
                 },
             );
         } catch (error) {
@@ -3389,6 +3430,7 @@
         verdict.open = null;
         verdict.message = '';
         verdict.ticked = [];
+        verdict.attempt = null;
         verdict.notice = 'Sent to the workflow';
         sync();
         await loadVerdict();

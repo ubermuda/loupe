@@ -12,6 +12,7 @@ use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<CardVerdict> */
 class CardVerdictRepository extends ServiceEntityRepository
@@ -31,6 +32,11 @@ class CardVerdictRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    public function findBySubmission(Card $card, Uuid $submissionId): ?CardVerdict
+    {
+        return $this->findOneBy(['card' => $card, 'submissionId' => $submissionId]);
     }
 
     /** @return list<CardVerdict> */
@@ -72,7 +78,7 @@ class CardVerdictRepository extends ServiceEntityRepository
             return [];
         }
 
-        /** @var list<array{id: \Symfony\Component\Uid\Uuid}> $rows */
+        /** @var list<array{id: Uuid}> $rows */
         $rows = $this->getEntityManager()->createQueryBuilder()
             ->select('c.id')
             ->from(SiteReviewComment::class, 'c')

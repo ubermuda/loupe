@@ -136,6 +136,10 @@ After a send, the panel says **Sent to the workflow**. Loupe then posts the
 review on GitHub when the project allows it. See
 [Board automation](board.md).
 
+When a send fails and you press **Send** again with the same verdict, Loupe
+keeps one verdict. It does not post the review twice. If you change the
+message or the ticks first, the panel sends a new verdict.
+
 ### Connecting GitHub
 
 Loupe posts a review under your own GitHub account. When you have not

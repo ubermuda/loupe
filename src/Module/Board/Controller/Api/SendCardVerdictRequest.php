@@ -27,6 +27,10 @@ final class SendCardVerdictRequest
 
         #[Assert\Length(max: self::MAX_MESSAGE_LENGTH)]
         public string $message = '',
+
+        /** One id for each Send, kept by the widget across a retry of the same content. A cached older script sends none. */
+        #[Assert\Uuid]
+        public ?string $submissionId = null,
     ) {
     }
 }
