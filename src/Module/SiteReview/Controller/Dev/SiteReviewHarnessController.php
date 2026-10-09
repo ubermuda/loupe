@@ -24,6 +24,9 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Pass `?hide=target-two` to leave that element out of the page, so a reload
  * finds a saved multi-anchor comment with one anchor that no longer resolves.
+ *
+ * Pass `?context=card:<uuid>` to set the widget's `data-context`, so the verdict
+ * buttons can show for that card. Any other value is ignored.
  */
 #[Route(
     '/dev/site-review-harness',
@@ -40,6 +43,7 @@ final class SiteReviewHarnessController extends AppController
 
     public function __invoke(Request $request): Response
     {
+        $context = $request->query->getString('context');
         $view = ($this->prepareHarness)(new PrepareHarnessCommand(
             email: $request->query->getString('email'),
             keepComments: $request->query->getBoolean('keep'),
@@ -49,6 +53,7 @@ final class SiteReviewHarnessController extends AppController
         return $this->render('@SiteReview/dev/site_review_harness.html.twig', [
             'projectId' => $view->projectId,
             'hide' => $request->query->getString('hide'),
+            'context' => 1 === preg_match('/^card:[0-9a-f-]{36}$/', $context) ? $context : '',
         ]);
     }
 }

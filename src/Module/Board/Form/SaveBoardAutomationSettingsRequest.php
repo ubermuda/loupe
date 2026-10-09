@@ -19,6 +19,8 @@ class SaveBoardAutomationSettingsRequest
         public bool $epicDraftSwitch = false,
         public bool $closeEpicPullRequests = false,
         public bool $openEpicPullRequests = false,
+        public bool $postWidgetReviews = false,
+        public bool $siteReviewCheck = false,
 
         /** Blank, or a Git branch name that holds the epic number placeholder exactly once. */
         #[Assert\Length(max: BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH)]
@@ -33,6 +35,6 @@ class SaveBoardAutomationSettingsRequest
 
     public static function fromSettings(BoardAutomationSettings $settings): self
     {
-        return new self($settings->enabled, $settings->commentOnFixQueued, $settings->commentOnStaleApproval, $settings->syncBehind, $settings->mergePullRequests, $settings->changeBase, $settings->epicDraftSwitch, $settings->closeEpicPullRequests, $settings->openEpicPullRequests, $settings->epicBranchPattern, $settings->stuckDelayMinutes);
+        return new self($settings->enabled, $settings->commentOnFixQueued, $settings->commentOnStaleApproval, $settings->syncBehind, $settings->mergePullRequests, $settings->changeBase, $settings->epicDraftSwitch, $settings->closeEpicPullRequests, $settings->openEpicPullRequests, $settings->postWidgetReviews, $settings->siteReviewCheck, $settings->epicBranchPattern, $settings->stuckDelayMinutes);
     }
 }

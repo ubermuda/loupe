@@ -100,9 +100,11 @@ Not optional. A restore that nobody checked is a belief, not a backup.
 2. **Open a document whose record has an encrypted column and confirm it
    renders.** This is the check that catches a wrong `APP_ENCRYPTION_KEY`, and
    the only one that does — everything else looks perfectly healthy without it.
-   No column in Loupe uses `encrypted_string` today, so on a current instance
-   this step is satisfied by step 1. Keep doing it: the day a column does use it,
-   this is the difference between a restore and a loss you find out about later.
+   Two kinds of column use `encrypted_string`: the secret of a per-project
+   GitHub webhook, and the GitHub tokens of a connected user. Open the
+   *Connections* page of a project with a webhook, or the *Connected apps* page
+   of a user with a GitHub account. With a wrong key, the webhook cannot sign a
+   delivery and a refresh of a user token fails.
 3. **Check `/healthz`** and the admin area, and read `docker compose logs worker`
    for a container that is restarting.
 

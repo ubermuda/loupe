@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Messenger\SettleSiteReviewChecks;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\StuckPullRequestRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -51,6 +52,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $wasEnabled = $settings->enabled;
         $wasSyncing = $settings->enabled && $settings->syncBehind;
         $wasOpeningEpics = $settings->openEpicPullRequests;
+        $wasChecking = $settings->siteReviewCheck;
         $settings->enabled = $command->enabled;
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
@@ -60,6 +62,8 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->epicDraftSwitch = $command->epicDraftSwitch;
         $settings->closeEpicPullRequests = $command->closeEpicPullRequests;
         $settings->openEpicPullRequests = $command->openEpicPullRequests;
+        $settings->postWidgetReviews = $command->postWidgetReviews;
+        $settings->siteReviewCheck = $command->siteReviewCheck;
         $settings->epicBranchPattern = '' === $epicBranchPattern ? null : $epicBranchPattern;
         $delayChanged = $settings->stuckDelayMinutes !== $command->stuckDelayMinutes;
         $settings->stuckDelayMinutes = $command->stuckDelayMinutes;
@@ -75,7 +79,12 @@ final readonly class SaveBoardAutomationSettingsHandler
             $command->project,
             !$wasEnabled && $command->enabled,
             !$wasOpeningEpics && $command->openEpicPullRequests,
+            !$wasChecking && $command->siteReviewCheck,
         ));
+
+        if ($wasChecking && !$command->siteReviewCheck) {
+            $this->bus->dispatch(new SettleSiteReviewChecks($command->project->id ?? throw new \LogicException('A stored project has an id.')));
+        }
 
         // A pull request that fell behind while the sync was off waits for no other trigger.
         if (!$wasSyncing && $command->enabled && $command->syncBehind) {
@@ -93,6 +102,8 @@ final readonly class SaveBoardAutomationSettingsHandler
             'epicDraftSwitch' => $command->epicDraftSwitch,
             'closeEpicPullRequests' => $command->closeEpicPullRequests,
             'openEpicPullRequests' => $command->openEpicPullRequests,
+            'postWidgetReviews' => $command->postWidgetReviews,
+            'siteReviewCheck' => $command->siteReviewCheck,
             'epicBranchPattern' => $settings->epicBranchPattern,
             'stuckDelayMinutes' => $settings->stuckDelayMinutes,
         ]);

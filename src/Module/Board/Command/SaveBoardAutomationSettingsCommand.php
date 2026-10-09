@@ -17,6 +17,8 @@ final readonly class SaveBoardAutomationSettingsCommand
         public bool $syncBehind,
         public bool $mergePullRequests,
         public bool $changeBase,
+        public bool $postWidgetReviews,
+        public bool $siteReviewCheck,
         public bool $epicDraftSwitch = false,
         public bool $closeEpicPullRequests = false,
         public bool $openEpicPullRequests = false,

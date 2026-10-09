@@ -150,6 +150,18 @@ final class GitHubAppApi
     /**
      * @param array<string, mixed> $body
      *
+     * @return array<mixed>
+     *
+     * @throws GitHubAppApiFailed
+     */
+    public function patch(int $installationId, string $path, array $body): array
+    {
+        return $this->send('PATCH', $path, ['json' => $body], $this->installationToken($installationId));
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     *
      * @return array<mixed> the decoded answer, or an empty array when GitHub accepts with no body
      *
      * @throws GitHubAppApiFailed

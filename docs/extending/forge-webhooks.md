@@ -169,6 +169,8 @@ Register it on GitHub under Settings, Developer settings, GitHub Apps.
 | Setting | Value |
 |---|---|
 | Callback URL | `https://<host>/github/app/callback` |
+| Second callback URL | `https://<host>/account/github/callback` |
+| Expire user authorization tokens | on |
 | Request user authorization (OAuth) during installation | off |
 | Setup URL | `https://<host>/github/app/setup` |
 | Redirect on update | off |
@@ -176,11 +178,24 @@ Register it on GitHub under Settings, Developer settings, GitHub Apps.
 | Webhook URL | `https://<host>/webhooks/forge/github` |
 | Webhook secret | the value of `GITHUB_APP_WEBHOOK_SECRET` |
 
-Grant these repository permissions. Pull requests, Contents and Workflows are
-read and write. The others are read-only. Loupe needs write access to Pull
-requests to post the fix-run comment, and to mark an epic pull request ready,
-convert it to draft or close it. It needs write access to Contents to sync a
-branch that is behind its base.
+The second callback URL serves the GitHub account that a user connects on the
+*Connected apps* page. It uses the same client ID and client secret as the
+install. Loupe refuses to store a connection when the App does not expire user
+authorization tokens, because it needs the refresh token to keep the
+connection alive.
+
+Grant these repository permissions. Pull requests, Checks, Contents and
+Workflows are read and write. The others are read-only. Loupe needs write
+access to Pull requests to post the fix-run comment, and to mark an epic pull
+request ready, convert it to draft or close it. It needs write access to
+Checks to report the Loupe site review check on a pull request. It needs write
+access to Contents to sync a branch that is behind its base.
+
+Loupe posts a review on a pull request as the GitHub account that a user
+connected, never as the App. That write uses the user token and needs no extra
+permission on the App. GitHub accepts the review only when the user can see the
+repository and the App is installed on it. Loupe reports a check run as the
+App, because GitHub lets only an App create one.
 
 Loupe needs Workflows to merge or sync a pull request that changes a file under
 `.github/workflows/`. Without it, GitHub can refuse the write, for example when
@@ -191,7 +206,7 @@ not cover this.
 | Permission | Why |
 |---|---|
 | Pull requests (read and write) | the merge and the review verdict; write lets Loupe post the fix-run comment, and mark an epic pull request ready, draft or closed |
-| Checks | the aggregate check conclusion |
+| Checks (read and write) | the aggregate check conclusion; write lets Loupe report the Loupe site review check |
 | Contents (read and write) | GitHub offers the Push event only with it; write lets Loupe sync a pull request branch with its base |
 | Commit statuses | the status of each check context |
 | Metadata | GitHub requires it, and it carries the Repository event |

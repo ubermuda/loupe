@@ -10,6 +10,7 @@ use App\Module\Board\Event\CardBlockersChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDeleted;
 use App\Module\Board\Event\CardParentChanged;
+use App\Module\Board\Event\CardPullRequestsChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
@@ -106,7 +107,10 @@ final readonly class DeleteCardHandler
             $this->em->remove($card);
             $this->em->flush();
             $this->events->dispatch(new CardDeleted($deletedProjectId, $deletedCardId));
-            $this->pullRequestTracking->apply($card->project, $trackedBefore, []);
+            $changedPullRequests = $this->pullRequestTracking->apply($card->project, $trackedBefore, []);
+            if ([] !== $changedPullRequests) {
+                $this->events->dispatch(new CardPullRequestsChanged($deletedProjectId, $deletedCardId, $changedPullRequests));
+            }
 
             // After the flush, so the epic counts its children without this
             // one. A listener must not read the card, which is gone.

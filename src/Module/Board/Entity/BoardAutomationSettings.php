@@ -94,6 +94,14 @@ class BoardAutomationSettings
         #[ORM\Column(options: ['default' => false])]
         public bool $openEpicPullRequests = false,
 
+        /** Posts a widget verdict as a review on the pull requests of the card, under the reviewer's own account. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $postWidgetReviews = false,
+
+        /** Keeps a "Loupe site review" check on the open pull requests of a managed card. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $siteReviewCheck = false,
+
         /** The branch the breakdown pushes for an epic, with the card number as the placeholder. Null means no epic branches. */
         #[ORM\Column(length: self::EPIC_BRANCH_PATTERN_MAX_LENGTH, nullable: true, options: ['default' => self::DEFAULT_EPIC_BRANCH_PATTERN])]
         public ?string $epicBranchPattern = self::DEFAULT_EPIC_BRANCH_PATTERN,

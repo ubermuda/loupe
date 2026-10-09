@@ -130,6 +130,8 @@ final class EngineTest extends KernelTestCase
 
     private RecordingLogger $logger;
 
+    private ?CardEvaluations $evaluations = null;
+
     private FakeRuleAsks $asks;
 
     #[\Override]
@@ -2909,6 +2911,46 @@ final class EngineTest extends KernelTestCase
         self::assertNull($this->activePause($card));
     }
 
+    public function test_an_evaluation_that_an_action_starts_inline_for_the_same_card_runs_after_the_pass_that_started_it(): void
+    {
+        $card = $this->boundCard([
+            ['id' => 'children', 'slot' => 'one', 'when' => self::ALWAYS, 'then' => ['evaluate' => ['cards' => 'children']]],
+            self::requestRule('work', self::ALWAYS),
+        ]);
+        $this->childOf($card, 'next');
+        $cardId = $card->id ?? throw new \LogicException('A flushed card has an id.');
+        $engine = null;
+        $starts = 0;
+        $this->evaluations = new readonly class(static function () use (&$engine, &$starts, $cardId): void {
+            ++$starts;
+            self::assertInstanceOf(Engine::class, $engine);
+            $engine->evaluate($cardId, new \DateTimeImmutable(self::NOON));
+        }) implements CardEvaluations {
+            public function __construct(
+                private \Closure $evaluate,
+            ) {
+            }
+
+            public function forCards(array $cardIds): void
+            {
+                ($this->evaluate)();
+            }
+
+            public function isOn(): bool
+            {
+                return true;
+            }
+        };
+        $engine = $this->engine();
+
+        $engine->evaluate($cardId, new \DateTimeImmutable(self::NOON));
+
+        self::assertSame(1, $starts);
+        self::assertTrue($this->ruleState($card, 'children')->truth);
+        self::assertSame(1, $this->ruleState($card, 'work')->fires);
+        self::assertCount(1, $this->liveRequests($card));
+    }
+
     public function test_a_stored_copy_with_a_condition_this_instance_lacks_runs_every_other_rule(): void
     {
         $card = $this->boundCard([
@@ -3234,7 +3276,7 @@ final class EngineTest extends KernelTestCase
                 new ReleasePause($boardPauses),
                 $this->service(ForgeWrite::class),
                 new Ask($this->asks, $this->service(TranslatorInterface::class), 'en'),
-                new EvaluateChildren($this->service(CardDirectory::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
+                new EvaluateChildren($this->service(CardDirectory::class), $this->evaluations ?? new EvaluationTrigger($this->service(MessageBusInterface::class))),
                 new MissingAction(),
             ]),
             $opener,
@@ -3370,6 +3412,8 @@ final class EngineTest extends KernelTestCase
             $settings->syncBehind,
             $settings->mergePullRequests,
             $settings->changeBase,
+            $settings->postWidgetReviews,
+            $settings->siteReviewCheck,
         ));
     }
 

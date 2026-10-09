@@ -42,6 +42,12 @@ card. Each item gives the `id`, the page `url`, the page `context`, the
 `anchors`, the `body`, the drawing `strokes`, the `status` and `createdAt`. The
 strokes are the full vector points. The archive has no separate site-review file.
 
+`card-verdicts.json` holds the verdicts the user sent from the site-review widget. Each
+item gives the `id`, the `cardId`, the `kind`, the `message`, the copied `notes`,
+the `createdAt` and the `deliveries`. A delivery names the pull request, its
+`state`, its `reason`, the `reviewUrl` and the `settledAt`. The file never holds
+a GitHub token.
+
 `beta_invite.json` holds `betaTesterSince`, the date the user redeemed a beta
 invite. It is empty for a user who redeemed none. The admin's note on the invite
 stays out of the export.

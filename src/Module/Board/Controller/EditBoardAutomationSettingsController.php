@@ -51,6 +51,8 @@ final class EditBoardAutomationSettingsController extends AppController
                     syncBehind: $data->syncBehind,
                     mergePullRequests: $data->mergePullRequests,
                     changeBase: $data->changeBase,
+                    postWidgetReviews: $data->postWidgetReviews,
+                    siteReviewCheck: $data->siteReviewCheck,
                     epicDraftSwitch: $data->epicDraftSwitch,
                     closeEpicPullRequests: $data->closeEpicPullRequests,
                     openEpicPullRequests: $data->openEpicPullRequests,
