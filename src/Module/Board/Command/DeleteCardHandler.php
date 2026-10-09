@@ -6,7 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Event\BoardColumnsChanged;
-use App\Module\Board\Event\CardBlockersRemoved;
+use App\Module\Board\Event\CardBlockersChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDeleted;
 use App\Module\Board\Event\CardParentChanged;
@@ -114,7 +114,7 @@ final readonly class DeleteCardHandler
                 $this->events->dispatch(new CardParentChanged($card, $parent, null, $actor));
             }
             if ([] !== $unblocked) {
-                $this->events->dispatch(new CardBlockersRemoved($card->project, $unblocked, $actor));
+                $this->events->dispatch(new CardBlockersChanged($card->project, $unblocked, $actor));
             }
 
             return $drawsLane;

@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Event\BoardColumnsChanged;
+use App\Module\Board\Event\CardBlockersChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardParentChanged;
@@ -142,7 +143,7 @@ final readonly class CreateCardHandler
                 'column' => CardEvent::columnDetail($column),
                 'type' => $card->type,
             ], $card->createdAt);
-            $this->cardLinkSync->sync($card, $relatedCards);
+            $blockersChanged = $this->cardLinkSync->sync($card, $relatedCards);
             $this->em->flush();
 
             // After the flush, so the row the UPDATE reads its title and body
@@ -159,6 +160,9 @@ final readonly class CreateCardHandler
             }
             if (null !== $parent) {
                 $this->events->dispatch(new CardParentChanged($card, null, $parent, $command->reporter));
+            }
+            if ([] !== $blockersChanged) {
+                $this->events->dispatch(new CardBlockersChanged($command->project, $blockersChanged, $actor));
             }
 
             return $card;

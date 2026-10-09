@@ -6,11 +6,11 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Event\CardBlockersRemoved;
+use App\Module\Board\Event\CardBlockersChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\EventListener\DispatchCardChangedOnBlockerMoved;
-use App\Module\Board\EventListener\DispatchCardChangedOnCardBlockersRemoved;
+use App\Module\Board\EventListener\DispatchCardChangedOnCardBlockersChanged;
 use App\Module\Board\EventListener\DispatchCardChangedOnDocumentRenamed;
 use App\Module\Board\EventListener\DispatchCardChangedOnDocumentStatusChanged;
 use App\Module\Board\EventListener\DispatchCardChangedOnReviewSubmitted;
@@ -154,7 +154,7 @@ final class CardTileRefreshOnStateInputsTest extends KernelTestCase
         $first = $this->stateCard($project);
         $second = $this->stateCard($project);
 
-        new DispatchCardChangedOnCardBlockersRemoved($this->dispatcher)(new CardBlockersRemoved($project, [$first, $second], Actor::Human));
+        new DispatchCardChangedOnCardBlockersChanged($this->dispatcher)(new CardBlockersChanged($project, [$first, $second], Actor::Human));
 
         self::assertSame([(string) $first->id, (string) $second->id], $this->changedCardIds());
     }
