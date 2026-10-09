@@ -36,7 +36,7 @@ final class AskTest extends KernelTestCase
         $card = $this->card($project, 'next');
         $state = $this->state($card, 'unplanned-child');
 
-        $outcome = $this->action()->run($this->askRule(), $card, FactsMother::facts(), $state);
+        $outcome = $this->action()->run($this->askRule(), $card->snapshot(), FactsMother::facts(), $state);
 
         self::assertEquals(ActionOutcome::done(), $outcome);
         self::assertCount(1, $this->asks->opened);
@@ -70,7 +70,7 @@ final class AskTest extends KernelTestCase
             }
         };
 
-        new Ask($this->asks, $translator, 'fr')->run($this->askRule(), $card, FactsMother::facts(), $this->state($card, 'unplanned-child'));
+        new Ask($this->asks, $translator, 'fr')->run($this->askRule(), $card->snapshot(), FactsMother::facts(), $this->state($card, 'unplanned-child'));
 
         $number = $card->number;
         $parentNumber = $parent->number;
@@ -85,7 +85,7 @@ final class AskTest extends KernelTestCase
         $state = $this->state($card, 'unplanned-child');
         $this->asks->on = false;
 
-        $outcome = $this->action()->run($this->askRule(), $card, FactsMother::facts(), $state);
+        $outcome = $this->action()->run($this->askRule(), $card->snapshot(), FactsMother::facts(), $state);
 
         self::assertEquals(ActionOutcome::pause(PauseKind::Rule, 'inbox-off'), $outcome);
         self::assertSame([], $this->asks->opened);

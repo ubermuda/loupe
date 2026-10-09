@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
-use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Workflow\Contract\BoardColumns;
+use App\Module\Workflow\Contract\ColumnView;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\AppRules;
@@ -19,7 +19,7 @@ final readonly class ShowWorkflowHandler
     public function __construct(
         private TemplateSource $templates,
         private WorkflowSlotLinkRepository $workflowSlotLinks,
-        private BoardColumnRepository $boardColumns,
+        private BoardColumns $boardColumns,
         private AppRules $appRules,
     ) {
     }
@@ -60,8 +60,8 @@ final readonly class ShowWorkflowHandler
             templateKey: $template->key,
             templateVersion: $template->version,
             columns: array_map(
-                static fn (BoardColumn $column): WorkflowColumnView => new WorkflowColumnView($column, $slots[(string) $column->id] ?? null),
-                $this->boardColumns->findForProject($project),
+                static fn (ColumnView $column): WorkflowColumnView => new WorkflowColumnView($column, $slots[(string) $column->id] ?? null),
+                $this->boardColumns->forProject($project->id ?? throw new \LogicException('The project is not persisted.')),
             ),
             kinds: array_map(
                 static fn (string $kind, array $entry): WorkflowKindView => new WorkflowKindView($kind, $entry['origin'], $entry['rules'], $entry['checks']),

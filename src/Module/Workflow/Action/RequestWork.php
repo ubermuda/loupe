@@ -7,7 +7,9 @@ namespace App\Module\Workflow\Action;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Repository\CardEventRepository;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
@@ -21,6 +23,7 @@ final readonly class RequestWork implements Action
     private const string FIX_KIND = 'fix';
 
     public function __construct(
+        private CardRepository $cards,
         private WorkRequestOpener $opener,
         private CardPullRequests $cardPullRequests,
         private CardEventRepository $cardEvents,
@@ -34,15 +37,16 @@ final readonly class RequestWork implements Action
     }
 
     #[\Override]
-    public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public function run(Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
     {
+        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
         $limit = ActionParams::optionalInt($rule, 'limit');
         if (null !== $limit && $state->fires >= $limit) {
             return ActionOutcome::pause(PauseKind::WorkLimit, 'work-limit-reached');
         }
 
         $kind = ActionParams::string($rule, 'kind');
-        $outcome = $this->opener->open($rule, $card, $facts, $kind, ActionParams::optionalString($rule, 'capability'));
+        $outcome = $this->opener->open($rule, $snapshot, $facts, $kind, ActionParams::optionalString($rule, 'capability'));
         if (self::FIX_KIND === $kind && ActionOutcomeKind::Done === $outcome->kind && !$outcome->alreadyLive) {
             $this->recordFixRequested($card, $facts);
         }

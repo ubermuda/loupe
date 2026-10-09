@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Action;
 
-use App\Module\Board\Command\ReleaseCardPauseCommand;
-use App\Module\Board\Command\ReleaseCardPauseHandler;
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Repository\CardPauseRepository;
+use App\Module\Workflow\Contract\CardPauses;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Template\ActionType;
@@ -19,8 +17,7 @@ final readonly class ReleasePause implements Action
     public const string RELEASE_REASON = 'released-by-rule';
 
     public function __construct(
-        private CardPauseRepository $cardPauses,
-        private ReleaseCardPauseHandler $releaseCardPause,
+        private CardPauses $cardPauses,
     ) {
     }
 
@@ -31,11 +28,11 @@ final readonly class ReleasePause implements Action
     }
 
     #[\Override]
-    public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public function run(Rule $rule, CardSnapshot $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
     {
-        $pause = $this->cardPauses->findActiveForCard($card);
+        $pause = $this->cardPauses->findActive($card->id);
         if (null !== $pause && $pause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'))) {
-            ($this->releaseCardPause)(new ReleaseCardPauseCommand($pause, self::RELEASE_REASON));
+            $this->cardPauses->release($pause, self::RELEASE_REASON);
         }
 
         return ActionOutcome::done();

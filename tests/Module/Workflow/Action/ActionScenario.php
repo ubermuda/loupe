@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
@@ -87,6 +88,7 @@ trait ActionScenario
     {
         return new WorkRequestOpener(
             $this->openWorkRequestHandler(),
+            $this->service(CardRepository::class),
             $this->service(CardPullRequests::class),
             $this->service(CardPullRequestRepository::class),
             new AppRules($this->service(TemplateParser::class), AppRulesTest::FIXTURE),

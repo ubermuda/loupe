@@ -106,7 +106,8 @@ final readonly class AnswerRuleAskHandler
         $this->cards->refreshColumn($card);
         $this->cards->refreshTypeAndParent($card);
         $now = $this->clock->now();
-        $facts = $this->factsBuilder->build($card, $now);
+        $snapshot = $card->snapshot();
+        $facts = $this->factsBuilder->build($snapshot, $now);
         if (null !== $rule->slot && $facts->card->slot !== $rule->slot) {
             return $this->skip('left-slot', $itemId);
         }
@@ -116,8 +117,8 @@ final readonly class AnswerRuleAskHandler
         $refusal = null;
         foreach ($option->actions as $call) {
             // Facts again for each action: the one before may have changed the card.
-            $facts = $this->factsBuilder->build($card, $now);
-            $result = $this->actions->get($call->type)->run(new Rule($rule->id, $rule->slot, $rule->when, $call, $rule->origin), $card, $facts, $state);
+            $facts = $this->factsBuilder->build($snapshot, $now);
+            $result = $this->actions->get($call->type)->run(new Rule($rule->id, $rule->slot, $rule->when, $call, $rule->origin), $snapshot, $facts, $state);
             if (ActionOutcomeKind::Done !== $result->kind) {
                 $refusal = $result->code ?? $result->kind->value;
                 $state->lastRefusal = $refusal;

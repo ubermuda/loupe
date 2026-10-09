@@ -20,6 +20,7 @@ use App\Module\Forge\Entity\PullRequestState as ForgePullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\CardFacts;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\ColumnRef;
 use App\Module\Workflow\Contract\DocumentFacts;
@@ -32,7 +33,6 @@ use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use Doctrine\DBAL\Connection;
-use Symfony\Component\Uid\Uuid;
 
 /** Reads what the engine knows about one card, from Board, Forge, Bridge and every fact provider. It logs nothing. */
 final readonly class FactsBuilder
@@ -57,9 +57,10 @@ final readonly class FactsBuilder
     ) {
     }
 
-    public function build(Card $card, \DateTimeImmutable $now): Facts
+    public function build(CardSnapshot $snapshot, \DateTimeImmutable $now): Facts
     {
-        $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
+        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
+        $cardId = $snapshot->id;
         $children = $this->cards->childProgressOf($card);
 
         $settings = $this->boardAutomation->settingsOf($card->project);
@@ -82,7 +83,7 @@ final readonly class FactsBuilder
         $pullRequestFacts = self::inSubjectOrder($pullRequests, array_map(fn (ForgePullRequest $pullRequest): PullRequestFacts => $this->pullRequestFacts($pullRequest, $parentEpicBranch, $epicRepositories), $pullRequests));
         $settled = $this->workRequests->findLatestSettledForCard($cardId);
 
-        $provided = array_map(fn (FactProvider $provider): array => $this->provided($provider, $cardId), $this->providers->byClass);
+        $provided = array_map(fn (FactProvider $provider): array => $this->provided($provider, $snapshot), $this->providers->byClass);
 
         return new Facts(
             now: $now,
@@ -144,7 +145,7 @@ final readonly class FactsBuilder
      *
      * @return array{object, mixed}
      */
-    private function provided(FactProvider $provider, Uuid $cardId): array
+    private function provided(FactProvider $provider, CardSnapshot $card): array
     {
         $source = $provider::class;
         $savepoint = $this->connection->isTransactionActive() ? self::SAVEPOINT : null;
@@ -154,7 +155,7 @@ final readonly class FactsBuilder
         try {
             $source = $provider->source();
             $class = $provider->factsClass();
-            $facts = $provider->isOn() ? $provider->build($cardId) : new Unreadable(UnreadableKind::Off, $source);
+            $facts = $provider->isOn() ? $provider->build($card) : new Unreadable(UnreadableKind::Off, $source);
             $fingerprint = null;
             if (!$facts instanceof Unreadable) {
                 if (!$facts instanceof $class) {

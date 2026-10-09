@@ -197,7 +197,7 @@ final class FactsBuilderTest extends KernelTestCase
         $card = $this->card($project, 'next', 'bug');
         $now = new \DateTimeImmutable('2026-10-02 12:00:00');
 
-        $facts = $this->builder()->build($card, $now);
+        $facts = $this->builder()->build($card->snapshot(), $now);
 
         self::assertSame($now, $facts->now);
         self::assertSame('bug', $facts->card->type);
@@ -717,7 +717,7 @@ final class FactsBuilderTest extends KernelTestCase
 
     private function facts(Card $card): Facts
     {
-        return $this->builder()->build($card, new \DateTimeImmutable('2026-10-02 12:00:00'));
+        return $this->builder()->build($card->snapshot(), new \DateTimeImmutable('2026-10-02 12:00:00'));
     }
 
     /** Built by hand, because no production service injects it yet and the container drops it. */

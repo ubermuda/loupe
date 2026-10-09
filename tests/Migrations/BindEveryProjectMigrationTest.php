@@ -142,7 +142,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
             self::assertSame($columns[$name], $fresh->column->slug, $name);
             self::assertSame([], $this->liveRequests($fresh), $name);
             self::assertNull($this->service(CardPauseRepository::class)->findActiveForCard($fresh), $name);
-            foreach ($states->findForCard($fresh) as $ruleId => $state) {
+            foreach ($states->findForCard($fresh->snapshot()->id) as $ruleId => $state) {
                 self::assertSame([0, 0, null], [$state->fires, $state->attempts, $state->lastRefusal], $name.' '.$ruleId);
                 $truths[$name.' '.$ruleId] = $state->truth;
             }
@@ -167,7 +167,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         ] as $rule) {
             self::assertTrue($truths[$rule] ?? null, $rule);
         }
-        self::assertSame([], $states->findForCard($held));
+        self::assertSame([], $states->findForCard($held->snapshot()->id));
         self::assertSame([$this->cardId($held)->toRfc4122()], $this->baselinedCardIds($project));
     }
 

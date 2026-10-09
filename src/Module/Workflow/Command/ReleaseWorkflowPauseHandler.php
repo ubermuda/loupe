@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Board\Command\ReleaseCardPauseCommand;
-use App\Module\Board\Command\ReleaseCardPauseHandler;
-use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Repository\CardEventRepository;
-use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Contract\CardEvaluations;
+use App\Module\Workflow\Contract\CardPauses;
+use App\Module\Workflow\Contract\PauseView;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use Doctrine\ORM\EntityManagerInterface;
@@ -36,25 +33,25 @@ final readonly class ReleaseWorkflowPauseHandler
         private WorkflowRuleStateRepository $workflowRuleStates,
         private CardHolds $cardHolds,
         private WorkflowAutomation $automation,
-        private CardPauseRepository $cardPauses,
-        private ReleaseCardPauseHandler $releaseCardPause,
-        private CardEventRepository $cardEvents,
+        private CardPauses $cardPauses,
+        private ProjectRepository $projects,
         private CardEvaluations $evaluations,
     ) {
     }
 
-    public function __invoke(ReleaseWorkflowPauseCommand $command): ReleaseWorkflowPauseView
+    public function __invoke(ReleaseWorkflowPauseCommand $command): PauseView
     {
         $card = $command->card;
-        $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+        $cardId = $card->id;
+        $project = $this->projects->find($card->projectId) ?? throw new \LogicException('A stored card has a project.');
 
         // Returns the refusal, because an exception inside the closure closes the entity manager.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $cardId): CardPause|string {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $cardId, $project): PauseView|string {
             $this->workflowRuleStates->lockCard($cardId);
-            if ($this->cardHolds->isHeld($card->project, $cardId) || !$this->automation->runsFor($card->project)) {
+            if ($this->cardHolds->isHeld($project, $cardId) || !$this->automation->runsFor($project)) {
                 return self::CARD_UNMANAGED;
             }
-            $pause = $this->cardPauses->findActiveForCard($card);
+            $pause = $this->cardPauses->findActive($cardId);
             if (null === $pause) {
                 return self::NOT_PAUSED;
             }
@@ -64,11 +61,12 @@ final readonly class ReleaseWorkflowPauseHandler
             if (!\in_array($pause->kind, ReleaseWorkflowPauseCommand::RELEASABLE_KINDS, true)) {
                 return self::KIND_NOT_RELEASABLE;
             }
-            if (!($this->releaseCardPause)(new ReleaseCardPauseCommand($pause, ReleaseWorkflowPauseCommand::REASON))) {
+            $released = $this->cardPauses->release($pause, ReleaseWorkflowPauseCommand::REASON);
+            if (null === $released) {
                 return self::NOT_PAUSED;
             }
 
-            $state = $this->workflowRuleStates->findForCard($card)[$pause->ruleId] ?? null;
+            $state = $this->workflowRuleStates->findForCard($cardId)[$pause->ruleId] ?? null;
             if (null !== $state) {
                 $state->truth = false;
                 $state->attempts = 0;
@@ -78,23 +76,19 @@ final readonly class ReleaseWorkflowPauseHandler
                 $state->lastRefusalAt = null;
                 $state->workRequestId = null;
                 $state->repaired = false;
-                $state->updatedAt = $pause->releasedAt ?? throw new \LogicException('A released pause has a release time.');
+                $state->updatedAt = $released->releasedAt ?? throw new \LogicException('A released pause has a release time.');
             }
-            $this->cardEvents->record($card, CardEventKind::PauseReleased, $command->actorKind, $command->actor, [
-                'kind' => $pause->kind->value,
-                'reason' => $pause->reason,
-                'ruleId' => $pause->ruleId,
-            ], $pause->releasedAt);
+            $this->cardPauses->recordReleased($released, $command->actorKind, $command->actorUserId);
             $this->em->flush();
             $this->evaluations->forCards([$cardId]);
 
-            return $pause;
+            return $released;
         });
 
         if (\is_string($outcome)) {
             throw new DomainErrors(['pause' => $outcome]);
         }
 
-        return new ReleaseWorkflowPauseView($outcome->kind, $outcome->reason, $outcome->ruleId);
+        return $outcome;
     }
 }

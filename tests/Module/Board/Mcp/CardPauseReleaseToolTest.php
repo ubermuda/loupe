@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Mcp;
+namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
@@ -10,6 +10,7 @@ use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
+use App\Module\Board\Mcp\CardPauseReleaseTool;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
@@ -17,7 +18,6 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Mcp\AdvertisedTools;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\PauseKind;
-use App\Module\Workflow\Mcp\CardPauseReleaseTool;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\McpTokenScenario;
 use Mcp\Capability\Registry;

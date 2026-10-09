@@ -7,6 +7,7 @@ namespace App\Module\Workflow\Action;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Workflow\Contract\CardEvaluations;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Template\ActionType;
@@ -28,8 +29,9 @@ final readonly class EvaluateChildren implements Action
     }
 
     #[\Override]
-    public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public function run(Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
     {
+        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
         $ids = array_values(array_filter(array_map(static fn (Card $child) => $child->id, $this->cards->findChildren($card))));
         if ([] !== $ids) {
             $this->evaluations->forCards($ids);

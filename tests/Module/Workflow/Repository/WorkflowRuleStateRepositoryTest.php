@@ -33,7 +33,7 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         $this->state($other, 'start-design');
         $this->em()->clear();
 
-        $states = $this->repository()->findForCard($this->em()->find(Card::class, $card->id) ?? throw new \LogicException('The card exists.'));
+        $states = $this->repository()->findForCard($card->snapshot()->id);
 
         self::assertSame(['open-review', 'start-design'], $this->sortedKeys($states));
         self::assertSame((string) $card->id, (string) $states['start-design']->cardId);

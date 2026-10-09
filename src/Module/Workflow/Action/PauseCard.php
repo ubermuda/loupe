@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Action;
 
-use App\Module\Board\Entity\Card;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
@@ -21,7 +21,7 @@ final readonly class PauseCard implements Action
     }
 
     #[\Override]
-    public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public function run(Rule $rule, CardSnapshot $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
     {
         return ActionOutcome::pause(PauseKind::Rule, ActionParams::string($rule, 'reason'));
     }

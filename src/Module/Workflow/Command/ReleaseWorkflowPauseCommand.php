@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
-use App\Module\Account\Entity\User;
-use App\Module\Board\Entity\Card;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\PauseKind;
 use Symfony\Component\Uid\Uuid;
 
@@ -19,8 +18,8 @@ final readonly class ReleaseWorkflowPauseCommand
     public const array RELEASABLE_KINDS = [PauseKind::Retries, PauseKind::WorkTimeout, PauseKind::WorkStopped, PauseKind::WorkLimit];
 
     public function __construct(
-        public Card $card,
-        public User $actor,
+        public CardSnapshot $card,
+        public Uuid $actorUserId,
         public Actor $actorKind,
         public ?Uuid $pauseId,
     ) {

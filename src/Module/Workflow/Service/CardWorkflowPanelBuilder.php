@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
+use App\Module\Workflow\Contract\CardPauses;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PauseKind;
+use App\Module\Workflow\Contract\PauseView;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Engine\RuleSubject;
@@ -35,7 +36,8 @@ final readonly class CardWorkflowPanelBuilder
     public function __construct(
         private WorkflowAutomation $automation,
         private CardHolds $cardHolds,
-        private CardPauseRepository $cardPauses,
+        private CardPauses $cardPauses,
+        private ProjectRepository $projects,
         private TemplateSource $templates,
         private FactsBuilder $factsBuilder,
         private WorkflowRuleStateRepository $workflowRuleStates,
@@ -46,12 +48,13 @@ final readonly class CardWorkflowPanelBuilder
     ) {
     }
 
-    public function build(Card $card): CardWorkflowPanel
+    public function build(CardSnapshot $card): CardWorkflowPanel
     {
-        $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
-        $projectId = $card->project->id ?? throw new \LogicException('A stored project has an id.');
-        $managed = !$this->cardHolds->isHeld($card->project, $cardId) && $this->automation->runsFor($card->project);
-        $pause = $this->cardPauses->findActiveForCard($card);
+        $cardId = $card->id;
+        $projectId = $card->projectId;
+        $project = $this->projects->find($projectId) ?? throw new \LogicException('A stored card has a project.');
+        $managed = !$this->cardHolds->isHeld($project, $cardId) && $this->automation->runsFor($project);
+        $pause = $this->cardPauses->findActive($cardId);
 
         $template = null;
         $facts = null;
@@ -78,7 +81,7 @@ final readonly class CardWorkflowPanelBuilder
         );
     }
 
-    private function pause(CardPause $pause, ?Template $template, ?Facts $facts, bool $managed): CardWorkflowPause
+    private function pause(PauseView $pause, ?Template $template, ?Facts $facts, bool $managed): CardWorkflowPause
     {
         $release = match ($pause->kind) {
             PauseKind::Rule => $this->ruleRelease($pause, $template, $facts),
@@ -97,7 +100,7 @@ final readonly class CardWorkflowPanelBuilder
         );
     }
 
-    private function ruleRelease(CardPause $pause, ?Template $template, ?Facts $facts): string
+    private function ruleRelease(PauseView $pause, ?Template $template, ?Facts $facts): string
     {
         $rule = null === $template ? null : self::rule($template, $pause->ruleId);
         $until = $rule?->then->until;
@@ -105,7 +108,7 @@ final readonly class CardWorkflowPanelBuilder
             return $this->translator->trans('workflow.panel.release.next_evaluation');
         }
 
-        $stored = ($this->workflowRuleStates->findForCard($pause->card)[$rule->id] ?? null)?->subjectPullRequestId;
+        $stored = ($this->workflowRuleStates->findForCard($pause->cardId)[$rule->id] ?? null)?->subjectPullRequestId;
         $leaf = $until->firstFalseLeaf($this->ruleSubject->paused($rule, $facts, $stored));
 
         return null === $leaf
@@ -113,7 +116,7 @@ final readonly class CardWorkflowPanelBuilder
             : $leaf->waitingFor()->trans($this->translator);
     }
 
-    private function progress(Card $card, Template $template, Facts $facts): CardWorkflowProgress
+    private function progress(CardSnapshot $card, Template $template, Facts $facts): CardWorkflowProgress
     {
         $rules = $template->rulesFor($facts->card->slot);
         $falseRules = array_values(array_filter(
@@ -170,10 +173,10 @@ final readonly class CardWorkflowPanelBuilder
         };
     }
 
-    private function lastRefusal(Card $card): ?CardWorkflowRefusal
+    private function lastRefusal(CardSnapshot $card): ?CardWorkflowRefusal
     {
         $latest = null;
-        foreach ($this->workflowRuleStates->findForCard($card) as $state) {
+        foreach ($this->workflowRuleStates->findForCard($card->id) as $state) {
             if (null !== $state->lastRefusal && null !== $state->lastRefusalAt && (null === $latest || $state->lastRefusalAt > $latest->at)) {
                 $latest = new CardWorkflowRefusal($state->lastRefusal, $this->codeText(['workflow.refusal.'], $state->lastRefusal), $state->lastRefusalAt, $state->attempts);
             }

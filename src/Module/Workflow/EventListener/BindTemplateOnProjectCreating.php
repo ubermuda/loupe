@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Workflow\EventListener;
 
 use App\Exception\DomainErrors;
-use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Event\ProjectCreating;
+use App\Module\Workflow\Contract\BoardColumns;
 use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
@@ -34,7 +34,7 @@ final readonly class BindTemplateOnProjectCreating
         private ShippedTemplates $shippedTemplates,
         private ShippedTemplateChoices $choices,
         private TemplateParser $parser,
-        private BoardColumnSeeder $seeder,
+        private BoardColumns $boardColumns,
         private EntityManagerInterface $em,
     ) {
     }
@@ -50,7 +50,7 @@ final readonly class BindTemplateOnProjectCreating
         $project = $event->project;
 
         if ([] !== $template->slots) {
-            $columns = $this->seeder->seedBetweenBacklogAndDone($project, array_map(
+            $columns = $this->boardColumns->seedBetweenBacklogAndDone($project->id ?? throw new \LogicException('A project is persisted before it creates.'), array_map(
                 static fn (Slot $slot): array => [
                     'slug' => '' !== $slot->key ? $slot->key : throw new \LogicException('A slot key is never empty.'),
                     'label' => $slot->label,

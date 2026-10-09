@@ -100,7 +100,8 @@ final readonly class CreateTickedCardsOnReviewSubmitted
         $ticked = $this->tickedLabels($event, $document);
 
         // A missing link, a deleted column and a project with no slot all leave the column null, and the card then lands in Backlog.
-        $next = $this->workflowSlotLinks->findColumnForSlot($project, self::NEXT_SLOT);
+        $nextId = $this->workflowSlotLinks->findColumnIdForSlot($project, self::NEXT_SLOT);
+        $next = null === $nextId ? null : $this->boardColumns->find($nextId);
         $created = 0;
         foreach ($this->discoveryProposals->findForRun($run) as $proposal) {
             $label = ReadinessReportWriter::pickLabel($proposal->title);

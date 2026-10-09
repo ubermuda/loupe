@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Board\Entity\Card;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;

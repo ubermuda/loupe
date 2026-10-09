@@ -7,12 +7,12 @@ namespace App\Module\Workflow\Controller;
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
-use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardDirectory;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -34,15 +34,18 @@ final class ReleaseWorkflowPauseController extends AppController
 {
     public function __construct(
         private readonly ReleaseWorkflowPauseHandler $release,
+        private readonly CardDirectory $cards,
         private readonly TranslatorInterface $translator,
     ) {
     }
 
     public function __invoke(
         string $pauseId,
+        string $cardId,
         #[MapEntity(id: 'projectId')] Project $project,
-        #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
     ): Response {
+        $card = $this->cards->findInProject($project->id ?? throw new \LogicException('A stored project has an id.'), Uuid::fromString($cardId))
+            ?? throw $this->createNotFoundException();
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('The project voter admits only a signed-in user.');
@@ -51,7 +54,7 @@ final class ReleaseWorkflowPauseController extends AppController
         try {
             ($this->release)(new ReleaseWorkflowPauseCommand(
                 $card,
-                $user,
+                $user->id ?? throw new \LogicException('A signed-in user has an id.'),
                 Actor::Human,
                 Uuid::fromString($pauseId),
             ));

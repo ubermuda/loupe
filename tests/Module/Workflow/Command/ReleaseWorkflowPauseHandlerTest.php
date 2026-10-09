@@ -57,7 +57,7 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
         $pause = $this->pause($card, $kind, 'tech-design-write');
         $this->transport()->reset();
 
-        $released = $this->handler()(new ReleaseWorkflowPauseCommand($card, $this->project->owner, Actor::Human, $pause->id));
+        $released = $this->handler()(new ReleaseWorkflowPauseCommand($card->snapshot(), $this->project->owner->id ?? throw new \LogicException('The owner is persisted.'), Actor::Human, $pause->id));
 
         self::assertSame([$kind, 'move-refused', 'tech-design-write'], [$released->kind, $released->reason, $released->ruleId]);
         $this->em()->clear();
@@ -84,7 +84,7 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
         $card = $this->card();
         $this->pause($card, PauseKind::Retries, 'tech-design-write');
 
-        $released = $this->handler()(new ReleaseWorkflowPauseCommand($card, $this->project->owner, Actor::Agent, null));
+        $released = $this->handler()(new ReleaseWorkflowPauseCommand($card->snapshot(), $this->project->owner->id ?? throw new \LogicException('The owner is persisted.'), Actor::Agent, null));
 
         self::assertSame(PauseKind::Retries, $released->kind);
         self::assertNull($this->service(CardPauseRepository::class)->findActiveForCard($card));
@@ -96,9 +96,9 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
         $card = $this->card();
         $this->pause($card, PauseKind::WorkTimeout, 'tech-design-write');
 
-        $this->handler()(new ReleaseWorkflowPauseCommand($card, $this->project->owner, Actor::Human, null));
+        $this->handler()(new ReleaseWorkflowPauseCommand($card->snapshot(), $this->project->owner->id ?? throw new \LogicException('The owner is persisted.'), Actor::Human, null));
 
-        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card->snapshot()->id));
     }
 
     public function test_a_held_card_is_refused_as_unmanaged(): void
@@ -129,7 +129,7 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
     {
         $card = $this->card();
         $pause = $this->pause($card, PauseKind::Retries, 'tech-design-write');
-        $this->handler()(new ReleaseWorkflowPauseCommand($card, $this->project->owner, Actor::Human, $pause->id));
+        $this->handler()(new ReleaseWorkflowPauseCommand($card->snapshot(), $this->project->owner->id ?? throw new \LogicException('The owner is persisted.'), Actor::Human, $pause->id));
 
         $this->assertRefused($card, $pause->id, ReleaseWorkflowPauseHandler::NOT_PAUSED, rows: 1);
     }
@@ -156,7 +156,7 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
         $this->transport()->reset();
 
         try {
-            $this->handler()(new ReleaseWorkflowPauseCommand($card, $this->project->owner, Actor::Human, $pauseId));
+            $this->handler()(new ReleaseWorkflowPauseCommand($card->snapshot(), $this->project->owner->id ?? throw new \LogicException('The owner is persisted.'), Actor::Human, $pauseId));
             self::fail('The release is refused.');
         } catch (DomainErrors $e) {
             self::assertSame(['pause' => $refusal], $e->errors);

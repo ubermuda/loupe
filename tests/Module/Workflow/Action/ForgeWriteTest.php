@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
@@ -420,6 +421,7 @@ final class ForgeWriteTest extends KernelTestCase
         $registered = $writers ? [$this->writer] : [];
         $forgePullRequests = $this->service(ForgePullRequestRepository::class);
         $action = new ForgeWrite(
+            $this->service(CardRepository::class),
             new CardPullRequests($this->service(CardPullRequestRepository::class), $forgePullRequests),
             $this->service(BoardAutomation::class),
             new ForgePullRequestWrites(
@@ -442,7 +444,7 @@ final class ForgeWriteTest extends KernelTestCase
 
         $params = null === $fallback ? ['write' => $write] : ['write' => $write, 'fallback' => $fallback];
 
-        return $action->run($this->rule(ActionType::ForgeWrite, $params), $card, $facts ?? FactsMother::facts(), $this->state($card));
+        return $action->run($this->rule(ActionType::ForgeWrite, $params), $card->snapshot(), $facts ?? FactsMother::facts(), $this->state($card));
     }
 
     /** @return list<string> */

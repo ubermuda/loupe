@@ -23,6 +23,7 @@ use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Workflow\BoardCardPauses;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
@@ -42,6 +43,7 @@ use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
@@ -58,6 +60,7 @@ use App\Module\Workflow\Command\EvaluateWorkflowCardHandler;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Engine\Engine;
@@ -1549,7 +1552,7 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card);
 
         self::assertSame(WorkRequestState::Open, $stale->state);
-        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card->snapshot()->id));
         self::assertSame([], $this->firedRecords());
 
         $this->dropHold($card);
@@ -1798,7 +1801,7 @@ final class EngineTest extends KernelTestCase
         $this->evaluate($card);
 
         self::assertSame([], $this->liveRequests($card));
-        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card->snapshot()->id));
 
         $this->saveAutomation($card, true);
         $this->evaluate($card, '2026-10-02 12:01:00');
@@ -1820,7 +1823,7 @@ final class EngineTest extends KernelTestCase
 
         $this->evaluate($card);
 
-        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card));
+        self::assertSame([], $this->service(WorkflowRuleStateRepository::class)->findForCard($card->snapshot()->id));
         self::assertSame([], $this->liveRequests($card));
     }
 
@@ -3037,6 +3040,14 @@ final class EngineTest extends KernelTestCase
         $cardPauses = $this->service(CardPauseRepository::class);
         $workRequests = $this->service(WorkRequestRepository::class);
         $releaseCardPause = new ReleaseCardPauseHandler($this->em(), $clock, $auditor, $dispatcher);
+        $boardPauses = new BoardCardPauses(
+            $this->service(CardRepository::class),
+            $cardPauses,
+            $this->service(CardEventRepository::class),
+            new PauseCardHandler($cardPauses, $this->em(), $clock, $auditor, $dispatcher, $this->service(CardEventRepository::class)),
+            $releaseCardPause,
+            $this->em(),
+        );
         $opener = $this->opener();
         $forgePullRequests = $this->service(ForgePullRequestRepository::class);
 
@@ -3047,7 +3058,8 @@ final class EngineTest extends KernelTestCase
 
         return new Engine(
             $this->em(),
-            $this->service(CardRepository::class),
+            $this->service(CardDirectory::class),
+            $this->service(ProjectRepository::class),
             new ProjectTemplateCopy($this->service(WorkflowBindingRepository::class), $this->service(TemplateParser::class), $this->service(AppRules::class)),
             new FactsBuilder(
                 $this->service(WorkflowSlotLinkRepository::class),
@@ -3068,16 +3080,13 @@ final class EngineTest extends KernelTestCase
             $this->service(WorkflowPendingBaselineRepository::class),
             $workRequests,
             $this->service(WorkerRunRepository::class),
-            $this->service(CardEventRepository::class),
             new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class), new WorkSubjectHandlers([])),
-            $cardPauses,
-            new PauseCardHandler($cardPauses, $this->em(), $clock, $auditor, $dispatcher, $this->service(CardEventRepository::class)),
-            $releaseCardPause,
+            $boardPauses,
             new Actions([
-                new MoveCard($this->service(BoardColumnRepository::class), $this->service(WorkflowSlotLinkRepository::class), $this->service(UpdateCardHandler::class)),
-                new RequestWork($opener, $this->service(CardPullRequests::class), $this->service(CardEventRepository::class)),
+                new MoveCard($this->service(CardRepository::class), $this->service(BoardColumnRepository::class), $this->service(WorkflowSlotLinkRepository::class), $this->service(UpdateCardHandler::class)),
+                new RequestWork($this->service(CardRepository::class), $opener, $this->service(CardPullRequests::class), $this->service(CardEventRepository::class)),
                 new PauseCard(),
-                new ReleasePause($cardPauses, $releaseCardPause),
+                new ReleasePause($boardPauses),
                 $this->service(ForgeWrite::class),
                 new Ask($this->asks, $this->service(TranslatorInterface::class), 'en'),
                 new EvaluateChildren($this->service(CardRepository::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
@@ -3153,7 +3162,7 @@ final class EngineTest extends KernelTestCase
 
     private function ruleStateOrNull(Card $card, string $ruleId): ?WorkflowRuleState
     {
-        return $this->service(WorkflowRuleStateRepository::class)->findForCard($card)[$ruleId] ?? null;
+        return $this->service(WorkflowRuleStateRepository::class)->findForCard($card->snapshot()->id)[$ruleId] ?? null;
     }
 
     /** @return list<WorkRequest> */
@@ -3193,7 +3202,7 @@ final class EngineTest extends KernelTestCase
         $holds = new CardHolds($this->service(CardHoldRepository::class), $this->em(), $clock, $events);
 
         $holds->release($card->project, [$card->id ?? throw new \LogicException('A flushed card has an id.')]);
-        foreach ([...$this->service(WorkflowRuleStateRepository::class)->findForCard($card), ...$this->liveRequests($card)] as $row) {
+        foreach ([...$this->service(WorkflowRuleStateRepository::class)->findForCard($card->snapshot()->id), ...$this->liveRequests($card)] as $row) {
             $this->em()->refresh($row);
         }
     }
@@ -3227,7 +3236,7 @@ final class EngineTest extends KernelTestCase
 
     private function releaseByPerson(Card $card): void
     {
-        $this->service(ReleaseWorkflowPauseHandler::class)(new ReleaseWorkflowPauseCommand($card, $card->project->owner, Actor::Human, null));
+        $this->service(ReleaseWorkflowPauseHandler::class)(new ReleaseWorkflowPauseCommand($card->snapshot(), $card->project->owner->id ?? throw new \LogicException('The owner is persisted.'), Actor::Human, null));
     }
 
     private function refuse(WorkRequest $request, string $code, string $at): void
