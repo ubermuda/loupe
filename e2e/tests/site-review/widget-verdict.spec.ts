@@ -198,7 +198,7 @@ test('an approval sends after the confirm panel and says so', async ({
     ]);
 });
 
-test('request changes needs a message and warns about the reviewer’s own pull request', async ({
+test('request changes with no open note needs a message and warns about the reviewer’s own pull request', async ({
     page,
 }) => {
     const posted = await openLockedPage(page, () =>
@@ -231,6 +231,50 @@ test('request changes needs a message and warns about the reviewer’s own pull 
             kind: 'request-changes',
             pullRequestIds: [PR_A],
             message: 'The heading is cut off',
+            submissionId: expect.stringMatching(UUID),
+        },
+    ]);
+});
+
+test('request changes on a card with an open note sends with no message', async ({
+    page,
+}) => {
+    const posted = await openLockedPage(page, () =>
+        answer({
+            notes: [
+                {
+                    id: 'n1',
+                    url: 'https://x.test/',
+                    body: 'Heading is cut off',
+                    anchorCount: 1,
+                },
+            ],
+        }),
+    );
+    await openPanel(page);
+
+    await verdictButton(page, 'Request changes').click();
+    await expect(
+        panel(page).getByText('1 note goes with this review'),
+    ).toBeVisible();
+    await expect(panel(page).getByLabel('Message')).toHaveAttribute(
+        'placeholder',
+        'Message (optional)',
+    );
+    const send = panel(page).getByRole('button', { name: 'Send', exact: true });
+    await expect(send).toBeEnabled();
+    await Promise.all([
+        page.waitForResponse((response) =>
+            response.url().endsWith('/verdicts'),
+        ),
+        send.click(),
+    ]);
+
+    expect(posted).toEqual([
+        {
+            kind: 'request-changes',
+            pullRequestIds: [PR_A],
+            message: '',
             submissionId: expect.stringMatching(UUID),
         },
     ]);

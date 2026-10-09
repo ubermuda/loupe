@@ -94,14 +94,14 @@ final readonly class SendCardVerdictHandler
         if ($card->column->terminal) {
             throw new DomainErrors(['card' => self::CARD_CLOSED]);
         }
-        if ('' === $message && $command->kind->needsMessage()) {
+        $notes = $this->notes->pendingOf($card);
+        if ('' === $message && $command->kind->needsMessage(\count($notes))) {
             throw new DomainErrors(['message' => self::MESSAGE_REQUIRED]);
         }
 
         $picked = $this->pickedPullRequests($card, $command->pullRequestIds);
 
-        $verdict = $this->em->wrapInTransaction(function () use ($command, $card, $message, $picked): CardVerdict {
-            $notes = $this->notes->pendingOf($card);
+        $verdict = $this->em->wrapInTransaction(function () use ($command, $card, $message, $notes, $picked): CardVerdict {
             $verdict = new CardVerdict($card, $command->kind, $command->reviewer, $message, $notes, submissionId: $command->submissionId);
             $this->em->persist($verdict);
             foreach ($picked as $pullRequest) {
