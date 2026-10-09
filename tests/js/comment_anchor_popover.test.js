@@ -249,6 +249,22 @@ it('scrolls an off-screen passage into view before its row opens the thread', as
     expect(opened).toEqual([cardOf('early')]);
 });
 
+it('scrolls to the quote when its tall paragraph still hides it', async () => {
+    await mount();
+    Element.prototype.scrollIntoView = () => {};
+    const scrolledBy = [];
+    window.scrollBy = (options) => scrolledBy.push(options.top);
+    passageTop = 2000;
+    Range.prototype.getClientRects = () => [
+        { top: 2000, bottom: 2020, left: 50, right: 90, height: 20 },
+    ];
+    rowOf('early').click();
+    delete window.scrollBy;
+
+    expect(scrolledBy).toEqual([2000 - (window.innerHeight - 20) / 2]);
+    expect(opened).toEqual([cardOf('early')]);
+});
+
 it('leaves the page still when the row of a visible passage opens its thread', async () => {
     await mount();
     const scrolled = [];
