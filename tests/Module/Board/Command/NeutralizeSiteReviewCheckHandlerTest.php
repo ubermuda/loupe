@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Command;
 
+use App\Module\Board\Command\CreateCardCommand;
+use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\NeutralizeSiteReviewCheckCommand;
 use App\Module\Board\Command\NeutralizeSiteReviewCheckHandler;
 use App\Module\Board\Repository\CardPullRequestRepository;
@@ -15,6 +17,7 @@ use App\Module\Forge\Service\PullRequestCheckConclusion;
 use App\Module\Forge\Service\PullRequestCheckWriters;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Board\Fake\FakeCheckWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -26,6 +29,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private FakeCheckWriter $writer;
     private Project $project;
 
@@ -38,6 +43,7 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
         $em->persist($owner);
         $this->project = new Project($owner, 'neutralize-'.uniqid());
         $em->persist($this->project);
+        $this->seedColumns($this->project);
         $em->flush();
         $this->writer = new FakeCheckWriter();
     }
@@ -48,6 +54,17 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
 
         self::assertCount(1, $this->writer->published);
         self::assertSame([PullRequestCheckConclusion::Neutral, 55, 'sha-1'], [$this->writer->published[0]['conclusion'], $this->writer->published[0]['runId'], $this->writer->published[0]['sha']]);
+    }
+
+    public function test_a_pull_request_that_a_card_links_again_keeps_its_check(): void
+    {
+        $handler = self::getContainer()->get(CreateCardHandler::class);
+        self::assertInstanceOf(CreateCardHandler::class, $handler);
+        $handler(new CreateCardCommand(project: $this->project, title: 'A card', body: 'Body', type: 'feature', pullRequestUrls: ['https://github.com/acme/widgets/pull/9']));
+
+        ($this->handler())($this->command());
+
+        self::assertSame([], $this->writer->published);
     }
 
     public function test_a_retryable_refusal_asks_for_a_retry(): void
@@ -97,6 +114,7 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
 
         return new NeutralizeSiteReviewCheckHandler(
             $projects,
+            $container->get(CardPullRequestRepository::class),
             new SiteReviewCheckPublisher(
                 $container->get(CardPullRequestRepository::class),
                 $container->get(SiteReviewFactProvider::class),

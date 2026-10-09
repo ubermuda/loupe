@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\Forge;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Project\Repository\ProjectRepository;
 use Psr\Log\LoggerInterface;
@@ -16,6 +18,7 @@ final readonly class NeutralizeSiteReviewCheckHandler
 
     public function __construct(
         private ProjectRepository $projects,
+        private CardPullRequestRepository $cardPullRequests,
         private SiteReviewCheckPublisher $checkPublisher,
         private LoggerInterface $logger,
     ) {
@@ -25,6 +28,11 @@ final readonly class NeutralizeSiteReviewCheckHandler
     {
         $project = $this->projects->find($command->projectId);
         if (null === $project) {
+            return;
+        }
+
+        // A card that links the pull request again owns its check, and its evaluation writes the check it wants.
+        if ([] !== $this->cardPullRequests->findForPullRequest($command->projectId, Forge::from($command->forge), $command->repository, $command->number)) {
             return;
         }
 

@@ -163,6 +163,13 @@ final readonly class SiteReviewCheckPublisher
             return $e;
         }
 
+        // The untrack skips a locked row and leaves its state, which now misdescribes the run.
+        $retained = $this->siteReviewCheckStates->findPostedFailureByKey($project->requireId(), $forge, $repository, $number);
+        if (null !== $retained && $retained->checkRunId === $runId) {
+            $this->em->remove($retained);
+            $this->em->flush();
+        }
+
         return null;
     }
 
