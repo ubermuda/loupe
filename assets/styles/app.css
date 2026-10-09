@@ -6233,7 +6233,7 @@
         @apply min-h-0 max-w-88! min-w-0 border-0 bg-transparent p-0 shadow-none;
     }
     .lp-tech-panel__thread {
-        @apply absolute top-4 right-0 left-auto w-64 shadow-composer;
+        @apply mt-3 shadow-composer md:absolute md:top-4 md:right-0 md:left-auto md:mt-0 md:w-64;
     }
     /* The doc head at full app scale would spend the whole still on a title. */
     .lp-tech-panel .lp-review-doc__title {
