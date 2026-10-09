@@ -22,7 +22,7 @@ Call `inbox_ask` with:
 - `sessionId`: your own session id, the first set value of `$LOUPE_SESSION_ID`, `$CLAUDE_CODE_SESSION_ID` and `$CODEX_THREAD_ID`. Read it with a shell command: `echo "${LOUPE_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-$CODEX_THREAD_ID}}"`.
 - `bridgeId`: only when the bridge started you, from the footer line "Your session id is … and your bridge id is …. Pass both to inbox_ask." Omit it in an interactive session.
 - `context`: one or two sentences the owner reads above the items, such as "Working on card 33, I need two decisions before I write the migration".
-- `items`: each with a `kind` (`question` or `todo`) and a one-line `title`.
+- `items`: each with a `kind` (`question` or `todo`) and a one-line `title`. The `title` and each option follow rule 18 of `loupe-documents`: they make sense with no document open. The `context` names the card in words, not only by its number.
 
 Set `blocking` on each item. A question blocks by default and a to-do does not. Pass `false` on a question you can work around, and `true` on a to-do your next step needs.
 

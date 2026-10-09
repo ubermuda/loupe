@@ -36,9 +36,9 @@
     <form method="post" action="{{ path('app_account_delete_execute') }}" class="w-full mt-1.5">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('confirm-account-deletion') }}">
         <input type="hidden" name="token" value="{{ token }}">
-        <button type="submit" class="lp-btn lp-btn--danger w-full justify-center">
+        <twig:Ds:Button type="submit" variant="danger" class="w-full justify-center">
             {{ 'account.delete.confirm.cta'|trans }}
-        </button>
+        </twig:Ds:Button>
     </form>
 </div>
 {% endblock %}

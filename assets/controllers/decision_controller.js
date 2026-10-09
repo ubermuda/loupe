@@ -31,6 +31,7 @@ export default class extends Controller {
         noteLabel: String,
         notePlaceholder: String,
         clearLabel: String,
+        clearClass: String,
         errorMessage: String,
         summaryUrl: String,
         changedBy: String,
@@ -147,7 +148,7 @@ export default class extends Controller {
         const clear = document.createElement('input');
         clear.type = 'button';
         clear.value = this.clearLabelValue;
-        clear.className = 'lp-btn lp-btn--ghost lp-btn--sm lp-decision__clear';
+        clear.className = this.clearClassValue;
         clear.dataset.decisionClearControl = '';
         clear.addEventListener('click', () => this.clear(block));
         // It sits in the block header beside the kind-of-answer chip, apart

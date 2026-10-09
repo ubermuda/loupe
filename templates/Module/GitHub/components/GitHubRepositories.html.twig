@@ -26,18 +26,18 @@
                 </span>
             </span>
             <div data-controller="modal">
-                <button type="button" class="lp-btn lp-btn--danger-ghost lp-btn--sm" data-action="click->modal#open">{{ 'github.repositories.remove.action'|trans }}</button>
-                <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="remove-repository-title-{{ loop.index }}" data-action="cancel->modal#close">
+                <twig:Ds:Button variant="danger-ghost" size="sm" type="button"  data-action="click->modal#open">{{ 'github.repositories.remove.action'|trans }}</twig:Ds:Button>
+                <twig:Ds:Dialog aria-labelledby="remove-repository-title-{{ loop.index }}" data-action="cancel->modal#close">
                     <h2 class="lp-dialog-title" id="remove-repository-title-{{ loop.index }}">{{ 'github.repositories.remove.title'|trans }}</h2>
                     <p class="lp-dialog-desc">{{ 'github.repositories.remove.description'|trans({'%path%': repository.path}) }}</p>
                     <form method="post" action="{{ path('app_forge_repository_remove', {id: project.id, repositoryId: repository.id}) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('forge-repository-remove') }}">
                         <div class="lp-dialog-actions">
-                            <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'github.repositories.cancel'|trans }}</button>
-                            <button type="submit" class="lp-btn lp-btn--danger">{{ 'github.repositories.remove.confirm'|trans }}</button>
+                            <twig:Ds:Button variant="ghost" type="button"  data-action="click->modal#close">{{ 'github.repositories.cancel'|trans }}</twig:Ds:Button>
+                            <twig:Ds:Button variant="danger" type="submit">{{ 'github.repositories.remove.confirm'|trans }}</twig:Ds:Button>
                         </div>
                     </form>
-                </dialog>
+                </twig:Ds:Dialog>
             </div>
         </div>
         {% endfor %}
@@ -64,9 +64,9 @@
             </div>
             {% endfor %}
             <p class="lp-connect-hint">{{ 'github.app.follows'|trans }}</p>
-            <a href="{{ path('app_github_app_install', {id: project.id}) }}" class="lp-btn lp-btn--primary" data-testid="github-app-install">
+            <twig:Ds:Button variant="primary" href="{{ path('app_github_app_install', {id: project.id}) }}" data-testid="github-app-install">
                 <twig:ux:icon name="lucide:external-link" />{{ 'github.app.install'|trans }}
-            </a>
+            </twig:Ds:Button>
         </div>
         {% endif %}
 
@@ -81,9 +81,9 @@
             <p class="lp-connect-hint">{{ 'github.repositories.hook.purpose'|trans }}</p>
             <form method="post" action="{{ path('app_github_hook_create', {id: project.id}) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('github-hook-create') }}">
-                <button type="submit" class="lp-btn lp-btn--primary" data-testid="github-hook-create">
+                <twig:Ds:Button type="submit" variant="primary" data-testid="github-hook-create">
                     <twig:ux:icon name="lucide:plug" />{{ 'github.repositories.hook.create'|trans }}
-                </button>
+                </twig:Ds:Button>
             </form>
             {% else %}
             {% set hookHealth = hook.health().value %}
@@ -135,20 +135,20 @@
             <p class="lp-connect-hint">{{ 'github.repositories.hook.events'|trans }}</p>
 
             <div data-controller="modal">
-                <button type="button" class="lp-btn lp-btn--sm" data-action="click->modal#open" data-testid="github-hook-rotate">
+                <twig:Ds:Button type="button" size="sm" data-action="click->modal#open" data-testid="github-hook-rotate">
                     <twig:ux:icon name="lucide:rotate-cw" />{{ 'github.repositories.hook.rotate.action'|trans }}
-                </button>
-                <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="rotate-hook-secret-title" data-action="cancel->modal#close">
+                </twig:Ds:Button>
+                <twig:Ds:Dialog aria-labelledby="rotate-hook-secret-title" data-action="cancel->modal#close">
                     <h2 class="lp-dialog-title" id="rotate-hook-secret-title">{{ 'github.repositories.hook.rotate.title'|trans }}</h2>
                     <p class="lp-dialog-desc">{{ 'github.repositories.hook.rotate.description'|trans }}</p>
                     <form method="post" action="{{ path('app_github_hook_secret_rotate', {id: project.id}) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('github-hook-secret-rotate') }}">
                         <div class="lp-dialog-actions">
-                            <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'github.repositories.cancel'|trans }}</button>
-                            <button type="submit" class="lp-btn lp-btn--primary">{{ 'github.repositories.hook.rotate.confirm'|trans }}</button>
+                            <twig:Ds:Button variant="ghost" type="button"  data-action="click->modal#close">{{ 'github.repositories.cancel'|trans }}</twig:Ds:Button>
+                            <twig:Ds:Button variant="primary" type="submit">{{ 'github.repositories.hook.rotate.confirm'|trans }}</twig:Ds:Button>
                         </div>
                     </form>
-                </dialog>
+                </twig:Ds:Dialog>
             </div>
             {% endif %}
         </div>

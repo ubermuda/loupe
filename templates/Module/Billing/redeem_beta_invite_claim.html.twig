@@ -10,7 +10,7 @@
     <section class="lp-billing-block">
         <form method="post" action="{{ path('app_billing_beta_invite_claim', {token: token}) }}" data-beta-claim-form>
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-beta-invite-claim') }}">
-            <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.beta_invite.claim.submit'|trans }}</button>
+            <twig:Ds:Button variant="primary" type="submit">{{ 'billing.beta_invite.claim.submit'|trans }}</twig:Ds:Button>
         </form>
     </section>
 </div>

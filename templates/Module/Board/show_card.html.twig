@@ -35,18 +35,18 @@
             {% include '@Board/_column_tag.html.twig' with {column: card.column} only %}
         </div>
         <div class="lp-card-drawer__header-actions">
-            <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
-            <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_project_board', {id: card.project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
+            <twig:Ds:Button variant="ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</twig:Ds:Button>
+            <twig:Ds:Button variant="ghost icon" href="{{ path('app_project_board', {id: card.project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></twig:Ds:Button>
         </div>
     </header>
 
     <div class="lp-card-drawer__body">
         <h1 class="lp-card-drawer__title">{{ card.title }}</h1>
-        <div class="lp-tabs" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
+        <twig:Ds:Tabs tag="div" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
             {% for tab in tabs %}
             <button type="button" class="lp-tabs__tab" role="tab" id="card-tab-{{ tab }}" aria-controls="card-panel-{{ tab }}" aria-selected="{{ tab == activeTab ? 'true' : 'false' }}" tabindex="{{ tab == activeTab ? '0' : '-1' }}" data-panel-tabs-target="tab" data-panel-tab="{{ tab }}" data-action="click->panel-tabs#select keydown->panel-tabs#keydown">{{ ('board.card.tab.' ~ tab)|trans }}</button>
             {% endfor %}
-        </div>
+        </twig:Ds:Tabs>
 
         <section class="lp-card-panel" id="card-panel-overview" role="tabpanel" aria-labelledby="card-tab-overview" data-panel-tabs-target="panel" data-panel-panel="overview"{% if activeTab != 'overview' %} hidden{% endif %}>
             <div class="lp-card-overview">
@@ -64,8 +64,8 @@
                                 {% for link in card.documents %}
                                 <tr>
                                     <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong></td>
-                                    <td><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></td>
-                                    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}" data-turbo-frame="_top" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span></a></td>
+                                    <td><twig:Ds:Tag>{{ link.document.status.translationKey()|trans }}</twig:Ds:Tag></td>
+                                    <td><twig:Ds:Button variant="ghost open" href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}" data-turbo-frame="_top" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span></twig:Ds:Button></td>
                                 </tr>
                                 {% endfor %}
                                 {% for link in card.pullRequests %}
@@ -139,9 +139,9 @@
                         <form method="post" data-turbo="false" action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}" class="lp-card-move__form" data-controller="submit-on-change">
                             {{ form_widget(moveForm._token) }}
                             {{ form_label(moveForm.column, null, {label_attr: {class: 'sr-only'}}) }}
-                            {{ form_widget(moveForm.column, {attr: {class: 'lp-input lp-select lp-card-move__select', 'data-action': 'change->submit-on-change#submit'}}) }}
+                            {{ form_widget(moveForm.column, {attr: {class: ds_input_class('select') ~ ' lp-card-move__select', 'data-action': 'change->submit-on-change#submit'}}) }}
                             {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
-                            <noscript><button type="submit" class="lp-btn">{{ 'board.card.move.submit'|trans }}</button></noscript>
+                            <noscript><twig:Ds:Button type="submit">{{ 'board.card.move.submit'|trans }}</twig:Ds:Button></noscript>
                         </form>
                     </dd>
                 </div>
@@ -179,8 +179,8 @@
 
     <footer class="lp-card-drawer__footer">
         <div data-controller="modal">
-            <button type="button" class="lp-btn lp-btn--danger" data-action="click->modal#open">{{ 'board.card.delete.action'|trans }}</button>
-            <dialog data-modal-target="dialog" class="lp-dialog"><h3 class="lp-dialog-title">{{ 'board.card.delete.confirm.title'|trans }}</h3><p class="lp-dialog-desc">{{ 'board.card.delete.confirm.body'|trans({'%title%': card.title}) }}</p><form method="post" action="{{ path('app_board_card_delete', {projectId: card.project.id, cardId: card.id}) }}" class="flex items-center justify-end gap-3 pt-2" data-turbo-frame="_top" data-card-delete><input type="hidden" name="_csrf_token" value="{{ csrf_token('board-card-delete') }}"><button type="button" class="lp-btn" data-action="click->modal#close">{{ 'board.card.delete.confirm.cancel'|trans }}</button><button type="submit" class="lp-btn lp-btn--danger">{{ 'board.card.delete.confirm.submit'|trans }}</button></form></dialog>
+            <twig:Ds:Button variant="danger" type="button" data-action="click->modal#open">{{ 'board.card.delete.action'|trans }}</twig:Ds:Button>
+            <twig:Ds:Dialog><h3 class="lp-dialog-title">{{ 'board.card.delete.confirm.title'|trans }}</h3><p class="lp-dialog-desc">{{ 'board.card.delete.confirm.body'|trans({'%title%': card.title}) }}</p><form method="post" action="{{ path('app_board_card_delete', {projectId: card.project.id, cardId: card.id}) }}" class="flex items-center justify-end gap-3 pt-2" data-turbo-frame="_top" data-card-delete><input type="hidden" name="_csrf_token" value="{{ csrf_token('board-card-delete') }}"><twig:Ds:Button type="button" data-action="click->modal#close">{{ 'board.card.delete.confirm.cancel'|trans }}</twig:Ds:Button><twig:Ds:Button variant="danger" type="submit">{{ 'board.card.delete.confirm.submit'|trans }}</twig:Ds:Button></form></twig:Ds:Dialog>
         </div>
     </footer>
 </div>

@@ -4,11 +4,11 @@
 <form method="post" action="{{ path(routes[control.action.value], {id: project.id, runId: run.id}) }}" class="{{ compact ? 'lp-card-run__action' : 'lp-run-drawer__control' }}" data-turbo-frame="{{ frame }}" data-worker-run-control="{{ control.action.value }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token('worker-run-command') }}">
     {% if compact %}
-    <button type="submit" class="lp-btn lp-btn--icon lp-btn--compact" title="{{ reason ?? actionLabel }}" aria-label="{{ actionLabel }}"{% if reason %} aria-describedby="worker-run-control-reason-{{ run.id }}" disabled{% endif %}>
+    <twig:Ds:Button type="submit" variant="icon compact" title="{{ reason ?? actionLabel }}" aria-label="{{ actionLabel }}" :aria-describedby="reason ? 'worker-run-control-reason-' ~ run.id : null" :disabled="reason ? true : false">
         {% if control.action.value == 'resume' %}<twig:ux:icon name="lucide:rotate-ccw" class="size-3.5" />{% elseif control.action.value == 'rerun' %}<twig:ux:icon name="lucide:rotate-cw" class="size-3.5" />{% elseif control.action.value == 'stop' %}<twig:ux:icon name="lucide:square" class="size-3.5" />{% else %}<twig:ux:icon name="lucide:x" class="size-3.5" />{% endif %}
         {% if reason %}<span class="sr-only" id="worker-run-control-reason-{{ run.id }}">{{ reason }}</span>{% endif %}
-    </button>
+    </twig:Ds:Button>
     {% else %}
-    <button type="submit" class="lp-btn{{ control.action.value == 'stop' ? ' lp-btn--danger-ghost' : '' }}"{% if reason %} title="{{ reason }}" disabled{% endif %}>{{ actionLabel }}{% if reason %} <span class="sr-only">{{ reason }}</span>{% endif %}</button>
+    <twig:Ds:Button type="submit" :variant="control.action.value == 'stop' ? 'danger-ghost' : null" :title="reason" :disabled="reason ? true : false">{{ actionLabel }}{% if reason %} <span class="sr-only">{{ reason }}</span>{% endif %}</twig:Ds:Button>
     {% endif %}
 </form>

@@ -1,0 +1,19 @@
+{#
+  Props:  @comment-budget-ignore
+    icon        string   A Lucide icon name, such as lucide:inbox. Optional.
+    iconClass   string   Size and colour classes of the icon. Optional, w-12 h-12 by default.
+    title       string   Translated heading. Optional.
+    body        string   Translated sentence under the heading. Optional.
+    linkLabel   string   Translated text of the link. Optional.
+    linkHref    string   Target of the link. Optional.
+  The content goes after the body, for a second paragraph or an action.
+  Any other attribute, class included, is passed to the element.
+#}
+{%- props icon = null, iconClass = 'w-12 h-12', title = null, body = null, linkLabel = null, linkHref = null -%}
+<div{{ attributes.defaults({class: 'lp-empty-state'}) }}>
+    {% if icon %}<twig:UX:Icon :name="icon" class="lp-empty-state__icon {{ iconClass }}" />{% endif %}
+    {% if title %}<h2 class="lp-empty-state__title">{{ title }}</h2>{% endif %}
+    {% if body %}<p class="lp-empty-state__body">{{ body }}</p>{% endif %}
+    {% block content %}{% endblock %}
+    {% if linkLabel and linkHref %}<a class="lp-empty-state__link" href="{{ linkHref }}" target="_blank" rel="noopener noreferrer">{{ linkLabel }}</a>{% endif %}
+</div>

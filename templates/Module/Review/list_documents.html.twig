@@ -27,7 +27,7 @@
     {% endif %}
             <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
         </div>
-        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open"><twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />{{ 'review.create.title'|trans }}</button>
+        <twig:Ds:Button variant="primary" type="button" data-action="click->modal#open"><twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />{{ 'review.create.title'|trans }}</twig:Ds:Button>
     </header>
     {% include '@Review/_create_document.html.twig' with {form: createDocumentForm, projectId: project.id} only %}
 
@@ -52,48 +52,48 @@
                        after a debounced submit: this is a full Turbo visit, so the
                        field being typed into is replaced mid-word. A full visit rather
                        than a frame, so the query lands in the address bar. #}
-                    <input type="search"
+                    <twig:Ds:Input type="search"
                            id="document-search"
                            name="search"
-                           class="lp-input lp-filter-input"
+                           class="lp-filter-input"
                            value="{{ listQuery.search }}"
                            placeholder="{{ 'review.dashboard.filter.search_placeholder'|trans }}"
                            data-autosearch-target="field"
-                           data-action="input->autosearch#search">
+                           data-action="input->autosearch#search" />
                 </div>
 
                 <label class="sr-only" for="document-status">{{ 'review.dashboard.filter.status_label'|trans }}</label>
-                <select id="document-status"
+                <twig:Ds:Select id="document-status"
                         name="status"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'review.dashboard.filter.all_statuses'|trans }}</option>
                     {% for status in statuses %}
                         <option value="{{ status.value }}"{{ listQuery.status == status ? ' selected' : '' }}>{{ status.translationKey()|trans }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             </div>
 
             {% if projectTags|length > 0 %}
                 <label class="sr-only" for="document-tag">{{ 'review.dashboard.filter.tag_label'|trans }}</label>
-                <select id="document-tag"
+                <twig:Ds:Select id="document-tag"
                         name="tag"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'review.dashboard.filter.all_tags'|trans }}</option>
                     {% for tag in projectTags %}
                         <option value="{{ tag.name }}"{{ listQuery.tagName == tag.name ? ' selected' : '' }}>{{ tag.name }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             {% endif %}
 
             {# Filtering by series is also what puts the list in the series's own
                order, so the control stays out of the way until a series exists. #}
             {% if projectSeries|length > 0 %}
                 <label class="sr-only" for="document-series">{{ 'review.dashboard.filter.series_label'|trans }}</label>
-                <select id="document-series"
+                <twig:Ds:Select id="document-series"
                         name="series"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'review.dashboard.filter.all_series'|trans }}</option>
                     {# The option carries the spelling and the comparison uses the
@@ -101,7 +101,7 @@
                     {% for series in projectSeries %}
                         <option value="{{ series.name }}"{{ listQuery.seriesName == series.normalizedName ? ' selected' : '' }}>{{ series.name }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             {% endif %}
 
             <label class="lp-filter-switch">
@@ -170,7 +170,7 @@
                 {% if document.tags|length > 0 %}
                 <ul class="lp-document-row__tags" aria-label="{{ 'review.dashboard.tags.label'|trans }}">
                     {% for tag in document.tags %}
-                    <li class="lp-tag">{{ tag.name }}</li>
+                    <twig:Ds:Tag as="li">{{ tag.name }}</twig:Ds:Tag>
                     {% endfor %}
                 </ul>
                 {% endif %}
@@ -184,9 +184,9 @@
                 </div>
             </div>
             <div class="lp-document-row__status" role="cell">
-                <span class="lp-badge lp-badge--{{ document.status.value }}">
+                <twig:Ds:Badge :status="document.status.value">
                     {{ document.status.translationKey()|trans }}
-                </span>
+                </twig:Ds:Badge>
             </div>
             <span class="lp-document-row__author" role="cell">{{ document.owner.fullName }}</span>
             <span class="lp-document-row__linked-card" role="cell">
@@ -231,30 +231,25 @@
         </div>
     </div>
 
-    <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
+    <twig:Ds:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% elseif listQuery.isNarrowed %}
     {# "No documents yet" is wrong once a filter is on — the project may be full
        of documents that simply did not match. #}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-8 h-8" />
-        <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty_filtered.title'|trans }}</h2>
-        <a class="lp-btn" href="{{ path('app_project_documents', {id: project.id}) }}">{{ 'review.dashboard.filter.clear_filters'|trans }}</a>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:search-x" iconClass="w-8 h-8" :title="'review.dashboard.empty_filtered.title'|trans">
+        <twig:Ds:Button href="{{ path('app_project_documents', {id: project.id}) }}">{{ 'review.dashboard.filter.clear_filters'|trans }}</twig:Ds:Button>
+    </twig:Ds:EmptyState>
     {% else %}
     {# A project holds no credential any more, so the page cannot tell a
        connected agent from an absent one. It offers the connect page either
        way, and names the skills, which only the connect page mentions. #}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:file-text" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty.title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'review.create.empty'|trans }}</p>
+    <twig:Ds:EmptyState icon="lucide:file-text" :title="'review.dashboard.empty.title'|trans" :body="'review.create.empty'|trans">
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.body'|trans }}</p>
-        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</a>
+        <twig:Ds:Button href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.connect'|trans }}</twig:Ds:Button>
         <p class="lp-empty-state__body">
             {{ 'review.dashboard.empty.skills.hint'|trans }}
             <a class="lp-empty-state__link" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.skills.action'|trans }}</a>
         </p>
-    </div>
+    </twig:Ds:EmptyState>
     {% endif %}
 </div>
 {% endblock %}

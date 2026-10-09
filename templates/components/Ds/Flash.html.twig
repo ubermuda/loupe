@@ -1,0 +1,12 @@
+{#
+  Props:  @comment-budget-ignore
+    severity       string   success, error, warning or info. Sets the colour of the dot.
+    dismissLabel   string   Translated text of the dismiss button. Optional, no button without it.
+  The content is the message. Any other attribute, class included, is passed to the element.
+#}
+{%- props severity, dismissLabel = null -%}
+<div{{ attributes.defaults({class: 'lp-flash lp-flash--' ~ severity, role: 'status', 'data-controller': 'flash'}) }}>
+    <span class="lp-flash__dot"></span>
+    <span class="lp-flash__message">{% block content %}{% endblock %}</span>
+    {% if dismissLabel %}<button type="button" class="lp-flash__dismiss" data-action="click->flash#dismiss">{{ dismissLabel }}</button>{% endif %}
+</div>

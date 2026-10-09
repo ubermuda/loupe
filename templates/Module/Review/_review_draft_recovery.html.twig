@@ -5,10 +5,10 @@
          data-form-draft-recovery-labels-value="{{ {'approved': 'review.document.verdict.approved'|trans, 'changes-requested': 'review.document.verdict.changes-requested'|trans}|json_encode|e('html_attr') }}"
          data-action="form-draft:cleared@document->form-draft-recovery#render">
     <div data-form-draft-recovery-target="panel">
-        <p class="lp-label">{{ 'inbox.review.unsent'|trans }}</p>
-        <p class="lp-form-hint">{{ 'review.draft.unavailable'|trans }}</p>
+        <twig:Ds:Label as="p">{{ 'inbox.review.unsent'|trans }}</twig:Ds:Label>
+        <twig:Ds:Hint>{{ 'review.draft.unavailable'|trans }}</twig:Ds:Hint>
         <ul class="lp-inbox-item__choices" data-form-draft-recovery-target="options"></ul>
         <p class="lp-inbox-item__answer-text" data-form-draft-recovery-target="text"></p>
-        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft-recovery#discard">{{ 'review.draft.discard'|trans }}</button>
+        <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="form-draft-recovery#discard">{{ 'review.draft.discard'|trans }}</twig:Ds:Button>
     </div>
 </section>
