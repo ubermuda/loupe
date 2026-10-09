@@ -19,8 +19,8 @@ final readonly class AgentReviewFactProvider implements FactProvider
 {
     public function __construct(
         private CardRepository $cards,
-        private CardPullRequests $cardPullRequests,
-        private CardPullRequestRepository $linkedPullRequests,
+        private CardPullRequests $trackedPullRequests,
+        private CardPullRequestRepository $cardPullRequests,
         private AgentReviewRepository $agentReviews,
         private BoardAutomation $boardAutomation,
         private CardTypeCatalog $catalog,
@@ -47,7 +47,7 @@ final readonly class AgentReviewFactProvider implements FactProvider
         $epic = $this->catalog->forProject($snapshot->projectId)->get($snapshot->type)->children;
 
         $open = array_values(array_filter(
-            $this->cardPullRequests->forCard($card),
+            $this->trackedPullRequests->forCard($card),
             static fn (ForgePullRequest $pullRequest): bool => PullRequestState::Open === $pullRequest->state && null !== $pullRequest->headSha,
         ));
         $latest = $this->agentReviews->findLatestOfHeads($open);
@@ -60,7 +60,7 @@ final readonly class AgentReviewFactProvider implements FactProvider
             $heads,
             $enabled,
             $epic,
-            $enabled && [] !== $this->agentReviews->findUnpostedOfCard($card, $this->linkedPullRequests->findOpenGitHubForCard($card)),
+            $enabled && [] !== $this->agentReviews->findUnpostedOfCard($card, $this->cardPullRequests->findOpenGitHubForCard($card)),
         );
     }
 

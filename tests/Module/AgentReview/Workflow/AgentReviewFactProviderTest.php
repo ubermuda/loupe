@@ -111,7 +111,7 @@ final class AgentReviewFactProviderTest extends KernelTestCase
 
         $this->em->getConnection()->executeStatement('UPDATE agent_reviews SET posted_at = NOW()');
         $this->em->clear();
-        self::assertFalse($this->build($this->em->find(Card::class, $card->id))->unposted);
+        self::assertFalse($this->build($this->em->find(Card::class, $card->id) ?? throw new \LogicException('The card exists.'))->unposted);
     }
 
     public function test_a_card_type_with_children_is_an_epic(): void
