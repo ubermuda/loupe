@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { hubStubbedTest as test } from './fixtures';
 import { expectFilterFocusRingVisible } from './helpers';
 
 test('focus clearance preserves fractional bounds and rejects unsafe assumptions', async ({

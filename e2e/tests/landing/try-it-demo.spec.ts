@@ -1,10 +1,10 @@
 import {
-    test,
     expect,
     type APIRequestContext,
     type Locator,
     type Page,
 } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 
 /**
  * The landing page lets a visitor review the landing page. It runs the review
