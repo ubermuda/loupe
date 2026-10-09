@@ -61,7 +61,7 @@ final class SendCardVerdictController extends AppController
                 kind: $payload->kind ?? throw new \LogicException('kind required after validation'),
                 pullRequestIds: $payload->pullRequestIds,
                 message: $payload->message,
-                submissionId: Uuid::fromString($payload->submissionId ?? throw new \LogicException('submissionId required after validation')),
+                submissionId: null === $payload->submissionId ? null : Uuid::fromString($payload->submissionId),
             ));
         } catch (DomainErrors $error) {
             [$code, $status] = self::REFUSALS[array_first($error->errors)] ?? ['verdict_refused', JsonResponse::HTTP_UNPROCESSABLE_ENTITY];

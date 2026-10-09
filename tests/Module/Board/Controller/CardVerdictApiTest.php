@@ -211,6 +211,20 @@ final class CardVerdictApiTest extends WebTestCase
         self::assertCount(1, $this->service(CardVerdictRepository::class)->findAll());
     }
 
+    public function test_a_send_from_a_script_that_makes_no_submission_id_is_still_stored(): void
+    {
+        $client = static::createClient();
+        [$raw, $project] = $this->projectWithToken($client, 'verdict-api-legacy@example.com');
+        $card = $this->card($project);
+        $this->em->flush();
+
+        $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => 'approve']);
+
+        self::assertResponseStatusCodeSame(201);
+        $this->em->clear();
+        self::assertNull($this->service(CardVerdictRepository::class)->findAll()[0]->submissionId);
+    }
+
     public function test_an_unreadable_body_is_refused_before_the_handler_runs(): void
     {
         $client = static::createClient();
@@ -218,7 +232,7 @@ final class CardVerdictApiTest extends WebTestCase
         $card = $this->card($project);
         $this->em->flush();
 
-        foreach ([[], ['kind' => 'shrug', 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'approve', 'pullRequestIds' => ['nope'], 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'comment', 'message' => str_repeat('x', 10001), 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'approve'], ['kind' => 'approve', 'submissionId' => 'nope']] as $body) {
+        foreach ([[], ['kind' => 'shrug', 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'approve', 'pullRequestIds' => ['nope'], 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'comment', 'message' => str_repeat('x', 10001), 'submissionId' => '0198a2c0-0000-7000-8000-0000000000aa'], ['kind' => 'approve', 'submissionId' => 'nope']] as $body) {
             $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, $body);
             self::assertResponseStatusCodeSame(422);
         }

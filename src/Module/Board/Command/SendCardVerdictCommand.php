@@ -19,7 +19,8 @@ final readonly class SendCardVerdictCommand
         public CardVerdictKind $kind,
         public array $pullRequestIds,
         public string $message,
-        public Uuid $submissionId,
+        /** Null from a widget script that predates the id: such a send has no retry protection. */
+        public ?Uuid $submissionId = null,
     ) {
     }
 }

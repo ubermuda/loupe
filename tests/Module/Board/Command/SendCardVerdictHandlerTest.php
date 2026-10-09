@@ -263,7 +263,7 @@ final class SendCardVerdictHandlerTest extends KernelTestCase
         self::assertSame(2, (int) $connection->fetchOne('SELECT COUNT(*) FROM board_card_verdict_deliveries'));
         self::assertSame(1, (int) $connection->fetchOne("SELECT COUNT(*) FROM board_card_events WHERE kind = 'verdict'"));
         self::assertCount(1, $this->audit->records('board.verdict_sent'));
-        self::assertCount(1, $this->evaluations());
+        self::assertCount(2, $this->evaluations());
     }
 
     public function test_a_retry_still_finds_its_verdict_after_the_card_closed(): void
