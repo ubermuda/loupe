@@ -147,6 +147,23 @@ write is off until the owner turns it on, on the **Automation** tab. With a
 write off, the rule asks a bridge for the same work instead. See
 [Automation](board.md#automation).
 
+Two more writes come from the [rules the app adds](#rules-the-app-adds). They
+act on a site-review verdict, and they never ask a bridge for work:
+
+| Write | Does |
+|---|---|
+| `post-review` | Posts each unsent verdict as a review on the open GitHub pull requests that the reviewer picked. The review goes out under the reviewer's own GitHub account |
+| `site-review-check` | Keeps a check named "Loupe site review" on each open GitHub pull request of the card. The check counts the notes of every card that links the pull request. The check goes out as the GitHub App |
+
+A review that the reviewer sends on their own pull request becomes a comment,
+because GitHub refuses a review from the author of a pull request.
+
+With its opt-in off, a write still settles its rows. A verdict is then stored,
+marked as not sent, and a later verdict starts a new write. The review write
+marks the delivery as skipped. The check write records what it would have
+posted. Turning an opt-in on later posts nothing for a verdict that was settled
+before.
+
 ## The Lifecycle template
 
 Lifecycle has the slots Next, Product design, Tech design, Implementation and In
@@ -294,11 +311,39 @@ A request of an app rule can carry a prompt that ships with Loupe. A bridge that
 sets `appPrompts: true` runs it for a kind that its `work:` map does not hold.
 See [Command-line bridge](../extending/cli-bridge.md#work-requests).
 
-The app adds one rule, `discovery`. It watches the Backlog. It asks for work of
+The app adds three rules.
+
+The rule `discovery` watches the Backlog. It asks for work of
 kind `discovery` when the card carries a requested
 [discovery run](workshop.md#run-discovery), and it sends the discovery prompt
 with the request. A request that no bridge takes expires, and the run fails with
 the reason that no bridge took the work.
+
+The rules `post-widget-review` and `sync-site-review-check` watch every column.
+They act on the verdict that a reviewer sends from the
+[site-review widget](site-review.md). Each reads one condition of the Board
+group, and each fires one write:
+
+| Rule | Condition | Write |
+|---|---|---|
+| `post-widget-review` | `card.site_review.verdict_unsent`: a verdict of the card has a pull request that no review settled yet | `post-review` |
+| `sync-site-review-check` | `card.site_review.check_stale`: an open GitHub pull request of the card has no check for its head commit, a check with another result than the one the card now wants, or a check that lists other notes than the card now carries | `site-review-check` |
+
+The review is posted under the reviewer's own account. The reviewer connects
+that account from the widget. A review that the connection cannot send, because
+it is missing or expired, stays refused with the reason `connection-expired`.
+The next connection of the same reviewer sends it again.
+
+The check counts the pending notes that a verdict carried. A note that no
+verdict carries yet does not count. The check is green when no such note is
+pending. It fails when one or more are pending, and its summary lists them. A
+push to the pull request, and a note that turns addressed or resolved, post the
+check again.
+
+Both rules need the engine to read the facts of the Board module. When it
+cannot read them, only these two rules wait. Every other rule of the card runs.
+Neither rule can be removed from a project, but each write stays off until its
+opt-in is on.
 
 ## Kinds of work
 

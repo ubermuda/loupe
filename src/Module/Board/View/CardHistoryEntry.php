@@ -6,6 +6,7 @@ namespace App\Module\Board\View;
 
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
+use App\Module\Board\Entity\CardVerdictKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Module\Workflow\Contract\Actor;
@@ -57,6 +58,7 @@ final readonly class CardHistoryEntry
             CardEventKind::RunFinished => self::runFinished($event, $actor, $detail, $runExists),
             CardEventKind::Paused => self::pause($event, $actor, $detail, 'lucide:circle-pause', 'board.card.history.paused'),
             CardEventKind::PauseReleased => self::pause($event, $actor, $detail, 'lucide:circle-play', 'board.card.history.pause_released'),
+            CardEventKind::Verdict => self::verdict($event, $actor, $detail),
         };
 
         return $entry ?? new self('lucide:history', $event->occurredAt, $actor, new TranslatableMessage('board.card.history.changed', ['%actor%' => $actor]));
@@ -152,6 +154,24 @@ final readonly class CardHistoryEntry
             })]),
             \is_string($ruleId) && '' !== $ruleId ? new TranslatableMessage('board.card.history.cause.workflow_rule', ['%rule%' => $ruleId]) : null,
         );
+    }
+
+    /** @param array<string, mixed> $detail */
+    private static function verdict(CardEvent $event, string|TranslatableMessage $actor, array $detail): ?self
+    {
+        $kind = \is_string($detail['kind'] ?? null) ? CardVerdictKind::tryFrom($detail['kind']) : null;
+        if (null === $kind) {
+            return null;
+        }
+
+        return new self('lucide:message-square', $event->occurredAt, $actor, new TranslatableMessage('board.card.history.verdict', [
+            '%actor%' => $actor,
+            '%verdict%' => new TranslatableMessage(match ($kind) {
+                CardVerdictKind::Approve => 'board.card.history.verdict_kind.approve',
+                CardVerdictKind::RequestChanges => 'board.card.history.verdict_kind.request_changes',
+                CardVerdictKind::Comment => 'board.card.history.verdict_kind.comment',
+            }),
+        ]));
     }
 
     /** @param array<string, mixed> $detail */

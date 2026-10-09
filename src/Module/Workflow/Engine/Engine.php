@@ -9,6 +9,7 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
+use App\Module\Workflow\Action\MissingAction;
 use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Contract\ActionOutcome;
@@ -61,6 +62,9 @@ final readonly class Engine
     private const string LEFT_SLOT = 'left-slot';
     private const string RULE_REMOVED = 'rule-removed';
 
+    /** @var \ArrayObject<string, bool> the cards whose evaluation runs now, and whether a nested call asked for another pass */
+    private \ArrayObject $running;
+
     public function __construct(
         private EntityManagerInterface $em,
         private CardDirectory $cards,
@@ -81,9 +85,37 @@ final readonly class Engine
         private EventDispatcherInterface $events,
         private LoggerInterface $logger,
     ) {
+        /** @var \ArrayObject<string, bool> $running */
+        $running = new \ArrayObject();
+        $this->running = $running;
     }
 
+    /**
+     * A sync transport runs an evaluation that an action starts inside the pass of the same card, where it reads none
+     * of the rows the pass has not flushed. That call only asks for one more pass, which runs after this one commits.
+     */
     public function evaluate(Uuid $cardId, \DateTimeImmutable $now): void
+    {
+        $key = $cardId->toRfc4122();
+        if ($this->running->offsetExists($key)) {
+            $this->running[$key] = true;
+
+            return;
+        }
+
+        $this->running[$key] = false;
+        try {
+            $this->evaluateOnce($cardId, $now);
+            $again = $this->running[$key];
+        } finally {
+            unset($this->running[$key]);
+        }
+        if ($again) {
+            $this->evaluate($cardId, $now);
+        }
+    }
+
+    private function evaluateOnce(Uuid $cardId, \DateTimeImmutable $now): void
     {
         $run = $this->em->wrapInTransaction(fn (): ?Evaluation => $this->evaluateLocked($cardId, $now));
         if (null === $run) {
@@ -136,6 +168,7 @@ final readonly class Engine
 
         $run = new Evaluation($card, $project, $template, $this->facts($card, $now), $this->workflowRuleStates->findForCard($cardId), $now);
         $this->logMissingProviders($run);
+        $this->logMissingActions($run);
         if ($baseline) {
             $this->settleWorkRequests($run, $cardId, expire: false);
             // Before the baseline, which replaces the fingerprint a retries pause compares against.
@@ -684,6 +717,16 @@ final readonly class Engine
         $subject = $this->ruleSubject->stored($run->facts, $stored);
 
         return null !== $subject && $refill->evaluate($subject);
+    }
+
+    /** Logs once per evaluation each action of a rule of the card that this version does not know. */
+    private function logMissingActions(Evaluation $run): void
+    {
+        foreach ($run->template->rules as $rule) {
+            if ($run->applies($rule) && MissingAction::KEY === $rule->then->key) {
+                $this->logger->warning('workflow.action_missing', ['cardId' => $run->card->id->toRfc4122(), 'ruleId' => $rule->id, 'action' => $rule->then->params['name'] ?? null]);
+            }
+        }
     }
 
     /** Logs once per evaluation each facts class that a rule of the card reads and no provider gives. */

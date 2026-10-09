@@ -6,9 +6,12 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Messenger\NeutralizeSiteReviewCheck;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\SiteReviewCheckStateRepository;
 use App\Module\Forge\Service\PullRequestTracker;
 use App\Module\Project\Entity\Project;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * Keeps the tracked pull requests of a project in step with its card links.
@@ -20,6 +23,8 @@ final readonly class PullRequestTracking
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
         private PullRequestTracker $tracker,
+        private SiteReviewCheckStateRepository $siteReviewCheckStates,
+        private MessageBusInterface $bus,
     ) {
     }
 
@@ -46,18 +51,31 @@ final readonly class PullRequestTracking
      *
      * @param array<string, array{string, int}> $before
      * @param array<string, array{string, int}> $after
+     *
+     * @return list<array{string, int}> the pull requests that the write added or dropped
      */
-    public function apply(Project $project, array $before, array $after): void
+    public function apply(Project $project, array $before, array $after): array
     {
-        foreach (array_diff_key($after, $before) as [$repository, $number]) {
+        $added = array_diff_key($after, $before);
+        $dropped = array_diff_key($before, $after);
+        foreach ($added as [$repository, $number]) {
             $this->tracker->track($project, Forge::GitHub->value, $repository, $number);
         }
 
         $projectId = $project->id ?? throw new \LogicException('A card project is persisted.');
-        foreach (array_diff_key($before, $after) as [$repository, $number]) {
-            if ([] === $this->cardPullRequests->findForPullRequest($projectId, Forge::GitHub, $repository, $number)) {
-                $this->tracker->untrack($project, Forge::GitHub->value, $repository, $number);
+        foreach ($dropped as [$repository, $number]) {
+            if ([] !== $this->cardPullRequests->findForPullRequest($projectId, Forge::GitHub, $repository, $number)) {
+                continue;
             }
+
+            // The untrack deletes the check state, so a failed check must be queued for a neutral write first.
+            $failed = $this->siteReviewCheckStates->findPostedFailureByKey($projectId, Forge::GitHub->value, $repository, $number);
+            if (null !== $failed && null !== $failed->checkRunId) {
+                $this->bus->dispatch(new NeutralizeSiteReviewCheck($projectId, Forge::GitHub->value, $repository, $number, $failed->headSha, $failed->checkRunId));
+            }
+            $this->tracker->untrack($project, Forge::GitHub->value, $repository, $number);
         }
+
+        return array_values([...$added, ...$dropped]);
     }
 }

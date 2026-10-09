@@ -15,6 +15,8 @@ final readonly class BoardAutomationSettingsSaved
         public bool $turnedOn = false,
         /** True when this save switched the opening of epic pull requests on. */
         public bool $openEpicTurnedOn = false,
+        /** True when this save switched the site review check on. */
+        public bool $siteReviewCheckTurnedOn = false,
     ) {
     }
 }

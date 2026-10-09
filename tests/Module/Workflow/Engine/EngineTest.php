@@ -55,6 +55,7 @@ use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
 use App\Module\Workflow\Action\EvaluateChildren;
+use App\Module\Workflow\Action\MissingAction;
 use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
@@ -124,6 +125,8 @@ final class EngineTest extends KernelTestCase
     private array $paused = [];
 
     private RecordingLogger $logger;
+
+    private ?CardEvaluations $evaluations = null;
 
     private FakeRuleAsks $asks;
 
@@ -2574,6 +2577,22 @@ final class EngineTest extends KernelTestCase
         self::assertSame(\stdClass::class, $errors[0]['context']['factsClass'] ?? null);
     }
 
+    public function test_a_rule_with_an_unknown_action_never_fires_and_logs_one_warning_while_the_other_rules_fire(): void
+    {
+        $unknown = ['id' => 'unknown', 'slot' => 'one', 'when' => self::ALWAYS, 'then' => ['jump' => ['to' => 'two']]];
+        $card = $this->boundCard([$unknown, self::requestRule('work', self::ALWAYS)]);
+
+        $this->evaluate($card);
+
+        self::assertSame(['work'], $this->firedRules());
+        self::assertNull($this->ruleStateOrNull($card, 'unknown'));
+        $warnings = array_values(array_filter($this->logger->records, static fn (array $record): bool => LogLevel::WARNING === $record['level']));
+        self::assertCount(1, $warnings);
+        self::assertSame('workflow.action_missing', $warnings[0]['message']);
+        self::assertSame('unknown', $warnings[0]['context']['ruleId'] ?? null);
+        self::assertSame('jump', $warnings[0]['context']['action'] ?? null);
+    }
+
     public function test_a_failing_source_logs_once_when_a_withdrawal_rebuilds_the_facts(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);
@@ -2792,6 +2811,46 @@ final class EngineTest extends KernelTestCase
 
         self::assertNull($this->ruleStateOrNull($card, 'hold'));
         self::assertNull($this->activePause($card));
+    }
+
+    public function test_an_evaluation_that_an_action_starts_inline_for_the_same_card_runs_after_the_pass_that_started_it(): void
+    {
+        $card = $this->boundCard([
+            ['id' => 'children', 'slot' => 'one', 'when' => self::ALWAYS, 'then' => ['evaluate' => ['cards' => 'children']]],
+            self::requestRule('work', self::ALWAYS),
+        ]);
+        $this->childOf($card, 'next');
+        $cardId = $card->id ?? throw new \LogicException('A flushed card has an id.');
+        $engine = null;
+        $starts = 0;
+        $this->evaluations = new readonly class(static function () use (&$engine, &$starts, $cardId): void {
+            ++$starts;
+            self::assertInstanceOf(Engine::class, $engine);
+            $engine->evaluate($cardId, new \DateTimeImmutable(self::NOON));
+        }) implements CardEvaluations {
+            public function __construct(
+                private \Closure $evaluate,
+            ) {
+            }
+
+            public function forCards(array $cardIds): void
+            {
+                ($this->evaluate)();
+            }
+
+            public function isOn(): bool
+            {
+                return true;
+            }
+        };
+        $engine = $this->engine();
+
+        $engine->evaluate($cardId, new \DateTimeImmutable(self::NOON));
+
+        self::assertSame(1, $starts);
+        self::assertTrue($this->ruleState($card, 'children')->truth);
+        self::assertSame(1, $this->ruleState($card, 'work')->fires);
+        self::assertCount(1, $this->liveRequests($card));
     }
 
     public function test_a_stored_copy_with_a_condition_this_instance_lacks_runs_every_other_rule(): void
@@ -3116,7 +3175,8 @@ final class EngineTest extends KernelTestCase
                 new ReleasePause($boardPauses),
                 $this->service(ForgeWrite::class),
                 new Ask($this->asks, $this->service(TranslatorInterface::class), 'en'),
-                new EvaluateChildren($this->service(CardDirectory::class), new EvaluationTrigger($this->service(MessageBusInterface::class))),
+                new EvaluateChildren($this->service(CardDirectory::class), $this->evaluations ?? new EvaluationTrigger($this->service(MessageBusInterface::class))),
+                new MissingAction(),
             ]),
             $opener,
             $this->contexts(),
@@ -3251,6 +3311,8 @@ final class EngineTest extends KernelTestCase
             $settings->syncBehind,
             $settings->mergePullRequests,
             $settings->changeBase,
+            $settings->postWidgetReviews,
+            $settings->siteReviewCheck,
         ));
     }
 

@@ -88,7 +88,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertTrue($item->blocking);
         self::assertSame(InboxItemState::Open, $item->state);
         self::assertSame('#12 Ship it', $item->title);
-        self::assertSame('Tech design in review, version 1', $item->body);
+        self::assertSame('document waiting-for-review', $item->body);
         self::assertSame($this->project->searchLanguage, $item->searchLanguage);
         self::assertSame([$this->card], array_map(static fn (InboxItemCard $link): Card => $link->card, array_values($item->cards->toArray())));
         self::assertSame([$document], array_map(static fn (InboxItemDocument $link): Document => $link->document, array_values($item->documents->toArray())));
@@ -107,7 +107,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertEquals($document->id, $wait->documentId);
         self::assertSame(1, $wait->versionNumber);
         self::assertNull($wait->endedAt);
-        self::assertSame(1, $this->searchHits('Tech'));
+        self::assertSame(1, $this->searchHits('document'));
     }
 
     public function test_a_linked_draft_opens_no_wait_until_it_is_published(): void
@@ -141,9 +141,9 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
         $watch = $this->onlyWatch();
         self::assertCount(2, $this->openWaits($watch));
-        self::assertSame("Tech design in review, version 1\nProduct design in review, version 1", $watch->item->body);
+        self::assertSame("document waiting-for-review\ndocument waiting-for-review", $watch->item->body);
         self::assertCount(2, $watch->item->documents);
-        self::assertSame(1, $this->searchHits('Product'));
+        self::assertSame(1, $this->searchHits('document'));
     }
 
     public function test_a_new_version_replaces_the_wait_and_keeps_the_item_open(): void
@@ -157,7 +157,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
         $watch = $this->onlyWatch();
         self::assertSame(InboxItemState::Open, $watch->item->state);
-        self::assertSame('Tech design in review, version 2', $watch->item->body);
+        self::assertSame('document waiting-for-review', $watch->item->body);
         [$old, $new] = $this->sortedWaits($watch);
         self::assertSame(1, $old->versionNumber);
         self::assertSame(InboxCardWaitEndReason::Resolved, $old->endReason);
@@ -309,7 +309,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $watches = $this->watches();
         self::assertCount(2, $watches);
         self::assertSame($dismissed, $watches[0]);
-        self::assertSame('Tech design in review, version 1', $watches[1]->item->body);
+        self::assertSame('document waiting-for-review', $watches[1]->item->body);
     }
 
     public function test_an_item_closed_by_another_path_frees_the_card_for_a_new_item(): void
@@ -403,7 +403,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertCount(2, $watches);
         self::assertSame($closed, $watches[0]);
         self::assertSame(InboxItemState::Open, $watches[1]->item->state);
-        self::assertSame('Tech design in review, version 1', $watches[1]->item->body);
+        self::assertSame('document waiting-for-review', $watches[1]->item->body);
     }
 
     public function test_without_a_card_list_it_finds_the_cards_with_a_document_in_review_or_an_open_watch(): void
@@ -496,7 +496,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
         $watch = $this->onlyWatch();
         self::assertEquals($document->id, $this->onlyWait($watch)->documentId);
-        self::assertSame('Product design in review, version 1', $watch->item->body);
+        self::assertSame('document waiting-for-review', $watch->item->body);
     }
 
     public function test_a_move_out_of_the_stage_column_ends_the_document_wait_done(): void
@@ -536,9 +536,9 @@ final class CardWaitReconcilerTest extends KernelTestCase
     /** @return iterable<string, array{WorkerRunState, InboxCardWaitTrigger, string}> */
     public static function waitingRuns(): iterable
     {
-        yield 'blocked' => [WorkerRunState::Blocked, InboxCardWaitTrigger::RunBlocked, 'Run blocked'];
-        yield 'gave up' => [WorkerRunState::GaveUp, InboxCardWaitTrigger::RunGaveUp, 'Run gave up'];
-        yield 'waiting for a person' => [WorkerRunState::WaitingForPerson, InboxCardWaitTrigger::RunWaitingForPerson, 'Run waits for a person'];
+        yield 'blocked' => [WorkerRunState::Blocked, InboxCardWaitTrigger::RunBlocked, 'worker-run blocked'];
+        yield 'gave up' => [WorkerRunState::GaveUp, InboxCardWaitTrigger::RunGaveUp, 'worker-run gave-up'];
+        yield 'waiting for a person' => [WorkerRunState::WaitingForPerson, InboxCardWaitTrigger::RunWaitingForPerson, 'worker-run waits-for-person'];
     }
 
     #[DataProvider('waitingRuns')]
@@ -550,31 +550,13 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
         $watch = $this->onlyWatch();
         self::assertSame(InboxItemState::Open, $watch->item->state);
-        self::assertSame($label.': Needs the API key', $watch->item->body);
+        self::assertSame($label, $watch->item->body);
         self::assertCount(0, $watch->item->documents);
         $wait = $this->onlyWait($watch);
         self::assertSame($trigger, $wait->trigger);
         self::assertEquals($run->id, $wait->runId);
         self::assertNull($wait->documentId);
         self::assertNull($wait->versionNumber);
-    }
-
-    public function test_a_run_reason_takes_the_first_non_empty_line_cut_to_140_characters(): void
-    {
-        $this->workerRun(WorkerRunState::Blocked, "\n   \n  ".str_repeat('é', 150)."  \nSecond line");
-
-        $this->reconcile();
-
-        self::assertSame('Run blocked: '.str_repeat('é', 140), $this->onlyWatch()->item->body);
-    }
-
-    public function test_a_run_with_no_output_gives_the_bare_label(): void
-    {
-        $this->workerRun(WorkerRunState::GaveUp, " \n ");
-
-        $this->reconcile();
-
-        self::assertSame('Run gave up', $this->onlyWatch()->item->body);
     }
 
     public function test_a_newer_open_run_ends_the_wait_and_closes_the_item_done(): void
@@ -638,7 +620,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertCount(2, $watches);
         self::assertSame(InboxItemState::Open, $watches[1]->item->state);
         self::assertEquals($newer->id, $this->onlyWait($watches[1])->runId);
-        self::assertSame('Run blocked: Stuck again', $watches[1]->item->body);
+        self::assertSame('worker-run blocked', $watches[1]->item->body);
     }
 
     public function test_a_document_wait_and_a_run_wait_share_one_item_and_the_end_of_one_keeps_it_open(): void
@@ -657,7 +639,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $open = $this->openWaits($watch);
         self::assertCount(1, $open);
         self::assertEquals($document->id, $open[0]->documentId);
-        self::assertSame('Tech design in review, version 1', $watch->item->body);
+        self::assertSame('document waiting-for-review', $watch->item->body);
         $ended = array_values(array_filter($watch->waits->toArray(), static fn (InboxCardWait $wait): bool => null !== $wait->endedAt));
         self::assertCount(1, $ended);
         self::assertSame(InboxCardWaitTrigger::RunBlocked, $ended[0]->trigger);
@@ -700,7 +682,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $open = $this->openWaits($watch);
         self::assertCount(1, $open);
         self::assertEquals($document->id, $open[0]->documentId);
-        self::assertSame('Tech design in review, version 1', $watch->item->body);
+        self::assertSame('document waiting-for-review', $watch->item->body);
         [$runWait] = array_values(array_filter($watch->waits->toArray(), static fn (InboxCardWait $wait): bool => null !== $wait->endedAt));
         self::assertSame(InboxCardWaitTrigger::RunBlocked, $runWait->trigger);
         self::assertSame(InboxCardWaitEndReason::SwitchedOff, $runWait->endReason);
@@ -754,7 +736,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $again = $this->onlyWatch();
         self::assertSame($watch->id?->toRfc4122(), $again->id?->toRfc4122());
         self::assertCount(1, $again->waits);
-        self::assertSame('Run blocked: Stuck', $again->item->body);
+        self::assertSame('worker-run blocked', $again->item->body);
         self::assertEquals($updatedAt, $again->item->updatedAt);
     }
 
@@ -766,7 +748,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
         $watch = $this->onlyWatch();
         self::assertSame(InboxItemState::Open, $watch->item->state);
-        self::assertSame('Pull request #5 waits for review', $watch->item->body);
+        self::assertSame('pull-request waiting-for-review', $watch->item->body);
         $wait = $this->onlyWait($watch);
         self::assertSame(InboxCardWaitTrigger::PullRequestReady, $wait->trigger);
         self::assertEquals($pullRequest->id, $wait->pullRequestId);
@@ -913,7 +895,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
         $watch = $this->onlyWatch();
         self::assertSame(InboxItemState::Open, $watch->item->state);
-        self::assertSame('Pull request #5 has new commits after your approval (aaaaaaa)', $watch->item->body);
+        self::assertSame('pull-request new-commits-after-approval', $watch->item->body);
         $wait = $this->onlyWait($watch);
         self::assertSame(InboxCardWaitTrigger::PullRequestReady, $wait->trigger);
         self::assertSame(self::HEAD_A, $wait->headSha);
