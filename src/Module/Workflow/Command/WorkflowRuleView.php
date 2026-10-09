@@ -15,6 +15,7 @@ final readonly class WorkflowRuleView
      * @param list<WorkflowConditionGroupView> $untilGroups       the conditions of the `until` of a pause, grouped the same way
      * @param list<WorkflowConditionGroupView> $refillGroups      the conditions of the `refill` of a request with a limit, grouped the same way
      * @param list<string>                     $missingConditions the keys of the conditions this instance no longer has
+     * @param ?string                          $missingAction     the name of the action this version does not know, or null
      */
     public function __construct(
         public string $id,
@@ -26,6 +27,7 @@ final readonly class WorkflowRuleView
         public array $untilGroups,
         public array $refillGroups,
         public array $missingConditions,
+        public ?string $missingAction = null,
     ) {
     }
 }

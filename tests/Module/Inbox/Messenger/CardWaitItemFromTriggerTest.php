@@ -87,7 +87,7 @@ final class CardWaitItemFromTriggerTest extends KernelTestCase
         self::assertCount(1, $open);
         $item = $open[0]->item;
         self::assertSame(InboxItemState::Open, $item->state);
-        self::assertSame('Run blocked: Needs the API key', $item->body);
+        self::assertSame('worker-run blocked', $item->body);
 
         $this->reportRun($project, $cardId, Uuid::v4(), WorkerRunState::Queued);
         $this->drainAsync();

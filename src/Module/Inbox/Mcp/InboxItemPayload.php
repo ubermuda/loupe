@@ -25,7 +25,7 @@ use App\Module\Review\Repository\ReviewRepository;
  * @phpstan-type InboxItemCardSummary array{cardId: string, number: int, title: string}
  * @phpstan-type InboxItemDocumentSummary array{documentId: string, title: string}
  * @phpstan-type InboxItemAskSummary array{askId: string, origin: string, sessionId: ?string, closedAt: ?string}
- * @phpstan-type InboxCardWaitSummary array{trigger: string, reason: string, documentId: ?string, versionNumber: ?int, runId: ?string, pullRequestId: ?string, headSha: ?string, pauseId: ?string, startedAt: string, endedAt: ?string, endReason: ?string}
+ * @phpstan-type InboxCardWaitSummary array{trigger: string, type: string, reason: string, documentId: ?string, versionNumber: ?int, runId: ?string, pullRequestId: ?string, headSha: ?string, pauseId: ?string, startedAt: string, endedAt: ?string, endReason: ?string}
  * @phpstan-type InboxItemSummary array{itemId: string, number: int, kind: string, origin: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, body: ?string, options: list<string>, multiple: bool, freeText: bool, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary, cards: list<InboxItemCardSummary>, documents: list<InboxItemDocumentSummary>, asks: list<InboxItemAskSummary>, cardId: ?string, waits: list<InboxCardWaitSummary>}
  * @phpstan-type InboxAskSummary array{askId: string, extended: bool, closed: bool, items: list<InboxItemListSummary>}
  */
@@ -142,7 +142,8 @@ final readonly class InboxItemPayload
             'waits' => array_map(
                 static fn (InboxCardWait $wait): array => [
                     'trigger' => $wait->trigger->value,
-                    'reason' => $wait->reason,
+                    'type' => $wait->type->value,
+                    'reason' => $wait->reason->value,
                     'documentId' => $wait->documentId?->toRfc4122(),
                     'versionNumber' => $wait->versionNumber,
                     'runId' => $wait->runId?->toRfc4122(),

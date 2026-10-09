@@ -20,14 +20,19 @@ use App\Module\Bridge\Workflow\Condition\RunWorkActive;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
 use App\Module\Workflow\Action\EvaluateChildren;
+use App\Module\Workflow\Action\MissingAction;
 use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Condition\CardInSlot;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\Action;
 use App\Module\Workflow\Contract\LabelTone;
+use App\Module\Workflow\Contract\Unreadable;
+use App\Module\Workflow\Contract\UnreadableKind;
+use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
+use App\Module\Workflow\Expression\MissingActionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Template\AppRequest;
@@ -38,6 +43,7 @@ use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
 use App\Tests\Module\Workflow\Action\ExpressionPluggedAction;
 use App\Tests\Module\Workflow\Action\PluggedAction;
+use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -52,7 +58,7 @@ final class TemplateParserTest extends TestCase
     {
         $this->actions = new Actions(array_map(
             static fn (string $class): Action => new \ReflectionClass($class)->newInstanceWithoutConstructor(),
-            [MoveCard::class, RequestWork::class, ForgeWrite::class, PauseCard::class, ReleasePause::class, EvaluateChildren::class, Ask::class, LinkDocument::class, Detach::class],
+            [MoveCard::class, RequestWork::class, ForgeWrite::class, PauseCard::class, ReleasePause::class, EvaluateChildren::class, Ask::class, LinkDocument::class, Detach::class, MissingAction::class],
         ));
         $this->parser = new TemplateParser(new Conditions([
             new CardChildrenFinished(),
@@ -1016,8 +1022,8 @@ final class TemplateParserTest extends TestCase
     #[DataProvider('refusals')]
     public function test_a_stored_copy_refuses_every_error_but_an_unknown_condition(\Closure $mutate, string $message): void
     {
-        if (str_contains($message, 'unknown condition')) {
-            self::assertCount(\count(self::valid()['rules']), $this->parser->parseStored($mutate(self::valid()))->rules);
+        if (str_contains($message, 'unknown condition') || str_contains($message, 'unknown action')) {
+            self::assertCount(\count($mutate(self::valid())['rules']), $this->parser->parseStored($mutate(self::valid()))->rules);
 
             return;
         }
@@ -1043,6 +1049,62 @@ final class TemplateParserTest extends TestCase
         $any = $rules[1]->when;
         self::assertInstanceOf(AnyOf::class, $any);
         self::assertEquals(new MissingConditionLeaf('pr.bar', 'not a map'), $any->children[0]);
+    }
+
+    public function test_a_stored_copy_keeps_a_rule_with_an_unknown_action_as_a_rule_that_never_fires(): void
+    {
+        $template = self::valid();
+        $template['rules'][1]['then'] = ['jump' => ['to' => 'nowhere']];
+
+        $rule = $this->parser->parseStored($template)->rules[1];
+
+        self::assertSame(MissingAction::KEY, $rule->then->key);
+        self::assertSame('jump', $rule->then->params['name']);
+        self::assertInstanceOf(AllOf::class, $rule->when);
+        self::assertEquals(new MissingActionLeaf('jump'), $rule->when->children[0]);
+        self::assertFalse($rule->when->evaluate(FactsMother::facts()));
+        self::assertEquals(new Unreadable(UnreadableKind::MissingAction, 'jump'), $rule->when->unreadable(FactsMother::facts()));
+    }
+
+    public function test_a_stored_copy_keeps_the_from_slot_of_an_unknown_action_when_the_template_has_it(): void
+    {
+        $template = self::valid();
+        $template['rules'][1]['then'] = ['jump' => ['from' => 'review']];
+        $template['rules'][2]['then'] = ['jump' => ['from' => 'nowhere']];
+        $template['rules'][3]['then'] = ['jump' => ['from' => '@backlog']];
+
+        $rules = $this->parser->parseStored($template)->rules;
+
+        self::assertSame('review', $rules[1]->then->from);
+        self::assertNull($rules[2]->then->from);
+        self::assertSame('@backlog', $rules[3]->then->from);
+    }
+
+    public function test_a_stored_copy_makes_a_rule_unknown_when_an_ask_option_names_an_unknown_action(): void
+    {
+        $template = self::valid();
+        $template['rules'][] = self::askRule();
+        $template['rules'][5]['then']['ask']['options'][1]['then'] = [['jump' => []]];
+
+        $rule = $this->parser->parseStored($template)->rules[5];
+
+        self::assertSame(MissingAction::KEY, $rule->then->key);
+        self::assertSame('jump', $rule->then->params['name']);
+        self::assertSame([], $rule->then->options);
+    }
+
+    public function test_strict_mode_refuses_an_unknown_action_and_the_placeholder_value(): void
+    {
+        foreach (['jump', MissingAction::KEY] as $name) {
+            $template = self::valid();
+            $template['rules'][1]['then'] = [$name => []];
+            try {
+                $this->parser->parse($template);
+                self::fail('The parser must refuse the template.');
+            } catch (InvalidTemplate $e) {
+                self::assertSame([\sprintf('rules[1] (to-review) then: unknown action "%s"', $name)], $e->errors);
+            }
+        }
     }
 
     public function test_it_reports_every_error_at_once(): void

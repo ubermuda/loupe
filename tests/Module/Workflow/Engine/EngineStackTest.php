@@ -21,7 +21,7 @@ final class EngineStackTest extends KernelTestCase
         self::assertInstanceOf(EvaluationTrigger::class, $container->get(EvaluationTrigger::class));
         $actions = $container->get(Actions::class);
         self::assertInstanceOf(Actions::class, $actions);
-        self::assertEqualsCanonicalizing(['move', 'request', 'forge-write', 'pause', 'release', 'evaluate', 'ask', 'link-document', 'detach'], $actions->keys());
+        self::assertEqualsCanonicalizing(['move', 'request', 'forge-write', 'pause', 'release', 'evaluate', 'ask', 'link-document', 'detach', 'missing-action'], $actions->keys());
         foreach ($actions->keys() as $key) {
             self::assertSame($key, $actions->get($key)::key());
         }
