@@ -353,9 +353,9 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 | `implement` | The implementation and its pull request |
 | `breakdown` | The child cards of an epic |
 | `fix` | A fix of a failed check, a conflict or a request for changes |
-| `rebase-stacked` | A new base for a stacked pull request, with the change base write off |
-| `sync` | An update of a branch that is behind, with the sync write off |
-| `merge` | A merge, with the merge write off |
+| `rebase-stacked` | A new base for a stacked pull request, when the project has no GitHub App installation |
+| `sync` | An update of a branch that is behind, when the project has no GitHub App installation |
+| `merge` | A merge, when the project has no GitHub App installation |
 | `teardown` | The removal of the card's worktree |
 | `epic-preview` | A refresh of the epic preview after a child merges into the epic branch |
 | `repair` | A repair of the cause after the work of a rule failed and its retries ran out |
