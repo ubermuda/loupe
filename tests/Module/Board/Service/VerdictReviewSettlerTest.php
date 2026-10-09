@@ -177,6 +177,19 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         self::assertSame(CardVerdictDeliveryState::Pending, $delivery->state);
     }
 
+    public function test_a_pull_request_that_the_author_read_finds_closed_is_skipped(): void
+    {
+        $card = $this->card($this->project);
+        $delivery = $this->delivery($card, 7, CardVerdictKind::Approve, '', authorRead: false);
+        $this->authors->snapshot = new PullRequestSnapshot(state: PullRequestState::Merged, authorId: '1', authorLogin: 'someone');
+
+        self::assertNull($this->settle($card));
+
+        self::assertSame([], $this->poster->posts);
+        self::assertSame(CardVerdictDeliveryState::Skipped, $delivery->state);
+        self::assertSame('not-open', $delivery->reason);
+    }
+
     public function test_a_read_author_is_not_read_again(): void
     {
         $card = $this->card($this->project);

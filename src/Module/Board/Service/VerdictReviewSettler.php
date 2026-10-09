@@ -68,6 +68,10 @@ final readonly class VerdictReviewSettler
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped);
         }
         $pullRequest = $delivery->pullRequest;
+        // Before the state check, because the read can find the pull request closed.
+        if (!$this->authorIsRead($pullRequest)) {
+            return self::AUTHOR_UNREAD;
+        }
         if (PullRequestState::Open !== $pullRequest->state) {
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped, self::REASON_NOT_OPEN);
         }
@@ -80,10 +84,6 @@ final readonly class VerdictReviewSettler
         $poster = $this->posters->for($pullRequest->forge);
         if (null === $poster) {
             return $this->finish($delivery, CardVerdictDeliveryState::Refused, self::REASON_NO_POSTER);
-        }
-
-        if (!$this->authorIsRead($pullRequest)) {
-            return self::AUTHOR_UNREAD;
         }
 
         $reviewerForgeId = $this->forgeAccount->forgeUserIdOf($reviewer);
