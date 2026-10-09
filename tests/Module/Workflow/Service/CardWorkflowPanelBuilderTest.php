@@ -21,6 +21,7 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardPauses;
 use App\Module\Workflow\Contract\PauseKind;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
@@ -370,7 +371,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     {
         return new CardWorkflowPanelBuilder(
             $this->service(WorkflowAutomation::class),
-            $this->service(CardHolds::class),
+            $this->service(WorkLedger::class),
             $this->service(CardPauses::class),
             $this->service(ProjectRepository::class),
             $templates ?? $this->service(TemplateSource::class),

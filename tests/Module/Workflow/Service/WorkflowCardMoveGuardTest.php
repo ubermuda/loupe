@@ -9,7 +9,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Entity\WorkerRun;
-use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -20,6 +19,7 @@ use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardMoveGuard;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Service\WorkflowCardMoveGuard;
@@ -234,14 +234,12 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
 
     private function guard(): WorkflowCardMoveGuard
     {
-        $holds = $this->holds();
+        $ledger = self::getContainer()->get(WorkLedger::class);
+        self::assertInstanceOf(WorkLedger::class, $ledger);
         $templates = self::getContainer()->get(TemplateSource::class);
         self::assertInstanceOf(TemplateSource::class, $templates);
         $facts = self::getContainer()->get(FactsBuilder::class);
         self::assertInstanceOf(FactsBuilder::class, $facts);
-
-        $workerRuns = self::getContainer()->get(WorkerRunRepository::class);
-        self::assertInstanceOf(WorkerRunRepository::class, $workerRuns);
 
         $automation = self::getContainer()->get(WorkflowAutomation::class);
         self::assertInstanceOf(WorkflowAutomation::class, $automation);
@@ -249,7 +247,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $projects = self::getContainer()->get(ProjectRepository::class);
         self::assertInstanceOf(ProjectRepository::class, $projects);
 
-        return new WorkflowCardMoveGuard($automation, $holds, $templates, $facts, $workerRuns, $projects);
+        return new WorkflowCardMoveGuard($automation, $ledger, $templates, $facts, $projects);
     }
 
     private function boardAutomation(): BoardAutomation

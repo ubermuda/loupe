@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Command;
 
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Bridge\Service\CardHolds;
 use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Contract\CardEvaluations;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\FactsBuilder;
@@ -36,7 +36,7 @@ final readonly class AnswerRuleAskHandler
         private EntityManagerInterface $em,
         private WorkflowRuleStateRepository $workflowRuleStates,
         private CardRepository $cards,
-        private CardHolds $cardHolds,
+        private WorkLedger $ledger,
         private WorkflowAutomation $automation,
         private TemplateSource $templates,
         private FactsBuilder $factsBuilder,
@@ -88,7 +88,7 @@ final readonly class AnswerRuleAskHandler
         $cardId = $state->cardId;
         $card = $this->cards->find($cardId) ?? throw new \LogicException('A rule state belongs to a card that exists.');
         $projectId = $card->project->id ?? throw new \LogicException('A persisted project has an id.');
-        if ($this->cardHolds->isHeld($card->project, $cardId) || !$this->automation->runsFor($card->project)) {
+        if ($this->ledger->isHeld($projectId, $cardId) || !$this->automation->runsFor($card->project)) {
             return $this->skip('card-unmanaged', $itemId);
         }
 
