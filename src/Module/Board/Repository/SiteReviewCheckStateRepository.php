@@ -11,6 +11,8 @@ use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<SiteReviewCheckState> */
 class SiteReviewCheckStateRepository extends ServiceEntityRepository
@@ -40,5 +42,35 @@ class SiteReviewCheckStateRepository extends ServiceEntityRepository
             ->getResult();
 
         return $states;
+    }
+
+    /** The posted failure of the pull request with this key, or null when Loupe holds none that it can still change. */
+    public function findPostedFailureByKey(Uuid $projectId, string $forge, string $repository, int $number): ?SiteReviewCheckState
+    {
+        return $this->createQueryBuilder('s')
+            ->join('s.pullRequest', 'pr')
+            ->where('pr.project = :project AND pr.forge = :forge AND pr.repository = :repository AND pr.number = :number')
+            ->andWhere('s.conclusion = :failure AND s.checkRunId IS NOT NULL')
+            ->setParameter('project', $projectId, UuidType::NAME)
+            ->setParameter('forge', $forge)
+            ->setParameter('repository', mb_strtolower($repository))
+            ->setParameter('number', $number)
+            ->setParameter('failure', CheckWanted::FAILURE)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The state of the pull request with this key when it names a posted run, whatever the conclusion. */
+    public function findPostedRunByKey(Uuid $projectId, string $forge, string $repository, int $number): ?SiteReviewCheckState
+    {
+        return $this->createQueryBuilder('s')
+            ->join('s.pullRequest', 'pr')
+            ->where('pr.project = :project AND pr.forge = :forge AND pr.repository = :repository AND pr.number = :number AND s.checkRunId IS NOT NULL')
+            ->setParameter('project', $projectId, UuidType::NAME)
+            ->setParameter('forge', $forge)
+            ->setParameter('repository', mb_strtolower($repository))
+            ->setParameter('number', $number)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 }

@@ -14,6 +14,7 @@ use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
+use App\Module\Board\Event\CardPullRequestsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardLinkResolver;
@@ -247,7 +248,14 @@ final readonly class UpdateCardHandler
             $lanesAfter = $card->drawsLane($types);
 
             if (null !== $trackedBefore) {
-                $this->pullRequestTracking->apply($card->project, $trackedBefore, $this->pullRequestTracking->referencesOf($card));
+                $changedPullRequests = $this->pullRequestTracking->apply($card->project, $trackedBefore, $this->pullRequestTracking->referencesOf($card));
+                if ([] !== $changedPullRequests) {
+                    $this->events->dispatch(new CardPullRequestsChanged(
+                        $card->project->id ?? throw new \LogicException('A card project is persisted.'),
+                        $card->id ?? throw new \LogicException('A persisted card has an id.'),
+                        $changedPullRequests,
+                    ));
+                }
             }
 
             // Only the two columns the vector is built from. A move or a link

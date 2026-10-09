@@ -24,6 +24,7 @@ framework:
             Symfony\Component\Notifier\Message\SmsMessage: async
             App\Module\Account\Messenger\GenerateDataExportMessage: async
             App\Module\Billing\Messenger\CancelSubscriptionMessage: async
+            App\Module\Board\Messenger\NeutralizeSiteReviewCheck: async
             App\Module\Board\Messenger\PostFixRunComment: async
             App\Module\Board\Messenger\PostPullRequestNotice: async
             App\Module\Board\Messenger\SettleSiteReviewChecks: async
