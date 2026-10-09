@@ -400,8 +400,15 @@ test('a verdict leaves no button that opens an empty panel', async ({
     await expect(page.locator(TRIGGER)).toBeHidden();
 });
 
-test('scrolling the paper closes the menu', async ({ page, seeded }) => {
-    await page.goto(reviewPath(seeded));
+test('scrolling the paper closes the menu', async ({ page }) => {
+    // The three short sections fit one phone screen, so the paper has nothing to scroll.
+    const long = await seedDocument(
+        page,
+        DOCUMENT_TITLE,
+        undefined,
+        MARKDOWN + '\nA paragraph that fills the screen.\n'.repeat(40),
+    );
+    await page.goto(reviewPath(long));
 
     await page.locator(TRIGGER).tap();
     await expect(page.locator(PANEL)).toBeVisible();

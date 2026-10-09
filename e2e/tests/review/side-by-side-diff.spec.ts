@@ -92,20 +92,24 @@ const MARGIN = '.lp-review-margin';
 const WHOLE_DOCUMENT = '.lp-comment-whole-document';
 const VIEWS = '.lp-diff-views';
 
-test('comparison controls share the standard desktop metrics', async ({
+test('comparison controls keep the compact compare bar metrics', async ({
     page,
 }) => {
     const reviewPath = await seedComparison(page);
     await page.goto(`${reviewPath}/diff/1/2`);
-    const controls = page.locator(
-        '.lp-diff-bar .lp-version-compare select, .lp-diff-bar .lp-version-compare button, .lp-diff-views__link',
-    );
-    await expect(controls).toHaveCount(6);
-    for (const control of await controls.all()) {
-        await expect(control).toBeVisible();
-        await expect(control).toHaveCSS('height', '36px');
-        await expect(control).toHaveCSS('font-size', '14px');
-        await expect(control).toHaveCSS('line-height', '20px');
+    // With JavaScript a change submits the pickers, so the Compare button stays in noscript.
+    const pickers = page.locator('.lp-diff-bar .lp-version-compare select');
+    await expect(pickers).toHaveCount(2);
+    for (const picker of await pickers.all()) {
+        await expect(picker).toBeVisible();
+        await expect(picker).toHaveCSS('height', '32px');
+        await expect(picker).toHaveCSS('font-size', '14px');
+    }
+    const views = page.locator('.lp-diff-views__link');
+    await expect(views).toHaveCount(3);
+    for (const view of await views.all()) {
+        await expect(view).toBeVisible();
+        await expect(view).toHaveCSS('height', '28px');
     }
     await page.goto(`${reviewPath.split('/documents/')[0]}/documents`);
     for (const selector of ['.lp-filter-input', '.lp-filter-select']) {

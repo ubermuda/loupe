@@ -1348,6 +1348,12 @@
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) > * {
         order: 20;
     }
+    /* The compare bar keeps the column of the other views here too. */
+    .lp-review
+        .lp-review-doc--wide
+        > :is(.lp-doc-meta-bar, .lp-review-doc__head) {
+        @apply mx-auto w-full max-w-3xl;
+    }
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-review-panels {
         order: 0;
     }
@@ -1762,6 +1768,15 @@
 .lp-review .lp-diff-views__link[aria-current] {
     @apply bg-surface-1 font-semibold text-ink shadow-xs hover:bg-surface-1;
 }
+/* A hidden bold copy of the label holds each link at its bold width, so the
+   switch does not move when the current view changes. */
+.lp-review .lp-diff-views__link {
+    @apply inline-grid content-center justify-items-center;
+}
+.lp-review .lp-diff-views__link::after {
+    @apply invisible h-0 overflow-hidden font-semibold;
+    content: attr(data-label);
+}
 .lp-review .lp-diff-nav {
     @apply ml-0 flex-none justify-end gap-0.5 text-fg-label;
 }
@@ -1981,6 +1996,10 @@
 @media (width < 64rem) {
     .lp-review .lp-diff-columns__cell--void {
         @apply hidden;
+    }
+    /* A stacked column has no gap beside it, so the changed block steps into its padding. */
+    .lp-review .lp-diff-columns__cell > .lp-diff-doc {
+        @apply px-2.5;
     }
 }
 

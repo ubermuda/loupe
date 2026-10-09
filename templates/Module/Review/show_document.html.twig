@@ -177,6 +177,7 @@
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
                            :aria-current="diffView.value == 'rendered' ? 'page' : null"
                            :aria-describedby="diffColumns ? 'diff-columns-notice' : null"
+                           data-label="{{ 'review.document.diff.view.rendered'|trans }}"
                         >{{ 'review.document.diff.view.rendered'|trans }}</twig:Ds:Button>
                         {# describedby rather than a second link: the notice below says
                            why this view is worth opening, and this is the control that
@@ -186,12 +187,14 @@
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
                            :aria-current="diffView.value == 'source' ? 'page' : null"
                            :aria-describedby="diffUnmarked ? 'diff-unmarked-notice' : null"
+                           data-label="{{ 'review.document.diff.view.source'|trans }}"
                         >{{ 'review.document.diff.view.source'|trans }}</twig:Ds:Button>
                         {# The same rendered blocks in two columns. The notice
                            below says what it gives up, and this link opens it. #}
                         <twig:Ds:Button variant="ghost" class="lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
                            :aria-current="diffColumns ? 'page' : null"
+                           data-label="{{ 'review.document.diff.view.side_by_side'|trans }}"
                         >{{ 'review.document.diff.view.side_by_side'|trans }}</twig:Ds:Button>
                     </nav>
                     </div>

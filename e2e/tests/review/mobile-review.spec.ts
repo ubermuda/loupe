@@ -413,8 +413,8 @@ test('the frame around the document shrinks with the screen', async ({
     await page.setViewportSize(DESKTOP);
 
     const desktop = await readLayout(page);
-    expect(desktop.blockPaddingTop).toBe(28);
-    expect(desktop.blockPaddingBottom).toBe(120);
+    expect(desktop.blockPaddingTop).toBe(40);
+    expect(desktop.blockPaddingBottom).toBe(160);
 });
 
 test('a 375px reading area scrolls in one direction only', async ({ page }) => {
