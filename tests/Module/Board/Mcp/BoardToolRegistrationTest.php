@@ -177,6 +177,17 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertContains('null', (array) $update['type']);
     }
 
+    public function test_child_design_publishes_as_an_optional_string_with_two_values(): void
+    {
+        foreach ([CardCreateTool::NAME, CardUpdateTool::NAME] as $toolName) {
+            $schema = $this->registry->getTool($toolName)->tool->inputSchema;
+            $property = $schema['properties']['childDesign'];
+
+            self::assertSame(['inherit', 'own'], $property['enum'], $toolName);
+            self::assertNotContains('childDesign', $schema['required'] ?? [], $toolName);
+        }
+    }
+
     public function test_card_list_publishes_its_paging_and_summary_arguments(): void
     {
         $properties = $this->registry->getTool(CardListTool::NAME)->tool->inputSchema['properties'];

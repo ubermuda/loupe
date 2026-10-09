@@ -16,6 +16,8 @@ final readonly class ActionTraits
         public bool $endsPass = false,
         /** The action may run inside the option of an ask. */
         public bool $option = false,
+        /** The action may run for the choice an agent states for a card it files under a parent. */
+        public bool $childChoice = false,
     ) {
     }
 }

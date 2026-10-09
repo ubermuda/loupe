@@ -560,6 +560,16 @@ card with a parent cannot change to such a type, and a card with children keeps
 its type. Both tools also take `laneEnabled`, which says whether the board draws
 a lane for a card of a type with the `lane` capability. It defaults to `true`.
 
+Both tools also take `childDesign`, for a child of a parent whose tech design is
+approved. The value `inherit` links the tech design of the parent. The value
+`own` moves the card to Tech design, so a call that passes `own` passes no
+`status`. When the owner would otherwise get the
+[unplanned child question](workflows.md#asking-about-an-unplanned-child),
+`card_create` is refused without the choice, and so is a `card_update` that
+sets `parentCardId`. The call is also refused when the card has no parent, when
+the parent has no tech design to inherit, or when the workflow does not allow
+the move. A refused call changes nothing.
+
 `card_list` takes `parentCardId` as a filter, which reads the children of one
 card. The full card, from `card_get` or from `card_list` with `full`, carries
 `state` on each entry of `pullRequests`, the last state Loupe read.

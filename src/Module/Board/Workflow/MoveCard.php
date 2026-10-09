@@ -57,7 +57,7 @@ final readonly class MoveCard implements Action
     #[\Override]
     public static function traits(): ActionTraits
     {
-        return new ActionTraits(endsPass: true, option: true);
+        return new ActionTraits(endsPass: true, option: true, childChoice: true);
     }
 
     #[\Override]
