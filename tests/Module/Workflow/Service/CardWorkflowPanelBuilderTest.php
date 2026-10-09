@@ -18,6 +18,7 @@ use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardPauses;
 use App\Module\Workflow\Contract\PauseKind;
@@ -381,6 +382,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             new MockClock('2026-10-02 12:00'),
             $logger,
             new RuleSubject(),
+            $this->service(Actions::class),
         );
     }
 

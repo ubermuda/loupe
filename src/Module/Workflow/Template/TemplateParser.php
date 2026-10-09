@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Template;
 
 use App\Module\Review\Entity\DocumentStatus;
-use App\Module\Workflow\Action\ActionOutcome;
-use App\Module\Workflow\Action\ActionParams;
+use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\EvaluateChildren;
 use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\Conditions;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\LabelTone;
+use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\ParameterValue;
 use App\Module\Workflow\Contract\WorkKind;
@@ -30,11 +33,6 @@ final readonly class TemplateParser
     private const array COLUMN_FLAGS = ['@backlog', '@terminal'];
     private const string ANY_COLUMN = '*';
     private const array RULE_KEYS = ['id', 'slot', 'when', 'then'];
-    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic'];
-    private const array ON_TIMEOUT = ['pause', 'expire'];
-    private const array EVALUATED_CARDS = ['children'];
-    private const array OPTION_ACTIONS = [ActionType::LinkDocument, ActionType::Detach, ActionType::Move];
-    private const string LINK_SOURCE = 'parent';
     private const array TYPE_KEYS = ['key', 'label', 'tone', 'capabilities'];
     private const int TYPE_KEY_MAX_LENGTH = 20;
     private const array TYPE_CAPABILITIES = ['children', 'lane'];
@@ -45,10 +43,11 @@ final readonly class TemplateParser
 
     /** The parameter of an app request that names a prompt file. A template cannot write it. */
     public const string PROMPT = 'prompt';
-    private const string PROMPT_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
+    public const string PROMPT_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
 
     public function __construct(
         private Conditions $conditions,
+        private Actions $actions,
     ) {
     }
 
@@ -213,11 +212,7 @@ final readonly class TemplateParser
         $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $types, $errors, $lenient, app: false);
         // The engine tells a repair request apart by its kind, so no rule may ask for that kind.
         foreach ($rules as $rule) {
-            $kind = match ($rule->then->type) {
-                ActionType::Request => ActionParams::optionalString($rule, 'kind'),
-                ActionType::ForgeWrite => ActionParams::optionalString($rule, 'fallback'),
-                default => null,
-            };
+            $kind = $this->actions->get($rule->then->key)->workKind($rule->then->params);
             if (null !== $onWorkFailed?->repairKind && $onWorkFailed->repairKind === $kind) {
                 $errors[] = \sprintf('onWorkFailed.repair.kind: the rule "%s" already asks for the kind "%s"', $rule->id, $onWorkFailed->repairKind);
             }
@@ -293,7 +288,7 @@ final readonly class TemplateParser
      */
     private static function childlessTypesReadingChildren(Rule $rule, array $types): array
     {
-        $evaluatesChildren = ActionType::Evaluate === $rule->then->type && 'children' === ($rule->then->params['cards'] ?? null);
+        $evaluatesChildren = EvaluateChildren::KEY === $rule->then->key && 'children' === ($rule->then->params['cards'] ?? null);
         // The engine reads a pause `until` and a request `refill` on a card that the `when` matched.
         $ways = self::typeReads($rule->when);
         foreach (array_filter([$rule->then->until, $rule->then->refill]) as $expression) {
@@ -595,6 +590,7 @@ final readonly class TemplateParser
                     !self::isColumn($param, $slotKeys, false) => \sprintf('unknown slot "%s"', $param),
                     default => null,
                 },
+                default => throw new \LogicException(\sprintf('The condition "%s" declares the parameter "%s" with a type that only an action takes.', $key, $parameter->name)),
             };
             if (null !== $error) {
                 $errors[] = $where.': '.$error;
@@ -627,12 +623,12 @@ final readonly class TemplateParser
         }
         $name = array_key_first($node);
         $value = $node[$name];
-        $type = ActionType::tryFrom($name);
-        if (null === $type) {
+        if (!$this->actions->has($name)) {
             $errors[] = \sprintf('%s: unknown action "%s"', $where, $name);
 
             return null;
         }
+        $action = $this->actions->get($name);
         $where .= '.'.$name;
         if (!self::isMap($value)) {
             $errors[] = $where.': parameters must be a map';
@@ -642,82 +638,79 @@ final readonly class TemplateParser
 
         $errorCount = \count($errors);
         $params = [];
-        $until = null;
+        $expressions = [];
         $checks = [];
-        $refill = null;
         $options = [];
-        $declared = self::actionParameters($type);
-        if ($app && ActionType::Request === $type) {
-            $declared[self::PROMPT] = false;
-        }
-        foreach ($declared as $param => $required) {
+        $declared = array_values(array_filter($action::parameters(), static fn (Parameter $parameter): bool => $app || !$parameter->appOnly));
+        foreach ($declared as $parameter) {
+            $param = $parameter->name;
             if (!\array_key_exists($param, $value)) {
-                if (ActionType::Pause === $type && 'until' === $param) {
-                    $errors[] = $where.': a pause must carry an "until" expression';
-                } elseif ($required && !('fallback' === $param && \in_array($value['write'] ?? null, self::WRITES_WITHOUT_FALLBACK, true))) {
-                    $errors[] = \sprintf('%s: missing parameter "%s"', $where, $param);
+                if ($parameter->required) {
+                    $errors[] = ParameterType::Expression === $parameter->type
+                        ? \sprintf('%s: a %s must carry an "%s" expression', $where, $name, $param)
+                        : \sprintf('%s: missing parameter "%s"', $where, $param);
                 }
                 continue;
             }
             $given = $value[$param];
-            if ('until' === $param) {
-                $until = $this->expression($given, $where.'.until', $slotKeys, $types, $errors, $lenient);
-                continue;
+            switch ($parameter->type) {
+                case ParameterType::Expression:
+                    if (null !== $parameter->needs && !\array_key_exists($parameter->needs, $value)) {
+                        $errors[] = \sprintf('%s: parameter "%s" needs a "%s"', $where, $param, $parameter->needs);
+                    } else {
+                        $expressions[$param] = $this->expression($given, $where.'.'.$param, $slotKeys, $types, $errors, $lenient);
+                    }
+                    continue 2;
+                case ParameterType::Options:
+                    $options = $this->askOptions($given, $where, $slotKeys, $types, $errors, $lenient);
+                    continue 2;
+                case ParameterType::Document:
+                    $params += self::document($given, $where, $errors);
+                    continue 2;
+                case ParameterType::List:
+                    $checks = self::checks($given, $where, $errors);
+                    continue 2;
+                default:
+                    break;
             }
-            if ('refill' === $param) {
-                if (!\array_key_exists('limit', $value)) {
-                    $errors[] = $where.': parameter "refill" needs a "limit"';
-                } else {
-                    $refill = $this->expression($given, $where.'.refill', $slotKeys, $types, $errors, $lenient);
-                }
-                continue;
-            }
-            if ('options' === $param) {
-                $options = $this->askOptions($given, $where, $slotKeys, $types, $errors, $lenient);
-                continue;
-            }
-            if (ActionType::LinkDocument === $type && 'from' === $param) {
-                if (self::LINK_SOURCE !== $given) {
-                    $errors[] = \sprintf('%s: parameter "from" must be %s', $where, self::LINK_SOURCE);
-                } else {
-                    $params['from'] = $given;
-                }
-                continue;
-            }
-            if ('document' === $param) {
-                $params += self::document($given, $where, $errors);
-                continue;
-            }
-            if ('checks' === $param) {
-                $checks = self::checks($given, $where, $errors);
-                continue;
-            }
-            $error = match ($param) {
-                'limit' => \is_int($given) && $given >= 1 ? null : 'parameter "limit" must be a positive integer',
-                'write' => \is_string($given) && null !== ForgeWriteKind::tryFrom($given) ? null : \sprintf(
-                    'parameter "write" must be one of %s',
-                    implode(', ', array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),
-                ),
-                'onTimeout' => \in_array($given, self::ON_TIMEOUT, true) ? null : \sprintf('parameter "onTimeout" must be one of %s', implode(', ', self::ON_TIMEOUT)),
-                self::PROMPT => \is_string($given) && 1 === preg_match(self::PROMPT_PATTERN, $given) ? null : 'parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters',
-                'cards' => \in_array($given, self::EVALUATED_CARDS, true) ? null : \sprintf('parameter "cards" must be one of %s', implode(', ', self::EVALUATED_CARDS)),
-                default => \is_string($given) && '' !== $given ? null : \sprintf('parameter "%s" must be a non-empty string', $param),
-            };
+            $error = self::parameterError($parameter, $given);
             if (null !== $error) {
                 $errors[] = $where.': '.$error;
-            } elseif (\in_array($param, ['to', 'from'], true) && \is_string($given) && !self::isColumn($given, $slotKeys, false)) {
+            } elseif (ParameterType::Slot === $parameter->type && \is_string($given) && !self::isColumn($given, $slotKeys, false)) {
                 $errors[] = \sprintf('%s.%s: unknown slot "%s"', $where, $param, $given);
             } elseif (\is_int($given) || \is_string($given)) {
                 $params[$param] = $given;
             }
         }
+        if ($action instanceof ChecksParameters) {
+            foreach ($action::check($params) as $message) {
+                $errors[] = $where.': '.$message;
+            }
+        }
+        $names = array_map(static fn (Parameter $parameter): string => $parameter->name, $declared);
         foreach (array_keys($value) as $param) {
-            if (!\array_key_exists($param, $declared)) {
+            if (!\in_array($param, $names, true)) {
                 $errors[] = \sprintf('%s: unknown parameter "%s"', $where, $param);
             }
         }
 
-        return \count($errors) === $errorCount ? new ActionCall($type, $params, $until, checks: $checks, refill: $refill, options: $options) : null;
+        return \count($errors) === $errorCount ? $this->actions->call($name, $params, $expressions['until'] ?? null, $checks, $expressions['refill'] ?? null, $options) : null;
+    }
+
+    /** @return ?string what is wrong with the value of a string, int or slot parameter, or null when nothing is */
+    private static function parameterError(Parameter $parameter, mixed $given): ?string
+    {
+        $name = $parameter->name;
+
+        return match (true) {
+            ParameterType::Int === $parameter->type => \is_int($given) && $given >= ($parameter->min ?? \PHP_INT_MIN) ? null : (1 === $parameter->min
+                ? \sprintf('parameter "%s" must be a positive integer', $name)
+                : \sprintf('parameter "%s" must be an integer of at least %d', $name, $parameter->min ?? 0)),
+            null !== $parameter->fixed => $given === $parameter->fixed ? null : \sprintf('parameter "%s" must be %s', $name, $parameter->fixed),
+            null !== $parameter->choices => \in_array($given, $parameter->choices, true) ? null : \sprintf('parameter "%s" must be one of %s', $name, implode(', ', $parameter->choices)),
+            null !== $parameter->pattern => \is_string($given) && 1 === preg_match($parameter->pattern, $given) ? null : \sprintf('parameter "%s" must match %s', $name, $parameter->patternHint ?? $parameter->pattern),
+            default => \is_string($given) && '' !== $given ? null : \sprintf('parameter "%s" must be a non-empty string', $name),
+        };
     }
 
     /**
@@ -751,8 +744,7 @@ final readonly class TemplateParser
             foreach ($then as $position => $node) {
                 $actionWhere = \sprintf('%s.then[%d]', $optionWhere, $position);
                 $name = \is_array($node) && 1 === \count($node) ? array_key_first($node) : null;
-                $type = \is_string($name) ? ActionType::tryFrom($name) : null;
-                if (null !== $type && !\in_array($type, self::OPTION_ACTIONS, true)) {
+                if (\is_string($name) && $this->actions->has($name) && !$this->actions->get($name)::traits()->option) {
                     $errors[] = \sprintf('%s: the action "%s" is not allowed inside an ask option', $actionWhere, $name);
                     continue;
                 }
@@ -768,22 +760,6 @@ final readonly class TemplateParser
         }
 
         return $options;
-    }
-
-    /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write and the epic opening need no fallback. */
-    private static function actionParameters(ActionType $type): array
-    {
-        return match ($type) {
-            ActionType::Move => ['to' => true, 'from' => false],
-            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'refill' => false, 'onTimeout' => false, 'document' => false, 'checks' => false],
-            ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
-            ActionType::Pause => ['reason' => true, 'until' => true],
-            ActionType::Release => ['reason' => true],
-            ActionType::Evaluate => ['cards' => true],
-            ActionType::Ask => ['question' => true, 'options' => true],
-            ActionType::LinkDocument => ['from' => true, 'tag' => true],
-            ActionType::Detach => [],
-        };
     }
 
     /**

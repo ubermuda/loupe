@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Workflow\Contract;
 
 enum ActionOutcomeKind: string
 {

@@ -19,14 +19,16 @@ use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
-use App\Module\Workflow\Action\ActionOutcome;
-use App\Module\Workflow\Action\ActionOutcomeKind;
+use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\WorkRequestOpener;
+use App\Module\Workflow\Contract\Action;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionOutcomeKind;
+use App\Module\Workflow\Contract\CardSnapshot;
+use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Service\CardPullRequests;
-use App\Module\Workflow\Template\ActionCall;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\AppRules;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\RuleOrigin;
@@ -105,9 +107,14 @@ trait ActionScenario
     }
 
     /** @param array<string, int|string> $params */
-    private function rule(ActionType $type, array $params, string $id = 'test-rule', RuleOrigin $origin = RuleOrigin::Template): Rule
+    private function rule(string $key, array $params, string $id = 'test-rule', RuleOrigin $origin = RuleOrigin::Template): Rule
     {
-        return new Rule($id, null, new AllOf([]), new ActionCall($type, $params), $origin);
+        return new Rule($id, null, new AllOf([]), $this->service(Actions::class)->call($key, $params), $origin);
+    }
+
+    private function runAction(Action $action, Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    {
+        return $action->run($rule->context($snapshot, $facts, $state->fires));
     }
 
     private function state(Card $card, string $ruleId = 'test-rule'): WorkflowRuleState

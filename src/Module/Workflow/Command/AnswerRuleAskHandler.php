@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Command;
 
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\Ask;
+use App\Module\Workflow\Contract\ActionOutcomeKind;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
@@ -98,7 +98,7 @@ final readonly class AnswerRuleAskHandler
             return $this->skip('no-template', $itemId);
         }
         $rule = array_find($template->rules, static fn (Rule $rule): bool => $rule->id === $state->ruleId);
-        $option = ActionType::Ask === $rule?->then->type ? ($rule->then->options[$optionIndex] ?? null) : null;
+        $option = Ask::KEY === $rule?->then->key ? ($rule->then->options[$optionIndex] ?? null) : null;
         if (null === $rule || null === $option) {
             return $this->skip('no-option', $itemId);
         }
@@ -118,7 +118,8 @@ final readonly class AnswerRuleAskHandler
         foreach ($option->actions as $call) {
             // Facts again for each action: the one before may have changed the card.
             $facts = $this->factsBuilder->build($snapshot, $now);
-            $result = $this->actions->get($call->type)->run(new Rule($rule->id, $rule->slot, $rule->when, $call, $rule->origin), $snapshot, $facts, $state);
+            $optionRule = new Rule($rule->id, $rule->slot, $rule->when, $call, $rule->origin);
+            $result = $this->actions->get($call->key)->run($optionRule->context($snapshot, $facts, $state->fires));
             if (ActionOutcomeKind::Done !== $result->kind) {
                 $refusal = $result->code ?? $result->kind->value;
                 $state->lastRefusal = $refusal;

@@ -9,18 +9,20 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Workflow\Contract\Action;
+use App\Module\Workflow\Contract\ActionContext;
+use App\Module\Workflow\Contract\ActionDescription;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionTraits;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
-use App\Module\Workflow\Contract\CardSnapshot;
-use App\Module\Workflow\Contract\Facts;
-use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\Template\ActionType;
-use App\Module\Workflow\Template\Rule;
 
 /** Removes the parent of the card. A card with no parent stays as it is. */
 final readonly class Detach implements Action
 {
     public const string DETACH_REFUSED = 'detach-refused';
+
+    public const string KEY = 'detach';
 
     public function __construct(
         private CardRepository $cards,
@@ -29,16 +31,46 @@ final readonly class Detach implements Action
     }
 
     #[\Override]
-    public static function type(): ActionType
+    public static function key(): string
     {
-        return ActionType::Detach;
+        return self::KEY;
     }
 
     #[\Override]
-    public function run(Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public static function source(): string
     {
-        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
-        if (!$facts->card->isChild) {
+        return 'workflow.source.board';
+    }
+
+    #[\Override]
+    public static function parameters(): array
+    {
+        return [];
+    }
+
+    #[\Override]
+    public static function traits(): ActionTraits
+    {
+        return new ActionTraits(option: true);
+    }
+
+    #[\Override]
+    public function describe(array $params): ActionDescription
+    {
+        return new ActionDescription('workflow.settings.action.detach', 'workflow.panel.action.detach');
+    }
+
+    #[\Override]
+    public function workKind(array $params): ?string
+    {
+        return null;
+    }
+
+    #[\Override]
+    public function run(ActionContext $context): ActionOutcome
+    {
+        $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
+        if (!$context->facts->card->isChild) {
             return ActionOutcome::done();
         }
 
@@ -47,7 +79,7 @@ final readonly class Detach implements Action
                 card: $card,
                 actor: Actor::System,
                 parentCardId: '',
-                cause: CardEventCause::workflowRule($rule->id),
+                cause: CardEventCause::workflowRule($context->ruleId),
             ));
         } catch (DomainErrors) {
             return ActionOutcome::refused(self::DETACH_REFUSED);

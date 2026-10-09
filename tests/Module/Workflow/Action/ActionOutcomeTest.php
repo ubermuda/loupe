@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Action;
 
-use App\Module\Workflow\Action\ActionOutcome;
-use App\Module\Workflow\Action\ActionOutcomeKind;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionOutcomeKind;
 use App\Module\Workflow\Contract\PauseKind;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
