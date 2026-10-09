@@ -25,8 +25,9 @@ class SaveBoardAutomationSettingsRequest
         #[Assert\Regex(pattern: BoardAutomationSettings::EPIC_BRANCH_PATTERN_RULE, message: 'board.form.save_board_automation_settings_form.epic_branch_pattern.invalid')]
         public ?string $epicBranchPattern = BoardAutomationSettings::DEFAULT_EPIC_BRANCH_PATTERN,
 
+        #[Assert\NotNull]
         #[Assert\Range(min: BoardAutomationSettings::MIN_STUCK_DELAY_MINUTES, max: BoardAutomationSettings::MAX_STUCK_DELAY_MINUTES)]
-        public int $stuckDelayMinutes = BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
+        public ?int $stuckDelayMinutes = BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
     ) {
     }
 

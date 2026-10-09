@@ -11,6 +11,7 @@ use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Repository\StuckPullRequestRepository;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -115,6 +116,22 @@ final class AnnounceStuckPullRequestsHandlerTest extends KernelTestCase
         ));
 
         self::assertSame([(string) $card->id], $this->changedCardIds());
+        self::assertNull($this->reload($row)->stuckAnnouncedFor);
+    }
+
+    public function test_the_announcement_is_not_recorded_when_the_delay_grew_after_the_read(): void
+    {
+        $project = $this->stateProject('announce-race');
+        $settings = new BoardAutomationSettings($project, stuckDelayMinutes: 60);
+        $this->em()->persist($settings);
+        $this->em()->flush();
+        $card = $this->stateCard($project);
+        $row = $this->ready($card, '-20 minutes');
+
+        $repository = self::getContainer()->get(StuckPullRequestRepository::class);
+        self::assertInstanceOf(StuckPullRequestRepository::class, $repository);
+        $repository->markAnnounced((string) $row->id, $this->reload($row)->readySince?->format('Y-m-d H:i:s') ?? '', new \DateTimeImmutable());
+
         self::assertNull($this->reload($row)->stuckAnnouncedFor);
     }
 

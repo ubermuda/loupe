@@ -65,12 +65,20 @@ class StuckPullRequestRepository extends ServiceEntityRepository
         ], $rows);
     }
 
-    /** Records the announcement, unless the pull request turned ready again since the read. */
-    public function markAnnounced(string $pullRequestId, string $readySince): void
+    /** Records the announcement, unless the pull request turned ready again or the board delay grew since the read. */
+    public function markAnnounced(string $pullRequestId, string $readySince, \DateTimeImmutable $now): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(
-            'UPDATE forge_pull_requests SET stuck_announced_for = ready_since WHERE id = :id AND ready_since = :readySince',
-            ['id' => $pullRequestId, 'readySince' => $readySince],
+            'UPDATE forge_pull_requests SET stuck_announced_for = ready_since
+            WHERE id = :id
+                AND ready_since = :readySince
+                AND ready_since + make_interval(mins => COALESCE((SELECT settings.stuck_delay_minutes FROM board_automation_settings settings WHERE settings.project_id = forge_pull_requests.project_id), :defaultDelay)) <= :now',
+            [
+                'id' => $pullRequestId,
+                'readySince' => $readySince,
+                'defaultDelay' => BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
+                'now' => $now->format(self::TIME_FORMAT),
+            ],
         );
     }
 

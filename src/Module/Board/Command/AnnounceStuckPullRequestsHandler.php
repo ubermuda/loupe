@@ -30,14 +30,15 @@ final readonly class AnnounceStuckPullRequestsHandler
     {
         $refreshed = 0;
         $announced = [];
-        $rows = $this->stuckPullRequests->findDue($this->clock->now(), self::BATCH);
+        $now = $this->clock->now();
+        $rows = $this->stuckPullRequests->findDue($now, self::BATCH);
         foreach ($rows as $row) {
             $this->events->dispatch(new CardChanged(Uuid::fromString($row['projectId']), Uuid::fromString($row['cardId']), CardChanged::UPDATED, false));
             $announced[$row['pullRequestId']] = $row['readySince'];
             ++$refreshed;
         }
         foreach ($announced as $pullRequestId => $readySince) {
-            $this->stuckPullRequests->markAnnounced($pullRequestId, $readySince);
+            $this->stuckPullRequests->markAnnounced($pullRequestId, $readySince, $now);
         }
 
         return $refreshed;

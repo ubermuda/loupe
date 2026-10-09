@@ -134,6 +134,27 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
     }
 
     /** @return iterable<string, array{string}> */
+    public static function invalidStuckDelays(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'zero' => ['0'];
+        yield 'over a day' => ['1441'];
+    }
+
+    #[DataProvider('invalidStuckDelays')]
+    public function test_a_stuck_delay_out_of_range_is_refused_with_a_field_error(string $delay): void
+    {
+        $project = $this->ownedProject('automation-bad-delay-'.md5($delay).'@example.com');
+        $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
+        $submit[self::FORM.'[stuckDelayMinutes]'] = $delay;
+        $this->client->submit($submit);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('[data-field-errors="stuckDelayMinutes"]');
+        self::assertNull($this->stored($project));
+    }
+
+    /** @return iterable<string, array{string}> */
     public static function invalidPatterns(): iterable
     {
         yield 'no placeholder' => ['epic/main'];
