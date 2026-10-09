@@ -8,6 +8,7 @@
 @import './components/empty-state.css';
 @import './components/flash.css';
 @import './components/status-chip.css';
+@import './components/status-box.css';
 @import './components/tag.css';
 @import './components/dialog.css';
 @import './components/pagination.css';

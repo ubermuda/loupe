@@ -6567,6 +6567,8 @@
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
             <trans-unit id="board.card.badge.paused"><source>board.card.badge.paused</source><target>Paused</target></trans-unit>
+            <trans-unit id="board.card_state.since"><source>board.card_state.since</source><target>Since %time%</target></trans-unit>
+            <trans-unit id="board.card_state.others"><source>board.card_state.others</source><target>Also applies</target></trans-unit>
             <trans-unit id="board.card_state.stuck"><source>board.card_state.stuck</source><target>Stuck</target></trans-unit>
             <trans-unit id="board.card_state.needs_you"><source>board.card_state.needs_you</source><target>Needs you</target></trans-unit>
             <trans-unit id="board.card_state.working"><source>board.card_state.working</source><target>Working</target></trans-unit>
