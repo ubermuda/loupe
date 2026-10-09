@@ -141,7 +141,7 @@ final readonly class DiffDocumentVersionsHandler
             headings: $headings,
             changesByHeading: $changesByHeading,
             sourceHeadings: $sourceHeadings,
-            commentingEnabled: $isCurrent && (null !== $renderedDiff || null !== $sideBySide),
+            commentingEnabled: $isCurrent && null !== $renderedDiff,
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
