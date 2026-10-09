@@ -6,6 +6,7 @@ namespace App\Module\Inbox\Twig;
 
 use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
+use App\Module\Inbox\Entity\InboxCardWait;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxReview;
@@ -19,7 +20,9 @@ use App\Module\Inbox\Form\SubmitInboxPullRequestReviewFormType;
 use App\Module\Inbox\Form\SubmitInboxPullRequestReviewRequest;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Service\CardWaitText;
 use App\Module\Inbox\Service\InboxReviewLookup;
+use App\Module\Inbox\View\CardWaitLine;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Form\SubmitReviewRequest;
@@ -49,6 +52,7 @@ final class InboxExtension extends AbstractExtension
         private readonly ReviewRepository $reviews,
         private readonly DocumentVersionRepository $documentVersions,
         private readonly InboxCardWatchRepository $inboxCardWatches,
+        private readonly CardWaitText $cardWaitText,
     ) {
     }
 
@@ -61,6 +65,7 @@ final class InboxExtension extends AbstractExtension
             new TwigFunction('inbox_decline_form', $this->declineForm(...)),
             new TwigFunction('inbox_review', $this->review(...)),
             new TwigFunction('inbox_card_watch', $this->cardWatch(...)),
+            new TwigFunction('inbox_wait_line', $this->waitLine(...)),
             new TwigFunction('inbox_review_withdrawal', $this->reviewWithdrawal(...)),
             new TwigFunction('inbox_review_version', $this->reviewVersion(...)),
             new TwigFunction('inbox_pull_request_review_form', $this->pullRequestReviewForm(...)),
@@ -125,6 +130,11 @@ final class InboxExtension extends AbstractExtension
     public function cardWatch(InboxItem $item): ?InboxCardWatch
     {
         return $this->inboxCardWatches->findOneForItem($item);
+    }
+
+    public function waitLine(InboxCardWait $wait, bool $documentLinked): CardWaitLine
+    {
+        return $this->cardWaitText->line($wait, $documentLinked);
     }
 
     public function reviewWithdrawal(InboxReview $review): ?Review
