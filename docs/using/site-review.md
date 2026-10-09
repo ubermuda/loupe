@@ -129,8 +129,9 @@ The confirm panel shows:
 - What Loupe does with the verdict. When the workflow writes nothing to GitHub,
   the panel says **Recorded in Loupe only**.
 
-**Request changes** and **Comment** need a message. **Send** stays off until
-you write one, even when notes are open. **Approve** needs no message.
+**Request changes** and **Comment** need a message when the card has no open
+note. **Send** stays off until you write one. When notes are open, they go with
+the verdict, and the message is optional. **Approve** needs no message.
 
 After a send, the panel says **Sent to the workflow**. Loupe then posts the
 review on GitHub when the project allows it. See

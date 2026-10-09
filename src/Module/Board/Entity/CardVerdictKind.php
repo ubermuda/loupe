@@ -11,9 +11,9 @@ enum CardVerdictKind: string
     case RequestChanges = 'request-changes';
     case Comment = 'comment';
 
-    /** Whether the verdict must carry a message of its own. */
-    public function needsMessage(): bool
+    /** Whether the verdict must carry a message of its own: a pending note stands in for it. */
+    public function needsMessage(int $pendingNotes): bool
     {
-        return self::Approve !== $this;
+        return self::Approve !== $this && 0 === $pendingNotes;
     }
 }
